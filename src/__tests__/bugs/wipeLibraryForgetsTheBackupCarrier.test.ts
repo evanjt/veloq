@@ -767,7 +767,14 @@ const RUST = 'modules/veloqrs/rust/veloqrs/src';
 const DEVICE_WRITES: DeviceWrite[] = [
   // The library and what sits beside it.
   {
-    confirm: ['activities', 'wellness', 'detectedSections', 'names', 'sectionEdits'],
+    confirm: [
+      'activities',
+      'importedActivities',
+      'wellness',
+      'detectedSections',
+      'names',
+      'sectionEdits',
+    ],
     where: 'routes.db and its -wal and -shm, in the App Group on iOS and filesDir on Android',
     writers: [
       'src/shared/native/engine.ts',
@@ -795,6 +802,14 @@ const DEVICE_WRITES: DeviceWrite[] = [
     holds:
       'the athlete id, the Garmin account it was adopted from, the detector configuration, activity ids owed to a restore',
     wiped: { engine: 'clear_forgets_the_record_restore_state' },
+  },
+  {
+    confirm: [],
+    where: 'imports/ beside the database, the spool of a collection a linked browser is sending',
+    writers: [`${RUST}/remote/import.rs`],
+    holds:
+      'the bytes of one archive of rides so far received, named by its sha256, until it is committed, cancelled, refused, a day old, or the library is wiped',
+    wiped: { engine: 'clear_deletes_every_spool_of_a_collection_on_its_way_in' },
   },
   {
     confirm: [],
@@ -972,6 +987,13 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: [],
+    where: 'cache/collection-imports/, files or a folder gathered for one collection import',
+    writers: ['src/features/settings/hooks/useImportCollection.ts'],
+    holds: "activity files the athlete chose, deleted when the import's job settles",
+    wiped: { files: ['file:///cache/collection-imports/k3x9a1/ride.fit'] },
+  },
+  {
+    confirm: [],
     where: "cache/DocumentPicker/, the picker's copy of a file chosen for import",
     writers: [],
     holds: 'a backup the athlete picked',
@@ -1077,10 +1099,11 @@ const DEVICE_WRITES: DeviceWrite[] = [
     writers: [
       'src/features/recording/lib/storage/recordingLibrary.ts',
       'src/features/recording/lib/storage/recordingFiles.ts',
-      `${RUST}/net/garmin/ingest.rs`,
+      `${RUST}/net/upload_recording.rs`,
+      `${RUST}/strength/recording.rs`,
     ],
     holds:
-      "rides recorded on this device, and the original FIT of each activity read through the athlete's own Garmin key, named by its src-garmin key",
+      'rides recorded on this device, and the FIT of a Garmin original staged for the length of its upload, named by its src-garmin key',
     kept: "recordings stay through a wipe by decision, and the next sign-in holds every ride that is not that athlete's; a Garmin original is kept in the same directory by the same decision",
   },
   {
@@ -1140,6 +1163,13 @@ const DEVICE_WRITES: DeviceWrite[] = [
     where: 'the recording preferences',
     writers: ['src/features/recording/stores/RecordingPreferencesStore.ts'],
     holds: 'display and behaviour choices for recording',
+    kept: 'a preference of the device, no athlete data',
+  },
+  {
+    confirm: [],
+    where: 'the strength summary switch',
+    writers: ['src/app/recording-upload.tsx'],
+    holds: "whether a strength upload's description lists its sets",
     kept: 'a preference of the device, no athlete data',
   },
   {
@@ -1371,11 +1401,18 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: [],
-    where: 'cached_athlete_id, linked_garmin_id and stored_activity_count in AsyncStorage',
+    where: 'cached_athlete_id and stored_activity_count in AsyncStorage',
     writers: ['src/shared/storage/cachedAthleteId.ts'],
-    holds:
-      'the athlete id, the Garmin account the library was adopted from, and the size of the library',
-    wiped: { storage: ['cached_athlete_id', 'linked_garmin_id', 'stored_activity_count'] },
+    holds: 'the athlete id and the size of the library',
+    wiped: { storage: ['cached_athlete_id', 'stored_activity_count'] },
+  },
+
+  {
+    confirm: [],
+    where: 'files_source_session in AsyncStorage',
+    writers: ['src/shared/storage/filesSession.ts'],
+    holds: 'one flag: the athlete chose a library filled from files, with no account',
+    kept: 'it is a choice and holds no athlete data; credential removal ends it, which the sign-out that deletes data runs after the wipe',
   },
 
   // Settings that survive Rust's clear.

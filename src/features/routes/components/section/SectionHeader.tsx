@@ -1,8 +1,8 @@
 /**
  * The top of a section's card in its map sheet, which is what Peek shows: the name, tap to
  * rename, with Accept beside it while the section is offered, the date line, and one line of the
- * distance, the climbing, the traversals and the best time. The lift flag, when the detector set
- * one, follows under it.
+ * distance, the climbing, the traversals and the best time, then each direction's average and the
+ * grades and kept state. The lift flag, when the detector set one, follows under it.
  */
 
 import React from 'react';
@@ -17,12 +17,14 @@ import { FitText } from '@/shared/ui/FitText';
 import { PressTarget } from '@/shared/ui/PressTarget';
 import { Icon } from '@/shared/ui/Icon';
 import { SectionNameEditor } from './SectionNameEditor';
+import { DirectionAverages } from './DirectionAverages';
+import type { AttemptBasis } from '@/features/routes/lib/attemptBasis';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
 import { sectionElevation } from '@/features/routes/lib/sectionElevation';
 import { detailDateLine, detailPeekStats } from '@/features/routes/lib/detailPeek';
 import type { NameSaveOutcome } from '@/features/routes/lib/sectionRenameFailure';
 import { iconSize, layout, slopToMinTapTarget, spacing, themePalette, typography } from '@/theme';
-import type { FrequentSection } from '@/types';
+import type { DirectionStats, FrequentSection } from '@/types';
 import type { Period } from '@/shared/app/period';
 
 export interface SectionHeaderProps {
@@ -42,6 +44,13 @@ export interface SectionHeaderProps {
   /** The first and the last traversal in the range. */
   firstDate?: Date | null | undefined;
   lastDate?: Date | null | undefined;
+  /** Each direction's stats, read with the attempts; the averages draw once one is read. */
+  forwardStats?: DirectionStats | null | undefined;
+  reverseStats?: DirectionStats | null | undefined;
+  /** What the averages read as, the basis the chart plots on. */
+  basis?: AttemptBasis | undefined;
+  /** Rows under the averages: the grades and the kept state. */
+  footer?: React.ReactNode;
   /** The committed name override, which takes precedence over `section.name`. */
   customName: string | null;
   /** Take the detector's lift flag off. Absent leaves the badge inert. */
@@ -71,6 +80,10 @@ export function SectionHeader({
   bestTimeSecs,
   firstDate = null,
   lastDate = null,
+  forwardStats = null,
+  reverseStats = null,
+  basis = 'time',
+  footer,
   customName,
   onUnflagLift,
   onSaveName,
@@ -136,6 +149,8 @@ export function SectionHeader({
         testID="section-detail-stats"
         stats={detailPeekStats(peek, t, isMetric)}
       />
+      <DirectionAverages forwardStats={forwardStats} reverseStats={reverseStats} basis={basis} />
+      {footer}
       {section.isLift ? (
         <PressTarget
           style={[styles.liftBadge, { backgroundColor: palette.surfaceRaised }]}

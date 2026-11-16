@@ -3,6 +3,7 @@
 // a test drives it with a stand-in.
 
 import {
+  CancelledError,
   PAGE_PROTOCOL,
   Replies,
   UnreadableReply,
@@ -11,6 +12,7 @@ import {
   isChanged,
   type Farewell,
 } from './link';
+import { NOT_CONNECTED } from './connection';
 import type { Methods } from './schema';
 
 /** What the client needs of a data channel. */
@@ -26,12 +28,15 @@ export interface Client {
    * Ask one method of the link protocol, typed by the schema the engine
    * generates. With a `slot`, an earlier ask still outstanding in that slot is
    * withdrawn: the phone is told to cancel it and its promise rejects as
-   * superseded, so a fast scroll leaves one read in flight per pane.
+   * superseded, so a fast scroll leaves one read in flight per pane. With a
+   * `signal`, aborting it withdraws the ask in the same way: the phone is told
+   * to cancel it and its promise rejects as cancelled.
    */
   ask: <M extends keyof Methods>(
     method: M,
     params: Methods[M]['params'],
-    slot?: string
+    slot?: string,
+    signal?: AbortSignal
   ) => Promise<Methods[M]['result']>;
   /** Ask a pairing method, which the phone answers before a browser is linked. */
   askPairing: (method: string, params?: object) => Promise<unknown>;
@@ -61,10 +66,11 @@ export function createClient(
   let nextId = 1;
   let closed = false;
 
-  function send(method: string, params: object, slot?: string) {
+  function send(method: string, params: object, slot?: string, signal?: AbortSignal) {
     if (closed || channel.readyState !== 'open') {
-      return Promise.reject(new Error('not connected'));
+      return Promise.reject(new Error(NOT_CONNECTED));
     }
+    if (signal?.aborted) return Promise.reject(new CancelledError());
     const id = nextId++;
     const reply = replies.wait(id);
     const earlier = slot === undefined ? undefined : replies.supersede(slot, id);
@@ -78,6 +84,16 @@ export function createClient(
     channel.send(
       JSON.stringify({ id, method, params, protocol: replies.version ?? PAGE_PROTOCOL })
     );
+    if (signal) {
+      const withdraw = () => {
+        if (replies.cancel(id) && !closed && channel.readyState === 'open') {
+          channel.send(cancelMessage(id));
+        }
+      };
+      signal.addEventListener('abort', withdraw, { once: true });
+      const detach = () => signal.removeEventListener('abort', withdraw);
+      reply.then(detach, detach);
+    }
     return reply;
   }
 
@@ -97,7 +113,7 @@ export function createClient(
   channel.onmessage = ({ data }) => void settle(data);
 
   return {
-    ask: (method, params, slot) => send(method, params, slot) as Promise<never>,
+    ask: (method, params, slot, signal) => send(method, params, slot, signal) as Promise<never>,
     askPairing: (method, params = {}) => send(method, params),
     speak: (version) => replies.speak(version),
     settle,

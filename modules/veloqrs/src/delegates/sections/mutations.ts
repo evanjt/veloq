@@ -121,28 +121,6 @@ export function deleteSection(host: DelegateHost, sectionId: string): boolean {
   }
 }
 
-export function rematchActivityToSection(
-  host: DelegateHost,
-  activityId: string,
-  sectionId: string
-): boolean {
-  if (!host.ready) return false;
-  validateId(activityId, 'activity ID');
-  validateId(sectionId, 'section ID');
-  try {
-    const result = host.timed('rematchActivityToSection', () =>
-      host.engine.sections().rematchActivityToSection(activityId, sectionId)
-    );
-    if (result) {
-      host.notify('sections');
-    }
-    return result;
-  } catch (e) {
-    console.error('[Engine] rematchActivityToSection failed:', e);
-    return false;
-  }
-}
-
 export function indexNewActivity(
   host: DelegateHost,
   activityId: string

@@ -204,7 +204,8 @@ impl SwapLink for Live {
             rx.await
         })
         .map_err(|_| "the download ended without reporting".to_string())?
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Garmin holds no FIT original for this ride".to_string())
     }
 
     fn replace(

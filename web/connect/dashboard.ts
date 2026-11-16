@@ -6,6 +6,7 @@ import { RANGES } from './fitness';
 import type { Route } from './router';
 import { queryValue } from './router';
 import type { Methods } from './schema';
+import { orderRows } from './tableOrder';
 
 /** The sports the sport control offers; it picks the zone and curve reads. */
 export const FITNESS_SPORTS = ['Ride', 'Run', 'Swim'] as const;
@@ -58,7 +59,7 @@ export type MonthRow = {
   duration?: number | null;
 };
 
-export type MonthColumn = 'count' | 'load' | 'distance' | 'duration';
+export type MonthColumn = 'month' | 'count' | 'load' | 'distance' | 'duration';
 
 /** The months table as rows, one per calendar month the screen read holds. */
 export function monthRows(months: Methods['fitness.screen']['result']['months']): MonthRow[] {
@@ -80,16 +81,9 @@ export function sortMonths(
   column: MonthColumn,
   direction: 'asc' | 'desc'
 ): MonthRow[] {
-  const sign = direction === 'asc' ? 1 : -1;
-  return rows
-    .map((row, at) => ({ row, at }))
-    .sort((a, b) => {
-      const x = a.row[column] ?? null;
-      const y = b.row[column] ?? null;
-      if (x === null || y === null) return x === y ? a.at - b.at : x === null ? 1 : -1;
-      return x === y ? a.at - b.at : (x - y) * sign;
-    })
-    .map(({ row }) => row);
+  return orderRows(rows, { column, descending: direction === 'desc' }, (row, name) =>
+    name === 'month' ? row.key : (row[name] ?? null)
+  );
 }
 
 type HeatDay = { date: string; intensity: number; activityCount: number };
@@ -155,44 +149,104 @@ export function sportFamily(sportType: string): SportFamily {
 /** The family's colour variable. */
 export const sportColour = (family: SportFamily) => `var(--sport-${family})`;
 
-/** The Monday on or before a `YYYY-MM-DD` day, as `YYYY-MM-DD`. */
-export function weekStart(date: string): string {
-  const [y = 0, m = 1, d = 1] = date.split('-').map(Number);
-  const day = new Date(Date.UTC(y, m - 1, d));
-  day.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7));
-  return day.toISOString().slice(0, 10);
-}
-
-type HoursDot = { sportType: string; startDateLocal: string; movingTime: number };
-
-/**
- * Moving hours per week and sport family over the latest `weeks` weeks that hold
- * an activity, oldest week first. A week with no activity between two that have
- * one is kept as zero hours so the axis does not skip it.
- */
-export function weeklyHours(dots: readonly HoursDot[], weeks: number) {
-  const byWeek = new Map<string, Record<SportFamily, number>>();
-  for (const dot of dots) {
-    const week = weekStart(dot.startDateLocal.slice(0, 10));
-    const row = byWeek.get(week) ?? { ride: 0, run: 0, swim: 0, walk: 0, other: 0 };
-    row[sportFamily(dot.sportType)] += dot.movingTime / 3600;
-    byWeek.set(week, row);
-  }
-  const keys = [...byWeek.keys()].sort();
-  const last = keys[keys.length - 1];
-  if (last === undefined) return [];
-  const rows: { week: string; hours: Record<SportFamily, number> }[] = [];
-  const empty = () => ({ ride: 0, run: 0, swim: 0, walk: 0, other: 0 });
-  for (let n = weeks - 1; n >= 0; n--) {
-    const [y = 0, m = 1, d = 1] = last.split('-').map(Number);
-    const at = new Date(Date.UTC(y, m - 1, d - 7 * n)).toISOString().slice(0, 10);
-    rows.push({ week: at, hours: byWeek.get(at) ?? empty() });
-  }
-  return rows;
-}
-
 type FormDay = { ctl: number | null; atl: number | null };
 
 /** Form: fitness less fatigue, null on a day missing either. */
 export const formOf = (day: FormDay): number | null =>
   day.ctl === null || day.atl === null ? null : day.ctl - day.atl;
+
+/** Where the form zones change, on the intervals.icu form boundaries, lowest first. */
+const FORM_ZONE_EDGES = [-30, -10, 5, 25] as const;
+const FORM_ZONES = ['highRisk', 'optimal', 'greyZone', 'fresh', 'transition'] as const;
+export type FormZone = (typeof FORM_ZONES)[number];
+
+/** The form zones a range reaches, each clipped to it, lowest first. */
+export function formZoneBands(
+  low: number,
+  high: number
+): { zone: FormZone; from: number; to: number }[] {
+  if (!(high > low)) return [];
+  const edges = [-Infinity, ...FORM_ZONE_EDGES, Infinity];
+  return FORM_ZONES.flatMap((zone, i) => {
+    const from = Math.max(low, edges[i] ?? -Infinity);
+    const to = Math.min(high, edges[i + 1] ?? Infinity);
+    return to > from ? [{ zone, from, to }] : [];
+  });
+}
+
+/**
+ * An axis label for each `YYYY-MM-DD` day: the month's short name on the first
+ * day shown of each month, null on the others so the axis labels months and
+ * not every date.
+ */
+export function monthTickLabels(days: readonly string[], locale: string): (string | null)[] {
+  let last = '';
+  return days.map((day) => {
+    const month = day.slice(0, 7);
+    if (month === last) return null;
+    last = month;
+    return new Date(`${month}-01T12:00:00Z`).toLocaleDateString(locale, {
+      month: 'short',
+      timeZone: 'UTC',
+    });
+  });
+}
+
+/** The ride each span's decoupling was read from, spans without one left out. */
+export function decouplingRows(
+  spans: readonly Methods['fitness.screen']['result']['decouplingSources'][number][]
+) {
+  return spans.flatMap(({ days, source }) =>
+    source
+      ? [
+          {
+            days,
+            activityId: source.activityId,
+            name: source.name,
+            date: source.startDateLocal.slice(0, 10),
+            decoupling: Math.round(source.decoupling * 10) / 10,
+          },
+        ]
+      : []
+  );
+}
+
+/** The fitness page's tabs, in the order the tab row shows them. */
+export const FITNESS_TABS = ['overview', 'calendar', 'performance', 'trends'] as const;
+export type FitnessTab = (typeof FITNESS_TABS)[number];
+
+/** The tab an address names; the first when it names none or an unknown one. */
+export function fitnessTabFor(route: Route): FitnessTab {
+  const tab = queryValue(route, 'tab');
+  return (FITNESS_TABS as readonly string[]).includes(tab ?? '')
+    ? (tab as FitnessTab)
+    : FITNESS_TABS[0];
+}
+
+export type WellnessDay = {
+  date: string;
+  hrv: number | null;
+  restingHr: number | null;
+  weight: number | null;
+  sleepSecs: number | null;
+};
+
+export type WellnessLane = { key: 'hrv' | 'restingHr' | 'sleep' | 'weight'; values: number[] };
+
+/**
+ * One lane per wellness quantity, with one value per day so every lane shares
+ * the fitness chart's days; a day with no value is NaN. A quantity no day holds
+ * has no lane. Sleep is in hours.
+ */
+export function wellnessLanes(days: readonly WellnessDay[]): WellnessLane[] {
+  const lane = (
+    key: WellnessLane['key'],
+    pick: (day: WellnessDay) => number | null
+  ): WellnessLane => ({ key, values: days.map((day) => pick(day) ?? Number.NaN) });
+  return [
+    lane('hrv', (day) => day.hrv),
+    lane('restingHr', (day) => day.restingHr),
+    lane('sleep', (day) => (day.sleepSecs === null ? null : day.sleepSecs / 3600)),
+    lane('weight', (day) => day.weight),
+  ].filter((entry) => entry.values.some((value) => Number.isFinite(value)));
+}

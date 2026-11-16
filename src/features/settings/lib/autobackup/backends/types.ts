@@ -35,6 +35,12 @@ export function backupEntryFromSidecar(value: unknown): BackupEntry | null {
   return entry as BackupEntry;
 }
 
+/** An object kept beside the record, by name. */
+export interface BackupObject {
+  name: string;
+  sizeBytes: number;
+}
+
 export interface BackupBackend {
   /** Unique backend identifier (e.g., 'local', 'webdav') */
   id: string;
@@ -72,4 +78,17 @@ export interface BackupBackend {
 
   /** Delete a backup. */
   delete(backupId: string): Promise<void>;
+
+  /**
+   * Store the file at `localPath` under exactly `name`, beside the record and
+   * never as one: `listBackups` does not return it. An object of that name
+   * already there is replaced, not duplicated.
+   */
+  putObject(name: string, localPath: string): Promise<void>;
+
+  /** The objects whose names start with `prefix`, in no particular order. */
+  listObjects(prefix: string): Promise<BackupObject[]>;
+
+  /** Copy the object `name` to a local path, replacing what is there. */
+  fetchObject(name: string, destPath: string): Promise<void>;
 }

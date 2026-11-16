@@ -17,6 +17,9 @@ pub mod settings_keys {
     /// Whether a Garmin original no intervals.icu activity holds is uploaded
     /// to intervals.icu (`"true"`). Off unless the athlete switched it on.
     pub const GARMIN_UPLOAD: &str = "veloq-garmin-upload";
+    /// Whether a strength session's upload carries a plain-text summary of its
+    /// sets in the description. On unless `"0"`.
+    pub const STRENGTH_SUMMARY: &str = "veloq-strength-summary";
     /// Minimum match percentage threshold (f64 stored as decimal string).
     pub const MATCH_MIN_MATCH_PCT: &str = "__match_min_match_pct";
     /// Endpoint distance threshold in metres (f64 stored as decimal string).
@@ -55,14 +58,6 @@ pub mod settings_keys {
     /// Whose library this database holds. It names the data, not the device,
     /// so a clear takes it with the library.
     pub const ATHLETE_ID: &str = "__athlete_id";
-
-    /// The Garmin account identity (`garmin:<id>`) this library was named for
-    /// before an intervals.icu sign-in took the name. Written when
-    /// `__athlete_id` leaves a Garmin identity for an intervals.icu one, so a
-    /// later Garmin sign-in by the same account finds its own library. It
-    /// describes the library, so a clear takes it and a record backup leaves
-    /// it out.
-    pub const GARMIN_LIBRARY_ID: &str = "__garmin_library_id";
 
     /// This library wrote the device-backup record zip, or the athlete has
     /// answered its offer. It describes the library, so a clear takes it.
@@ -348,18 +343,6 @@ pub(crate) fn detection_switched_off() -> bool {
     )
 }
 
-/// The Garmin identity a library leaves when `__athlete_id` goes from
-/// `previous` to `next`: a Garmin identity replaced by an intervals.icu
-/// athlete. Another Garmin account, demo mode or an empty value is not the
-/// library returning to anyone, so none is recorded.
-fn garmin_identity_left<'a>(previous: Option<&'a str>, next: &str) -> Option<&'a str> {
-    const GARMIN_PREFIX: &str = "garmin:";
-    const DEMO_ATHLETE_ID: &str = "demo";
-    let previous = previous.filter(|id| id.starts_with(GARMIN_PREFIX))?;
-    let leaves = !next.is_empty() && !next.starts_with(GARMIN_PREFIX) && next != DEMO_ATHLETE_ID;
-    leaves.then_some(previous)
-}
-
 /// Upsert several settings in one transaction on `conn`, skipping each pair
 /// whose value is already stored. Returns how many were written.
 ///
@@ -393,12 +376,6 @@ pub fn set_settings_on(
             }
             write.execute(params![key, value])?;
             written += 1;
-            if key == settings_keys::ATHLETE_ID
-                && let Some(held) = garmin_identity_left(stored.as_deref(), value)
-            {
-                write.execute(params![settings_keys::GARMIN_LIBRARY_ID, held])?;
-                written += 1;
-            }
         }
     }
     tx.commit()?;
@@ -609,12 +586,6 @@ impl PersistentEngine {
              VALUES (?, ?, strftime('%s', 'now'))
              ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at";
         self.db.execute(upsert, params![key, value])?;
-        if key == settings_keys::ATHLETE_ID
-            && let Some(held) = garmin_identity_left(stored.as_deref(), value)
-        {
-            self.db
-                .execute(upsert, params![settings_keys::GARMIN_LIBRARY_ID, held])?;
-        }
         Ok(())
     }
 

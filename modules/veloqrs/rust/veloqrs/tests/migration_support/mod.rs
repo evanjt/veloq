@@ -60,6 +60,23 @@ pub const RELEASES: &[Release] = &[
     },
 ];
 
+pub mod sealed;
+
+/// A released build and the sealed archive its writer produced.
+pub struct SealedRelease {
+    pub name: &'static str,
+    /// Bytes written by `examples/sealed_release_fixture.rs` from the release
+    /// tag, under `tests/fixtures/sealed/releases/`.
+    pub archive: &'static [u8],
+}
+
+/// Every release that writes the sealed container, oldest first. Cutting a
+/// release that ships a new writer or record version adds its row and its
+/// archive beside its library fixture, so a later build is gated on opening
+/// and restoring what that release wrote. Empty until the first release that
+/// carries the container ships.
+pub const SEALED_RELEASES: &[SealedRelease] = &[];
+
 /// The newest release in the field, the one the next build upgrades from.
 pub fn latest_release() -> &'static Release {
     RELEASES.last().expect("at least one release")

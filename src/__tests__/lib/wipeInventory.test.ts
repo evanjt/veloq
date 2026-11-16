@@ -49,6 +49,11 @@ describe('the wipe inventory', () => {
     expect(wipeLines('returns')).toEqual(['activities', 'wellness', 'detectedSections']);
   });
 
+  it('deletes imported activities for good, since intervals.icu never received them', () => {
+    expect(wipeLines('deleted')).toContain('importedActivities');
+    expect(wipeLines('returns')).not.toContain('importedActivities');
+  });
+
   it('gives every line exactly one fate', () => {
     const listed = [...wipeLines('returns'), ...wipeLines('deleted'), ...wipeLines('kept')];
     expect(listed.sort()).toEqual(Object.keys(WIPE_INVENTORY).sort());
@@ -68,6 +73,14 @@ describe('the confirm message', () => {
     expect(deleted).toMatch(/trimmed/);
     expect(deleted).toMatch(/pinned/);
     expect(deleted).toMatch(/[Pp]aired sensors/);
+  });
+
+  it('names imported activities under deleted for good, not under what comes back', () => {
+    const deleted = listUnder(message, t('alerts.wipeList.deleted')).join('\n');
+    const returns = listUnder(message, t('alerts.wipeList.returns')).join('\n');
+
+    expect(deleted).toMatch(/[Ii]mported from files/);
+    expect(returns).not.toMatch(/[Ii]mported/);
   });
 
   it('no longer says that everything is synced again', () => {

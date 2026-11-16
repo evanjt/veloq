@@ -27,6 +27,7 @@ const SPELLING = [
   'cache.syncedStillAnalysing_other',
   'common.cancelled',
   'exerciseLabels.scapular_stabilization',
+  'importCollection.cancelledTitle',
   'exerciseLabels.t_stabilization',
   'exerciseLabels.three_way_ankle_mobilization',
   'exerciseLabels.weighted_t_stabilization',

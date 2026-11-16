@@ -9,10 +9,10 @@
 
 import type React from 'react';
 
-import { Thumbnail } from '../../../web/connect/App';
+import { Thumbnail } from '../../../web/connect/pages/Feed';
 import { THUMB, sportMark, trackShape } from '../../../web/connect/preview';
 import vectors from '../../../modules/veloqrs/rust/veloqrs/tests/fixtures/track_codec_vectors.json';
-import type { Card } from '../../../web/connect/session';
+import type { Card } from '../../../web/connect/feedReads';
 
 type Case = { name: string; bytes: number[] };
 

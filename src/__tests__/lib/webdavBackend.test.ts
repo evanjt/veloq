@@ -405,3 +405,89 @@ describe('webdavBackend credentials', () => {
     );
   });
 });
+
+describe('webdavBackend sealed pack objects', () => {
+  const BASE = '/remote.php/dav/files/athlete/Veloq/';
+  const PACK = 'veloq-pack-abcd-2024-05.sealed';
+
+  function sizedListing(files: Record<string, number>): string {
+    const rows = Object.entries(files)
+      .map(
+        ([name, size]) =>
+          `<d:response><d:href>${BASE}${encodeURIComponent(name)}</d:href><d:propstat><d:prop><d:getcontentlength>${size}</d:getcontentlength></d:prop></d:propstat></d:response>`
+      )
+      .join('');
+    return `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:"><d:response><d:href>${BASE}</d:href></d:response>${rows}</d:multistatus>`;
+  }
+
+  it('puts an object with one PUT and no sidecar', async () => {
+    uploadAsync.mockResolvedValue({ status: 201 });
+    const fetchMock = routeFetch({ MKCOL: () => response(405) });
+
+    await webdavBackend.putObject(PACK, '/cache/pack');
+
+    expect(uploadAsync.mock.calls).toHaveLength(1);
+    const [url, local, options] = uploadAsync.mock.calls[0];
+    expect(url).toBe(`${SERVER}Veloq/${PACK}`);
+    expect(local).toBe('/cache/pack');
+    expect(options.httpMethod).toBe('PUT');
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'PUT')).toEqual([]);
+  });
+
+  it('reports a rejected object write as a failure', async () => {
+    uploadAsync.mockResolvedValue({ status: 507 });
+    routeFetch({ MKCOL: () => response(405) });
+
+    const error = await webdavBackend.putObject(PACK, '/cache/pack').catch((e) => e);
+
+    expect(isBackupTransferError(error)).toBe(true);
+    expect(error.kind).toBe('quota');
+  });
+
+  it('lists the objects whose names start with the prefix, with their sizes', async () => {
+    routeFetch({
+      PROPFIND: () =>
+        response(
+          207,
+          sizedListing({
+            [PACK]: 4096,
+            'veloq-pack-abcd-2024-06.sealed': 10,
+            'veloq-pack-zzzz-2024-05.sealed': 7,
+            'veloq-backup-2026-08-05-100000.zip': 99,
+          })
+        ),
+    });
+
+    await expect(webdavBackend.listObjects('veloq-pack-abcd-')).resolves.toEqual([
+      { name: PACK, sizeBytes: 4096 },
+      { name: 'veloq-pack-abcd-2024-06.sealed', sizeBytes: 10 },
+    ]);
+  });
+
+  it('lists no object for a directory not yet created, and reports a rejected listing', async () => {
+    routeFetch({ PROPFIND: () => response(404) });
+    await expect(webdavBackend.listObjects('veloq-pack-')).resolves.toEqual([]);
+
+    routeFetch({ PROPFIND: () => response(401) });
+    await expect(webdavBackend.listObjects('veloq-pack-')).rejects.toMatchObject({
+      kind: 'auth',
+    });
+  });
+
+  it('keeps an object out of the record listing', async () => {
+    routeFetch({ PROPFIND: () => response(207, sizedListing({ [PACK]: 4096 })) });
+
+    await expect(webdavBackend.listBackups()).resolves.toEqual([]);
+  });
+
+  it('fetches an object by name and fails on a non-200', async () => {
+    downloadAsync.mockResolvedValueOnce({ status: 200 });
+    await expect(webdavBackend.fetchObject(PACK, '/cache/out')).resolves.toBeUndefined();
+    expect(downloadAsync.mock.calls[0][0]).toBe(`${SERVER}Veloq/${PACK}`);
+
+    downloadAsync.mockResolvedValueOnce({ status: 404 });
+    await expect(webdavBackend.fetchObject(PACK, '/cache/out')).rejects.toMatchObject({
+      kind: 'path',
+    });
+  });
+});

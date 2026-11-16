@@ -22,5 +22,5 @@ appId: ${APP_ID}
     visible:
       id: "detection-preview-screen"
     timeout: 30000
-- assertVisible:
-    id: "preview-param-panel"
+- runFlow:
+    file: expand-preview-sheet.yaml

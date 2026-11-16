@@ -1,7 +1,7 @@
 appId: ${APP_ID}
 name: Store capture
 tags:
-  - tier4
+  - tier5
 # Raw captures for the store screenshot compositor. Run by path via
 # scripts/store-capture.sh, never by tag from CI cron. Output lands in
 # screenshots/store-capture/ (the script creates it and moves files into

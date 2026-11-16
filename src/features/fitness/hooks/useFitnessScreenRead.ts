@@ -41,6 +41,8 @@ interface FitnessParts {
   decouplingBySpan: ReadonlyMap<number, DecouplingSource>;
   /** Every activity of the longest span, oldest first, for the strip under the plot. */
   loadDots: DayActivity[];
+  /** The imported rides the server's figures leave out, zero without a read. */
+  uncountedImports: number;
 }
 
 /** What the fitness tab paints with that stays fixed while it is mounted. */
@@ -65,6 +67,7 @@ const NO_FITNESS_PARTS: FitnessParts = {
   runningLthr: null,
   decouplingBySpan: new Map(),
   loadDots: [],
+  uncountedImports: 0,
 };
 
 function fitnessPartsView(read: FitnessScreenData): FitnessParts {
@@ -103,6 +106,7 @@ function fitnessPartsView(read: FitnessScreenData): FitnessParts {
           : []
       )
     ),
+    uncountedImports: read.uncountedImports,
     loadDots: read.loadDots.map((dot) => ({
       id: dot.activityId,
       name: dot.name,

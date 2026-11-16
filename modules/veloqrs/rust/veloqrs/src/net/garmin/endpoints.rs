@@ -68,20 +68,24 @@ pub async fn fetch_user_settings(
     t.get_json(SETTINGS_PATH, &[], dispatch).await
 }
 
-/// The original FIT of an activity, out of the zip Garmin answers with.
+/// The original FIT of an activity, out of the zip Garmin answers with. `None`
+/// when the zip reads and holds no FIT.
 pub async fn fetch_original_fit(
     t: &Transport,
     activity_id: i64,
     dispatch: impl Into<Dispatch>,
-) -> Result<Vec<u8>, NetError> {
+) -> Result<Option<Vec<u8>>, NetError> {
     let zipped = t
         .get_bytes(&download_path(activity_id), &[], dispatch)
         .await?;
     unzip_fit(&zipped)
 }
 
-/// The first `.fit` entry of `zipped`.
-pub(crate) fn unzip_fit(zipped: &[u8]) -> Result<Vec<u8>, NetError> {
+/// The first `.fit` entry of `zipped`, or `None` when the archive reads and
+/// holds none. A ride imported into Garmin from another service keeps its
+/// original as GPX or TCX, so that answer is a fact about the ride, not a
+/// failed download. An archive that does not read is still a decode error.
+pub(crate) fn unzip_fit(zipped: &[u8]) -> Result<Option<Vec<u8>>, NetError> {
     let decode = |e: &dyn std::fmt::Display| NetError::Decode(format!("download zip: {e}"));
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(zipped)).map_err(|e| decode(&e))?;
     for i in 0..archive.len() {
@@ -93,8 +97,8 @@ pub(crate) fn unzip_fit(zipped: &[u8]) -> Result<Vec<u8>, NetError> {
         {
             let mut fit = Vec::new();
             entry.read_to_end(&mut fit).map_err(|e| decode(&e))?;
-            return Ok(fit);
+            return Ok(Some(fit));
         }
     }
-    Err(NetError::Decode("download zip holds no FIT file".into()))
+    Ok(None)
 }

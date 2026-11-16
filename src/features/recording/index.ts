@@ -20,7 +20,7 @@ export {
   RpeSlider,
   SaveErrorBanner,
   StatusSlot,
-  StrengthSession,
+  StrengthRecorder,
   TimerHeader,
   UnlockTrack,
   UploadPermissionNotice,

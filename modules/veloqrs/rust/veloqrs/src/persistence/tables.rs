@@ -19,9 +19,9 @@
 //!   copy, so it is not a mirror row: no sync refills it, and the backup does
 //!   not carry it either, since the backup carries only what the athlete made
 //!   on top of the intervals.icu data, such as names, sections and pins. A
-//!   file import has to decide where such an activity's only copy lives
-//!   before it ships: uploaded to intervals.icu as a recording is, or carried
-//!   by the backup.
+//!   A sync refills only the rows `streams::SERVER_REFILLABLE_SQL` names, and
+//!   a derived clear deletes only those: an imported or recorded activity is
+//!   kept with its track, series and body.
 //! - `Derived` is recomputable on device from mirror and record rows. Losing
 //!   it costs time, never information.
 //! - `Record` is athlete work that exists nowhere else. Losing it is data loss
@@ -217,6 +217,16 @@ static TABLES: &[Table] = &[
          AND s.activity_key = exercise_sets.activity_id)",
     ),
     t(
+        "ride_originals",
+        Identity,
+        "the original file of a ride no connector can serve again, deflated; the athlete's own and salvaged on the device, but too large for the record backup, which carries it only once the backup reads `original_of`",
+    ),
+    t(
+        "ride_identity",
+        Identity,
+        "what two stored rows are compared by to tell one ride from two: the start and sport, kept in step with each body, and the device serial number and file creation time of a ride read from a file; a derived clear leaves the rows of the rides it keeps",
+    ),
+    t(
         "exercise_usage",
         Derived,
         "each exercise's last day, session count and decayed use, rebuilt from the sets",
@@ -353,10 +363,11 @@ static TABLES: &[Table] = &[
         Device,
         "this phone's own certificate, which linked browsers pinned",
     ),
-    t(
+    mixed(
         "recordings",
         Device,
         "rides this handset recorded, naming FIT files on its own disk",
+        "the name, notes, effort and paired workout the athlete wrote, and the keys that name the ride; the file paths and upload state stay",
     ),
     t(
         "heatmap_hidden_activities",
@@ -438,6 +449,11 @@ static TABLES: &[Table] = &[
         "strength_session_rests",
         Record,
         "the rest periods of a recorded strength session as they happened",
+    ),
+    t(
+        "strength_session_heart_rate",
+        Record,
+        "the heart rate readings taken while a strength session was live",
     ),
     t(
         "section_list_counts",

@@ -1,41 +1,20 @@
 /**
- * Scenario: an out-and-back section whose forward climbs best 9:10 (average
- * 10:00) and whose reverse descents best 5:40 (average 6:00).
+ * Scenario: an out-and-back section whose forward climbs best 9:10 and whose reverse descents
+ * best 5:40.
  *
- * Expected behaviour: the Summary card and the calendar year row show each
- * direction's own Best and Avg, and never a single Best or a blended Avg. Each
- * value names its direction in words, so no reader has to tell the two apart
- * by the colour of a dot.
+ * Expected behaviour: the calendar year row shows each direction's own Best, never a single one.
+ * Each value names its direction in words, so no reader has to tell the two apart by the colour
+ * of a dot.
  */
 
 import React from 'react';
-import { render, within } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 
 import { initialiseI18n } from '@/i18n';
-import { SectionInfoCard } from '@/features/routes/components/section/SectionInfoCard';
 import {
   SectionStatsCards,
   type CalendarSummary,
 } from '@/features/routes/components/section/SectionStatsCards';
-
-const record = (bestTime: number) => ({ bestTime, bestPace: 3, sectionDistance: 2000 }) as never;
-const stats = (avgTime: number) => ({ avgTime, count: 10 }) as never;
-
-function card(props: Record<string, unknown>) {
-  return render(
-    <SectionInfoCard
-      firstActivityDate={new Date(2026, 0, 1)}
-      lastActivityDate={new Date(2026, 2, 1)}
-      bestForwardRecord={null}
-      bestReverseRecord={null}
-      forwardStats={null}
-      reverseStats={null}
-      basis="speed"
-      isDark={false}
-      {...props}
-    />
-  );
-}
 
 const best = (id: string, time: number) => ({
   count: 10,
@@ -45,35 +24,9 @@ const best = (id: string, time: number) => ({
   bestActivityName: id,
 });
 
-describe('direction Best and Avg', () => {
+describe('direction Best', () => {
   beforeAll(async () => {
     await initialiseI18n('en-AU');
-  });
-
-  it('shows a Best and an Avg for each direction on the Summary card', async () => {
-    const { getByTestId, queryByText } = await card({
-      bestForwardRecord: record(550),
-      bestReverseRecord: record(340),
-      forwardStats: stats(600),
-      reverseStats: stats(360),
-    });
-
-    expect(getByTestId('section-best-forward').props.children).toBe('9:10');
-    expect(getByTestId('section-best-reverse').props.children).toBe('5:40');
-    expect(getByTestId('section-avg-forward').props.children).toBe('10:00');
-    expect(getByTestId('section-avg-reverse').props.children).toBe('6:00');
-    expect(queryByText('8:00')).toBeNull();
-  });
-
-  it('keeps one Best and one Avg when only one direction has laps', async () => {
-    const { getAllByText, queryByTestId } = await card({
-      bestForwardRecord: record(550),
-      forwardStats: stats(600),
-    });
-
-    expect(getAllByText('Best')).toHaveLength(1);
-    expect(getAllByText('Avg')).toHaveLength(1);
-    expect(queryByTestId('section-best-reverse')).toBeNull();
   });
 
   it('shows both directions on the calendar year row', async () => {
@@ -98,27 +51,6 @@ describe('direction Best and Avg', () => {
 
     expect(getByTestId('year-best-forward-2026').props.children).toBe('9:10');
     expect(getByTestId('year-best-reverse-2026').props.children).toBe('5:40');
-  });
-
-  vaultIt('names the direction of every Best and Avg on the Summary card in words', async () => {
-    const { getByTestId } = await card({
-      bestForwardRecord: record(550),
-      bestReverseRecord: record(340),
-      forwardStats: stats(600),
-      reverseStats: stats(360),
-    });
-
-    const cells = [
-      ['section-summary-cell-1-0', 'section-best-forward', 'Forward'],
-      ['section-summary-cell-1-1', 'section-best-reverse', 'Reverse'],
-      ['section-summary-cell-2-0', 'section-avg-forward', 'Forward'],
-      ['section-summary-cell-2-1', 'section-avg-reverse', 'Reverse'],
-    ];
-    for (const [cell, value, direction] of cells) {
-      const inCell = within(getByTestId(cell));
-      expect(inCell.getByTestId(value)).toBeTruthy();
-      expect(inCell.getByText(new RegExp(direction))).toBeTruthy();
-    }
   });
 
   vaultIt('names each direction in words on the calendar year row and month entries', async () => {
@@ -148,6 +80,7 @@ describe('direction Best and Avg', () => {
     const { getAllByText, getByLabelText } = await render(
       <SectionStatsCards calendarSummary={calendar} isDark={false} basis="speed" />
     );
+    fireEvent.press(getByLabelText('Year 2026'));
 
     expect(getAllByText(/Forward/).length).toBeGreaterThan(0);
     expect(getAllByText(/Reverse/).length).toBeGreaterThan(0);

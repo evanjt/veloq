@@ -25,6 +25,12 @@ pub const SOURCE_KEY_PREFIX: &str = "src-";
 /// The prefix a Garmin original's key carries after [`SOURCE_KEY_PREFIX`].
 pub(crate) const GARMIN_KEY_PREFIX: &str = "src-garmin-";
 
+/// The prefix an imported file's key carries after [`SOURCE_KEY_PREFIX`].
+pub(crate) const FILE_KEY_PREFIX: &str = "src-file-";
+
+/// Hex characters of the file's SHA-256 a file key carries.
+const FILE_KEY_DIGEST_HEX: usize = 16;
+
 /// The prefix of the library identity a Garmin-only sign-in carries in place
 /// of an intervals.icu athlete id.
 pub const GARMIN_LIBRARY_PREFIX: &str = "garmin:";
@@ -33,6 +39,21 @@ pub const GARMIN_LIBRARY_PREFIX: &str = "garmin:";
 /// Garmin key is minted here, so the namespace stays one rule.
 pub fn garmin_source_key(garmin_id: i64) -> String {
     format!("{GARMIN_KEY_PREFIX}{garmin_id}")
+}
+
+/// The key of the activity read from a file with no connector behind it: the
+/// first 16 hex characters of the SHA-256 of the file's bytes, so the same
+/// bytes are the same key wherever they arrive from. Every file key is minted
+/// here.
+pub fn file_source_key(bytes: &[u8]) -> String {
+    use crate::remote::digest::sha256;
+    use std::fmt::Write;
+    let digest = sha256(&[bytes]);
+    let mut key = String::from(FILE_KEY_PREFIX);
+    for byte in digest.iter().take(FILE_KEY_DIGEST_HEX / 2) {
+        let _ = write!(key, "{byte:02x}");
+    }
+    key
 }
 
 /// The Garmin activity id a `src-garmin-` key was minted from.
@@ -181,6 +202,18 @@ pub fn upstream_or_key<'a>(key: &'a str, stored: Option<&'a str>) -> &'a str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Expected behaviour: a file's key is its bytes' digest in the source
+    /// namespace, the same for the same bytes and different for others.
+    #[test]
+    fn a_file_key_is_made_from_the_bytes_alone() {
+        let key = file_source_key(b"abc");
+        assert_eq!(key, "src-file-ba7816bf8f01cfea");
+        assert_eq!(key, file_source_key(b"abc"));
+        assert_ne!(key, file_source_key(b"abd"));
+        assert_eq!(origin_of(&key), ActivityOrigin::Source);
+        assert_eq!(garmin_id_of_source_key(&key), None);
+    }
 
     struct Case {
         key: &'static str,

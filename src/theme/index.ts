@@ -39,7 +39,6 @@ export {
   sectionPalette,
   routePalette,
   sectionPaletteIndex,
-  sectionPaletteExpression,
   routePaletteExpression,
 } from './colors';
 export { colourTokens, type ColourToken } from './colourTokens.generated';

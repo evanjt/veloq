@@ -201,6 +201,12 @@ describe('openableSystemPath', () => {
     }
   );
 
+  vaultIt('opens the linked-devices invitation link only for a developer', () => {
+    const link = 'veloq://linked-devices?code=%7B%22k%22%3A1%7D';
+    expect(openableSystemPath(link, ATHLETE, false)).toBeNull();
+    expect(openableSystemPath(link, ATHLETE, true)).toBe(link);
+  });
+
   vaultIt('refuses a sheet and the recording review to a developer too', () => {
     expect(openableSystemPath('veloq://sheets/param-editor', ATHLETE, true)).toBeNull();
     expect(openableSystemPath('veloq://recording/review', ATHLETE, true)).toBeNull();

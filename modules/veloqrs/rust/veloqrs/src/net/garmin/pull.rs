@@ -29,8 +29,8 @@ pub(crate) const WATERMARK: &str = "veloq-garmin-pull-watermark";
 /// The first day the backfill has finished: everything from here to the
 /// watermark's window has been listed and its rides stored.
 pub(crate) const CURSOR: &str = "veloq-garmin-backfill-cursor";
-/// Months in a row the backfill has found empty.
-pub(crate) const EMPTY_MONTHS: &str = "veloq-garmin-backfill-empty-months";
+/// The local day of the oldest ride Garmin lists: where the backfill ends.
+pub(crate) const FLOOR: &str = "veloq-garmin-backfill-floor";
 /// Present once the backfill has reached the oldest ride.
 pub(crate) const BACKFILL_DONE: &str = "veloq-garmin-backfill-done";
 /// Rides this device has stored from Garmin's originals.
@@ -41,23 +41,18 @@ pub(crate) const STORED: &str = "veloq-garmin-pulled";
 pub(crate) const SKIPPED: &str = "veloq-garmin-pull-skipped";
 
 /// The settings rows a pass keeps, which a record backup leaves out.
-pub(crate) const SETTING_KEYS: [&str; 6] = [
-    WATERMARK,
-    CURSOR,
-    EMPTY_MONTHS,
-    BACKFILL_DONE,
-    STORED,
-    SKIPPED,
-];
+pub(crate) const SETTING_KEYS: [&str; 6] =
+    [WATERMARK, CURSOR, FLOOR, BACKFILL_DONE, STORED, SKIPPED];
+
+/// The first day Garmin could hold a ride, from which the whole history is
+/// listed.
+const HISTORY_START: &str = "2000-01-01";
 
 /// Days a pass looks back from its watermark.
 const OVERLAP_DAYS: i64 = 2;
 
 /// Days the first pass lists; the backfill continues from before them.
 const FIRST_WINDOW_DAYS: i64 = 30;
-
-/// Empty months in a row after which the backfill has passed the oldest ride.
-const EMPTY_MONTHS_TO_STOP: u32 = 12;
 
 /// Downloads that fail one after another before the pass stops: Garmin is
 /// answering errors, and every further ride would only add to them.
@@ -117,7 +112,13 @@ pub(crate) trait PullStore: Send + Sync {
     /// original, or served in full by intervals.icu. Read in one query per
     /// window, off the engine's write lock.
     fn completed(&self, ids: &[i64]) -> HashSet<i64>;
+    /// Store one original. Its scores, the curves and the fitness series are
+    /// owed to the window it belongs to, which settles them with
+    /// [`PullStore::finish`] once it has walked.
     fn ingest(&self, listed: &ListedActivity, fit: &[u8]) -> Result<Ingested, IngestError>;
+    /// Work out what the rides stored since the last call owe the library,
+    /// once for all of them.
+    fn finish(&self, keys: &[String]);
 }
 
 /// The library open at one install.
@@ -151,7 +152,8 @@ impl PullStore for InstallStore {
     fn ingest(&self, listed: &ListedActivity, fit: &[u8]) -> Result<Ingested, IngestError> {
         use crate::persistence::settings::settings_keys::GARMIN_UPLOAD;
         let keep_for_upload = self.setting(GARMIN_UPLOAD).as_deref() == Some("true");
-        let ingested = super::ingest::ingest_original(self.0, listed, fit, keep_for_upload)?;
+        let ingested =
+            super::ingest::ingest_original_in_batch(self.0, listed, fit, keep_for_upload, false)?;
         if matches!(ingested, Ingested::Stored { .. })
             && crate::push::is_recent_ride(listed.start_time_gmt.as_deref(), Utc::now())
         {
@@ -162,6 +164,12 @@ impl PullStore for InstallStore {
             );
         }
         Ok(ingested)
+    }
+
+    fn finish(&self, keys: &[String]) {
+        if !super::ingest::finish_batch_for(self.0, keys) {
+            log::warn!("veloqrs: [garmin] a window's rides were not settled: the engine closed");
+        }
     }
 }
 
@@ -329,8 +337,6 @@ fn write_skipped(store: &dyn PullStore, skipped: &HashMap<i64, u32>) {
 
 /// What a window walked.
 struct Window {
-    /// Rides Garmin listed.
-    listed: usize,
     /// Whether every ride in it is stored, held, or given up. A window that is
     /// not settled owes a ride, so the checkpoint stays before it.
     settled: bool,
@@ -338,7 +344,8 @@ struct Window {
 
 /// List `from` to `to` and store the original of each ride not yet held
 /// complete. A ride whose original does not download or store is recorded and
-/// tried again by later passes, up to [`SKIPS_TO_GIVE_UP`] of them.
+/// tried again by later passes, up to [`SKIPS_TO_GIVE_UP`] of them. A ride
+/// Garmin holds no FIT for is given up at once, and is not a failed download.
 async fn pull_window(
     client: &GarminClient,
     store: &dyn PullStore,
@@ -357,6 +364,7 @@ async fn pull_window(
     let ids: Vec<i64> = listed.iter().map(|l| l.activity_id).collect();
     let held = store.completed(&ids);
     let mut stored = 0u32;
+    let mut stored_keys: Vec<String> = Vec::new();
     let mut failures = 0u32;
     let mut skipped = read_skipped(store);
     let before = skipped.clone();
@@ -380,7 +388,14 @@ async fn pull_window(
             *settled &= passes + 1 >= SKIPS_TO_GIVE_UP;
         };
         let fit = match client.download_original(ride.activity_id, dispatch()).await {
-            Ok(fit) => fit,
+            Ok(Some(fit)) => fit,
+            Ok(None) => {
+                // Garmin answered and holds no FIT for this ride, so the ride is
+                // given up on this pass rather than after the third.
+                failures = 0;
+                skipped.insert(ride.activity_id, SKIPS_TO_GIVE_UP);
+                continue;
+            }
             Err(e) => {
                 if let Some(halt) = halt_of(&e) {
                     outcome = Err(halt);
@@ -399,14 +414,17 @@ async fn pull_window(
         match store.ingest(ride, &fit) {
             Ok(Ingested::Stored { .. }) => {
                 stored += 1;
+                stored_keys.push(crate::persistence::origin::garmin_source_key(
+                    ride.activity_id,
+                ));
                 failures = 0;
                 skipped.remove(&ride.activity_id);
             }
-            Ok(Ingested::AlreadyStored) => {
+            Ok(Ingested::AlreadyStored | Ingested::Linked { .. }) => {
                 failures = 0;
                 skipped.remove(&ride.activity_id);
             }
-            Err(IngestError::NoFilesRoot | IngestError::EngineClosed) => {
+            Err(IngestError::EngineClosed) => {
                 outcome = Err(Halt::Unstorable);
                 break;
             }
@@ -419,6 +437,9 @@ async fn pull_window(
     if skipped != before {
         write_skipped(store, &skipped);
     }
+    if !stored_keys.is_empty() {
+        store.finish(&stored_keys);
+    }
     if stored > 0 {
         let before: u32 = store
             .setting(STORED)
@@ -426,10 +447,7 @@ async fn pull_window(
             .unwrap_or(0);
         store.set_setting(STORED, &(before + stored).to_string());
     }
-    outcome.map(|()| Window {
-        listed: listed.len(),
-        settled,
-    })
+    outcome.map(|()| Window { settled })
 }
 
 /// One pass: the days since the watermark, then the backfill as far as it
@@ -453,7 +471,7 @@ pub(crate) async fn run_pass(
     if recent.settled {
         set_date(store, WATERMARK, today);
     }
-    backfill(client, store, cancel).await
+    backfill(client, store, today, cancel).await
 }
 
 /// With no watermark, no window has yet carried the checkpoints forward, so
@@ -461,15 +479,37 @@ pub(crate) async fn run_pass(
 /// that window lists, so a pass that halts first leaves the cursor as it was.
 fn start_backfill_at(store: &dyn PullStore, from: NaiveDate) {
     set_date(store, CURSOR, from);
-    store.set_setting(EMPTY_MONTHS, "0");
+}
+
+/// The local day of the oldest ride Garmin holds, from one listing of its
+/// whole history. `None` when Garmin lists nothing.
+async fn oldest_ride_day(
+    client: &GarminClient,
+    today: NaiveDate,
+) -> Result<Option<NaiveDate>, Halt> {
+    let listed = client
+        .list_activities(
+            HISTORY_START,
+            &today.format("%Y-%m-%d").to_string(),
+            dispatch(),
+        )
+        .await
+        .map_err(|e| halt_of(&e).unwrap_or(Halt::Unreachable))?;
+    Ok(listed
+        .iter()
+        .filter_map(|l| {
+            let local = l.start_time_local.as_deref()?;
+            NaiveDate::parse_from_str(local.get(..10)?, "%Y-%m-%d").ok()
+        })
+        .min())
 }
 
 async fn backfill(
     client: &GarminClient,
     store: &dyn PullStore,
+    today: NaiveDate,
     cancel: &AtomicBool,
 ) -> Result<(), Halt> {
-    let floor = NaiveDate::from_ymd_opt(2000, 1, 1).unwrap_or(NaiveDate::MIN);
     while store.setting(BACKFILL_DONE).is_none() {
         if cancel.load(Ordering::SeqCst) {
             return Err(Halt::Cancelled);
@@ -477,30 +517,30 @@ async fn backfill(
         let Some(reached) = date_setting(store, CURSOR) else {
             return Ok(());
         };
+        let floor = match date_setting(store, FLOOR) {
+            Some(floor) => floor,
+            None => match oldest_ride_day(client, today).await? {
+                Some(floor) => {
+                    set_date(store, FLOOR, floor);
+                    floor
+                }
+                None => {
+                    store.set_setting(BACKFILL_DONE, "1");
+                    break;
+                }
+            },
+        };
         let end = reached - Duration::days(1);
-        let start = end.with_day(1).unwrap_or(end);
-        if start < floor {
+        if end < floor {
             store.set_setting(BACKFILL_DONE, "1");
             break;
         }
+        let start = end.with_day(1).unwrap_or(end);
         let window = pull_window(client, store, start, end, cancel).await?;
         if !window.settled {
             return Ok(());
         }
-        let empty = if window.listed == 0 {
-            store
-                .setting(EMPTY_MONTHS)
-                .and_then(|n| n.parse().ok())
-                .unwrap_or(0)
-                + 1
-        } else {
-            0
-        };
-        store.set_setting(EMPTY_MONTHS, &empty.to_string());
         set_date(store, CURSOR, start);
-        if empty >= EMPTY_MONTHS_TO_STOP {
-            store.set_setting(BACKFILL_DONE, "1");
-        }
     }
     Ok(())
 }
@@ -580,6 +620,11 @@ pub(crate) fn start(install: u64) -> bool {
         });
     });
     true
+}
+
+/// Whether a pass holds the Garmin lane now, running or paused.
+pub(crate) fn is_active() -> bool {
+    ACTIVE.load(Ordering::SeqCst)
 }
 
 /// Ask a paused pass to go on now rather than at the end of the pause. Garmin's

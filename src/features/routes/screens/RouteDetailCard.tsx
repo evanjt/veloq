@@ -14,7 +14,8 @@ import {
   RouteDetailDebugPanel,
   routeDetailScreenStyles as styles,
 } from '../components';
-import { SectionContentArea, sectionStreamsState } from '../components/section';
+import { DirectionAverages, SectionContentArea, sectionStreamsState } from '../components/section';
+import { attemptBasis } from '../lib/attemptBasis';
 import { useRouteDetailData } from '../hooks/useRouteDetailData';
 import { useRouteDetailPerformance } from '../hooks/useSectionDetailData';
 import {
@@ -318,6 +319,11 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
             testID="route-detail-stats"
             stats={detailPeekStats(peekInput, t, isMetric)}
           />
+          <DirectionAverages
+            forwardStats={forwardStats}
+            reverseStats={reverseStats}
+            basis={attemptBasis(effectiveSportType, true)}
+          />
         </View>
 
         {performanceReadError !== undefined ? (
@@ -338,8 +344,6 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
             correlations={performance?.correlations ?? NO_CORRELATIONS}
             correlationFloor={performance?.correlationFloor ?? 0}
             combinedChartData={combinedChartData}
-            firstActivityDate={firstActivityDate}
-            lastActivityDate={lastActivityDate}
             trendCurves={performance?.trendCurves ?? NO_TREND_CURVES}
             histograms={performance?.histograms ?? NO_HISTOGRAMS}
             scatterFocus={performance?.scatterFocus}

@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 
 import { initialiseI18n } from '@/i18n';
 import {
@@ -46,7 +46,11 @@ const summary: CalendarSummary = {
 };
 
 function renderCards() {
-  return render(<SectionStatsCards calendarSummary={summary} isDark={false} basis="speed" />);
+  const screen = render(
+    <SectionStatsCards calendarSummary={summary} isDark={false} basis="speed" />
+  );
+  fireEvent.press(screen.getByLabelText('Year 2026'));
+  return screen;
 }
 
 describe('the calendar card', () => {

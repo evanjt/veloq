@@ -20,6 +20,7 @@ const COMPONENTS = new Set([
   'RpeSlider',
   'SaveErrorBanner',
   'StatusSlot',
+  'StrengthRecorder',
   'TimerHeader',
   'UnlockTrack',
   'UploadPermissionNotice',
@@ -27,7 +28,6 @@ const COMPONENTS = new Set([
 ]);
 
 const SOURCES: Record<string, string> = {
-  StrengthSession: 'components/StrengthFollow',
   styles: 'RecordingScreen.styles',
   generatedActivityName: 'hooks/useActivityNameGeneration',
   useRecordingPreferences: 'stores/RecordingPreferencesStore',

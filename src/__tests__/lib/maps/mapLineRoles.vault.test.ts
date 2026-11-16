@@ -5,10 +5,10 @@
  * rather than a fainter subject. Selection marks (the highlighted attempt, the
  * scrub cursor, the finish square) are the base's ink. The start is the base's
  * start colour, a record is the base's record colour, and a section badge is a
- * route disc carrying its number in badge ink.
+ * disc in its section's hue carrying its number in that slot's ink.
  */
 
-import { mapPalette, type MapPalette } from '@/theme';
+import { colourIndexExpression, mapPalette, sectionNumberInk, type MapPalette } from '@/theme';
 import {
   buildActivityLayers,
   buildFullscreenMatchedRouteLayers,
@@ -111,21 +111,30 @@ describe.each(BASES)('on the %s base', (base) => {
     expect(portion[3]).toBe(palette.muted);
   });
 
-  it('draws section portions as the route line, a record in the record colour', () => {
-    const colour = paint(activity(palette, null), 'portion-line')['line-color'] as unknown[];
-    expect(colour).toEqual(['case', ['==', ['get', 'isPR'], true], palette.record, palette.route]);
-    const fullscreen = paint(
-      buildFullscreenSectionLayers(true, palette),
-      'fullscreen-portion-line'
-    );
-    expect(fullscreen['line-color']).toEqual(colour);
+  it('draws section portions in the section hue, a record included, on the base edge', () => {
+    const hue = colourIndexExpression(palette.layer.sections, ['get', 'colorIndex']);
+    const layers = activity(palette, null);
+    expect(paint(layers, 'portion-line')['line-color']).toEqual(hue);
+    expect(paint(layers, 'portion-casing')['line-color']).toBe(palette.edge);
+    const fullscreen = buildFullscreenSectionLayers(true, palette);
+    expect(paint(fullscreen, 'fullscreen-portion-line')['line-color']).toEqual(hue);
+    expect(paint(fullscreen, 'fullscreen-portion-casing')['line-color']).toBe(palette.edge);
   });
 
-  it('draws section badges as route discs with badge ink, and the trophy in record', () => {
+  it('draws section badges in the section hue on the base edge, with the slot ink, and the trophy in record', () => {
     const layers = activity(palette, null);
-    expect(paint(layers, 'section-marker-circle')['circle-color']).toBe(palette.route);
-    expect(paint(layers, 'section-marker-circle')['circle-stroke-color']).toBe(palette.casing);
-    expect(paint(layers, 'section-marker-label')['text-color']).toBe(palette.badgeInk);
+    const hue = colourIndexExpression(palette.layer.sections, ['get', 'colorIndex']);
+    const ink = colourIndexExpression(
+      palette.layer.sections.map((_, slot) => sectionNumberInk(slot)),
+      ['get', 'colorIndex']
+    );
+    expect(palette.layer.sectionInk).toEqual(
+      palette.layer.sections.map((_, i) => sectionNumberInk(i))
+    );
+    expect(paint(layers, 'section-marker-circle')['circle-color']).toEqual(hue);
+    expect(paint(layers, 'section-marker-circle')['circle-stroke-color']).toBe(palette.edge);
+    expect(paint(layers, 'section-marker-border')['circle-color']).toBe(palette.edge);
+    expect(paint(layers, 'section-marker-label')['text-color']).toEqual(ink);
     expect(paint(layers, 'section-marker-pr-icon')['icon-color']).toBe(palette.record);
   });
 

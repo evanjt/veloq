@@ -2,7 +2,12 @@ import type { ParseKeys } from 'i18next';
 import type { FfiExperimentalExamples } from 'veloqrs';
 
 export type ExperimentalFeatureKey =
-  'efficiencyTrends' | 'sectionCorrelations' | 'garminUpdate' | 'climbingBests' | 'remoteLink';
+  | 'efficiencyTrends'
+  | 'sectionCorrelations'
+  | 'garminUpdate'
+  | 'climbingBests'
+  | 'remoteLink'
+  | 'strengthRecorder';
 
 export interface ExperimentalFeature {
   key: ExperimentalFeatureKey;
@@ -55,5 +60,11 @@ export const EXPERIMENTAL_FEATURES: readonly ExperimentalFeature[] = [
     titleKey: 'experimental.remoteLink.title',
     blurbKey: 'experimental.remoteLink.blurb',
     route: '/linked-devices',
+  },
+  {
+    key: 'strengthRecorder',
+    titleKey: 'experimental.strengthRecorder.title',
+    blurbKey: 'experimental.strengthRecorder.blurb',
+    route: '/recording/WeightTraining',
   },
 ];

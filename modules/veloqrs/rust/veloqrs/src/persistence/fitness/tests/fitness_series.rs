@@ -44,20 +44,6 @@ fn ride(engine: &PersistentEngine, id: &str, sport: &str, at: i64, load: f64) {
         .unwrap();
 }
 
-/// A library that left a Garmin account for intervals.icu and came back by
-/// it: it works its own figures out, and still holds intervals.icu's days.
-fn returned_to_garmin(engine: &PersistentEngine) {
-    for key in ["__garmin_library_id", "__athlete_id"] {
-        engine
-            .db
-            .execute(
-                "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, 'garmin:8841')",
-                params![key],
-            )
-            .unwrap();
-    }
-}
-
 fn day(offset: i64) -> String {
     chrono::DateTime::from_timestamp(FIRST_DAY_AT + offset * DAY, 0)
         .unwrap()
@@ -183,9 +169,8 @@ fn a_second_refresh_with_nothing_new_writes_nothing() {
 }
 
 #[test]
-fn a_day_intervals_served_keeps_its_figures() {
+fn a_day_intervals_served_keeps_its_figures_and_the_library_is_not_folded() {
     let (_dir, engine) = engine();
-    returned_to_garmin(&engine);
     ride(&engine, "src-a", "Ride", FIRST_DAY_AT, 100.0);
     engine
         .db
@@ -196,7 +181,7 @@ fn a_day_intervals_served_keeps_its_figures() {
         )
         .unwrap();
 
-    refresh(&engine.db, &day(2)).unwrap();
+    assert_eq!(refresh(&engine.db, &day(2)).unwrap(), 0);
 
     assert_eq!(
         row(&engine, &day(1)).unwrap(),
@@ -207,7 +192,7 @@ fn a_day_intervals_served_keeps_its_figures() {
             source: None
         }
     );
-    assert!(row(&engine, &day(2)).unwrap().source.is_some());
+    assert!(row(&engine, &day(2)).is_none());
 }
 
 #[test]
@@ -283,12 +268,11 @@ fn the_time_constants_the_athlete_set_apply_from_their_date() {
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_wellness_days_read_carries_the_veloq_mark_on_a_computed_day_only() {
     let (_dir, engine) = engine();
-    returned_to_garmin(&engine);
     ride(&engine, "src-a", "Ride", FIRST_DAY_AT, 100.0);
     engine
         .db
         .execute(
-            "INSERT INTO wellness (date, ctl, atl, updated_at) VALUES ('2020-01-01', 40.0, 35.0, 1)",
+            "INSERT INTO wellness (date, raw, updated_at) VALUES ('2020-01-01', '{}', 1)",
             [],
         )
         .unwrap();

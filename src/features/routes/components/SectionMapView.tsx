@@ -34,7 +34,6 @@ import { useMapHeldFocus, useMapSheetHost } from '@/shared/app/MapSheetHost';
 import {
   useSettleCamera,
   BaseMapView,
-  TERRAIN_3D_CONFIG,
   boundsOfLngLat,
   featureCollection,
   getStyleIcon,
@@ -68,9 +67,10 @@ import {
   withContextLayers,
   visibleMapInset,
   HIGHLIGHT_THROTTLE_MS,
+  buildSubjectTerrain,
+  useSharedTerrain3D,
 } from '@/features/maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSharedTerrain3D } from '@/features/maps/hooks/useHostTerrain3D';
 import { PressTarget } from '@/shared/ui/PressTarget';
 import { useThrottledValue } from '@/shared/ui/useThrottledValue';
 import { Icon } from '@/shared/ui/Icon';
@@ -540,13 +540,7 @@ export const SectionMapView = memo(function SectionMapView({
   // 3D is this map tilted over the elevation model: the same sources, layers
   // and taps, with pitch and rotate gestures while it is on.
   const terrain = useMemo(
-    () =>
-      is3DMode
-        ? {
-            exaggeration: TERRAIN_3D_CONFIG.defaultExaggeration,
-            pitch: TERRAIN_3D_CONFIG.defaultPitch,
-          }
-        : null,
+    () => (is3DMode ? buildSubjectTerrain({ subjectSource: 'section' }) : null),
     [is3DMode]
   );
   // The extent moves only with the line framed, not with what is picked on it.

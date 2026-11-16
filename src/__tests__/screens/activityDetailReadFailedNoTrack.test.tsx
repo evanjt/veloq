@@ -78,12 +78,6 @@ jest.mock('@/features/activity/components/ActivitySectionsSection', () => ({
 }));
 
 jest.mock('@/features/routes', () => ({
-  useActivityRematch: () => ({
-    matches: [],
-    hasScanned: false,
-    scan: jest.fn(),
-    rematch: jest.fn(),
-  }),
   useCustomSections: () => ({ removeSection: jest.fn(), sections: [] }),
   useRouteMatch: () => ({ routeGroup: null }),
   useRouteSettings: (sel: (s: { settings: { enabled: boolean } }) => unknown) =>

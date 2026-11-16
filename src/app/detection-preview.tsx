@@ -580,6 +580,7 @@ function DetectionPreviewScreenContent() {
         <PreviewSheet
           summary={summary}
           bottomInset={bottomClearance}
+          handleTestID="preview-control-panel-handle"
           testID="preview-control-panel"
         >
           <PreviewParamPanel params={params} onChange={setParams} onCommit={handleCommit} />

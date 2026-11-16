@@ -210,7 +210,7 @@ const ENTRY_ROUTES: readonly RegExp[] = [
 ];
 
 /** The developer screens, which a link opens only for a developer. */
-const DEVELOPER_ROUTES = /^(debug|detection-preview|route-grouping-preview)$/;
+const DEVELOPER_ROUTES = /^(debug|detection-preview|route-grouping-preview|linked-devices)$/;
 
 /**
  * The deep link to open, or null to open the app where it is.

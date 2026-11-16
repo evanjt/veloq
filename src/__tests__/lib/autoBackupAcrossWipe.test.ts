@@ -69,6 +69,9 @@ const backend: BackupBackend = {
   upload,
   download: async () => {},
   delete: remove,
+  putObject: async () => {},
+  listObjects: async () => [],
+  fetchObject: async () => {},
 };
 
 function wipe() {

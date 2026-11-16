@@ -16,11 +16,85 @@ const ROOT = resolve(__dirname, '../../..');
 const RUNNER = join(ROOT, 'scripts/run-guards.mjs');
 const roots: string[] = [];
 
+const SCOPED_STYLE_GUARDS = [
+  'check:apple-crypto',
+  'check:style-owners',
+  'check:tracematch-docs',
+  'lint:bare-refresh-control',
+  'lint:bare-spinner',
+  'lint:button-row-siblings',
+  'lint:chrome-glyphs',
+  'lint:connect-page-titles',
+  'lint:connect-theme-subset',
+  'lint:dark-counterpart',
+  'lint:disabled-ink-content',
+  'lint:empty-state-styles',
+  'lint:engine-client-forwards',
+  'lint:exhaustive-deps-disables',
+  'lint:feature-imports',
+  'lint:floor-type-styles',
+  'lint:font-size-pluck',
+  'lint:ground-token-text',
+  'lint:hand-rolled-buttons',
+  'lint:haptics-owner',
+  'lint:heading-tokens',
+  'lint:hold-durations',
+  'lint:icon-sizes',
+  'lint:intervals-paths',
+  'lint:intervals-source',
+  'lint:light-only-roles',
+  'lint:link-serialize',
+  'lint:locale-capitals',
+  'lint:locale-ellipsis',
+  'lint:lone-spinner-in-padding',
+  'lint:maestro-capture-debug',
+  'lint:maestro-debug-switch',
+  'lint:maestro-open-link',
+  'lint:maestro-store-shots',
+  'lint:maestro-strip-tap',
+  'lint:mark-contrast',
+  'lint:modal-sheets',
+  'lint:native-header',
+  'lint:paper-spinner',
+  'lint:point-shape',
+  'lint:press-feedback',
+  'lint:question-titles',
+  'lint:react-native-text',
+  'lint:retired-names',
+  'lint:rgba',
+  'lint:roleless-pressables',
+  'lint:row-chevrons',
+  'lint:sentence-case',
+  'lint:sheet-headers',
+  'lint:single-line-text',
+  'lint:style-alpha',
+  'lint:style-badges',
+  'lint:style-border-width',
+  'lint:style-containers',
+  'lint:style-font-family',
+  'lint:style-font-style',
+  'lint:style-font-weight',
+  'lint:style-icon-size',
+  'lint:style-letter-spacing',
+  'lint:style-line-height',
+  'lint:style-motion',
+  'lint:style-opacity',
+  'lint:style-shadow',
+  'lint:style-status-tints',
+  'lint:style-stroke-width',
+  'lint:style-theme-imports',
+  'lint:style-z-index',
+  'lint:switch-owner',
+  'lint:tap-targets',
+  'lint:verdict-palette',
+  'lint:window-dimensions',
+];
+
 afterAll(() => {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
 });
 
-type Guard = { name: string; kind: string; paths?: string[] };
+type Guard = { name: string; kind: string; paths?: string[]; catches?: string };
 
 const PLANNER = JSON.stringify(join(ROOT, 'scripts/lib/guardPaths.mjs'));
 const PLAN_SCRIPT = `import { planGuards } from ${PLANNER};
@@ -159,7 +233,7 @@ describe('run-guards at the land gate', () => {
 });
 
 describe('the guard list', () => {
-  it('scopes only the five engine-surface guards', () => {
+  it('scopes only the engine-surface guards and the connect page style guards', () => {
     const r = spawnSync(process.execPath, [RUNNER, '--json', '--set', 'all'], {
       cwd: tmpdir(),
       encoding: 'utf8',
@@ -169,12 +243,32 @@ describe('the guard list', () => {
       .filter((g) => g.paths)
       .map((g) => g.name)
       .sort();
-    expect(scoped).toEqual([
-      'check:bindings-fresh',
-      'ffi:client-reach',
-      'ffi:orphans:check',
-      'ffi:reach',
-      'lint:engine-surface',
-    ]);
+    expect(scoped).toEqual(
+      [
+        'check:bindings-fresh',
+        'ffi:client-reach',
+        'ffi:orphans:check',
+        'ffi:reach',
+        'lint:connect-bare-controls',
+        'lint:connect-css',
+        'lint:engine-surface',
+        ...SCOPED_STYLE_GUARDS,
+      ].sort()
+    );
+  });
+
+  it('leaves only whole-tree style, build and environment guards running on a documentation landing', async () => {
+    const r = spawnSync(process.execPath, [RUNNER, '--json', '--set', 'land'], {
+      cwd: tmpdir(),
+      encoding: 'utf8',
+      env: gitFreeEnv(),
+    });
+    const { planGuards } = await loadPlanner();
+    const { run } = planGuards(JSON.parse(r.stdout) as Guard[], ['docs/x.md']);
+    const unmarked = run
+      .filter((g) => ['style', 'build', 'environment'].includes(g.kind))
+      .filter((g) => !/reads the whole tree/i.test(g.catches ?? ''))
+      .map((g) => g.name);
+    expect(unmarked).toEqual([]);
   });
 });

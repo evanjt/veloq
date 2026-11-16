@@ -53,6 +53,9 @@ const remoteBackend: BackupBackend = {
   upload: (path, entry) => upload(path, entry),
   download: async () => {},
   delete: async () => {},
+  putObject: async () => {},
+  listObjects: async () => [],
+  fetchObject: async () => {},
 };
 
 const localish: BackupBackend = {

@@ -10,7 +10,6 @@ import {
   type SectionStreamsState,
 } from './SectionPerformanceSection';
 import { SectionStatsCards } from './SectionStatsCards';
-import { SectionInfoCard } from './SectionInfoCard';
 import { SectionEfficiencyCard } from './SectionEfficiencyCard';
 import { useExperimental } from '@/features/settings/light';
 import { SectionCorrelationCard } from './SectionCorrelationCard';
@@ -48,9 +47,6 @@ export interface SectionContentAreaProps {
   /** Sections close enough to merge; with `onMergePress`, a banner opens them. */
   mergeCandidates?: MergeCandidate[] | undefined;
   combinedChartData: (PerformanceDataPoint & { x: number })[];
-  /** The oldest and newest included attempt in the range, as the engine dates them. */
-  firstActivityDate: Date | null;
-  lastActivityDate: Date | null;
   /** The engine's trend curves for the range and sport on screen. */
   trendCurves: FfiSectionTrendCurves;
   /** The engine's attempt-time bins for the range and sport on screen. */
@@ -102,8 +98,6 @@ export interface SectionContentAreaProps {
   sportOptions?: readonly SportTypeOption[] | undefined;
   /** Called with the chip tapped. */
   onSelectSport?: ((sport: string) => void) | undefined;
-  /** Rows at the foot of the summary card. */
-  infoFooter?: React.ReactNode;
   /** Rows that open the supporting detail pages. */
   children?: React.ReactNode;
 }
@@ -117,8 +111,6 @@ export function SectionContentArea({
   isSectionDisabled = false,
   mergeCandidates,
   combinedChartData,
-  firstActivityDate,
-  lastActivityDate,
   trendCurves,
   histograms,
   scatterFocus,
@@ -152,7 +144,6 @@ export function SectionContentArea({
   streams,
   sportOptions,
   onSelectSport,
-  infoFooter,
   children,
 }: SectionContentAreaProps) {
   const { t } = useTranslation();
@@ -227,20 +218,6 @@ export function SectionContentArea({
         streams={streams}
         sportOptions={sportOptions}
         onSelectSport={onSelectSport}
-      />
-
-      {/* Summary card */}
-      <SectionInfoCard
-        firstActivityDate={firstActivityDate}
-        lastActivityDate={lastActivityDate}
-        bestForwardRecord={bestForwardRecord}
-        bestReverseRecord={bestReverseRecord}
-        forwardStats={forwardStats}
-        reverseStats={reverseStats}
-        basis={basis}
-        isDark={isDark}
-        pending={streams?.status === 'loading'}
-        footer={infoFooter}
       />
 
       {/* Aerobic efficiency across matched efforts and the wellness and speed

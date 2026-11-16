@@ -4,6 +4,7 @@ mod asks;
 pub mod bounds;
 pub mod bytes;
 pub mod digest;
+pub mod import;
 pub mod pairing;
 pub mod peer;
 pub mod protocol;

@@ -386,6 +386,12 @@ function SettingsScreenContent() {
               />
             ) : null}
             <SpokeRow
+              route="import-collection"
+              icon="file-import-outline"
+              subtitle={t('importCollection.rowSubtitle')}
+              testID="settings-nav-import-collection"
+            />
+            <SpokeRow
               route="cache-settings"
               icon="database-outline"
               subtitle={formatFileSize(totalCacheSize)}

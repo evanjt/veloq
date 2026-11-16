@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { ScreenSafeAreaView, ScreenScrollView } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { goBack } from '@/shared/app/navigation';
@@ -10,6 +10,7 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 function LinkedDevicesScreenContent() {
   const { isDark } = useTheme();
+  const { code } = useLocalSearchParams<{ code?: string }>();
 
   return (
     <ExperimentalOnly feature="remoteLink" fallback={<LeaveLinkedDevices />}>
@@ -18,7 +19,7 @@ function LinkedDevicesScreenContent() {
         style={[styles.container, isDark && styles.containerDark]}
       >
         <ScreenScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
-          <LinkedDevices />
+          <LinkedDevices inviteCode={typeof code === 'string' ? code : undefined} />
         </ScreenScrollView>
       </ScreenSafeAreaView>
     </ExperimentalOnly>

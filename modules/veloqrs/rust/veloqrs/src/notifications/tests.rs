@@ -53,6 +53,7 @@ fn route(
         activity_id: "a1".into(),
         route_id: "r1".into(),
         route_name: name.into(),
+        label: crate::route_chip_label(name, is_pr),
         is_pr,
         trend,
         time_delta_seconds: time_delta,

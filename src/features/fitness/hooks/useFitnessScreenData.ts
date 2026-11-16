@@ -76,6 +76,7 @@ export function useFitnessScreenData({ timeRange, sportMode, place }: UseFitness
     runningLthr,
     decouplingBySpan,
     loadDots,
+    uncountedImports,
     training,
   } = useFitnessScreenRead();
 
@@ -99,6 +100,7 @@ export function useFitnessScreenData({ timeRange, sportMode, place }: UseFitness
     wellnessCoverage,
     wellnessHeld,
     loadDots,
+    uncountedImports,
     dailyLoads,
     powerZones,
     hrZones,

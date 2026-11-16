@@ -14,6 +14,16 @@ fn db(err: rusqlite::Error) -> VeloqError {
     }
 }
 
+/// How finishing a live strength session ended.
+#[derive(serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum FfiStrengthFinish {
+    /// The session is finished and this recording holds its FIT.
+    Finished { entry: FfiRecordingEntry },
+    /// No set was done: nothing was written and the session is still live.
+    NoSets,
+}
+
 /// The recording index's FFI surface.
 ///
 /// Every call is one transaction, so nothing here needs a promise chain around
@@ -189,6 +199,49 @@ impl RecordingManager {
             outcome: FfiUploadOutcome::NotStarted,
             error_detail: None,
         })
+    }
+
+    /// Finish the live strength session as the recording `recording_id`: write
+    /// the FIT of its done sets under `files_root`, finish the session under
+    /// the recording's key and add the row, or answer `NoSets` and change
+    /// nothing. `now` is Unix seconds and `rpe` the athlete's effort, 1 to 10, and
+    /// `keep_on_device` leaves the row out of the upload queue.
+    fn finish_strength_recording(
+        &self,
+        recording_id: String,
+        name: String,
+        athlete_id: Option<String>,
+        now: f64,
+        rpe: Option<u32>,
+        keep_on_device: bool,
+        files_root: String,
+    ) -> Result<FfiStrengthFinish, VeloqError> {
+        use crate::strength::recording::{FinishError, FinishRecording, StrengthFinish};
+        let files_root = crate::net::transport::strip_file_scheme(&files_root).to_string();
+        let answer = with_engine(|e| {
+            e.finish_strength_recording(&FinishRecording {
+                recording_id: &recording_id,
+                name: &name,
+                athlete_id: athlete_id.as_deref(),
+                now: now as i64,
+                rpe,
+                keep_on_device,
+                files_root: std::path::Path::new(&files_root),
+            })
+        })?;
+        match answer {
+            Ok(StrengthFinish::Finished(entry)) => Ok(FfiStrengthFinish::Finished { entry }),
+            Ok(StrengthFinish::NoSets) => Ok(FfiStrengthFinish::NoSets),
+            Err(error @ FinishError::NoLiveSession) => Err(VeloqError::NotFound {
+                msg: error.to_string(),
+            }),
+            Err(error @ FinishError::RecordingExists) => Err(VeloqError::Busy {
+                msg: error.to_string(),
+            }),
+            Err(error) => Err(VeloqError::Database {
+                msg: error.to_string(),
+            }),
+        }
     }
 
     /// Remove one recording the signed-in athlete may see, handing back the

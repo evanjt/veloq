@@ -17,10 +17,13 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
 
-import { PAGE_PROTOCOL } from '../../../web/connect/link';
+import { instrument } from './connectPhoneShim';
+import type { Script } from './connectPhoneShim';
 import { Protocol, greyPng } from './headlessMapPage';
 
 export { findChromium } from './headlessMapPage';
+export { INVITE_ROOM } from './connectPhoneShim';
+export type { Script } from './connectPhoneShim';
 
 const ROOT = resolve(__dirname, '../../..');
 
@@ -40,35 +43,6 @@ const TYPES: Record<string, string> = {
   json: 'application/json',
 };
 
-/** The room the page makes for its first invitation, under the fixed random bytes below. */
-export const INVITE_ROOM = 'AQEBAQEBAQEBAQEBAQEBAQ';
-
-/** What the stand-in phone and relay do. */
-export interface Script {
-  /** The certificate fingerprint the browser's stand-in reports, in the SDP's spelling. */
-  browserFingerprint: string;
-  /** Whether a peer joins the room of an invitation, and with which fingerprint it answers. */
-  invite: { fingerprint: string } | null;
-  /** The same for the room shared with a phone that is already paired. */
-  linked: { fingerprint: string } | null;
-  /** What the phone answers `pair.prove` with. */
-  phoneProof: string;
-  /** The methods the phone lists in its hello. */
-  methods: string[];
-  /** What the phone answers each method with, by method name. */
-  results: Record<string, unknown>;
-  /** What the phone answers a method with for one activity, by method name and then activity id, ahead of `results`. */
-  byActivity?: Record<string, Record<string, unknown>>;
-  /** The PNG, as base64, the phone answers `heatmap.tile` with by `z/x/y`; a tile not listed holds no heat. */
-  tiles?: Record<string, string>;
-  /** What `heatmap.tile` answers for a tile `tiles` does not list; without it that tile holds no heat. */
-  anyTile?: string;
-  /** The name the phone gives itself in its hello, if it gives one. */
-  device?: string;
-  /** The rows the browser's own `getStats()` report holds for the open connection. */
-  stats: Record<string, unknown>[];
-}
-
 export interface ConnectPage {
   /** Console errors, uncaught page errors and content security policy violations so far. */
   errors: () => string[];
@@ -78,7 +52,24 @@ export interface ConnectPage {
   until: <T = unknown>(expression: string, limitMs?: number) => Promise<T>;
   /** The viewport as a PNG. */
   screenshot: () => Promise<Buffer>;
+  /**
+   * A left-button press at `from`, moves through `steps` points along the way to `to`, and a
+   * release at `to`, as the pointer would make them. `whileHeld` runs once the pointer is at
+   * `to` and before it is released.
+   */
+  drag: (from: Point, to: Point, options?: DragOptions) => Promise<void>;
   close: () => Promise<void>;
+}
+
+export interface DragOptions {
+  steps?: number;
+  whileHeld?: () => Promise<void>;
+}
+
+/** A point in CSS pixels of the viewport. */
+export interface Point {
+  x: number;
+  y: number;
 }
 
 /** The window the page is opened in; the default is 1280 by 800 in the light scheme. */
@@ -107,161 +98,18 @@ export function buildPage(): { dir: string; remove: () => void } {
   return { dir, remove: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
-/**
- * Installed before the page's first script. It replaces `WebSocket` with a
- * relay that plays the script, `RTCPeerConnection` with a connection whose
- * channel answers from the script, and the page's random bytes with fixed
- * ones, so the proof the phone must give is known beforehand.
- */
-function instrument(script: Script): string {
-  return `
-(function() {
-  var script = ${JSON.stringify(script)};
-  var inviteRoom = ${JSON.stringify(INVITE_ROOM)};
-  var fake = window.__fake = { sockets: [], peers: [], statuses: [], violations: [], statusPolls: 0 };
-
-  var getRandomValues = crypto.getRandomValues.bind(crypto);
-  crypto.getRandomValues = function(bytes) {
-    if (bytes.length === 16) return bytes.fill(1);
-    if (bytes.length === 32) return bytes.fill(2);
-    return getRandomValues(bytes);
-  };
-
-  document.addEventListener('securitypolicyviolation', function(event) {
-    fake.violations.push(event.violatedDirective + ' ' + event.blockedURI);
-  });
-
-  new MutationObserver(function() {
-    var status = document.getElementById('status');
-    var text = status ? status.textContent : null;
-    if (text && fake.statuses[fake.statuses.length - 1] !== text) fake.statuses.push(text);
-  }).observe(document, { subtree: true, childList: true, characterData: true });
-
-  function FakeChannel() {
-    this.readyState = 'connecting';
-    this.sent = [];
-    this.onopen = this.onclose = this.onmessage = null;
-  }
-  FakeChannel.prototype.open = function() {
-    this.readyState = 'open';
-    if (this.onopen) this.onopen();
-  };
-  FakeChannel.prototype.close = function() {
-    if (this.readyState === 'closed') return;
-    this.readyState = 'closed';
-    if (this.onclose) this.onclose();
-  };
-  FakeChannel.prototype.send = function(text) {
-    var ask = JSON.parse(text);
-    this.sent.push(ask);
-    var channel = this;
-    setTimeout(function() {
-      var result;
-      if (ask.method === 'pair.prove') result = { phoneProof: script.phoneProof };
-      else if (ask.method === 'pair.status') result = ++fake.statusPolls < 2 ? 'waiting' : 'confirmed';
-      else if (ask.method === 'link.hello') result = { protocol: ${PAGE_PROTOCOL}, app: 'test', methods: script.methods, device: script.device };
-      else if (ask.method === 'heatmap.tile') {
-        var key = ask.params.z + '/' + ask.params.x + '/' + ask.params.y;
-        result = { png: (script.tiles || {})[key] || script.anyTile || null };
-      } else if (ask.params && script.byActivity && script.byActivity[ask.method] && script.byActivity[ask.method][ask.params.id] !== undefined) {
-        result = script.byActivity[ask.method][ask.params.id];
-      } else result = script.results[ask.method];
-      var reply = result === undefined
-        ? { id: ask.id, error: 'unknown method ' + ask.method }
-        : { id: ask.id, result: result };
-      // Cut as the engine does: frames of at most 16 KiB, a 10-byte header each.
-      var body = new TextEncoder().encode(JSON.stringify(reply));
-      for (var seq = 0, at = 0; seq === 0 || at < body.length; seq++) {
-        var chunk = body.subarray(at, at + 16374);
-        at += chunk.length;
-        var frame = new Uint8Array(10 + chunk.length);
-        var view = new DataView(frame.buffer);
-        view.setUint8(0, 1);
-        view.setUint8(1, at >= body.length ? 2 : 0);
-        view.setUint32(2, ask.id);
-        view.setUint32(6, seq);
-        frame.set(chunk, 10);
-        if (channel.onmessage) channel.onmessage({ data: frame.buffer });
-      }
-    }, 0);
-  };
-
-  function FakePeer() {
-    this.iceGatheringState = 'complete';
-    this.connectionState = 'new';
-    this.localDescription = null;
-    this.remoteDescription = null;
-    this.channel = null;
-    fake.peers.push(this);
-  }
-  FakePeer.generateCertificate = function() {
-    return Promise.resolve({ expires: Date.now() + 1e11 });
-  };
-  FakePeer.prototype.createDataChannel = function() {
-    this.channel = new FakeChannel();
-    fake.channel = this.channel;
-    return this.channel;
-  };
-  FakePeer.prototype.createOffer = function() {
-    return Promise.resolve({
-      type: 'offer',
-      sdp: 'v=0\\r\\na=fingerprint:' + script.browserFingerprint.replace(' ', ' ') + '\\r\\n'
-    });
-  };
-  FakePeer.prototype.setLocalDescription = function(description) {
-    this.localDescription = description;
-    return Promise.resolve();
-  };
-  FakePeer.prototype.setRemoteDescription = function(description) {
-    this.remoteDescription = description;
-    var channel = this.channel;
-    if (channel) setTimeout(function() { channel.open(); }, 0);
-    return Promise.resolve();
-  };
-  FakePeer.prototype.getStats = function() {
-    return Promise.resolve(new Map(script.stats.map(function(row) { return [row.id, row]; })));
-  };
-  FakePeer.prototype.addEventListener = function() {};
-  FakePeer.prototype.close = function() { this.connectionState = 'closed'; };
-  window.RTCPeerConnection = FakePeer;
-
-  function FakeSocket(url) {
-    this.url = url;
-    this.readyState = 0;
-    this.sent = [];
-    this.onmessage = this.onclose = null;
-    fake.sockets.push(this);
-    var socket = this;
-    var room = url.slice(url.lastIndexOf('/') + 1);
-    var phone = room === inviteRoom ? script.invite : script.linked;
-    this.phone = phone;
-    if (phone) setTimeout(function() { socket.receive({ type: 'peer' }); }, 0);
-  }
-  FakeSocket.prototype.receive = function(message) {
-    if (this.readyState === 3 || !this.onmessage) return;
-    this.onmessage({ data: JSON.stringify(message) });
-  };
-  FakeSocket.prototype.send = function(text) {
-    var message = JSON.parse(text);
-    this.sent.push(message);
-    var socket = this;
-    if (message.type === 'offer' && this.phone) {
-      setTimeout(function() {
-        socket.receive({
-          type: 'answer',
-          sdp: 'v=0\\r\\na=fingerprint:' + socket.phone.fingerprint + '\\r\\n'
-        });
-      }, 0);
+/** Resolves once no process is left in the group, or after a few seconds. */
+async function untilGroupGone(group: number, limitMs = 5_000): Promise<void> {
+  const started = Date.now();
+  for (;;) {
+    try {
+      process.kill(-group, 0);
+    } catch {
+      return;
     }
-  };
-  FakeSocket.prototype.close = function() {
-    if (this.readyState === 3) return;
-    this.readyState = 3;
-    if (this.onclose) this.onclose();
-  };
-  window.WebSocket = FakeSocket;
-})();
-`;
+    if (Date.now() - started > limitMs) return;
+    await new Promise((again) => setTimeout(again, 20));
+  }
 }
 
 export async function launchConnectBrowser(
@@ -269,6 +117,7 @@ export async function launchConnectBrowser(
   distribution: string
 ): Promise<ConnectBrowser> {
   const profile = mkdtempSync(join(tmpdir(), 'connect-page-profile-'));
+  // Its own process group, so closing it also stops the renderers and helpers it started.
   const child: ChildProcess = spawn(
     executable,
     [
@@ -282,8 +131,9 @@ export async function launchConnectBrowser(
       '--remote-debugging-pipe',
       'about:blank',
     ],
-    { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] }
+    { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'], detached: true }
   );
+  const exited = new Promise<void>((done) => child.once('exit', () => done()));
   const protocol = new Protocol(child.stdio[3] as Writable, child.stdio[4] as Readable);
   child.on('exit', () => protocol.failAll(new Error('Chromium exited')));
   child.on('error', (error) =>
@@ -460,6 +310,32 @@ export async function launchConnectBrowser(
           };
           return Buffer.from(shot.data, 'base64');
         },
+        async drag(from, to, options = {}) {
+          const steps = options.steps ?? 10;
+          const at = (type: string, point: Point, buttons: number) =>
+            send('Input.dispatchMouseEvent', {
+              type,
+              x: point.x,
+              y: point.y,
+              button: 'left',
+              buttons,
+              clickCount: 1,
+            });
+          await at('mouseMoved', from, 0);
+          await at('mousePressed', from, 1);
+          for (let i = 1; i <= steps; i++) {
+            await at(
+              'mouseMoved',
+              {
+                x: from.x + ((to.x - from.x) * i) / steps,
+                y: from.y + ((to.y - from.y) * i) / steps,
+              },
+              1
+            );
+          }
+          await options.whileHeld?.();
+          await at('mouseReleased', to, 0);
+        },
         async close() {
           pages.delete(sessionId);
           await protocol.send('Target.closeTarget', { targetId }).catch(() => {});
@@ -467,7 +343,17 @@ export async function launchConnectBrowser(
       };
     },
     async close() {
-      child.kill('SIGKILL');
+      if (child.pid !== undefined) {
+        const group = child.pid;
+        try {
+          process.kill(-group, 'SIGKILL');
+        } catch {
+          // The group has already gone.
+        }
+        await exited;
+        await untilGroupGone(group);
+      }
+      // The profile is removed only once no process of the browser is left to write to it.
       rmSync(profile, { recursive: true, force: true });
     },
   };

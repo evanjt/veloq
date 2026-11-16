@@ -18,15 +18,19 @@ set -e
 # against a scratch directory. The merge hook wants this repository.
 repo=${VELOQ_MERGE_FORMAT_REPO:-.}
 
+# The paths in scope are named once, by the script beside this one, which the
+# landing format commit reads as well.
+scope="$(dirname "$0")/format-scope.sh"
+
 # In the landing tree the candidate is committed and the index matches it, so
 # the staged diff is empty and the landing goes unread. `land-branch.sh` hands
 # over the target the candidate was built on, and the range between is judged,
 # read out of HEAD.
 if [ -n "${VELOQ_MERGE_BASE:-}" ]; then
-  staged=$(git -c core.quotePath=off diff --name-only --diff-filter=d "$VELOQ_MERGE_BASE" HEAD -- 'src/*.ts' 'src/*.tsx' 'scripts/*.mjs' 'scripts/*.cjs' 'scripts/*.js' 'scripts/*.ts')
+  staged=$(git -c core.quotePath=off diff --name-only --diff-filter=d "$VELOQ_MERGE_BASE" HEAD | "$scope")
   source=HEAD
 else
-  staged=$(git -c core.quotePath=off diff --cached --name-only --diff-filter=d HEAD -- 'src/*.ts' 'src/*.tsx' 'scripts/*.mjs' 'scripts/*.cjs' 'scripts/*.js' 'scripts/*.ts')
+  staged=$(git -c core.quotePath=off diff --cached --name-only --diff-filter=d HEAD | "$scope")
   source=''
 fi
 [ -n "$staged" ] || exit 0

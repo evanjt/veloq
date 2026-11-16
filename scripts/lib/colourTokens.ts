@@ -46,6 +46,16 @@ export interface TokenFile {
   stroke?: NamedValues;
   layer?: NamedValues;
   duration?: NamedValues;
+  web?: WebScale;
+}
+
+/** The desktop scale the connect page reads, emitted as `--web-*` custom properties. */
+export interface WebScale {
+  numerals?: string;
+  type?: { name: string; fontSize: string; lineHeight: string; fontWeight: number }[];
+  size?: { name: string; value: string }[];
+  radius?: { name: string; value: string }[];
+  layout?: { name: string; value: string }[];
 }
 
 /** A token family that is one list of names and values. */
@@ -418,8 +428,10 @@ export interface CssFontFace {
 /**
  * `web/connect/tokens.generated.css`: the colour tokens and roles of the light
  * theme under `:root`, the dark theme's where it differs under
- * `prefers-color-scheme: dark`, then the spacing, radius, type, shadow and
- * motion families under the token's own name. A colour is `--colour-<token>`
+ * `:root[data-theme="dark"]` and under `prefers-color-scheme: dark` unless the
+ * page is set to `light`, then the spacing, radius, shadow and motion
+ * families under the token's own name, the font stacks, and the desktop `web`
+ * scale as `--web-*`. The phone's type roles are not emitted. A colour is `--colour-<token>`
  * and a role is `--role-<key>`. `faces` become `@font-face` rules.
  */
 export function renderCss(
@@ -454,14 +466,16 @@ export function renderCss(
   for (const [name, stack] of Object.entries(file.type?.families ?? {})) {
     type.push(declare(`font-${name}`, stack));
   }
-  for (const group of file.type?.groups ?? []) {
-    for (const style of group.styles) {
-      type.push(declare(`type-${style.name}-size`, style.fontSize));
-      type.push(declare(`type-${style.name}-line`, style.lineHeight));
-      type.push(declare(`type-${style.name}-weight`, String(style.fontWeight)));
-      if (style.letterSpacing)
-        type.push(declare(`type-${style.name}-tracking`, style.letterSpacing));
-    }
+  const web: string[] = [];
+  if (file.web?.numerals) web.push(declare('web-numerals', file.web.numerals));
+  for (const style of file.web?.type ?? []) {
+    web.push(declare(`web-type-${style.name}-size`, style.fontSize));
+    web.push(declare(`web-type-${style.name}-line`, style.lineHeight));
+    web.push(declare(`web-type-${style.name}-weight`, String(style.fontWeight)));
+  }
+  for (const family of ['size', 'radius', 'layout'] as const) {
+    for (const token of file.web?.[family] ?? [])
+      web.push(declare(`web-${family}-${token.name}`, token.value));
   }
   const fontFaces = faces.map(
     (face) =>
@@ -471,11 +485,15 @@ export function renderCss(
 
 ${fontFaces.join('\n')}
 :root {
-${[...colours('light'), ...plain, ...type].join('\n')}
+${[...colours('light'), ...plain, ...type, ...web].join('\n')}
+}
+
+:root[data-theme="dark"] {
+${dark.join('\n')}
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
 ${dark.map((row) => `  ${row}`).join('\n')}
   }
 }

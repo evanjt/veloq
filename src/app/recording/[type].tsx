@@ -38,7 +38,7 @@ import {
   useInitRecordingEffect,
   RecordingCloseButton,
   RecordingGate,
-  StrengthSession,
+  StrengthRecorder,
   WorkoutGuide,
   canStartAfterScopeWarning,
   useAlwaysLocationPrompt,
@@ -59,6 +59,7 @@ import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
 import type { FieldPickerSheetInput } from '@/app/sheets/field-picker';
 import type { RouteOverlaySheetInput } from '@/app/sheets/route-overlay';
 import type { ActivityType, DataFieldType } from '@/types';
+import { useExperimental } from '@/features/settings/light';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 
@@ -80,6 +81,7 @@ function RecordingScreenContent() {
 }
 
 function RecordingContent({ activityType }: { activityType: ActivityType }) {
+  const strengthRecorder = useExperimental('strengthRecorder');
   useRecordingKeepAwake();
 
   const insets = useSafeAreaInsets();
@@ -302,7 +304,11 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
     return (
       <>
         {formHeader}
-        <StrengthSession activityType={currentActivityType} pairedEventId={pairedEventId} />
+        {strengthRecorder ? (
+          <StrengthRecorder activityType={currentActivityType} pairedEventId={pairedEventId} />
+        ) : (
+          <ManualEntry activityType={currentActivityType} pairedEventId={pairedEventId} />
+        )}
       </>
     );
   }

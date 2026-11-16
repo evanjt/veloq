@@ -64,6 +64,8 @@ tags:
     visible:
       id: "detection-preview-screen"
     timeout: 30000
+- runFlow:
+    file: helpers/expand-preview-sheet.yaml
 - copyTextFrom:
     id: "param-edit-proximityThreshold"
 - assertTrue:

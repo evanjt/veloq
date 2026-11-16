@@ -129,7 +129,10 @@ pub(super) fn complete(
         .await
     });
     let fit = match downloaded {
-        Ok(Ok(fit)) => fit,
+        Ok(Ok(Some(fit))) => fit,
+        Ok(Ok(None)) => {
+            return Step::Failed("Garmin holds no FIT original for this ride".into());
+        }
         Ok(Err(e)) => return Step::Failed(format!("Garmin did not give the original: {e}")),
         Err(_) => return Step::Failed(format!("Garmin did not answer within {limit:?}")),
     };

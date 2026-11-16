@@ -324,7 +324,10 @@ describe('BaseMapView', () => {
       expect(mockSurfaceProbe.terrain).toEqual({
         exaggeration: TERRAIN_3D_CONFIG.defaultExaggeration,
         pitch: TERRAIN_3D_CONFIG.defaultPitch,
+        subjectSource: 'route',
+        cameraPinned: false,
       });
+      expect(mockSurfaceProbe.sources).toHaveProperty('route');
       expect(screen.getAllByTestId('maplibre-map', MAP_PAGE)).toHaveLength(1);
 
       await fireEvent.press(screen.getByTestId('map-3d-toggle'));

@@ -19,9 +19,15 @@ import {
   boxFromCorners,
   boundsOfFeatures,
   inView,
+  activitiesUnder,
+  familyChipOn,
   mapHash,
-  openRef,
   readMapQuery,
+  recencyAge,
+  selectionRef,
+  toggleFamily,
+  monthMarks,
+  within,
   type LineFeature,
   type MapActivity,
 } from '../../../web/connect/map/view';
@@ -134,14 +140,23 @@ describe('the map in the hash', () => {
     expect(mapHash(DEFAULT_MAP)).toBe('#/map');
   });
 
-  it('round-trips layers, band, range, sports, search and the open detail', () => {
+  it('round-trips layers, band, range, sports, search, selection, viewport, colour, base, terrain and timeline', () => {
     const state = {
       range: 'thisYear' as const,
       sports: ['Ride', 'Trail Run'],
       band: 'medium' as const,
       layers: ['heatmap', 'sections'] as const,
       needle: 'lake loop',
-      open: 'section:s_9',
+      selected: 'section:s_9',
+      sort: 'distance:asc',
+      view: { center: [7.4521, 46.0123] as [number, number], zoom: 11.25 },
+      colour: 'recency' as const,
+      base: 'satellite' as const,
+      terrain: true,
+      since: '2026-01-15',
+      until: '2026-03-01',
+      panel: false,
+      list: 'routes' as const,
     };
     const hash = mapHash({ ...state, layers: [...state.layers] });
     expect(readMapQuery(parse(hash))).toEqual({ ...state, layers: [...state.layers] });
@@ -153,22 +168,161 @@ describe('the map in the hash', () => {
   });
 
   vaultIt('reads an unknown range, band or layer as the default', () => {
-    const route = parse('#/map?range=forever&band=huge&layers=heatmap,lava&open=bogus');
+    const route = parse(
+      '#/map?range=forever&band=huge&list=bogus&layers=heatmap,lava&selected=bogus&view=x,y,z&colour=neon&base=sepia&terrain=deep&until=soon'
+    );
     const state = readMapQuery(route);
     expect(state.range).toBeNull();
     expect(state.band).toBe('all');
     expect(state.layers).toEqual(['heatmap']);
-    expect(state.open).toBeNull();
+    expect(state.selected).toBeNull();
+    expect(state.view).toBeNull();
+    expect(state.colour).toBe('sport');
+    expect(state.base).toBeNull();
+    expect(state.terrain).toBe(false);
+    expect(state.until).toBeNull();
+    expect(state.list).toBe('activities');
+  });
+
+  it('keeps a selection that names an activity, and a point on the heatmap', () => {
+    const activity = readMapQuery(parse('#/map?selected=activity:a1'));
+    expect(activity.selected).toBe('activity:a1');
+    const point = readMapQuery(parse('#/map?selected=point:7.5,46.25'));
+    expect(point.selected).toBe('point:7.5,46.25');
+  });
+
+  it('keeps a viewport in the hash to a precision that is a few metres', () => {
+    const hash = mapHash({
+      ...DEFAULT_MAP,
+      view: { center: [7.123456789, 46.987654321], zoom: 12.3456 },
+    });
+    expect(hash).toBe('#/map?view=7.12346%2C46.98765%2C12.35');
   });
 });
 
-describe('the open detail', () => {
-  vaultIt('names a route or a section and nothing else', () => {
-    expect(openRef('section:s_9')).toEqual({ kind: 'section', id: 's_9' });
-    expect(openRef('route:r-1')).toEqual({ kind: 'route', id: 'r-1' });
-    expect(openRef('activity:a1')).toBeNull();
-    expect(openRef('section:')).toBeNull();
-    expect(openRef(null)).toBeNull();
+describe('the selection', () => {
+  it('names an activity, a route, a section or a point and nothing else', () => {
+    expect(selectionRef('section:s_9')).toEqual({ kind: 'section', id: 's_9' });
+    expect(selectionRef('route:r-1')).toEqual({ kind: 'route', id: 'r-1' });
+    expect(selectionRef('activity:a1')).toEqual({ kind: 'activity', id: 'a1' });
+    expect(selectionRef('point:7.5,-46.25')).toEqual({ kind: 'point', at: [7.5, -46.25] });
+    expect(selectionRef('point:7.5')).toBeNull();
+    expect(selectionRef('point:a,b')).toBeNull();
+    expect(selectionRef('section:')).toBeNull();
+    expect(selectionRef('bogus:1')).toBeNull();
+    expect(selectionRef(null)).toBeNull();
+  });
+});
+
+describe('the sport family chips', () => {
+  const available = ['Ride', 'VirtualRide', 'Run', 'Quidditch'];
+
+  it('turns on every available type of a family and off again', () => {
+    const on = toggleFamily([], 'Ride', available);
+    expect(on).toEqual(['Ride', 'VirtualRide']);
+    expect(familyChipOn(on, 'Ride', available)).toBe(true);
+    expect(familyChipOn(on, 'Run', available)).toBe(false);
+    expect(toggleFamily(on, 'Ride', available)).toEqual([]);
+  });
+
+  it('completes a half-chosen family rather than clearing it, and leaves other families alone', () => {
+    expect(toggleFamily(['Ride', 'Run'], 'Ride', available)).toEqual([
+      'Ride',
+      'Run',
+      'VirtualRide',
+    ]);
+    expect(familyChipOn(['Ride'], 'Ride', available)).toBe(false);
+    expect(toggleFamily(['Ride', 'VirtualRide', 'Run'], 'Ride', available)).toEqual(['Run']);
+  });
+
+  it('files a type no family lists under other, and a family with no available type is never on', () => {
+    expect(toggleFamily([], 'Other', available)).toEqual(['Quidditch']);
+    expect(familyChipOn([], 'Winter', available)).toBe(false);
+    expect(toggleFamily([], 'Winter', available)).toEqual([]);
+  });
+});
+
+describe('the timeline', () => {
+  const day = (iso: string) => Math.floor(Date.parse(`${iso}T12:00:00Z`) / 1000);
+  const rows = [
+    { activityId: 'a', date: day('2026-01-10') },
+    { activityId: 'b', date: day('2026-03-01') },
+    { activityId: 'c', date: day('2026-03-02') },
+  ];
+
+  it('keeps activities up to and including the day the right handle stands on', () => {
+    expect(within(rows, null, '2026-03-01').map((r) => r.activityId)).toEqual(['a', 'b']);
+  });
+
+  it('keeps every activity with no handle placed, and none before the first', () => {
+    expect(within(rows, null, null)).toHaveLength(3);
+    expect(within(rows, null, '2025-12-31')).toEqual([]);
+  });
+
+  it('keeps activities from the day the left handle stands on, both ends inclusive', () => {
+    expect(within(rows, '2026-03-01', null).map((r) => r.activityId)).toEqual(['b', 'c']);
+    expect(within(rows, '2026-01-10', '2026-03-01').map((r) => r.activityId)).toEqual(['a', 'b']);
+    expect(within(rows, '2026-03-02', '2026-03-01')).toEqual([]);
+  });
+
+  it('marks each month from the first day to the last, solid where an activity falls', () => {
+    const marks = monthMarks(
+      day('2026-01-10'),
+      day('2026-04-20'),
+      rows.map((r) => r.date)
+    );
+    expect(marks.map((m) => [m.month, m.active])).toEqual([
+      ['2026-01', true],
+      ['2026-02', false],
+      ['2026-03', true],
+      ['2026-04', false],
+    ]);
+    const positions = marks.map((m) => m.position);
+    expect(positions[0]).toBe(0);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    expect(positions.at(-1)).toBeLessThan(1);
+  });
+
+  it('marks the one month of a single day, and nothing for no days', () => {
+    expect(monthMarks(day('2026-05-05'), day('2026-05-05'), [day('2026-05-05')])).toEqual([
+      { month: '2026-05', position: 0, active: true },
+    ]);
+    expect(monthMarks(0, 0, [])).toEqual([]);
+  });
+});
+
+describe('the floating panel in the hash', () => {
+  it('is open by default and writes only when collapsed', () => {
+    expect(DEFAULT_MAP.panel).toBe(true);
+    expect(mapHash({ ...DEFAULT_MAP, panel: false })).toBe('#/map?panel=closed');
+    expect(readMapQuery(parse('#/map?panel=closed')).panel).toBe(false);
+    expect(readMapQuery(parse('#/map?panel=other')).panel).toBe(true);
+  });
+
+  it('reads a range of days either side and ignores a malformed one', () => {
+    const state = readMapQuery(parse('#/map?since=2026-01-15&until=oops'));
+    expect(state.since).toBe('2026-01-15');
+    expect(state.until).toBeNull();
+  });
+});
+
+describe('the age colour', () => {
+  const now = Date.parse('2026-06-01T00:00:00Z') / 1000;
+  const YEAR = 365 * 86_400;
+
+  it('runs from 0 for today to 1 at a year, and stays inside', () => {
+    expect(recencyAge(now, now)).toBe(0);
+    expect(recencyAge(now - YEAR / 2, now)).toBeCloseTo(0.5);
+    expect(recencyAge(now - 3 * YEAR, now)).toBe(1);
+    expect(recencyAge(now + 100, now)).toBe(0);
+  });
+});
+
+describe('what lies under a point on the heatmap', () => {
+  it('lists the activities whose bounds hold the point', () => {
+    const held = activitiesUnder([7.1, 46.1], activities);
+    expect(held.map((a) => a.activityId)).toEqual(['in', 'around']);
+    expect(activitiesUnder([20, 20], activities)).toEqual([]);
   });
 });
 

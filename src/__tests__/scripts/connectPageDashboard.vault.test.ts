@@ -9,12 +9,19 @@
 
 import {
   FITNESS_SPORTS,
+  FITNESS_TABS,
   calendarYears,
   dotsOnDay,
   fitnessChoices,
   fitnessQuery,
+  fitnessTabFor,
+  decouplingRows,
+  formZoneBands,
+  monthTickLabels,
   sortMonths,
+  wellnessLanes,
   type MonthRow,
+  type WellnessDay,
 } from '../../../web/connect/dashboard';
 import { parse, write } from '../../../web/connect/router';
 
@@ -123,5 +130,104 @@ describe('the fitness address', () => {
     const route = fitnessQuery(parse('#/fitness'), { range: 365, sport: 'Run', open: 'i9' });
     expect(write(route)).toBe('#/fitness?range=365&sport=Run&open=i9');
     expect(write(fitnessQuery(route, { range: 90, sport: 'Ride', open: null }))).toBe('#/fitness');
+  });
+});
+
+describe('fitnessTabs', () => {
+  it('names the four tabs in order and falls back to the first for an unknown one', () => {
+    expect(FITNESS_TABS).toEqual(['overview', 'calendar', 'performance', 'trends']);
+    expect(fitnessTabFor(parse('#/fitness?tab=trends'))).toBe('trends');
+    expect(fitnessTabFor(parse('#/fitness?tab=nope'))).toBe('overview');
+    expect(fitnessTabFor(parse('#/fitness'))).toBe('overview');
+  });
+});
+
+describe('wellnessLanes', () => {
+  const day = (date: string, extra: Partial<WellnessDay> = {}): WellnessDay => ({
+    date,
+    hrv: null,
+    restingHr: null,
+    weight: null,
+    sleepSecs: null,
+    ...extra,
+  });
+
+  it('gives every lane one value per day, with a gap where a day has none', () => {
+    const lanes = wellnessLanes([
+      day('2026-03-01', { hrv: 60, sleepSecs: 7200 }),
+      day('2026-03-02', { restingHr: 48, weight: 70.5 }),
+    ]);
+    expect(lanes.map((lane) => lane.key)).toEqual(['hrv', 'restingHr', 'sleep', 'weight']);
+    expect(lanes.every((lane) => lane.values.length === 2)).toBe(true);
+    expect(lanes[0]?.values[0]).toBe(60);
+    expect(lanes[0]?.values[1]).toBeNaN();
+    expect(lanes[2]?.values[0]).toBe(2);
+  });
+
+  it('leaves out a lane no day has a value for', () => {
+    const lanes = wellnessLanes([day('2026-03-01', { hrv: 55 }), day('2026-03-02')]);
+    expect(lanes.map((lane) => lane.key)).toEqual(['hrv']);
+  });
+
+  it('returns nothing for no days', () => {
+    expect(wellnessLanes([])).toEqual([]);
+  });
+});
+
+describe('formZoneBands', () => {
+  it('splits a range at the form boundaries, lowest first', () => {
+    expect(formZoneBands(-40, 30).map((b) => [b.zone, b.from, b.to])).toEqual([
+      ['highRisk', -40, -30],
+      ['optimal', -30, -10],
+      ['greyZone', -10, 5],
+      ['fresh', 5, 25],
+      ['transition', 25, 30],
+    ]);
+  });
+
+  it('keeps only the bands the range reaches, clipped to it', () => {
+    expect(formZoneBands(-20, 0).map((b) => [b.zone, b.from, b.to])).toEqual([
+      ['optimal', -20, -10],
+      ['greyZone', -10, 0],
+    ]);
+  });
+
+  it('returns nothing for an empty or inverted range', () => {
+    expect(formZoneBands(3, 3)).toEqual([]);
+    expect(formZoneBands(5, -5)).toEqual([]);
+  });
+});
+
+describe('monthTickLabels', () => {
+  it('names the month on the first day shown of each month and leaves the rest unlabelled', () => {
+    const labels = monthTickLabels(
+      ['2026-01-30', '2026-01-31', '2026-02-01', '2026-02-02'],
+      'en-GB'
+    );
+    expect(labels).toEqual(['Jan', null, 'Feb', null]);
+  });
+
+  it('is empty for no days', () => {
+    expect(monthTickLabels([], 'en-GB')).toEqual([]);
+  });
+});
+
+describe('decouplingRows', () => {
+  const source = {
+    activityId: 'a1',
+    name: 'Long ride',
+    startDateLocal: '2026-05-02T08:00:00',
+    decoupling: 4.26,
+  };
+
+  it('lists the ride of each span and leaves out a span with none', () => {
+    expect(
+      decouplingRows([
+        { days: 42, source },
+        { days: 90, source: null },
+      ])
+    ).toEqual([
+      { days: 42, activityId: 'a1', name: 'Long ride', date: '2026-05-02', decoupling: 4.3 },
+    ]);
   });
 });

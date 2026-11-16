@@ -8,7 +8,6 @@
 
 import { GarminKeyStatus, type GarminAccount } from 'veloqrs';
 
-import { recordConnectedGarminAccount } from '@/features/auth/lib/accountChange';
 import {
   CREDENTIAL_KEYCHAIN_OPTIONS,
   GARMIN_KEY_STORAGE_KEY,
@@ -134,7 +133,6 @@ interface Deps {
   engine?: GarminEngine;
   setEnabled?: (on: boolean) => void | Promise<void>;
   readEnabled?: () => Promise<string | null>;
-  recordAccount?: (accountId: string) => void | Promise<void>;
 }
 
 /** The connector's state from the device: the flag beside the key the keychain holds. */
@@ -144,23 +142,6 @@ export async function readGarminConnectorState(deps: Deps = {}): Promise<GarminC
     readCredentialsWithMigration(deps.io ?? secureStoreIo, [GARMIN_KEY_STORAGE_KEY]),
   ]);
   return garminConnectorState({ enabled: enabled === 'true', keyKept: Boolean(values[0]) });
-}
-
-/**
- * Keeps the account Garmin names for the key just connected, so the library
- * remembers which Garmin account it holds. A reading, not a condition of the
- * connection: a failure leaves the connection standing and records nothing.
- */
-async function recordAccount(
-  engine: GarminEngine,
-  record: (accountId: string) => void | Promise<void>
-): Promise<void> {
-  try {
-    const account = await engine.garminAccount();
-    if (account?.accountId) await record(account.accountId);
-  } catch {
-    // The next connect reads it again.
-  }
 }
 
 /** Counts disconnects, so a connect can tell that one landed while its key was being written. */
@@ -195,7 +176,6 @@ export async function connectGarminKey(pasted: string, deps: Deps = {}): Promise
       return GarminKeyStatus.Unreachable;
     }
     await (deps.setEnabled ?? saveEnabled)(true);
-    await recordAccount(engine, deps.recordAccount ?? recordConnectedGarminAccount);
     changed();
   }
   return status;

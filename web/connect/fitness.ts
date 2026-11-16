@@ -39,6 +39,16 @@ export function wallSeconds(date: Date): number {
   );
 }
 
+/**
+ * The present to the five minutes. A read that carries the time is keyed by it,
+ * so the time given must hold still while a page stays open, or the read would
+ * be asked again on every render.
+ */
+export function settledNow(now: number = Date.now()): Date {
+  const step = 5 * 60 * 1000;
+  return new Date(Math.floor(now / step) * step);
+}
+
 const midnight = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
 function daysBefore(date: Date, days: number): Date {
@@ -119,25 +129,6 @@ export function screenAsk(now: Date): PanelAsk {
         monthPrevious: span(lastYearMonthStart, sameDayLastYear),
         nowWallSeconds: wallSeconds(now),
       },
-    },
-  };
-}
-
-/**
- * One ticket counter per slot. A new ask of a slot supersedes the outstanding
- * one, so a late answer to a range since changed is dropped, and the other
- * slots are untouched.
- */
-export function createSlots() {
-  const latest = new Map<string, number>();
-  let next = 0;
-  return {
-    begin(slot: string): number {
-      latest.set(slot, ++next);
-      return next;
-    },
-    isCurrent(slot: string, ticket: number): boolean {
-      return latest.get(slot) === ticket;
     },
   };
 }

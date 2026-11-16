@@ -50,10 +50,6 @@ function renderList(props: {
       onHighlightedSectionIdChange={props.onHighlightedSectionIdChange ?? jest.fn()}
       onSectionCreationModeChange={jest.fn()}
       removeSection={jest.fn()}
-      scanMatches={[]}
-      hasScanned={false}
-      onScan={jest.fn()}
-      onRematch={jest.fn()}
       focusSectionId={focusSectionId}
       onFocusHandled={props.onFocusHandled ?? jest.fn()}
     />

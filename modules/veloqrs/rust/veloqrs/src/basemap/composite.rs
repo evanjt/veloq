@@ -82,6 +82,17 @@ pub fn candidates(members: &[CompositeMember], z: u8, x: u32, y: u32) -> Vec<Str
         .collect()
 }
 
+/// The edges of a web-mercator tile in EPSG:3857 metres, as
+/// `[west, south, east, north]`, on the standard 256-pixel grid.
+pub(crate) fn tile_bounds_metres(z: u8, x: u32, y: u32) -> [f64; 4] {
+    /// Half the width of the projected world: pi times the earth's radius.
+    const HALF_WORLD: f64 = std::f64::consts::PI * 6_378_137.0;
+    let size = 2.0 * HALF_WORLD / f64::from(1u32 << z.min(31));
+    let west = f64::from(x) * size - HALF_WORLD;
+    let north = HALF_WORLD - f64::from(y) * size;
+    [west, north - size, west + size, north]
+}
+
 /// The ground a web-mercator tile covers.
 fn tile_box(z: u8, x: u32, y: u32) -> GeoBox {
     let n = f64::from(1u32 << z.min(31));

@@ -188,6 +188,21 @@ pub(crate) struct BackfillEstimate {
     pub unlisted_seconds: u64,
 }
 
+/// The rows whose series intervals.icu can send again: an intervals.icu row, or
+/// a recording whose upload completed. A `local-` or `src-` row with no
+/// `intervals_id` has no server copy, so its stored series is the only one. The
+/// stream backfill queue and the retention prune both read this, so they agree
+/// on which rows the window governs.
+macro_rules! server_refillable {
+    () => {
+        "((a.id NOT LIKE 'local-%' AND a.id NOT LIKE 'src-%') OR a.intervals_id IS NOT NULL)"
+    };
+}
+
+/// [`server_refillable!`] as a string, for the readers that cannot concatenate
+/// it into a larger literal. Every reference to the activity is through `a`.
+pub(crate) const SERVER_REFILLABLE_SQL: &str = server_refillable!();
+
 /// The rows the stream backfill still has to ask about, shared by the queue
 /// and its count so the two cannot disagree. `?1` is the attempt limit and
 /// `?2` the retention window in days, or NULL when it is unbounded.
@@ -201,7 +216,8 @@ pub(crate) struct BackfillEstimate {
 /// `activities.intervals_id` alone, so a key minted here whose id sits only on
 /// its body waits. Demo rows are in, since that function names them: demo mode
 /// holds no credential and runs no backfill, so they cost nothing.
-pub(crate) const STREAM_GAP_FROM_WHERE: &str = "FROM activities a
+pub(crate) const STREAM_GAP_FROM_WHERE: &str = concat!(
+    "FROM activities a
                LEFT JOIN gps_tracks g ON g.activity_id = a.id
                LEFT JOIN activity_stream_backfill b ON b.activity_id = a.id
               WHERE (g.activity_id IS NOT NULL
@@ -211,15 +227,17 @@ pub(crate) const STREAM_GAP_FROM_WHERE: &str = "FROM activities a
                            AND c.has_series = 1 AND c.has_latlng = 0))
                 AND NOT EXISTS (
                         SELECT 1 FROM activity_streams s WHERE s.activity_id = a.id)
-                AND ((a.id NOT LIKE 'local-%' AND a.id NOT LIKE 'src-%')
-                     OR a.intervals_id IS NOT NULL)
+                AND ",
+    server_refillable!(),
+    "
                 AND COALESCE(b.attempts, 0) < ?1
                 AND COALESCE(b.withheld, 0) = 0
                 AND NOT EXISTS (
                         SELECT 1 FROM activity_held_back hb WHERE hb.activity_id = a.id)
                 AND (?2 IS NULL
                      OR (a.start_date IS NOT NULL
-                         AND a.start_date >= strftime('%s', 'now') - ?2 * 86400))";
+                         AND a.start_date >= strftime('%s', 'now') - ?2 * 86400))"
+);
 
 /// The version of the activity bound to `?1` that the census names now, under
 /// either of its ids. NULL when the census holds no row for it.
@@ -458,12 +476,13 @@ impl PersistentEngine {
                 params![activity_id],
             )?;
         }
-        // The prune runs on the way out, so an activity outside the window is
-        // written and deleted inside this one call. That is deliberate: the
-        // window is the athlete's storage budget, and exempting whatever was
-        // written last would only keep it until the next write, which is a
-        // lifetime nobody can reason about. What the athlete sees is served
-        // from `stream_bodies` instead.
+        // The prune runs on the way out, so an intervals.icu activity outside
+        // the window is written and deleted inside this one call. That is
+        // deliberate: the window is the athlete's storage budget, and exempting
+        // whatever was written last would only keep it until the next write,
+        // which is a lifetime nobody can reason about. What the athlete sees is
+        // served from `stream_bodies` instead. A row with no server copy is
+        // outside the window's reach: its series is the only one.
         self.prune_streams_outside_retention()?;
         Ok(())
     }
@@ -486,8 +505,9 @@ impl PersistentEngine {
         rows.collect()
     }
 
-    /// Drop the streams of activities outside the retention window, oldest
-    /// first. An activity with no recorded start date is kept: its age is
+    /// Drop the streams of intervals.icu activities outside the retention
+    /// window, which the server can send again. A row it cannot refill keeps
+    /// its series. An activity with no recorded start date is kept: its age is
     /// unknown, and guessing it old would delete newest-first for anyone whose
     /// library predates the column being populated.
     pub fn prune_streams_outside_retention(&self) -> SqlResult<usize> {
@@ -495,11 +515,15 @@ impl PersistentEngine {
             return Ok(0);
         };
         let removed = self.db.execute(
-            "DELETE FROM activity_streams WHERE activity_id IN (
-                 SELECT id FROM activities
-                 WHERE start_date IS NOT NULL
-                   AND start_date < strftime('%s', 'now') - ? * 86400
-             )",
+            concat!(
+                "DELETE FROM activity_streams WHERE activity_id IN (
+                 SELECT a.id FROM activities a
+                 WHERE a.start_date IS NOT NULL
+                   AND a.start_date < strftime('%s', 'now') - ? * 86400
+                   AND ",
+                server_refillable!(),
+                ")"
+            ),
             params![days],
         )?;
         Ok(removed)
@@ -809,6 +833,55 @@ mod tests {
         );
         assert_eq!(engine.prune_streams_outside_retention().unwrap(), 0);
         assert_eq!(engine.stored_stream_kinds("old").unwrap(), vec!["watts"]);
+    }
+
+    /// Scenario: a window of thirty days over a library holding a two-year-old
+    /// intervals.icu activity, an unsent recording, a decoded file activity and
+    /// a recording whose upload completed.
+    ///
+    /// Expected behaviour: only the rows the server can refill lose their
+    /// series; a row with no server copy keeps the only copy there is, both
+    /// when the window is set and when a later write runs the prune.
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn the_window_prunes_only_series_the_server_can_refill() {
+        let (_dir, engine) = engine();
+        for id in ["i1", "local-unsent", "src-decoded", "local-sent"] {
+            activity_aged(&engine, id, 730);
+            engine
+                .store_activity_streams(id, &[series("watts", &[Some(1.0)])])
+                .unwrap();
+        }
+        engine
+            .db
+            .execute(
+                "UPDATE activities SET intervals_id = 'i2' WHERE id = 'local-sent'",
+                [],
+            )
+            .unwrap();
+
+        engine.set_stream_retention_days(30).unwrap();
+
+        assert!(engine.stored_stream_kinds("i1").unwrap().is_empty());
+        assert!(engine.stored_stream_kinds("local-sent").unwrap().is_empty());
+        assert_eq!(
+            engine.stored_stream_kinds("local-unsent").unwrap(),
+            vec!["watts"]
+        );
+        assert_eq!(
+            engine.stored_stream_kinds("src-decoded").unwrap(),
+            vec!["watts"]
+        );
+
+        engine
+            .store_activity_streams("src-decoded", &[series("heartrate", &[Some(1.0)])])
+            .unwrap();
+        assert!(
+            !engine
+                .stored_stream_kinds("src-decoded")
+                .unwrap()
+                .is_empty()
+        );
     }
 
     /// Give an activity a stored track, which is what makes it a candidate:

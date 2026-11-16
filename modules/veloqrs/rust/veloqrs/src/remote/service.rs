@@ -135,6 +135,9 @@ impl Gate for EngineGate {
                 return serde_json::json!({ "id": parsed["id"], "error": PHONE_LOCKED })
                     .to_string();
             }
+            if super::protocol::is_spool(method) {
+                return super::protocol::answer_spool(presented, request);
+            }
             return match crate::objects::error::with_engine(|engine| {
                 super::protocol::answer_write(engine, presented, request)
             }) {
@@ -165,6 +168,10 @@ impl Gate for EngineGate {
 
     fn changed(&self) -> Option<u64> {
         database_stamp()
+    }
+
+    fn frame(&self, presented: &str, bytes: &[u8]) {
+        super::import::frame(presented, bytes);
     }
 
     fn disconnected(&self, fingerprint: &str) {
@@ -300,6 +307,7 @@ pub fn accept_offer(offer: &str) -> Result<String, Refusal> {
         .ok()
         .and_then(|value| value.get("sdp")?.as_str().map(peer::offered_fingerprint))
         .flatten();
+    super::import::sweep_stale();
     let cert = certificate().map_err(Refusal::Engine)?;
     let address = local_address().map_err(Refusal::Network)?;
     let stun = super::stun::Stun::resolve_default(address.is_ipv6());
@@ -510,6 +518,114 @@ mod tests {
         let done = EngineGate.answer("sha-256 AA:BB", "local", rename);
         assert!(done.contains(r#""ok":true"#), "{done}");
         assert_eq!(name().as_deref(), Some("Col"));
+    }
+
+    fn zip_of_one_ride() -> Vec<u8> {
+        use std::io::Write;
+        let mut out = std::io::Cursor::new(Vec::new());
+        let mut writer = zip::ZipWriter::new(&mut out);
+        writer
+            .start_file("ride.fit", zip::write::SimpleFileOptions::default())
+            .unwrap();
+        writer
+            .write_all(&crate::fit_synthetic::outdoor_ride().to_fit())
+            .unwrap();
+        writer.finish().unwrap();
+        out.into_inner()
+    }
+
+    fn inbound_frame(id: u32, seq: u32, payload: &[u8]) -> Vec<u8> {
+        let mut frame = vec![1, 0];
+        frame.extend_from_slice(&id.to_be_bytes());
+        frame.extend_from_slice(&seq.to_be_bytes());
+        frame.extend_from_slice(payload);
+        frame
+    }
+
+    fn result_of(reply: &str) -> serde_json::Value {
+        let parsed: serde_json::Value = serde_json::from_str(reply).unwrap();
+        assert!(parsed.get("error").is_none(), "{reply}");
+        parsed["result"].clone()
+    }
+
+    #[test]
+    fn a_linked_browser_sends_a_zip_in_frames_and_the_import_job_stores_its_ride() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("import.db");
+        assert!(
+            crate::persistence::persistent_engine_ffi::persistent_engine_init_without_owed_work(
+                path.to_str().unwrap().to_string()
+            )
+        );
+        crate::objects::error::with_engine(|engine| {
+            linked_devices::add(&engine.db, "Laptop", "sha-256 AA:BB", 1).unwrap();
+            linked_devices::add(&engine.db, "Tablet", "sha-256 CC:DD", 1).unwrap();
+        })
+        .unwrap();
+        let archive = zip_of_one_ride();
+        let digest: String = super::super::digest::sha256(&[&archive])
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        let ask = |browser: &str, id: u32, method: &str, params: serde_json::Value| {
+            let request =
+                serde_json::json!({ "id": id, "method": method, "params": params }).to_string();
+            EngineGate.answer(browser, "local", &request)
+        };
+        let begin = serde_json::json!({
+            "name": "rides.zip", "size": archive.len(), "sha256": digest,
+        });
+
+        let unlinked = ask("sha-256 FF:FF", 1, "import.begin", begin.clone());
+        assert!(unlinked.contains("not linked"), "{unlinked}");
+
+        set_in_front(false);
+        let locked = ask("sha-256 AA:BB", 1, "import.begin", begin.clone());
+        set_in_front(true);
+        assert!(locked.contains(PHONE_LOCKED), "{locked}");
+
+        let begun = result_of(&ask("sha-256 AA:BB", 2, "import.begin", begin));
+        let id = begun["importId"].as_u64().unwrap() as u32;
+        assert_eq!(begun["offset"].as_f64(), Some(0.0));
+
+        let stranger = EngineGate;
+        let half = archive.len() / 2;
+        stranger.frame(
+            "sha-256 CC:DD",
+            &inbound_frame(id, 0, &archive[..half.min(16384)]),
+        );
+        for (seq, piece) in archive.chunks(16 * 1024).enumerate() {
+            EngineGate.frame("sha-256 AA:BB", &inbound_frame(id, seq as u32, piece));
+        }
+
+        let committed = result_of(&ask(
+            "sha-256 AA:BB",
+            3,
+            "import.commit",
+            serde_json::json!({ "importId": id }),
+        ));
+        assert_eq!(committed["jobId"], id);
+
+        let status = || {
+            result_of(&ask(
+                "sha-256 AA:BB",
+                4,
+                "import.status",
+                serde_json::json!({}),
+            ))
+        };
+        let mut seen = status();
+        for _ in 0..500 {
+            if seen["state"] == "done" {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+            seen = status();
+        }
+        assert_eq!(seen["state"], "done", "{seen}");
+        assert_eq!(seen["stored"], 1, "{seen}");
+        assert_eq!(seen["failed"], 0, "{seen}");
     }
 
     #[test]

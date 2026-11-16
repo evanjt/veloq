@@ -66,6 +66,15 @@ mod migration_climb_bests_spike_remeasure;
 #[path = "../migration_strength_signatures.rs"]
 mod migration_strength_signatures;
 
+#[path = "../migration_strength_heart_rate.rs"]
+mod migration_strength_heart_rate;
+
+#[path = "../migration_strength_session_notes.rs"]
+mod migration_strength_session_notes;
+
+#[path = "../migration_ride_identity.rs"]
+mod migration_ride_identity;
+
 #[path = "../migration_strength_live_position.rs"]
 mod migration_strength_live_position;
 

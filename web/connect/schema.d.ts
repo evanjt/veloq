@@ -282,6 +282,10 @@ export type FfiActivityIndicator = {
    * -1=declining, 0=stable, 1=improving
    */
   trend: number;
+  /**
+   * The chip text a feed row shows for this indicator, worded here once.
+   */
+  label: string;
 };
 
 /**
@@ -591,6 +595,10 @@ export type FfiActivityRouteHighlight = {
    * this is the only timed attempt, when times tie, or when not a PR.
    */
   prImprovementSeconds: number | null;
+  /**
+   * The chip text a feed row shows for this highlight, worded here once.
+   */
+  label: string;
 };
 
 /**
@@ -888,6 +896,10 @@ export type FfiBounds = {
 export type FfiCacheScreenData = {
   streamRetentionDays: number;
   streamStoreBytes: number;
+  /**
+   * Bytes the kept originals take, deflated, as the originals owner counts them.
+   */
+  originalStoreBytes: number;
   activityYearCounts: FfiYearCount[];
 };
 
@@ -1198,6 +1210,16 @@ export type FfiDecouplingSource = {
 };
 
 /**
+ * A ride a section edit took out of the section: its library name and its
+ * start as seconds since the epoch.
+ */
+export type FfiDepartedRide = {
+  activityId: string;
+  name: string;
+  date: number;
+};
+
+/**
  * What is refusing a detect that is owed.
  */
 export type FfiDetectionHold =
@@ -1422,6 +1444,37 @@ export type FfiExerciseHistorySession = {
 };
 
 /**
+ * The exercise picker: the narrowed list and the vocabulary its filters use.
+ */
+export type FfiExercisePickerData = {
+  rows: FfiExercisePickerRow[];
+  equipment: string[];
+  muscles: FfiPickerMuscle[];
+};
+
+/**
+ * One exercise in the picker's list.
+ */
+export type FfiExercisePickerRow = {
+  category: number;
+  name: number;
+  labelKey: string;
+  /**
+   * The English name; a translation is looked up by `label_key`.
+   */
+  displayName: string;
+  equipment: string;
+  /**
+   * Whole days since the athlete last did it, `None` when never.
+   */
+  lastDoneDays: number | null;
+  /**
+   * It has followed the exercise just done in the athlete's sessions.
+   */
+  usuallyNext: boolean;
+};
+
+/**
  * One session's stored sets with the totals every surface shows for it.
  */
 export type FfiExerciseSession = {
@@ -1500,6 +1553,18 @@ export type FfiExerciseSummary = {
    * True if the muscle is a primary target for at least one occurrence
    */
   isPrimary: boolean;
+};
+
+/**
+ * Moving hours in one sport family.
+ */
+export type FfiFamilyHours = {
+  /**
+   * The family's lower-case name: `ride`, `winter`, `run`, `water`, `foot`,
+   * `strength` or `other`.
+   */
+  family: string;
+  hours: number;
 };
 
 /**
@@ -1650,6 +1715,13 @@ export type FfiFitnessScreenData = {
    */
   loadDots: FfiLoadDot[];
   /**
+   * Moving hours per week and sport family over the twelve weeks ending at
+   * the latest week that holds an activity, oldest first. A week with
+   * nothing in it stays in the series with no hours. It does not follow the
+   * spans the read was asked for.
+   */
+  weeklyHours: FfiWeeklyHours[];
+  /**
    * Days with activities from `calendar_first_day` to the window's last
    * day, oldest first.
    */
@@ -1683,6 +1755,11 @@ export type FfiFitnessScreenData = {
    * The weekly card's periods to now, each against the same span before.
    */
   comparisons: FfiSummaryComparisons;
+  /**
+   * The imported rides the server's figures leave out: shown as rides, and
+   * in no curve, best effort or fitness day. Zero for a Garmin-only library.
+   */
+  uncountedImports: number;
 };
 
 /**
@@ -1721,6 +1798,21 @@ export type FfiFitnessScreenWindows = {
 export type FfiFloat32Array = Base64;
 
 /**
+ * A neighbouring exercise, shown small beside the current one.
+ */
+export type FfiFocusNeighbour = {
+  exerciseCategory: number;
+  exerciseName: number | null;
+  setsDone: number;
+  setCount: number;
+};
+
+/**
+ * Where the session is, as the athlete would say it.
+ */
+export type FfiFocusPhase = 'set' | 'rest' | 'finished';
+
+/**
  * The range a direction's scatter axis draws, in the axis's own unit: metres
  * per second on a section, seconds on a route.
  */
@@ -1735,6 +1827,56 @@ export type FfiFocusRange = {
    * Points drawn past the fast end.
    */
   fastCount: number;
+};
+
+/**
+ * The set to do, with its place in its exercise.
+ */
+export type FfiFocusSet = {
+  exerciseCategory: number;
+  exerciseName: number | null;
+  /**
+   * One-based, so a screen can say "set 2 of 3".
+   */
+  setNumber: number;
+  setCount: number;
+  reps: number | null;
+  weightKg: number | null;
+  /**
+   * The weight as the athlete reads it, in `weight_unit`, to one decimal.
+   */
+  displayWeight: number | null;
+  weightUnit: FfiWeightUnit;
+  /**
+   * One tap of the weight stepper, in `weight_unit`.
+   */
+  weightStep: number;
+  /**
+   * The stored kilograms after one tap down and one tap up; an unset weight steps from zero.
+   */
+  weightDownKg: number;
+  weightUpKg: number;
+  durationSecs: number | null;
+  warmUp: boolean;
+};
+
+/**
+ * What the focus view and the lock screen show of the live session.
+ */
+export type FfiFocusState = {
+  phase: FfiFocusPhase;
+  current: FfiFocusSet | null;
+  previous: FfiFocusNeighbour | null;
+  next: FfiFocusNeighbour | null;
+  /**
+   * Epoch seconds the running rest began.
+   */
+  restStartedAt: number | null;
+  restSecs: number | null;
+  /**
+   * Epoch seconds the running rest ends.
+   */
+  restEndsAt: number | null;
 };
 
 /**
@@ -1865,6 +2007,11 @@ export type FfiGroupWithPolyline = {
    * All sport types present in this group's activities
    */
   sportTypes: string[];
+  /**
+   * Moving time in seconds of the fastest attempt not excluded from the
+   * route, `None` when no attempt has a time.
+   */
+  bestTime: number | null;
 };
 
 /**
@@ -2333,6 +2480,12 @@ export type FfiLinkBestEffortsAsk = {
 };
 
 /**
+ * The edits `section.editBounds` makes to a section's line.
+ */
+export type FfiLinkBoundsEdit =
+  'trim' | 'reset' | 'expand' | 'setReference' | 'resetReference' | 'revert';
+
+/**
  * What `fitness.loads` answers: a load for each day with activities.
  */
 export type FfiLinkDayLoads = {
@@ -2366,6 +2519,38 @@ export type FfiLinkDevicesAnswer = {
 };
 
 /**
+ * One exercise of a workout: the FIT category and name pair, the group it is
+ * done with, the rest after it and its sets.
+ */
+export type FfiLinkDraftExercise = {
+  category: number;
+  name: number | null;
+  groupNo: number | null;
+  restSecs: number | null;
+  sets: FfiLinkDraftSet[];
+};
+
+/**
+ * The rest planned after a group of exercises.
+ */
+export type FfiLinkDraftGroup = {
+  groupNo: number;
+  restSecs: number | null;
+};
+
+/**
+ * One set of a workout as the builder holds it: what the athlete means to
+ * do, with the optional side and warm-up behind the set's "more".
+ */
+export type FfiLinkDraftSet = {
+  reps: number | null;
+  weightKg: number | null;
+  durationSecs: number | null;
+  side: string | null;
+  warmUp: boolean;
+};
+
+/**
  * What the exclude and include methods are asked: the section or route and
  * the activity.
  */
@@ -2379,6 +2564,14 @@ export type FfiLinkExcludeAsk = {
  */
 export type FfiLinkExerciseAsk = {
   exerciseCategory: number;
+};
+
+/**
+ * One sport family and how many stored activities fall in it.
+ */
+export type FfiLinkFamilyCount = {
+  family: FfiSportFamily;
+  count: number;
 };
 
 /**
@@ -2400,6 +2593,12 @@ export type FfiLinkFeedPage = {
    * One per card with GPS and a stored track; a card with none is absent.
    */
   previews: FfiPreviewTrack[];
+  /**
+   * Stored activities per sport family under the ask's search and window,
+   * whatever families it names, so a chip counts what it would add. A
+   * family with none is absent.
+   */
+  familyCounts: FfiLinkFamilyCount[];
 };
 
 /**
@@ -2439,7 +2638,7 @@ export type FfiLinkFitnessScreenAsk = {
 };
 
 /**
- * What `geo.route` and `geo.routeLatest` are asked: one route group.
+ * What `geo.route`, `geo.routeLatest` and `geo.routeAttempts` are asked: one route group.
  */
 export type FfiLinkGeoGroupAsk = {
   groupId: string;
@@ -2453,10 +2652,28 @@ export type FfiLinkGeoSectionAsk = {
 };
 
 /**
+ * What `geo.sectionVersion` is asked: one stored geometry version of one section.
+ */
+export type FfiLinkGeoSectionVersionAsk = {
+  sectionId: string;
+  /**
+   * A version number from `section.history`'s geometry versions.
+   */
+  version: number;
+};
+
+/**
  * A GeoJSON `FeatureCollection` as its text.
  */
 export type FfiLinkGeoText = {
   text: string;
+};
+
+/**
+ * What `strength.groups` is asked: the phone's wall clock in seconds.
+ */
+export type FfiLinkGroupsAsk = {
+  nowWallSeconds: number;
 };
 
 /**
@@ -2532,6 +2749,75 @@ export type FfiLinkHighlightsAsk = {
 };
 
 /**
+ * What `import.begin` is asked: the archive the page will send, by name,
+ * size and the SHA-256 of its bytes in lowercase hex.
+ */
+export type FfiLinkImportBeginAsk = {
+  name: string;
+  /**
+   * Bytes, a whole number below 2^53.
+   */
+  size: number;
+  sha256: string;
+};
+
+/**
+ * What `import.begin` answers: the id the binary frames carry, and how many
+ * bytes of this archive the phone already holds, so a page whose link dropped
+ * sends only the rest.
+ */
+export type FfiLinkImportBegun = {
+  importId: number;
+  /**
+   * Bytes, a whole number below 2^53.
+   */
+  offset: number;
+};
+
+/**
+ * What `import.commit` answers once the import job has the archive. There is
+ * one importer at a time, so the job is named by the import that started it.
+ */
+export type FfiLinkImportCommitted = {
+  jobId: number;
+};
+
+/**
+ * A file the import job could not make a ride of.
+ */
+export type FfiLinkImportFailure = {
+  name: string;
+  key: string | null;
+  reason: string;
+};
+
+/**
+ * What `import.commit` and `import.cancel` are asked: which import.
+ */
+export type FfiLinkImportRef = {
+  importId: number;
+};
+
+/**
+ * What `import.status` answers: where the import job stands and what it has
+ * walked. `state` is `idle`, `running`, `done` or `stopped`, and a stopped
+ * job says why in `stopped`: `cancelled`, `unreadable` or `unstorable`.
+ */
+export type FfiLinkImportStatus = {
+  state: string;
+  stopped: string | null;
+  detail: string | null;
+  seen: number;
+  stored: number;
+  alreadyStored: number;
+  failed: number;
+  otherFormat: number;
+  skipped: number;
+  current: string | null;
+  failures: FfiLinkImportFailure[];
+};
+
+/**
  * What `section.excludeLap` and `section.includeLap` are asked: the
  * traversal, addressed by the activity and its start index.
  */
@@ -2539,6 +2825,51 @@ export type FfiLinkLapAsk = {
   id: string;
   activityId: string;
   startIndex: number;
+};
+
+/**
+ * An exercise as the latest session that did it left it.
+ */
+export type FfiLinkLastTime = {
+  /**
+   * Whole days from that session to now.
+   */
+  daysAgo: number;
+  sets: FfiLinkDraftSet[];
+};
+
+/**
+ * What `strength.lastTime` answers: `None` for an exercise never done.
+ */
+export type FfiLinkLastTimeAnswer = {
+  lastTime: FfiLinkLastTime | null;
+};
+
+/**
+ * What `strength.lastTime` is asked: one exercise and the phone's wall clock
+ * in seconds.
+ */
+export type FfiLinkLastTimeAsk = {
+  category: number;
+  name: number | null;
+  nowWallSeconds: number;
+};
+
+/**
+ * What `strength.live` answers: the session being recorded and what the focus
+ * view shows of it, both `None` when no session is live.
+ */
+export type FfiLinkLiveAnswer = {
+  session: FfiLiveStrengthSession | null;
+  focus: FfiFocusState | null;
+};
+
+/**
+ * What `strength.liveEdit` is asked: the one change the phone's own recorder
+ * makes, in the athlete's unit.
+ */
+export type FfiLinkLiveEditAsk = {
+  edit: FfiLiveEdit;
 };
 
 /**
@@ -2579,6 +2910,23 @@ export type FfiLinkMapScreen = {
    * cannot vouch for one.
    */
   sectionStamp: number | null;
+};
+
+/**
+ * What `section.mergePreview` and `section.merge` are asked: the section kept
+ * and the one merged into it.
+ */
+export type FfiLinkMergeAsk = {
+  primaryId: string;
+  secondaryId: string;
+};
+
+/**
+ * What `section.mergePreview` answers: the rides a merge would leave out of
+ * the kept section.
+ */
+export type FfiLinkMergePreview = {
+  dropped: FfiMergeDropped[];
 };
 
 /**
@@ -2625,6 +2973,21 @@ export type FfiLinkPerformanceAsk = {
   timeRangeDays: number;
   sportFilter: string | null;
   highlightActivityId: string | null;
+};
+
+/**
+ * What `strength.picker` is asked: the picker's filters and typed query, the
+ * exercise just done whose usual followers lead, and the phone's wall clock in
+ * seconds, as the phone's exercise picker asks.
+ */
+export type FfiLinkPickerAsk = {
+  equipment: string[];
+  region: string | null;
+  muscle: string | null;
+  query: string;
+  afterCategory: number | null;
+  afterName: number | null;
+  nowWallSeconds: number;
 };
 
 /**
@@ -2690,6 +3053,26 @@ export type FfiLinkRecordingsAnswer = {
 export type FfiLinkRecordingsAsk = Record<string, never>;
 
 /**
+ * What `strength.restoreWorkout` is asked: a deleted workout as it was read
+ * before the delete, to be put back under its id with its times.
+ */
+export type FfiLinkRestoreWorkoutAsk = {
+  id: string;
+  name: string;
+  exercises: FfiLinkDraftExercise[];
+  groups: FfiLinkDraftGroup[];
+  createdAt: number;
+  lastUsedAt: number | null;
+};
+
+/**
+ * What `route.resetReference` is asked: the route.
+ */
+export type FfiLinkRouteAsk = {
+  id: string;
+};
+
+/**
  * What `route.detail` and `route.attempts` are asked about, and what
  * `route.attempts` narrows by: the route, the activity being viewed and a sport.
  */
@@ -2709,10 +3092,65 @@ export type FfiLinkRouteRenameAsk = {
 };
 
 /**
+ * What `strength.saveWorkout` is asked: the workout the builder holds. With an
+ * `id` it replaces that saved workout.
+ */
+export type FfiLinkSaveWorkoutAsk = {
+  id: string | null;
+  name: string;
+  exercises: FfiLinkDraftExercise[];
+  groups: FfiLinkDraftGroup[];
+};
+
+/**
  * What a method that edits one section is asked.
  */
 export type FfiLinkSectionAsk = {
   id: string;
+};
+
+/**
+ * What `section.editBounds` is asked: the section, the edit and the
+ * parameters that edit reads. `trim` reads both indices, `expand` reads the
+ * activity and both indices, `setReference` the activity and `revert` the
+ * version. Any other parameter is ignored, and one the edit needs and the
+ * ask lacks is refused.
+ */
+export type FfiLinkSectionBoundsAsk = {
+  id: string;
+  edit: FfiLinkBoundsEdit;
+  activityId: string | null;
+  startIndex: number | null;
+  endIndex: number | null;
+  version: number | null;
+};
+
+/**
+ * What `section.create` is asked: the stored activity whose track is cut,
+ * the inclusive index range and the sport, with an optional name.
+ */
+export type FfiLinkSectionCreateAsk = {
+  activityId: string;
+  startIndex: number;
+  endIndex: number;
+  sport: string;
+  name: string | null;
+};
+
+/**
+ * What `section.create` answers: the section it made.
+ */
+export type FfiLinkSectionCreated = {
+  sectionId: string;
+};
+
+/**
+ * What a section edit that can take rides out of the section answers: it was
+ * made, and the rides it left out. The rides stay in the library.
+ */
+export type FfiLinkSectionEdited = {
+  ok: boolean;
+  departed: FfiDepartedRide[];
 };
 
 /**
@@ -2721,6 +3159,17 @@ export type FfiLinkSectionAsk = {
  */
 export type FfiLinkSectionExcluded = {
   activityIds: string[];
+};
+
+/**
+ * What `section.extensionTrack` answers: the activity the section is cut from, that
+ * activity's whole stored track, and the inclusive indices where the section's line runs on it.
+ */
+export type FfiLinkSectionExtension = {
+  activityId: string;
+  encodedTrack: Base64;
+  sectionStartIdx: number;
+  sectionEndIdx: number;
 };
 
 /**
@@ -2733,6 +3182,13 @@ export type FfiLinkSectionHistory = {
   geometryVersions: FfiSectionGeometryVersion[];
   pinnedVersion: number | null;
   names: FfiActivityName[];
+};
+
+/**
+ * What `section.unaccept` is asked: the sections to hand back to detection.
+ */
+export type FfiLinkSectionIdsAsk = {
+  ids: string[];
 };
 
 /**
@@ -2750,6 +3206,24 @@ export type FfiLinkSectionLiftAsk = {
 export type FfiLinkSectionRenameAsk = {
   id: string;
   name: string;
+};
+
+/**
+ * What `section.acceptAll` answers: the sections the call accepted, which are
+ * the ones `section.unaccept` takes back.
+ */
+export type FfiLinkSectionsAccepted = {
+  ok: boolean;
+  ids: string[];
+};
+
+/**
+ * What `settings.set` is asked: a setting from [`WRITABLE_SETTINGS`] and one
+ * of the values it offers.
+ */
+export type FfiLinkSettingSetAsk = {
+  key: string;
+  value: string;
 };
 
 /**
@@ -2802,6 +3276,30 @@ export type FfiLinkStrengthAsk = {
 };
 
 /**
+ * Sessions that did the same exercises, with the sets a new session of them
+ * starts from.
+ */
+export type FfiLinkStrengthGroup = {
+  signature: string;
+  times: number;
+  /**
+   * The day of the latest session of the group, in wall-clock seconds.
+   */
+  lastDone: number;
+  latestActivityId: string;
+  muscles: FfiMuscleGroup[];
+  equipment: string[];
+  exercises: FfiLinkDraftExercise[];
+};
+
+/**
+ * What `strength.groups` answers: the recent groups, newest first.
+ */
+export type FfiLinkStrengthGroups = {
+  groups: FfiLinkStrengthGroup[];
+};
+
+/**
  * The two numbers route grouping is matched by, as the phone's grouping
  * preview sets them: how much of a route has to match, in percent, and how
  * far apart the two ends may be, in metres.
@@ -2820,11 +3318,73 @@ export type FfiLinkSummaryAsk = {
 };
 
 /**
+ * What `settings.setThreshold` is asked: the sport the figure belongs to,
+ * the figure, and its value, or `null` to clear the athlete's own figure so
+ * the activity files answer again. `value` has to be present.
+ */
+export type FfiLinkThresholdAsk = {
+  sport: string;
+  field: FfiThresholdField;
+  value: number | null;
+};
+
+/**
  * What `fitness.wellness` is asked: an inclusive window of `YYYY-MM-DD` days.
  */
 export type FfiLinkWellnessAsk = {
   oldest: string;
   newest: string;
+};
+
+/**
+ * A saved workout in full.
+ */
+export type FfiLinkWorkout = {
+  id: string;
+  name: string;
+  exercises: FfiLinkDraftExercise[];
+  groups: FfiLinkDraftGroup[];
+};
+
+/**
+ * What `strength.workout` answers: `None` when no saved workout has the id.
+ */
+export type FfiLinkWorkoutAnswer = {
+  workout: FfiLinkWorkout | null;
+};
+
+/**
+ * What `strength.workout` and the workout writes that name one are asked.
+ */
+export type FfiLinkWorkoutAsk = {
+  id: string;
+};
+
+/**
+ * What `strength.renameWorkout` is asked: the workout and its new name.
+ */
+export type FfiLinkWorkoutRenameAsk = {
+  id: string;
+  name: string;
+};
+
+/**
+ * A saved workout as the list shows it.
+ */
+export type FfiLinkWorkoutRow = {
+  id: string;
+  name: string;
+  exerciseCount: number;
+  setCount: number;
+  lastUsedAt: number | null;
+  createdAt: number;
+};
+
+/**
+ * What `strength.saveWorkout` answers: the workout's id.
+ */
+export type FfiLinkWorkoutSaved = {
+  id: string;
 };
 
 /**
@@ -2841,6 +3401,13 @@ export type FfiLinkWorkoutSections = {
 export type FfiLinkWorkoutSectionsAsk = {
   sportType: string;
   limit: number;
+};
+
+/**
+ * What `strength.workouts` answers: the saved workouts, last started first.
+ */
+export type FfiLinkWorkouts = {
+  workouts: FfiLinkWorkoutRow[];
 };
 
 /**
@@ -2883,6 +3450,152 @@ export type FfiLinkedDevice = {
    * connected.
    */
   connectedSince: number | null;
+};
+
+/**
+ * One change to the live session: its kind and the fields that kind reads.
+ *
+ * `exercise` and `set` index the exercise and its set. `to` is the place a
+ * moved exercise goes to or the exercise a grouped one joins. `group_no`
+ * names a group for its rest. `category` and `name` pick the exercise to add.
+ * `value` is the new reps, weight or duration, the rest in seconds, or the
+ * direction of a stepper tap (1 up, -1 down); empty clears a value that may
+ * be empty. `text` is a side and `flag` a warm-up.
+ */
+export type FfiLiveEdit = {
+  kind: FfiLiveEditKind;
+  exercise: number | null;
+  set: number | null;
+  to: number | null;
+  groupNo: number | null;
+  category: number | null;
+  name: number | null;
+  value: number | null;
+  text: string | null;
+  flag: boolean | null;
+};
+
+/**
+ * What a change to the live session is.
+ */
+export type FfiLiveEditKind =
+  | 'begin'
+  | 'addExercise'
+  | 'removeExercise'
+  | 'moveExercise'
+  | 'group'
+  | 'ungroup'
+  | 'exerciseRest'
+  | 'groupRest'
+  | 'addSet'
+  | 'removeSet'
+  | 'stepReps'
+  | 'stepWeight'
+  | 'stepDuration'
+  | 'setReps'
+  | 'setWeight'
+  | 'setWeightEntered'
+  | 'setDuration'
+  | 'setSide'
+  | 'setWarmUp'
+  | 'selectSet'
+  | 'completeSet'
+  | 'reopenSet'
+  | 'startRest'
+  | 'endRest';
+
+/**
+ * One exercise of the live strength session, named and classed by the catalogue.
+ */
+export type FfiLiveStrengthExercise = {
+  category: number;
+  name: number | null;
+  /**
+   * The catalogue's key for the exercise; empty for a pair the catalogue does not name.
+   */
+  labelKey: string;
+  displayName: string;
+  equipment: string;
+  oneSided: boolean;
+  /**
+   * The group the exercise is done with, by number.
+   */
+  groupNo: number | null;
+  /**
+   * The rest planned after the exercise on its own, in seconds.
+   */
+  restSecs: number | null;
+  sets: FfiLiveStrengthSet[];
+};
+
+/**
+ * The rest planned after a group of exercises.
+ */
+export type FfiLiveStrengthGroup = {
+  groupNo: number;
+  restSecs: number | null;
+};
+
+/**
+ * The live session after an edit.
+ */
+export type FfiLiveStrengthOutcome = {
+  session: FfiLiveStrengthSession;
+  /**
+   * For an exercise added with sets from an earlier session, the whole days since it.
+   */
+  prefilledDaysAgo: number | null;
+};
+
+/**
+ * The strength session being recorded: the one read the recorder draws.
+ */
+export type FfiLiveStrengthSession = {
+  id: string;
+  /**
+   * The unit the athlete reads and enters weight in.
+   */
+  weightUnit: FfiWeightUnit;
+  /**
+   * The session has begun; before that it is being prepared.
+   */
+  begun: boolean;
+  startedAt: number | null;
+  exercises: FfiLiveStrengthExercise[];
+  groups: FfiLiveStrengthGroup[];
+  /**
+   * The set the session is at, by exercise and set index.
+   */
+  currentExercise: number | null;
+  currentSet: number | null;
+  /**
+   * When the rest in progress began, if one is.
+   */
+  restStartedAt: number | null;
+  /**
+   * The lines of the plan this session was started from that are not
+   * exercises, as the plan wrote them.
+   */
+  notes: string[];
+};
+
+/**
+ * One set of an exercise in the live strength session.
+ */
+export type FfiLiveStrengthSet = {
+  reps: number | null;
+  weightKg: number | null;
+  /**
+   * The weight as the athlete reads it, in the session's `weight_unit`, to one decimal.
+   */
+  displayWeight: number | null;
+  durationSecs: number | null;
+  /**
+   * Which side of a one-sided exercise, when the athlete said.
+   */
+  side: string | null;
+  warmUp: boolean;
+  done: boolean;
 };
 
 /**
@@ -3091,6 +3804,27 @@ export type FfiMergeCandidate = {
    * encoded as `FfiRecentPr.encoded_polyline` is. Empty when it cannot be read.
    */
   encodedPolyline: Base64;
+};
+
+/**
+ * A ride a merge would take out of the section it is merged into. The ride
+ * stays in the library.
+ */
+export type FfiMergeDropped = {
+  activityId: string;
+  name: string;
+  /**
+   * Unix seconds
+   */
+  startDate: number;
+};
+
+/**
+ * A merge's result: the section kept and the rides that left it.
+ */
+export type FfiMergeOutcome = {
+  sectionId: string;
+  departed: FfiDepartedRide[];
 };
 
 /**
@@ -3334,6 +4068,14 @@ export type FfiPeriodStats = {
    * Total training load (TSS)
    */
   totalTss: number;
+};
+
+/**
+ * A muscle the body pair can select and the region it belongs to.
+ */
+export type FfiPickerMuscle = {
+  slug: string;
+  region: string;
 };
 
 /**
@@ -5358,6 +6100,26 @@ export type FfiSportMix = {
 };
 
 /**
+ * The figures of one sport family.
+ */
+export type FfiSportThresholds = {
+  /**
+   * The family's first sport type, the key a write names.
+   */
+  sport: string;
+  figures: FfiThresholdFigure[];
+  /**
+   * The sport's heart rate zone edges and where they came from.
+   */
+  hrZones: FfiZoneBounds;
+  /**
+   * The upper edge of each power zone as a percent of FTP, empty when the
+   * sport settings list none.
+   */
+  powerZones: number[];
+};
+
+/**
  * The library at a staged cut, as tracks with a decided elevation out of all
  * the tracks the download can ask about.
  */
@@ -5854,6 +6616,37 @@ export type FfiSyncStep =
 export type FfiTargetMetric = 'power' | 'heartRate' | 'pace';
 
 /**
+ * One of the figures the thresholds screen lets the athlete set.
+ */
+export type FfiThresholdField = 'ftp' | 'thresholdHr' | 'maxHr' | 'restingHr' | 'weightKg';
+
+/**
+ * One figure with its value and source, both unset when nothing gives it.
+ */
+export type FfiThresholdFigure = {
+  field: FfiThresholdField;
+  value: number | null;
+  source: FfiThresholdSource | null;
+};
+
+/**
+ * Where a threshold figure shown on the thresholds screen came from.
+ */
+export type FfiThresholdSource = 'athlete' | 'sportSettings' | 'file';
+
+/**
+ * What the thresholds settings screen shows.
+ */
+export type FfiThresholdsScreenData = {
+  sports: FfiSportThresholds[];
+  /**
+   * The upper edge of each heart rate zone, as a percent of maximum heart
+   * rate, used when the athlete's sport settings list no zones of their own.
+   */
+  hrZoneDefaultPercents: number[];
+};
+
+/**
  * Inclusive Unix-second range used for batched summary requests.
  */
 export type FfiTimestampRange = {
@@ -5915,6 +6708,21 @@ export type FfiTrendBandPoint = {
 };
 
 /**
+ * One week's moving hours, by the sport families that have any.
+ */
+export type FfiWeeklyHours = {
+  /**
+   * The week's Monday, `YYYY-MM-DD`.
+   */
+  weekStart: string;
+  /**
+   * The families with moving time that week, in the order a stack of them
+   * is drawn; empty for a week with no activity.
+   */
+  hours: FfiFamilyHours[];
+};
+
+/**
  * One week's totals and when the week starts.
  */
 export type FfiWeeklyTotal = {
@@ -5928,6 +6736,11 @@ export type FfiWeeklyTotal = {
    */
   partial: boolean;
 };
+
+/**
+ * The unit an athlete reads and enters strength weight in.
+ */
+export type FfiWeightUnit = 'kilogram' | 'pound';
 
 /**
  * One stored wellness day, typed. This is what the wellness and fitness
@@ -6087,6 +6900,15 @@ export type FfiYearCount = {
 };
 
 /**
+ * The upper edge of each zone. From sport settings the edges are bpm; by
+ * default they are percents of maximum heart rate.
+ */
+export type FfiZoneBounds = {
+  upper: number[];
+  source: FfiZoneSource;
+};
+
+/**
  * A sport's time in each zone, with the athlete's own name for each zone.
  */
 export type FfiZoneDistribution = {
@@ -6106,6 +6928,11 @@ export type FfiZoneDistribution = {
    */
   names: string[];
 };
+
+/**
+ * Where a list of zone edges came from.
+ */
+export type FfiZoneSource = 'sportSettings' | 'default';
 
 /**
  * The four counts the sync row reports, for the signed-in athlete.
@@ -6253,6 +7080,7 @@ export type Methods = {
   'section.detail': { params: FfiLinkActivityAsk; result: FfiSectionDetailData };
   'section.performance': { params: FfiLinkPerformanceAsk; result: FfiSectionPerformanceData };
   'section.history': { params: FfiLinkActivityAsk; result: FfiLinkSectionHistory };
+  'section.extensionTrack': { params: FfiLinkActivityAsk; result: FfiLinkSectionExtension };
   'section.excluded': { params: FfiLinkActivityAsk; result: FfiLinkSectionExcluded };
   'sections.retired': { params: FfiLinkNoAsk; result: FfiRetiredMapData };
   'fitness.screen': { params: FfiLinkFitnessScreenAsk; result: FfiFitnessScreenData };
@@ -6265,6 +7093,12 @@ export type Methods = {
   'strength.screen': { params: FfiLinkStrengthAsk; result: FfiStrengthScreenData };
   'strength.exercise': { params: FfiLinkExerciseAsk; result: FfiExerciseDetailData };
   'strength.muscle': { params: FfiLinkMuscleAsk; result: FfiMuscleGroupDetail };
+  'strength.picker': { params: FfiLinkPickerAsk; result: FfiExercisePickerData };
+  'strength.lastTime': { params: FfiLinkLastTimeAsk; result: FfiLinkLastTimeAnswer };
+  'strength.groups': { params: FfiLinkGroupsAsk; result: FfiLinkStrengthGroups };
+  'strength.workouts': { params: FfiLinkNoAsk; result: FfiLinkWorkouts };
+  'strength.workout': { params: FfiLinkWorkoutAsk; result: FfiLinkWorkoutAnswer };
+  'strength.live': { params: FfiLinkNoAsk; result: FfiLinkLiveAnswer };
   'recordings.list': { params: FfiLinkRecordingsAsk; result: FfiLinkRecordingsAnswer };
   'recordings.get': { params: FfiLinkRecordingAsk; result: FfiLinkRecordingAnswer };
   'map.screen': { params: FfiLinkMapAsk; result: FfiLinkMapScreen };
@@ -6274,12 +7108,15 @@ export type Methods = {
   'geo.sections': { params: FfiLinkNoAsk; result: FfiLinkGeoText };
   'geo.route': { params: FfiLinkGeoGroupAsk; result: FfiLinkGeoText };
   'geo.routeLatest': { params: FfiLinkGeoGroupAsk; result: FfiLinkGeoText };
+  'geo.routeAttempts': { params: FfiLinkGeoGroupAsk; result: FfiLinkGeoText };
   'geo.section': { params: FfiLinkGeoSectionAsk; result: FfiLinkGeoText };
+  'geo.sectionVersion': { params: FfiLinkGeoSectionVersionAsk; result: FfiLinkGeoText };
   'geo.sectionPasses': { params: FfiLinkGeoSectionAsk; result: FfiLinkGeoText };
   'heatmap.tile': { params: FfiLinkHeatmapTileAsk; result: FfiLinkHeatmapTile };
   'heatmap.progress': { params: FfiLinkNoAsk; result: FfiLinkHeatmapProgress };
   'settings.get': { params: FfiLinkSettingsAsk; result: FfiLinkSettingsAnswer };
   'settings.profile': { params: FfiLinkNoAsk; result: AthleteProfile };
+  'settings.thresholds': { params: FfiLinkNoAsk; result: FfiThresholdsScreenData };
   'status.backgroundJobs': { params: FfiLinkNoAsk; result: FfiBackgroundJobsData };
   'status.cache': { params: FfiLinkNoAsk; result: FfiCacheScreenData };
   'status.backup': { params: FfiLinkNoAsk; result: FfiBackupScreenData };
@@ -6289,19 +7126,38 @@ export type Methods = {
   'section.rename': { params: FfiLinkSectionRenameAsk; result: FfiLinkWriteDone };
   'section.setLift': { params: FfiLinkSectionLiftAsk; result: FfiLinkWriteDone };
   'section.accept': { params: FfiLinkSectionAsk; result: FfiLinkWriteDone };
-  'section.acceptAll': { params: FfiLinkNoAsk; result: FfiLinkWriteDone };
+  'section.acceptAll': { params: FfiLinkNoAsk; result: FfiLinkSectionsAccepted };
+  'section.unaccept': { params: FfiLinkSectionIdsAsk; result: FfiLinkWriteDone };
   'section.enable': { params: FfiLinkSectionAsk; result: FfiLinkWriteDone };
   'section.disable': { params: FfiLinkSectionAsk; result: FfiLinkWriteDone };
   'section.excludeActivity': { params: FfiLinkExcludeAsk; result: FfiLinkWriteDone };
   'section.includeActivity': { params: FfiLinkExcludeAsk; result: FfiLinkWriteDone };
   'section.excludeLap': { params: FfiLinkLapAsk; result: FfiLinkWriteDone };
   'section.includeLap': { params: FfiLinkLapAsk; result: FfiLinkWriteDone };
+  'section.editBounds': { params: FfiLinkSectionBoundsAsk; result: FfiLinkSectionEdited };
+  'section.create': { params: FfiLinkSectionCreateAsk; result: FfiLinkSectionCreated };
+  'section.mergePreview': { params: FfiLinkMergeAsk; result: FfiLinkMergePreview };
+  'section.merge': { params: FfiLinkMergeAsk; result: FfiMergeOutcome };
+  'section.restore': { params: FfiLinkSectionAsk; result: FfiLinkSectionEdited };
   'route.rename': { params: FfiLinkRouteRenameAsk; result: FfiLinkWriteDone };
   'route.excludeActivity': { params: FfiLinkExcludeAsk; result: FfiLinkWriteDone };
   'route.includeActivity': { params: FfiLinkExcludeAsk; result: FfiLinkWriteDone };
+  'route.setReference': { params: FfiLinkExcludeAsk; result: FfiLinkWriteDone };
+  'route.resetReference': { params: FfiLinkRouteAsk; result: FfiLinkWriteDone };
   'heatmap.setHidden': { params: FfiLinkHeatmapHiddenAsk; result: FfiLinkWriteDone };
   'detection.settings': { params: FfiLinkNoAsk; result: FfiLinkDetectionSettings };
   'detection.setEnabled': { params: FfiLinkDetectionEnabledAsk; result: FfiLinkWriteDone };
   'detection.setStrictness': { params: FfiLinkStrictness; result: FfiLinkWriteDone };
   'detection.setSectionConfig': { params: FfiSectionConfig; result: FfiLinkWriteDone };
+  'settings.set': { params: FfiLinkSettingSetAsk; result: FfiLinkWriteDone };
+  'settings.setThreshold': { params: FfiLinkThresholdAsk; result: FfiLinkWriteDone };
+  'strength.saveWorkout': { params: FfiLinkSaveWorkoutAsk; result: FfiLinkWorkoutSaved };
+  'strength.renameWorkout': { params: FfiLinkWorkoutRenameAsk; result: FfiLinkWriteDone };
+  'strength.deleteWorkout': { params: FfiLinkWorkoutAsk; result: FfiLinkWriteDone };
+  'strength.restoreWorkout': { params: FfiLinkRestoreWorkoutAsk; result: FfiLinkWriteDone };
+  'strength.liveEdit': { params: FfiLinkLiveEditAsk; result: FfiLiveStrengthOutcome };
+  'import.begin': { params: FfiLinkImportBeginAsk; result: FfiLinkImportBegun };
+  'import.commit': { params: FfiLinkImportRef; result: FfiLinkImportCommitted };
+  'import.cancel': { params: FfiLinkImportRef; result: FfiLinkWriteDone };
+  'import.status': { params: FfiLinkNoAsk; result: FfiLinkImportStatus };
 };

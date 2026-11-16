@@ -236,6 +236,8 @@ export type DayLoad = FfiDayLoad;
 export { FfiDayLoadStatus as DayLoadStatus } from './generated/veloqrs';
 export { FfiMaxHrSource as MaxHrSource } from './generated/veloqrs';
 export { FfiCadenceUnit as CadenceUnit } from './generated/veloqrs';
+/** The unit an athlete reads and enters strength weight in. */
+export { FfiWeightUnit as WeightUnit, FfiFocusPhase as FocusPhase } from './generated/veloqrs';
 export type SummaryCardData = FfiSummaryCardData;
 export type FtpTrend = FfiFtpTrend;
 export type PaceTrend = FfiPaceTrend;
@@ -300,13 +302,13 @@ export type BackupValidation = FfiBackupValidation;
 /** One activity that moved the athlete's accepted eFTP. */
 export type EftpChange = FfiEftpChange;
 export type {
-  FfiSectionMatch as SectionMatch,
   FfiMergeCandidate as MergeCandidate,
   FfiActivityRouteHighlight as ActivityRouteHighlight,
 } from './EngineClient';
 /** A ride a merge would take out of the merged section. */
 export type { FfiMergeDropped as MergeDropped } from './generated/veloqrs';
 // Strength training types
+export type { LiveStrengthEdit, StrengthStart } from './delegates/strength';
 export type {
   FfiExerciseSet as ExerciseSet,
   FfiExerciseGroup as ExerciseGroup,
@@ -316,6 +318,16 @@ export type {
   FfiExercisePickerRow as ExercisePickerRow,
   FfiPickerMuscle as PickerMuscle,
   FfiMuscleGroup as MuscleGroup,
+  FfiLiveStrengthSession as LiveStrengthSession,
+  FfiLiveStrengthExercise as LiveStrengthExercise,
+  FfiLiveStrengthSet as LiveStrengthSet,
+  FfiLiveStrengthOutcome as LiveStrengthOutcome,
+  FfiFocusState as FocusState,
+  FfiFocusSet as FocusSet,
+  FfiFocusNeighbour as FocusNeighbour,
+  FfiStrengthStartData as StrengthStartData,
+  FfiStrengthStartGroup as StrengthStartGroup,
+  FfiStrengthSavedWorkout as StrengthSavedWorkout,
   FfiActivityNotification as ActivityNotification,
 } from './generated/veloqrs';
 /** The fault the last sync met readying one activity. */

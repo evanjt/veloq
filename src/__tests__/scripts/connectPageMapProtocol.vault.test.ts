@@ -11,6 +11,7 @@
  * nothing. Requests for one URL in flight share one ask.
  */
 
+import { CancelledError } from '../../../web/connect/link';
 import { createHandler, installProtocol, parse, type Ask } from '../../../web/connect/map/protocol';
 
 const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
@@ -34,7 +35,13 @@ describe('the veloq page protocol urls', () => {
     ['veloq://geo/track/a%2Fb?v=1', 'geo.track', { activityId: 'a/b' }],
     ['veloq://geo/activity-overlay/ride-1', 'geo.activityOverlay', { activityId: 'ride-1' }],
     ['veloq://geo/route-lines/all?v=7', 'geo.routeLines', {}],
+    ['veloq://geo/route-attempts/g%201', 'geo.routeAttempts', { groupId: 'g 1' }],
     ['veloq://geo/sections/all?v=2', 'geo.sections', {}],
+    [
+      'veloq://geo/section-version/3%3As%2F1',
+      'geo.sectionVersion',
+      { sectionId: 's/1', version: 3 },
+    ],
   ])('%s is %s', (url, method, params) => {
     expect(parse(url)).toEqual({ kind: 'geo', method, params });
   });
@@ -171,6 +178,41 @@ describe('the veloq page protocol handler', () => {
     expect(asked).toHaveLength(2);
     answers[1]?.({ png: null });
     await third;
+  });
+
+  it('asks again when edits cancel the read, and answers from the reply that lands', async () => {
+    const collection = { type: 'FeatureCollection', features: [] };
+    let calls = 0;
+    const { asked, handler } = fake(async () => {
+      calls += 1;
+      if (calls <= 2) throw new CancelledError();
+      return { text: JSON.stringify(collection) };
+    });
+    const reply = await handler(request('veloq://geo/route/g1', 'json'), new AbortController());
+    expect(reply.data).toEqual(collection);
+    expect(asked).toHaveLength(3);
+  });
+
+  it('gives up when the read keeps being cancelled, and does not ask for an aborted request', async () => {
+    const forever = fake(async () => {
+      throw new CancelledError();
+    });
+    await expect(
+      forever.handler(request('veloq://geo/route/g1', 'json'), new AbortController())
+    ).rejects.toMatchObject({ name: 'CancelledError' });
+    expect(forever.asked).toHaveLength(5);
+
+    const abort = new AbortController();
+    const once = fake(async () => {
+      abort.abort();
+      throw new CancelledError();
+    });
+    await expect(
+      once.handler(request('veloq://geo/route/g1', 'json'), abort)
+    ).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+    expect(once.asked).toHaveLength(1);
   });
 
   it('keeps an ask for a url when another request for it is aborted', async () => {

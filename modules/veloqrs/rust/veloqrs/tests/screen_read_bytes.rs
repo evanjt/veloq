@@ -362,6 +362,7 @@ fn fitness(v: FfiFitnessScreenData) -> Lowered {
         running_lthr,
         decoupling_sources,
         load_dots => |v: &FfiFitnessScreenData| v.load_dots.len(),
+        weekly_hours => |v: &FfiFitnessScreenData| v.weekly_hours.len(),
         heatmap => |v: &FfiFitnessScreenData| v.heatmap.len(),
         calendar_first_day,
         calendar_older_owed,
@@ -369,6 +370,7 @@ fn fitness(v: FfiFitnessScreenData) -> Lowered {
         season_year,
         season_months => |v: &FfiFitnessScreenData| v.season_months.len(),
         comparisons,
+        uncounted_imports,
     )
 }
 

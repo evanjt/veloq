@@ -29,6 +29,8 @@ interface PreviewSheetProps {
   bottomInset: number;
   /** The handle's accessibility label; the section preview's by default. */
   handleLabel?: string;
+  /** The handle's testID, so a flow can name it; derived from `testID` when absent. */
+  handleTestID?: string;
   testID?: string;
 }
 
@@ -37,6 +39,7 @@ export function PreviewSheet({
   children,
   bottomInset,
   handleLabel,
+  handleTestID,
   testID,
 }: PreviewSheetProps) {
   const { t } = useTranslation();
@@ -73,7 +76,7 @@ export function PreviewSheet({
           expanded={expanded}
           onChange={setExpanded}
           label={handleLabel ?? t('settings.previewSections')}
-          testID={testID ? `${testID}-handle` : undefined}
+          testID={handleTestID ?? (testID ? `${testID}-handle` : undefined)}
         />
       </View>
       <View style={styles.summary}>{summary}</View>

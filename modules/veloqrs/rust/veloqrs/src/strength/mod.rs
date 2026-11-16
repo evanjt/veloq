@@ -6,3 +6,7 @@ pub(crate) mod demo;
 pub mod exercise_picker;
 pub mod exercise_search;
 pub mod labels;
+pub mod plan_line;
+pub mod recording;
+pub mod summary;
+pub mod weight;

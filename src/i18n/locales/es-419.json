@@ -162,7 +162,6 @@
     "deltaReadoutBehind": "{{distance}}: {{time}} atrás",
     "deltaEndAhead": "Tramo completo: {{time}} adelante",
     "deltaEndBehind": "Tramo completo: {{time}} atrás",
-    "addToSection": "Agregar",
     "avgGrade": "Pendiente promedio",
     "renameFailedMessage": "No se guardó el nombre de la sección. Inténtalo de nuevo."
   },

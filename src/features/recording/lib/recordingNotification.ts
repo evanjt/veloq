@@ -19,10 +19,16 @@ import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
 import { isPositioned } from '@/shared/geo/routePreview';
 import { debug } from '@/shared/debug/debug';
 import { formatDistance, formatDuration } from '@/shared/format/format';
+import { FocusPhase, type FocusState } from 'veloqrs';
 import { sessionGuidanceCue } from '@/features/recording/lib/guidanceCue';
 import { endRecordingSession } from '@/features/recording/lib/endRecordingSession';
 import { formatRecordingSpeed } from '@/features/recording/lib/formatRecordingSpeed';
 import { movingMsAt, useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import {
+  focusSetText,
+  type FocusNames,
+  type FocusTranslate,
+} from '@/features/recording/lib/strengthFocus';
 import { pauseRecordingManually, resumeRecordingManually } from './manualPause';
 import type { RecordingStatus } from '../types';
 
@@ -56,6 +62,13 @@ export interface RecordingNotificationPayload {
   /** Frozen elapsed text, for the paused state where the chronometer is off. */
   elapsedText: string;
   running: boolean;
+  /**
+   * True when `chronometerBase` is the moment a rest ends and the chronometer counts down to it.
+   * Absent on a ride, which counts up.
+   */
+  countdown?: boolean;
+  /** Epoch ms the phone vibrates once at, or null. Absent on a ride. */
+  vibrateAt?: number | null;
   actions: { id: RecordingNotificationAction; label: string }[];
   /** The followed route's off-route line, or null when the ride has none. */
   guidance: string | null;
@@ -253,6 +266,52 @@ export function buildRecordingNotificationPayload(
   };
 }
 
+export type StrengthNotificationNames = FocusNames;
+
+/**
+ * The notification for a live strength session, drawn from the engine's focus
+ * state and nothing else. A rest counts down to `restEndsAt` and names the next
+ * set, a set names itself with no clock, and a finished session has no
+ * notification. The notification has no actions: the session is run on the
+ * screen. Times in the state are epoch seconds and the payload's are ms.
+ */
+export function buildStrengthNotificationPayload(
+  focus: FocusState | null | undefined,
+  names: StrengthNotificationNames,
+  options: { translate: FocusTranslate; session: number; nowMs: number }
+): RecordingNotificationPayload | null {
+  const { translate, session, nowMs } = options;
+  const set = focus?.current;
+  if (!focus || !set || focus.phase === FocusPhase.Finished) return null;
+
+  const setText = focusSetText(set, translate);
+  const resting = focus.phase === FocusPhase.Rest;
+  const endsAtMs = resting && focus.restEndsAt != null ? focus.restEndsAt * 1000 : null;
+  const startedAtMs = focus.restStartedAt != null ? focus.restStartedAt * 1000 : nowMs;
+  return {
+    status: 'recording',
+    title: resting ? translate('strength.focus.rest', 'Rest') : names.current,
+    body: resting
+      ? translate('strength.focus.nextSet', 'Next: {{set}}', {
+          set: `${names.current} · ${setText}`,
+        })
+      : setText,
+    session,
+    chronometerBase: endsAtMs ?? (resting ? startedAtMs : 0),
+    elapsedText: '',
+    running: resting,
+    countdown: endsAtMs != null,
+    vibrateAt: endsAtMs,
+    actions: [],
+    guidance: null,
+    vibrate: false,
+    accentColor: recording.light,
+    traceColor: colors.textOnFill,
+    trace: [],
+    interrupted: { channel: '', title: '', body: '' },
+  };
+}
+
 /**
  * Drive the same transitions the recording screen's buttons drive. Stop is the
  * one that is more than a store call: it also writes the backup and goes to
@@ -330,6 +389,31 @@ export function updateRecordingNotification(now = Date.now()): void {
     VeloqRecordingNotification.update(JSON.stringify(payload));
   } catch (e) {
     log.warn('updateRecordingNotification failed:', e);
+  }
+}
+
+/** Post the strength session's notification, or take it down when the session has none. */
+export function updateStrengthNotification(
+  focus: FocusState | null | undefined,
+  names: StrengthNotificationNames,
+  session: number,
+  nowMs = Date.now()
+): void {
+  if (!VeloqRecordingNotification) return;
+  try {
+    const t = i18n.t as unknown as FocusTranslate;
+    const payload = buildStrengthNotificationPayload(focus, names, {
+      translate: (key, fallback, values) => t(key, fallback, values),
+      session,
+      nowMs,
+    });
+    if (!payload) {
+      VeloqRecordingNotification.clear();
+      return;
+    }
+    VeloqRecordingNotification.update(JSON.stringify(payload));
+  } catch (e) {
+    log.warn('updateStrengthNotification failed:', e);
   }
 }
 

@@ -100,9 +100,6 @@ const point = { latitude: 46.5, longitude: 6.6 };
 const mockOverlays: SectionOverlay[] = [
   { id: 'sec-1', sectionPolyline: [point, point], activityPortion: [point, point] },
 ];
-jest.mock('@/features/routes/hooks/useActivityRematch', () => ({
-  useActivityRematch: () => ({ matches: [], scan: jest.fn(), rematch: jest.fn() }),
-}));
 jest.mock('@/features/routes/hooks/useCustomSections', () => ({
   useCustomSections: () => ({ createSection: jest.fn(), removeSection: jest.fn(), sections: [] }),
 }));

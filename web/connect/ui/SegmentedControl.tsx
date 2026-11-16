@@ -5,13 +5,14 @@
 export type Segment<T extends string> = { value: T; label: string };
 
 export function SegmentedControl<T extends string>(props: {
+  id?: string;
   label: string;
   value: T;
   options: readonly Segment<T>[];
   onChange: (value: T) => void;
 }) {
   return (
-    <div role="group" aria-label={props.label} className="ui-segmented">
+    <div id={props.id} role="group" aria-label={props.label} className="ui-segmented">
       {props.options.map((option) => (
         <button
           key={option.value}

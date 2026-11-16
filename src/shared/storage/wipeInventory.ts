@@ -17,6 +17,7 @@ export const WIPE_INVENTORY = {
   activities: 'returns',
   wellness: 'returns',
   detectedSections: 'returns',
+  importedActivities: 'deleted',
   localBackups: 'deleted',
   backupSetup: 'deleted',
   names: 'deleted',
@@ -49,6 +50,7 @@ const LINE: Record<WipeLine, (t: TFunction) => string> = {
   activities: (t) => t('alerts.wipeList.activities'),
   wellness: (t) => t('alerts.wipeList.wellness'),
   detectedSections: (t) => t('alerts.wipeList.detectedSections'),
+  importedActivities: (t) => t('alerts.wipeList.importedActivities'),
   localBackups: (t) => t('alerts.wipeList.localBackups'),
   backupSetup: (t) => t('alerts.wipeList.backupSetup'),
   names: (t) => t('alerts.wipeList.names'),
@@ -65,13 +67,18 @@ export function wipeLineText(line: WipeLine, t: TFunction): string {
   return LINE[line](t);
 }
 
+/** One fate as the confirm shows it: its heading, then each of its lines. */
+export function wipeListText(fate: WipeFate, t: TFunction): string {
+  return [HEADING[fate](t), ...wipeLines(fate).map((line) => `• ${LINE[line](t)}`)].join('\n');
+}
+
 /**
  * The message of the Sign out and delete data confirm: what it does, then each
  * fate under its heading with every line of it.
  */
 export function wipeConfirmMessage(t: TFunction): string {
-  const lists = FATES.map((fate) =>
-    [HEADING[fate](t), ...wipeLines(fate).map((line) => `• ${LINE[line](t)}`)].join('\n')
-  );
-  return [t('alerts.disconnectAndClearMessage'), ...lists].join('\n\n');
+  return [
+    t('alerts.disconnectAndClearMessage'),
+    ...FATES.map((fate) => wipeListText(fate, t)),
+  ].join('\n\n');
 }

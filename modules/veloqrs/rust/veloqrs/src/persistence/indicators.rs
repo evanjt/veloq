@@ -709,14 +709,18 @@ pub(crate) mod pooled {
             .collect();
 
         match stmt.query_map(params.as_slice(), |row| {
+            let indicator_type: String = row.get(1)?;
+            let target_name: String = row.get(3)?;
+            let trend: i8 = row.get(6)?;
             Ok(crate::FfiActivityIndicator {
                 activity_id: row.get(0)?,
-                indicator_type: row.get(1)?,
+                label: crate::indicator_chip_label(&indicator_type, &target_name, trend),
+                indicator_type,
                 target_id: row.get(2)?,
-                target_name: row.get(3)?,
+                target_name,
                 direction: row.get(4)?,
                 lap_time: row.get::<_, Option<f64>>(5)?.unwrap_or(0.0),
-                trend: row.get(6)?,
+                trend,
             })
         }) {
             Ok(rows) => rows.filter_map(|r| r.ok()).collect(),

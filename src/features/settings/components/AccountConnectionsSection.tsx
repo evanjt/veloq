@@ -4,6 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { sourceFor } from '@/shared/app/source';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 import { SwitchRow } from '@/shared/ui/SwitchRow';
@@ -16,6 +17,8 @@ import { useExperimental } from '../lib/experimental';
 /**
  * The accounts beside the intervals.icu sign-in: the Garmin connector while its
  * experimental switch is on, and in a demo the switch that hides the demo banner.
+ * A library filled from files has no account, so it offers the ways to add one.
+ * Both leave the files source for the sign-in screen and keep the library.
  */
 export function AccountConnectionsSection() {
   const { isDark } = useTheme();
@@ -25,6 +28,33 @@ export function AccountConnectionsSection() {
   const setHideDemoBanner = useAuthStore((s) => s.setHideDemoBanner);
   const garminState = useGarminConnectorState();
   const garminShown = useExperimental('garminUpdate');
+  const authMethod = useAuthStore((s) => s.authMethod);
+  const exitFilesMode = useAuthStore((s) => s.exitFilesMode);
+
+  if (sourceFor({ authMethod })?.id === 'files') {
+    return (
+      <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+        <SettingsNavRow
+          icon="chart-timeline-variant"
+          title={t('filesSource.connectIntervals')}
+          subtitle={t('filesSource.connectHint')}
+          onPress={() => void exitFilesMode()}
+          testID="settings-connect-intervals"
+        />
+        {garminShown ? (
+          <>
+            <RowDivider />
+            <SettingsNavRow
+              icon="watch"
+              title={t('filesSource.connectGarmin')}
+              onPress={() => void exitFilesMode()}
+              testID="settings-connect-garmin"
+            />
+          </>
+        ) : null}
+      </View>
+    );
+  }
 
   if (!isDemoMode && !garminShown) return null;
 

@@ -7,7 +7,7 @@
  * hands MapLibre the same collection object rather than a new one to compare.
  */
 import { decodeCoordsFlat } from 'veloqrs/src/coords';
-import { sectionPalette, sectionPaletteIndex } from '@/theme/colors';
+import { sectionPaletteIndex } from '@/theme/colors';
 import { EMPTY_FEATURE_COLLECTION } from './coordinates';
 import { createLayerHold } from './mapLayerHold';
 
@@ -67,7 +67,7 @@ function buildOverlay(input: MapSectionInput[]): MapSectionOverlay {
       type: 'Feature',
       id: section.id,
       // Keyed by id so the colour matches the activity map and survives a re-order.
-      properties: { ...listed, color: sectionPalette[sectionPaletteIndex(section.id)] },
+      properties: { ...listed, colorIndex: sectionPaletteIndex(section.id) },
       geometry: { type: 'LineString', coordinates },
     });
   }

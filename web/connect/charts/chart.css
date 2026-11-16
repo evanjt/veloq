@@ -1,0 +1,179 @@
+/* The chart kit. Colours come from the page variables, so both schemes apply. */
+
+figure.chart {
+  position: relative;
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+/* The drawing is as wide as its card and its text is 12 px, set on the svg. */
+figure.chart svg {
+  display: block;
+  max-width: 100%;
+  touch-action: pan-y;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+figure.calendar svg {
+  max-width: none;
+  touch-action: auto;
+}
+
+figure.calendar {
+  overflow-x: auto;
+}
+
+figure.chart .brush {
+  fill: var(--primary);
+  fill-opacity: 0.15;
+  stroke: var(--primary);
+  stroke-width: 1;
+}
+
+figure.chart .trend-band {
+  fill: var(--text-muted);
+  fill-opacity: 0.14;
+}
+
+figure.chart .trend-line {
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+}
+
+figure.chart .curve-band {
+  fill: var(--text-muted);
+  fill-opacity: 0.14;
+}
+
+figure.chart .curve-line {
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+}
+
+figure.chart .mark-bar {
+  shape-rendering: crispEdges;
+}
+
+figure.calendar .day {
+  fill: var(--border);
+  rx: 2;
+  cursor: pointer;
+}
+
+figure.calendar .day.level-1 {
+  fill: var(--chart-a);
+  fill-opacity: 0.45;
+}
+
+figure.calendar .day.level-2 {
+  fill: var(--chart-a);
+  fill-opacity: 0.65;
+}
+
+figure.calendar .day.level-3 {
+  fill: var(--chart-a);
+  fill-opacity: 0.85;
+}
+
+figure.calendar .day.level-4 {
+  fill: var(--chart-a);
+}
+
+figure.calendar .day.active {
+  stroke: var(--text);
+  stroke-width: 1.5;
+}
+
+figure.chart svg:focus-visible {
+  outline: var(--stroke-2) solid var(--primary);
+  outline-offset: var(--stroke-2);
+}
+
+figure.chart .grid line {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+figure.chart .axis text {
+  fill: var(--text-muted);
+}
+
+figure.chart .axis .title {
+  font-weight: 600;
+}
+
+figure.chart .crosshair {
+  stroke: var(--text-muted);
+  stroke-dasharray: 3 3;
+}
+
+figure.chart .crosshair-dot {
+  stroke: var(--card);
+  stroke-width: 2;
+}
+
+figure.chart .mark-line {
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+figure.chart .mark-area {
+  opacity: 0.18;
+}
+
+figure.chart .mark-dot {
+  cursor: pointer;
+  stroke: var(--card);
+  stroke-width: 1;
+}
+
+figure.chart .mark-dot.picked {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+figure.chart .legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md);
+  list-style: none;
+  margin: var(--space-xs) 0 0;
+  padding: 0;
+  color: var(--text-muted);
+}
+
+figure.chart .swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: var(--space-xs-plus);
+  border-radius: var(--web-radius-sm);
+}
+
+figure.chart .readout {
+  color: var(--text-muted);
+  min-height: 1.4em;
+  margin: var(--space-xs) 0 0;
+}
+
+/* Beside the crosshair, inside the plot; the chart sets its left, top and width. */
+figure.chart .chart-tooltip {
+  position: absolute;
+  box-sizing: border-box;
+  padding: var(--space-xs) var(--space-sm);
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  border: var(--stroke-1) solid var(--border);
+  border-radius: var(--web-radius-sm);
+  background: var(--card, var(--bg));
+  box-shadow: var(--shadow-elevated);
+  font-size: var(--web-type-caption-size);
+}
+
+figure.chart .form-band {
+  fill-opacity: 0.12;
+}

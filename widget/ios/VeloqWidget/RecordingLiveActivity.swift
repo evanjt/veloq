@@ -29,7 +29,14 @@ struct VeloqRecordingLiveActivity: Widget {
       .activityBackgroundTint(RecordingCardStyle.tint)
       .activitySystemActionForegroundColor(WidgetTheme.Record.foreground)
     } dynamicIsland: { context in
-      DynamicIsland {
+      context.state.isStrength ? strengthIsland(context) : recordingIsland(context)
+    }
+  }
+
+  private func recordingIsland(
+    _ context: ActivityViewContext<VeloqRecordingAttributes>
+  ) -> DynamicIsland {
+    DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {
           RecordingClock(
             state: context.state,
@@ -98,6 +105,136 @@ struct VeloqRecordingLiveActivity: Widget {
       // The island is always drawn on black, whatever the system scheme, so it
       // takes the dark scheme's record tone.
       .keylineTint(WidgetTheme.Record.Dark.accent)
+  }
+
+  /// The strength island: the exercise and the rest countdown, with no control, because a
+  /// pause sent from the island has no strength session to act on.
+  private func strengthIsland(
+    _ context: ActivityViewContext<VeloqRecordingAttributes>
+  ) -> DynamicIsland {
+    DynamicIsland {
+      DynamicIslandExpandedRegion(.leading) {
+        StrengthRestClock(state: context.state, isStale: context.isStale, step: .metric)
+          .padding(.leading, WidgetTheme.Layout.gap)
+      }
+      DynamicIslandExpandedRegion(.trailing) {
+        StrengthCardText(
+          state: context.state, isStale: context.isStale,
+          stoppedLabel: context.attributes.stoppedLabel, alignment: .trailing)
+          .padding(.trailing, WidgetTheme.Layout.gap)
+      }
+    } compactLeading: {
+      Image(systemName: "dumbbell.fill")
+        .foregroundStyle(WidgetTheme.Record.Dark.accent)
+        .unspoken()
+    } compactTrailing: {
+      StrengthRestClock(
+        state: context.state, isStale: context.isStale, step: .label,
+        maxWidth: RecordingCardStyle.compactClockWidth)
+    } minimal: {
+      Image(systemName: "dumbbell.fill")
+        .foregroundStyle(WidgetTheme.Record.Dark.accent)
+        .unspoken()
+    }
+    .widgetURL(URL(string: "veloq://record"))
+    .keylineTint(WidgetTheme.Record.Dark.accent)
+  }
+}
+
+/// The strength card on the lock screen. It has no control: the plan advances in the app.
+private struct StrengthLockScreenView: View {
+  let attributes: VeloqRecordingAttributes
+  let state: VeloqRecordingAttributes.ContentState
+  let isStale: Bool
+
+  var body: some View {
+    HStack(alignment: .center, spacing: WidgetTheme.Layout.padding) {
+      VStack(alignment: .leading, spacing: 2) {
+        Text((attributes.activityLabel ?? attributes.activityType).uppercased())
+          .widgetFont(.caption, weight: .semibold)
+          .foregroundStyle(RecordingCardStyle.secondaryText)
+        StrengthCardText(
+          state: state, isStale: isStale, stoppedLabel: attributes.stoppedLabel,
+          alignment: .leading)
+      }
+      Spacer(minLength: 0)
+      StrengthRestClock(state: state, isStale: isStale, step: .hero)
+    }
+    .padding(WidgetTheme.Layout.padding)
+    .widgetURL(URL(string: "veloq://record"))
+  }
+}
+
+/// The exercise, and the set that follows it. A stale card says the session stopped instead,
+/// since a countdown the app can no longer move on is not the plan's state.
+private struct StrengthCardText: View {
+  let state: VeloqRecordingAttributes.ContentState
+  let isStale: Bool
+  let stoppedLabel: String?
+  let alignment: HorizontalAlignment
+
+  var body: some View {
+    VStack(alignment: alignment, spacing: 2) {
+      if isStale, let stopped = stoppedLabel {
+        Text(stopped)
+          .widgetFont(.label, weight: .semibold)
+          .foregroundStyle(WidgetTheme.Record.foreground)
+      } else if let exercise = state.exercise {
+        Text(verbatim: exercise)
+          .widgetFont(.value, weight: .semibold)
+          .foregroundStyle(WidgetTheme.Record.foreground)
+          .lineLimit(2)
+      }
+      if !isStale, let next = state.nextSet {
+        Text("Next step")
+          .widgetFont(.caption, weight: .semibold)
+          .foregroundStyle(RecordingCardStyle.secondaryText)
+        Text(verbatim: next)
+          .widgetFont(.label)
+          .foregroundStyle(RecordingCardStyle.secondaryText)
+          .lineLimit(1)
+      }
+    }
+  }
+}
+
+/// The rest countdown. `Text(timerInterval:)` counts down to the end on its own, so it keeps
+/// running while the app is suspended. A set, a rest with no length and a stale card show no
+/// clock: a countdown that has passed its end would read as a rest still running.
+private struct StrengthRestClock: View {
+  let state: VeloqRecordingAttributes.ContentState
+  let isStale: Bool
+  let step: WidgetTheme.TypeStep
+  var maxWidth: CGFloat? = nil
+  @ScaledMetric private var scaled: CGFloat
+  @Environment(\.legibilityWeight) private var legibility
+
+  init(
+    state: VeloqRecordingAttributes.ContentState, isStale: Bool, step: WidgetTheme.TypeStep,
+    maxWidth: CGFloat? = nil
+  ) {
+    self.state = state
+    self.isStale = isStale
+    self.step = step
+    self.maxWidth = maxWidth
+    _scaled = ScaledMetric(wrappedValue: step.size, relativeTo: step.style)
+  }
+
+  private var size: CGFloat { step.capped(scaled) }
+
+  var body: some View {
+    if let end = state.restEnd, !isStale, end > Date.now {
+      VStack(alignment: .trailing, spacing: 2) {
+        Text("Rest")
+          .widgetFont(.caption, weight: .semibold)
+          .foregroundStyle(RecordingCardStyle.secondaryText)
+        Text(timerInterval: Date.now...end, countsDown: true)
+          .font(RecordingCardStyle.clockFont(size, boldText: legibility == .bold))
+          .frame(maxWidth: maxWidth.map { $0 * size / step.size }, alignment: .trailing)
+          .multilineTextAlignment(.trailing)
+          .foregroundStyle(WidgetTheme.Record.foreground)
+      }
+      .accessibilityElement(children: .combine)
     }
   }
 }
@@ -108,6 +245,14 @@ private struct RecordingLockScreenView: View {
   let isStale: Bool
 
   var body: some View {
+    if state.isStrength {
+      StrengthLockScreenView(attributes: attributes, state: state, isStale: isStale)
+    } else {
+      recordingBody
+    }
+  }
+
+  private var recordingBody: some View {
     HStack(alignment: .center, spacing: WidgetTheme.Layout.padding) {
       VStack(alignment: .leading, spacing: 2) {
         Text((attributes.activityLabel ?? attributes.activityType).uppercased())

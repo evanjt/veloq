@@ -74,7 +74,7 @@ fn garmin_only_library() -> (TempDir, PersistentEngine) {
     for (day, id) in RIDES.iter().enumerate() {
         ingest_into(
             &mut engine,
-            None,
+            false,
             &listed(*id),
             &hour_at_ftp(day as i64).to_fit(),
         )
@@ -451,9 +451,10 @@ fn name_library(engine: &PersistentEngine, athlete: &str) {
 }
 
 /// A Garmin library that intervals.icu adopted and served two of its rides,
-/// then signed out and came back by the same Garmin account.
-fn returned_library() -> (TempDir, PersistentEngine) {
-    let (dir, mut engine) = garmin_only_library();
+/// then named for the Garmin account again.
+#[test]
+fn a_library_holding_intervals_rows_scores_nothing_whatever_name_it_carries() {
+    let (_dir, mut engine) = garmin_only_library();
     name_library(&engine, "garmin:8841");
     name_library(&engine, "i77");
     let page = [
@@ -462,91 +463,33 @@ fn returned_library() -> (TempDir, PersistentEngine) {
     ];
     sync_page(&mut engine, &page);
     name_library(&engine, "garmin:8841");
-    (dir, engine)
-}
 
-#[test]
-fn a_returned_library_scores_its_unserved_rides_and_leaves_intervals_numbers() {
-    let (_dir, mut engine) = returned_library();
+    assert!(!crate::persistence::fitness::curves_local::is_garmin_only(&engine.db).unwrap());
     let third = garmin_source_key(RIDES[2]);
-    assert_eq!(figures(&engine, &third).load, None);
-
-    assert!(crate::persistence::fitness::curves_local::is_garmin_only(&engine.db).unwrap());
-    let mut attempted = std::collections::HashSet::new();
-    assert!(
-        engine
-            .backfill_ride_metrics_page(&mut attempted, 25)
-            .unwrap()
-            > 0,
-        "the unserved ride is owed work"
+    assert_eq!(
+        crate::persistence::fitness::ride_metrics::owed_count(&engine.db).unwrap(),
+        0
     );
-
-    let scored = figures(&engine, &third);
-    assert!(scored.load.is_some());
-    assert_eq!(scored.mark.as_deref(), Some("veloq"));
-    for id in &RIDES[..2] {
-        let key = garmin_source_key(*id);
-        let kept = figures(&engine, &key);
-        assert_eq!(kept.load, Some(61.0), "{key}: intervals.icu's load");
-        assert_eq!(kept.mark.as_deref(), Some("intervals"), "{key}");
-        assert_eq!(body_of(&engine, &key)["icu_training_load"], 61.0, "{key}");
-    }
-}
-
-#[test]
-fn a_returned_library_folds_the_series_and_builds_the_curves_again() {
-    let (_dir, mut engine) = returned_library();
     let mut attempted = std::collections::HashSet::new();
     engine
         .backfill_ride_metrics_page(&mut attempted, 25)
         .unwrap();
-
-    let folded =
-        crate::persistence::fitness::fitness_series::refresh(&engine.db, "2026-04-01").unwrap();
-    crate::persistence::fitness::curves_local::refresh(&engine.db, 1_775_000_000).unwrap();
-
-    assert!(folded > 0, "the series folds the days");
-    assert!(
-        count(
-            &engine,
-            "SELECT COUNT(*) FROM wellness WHERE source = 'veloq'"
-        ) > 0
+    assert_eq!(figures(&engine, &third).load, None);
+    assert_eq!(
+        crate::persistence::fitness::fitness_series::refresh(&engine.db, "2026-04-01").unwrap(),
+        0
     );
-    assert!(
+    crate::persistence::fitness::curves_local::refresh(&engine.db, 1_775_000_000).unwrap();
+    assert_eq!(
         count(
             &engine,
             "SELECT COUNT(*) FROM curve_bodies WHERE source = 'veloq'"
-        ) > 0
+        ),
+        0
     );
 }
 
 #[test]
-fn a_returned_library_keeps_a_cycling_eftp_intervals_wrote() {
-    let (_dir, engine) = returned_library();
-    engine
-        .db
-        .execute(
-            "INSERT INTO wellness (date, raw) VALUES ('2026-03-14', ?1)",
-            params![json!({"sportInfo": [{"type": "Ride", "eftp": 261.0}]}).to_string()],
-        )
-        .unwrap();
-
-    crate::persistence::fitness::curves_local::refresh(&engine.db, 1_775_000_000).unwrap();
-
-    let raw: String = engine
-        .db
-        .query_row(
-            "SELECT raw FROM wellness WHERE date = '2026-03-14'",
-            [],
-            |r| r.get(0),
-        )
-        .unwrap();
-    let body: Value = serde_json::from_str(&raw).unwrap();
-    assert_eq!(body["sportInfo"], json!([{"type": "Ride", "eftp": 261.0}]));
-}
-
-#[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_library_still_named_for_garmin_under_intervals_rows_is_dropped_as_before() {
     let (_dir, mut engine) = garmin_only_library();
     name_library(&engine, "garmin:8841");
@@ -561,41 +504,10 @@ fn a_library_still_named_for_garmin_under_intervals_rows_is_dropped_as_before() 
 
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
-fn leaving_a_garmin_identity_records_the_account_the_library_held() {
+fn leaving_a_garmin_identity_writes_no_second_setting() {
     let (_dir, engine) = engine();
     name_library(&engine, "garmin:8841");
-    assert_eq!(engine.get_setting("__garmin_library_id").unwrap(), None);
-
     name_library(&engine, "i77");
-
-    assert_eq!(
-        engine
-            .get_setting("__garmin_library_id")
-            .unwrap()
-            .as_deref(),
-        Some("garmin:8841")
-    );
-}
-
-#[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
-fn an_identity_that_was_never_garmin_or_that_leaves_for_demo_records_nothing() {
-    let (_dir, engine) = engine();
-    name_library(&engine, "i77");
-    name_library(&engine, "i88");
-    assert_eq!(engine.get_setting("__garmin_library_id").unwrap(), None);
-
-    name_library(&engine, "garmin:8841");
-    name_library(&engine, "demo");
-    name_library(&engine, "garmin:9000");
-
-    assert_eq!(engine.get_setting("__garmin_library_id").unwrap(), None);
-}
-
-#[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
-fn the_ffi_settings_write_records_it_too() {
-    let (_dir, engine) = engine();
     crate::persistence::settings::set_settings_on(
         &engine.db,
         &[("__athlete_id".to_owned(), "garmin:8841".to_owned())],
@@ -607,13 +519,7 @@ fn the_ffi_settings_write_records_it_too() {
     )
     .unwrap();
 
-    assert_eq!(
-        engine
-            .get_setting("__garmin_library_id")
-            .unwrap()
-            .as_deref(),
-        Some("garmin:8841")
-    );
+    assert_eq!(engine.get_setting("__garmin_library_id").unwrap(), None);
 }
 
 fn wellness_day(date: &str, hrv: f64) -> crate::persistence::wellness::WellnessRow {

@@ -3,16 +3,17 @@
  * whose chart plots each attempt's moving time.
  *
  * Expected behaviour: every figure beside that chart reads moving time, the
- * stats row, the Summary card, the year and month bests and the tooltip
+ * stats row, the hero averages, the year and month bests and the tooltip
  * headline, and never a pace the axis does not show. A section of the same
  * sport keeps reading pace.
  */
 
 import React from 'react';
-import { render, within } from '@testing-library/react-native';
+import { fireEvent, render, within } from '@testing-library/react-native';
 
 import { initialiseI18n } from '@/i18n';
 import { SectionContentArea } from '@/features/routes/components/section/SectionContentArea';
+import { DirectionAverages } from '@/features/routes/components/section/DirectionAverages';
 import { SelectedAttemptCard } from '@/features/routes/components/section/SelectedAttemptCard';
 import type { CalendarSummary } from '@/features/routes/components/section/SectionStatsCards';
 import type { PerformanceDataPoint } from '@/types';
@@ -64,8 +65,6 @@ function area(subject: 'route' | 'section') {
       correlations={[]}
       correlationFloor={0}
       combinedChartData={CHART_DATA}
-      firstActivityDate={new Date(2026, 3, 1)}
-      lastActivityDate={new Date(2026, 3, 3)}
       trendCurves={{}}
       forwardStats={{
         avgTime: 1600,
@@ -108,12 +107,11 @@ describe('the figures beside a route chart', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('reads the best, the average and the yearly and monthly bests as moving time', () => {
-    const { getByTestId } = area('route');
+  it('reads the best and the yearly and monthly bests as moving time', () => {
+    const { getByTestId, getByLabelText } = area('route');
+    fireEvent.press(getByLabelText('Year 2026'));
 
     expect(text(getByTestId('stats-row-best-forward'))).toBe('25:00');
-    expect(getByTestId('section-best').props.children).toBe('25:00');
-    expect(getByTestId('section-avg').props.children).toBe('26:40');
     const calendar = within(getByTestId('section-calendar'));
     expect(calendar.getByText(/^3 traversals.*25:00/)).toBeTruthy();
     expect(calendar.getByText('25:00')).toBeTruthy();
@@ -121,11 +119,10 @@ describe('the figures beside a route chart', () => {
   });
 
   it('keeps a section of the same sport on pace', () => {
-    const { getByTestId } = area('section');
+    const { getByTestId, getByLabelText } = area('section');
+    fireEvent.press(getByLabelText('Year 2026'));
 
     expect(text(getByTestId('stats-row-best-forward'))).toBe('8:03 /mi');
-    expect(getByTestId('section-best').props.children).toBe('8:03 /mi');
-    expect(getByTestId('section-avg').props.children).toBe('8:35 /mi');
     expect(within(getByTestId('section-calendar')).getByText('8:03 /mi')).toBeTruthy();
   });
 });
@@ -158,5 +155,28 @@ describe('the route attempt card', () => {
     expect(getByTestId('selected-attempt-value')).toHaveTextContent('26:40');
     expect(getByTestId('selected-attempt-standing')).toHaveTextContent(/1:40/);
     expect(queryByText(/\/(mi|km)/)).toBeNull();
+  });
+});
+
+describe('the hero averages', () => {
+  const forward = {
+    avgTime: 1600,
+    avgSpeed: DISTANCE / 1600,
+    count: 3,
+    lastActivity: null,
+    outsideBandCount: 0,
+  };
+
+  it('read a route in moving time and a section of the same sport in pace', async () => {
+    const route = await render(
+      <DirectionAverages forwardStats={forward} reverseStats={null} basis="time" />
+    );
+    expect(route.getByTestId('section-avg-forward')).toHaveTextContent('26:40');
+    await route.unmount();
+
+    const section = await render(
+      <DirectionAverages forwardStats={forward} reverseStats={null} basis="pace" />
+    );
+    expect(section.getByTestId('section-avg-forward')).toHaveTextContent('8:35 /mi');
   });
 });

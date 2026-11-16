@@ -343,16 +343,64 @@ impl PersistentEngine {
 
     /// Accept all current auto-detected sections.
     pub fn accept_all_sections(&mut self) -> Result<u32, String> {
-        let count = self.in_write_txn(|e| e.write_accept_all_sections())?;
+        Ok(self.accept_all_sections_listed()?.len() as u32)
+    }
+
+    /// Accept all current auto-detected sections and name the ones this call
+    /// changed, so a write that takes the acceptance back can name exactly them.
+    pub fn accept_all_sections_listed(&mut self) -> Result<Vec<String>, String> {
+        let accepted = self.in_write_txn(|e| e.write_accept_all_sections())?;
         self.mark_all_auto_sections_accepted();
         self.invalidate_all_section_caches();
         // Every managed auto section is now durable; reseed so the registry holds
         // only the (now empty) non-user-defined set and carries none of them.
         self.section_identity_reseed();
-        Ok(count)
+        Ok(accepted)
     }
 
-    fn write_accept_all_sections(&mut self) -> Result<u32, String> {
+    /// Hand accepted detected sections back to detection: the flag an accept
+    /// sets is cleared, and nothing else an accept did is undone. All of the
+    /// ids are checked before any is changed.
+    pub fn unaccept_sections(&mut self, section_ids: &[String]) -> Result<(), String> {
+        self.in_write_txn(|e| e.write_unaccept_sections(section_ids))?;
+        for id in section_ids {
+            self.invalidate_section_cache(id);
+            self.refresh_section_in_memory(id);
+            self.section_identity_admit(id);
+        }
+        Ok(())
+    }
+
+    fn write_unaccept_sections(&mut self, section_ids: &[String]) -> Result<(), String> {
+        for id in section_ids {
+            let kind: Option<String> = self
+                .db
+                .query_row(
+                    "SELECT section_type FROM sections WHERE id = ?",
+                    params![id],
+                    |row| row.get(0),
+                )
+                .optional()
+                .map_err(|e| format!("Failed to read section: {}", e))?;
+            match kind.as_deref() {
+                None => return Err(format!("Section not found: {}", id)),
+                Some("auto") => {}
+                Some(_) => return Err(format!("Section was not detected: {}", id)),
+            }
+        }
+        for id in section_ids {
+            self.db
+                .execute(
+                    "UPDATE sections SET is_user_defined = 0, updated_at = ? WHERE id = ?",
+                    params![super::stamp_now(), id],
+                )
+                .map_err(|e| format!("Failed to unaccept section: {}", e))?;
+            self.drop_section_pin(id);
+        }
+        Ok(())
+    }
+
+    fn write_accept_all_sections(&mut self) -> Result<Vec<String>, String> {
         // Land every resolved corridor name on its row before the bulk
         // promotion hides those rows from resolution.
         let named: Vec<String> = self
@@ -381,8 +429,7 @@ impl PersistentEngine {
             .and_then(|mut stmt| stmt.query_map([], |row| row.get(0))?.collect())
             .map_err(|e| format!("Failed to list sections to accept: {}", e))?;
         let updated_at = super::stamp_now();
-        let count = self
-            .db
+        self.db
             .execute(
                 "UPDATE sections SET is_user_defined = 1, updated_at = ?
                  WHERE section_type = 'auto' AND is_user_defined = 0 AND disabled = 0",
@@ -397,7 +444,7 @@ impl PersistentEngine {
                 None,
             )?;
         }
-        Ok(count as u32)
+        Ok(accepted)
     }
 
     /// Set a new reference activity for a section.

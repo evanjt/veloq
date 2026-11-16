@@ -41,6 +41,18 @@ describe('the strength delegate with the engine closed', () => {
     expect(strength.getMuscleDetail(host, 'a1', 'chest')).toBeNull();
   });
 
+  it('answers the recorder reads with nothing and its writes with null', () => {
+    expect(strength.getStrengthStartData(host, 0)).toEqual({
+      live: false,
+      groups: [],
+      workouts: [],
+    });
+    expect(strength.getLiveStrengthSession(host)).toBeNull();
+    expect(strength.startLiveStrengthSession(host, { kind: 'Blank' }, 0)).toBeNull();
+    expect(strength.startLiveStrengthSessionFromPlan(host, ['Plank 60 sec'], 0)).toBeNull();
+    expect(strength.editLiveStrengthSession(host, { kind: 'StartRest' }, 0)).toBeNull();
+  });
+
   it('answers NotReady from both starts', () => {
     expect(strength.fetchAndParseExerciseSets(host, 'a1')).toEqual({
       outcome: FfiStartOutcome.NotReady,
@@ -52,6 +64,7 @@ describe('the strength delegate with the engine closed', () => {
 
   it('holds a bulk insert instead of reaching the engine', () => {
     strength.bulkInsertExerciseSets(host, 'a1', []);
-    expect(held).toEqual(['bulkInsertExerciseSets']);
+    strength.discardLiveStrengthSession(host);
+    expect(held).toEqual(['bulkInsertExerciseSets', 'discardLiveStrengthSession']);
   });
 });

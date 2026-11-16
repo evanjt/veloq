@@ -23,14 +23,18 @@
 
 use std::fmt;
 
-use rusqlite::Result as SqlResult;
+use rusqlite::{Connection, Result as SqlResult};
 
 use super::PersistentEngine;
 use super::climb_bests::in_write_txn;
 use super::exercise_usage::{LastTime, last_time};
 use super::strength_sessions::{
-    SessionExercise, SessionGroup, SessionKind, SessionRest, SessionSet, StrengthSession,
+    HEART_RATE_RANGE, SessionExercise, SessionGroup, SessionKind, SessionRest, SessionSet,
+    StrengthSession, read_session,
 };
+use crate::strength::catalogue::{self, Equipment};
+use crate::strength::plan_line::{PlanLineReading, read_line};
+use crate::strength::weight::{WeightUnit, step_sizes, step_weight_kg};
 
 /// Why a live-session call did nothing.
 #[derive(Debug, PartialEq)]
@@ -82,6 +86,15 @@ pub enum StartFrom {
     /// A finished session or a saved workout, copied with its sets as planned
     /// values and nothing done. The source is not changed.
     Session(String),
+    /// A strength activity in the library, whatever recorded it. A phone
+    /// recording that kept its session starts from that session, with its
+    /// groups and rests; any other starts from its working sets, each run of
+    /// sets of one exercise an exercise.
+    Activity(String),
+    /// The lines of a planned workout. Each line that reads as an exercise
+    /// becomes one with its planned sets, a rest line becomes the rest after
+    /// the exercise before it, and every other line is kept as a session note.
+    Plan(Vec<String>),
 }
 
 /// One change to the live session. The phone and the browser both make these.
@@ -125,6 +138,28 @@ pub enum LiveEdit {
     RemoveSet {
         exercise: u32,
         set: u32,
+    },
+    /// One tap of a stepper: reps up or down by one, never below one.
+    StepReps {
+        exercise: u32,
+        set: u32,
+        direction: i32,
+    },
+    /// One tap of a stepper: weight up or down by the exercise's equipment
+    /// step, never below zero.
+    StepWeight {
+        exercise: u32,
+        set: u32,
+        direction: i32,
+        /// The athlete's unit: the step is taken in it.
+        unit: WeightUnit,
+    },
+    /// One tap of a stepper: duration up or down by five seconds, never below
+    /// five.
+    StepDuration {
+        exercise: u32,
+        set: u32,
+        direction: i32,
     },
     SetReps {
         exercise: u32,
@@ -175,6 +210,9 @@ pub struct LiveOutcome {
     /// since that session.
     pub prefilled_days_ago: Option<u32>,
 }
+
+/// The categories the profile uses for a set with no named exercise.
+const UNNAMED_CATEGORIES: [u16; 2] = [65534, 65535];
 
 fn same_reps(a: &Option<u32>, b: &Option<u32>) -> bool {
     a == b
@@ -338,6 +376,53 @@ impl StrengthSession {
             |s| &mut s.planned_duration_secs,
             same_measure,
         )
+    }
+
+    /// One stepper tap on a set's reps, carried down like any change.
+    pub fn step_reps(&mut self, exercise: u32, set: u32, direction: i32) -> Result<(), LiveError> {
+        self.check_set(exercise, set)?;
+        let current = self.exercises[exercise as usize].sets[set as usize].reps;
+        let step = step_sizes(Equipment::Other, WeightUnit::Kilogram).reps;
+        let next = (i64::from(current.unwrap_or(0))
+            + i64::from(step) * i64::from(direction.signum()))
+        .max(1);
+        self.set_reps(exercise, set, Some(next as u32))
+    }
+
+    /// One stepper tap on a set's weight, by the step its exercise's
+    /// equipment takes in the athlete's `unit`, carried down like any change.
+    pub fn step_weight(
+        &mut self,
+        exercise: u32,
+        set: u32,
+        direction: i32,
+        unit: WeightUnit,
+    ) -> Result<(), LiveError> {
+        self.check_set(exercise, set)?;
+        let found = &self.exercises[exercise as usize];
+        let equipment = found
+            .exercise_name
+            .and_then(|name| catalogue::lookup(found.exercise_category, name))
+            .map_or(Equipment::Other, |entry| entry.equipment);
+        let current = found.sets[set as usize].weight_kg.unwrap_or(0.0);
+        let next = step_weight_kg(current, equipment, unit, direction);
+        self.set_weight(exercise, set, Some(next))
+    }
+
+    /// One stepper tap on a set's duration, carried down like any change.
+    pub fn step_duration(
+        &mut self,
+        exercise: u32,
+        set: u32,
+        direction: i32,
+    ) -> Result<(), LiveError> {
+        self.check_set(exercise, set)?;
+        let current = self.exercises[exercise as usize].sets[set as usize]
+            .duration_secs
+            .unwrap_or(0.0);
+        let step = f64::from(step_sizes(Equipment::Other, WeightUnit::Kilogram).duration_secs);
+        let next = (current + step * f64::from(direction.signum())).max(step);
+        self.set_duration(exercise, set, Some(next))
     }
 
     pub fn set_side(
@@ -586,6 +671,18 @@ impl StrengthSession {
         }
     }
 
+    /// End the session at `now` as a finished one for the ride stored under
+    /// `activity_key`, closing the rest in progress.
+    pub fn finish(&mut self, activity_key: &str, now: i64) {
+        self.end_rest(now);
+        self.kind = SessionKind::Finished;
+        self.started_at.get_or_insert(now);
+        self.ended_at = Some(now);
+        self.last_used_at = Some(now);
+        self.activity_key = Some(activity_key.to_string());
+        self.put_position(None);
+    }
+
     /// Start the session at `now` if it has not begun.
     pub fn begin(&mut self, now: i64) {
         self.started_at.get_or_insert(now);
@@ -611,6 +708,22 @@ impl StrengthSession {
             LiveEdit::GroupRest { group_no, secs } => self.set_group_rest(*group_no, *secs)?,
             LiveEdit::AddSet { exercise, after } => self.add_set(*exercise, *after)?,
             LiveEdit::RemoveSet { exercise, set } => self.remove_set(*exercise, *set)?,
+            LiveEdit::StepReps {
+                exercise,
+                set,
+                direction,
+            } => self.step_reps(*exercise, *set, *direction)?,
+            LiveEdit::StepWeight {
+                exercise,
+                set,
+                direction,
+                unit,
+            } => self.step_weight(*exercise, *set, *direction, *unit)?,
+            LiveEdit::StepDuration {
+                exercise,
+                set,
+                direction,
+            } => self.step_duration(*exercise, *set, *direction)?,
             LiveEdit::SetReps {
                 exercise,
                 set,
@@ -673,7 +786,7 @@ fn prefilled_sets(last: &LastTime, preparing: bool) -> Vec<SessionSet> {
 
 /// A copy of a session to start from: every set as a planned set, none done,
 /// and nothing of the recording it came from.
-fn prepared_from(source: &StrengthSession, id: String, now: i64) -> StrengthSession {
+pub(super) fn prepared_from(source: &StrengthSession, id: String, now: i64) -> StrengthSession {
     let exercises = source
         .exercises
         .iter()
@@ -718,32 +831,39 @@ fn prepared_from(source: &StrengthSession, id: String, now: i64) -> StrengthSess
         current_exercise: None,
         current_set: None,
         rest_started_at: None,
+        heart_rate: Vec::new(),
+        notes: Vec::new(),
     };
     session.settle_position();
     session
+}
+
+/// The session in progress, read on any connection, so a screen can ask on a
+/// pooled reader without the engine's write lock.
+pub(crate) fn read_live(conn: &Connection) -> SqlResult<Option<StrengthSession>> {
+    let id: Option<String> = conn
+        .query_row(
+            "SELECT id FROM strength_sessions WHERE kind = 'live'
+             ORDER BY created_at DESC, id LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .map(Some)
+        .or_else(|error| match error {
+            rusqlite::Error::QueryReturnedNoRows => Ok(None),
+            error => Err(error),
+        })?;
+    match id {
+        Some(id) => read_session(conn, &id),
+        None => Ok(None),
+    }
 }
 
 impl PersistentEngine {
     /// The session in progress, if there is one: where a restarted app picks
     /// up.
     pub fn live_strength_session(&self) -> SqlResult<Option<StrengthSession>> {
-        let id: Option<String> = self
-            .db
-            .query_row(
-                "SELECT id FROM strength_sessions WHERE kind = 'live'
-                 ORDER BY created_at DESC, id LIMIT 1",
-                [],
-                |row| row.get(0),
-            )
-            .map(Some)
-            .or_else(|error| match error {
-                rusqlite::Error::QueryReturnedNoRows => Ok(None),
-                error => Err(error),
-            })?;
-        match id {
-            Some(id) => self.get_strength_session(&id),
-            None => Ok(None),
-        }
+        read_live(&self.db)
     }
 
     /// Start the live session from nothing or from a copy of an earlier one,
@@ -782,6 +902,8 @@ impl PersistentEngine {
                         current_exercise: None,
                         current_set: None,
                         rest_started_at: None,
+                        heart_rate: Vec::new(),
+                        notes: Vec::new(),
                     },
                     id,
                     now,
@@ -792,10 +914,160 @@ impl PersistentEngine {
                     }
                     _ => return Ok(Err(LiveError::NoSuchSource(source.clone()))),
                 },
+                StartFrom::Plan(lines) => self.session_for_plan(lines, id, now)?,
+                StartFrom::Activity(activity) => {
+                    match self.session_for_activity(activity, id, now)? {
+                        Some(session) => session,
+                        None => return Ok(Err(LiveError::NoSuchSource(activity.clone()))),
+                    }
+                }
             };
             self.save_strength_session(&session)?;
             Ok(Ok(session))
         })?
+    }
+
+    /// The prepared session a plan starts: its lines read one by one, an
+    /// exercise named without sets taking the sets of its last time.
+    fn session_for_plan(
+        &self,
+        lines: &[String],
+        id: String,
+        now: i64,
+    ) -> SqlResult<StrengthSession> {
+        let mut exercises: Vec<SessionExercise> = Vec::new();
+        let mut notes: Vec<String> = Vec::new();
+        for line in lines
+            .iter()
+            .map(|line| line.trim())
+            .filter(|line| !line.is_empty())
+        {
+            match read_line(line) {
+                PlanLineReading::Exercise(planned) => {
+                    let mut exercise = planned.into_session_exercise();
+                    if exercise.sets.is_empty()
+                        && let Some(last) = last_time(
+                            &self.db,
+                            exercise.exercise_category,
+                            exercise.exercise_name,
+                            now,
+                        )?
+                    {
+                        exercise.sets = prefilled_sets(&last, true);
+                    }
+                    exercises.push(exercise);
+                }
+                PlanLineReading::Rest { secs } => match exercises.last_mut() {
+                    Some(last) => last.rest_secs = Some(secs),
+                    None => notes.push(line.to_string()),
+                },
+                PlanLineReading::Note(note) => notes.push(note),
+            }
+        }
+        let mut session = StrengthSession {
+            id,
+            kind: SessionKind::Live,
+            name: None,
+            activity_key: None,
+            intervals_id: None,
+            started_at: None,
+            ended_at: None,
+            last_used_at: None,
+            created_at: now,
+            exercises,
+            groups: Vec::new(),
+            rests: Vec::new(),
+            current_exercise: None,
+            current_set: None,
+            rest_started_at: None,
+            heart_rate: Vec::new(),
+            notes,
+        };
+        session.settle_position();
+        Ok(session)
+    }
+
+    /// The prepared session an activity starts: from the finished session a
+    /// phone recording kept, else from the working sets in the library.
+    fn session_for_activity(
+        &self,
+        activity: &str,
+        id: String,
+        now: i64,
+    ) -> SqlResult<Option<StrengthSession>> {
+        let kept: Option<String> = self
+            .db
+            .query_row(
+                "SELECT id FROM strength_sessions
+                 WHERE kind = 'finished' AND (activity_key = ?1 OR intervals_id = ?1)
+                 ORDER BY created_at DESC, id LIMIT 1",
+                [activity],
+                |row| row.get(0),
+            )
+            .map(Some)
+            .or_else(|error| match error {
+                rusqlite::Error::QueryReturnedNoRows => Ok(None),
+                error => Err(error),
+            })?;
+        if let Some(kept) = kept
+            && let Some(found) = self.get_strength_session(&kept)?
+        {
+            return Ok(Some(prepared_from(&found, id, now)));
+        }
+        let mut exercises: Vec<SessionExercise> = Vec::new();
+        for logged in self.get_exercise_sets(activity)? {
+            if logged.set_type != 0 || UNNAMED_CATEGORIES.contains(&logged.exercise_category) {
+                continue;
+            }
+            let reps = logged.repetitions.map(u32::from);
+            let row = SessionSet {
+                reps,
+                weight_kg: logged.weight_kg,
+                duration_secs: logged.duration_secs,
+                planned_reps: reps,
+                planned_weight_kg: logged.weight_kg,
+                planned_duration_secs: logged.duration_secs,
+                ..SessionSet::default()
+            };
+            match exercises.last_mut() {
+                Some(last)
+                    if last.exercise_category == logged.exercise_category
+                        && last.exercise_name == logged.exercise_name =>
+                {
+                    last.sets.push(row);
+                }
+                _ => exercises.push(SessionExercise {
+                    exercise_category: logged.exercise_category,
+                    exercise_name: logged.exercise_name,
+                    sets: vec![row],
+                    ..SessionExercise::default()
+                }),
+            }
+        }
+        if exercises.is_empty() {
+            return Ok(None);
+        }
+        let mut session = StrengthSession {
+            id,
+            kind: SessionKind::Live,
+            name: None,
+            activity_key: None,
+            intervals_id: None,
+            started_at: None,
+            ended_at: None,
+            last_used_at: None,
+            created_at: now,
+            exercises,
+            groups: Vec::new(),
+            rests: Vec::new(),
+            current_exercise: None,
+            current_set: None,
+            rest_started_at: None,
+            heart_rate: Vec::new(),
+            notes: Vec::new(),
+        };
+        session.settle_position();
+        Ok(Some(session))
     }
 
     /// Make one change to the live session and store the result, in one
@@ -832,6 +1104,31 @@ impl PersistentEngine {
         })?
     }
 
+    /// Keep one heart rate reading taken at `now` on the live session. A
+    /// reading is dropped when no session is live, when the session has not
+    /// begun, and when it is no heart rate (a strap off the skin reports 0);
+    /// a second reading in the same second replaces the first. Nothing is
+    /// filled in for a pause. Returns whether the reading was kept.
+    pub fn record_live_heart_rate(&self, bpm: u32, now: i64) -> SqlResult<bool> {
+        if !HEART_RATE_RANGE.contains(&bpm) {
+            return Ok(false);
+        }
+        in_write_txn(&self.db, |_| {
+            let Some(session) = self.live_strength_session()? else {
+                return Ok(false);
+            };
+            if session.started_at.is_none() {
+                return Ok(false);
+            }
+            self.db.execute(
+                "INSERT OR REPLACE INTO strength_session_heart_rate (session_id, at, bpm)
+                 VALUES (?1, ?2, ?3)",
+                rusqlite::params![session.id, now, bpm],
+            )?;
+            Ok(true)
+        })
+    }
+
     /// End the live session at `now` as a finished one for the ride stored
     /// under `activity_key`: its done working sets enter the library at once.
     pub fn finish_live_strength_session(
@@ -843,13 +1140,7 @@ impl PersistentEngine {
             let Some(mut session) = self.live_strength_session()? else {
                 return Ok(Err(LiveError::NoLiveSession));
             };
-            session.end_rest(now);
-            session.kind = SessionKind::Finished;
-            session.started_at.get_or_insert(now);
-            session.ended_at = Some(now);
-            session.last_used_at = Some(now);
-            session.activity_key = Some(activity_key.to_string());
-            session.put_position(None);
+            session.finish(activity_key, now);
             self.save_strength_session(&session)?;
             Ok(Ok(session))
         })?
@@ -920,6 +1211,8 @@ mod tests {
             current_exercise: None,
             current_set: None,
             rest_started_at: None,
+            heart_rate: Vec::new(),
+            notes: Vec::new(),
         };
         session.settle_position();
         session
@@ -1148,6 +1441,98 @@ mod tests {
             session.complete_set(e, s, NOW + index as i64).unwrap();
         }
         assert_eq!(position(&session), None);
+    }
+
+    #[test]
+    fn a_weight_step_takes_the_equipment_size_and_flows_down() {
+        let mut session = three_sets([8, 8, 8]);
+        session
+            .apply(
+                &LiveEdit::StepWeight {
+                    exercise: 0,
+                    set: 0,
+                    direction: 1,
+                    unit: WeightUnit::Kilogram,
+                },
+                NOW,
+            )
+            .unwrap();
+        assert_eq!(
+            weights_of(&session, 0),
+            [Some(42.5), Some(42.5), Some(42.5)]
+        );
+
+        session
+            .apply(
+                &LiveEdit::StepWeight {
+                    exercise: 0,
+                    set: 1,
+                    direction: -1,
+                    unit: WeightUnit::Kilogram,
+                },
+                NOW,
+            )
+            .unwrap();
+        assert_eq!(
+            weights_of(&session, 0),
+            [Some(42.5), Some(40.0), Some(40.0)]
+        );
+    }
+
+    #[test]
+    fn a_weight_step_from_nothing_starts_at_one_step_and_never_goes_below_zero() {
+        let mut session = live(vec![exercise(
+            BENCH,
+            vec![SessionSet::default(), SessionSet::default()],
+        )]);
+        let step = |direction| LiveEdit::StepWeight {
+            exercise: 0,
+            set: 0,
+            direction,
+            unit: WeightUnit::Kilogram,
+        };
+        session.apply(&step(-1), NOW).unwrap();
+        assert_eq!(weights_of(&session, 0), [Some(0.0), Some(0.0)]);
+        session.apply(&step(1), NOW).unwrap();
+        assert_eq!(weights_of(&session, 0), [Some(2.5), Some(2.5)]);
+    }
+
+    #[test]
+    fn a_reps_step_moves_by_one_and_stops_at_one() {
+        let mut session = three_sets([2, 2, 5]);
+        let step = |set, direction| LiveEdit::StepReps {
+            exercise: 0,
+            set,
+            direction,
+        };
+        session.apply(&step(0, -1), NOW).unwrap();
+        assert_eq!(reps_of(&session, 0), [Some(1), Some(1), Some(5)]);
+        session.apply(&step(0, -1), NOW).unwrap();
+        assert_eq!(reps_of(&session, 0), [Some(1), Some(1), Some(5)]);
+        session.apply(&step(2, 1), NOW).unwrap();
+        assert_eq!(reps_of(&session, 0), [Some(1), Some(1), Some(6)]);
+    }
+
+    #[test]
+    fn a_duration_step_moves_by_five_seconds_and_stops_at_five() {
+        let mut session = live(vec![exercise(
+            BENCH,
+            vec![SessionSet {
+                duration_secs: Some(10.0),
+                ..SessionSet::default()
+            }],
+        )]);
+        let step = |direction| LiveEdit::StepDuration {
+            exercise: 0,
+            set: 0,
+            direction,
+        };
+        session.apply(&step(1), NOW).unwrap();
+        assert_eq!(session.exercises[0].sets[0].duration_secs, Some(15.0));
+        for _ in 0..4 {
+            session.apply(&step(-1), NOW).unwrap();
+        }
+        assert_eq!(session.exercises[0].sets[0].duration_secs, Some(5.0));
     }
 
     #[test]
@@ -1527,6 +1912,33 @@ mod tests {
     }
 
     #[test]
+    fn a_pound_athlete_s_session_file_carries_the_pound_unit() {
+        let (_dir, engine) = engine();
+        let mut past = finished_with_two_exercises();
+        past.started_at = Some(NOW - DAY - 10);
+        engine.save_strength_session(&past).unwrap();
+
+        assert_eq!(engine.strength_session_fit("nope").unwrap(), None);
+
+        let metric = engine.strength_session_fit("past").unwrap().unwrap();
+        assert_eq!(
+            crate::fit::strength_weight_unit(&metric).unwrap(),
+            Some(crate::strength::weight::WeightUnit::Kilogram)
+        );
+        let sets = crate::fit::parse_fit_strength_sets(&metric).unwrap();
+        assert_eq!(sets.len(), 3);
+
+        engine
+            .set_setting("veloq-resolved-unit-system", "imperial")
+            .unwrap();
+        let imperial = engine.strength_session_fit("past").unwrap().unwrap();
+        assert_eq!(
+            crate::fit::strength_weight_unit(&imperial).unwrap(),
+            Some(crate::strength::weight::WeightUnit::Pound)
+        );
+    }
+
+    #[test]
     fn starting_from_a_past_session_prepares_its_exercises_with_planned_sets() {
         let (_dir, engine) = engine();
         let past = finished_with_two_exercises();
@@ -1557,6 +1969,86 @@ mod tests {
         );
         assert_eq!(position(&started), Some((0, 0)));
         assert_eq!(engine.get_strength_session("past").unwrap(), Some(past));
+    }
+
+    #[test]
+    fn starting_from_a_logged_activity_makes_an_exercise_of_each_run_of_sets() {
+        let (_dir, engine) = engine();
+        let mut rest = library_set(3, BENCH, 0, 0.0);
+        rest.set_type = 1;
+        rest.repetitions = None;
+        rest.weight_kg = None;
+        engine
+            .store_exercise_sets(
+                "watch-1",
+                &[
+                    library_set(0, BENCH, 10, 40.0),
+                    library_set(1, BENCH, 8, 45.0),
+                    library_set(2, ROW, 12, 30.0),
+                    rest,
+                    library_set(4, BENCH, 6, 50.0),
+                ],
+            )
+            .unwrap();
+
+        let started = engine
+            .start_live_strength_session(&StartFrom::Activity("watch-1".to_string()), NOW)
+            .unwrap();
+
+        assert_eq!(started.kind, SessionKind::Live);
+        assert_eq!(started.started_at, None);
+        let shape: Vec<_> = started
+            .exercises
+            .iter()
+            .map(|e| {
+                (
+                    (e.exercise_category, e.exercise_name),
+                    e.sets
+                        .iter()
+                        .map(|s| (s.planned_reps, s.planned_weight_kg, s.done))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            shape,
+            [
+                (
+                    (BENCH.0, Some(BENCH.1)),
+                    vec![(Some(10), Some(40.0), false), (Some(8), Some(45.0), false)]
+                ),
+                ((ROW.0, Some(ROW.1)), vec![(Some(12), Some(30.0), false)]),
+                ((BENCH.0, Some(BENCH.1)), vec![(Some(6), Some(50.0), false)]),
+            ]
+        );
+        assert_eq!(position(&started), Some((0, 0)));
+        assert_eq!(engine.live_strength_session().unwrap(), Some(started));
+    }
+
+    #[test]
+    fn a_phone_recording_that_kept_its_session_starts_from_it_with_its_groups_and_rests() {
+        let (_dir, engine) = engine();
+        let past = finished_with_two_exercises();
+        engine.save_strength_session(&past).unwrap();
+
+        let started = engine
+            .start_live_strength_session(&StartFrom::Activity("local-r9".to_string()), NOW)
+            .unwrap();
+
+        assert_eq!(started.exercises.len(), 2);
+        assert_eq!(started.exercises[0].rest_secs, Some(90));
+        assert_eq!(started.exercises[1].group_no, past.exercises[1].group_no);
+        assert_eq!(started.groups, past.groups);
+    }
+
+    #[test]
+    fn an_activity_with_no_logged_sets_cannot_be_started_from() {
+        let (_dir, engine) = engine();
+        assert_eq!(
+            engine.start_live_strength_session(&StartFrom::Activity("watch-9".to_string()), NOW),
+            Err(LiveError::NoSuchSource("watch-9".to_string()))
+        );
+        assert_eq!(engine.live_strength_session().unwrap(), None);
     }
 
     #[test]
@@ -1615,5 +2107,283 @@ mod tests {
 
         assert_eq!(engine.live_strength_session().unwrap(), None);
         assert_eq!(engine.get_exercise_sets("local-r9").unwrap().len(), 3);
+    }
+
+    fn begun(engine: &PersistentEngine) {
+        engine
+            .start_live_strength_session(&StartFrom::Blank, NOW)
+            .unwrap();
+        engine
+            .edit_live_strength_session(&LiveEdit::Begin, NOW)
+            .unwrap();
+    }
+
+    fn beats(session: &StrengthSession) -> Vec<(i64, u8)> {
+        session.heart_rate.iter().map(|r| (r.at, r.bpm)).collect()
+    }
+
+    #[test]
+    fn readings_make_a_stream_with_its_average_and_maximum() {
+        let (_dir, engine) = engine();
+        begun(&engine);
+        for (offset, bpm) in [(1, 100), (2, 110), (3, 130)] {
+            engine.record_live_heart_rate(bpm, NOW + offset).unwrap();
+        }
+
+        let session = engine.live_strength_session().unwrap().unwrap();
+
+        assert_eq!(
+            beats(&session),
+            vec![(NOW + 1, 100), (NOW + 2, 110), (NOW + 3, 130)]
+        );
+        assert_eq!(session.average_heart_rate(), Some(113));
+        assert_eq!(session.max_heart_rate(), Some(130));
+    }
+
+    #[test]
+    fn a_session_with_no_readings_has_no_heart_rate() {
+        let (_dir, engine) = engine();
+        begun(&engine);
+
+        let session = engine.live_strength_session().unwrap().unwrap();
+
+        assert!(session.heart_rate.is_empty());
+        assert_eq!(session.average_heart_rate(), None);
+        assert_eq!(session.max_heart_rate(), None);
+    }
+
+    #[test]
+    fn a_pause_in_readings_leaves_a_gap_and_no_invented_values() {
+        let (_dir, engine) = engine();
+        begun(&engine);
+        engine.record_live_heart_rate(90, NOW + 1).unwrap();
+        engine.record_live_heart_rate(120, NOW + 600).unwrap();
+
+        let session = engine.live_strength_session().unwrap().unwrap();
+
+        assert_eq!(beats(&session), vec![(NOW + 1, 90), (NOW + 600, 120)]);
+    }
+
+    #[test]
+    fn the_fit_writer_takes_the_readings_by_seconds_after_the_start() {
+        let (_dir, engine) = engine();
+        begun(&engine);
+        engine.record_live_heart_rate(100, NOW + 5).unwrap();
+        engine.record_live_heart_rate(110, NOW + 9).unwrap();
+
+        let session = engine.live_strength_session().unwrap().unwrap();
+        let written = crate::fit_strength::StrengthSession {
+            start_unix: NOW,
+            sets: Vec::new(),
+            heart_rate: session.fit_heart_rate(),
+            weight_unit: crate::strength::weight::WeightUnit::Kilogram,
+        };
+        let read: Vec<(u32, u8)> = written
+            .heart_rate
+            .iter()
+            .map(|s| (s.offset_secs, s.bpm))
+            .collect();
+
+        assert_eq!(read, vec![(5, 100), (9, 110)]);
+        assert!(!written.to_fit().is_empty());
+    }
+
+    #[test]
+    fn a_reading_that_is_no_heart_rate_is_not_kept() {
+        let (_dir, engine) = engine();
+        begun(&engine);
+        for bpm in [0, 5, 251, 255] {
+            engine.record_live_heart_rate(bpm, NOW + 1).unwrap();
+        }
+
+        let session = engine.live_strength_session().unwrap().unwrap();
+
+        assert!(session.heart_rate.is_empty());
+    }
+
+    #[test]
+    fn a_second_reading_in_the_same_second_replaces_the_first() {
+        let (_dir, engine) = engine();
+        begun(&engine);
+        engine.record_live_heart_rate(100, NOW + 1).unwrap();
+        engine.record_live_heart_rate(104, NOW + 1).unwrap();
+
+        let session = engine.live_strength_session().unwrap().unwrap();
+
+        assert_eq!(beats(&session), vec![(NOW + 1, 104)]);
+    }
+
+    #[test]
+    fn readings_before_the_session_begins_or_with_none_live_are_dropped() {
+        let (_dir, engine) = engine();
+        engine.record_live_heart_rate(100, NOW).unwrap();
+        engine
+            .start_live_strength_session(&StartFrom::Blank, NOW)
+            .unwrap();
+        engine.record_live_heart_rate(100, NOW + 1).unwrap();
+
+        let session = engine.live_strength_session().unwrap().unwrap();
+
+        assert!(session.heart_rate.is_empty());
+    }
+
+    #[test]
+    fn edits_and_a_reopened_engine_keep_the_readings() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("routes.db");
+        {
+            let engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+            begun(&engine);
+            engine.record_live_heart_rate(100, NOW + 1).unwrap();
+            engine
+                .edit_live_strength_session(&LiveEdit::StartRest, NOW + 2)
+                .unwrap();
+            engine.record_live_heart_rate(110, NOW + 3).unwrap();
+        }
+        let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+        engine.load().unwrap();
+
+        let session = engine.live_strength_session().unwrap().unwrap();
+
+        assert_eq!(beats(&session), vec![(NOW + 1, 100), (NOW + 3, 110)]);
+    }
+
+    #[test]
+    fn finishing_keeps_the_readings_and_discarding_removes_them() {
+        let (_dir, engine) = engine();
+        begun(&engine);
+        engine.record_live_heart_rate(100, NOW + 1).unwrap();
+        let finished = engine
+            .finish_live_strength_session("local-r11", NOW + 60)
+            .unwrap();
+        assert_eq!(finished.heart_rate.len(), 1);
+        let stored = engine.get_strength_session(&finished.id).unwrap().unwrap();
+        assert_eq!(stored.average_heart_rate(), Some(100));
+
+        begun(&engine);
+        engine.record_live_heart_rate(120, NOW + 1).unwrap();
+        engine.discard_live_strength_session().unwrap();
+        let rows: i64 = engine
+            .db
+            .query_row(
+                "SELECT COUNT(*) FROM strength_session_heart_rate WHERE session_id <> ?1",
+                [&finished.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(rows, 0);
+    }
+
+    fn plan(lines: &[&str]) -> StartFrom {
+        StartFrom::Plan(lines.iter().map(|line| line.to_string()).collect())
+    }
+
+    #[test]
+    fn a_plan_starts_a_session_with_its_read_exercises_and_the_rest_as_notes() {
+        let (_dir, engine) = engine();
+        let session = engine
+            .start_live_strength_session(
+                &plan(&["Bench 18.5kg per hand 12/10/8", "Mobility 10 min"]),
+                NOW,
+            )
+            .unwrap();
+
+        assert_eq!(session.exercises.len(), 1);
+        let bench = &session.exercises[0];
+        let planned: Vec<_> = bench
+            .sets
+            .iter()
+            .map(|s| (s.planned_reps, s.planned_weight_kg, s.done))
+            .collect();
+        assert_eq!(
+            planned,
+            [
+                (Some(12), Some(18.5), false),
+                (Some(10), Some(18.5), false),
+                (Some(8), Some(18.5), false)
+            ]
+        );
+        assert_eq!(session.notes, ["Mobility 10 min"]);
+        assert!(session.preparing());
+        assert_eq!(position(&session), Some((0, 0)));
+
+        let stored = engine.live_strength_session().unwrap().unwrap();
+        assert_eq!(stored, session);
+    }
+
+    #[test]
+    fn a_rest_line_is_the_rest_after_the_exercise_before_it() {
+        let (_dir, engine) = engine();
+        let session = engine
+            .start_live_strength_session(
+                &plan(&[
+                    "Rest 60 sec",
+                    "Bench 18.5kg per hand 12/10/8",
+                    "Rest 90 sec",
+                ]),
+                NOW,
+            )
+            .unwrap();
+        assert_eq!(session.exercises.len(), 1);
+        assert_eq!(session.exercises[0].rest_secs, Some(90));
+        // A rest with nothing before it to follow stays as the plan wrote it.
+        assert_eq!(session.notes, ["Rest 60 sec"]);
+    }
+
+    #[test]
+    fn an_exercise_named_without_sets_takes_its_sets_from_last_time() {
+        let (_dir, engine) = engine();
+        let crate::strength::plan_line::PlanLineReading::Exercise(named) =
+            crate::strength::plan_line::read_line("Goblet squat")
+        else {
+            panic!("the exercise is in the catalogue");
+        };
+        let named = (named.category, named.name);
+        watch_session(
+            &engine,
+            "earlier",
+            NOW - 3 * DAY,
+            &[
+                library_set(0, named, 10, 40.0),
+                library_set(1, named, 8, 42.5),
+            ],
+        );
+        let session = engine
+            .start_live_strength_session(&plan(&["Goblet squat"]), NOW)
+            .unwrap();
+        let values: Vec<_> = session.exercises[0]
+            .sets
+            .iter()
+            .map(|s| (s.planned_reps, s.planned_weight_kg))
+            .collect();
+        assert_eq!(values, [(Some(10), Some(40.0)), (Some(8), Some(42.5))]);
+    }
+
+    #[test]
+    fn a_plan_with_nothing_read_is_all_notes_and_blank_lines_are_dropped() {
+        let (_dir, engine) = engine();
+        let session = engine
+            .start_live_strength_session(&plan(&["  ", "Warm up well", "", "Stretch"]), NOW)
+            .unwrap();
+        assert!(session.exercises.is_empty());
+        assert_eq!(session.notes, ["Warm up well", "Stretch"]);
+    }
+
+    #[test]
+    fn notes_survive_finishing_and_a_copy_starts_without_them() {
+        let (_dir, engine) = engine();
+        engine
+            .start_live_strength_session(&plan(&["Goblet squat 20kg 3x5", "Foam roll after"]), NOW)
+            .unwrap();
+        let finished = engine
+            .finish_live_strength_session("local-r12", NOW + 60)
+            .unwrap();
+        let stored = engine.get_strength_session(&finished.id).unwrap().unwrap();
+        assert_eq!(stored.notes, ["Foam roll after"]);
+
+        let copy = engine
+            .start_live_strength_session(&StartFrom::Session(finished.id.clone()), NOW + 120)
+            .unwrap();
+        assert!(copy.notes.is_empty());
     }
 }

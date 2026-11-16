@@ -23,6 +23,7 @@ pub mod sections;
 mod settings;
 pub mod start;
 pub mod strength;
+pub(crate) mod strength_live;
 pub(crate) mod sync;
 pub(crate) mod tiles;
 pub mod track_stage;

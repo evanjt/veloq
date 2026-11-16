@@ -7,6 +7,7 @@ use crate::fit_write::{
     BASE_ENUM, BASE_STRING, BASE_UINT8, BASE_UINT16, BASE_UINT32, FIT_EPOCH_UNIX, INVALID_UINT8,
     INVALID_UINT16, INVALID_UINT32, definition, wrap,
 };
+use crate::strength::weight::WeightUnit;
 
 const MESG_FILE_ID: u16 = 0;
 const MESG_SESSION: u16 = 18;
@@ -70,6 +71,8 @@ pub struct StrengthSession {
     pub start_unix: i64,
     pub sets: Vec<WrittenSet>,
     pub heart_rate: Vec<HeartRateSample>,
+    /// The unit the athlete reads weights in; the weights themselves are kilograms.
+    pub weight_unit: WeightUnit,
 }
 
 impl StrengthSession {
@@ -197,6 +200,7 @@ impl StrengthSession {
                 (6, 4, BASE_UINT32),
                 (7, 2, BASE_UINT16),
                 (8, 2, BASE_UINT16),
+                (9, 1, BASE_ENUM),
                 (10, 2, BASE_UINT16),
             ],
         );
@@ -220,6 +224,7 @@ impl StrengthSession {
             out.extend_from_slice(&self.fit_time(set.start_offset_secs).to_le_bytes());
             out.extend_from_slice(&set.category.unwrap_or(INVALID_UINT16).to_le_bytes());
             out.extend_from_slice(&set.name.unwrap_or(INVALID_UINT16).to_le_bytes());
+            out.push(self.weight_unit.fit_value());
             out.extend_from_slice(&(index.min(usize::from(u16::MAX - 1)) as u16).to_le_bytes());
         }
     }
@@ -371,6 +376,7 @@ mod tests {
                     bpm: 100 + (offset_secs / 5) as u8,
                 })
                 .collect(),
+            weight_unit: WeightUnit::Kilogram,
         }
     }
 
@@ -445,12 +451,39 @@ mod tests {
         assert_eq!(header_crc, crc(&file[..12]));
     }
 
+    /// Scenario: a pound athlete's session. Expected behaviour: the file stores kilograms,
+    /// carries the pound display unit, and reads back the same weight.
+    #[test]
+    fn a_pound_athlete_writes_the_pound_display_unit() {
+        use crate::strength::weight::stored_weight_kg;
+        let mut pounds = session();
+        pounds.weight_unit = WeightUnit::Pound;
+        pounds.sets[0].weight_kg = Some(stored_weight_kg(45.0, WeightUnit::Pound));
+        let file = pounds.to_fit();
+        assert_eq!(
+            crate::fit::strength_weight_unit(&file).unwrap(),
+            Some(WeightUnit::Pound)
+        );
+        let read = parse_fit_strength_sets(&file).unwrap();
+        let kg = read[0].weight_kg.unwrap();
+        assert!((kg - 20.41).abs() < 0.07, "{kg}");
+        let written = pounds.sets[0].weight_kg.unwrap();
+        assert!((kg - written).abs() < 1.0 / 32.0);
+
+        let metric = session().to_fit();
+        assert_eq!(
+            crate::fit::strength_weight_unit(&metric).unwrap(),
+            Some(WeightUnit::Kilogram)
+        );
+    }
+
     #[test]
     fn a_session_with_no_sets_or_heart_rate_still_decodes() {
         let empty = StrengthSession {
             start_unix: 1_773_471_600,
             sets: Vec::new(),
             heart_rate: Vec::new(),
+            weight_unit: WeightUnit::Kilogram,
         };
         assert!(parse_fit_strength_sets(&empty.to_fit()).unwrap().is_empty());
     }

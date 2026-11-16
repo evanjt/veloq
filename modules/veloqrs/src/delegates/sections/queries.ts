@@ -21,7 +21,6 @@ import type {
 import { FfiPerformanceSubject } from '../../generated/veloqrs';
 import type { DelegateHost } from '../host';
 import { present } from '../optional';
-import type { FfiSectionMatch } from '../shared-types';
 
 const EMPTY_SECTION_PERFORMANCE_RESULT: FfiSectionPerformanceResult = {
   records: [],
@@ -146,14 +145,6 @@ export function getExcludedActivityIds(host: DelegateHost, sectionId: string): s
   if (!host.ready) return [];
   return host.timed('getExcludedActivityIds', () =>
     host.engine.sections().getExcludedActivities(sectionId)
-  );
-}
-
-export function matchActivityToSections(host: DelegateHost, activityId: string): FfiSectionMatch[] {
-  if (!host.ready) return [];
-  validateId(activityId, 'activity ID');
-  return host.timed('matchActivityToSections', () =>
-    host.engine.sections().matchActivityToSections(activityId)
   );
 }
 

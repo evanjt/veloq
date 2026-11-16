@@ -514,6 +514,7 @@ fn an_upgrade_clears_rows_written_before_the_final_step_fix_and_owes_them_again(
                  ALTER TABLE strength_sessions DROP COLUMN current_exercise;
                  ALTER TABLE strength_sessions DROP COLUMN current_set;
                  ALTER TABLE strength_sessions DROP COLUMN rest_started_at;
+                 ALTER TABLE strength_sessions DROP COLUMN notes;
                  DROP TABLE remote_writes;
                  DROP TABLE activity_curves;
                  ALTER TABLE curve_bodies DROP COLUMN source;

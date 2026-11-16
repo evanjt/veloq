@@ -9,6 +9,22 @@ use crate::persistence::PersistentEngine;
 use crate::sections::{Section, SectionSummary, SectionType};
 use tracematch::GpsPoint;
 
+/// Result of matching an activity's GPS track against existing sections.
+#[derive(Debug, Clone)]
+pub struct SectionMatch {
+    pub section_id: String,
+    pub section_name: Option<String>,
+    /// Stream index of the pass's first point.
+    pub start_index: u32,
+    pub end_index: u32,
+    pub match_quality: f64,
+    pub same_direction: bool,
+    pub distance_meters: f64,
+    /// Distance ridden from the activity's first point to the pass's first
+    /// point, in metres, so the athlete can place the pass along the ride.
+    pub start_distance_meters: f64,
+}
+
 impl PersistentEngine {
     /// Visibility filter: exclude disabled and superseded sections.
     pub(crate) const VISIBLE_FILTER: &'static str = pooled::VISIBLE_FILTER;
@@ -46,7 +62,7 @@ impl PersistentEngine {
     /// the activity screen offers when detection has not attached it yet. It
     /// cuts with the force-match's own cut, so each pass offered is a row the
     /// attach would write.
-    pub fn match_activity_to_sections(&self, activity_id: &str) -> Vec<crate::FfiSectionMatch> {
+    pub fn match_activity_to_sections(&self, activity_id: &str) -> Vec<SectionMatch> {
         pooled::activity_section_matches(&self.db, activity_id, &self.get_section_config())
     }
 
@@ -1245,7 +1261,7 @@ pub(crate) mod pooled {
         conn: &Connection,
         activity_id: &str,
         config: &tracematch::SectionConfig,
-    ) -> Vec<crate::FfiSectionMatch> {
+    ) -> Vec<super::SectionMatch> {
         let track = match crate::persistence::activities::pooled::gps_track(conn, activity_id) {
             Some(t) if t.len() >= 3 => t,
             _ => return vec![],
@@ -1307,7 +1323,7 @@ pub(crate) mod pooled {
                 } else {
                     1.0
                 };
-                crate::FfiSectionMatch {
+                super::SectionMatch {
                     section_id: section.id.clone(),
                     section_name,
                     start_index: portion.start_index,

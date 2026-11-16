@@ -99,6 +99,24 @@ export function selectedByIosGate(docs) {
   return Array.isArray(tags) && tags.some((tag) => IOS_GATE_TAGS.has(tag));
 }
 
+// `npm run maestro:screenshots` selects by tag and passes the run only APP_ID, so a
+// flow it selects cannot read any other environment variable.
+const SWEEP_TAG = 'tier4';
+const SWEEP_ENV = new Set(['APP_ID']);
+
+export function selectedBySweep(docs) {
+  const tags = docs.length > 1 ? docs[0]?.tags : null;
+  return Array.isArray(tags) && tags.includes(SWEEP_TAG);
+}
+
+export function unpassedEnv(text) {
+  const names = new Set();
+  for (const [, name] of text.matchAll(/\$\{([A-Z][A-Z0-9_]*)\b/g)) {
+    if (!SWEEP_ENV.has(name)) names.add(name);
+  }
+  return [...names];
+}
+
 /**
  * A flow takes its application id from APP_ID, so one flow drives the build
  * that ships in the E2E gate and the development build on a workstation. A
@@ -155,6 +173,13 @@ for (const file of flows) {
       for (const name of androidOnlyCommands(docs)) {
         failures.push(
           `${relative(root, file)}: ${name} is Android-only, and the iOS gate selects this flow`
+        );
+      }
+    }
+    if (selectedBySweep(docs)) {
+      for (const name of unpassedEnv(tree.text(file))) {
+        failures.push(
+          `${relative(root, file)}: reads ${name}, which the screenshot sweep does not pass`
         );
       }
     }

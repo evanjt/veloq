@@ -7,6 +7,11 @@ import { DEMO_ATHLETE_ID, sourceFor, type AuthMethod } from '@/shared/app/source
 import { garminAthleteId, resolveStoredSession } from '@/shared/app/storedSession';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import {
+  forgetFilesSession,
+  readFilesSession,
+  rememberFilesSession,
+} from '@/shared/storage/filesSession';
+import {
   CREDENTIAL_KEYCHAIN_OPTIONS,
   GARMIN_KEY_STORAGE_KEY,
   deleteCredential,
@@ -198,6 +203,13 @@ interface AuthState {
   setAthlete: (athlete: Athlete) => void;
   enterDemoMode: () => void;
   exitDemoMode: () => Promise<void>;
+  /**
+   * Keep a library filled from activity files alone: no account, no credential,
+   * no athlete id. The library is opened and left as it is, and nothing syncs.
+   */
+  enterFilesMode: () => void;
+  /** Leave the files source for the sign-in screen. The library stays. */
+  exitFilesMode: () => Promise<void>;
   setHideDemoBanner: (hide: boolean) => void;
   /** Called when a 401 ends the session - clears the rejected credential */
   handleSessionExpired: () => Promise<void>;
@@ -240,13 +252,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       // OAuth takes priority over an API key, and a Garmin key alone is a
-      // session only with the library identity its sign-in wrote.
-      const { authMethod, isAuthenticated } = resolveStoredSession({
-        apiKey,
-        accessToken,
-        athleteId,
-        garminKey,
-      });
+      // session only with the library identity its sign-in wrote. A library
+      // filled from files is a session only where no credential makes one, and
+      // the launch that has a credential reads nothing else.
+      const stored = { apiKey, accessToken, athleteId, garminKey };
+      let { authMethod, isAuthenticated } = resolveStoredSession(stored);
+      if (!isAuthenticated && (await readFilesSession())) {
+        ({ authMethod, isAuthenticated } = resolveStoredSession({ ...stored, filesSource: true }));
+      }
 
       set({
         apiKey: isValidCredential(apiKey) ? apiKey.trim() : null,
@@ -306,6 +319,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const { clearPendingApiKey } = require('@/features/auth/lib/pendingSignIn');
     await clearPendingApiKey();
+    await forgetFilesSession();
 
     set({
       apiKey: trimmedApiKey,
@@ -348,6 +362,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const { clearPendingApiKey } = require('@/features/auth/lib/pendingSignIn');
     await clearPendingApiKey();
+    await forgetFilesSession();
 
     set({
       accessToken: trimmedAccessToken,
@@ -405,6 +420,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const { clearPendingApiKey } = require('@/features/auth/lib/pendingSignIn');
     await clearPendingApiKey();
+    await forgetFilesSession();
 
     set({
       apiKey: null,
@@ -446,6 +462,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const { clearPendingApiKey } = require('@/features/auth/lib/pendingSignIn');
     await clearPendingApiKey();
+    await forgetFilesSession();
 
     set({
       apiKey: null,
@@ -489,6 +506,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isAuthenticated: false,
       isDemoMode: false,
       hideDemoBanner: false,
+      authMethod: null,
+      athlete: null,
+    });
+    pushCredentialsToEngine();
+  },
+
+  enterFilesMode: () => {
+    set({
+      athleteId: null,
+      isAuthenticated: true,
+      isDemoMode: false,
+      authMethod: 'files',
+      athlete: null,
+      sessionExpired: null,
+    });
+    // A files library holds no upstream credential, so the engine must hold none.
+    pushCredentialsToEngine();
+    void rememberFilesSession();
+  },
+
+  exitFilesMode: async () => {
+    await forgetFilesSession();
+    set({
+      athleteId: null,
+      isAuthenticated: false,
+      isDemoMode: false,
       authMethod: null,
       athlete: null,
     });

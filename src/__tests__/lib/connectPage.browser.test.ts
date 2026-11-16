@@ -19,9 +19,14 @@
  * Runs with `npm run test:map-pages`, which needs a Chromium.
  */
 
+import { readFileSync } from 'fs';
+import path from 'path';
+
 import { normaliseFingerprint, proof } from '../../../web/connect/link';
 import vectors from '../../../modules/veloqrs/rust/veloqrs/tests/fixtures/track_codec_vectors.json';
 import { greyPng } from '../__shared__/headlessMapPage';
+import { ACTIVITIES, demoScript, type DemoActivity } from '../__shared__/connectDemoLibrary';
+import { phoneScript } from '../__shared__/connectPhoneScripts';
 import {
   INVITE_ROOM,
   buildPage,
@@ -144,7 +149,7 @@ const ROUTE_LINES = JSON.stringify({
     {
       type: 'Feature',
       id: 'route-1',
-      properties: { number: 1, name: 'Ridgeline loop' },
+      properties: { id: 'route-1', number: 1, palette: 0 },
       geometry: {
         type: 'LineString',
         coordinates: [
@@ -155,6 +160,28 @@ const ROUTE_LINES = JSON.stringify({
     },
   ],
 });
+
+/** The chip's link state, which holds across a change of wording or language. */
+const CONNECTED = `document.querySelector('#status[data-state="connected"]') !== null`;
+
+/** The chip's word for a connected link in a locale, read from the locale's own file. */
+function connectedWording(tag: string): string {
+  const file = path.join(__dirname, '..', '..', 'i18n', 'locales', `${tag}.json`);
+  return JSON.parse(readFileSync(file, 'utf8')).connectPage.status.connected;
+}
+
+/** The notice a screen shows in place of its content when the phone lacks its method. */
+function updateScreenWording(tag: string): string {
+  const file = path.join(__dirname, '..', '..', 'i18n', 'locales', `${tag}.json`);
+  return JSON.parse(readFileSync(file, 'utf8')).connectPage.update.screen;
+}
+
+/** Opens the account menu, which holds the linked phone's name, and reads it. */
+async function accountPhone(connect: ConnectPage): Promise<string | null> {
+  await connect.evaluate(`document.getElementById('account-button').click()`);
+  await connect.until(`document.getElementById('account-phone') !== null`);
+  return connect.evaluate(text('#account-phone'));
+}
 
 const text = (selector: string) =>
   `(document.querySelector(${JSON.stringify(selector)})?.textContent ?? null)`;
@@ -215,19 +242,20 @@ describeWithChromium('the connect page in a headless Chromium', () => {
   );
 
   vaultIt.each([
-    ['fr', 'fr', 'Connecté', 'Associer ce navigateur'],
-    ['ja', 'ja', '接続済み', 'このブラウザーをリンク'],
-    ['de-CH,fr', 'de-CH', 'Verbunden', 'Diesen Browser verknüpfen'],
-    ['xx', 'en-GB', 'Connected', 'Link this browser'],
+    ['fr', 'fr', 'Associer ce navigateur'],
+    ['ja', 'ja', 'このブラウザーをリンク'],
+    ['de-CH,fr', 'de-CH', 'Diesen Browser verknüpfen'],
+    ['xx', 'en-GB', 'Link this browser'],
   ])(
     'speaks %s from its own chunk once the phone connects',
-    async (accept, tag, connected, heading) => {
+    async (accept, tag, heading) => {
       const pairing = await visit(await scriptFor({ invite: null, linked: null }), accept);
       await pairing.until(`${text('h2')} === ${JSON.stringify(heading)}`);
       expect(await pairing.evaluate('document.documentElement.lang')).toBe(tag);
 
       const connect = await visit(await scriptFor(), accept);
-      await connect.until(`${text('#status')} === ${JSON.stringify(connected)}`);
+      await connect.until(CONNECTED);
+      expect(await connect.evaluate(text('#status'))).toBe(connectedWording(tag));
       expect(await connect.evaluate('document.documentElement.lang')).toBe(tag);
     },
     TIMEOUT_MS
@@ -237,28 +265,30 @@ describeWithChromium('the connect page in a headless Chromium', () => {
     'pairs through checking and confirming to connected, lists the feed and opens an activity',
     async () => {
       const connect = await visit(await scriptFor({ device: 'Trail handset' }));
-      await connect.until(`${text('#status')} === 'Connected'`);
+      await connect.until(CONNECTED);
       const statuses = await connect.evaluate<string[]>('window.__fake.statuses');
-      const order = ['Checking the phone', 'Confirm on your phone', 'Connected'].map((status) =>
-        statuses.indexOf(status)
+      const order = ['Checking the phone', 'Confirm on your phone', 'Connected to your phone'].map(
+        (status) => statuses.indexOf(status)
       );
       expect(order.every((at) => at >= 0)).toBe(true);
       expect([...order].sort((a, b) => a - b)).toEqual(order);
 
-      await connect.until(`document.querySelectorAll('#feed tbody tr').length === 2`);
+      await connect.until(`document.querySelectorAll('#feed-scroll tbody tr').length === 2`);
       expect(
         await connect.evaluate<string[]>(
-          `[...document.querySelectorAll('#feed tbody tr')].map((li) => li.querySelector('.name').textContent)`
+          `[...document.querySelectorAll('#feed-scroll tbody tr')].map((li) => li.querySelector('.name').textContent)`
         )
       ).toEqual(['Ridgeline loop', 'Harbour sprint']);
       expect(
         await connect.evaluate<string[]>(
-          `[...document.querySelectorAll('#feed tbody tr')].map((tr) => { const thumb = tr.querySelector('.thumb'); return thumb.tagName.toLowerCase() + ':' + thumb.dataset.sport + ':' + (thumb.querySelector('path')?.getAttribute('d')?.charAt(0) ?? thumb.textContent); })`
+          `[...document.querySelectorAll('#feed-scroll tbody tr')].map((tr) => { const thumb = tr.querySelector('.thumb'); return thumb.tagName.toLowerCase() + ':' + thumb.dataset.sport + ':' + (thumb.querySelector('path')?.getAttribute('d')?.charAt(0) ?? thumb.textContent); })`
         )
       ).toEqual(['svg:ride:M', 'span:run:U']);
-      expect(await connect.evaluate(text('#detail-title'))).toBe('Pick an activity');
+      expect(await connect.evaluate(text('#detail-pane .ui-state strong'))).toBe(
+        'Pick an activity'
+      );
 
-      await connect.evaluate(`document.querySelector('#feed tbody tr').click()`);
+      await connect.evaluate(`document.querySelector('#feed-scroll tbody tr').click()`);
       await connect.until(`document.querySelector('#detail dt') !== null`);
       expect(await connect.evaluate(text('#detail-title'))).toBe('Ridgeline loop');
       const facts = await connect.evaluate<string[][]>(
@@ -270,11 +300,11 @@ describeWithChromium('the connect page in a headless Chromium', () => {
       expect(facts).toContainEqual(['Climbing', '640 m']);
       expect(
         await connect.evaluate(
-          `document.querySelector('#feed tr[aria-selected="true"] .name').textContent`
+          `document.querySelector('#feed-scroll tr[aria-selected="true"] .name').textContent`
         )
       ).toBe('Ridgeline loop');
       expect(
-        await connect.evaluate(`document.querySelector('#rail a[aria-current="true"]').dataset.tab`)
+        await connect.evaluate(`document.querySelector('#rail a[aria-current="page"]').dataset.tab`)
       ).toBe('feed');
       expect(await connect.evaluate(`document.getElementById('status').getAttribute('role')`)).toBe(
         'status'
@@ -291,7 +321,6 @@ describeWithChromium('the connect page in a headless Chromium', () => {
       expect(details).toContainEqual(['Phone', '192.0.2.31:41000']);
       expect(details).toContainEqual(['Round trip', '42 ms']);
       expect(await connect.evaluate(text('#connection-phone'))).toBe('Trail handset');
-      expect(await connect.evaluate(text('#rail .phone'))).toBe('Trail handset');
 
       await connect.evaluate(
         `document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`
@@ -317,6 +346,64 @@ describeWithChromium('the connect page in a headless Chromium', () => {
           `document.querySelectorAll('#settings-pane input, #settings-pane button, #settings-pane select').length`
         )
       ).toBe(0);
+    },
+    TIMEOUT_MS
+  );
+
+  it(
+    'opens an activity the feed does not list from the phone’s record of it',
+    async () => {
+      const older = ACTIVITIES[0] as DemoActivity;
+      expect(ACTIVITIES.length).toBeGreaterThan(60);
+      const connect = await visit(
+        demoScript({
+          browserFingerprint: BROWSER,
+          phoneFingerprint: PHONE,
+          phoneProof: await proof(SECRET, 'phone', BROWSER, PHONE),
+        })
+      );
+      await connect.until(CONNECTED);
+      await connect.evaluate(`location.hash = '#/activity/${older.id}'`);
+      await connect.until(`${text('#topbar h1')} === ${JSON.stringify(older.name)}`);
+      expect(await connect.evaluate(text('#activity-when'))).toBe(
+        `${new Date(older.start).toISOString().slice(0, 16).replace('T', ' ')} · ${older.sport.type}`
+      );
+      expect(await connect.evaluate(text('#activity-summary'))).toContain(
+        `${(older.distance / 1000).toFixed(1)} km`
+      );
+    },
+    TIMEOUT_MS
+  );
+
+  it(
+    'opens an activity with no track with the empty state in the map’s place and the figures beside the header',
+    async () => {
+      const swim = ACTIVITIES.find(
+        (a) => !a.sport.gps && a.sport.family === 'water'
+      ) as DemoActivity;
+      const connect = await visit(
+        demoScript({
+          browserFingerprint: BROWSER,
+          phoneFingerprint: PHONE,
+          phoneProof: await proof(SECRET, 'phone', BROWSER, PHONE),
+        })
+      );
+      await connect.until(CONNECTED);
+      await connect.evaluate(`location.hash = '#/activity/${swim.id}'`);
+      await connect.until(`document.querySelector('#map-empty') !== null`);
+      expect(await connect.evaluate(`document.querySelector('#activity-map')`)).toBeNull();
+      expect(await connect.evaluate(text('#map-empty'))).toBe('This activity has no GPS track.');
+      expect(await connect.evaluate(`document.querySelector('#activity-top').dataset.map`)).toBe(
+        'none'
+      );
+      await connect.until(
+        `document.querySelector('#activity-header a[href^="https://intervals.icu/activities/"]') !== null`
+      );
+      expect(
+        await connect.evaluate(
+          `[...document.querySelectorAll('#activity-header button')].map((b) => b.textContent)`
+        )
+      ).not.toContain('Export GPX');
     },
     TIMEOUT_MS
   );
@@ -353,7 +440,7 @@ describeWithChromium('the connect page in a headless Chromium', () => {
           },
         })
       );
-      await connect.until(`document.querySelectorAll('#feed tbody tr').length === 2`);
+      await connect.until(`document.querySelectorAll('#feed-scroll tbody tr').length === 2`);
       await connect.evaluate(`location.hash = '#/settings/display-settings'`);
       await connect.until(`document.querySelector('#settings-rows dt') !== null`);
       expect(
@@ -381,7 +468,7 @@ describeWithChromium('the connect page in a headless Chromium', () => {
       await connect.evaluate(`location.hash = '#/settings'`);
       await connect.until(`document.querySelector('#settings-profile dd') !== null`);
       expect(await connect.evaluate(text('#settings-profile dd'))).toBe('Sam');
-      expect(await connect.evaluate(text('#rail .phone'))).toBe('Your phone');
+      expect(await accountPhone(connect)).toBe('Your phone');
       expect(await connect.evaluate(`document.getElementById('later')`)).toBeNull();
     },
     TIMEOUT_MS
@@ -435,7 +522,7 @@ describeWithChromium('the connect page in a headless Chromium', () => {
           },
         })
       );
-      await connect.until(`document.querySelectorAll('#feed tbody tr').length === 2`);
+      await connect.until(`document.querySelectorAll('#feed-scroll tbody tr').length === 2`);
 
       await connect.evaluate(`location.hash = '#/insights?type=strength&period=1m'`);
       await connect.until(`document.querySelector('#strength-muscle-rows tr') !== null`);
@@ -460,12 +547,15 @@ describeWithChromium('the connect page in a headless Chromium', () => {
       await connect.evaluate(`location.hash = '#/recordings'`);
       await connect.until(`document.querySelector('#recordings-list a') !== null`);
       await connect.evaluate(`document.querySelector('#recordings-list a').click()`);
-      await connect.until(`${text('#recording-title')} === 'Morning spin'`);
+      await connect.until(`${text('#topbar h1')} === 'Morning spin'`);
       const facts = await connect.evaluate<string[][]>(
-        `[...document.querySelectorAll('#recording-facts dt')].map((dt) => [dt.textContent, dt.nextSibling.textContent])`
+        `[...document.querySelectorAll('#recording-stats dt')].map((dt) => [dt.textContent, dt.nextSibling.textContent])`
       );
       expect(facts).toContainEqual(['Distance', '30.0 km']);
-      expect(facts).toContainEqual(['Upload', 'pending']);
+      const status = await connect.evaluate<string>(
+        `document.querySelector('#recording-status').textContent`
+      );
+      expect(status).toContain('Waiting to upload');
     },
     TIMEOUT_MS
   );
@@ -484,6 +574,7 @@ describeWithChromium('the connect page in a headless Chromium', () => {
               runningLthr: null,
               sportMix: { rides: 3, runs: 1, swims: 0 },
               loadDots: [],
+              weeklyHours: [],
               heatmap: [],
               months: [],
               seasonYear: {
@@ -507,7 +598,7 @@ describeWithChromium('the connect page in a headless Chromium', () => {
           },
         })
       );
-      await connect.until(`document.querySelectorAll('#feed tbody tr').length === 2`);
+      await connect.until(`document.querySelectorAll('#feed-scroll tbody tr').length === 2`);
       await connect.evaluate(`location.hash = '#/fitness'`);
       await connect.until(`document.querySelector('#panel-screen dt') !== null`);
       expect(
@@ -544,6 +635,20 @@ describeWithChromium('the connect page in a headless Chromium', () => {
     TIMEOUT_MS
   );
 
+  vaultIt(
+    'keeps an older phone connected and shows its strength screen as unsupported in place',
+    async () => {
+      const connect = await visit(await phoneScript('old'), 'en-GB');
+      await connect.until(CONNECTED);
+      await connect.evaluate(`location.hash = '#/insights?type=strength'`);
+      await connect.until(`document.querySelector('#content p.notice') !== null`);
+      expect(await connect.evaluate(text('#content p.notice'))).toBe(updateScreenWording('en-GB'));
+      expect(await connect.evaluate(CONNECTED)).toBe(true);
+      expect(await connect.evaluate(`document.getElementById('update')`)).toBeNull();
+    },
+    TIMEOUT_MS
+  );
+
   it(
     'draws the map under the deployed policy, asks for each heatmap tile in view once and reports a hover over a line',
     async () => {
@@ -558,7 +663,7 @@ describeWithChromium('the connect page in a headless Chromium', () => {
           tiles: { '2/1/1': tile, '2/2/1': tile },
         })
       );
-      await connect.until(`${text('#status')} === 'Connected'`);
+      await connect.until(CONNECTED);
       await connect.evaluate(`location.hash = '#/map'`);
       await connect.until(`document.querySelector('#map-screen .maplibregl-canvas') !== null`);
 
@@ -606,6 +711,131 @@ describeWithChromium('the connect page in a headless Chromium', () => {
   );
 
   it(
+    'selects a row into the address, opens its panel and restores the selection and the viewport after a reload',
+    async () => {
+      const connect = await visit(await phoneScript('demo'));
+      await connect.until(CONNECTED);
+      await connect.evaluate(`location.hash = '#/map'`);
+      await connect.until(`document.querySelectorAll('#map-list tbody tr').length > 1`);
+      expect(await connect.evaluate(`document.getElementById('map-selection')`)).toBeNull();
+
+      await connect.evaluate(
+        `[...document.querySelectorAll('#map-list button')].find((b) => b.textContent === 'Fit all activities')?.click()`
+      );
+      await connect.until(`location.hash.includes('view=')`);
+      const row = await connect.evaluate<{ key: string; name: string }>(
+        `(() => { const tr = document.querySelector('#map-list tbody tr'); return { key: tr.id.replace('map-activities-row-', ''), name: tr.querySelector('td[data-clip]').textContent }; })()`
+      );
+      await connect.evaluate(`document.querySelector('#map-list tbody tr').click()`);
+      await connect.until(`document.getElementById('map-selection') !== null`);
+      expect(await connect.evaluate('location.hash')).toContain(
+        `selected=${encodeURIComponent(`activity:${row.key}`)}`
+      );
+      expect(await connect.evaluate(text('#map-selection h2'))).toBe(row.name);
+      const hash = await connect.evaluate<string>('location.hash');
+      const view = /view=([^&]+)/.exec(hash)?.[1];
+      expect(view).toBeDefined();
+
+      await connect.evaluate(
+        `window.__beforeReload = true; setTimeout(() => location.reload(), 0)`
+      );
+      await connect.until(
+        `(() => { try { return window.__beforeReload === undefined && document.getElementById('map-selection') !== null; } catch { return false; } })()`,
+        20_000
+      );
+      expect(await connect.evaluate(text('#map-selection h2'))).toBe(row.name);
+      await connect.until(`location.hash.includes('selected=')`);
+      await connect.until(`document.querySelector('#map-screen .maplibregl-canvas') !== null`);
+      // The camera the address held is where the map opens, and it does not rewrite the address on arrival.
+      await connect.until(
+        `(() => { const v = /view=([^&]+)/.exec(location.hash)?.[1]; return v === ${JSON.stringify(view)}; })()`
+      );
+
+      await connect.evaluate(`document.querySelector('#map-selection-back').click()`);
+      await connect.until(`document.getElementById('map-selection') === null`);
+      expect(await connect.evaluate('location.hash')).not.toContain('selected=');
+      expect(await connect.evaluate('location.hash')).toContain('view=');
+    },
+    TIMEOUT_MS
+  );
+
+  it(
+    'fills the page with the map, folds the panel to a chip and back, narrows the list from the timeline and keeps all three over a reload',
+    async () => {
+      const connect = await browser.open(await phoneScript('demo'), undefined, {
+        width: 1600,
+        height: 1000,
+      });
+      open.push(connect);
+      await connect.until(CONNECTED);
+      await connect.evaluate(`location.hash = '#/map'`);
+      await connect.until(`document.querySelectorAll('#map-list tbody tr').length > 1`);
+
+      const boxes = await connect.evaluate<{ canvas: number[]; content: number[]; rail: number }>(
+        `(() => {
+          const box = (el) => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; };
+          return {
+            canvas: box(document.querySelector('.map-canvas')),
+            content: box(document.getElementById('content')),
+            rail: document.getElementById('rail').getBoundingClientRect().width,
+          };
+        })()`
+      );
+      expect(boxes.canvas).toEqual(boxes.content);
+      expect(boxes.rail).toBe(56);
+      const panel = await connect.evaluate<{ left: number; top: number; width: number }>(
+        `(() => { const r = document.getElementById('map-list').getBoundingClientRect(); const c = document.getElementById('content').getBoundingClientRect(); return { left: r.left - c.left, top: r.top - c.top, width: r.width }; })()`
+      );
+      expect(panel).toEqual({ left: 10, top: 10, width: 380 });
+
+      await connect.evaluate(`document.getElementById('map-panel-fold').click()`);
+      await connect.until(`document.getElementById('map-list') === null`);
+      expect(await connect.evaluate('location.hash')).toContain('panel=closed');
+      await connect.evaluate(`document.getElementById('map-chip').click()`);
+      await connect.until(`document.getElementById('map-list') !== null`);
+      expect(await connect.evaluate('location.hash')).not.toContain('panel=');
+
+      const rows = () =>
+        connect.evaluate<number>(`document.querySelectorAll('#map-list tbody tr').length`);
+      const before = await rows();
+      await connect.evaluate(`(() => {
+        const handle = document.getElementById('map-since');
+        const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+        set.call(handle, String(Math.ceil(Number(handle.max) / 2)));
+        handle.dispatchEvent(new Event('input', { bubbles: true }));
+      })()`);
+      await connect.until(`location.hash.includes('since=')`);
+      await connect.until(`document.querySelectorAll('#map-list tbody tr').length < ${before}`);
+      const after = await rows();
+
+      await connect.evaluate(`document.querySelector('#map-list tbody tr').click()`);
+      await connect.until(`document.getElementById('map-selection') !== null`);
+      expect(await connect.evaluate(`document.getElementById('map-list')`)).toBeNull();
+      await connect.evaluate(`document.getElementById('map-selection-back').click()`);
+      await connect.until(`document.getElementById('map-list') !== null`);
+      await connect.evaluate(`document.querySelector('#map-list tbody tr').click()`);
+      await connect.until(`document.getElementById('map-selection') !== null`);
+      await connect.evaluate(`document.getElementById('map-panel-fold').click()`);
+      await connect.until(`location.hash.includes('panel=closed')`);
+
+      await connect.evaluate(
+        `window.__beforeReload = true; setTimeout(() => location.reload(), 0)`
+      );
+      await connect.until(
+        `(() => { try { return window.__beforeReload === undefined && document.getElementById('map-chip') !== null; } catch { return false; } })()`,
+        20_000
+      );
+      expect(await connect.evaluate('location.hash')).toContain('selected=');
+      expect(await connect.evaluate('location.hash')).toContain('since=');
+      await connect.evaluate(`document.getElementById('map-chip').click()`);
+      await connect.until(`document.getElementById('map-selection') !== null`);
+      await connect.evaluate(`document.getElementById('map-selection-back').click()`);
+      await connect.until(`document.querySelectorAll('#map-list tbody tr').length === ${after}`);
+    },
+    TIMEOUT_MS
+  );
+
+  it(
     'answers a read again from what it holds, and asks the phone again once the library changed',
     async () => {
       const connect = await visit(await scriptFor());
@@ -613,8 +843,8 @@ describeWithChromium('the connect page in a headless Chromium', () => {
         connect.evaluate<number>(
           `window.__fake.channel.sent.filter((ask) => ask.method === ${JSON.stringify(method)}).length`
         );
-      await connect.until(`document.querySelectorAll('#feed tbody tr').length === 2`);
-      await connect.evaluate(`document.querySelector('#feed tbody tr').click()`);
+      await connect.until(`document.querySelectorAll('#feed-scroll tbody tr').length === 2`);
+      await connect.evaluate(`document.querySelector('#feed-scroll tbody tr').click()`);
       await connect.until(`document.querySelector('#detail dt') !== null`);
       expect(await asks('feed.page')).toBe(1);
       expect(await asks('activity.summary')).toBe(1);
@@ -636,8 +866,8 @@ describeWithChromium('the connect page in a headless Chromium', () => {
       await connect.until(
         `window.__fake.channel.sent.filter((ask) => ask.method === 'activity.summary').length === 2`
       );
-      expect(await connect.evaluate(text('#status'))).toBe('Connected');
-      await connect.until(`document.querySelectorAll('#feed tbody tr').length === 2`);
+      expect(await connect.evaluate(text('#status'))).toBe('Connected to your phone');
+      await connect.until(`document.querySelectorAll('#feed-scroll tbody tr').length === 2`);
     },
     TIMEOUT_MS
   );
@@ -656,36 +886,42 @@ describeWithChromium('the connect page in a headless Chromium', () => {
           frame.set(body, 10);
           window.__fake.channel.onmessage({ data: frame.buffer });
         })()`);
-      await connect.until(`document.querySelectorAll('#feed tbody tr').length === 2`);
+      await connect.until(`document.querySelectorAll('#feed-scroll tbody tr').length === 2`);
       await farewell('background');
       await connect.until(`${text('#status')} === 'Waiting for your phone'`);
 
-      await connect.until(`${text('#status')} === 'Connected'`, 15_000);
-      await connect.until(`document.querySelectorAll('#feed tbody tr').length === 2`);
+      await connect.until(CONNECTED, 15_000);
+      await connect.until(`document.querySelectorAll('#feed-scroll tbody tr').length === 2`);
       await farewell('removed');
       // The page invites afresh at once, and the stand-in phone takes the new
       // code straight away, so the notice is read while it is on screen.
       await connect.until(
-        `${text('#pair-notice')} === 'This browser was removed on the phone. Link it again with a new code.'`
+        `${text('#pair-notice')} === 'This browser was removed on the phone. Scan a new code to link it again.'`
       );
     },
     TIMEOUT_MS
   );
 
   it(
-    'returns to waiting with an empty feed when the channel closes, and connects again',
+    'keeps the feed rows dimmed when the channel closes, and connects again',
     async () => {
       const connect = await visit(await scriptFor());
-      await connect.until(`document.querySelectorAll('#feed tbody tr').length === 2`);
+      await connect.until(`document.querySelectorAll('#feed-scroll tbody tr').length === 2`);
 
       await connect.evaluate('window.__fake.channel.close()');
       await connect.until(`${text('#status')} === 'Waiting for your phone'`);
-      expect(await connect.evaluate(text('#waiting h2'))).toBe('Waiting for your phone');
-      expect(await connect.evaluate(`document.getElementById('feed')`)).toBeNull();
-      expect(await connect.evaluate(`document.getElementById('library')`)).toBeNull();
+      expect(await connect.evaluate(text('#link-banner strong'))).toBe('Waiting for your phone');
+      expect(
+        await connect.evaluate(`document.querySelectorAll('#feed-scroll tbody tr').length`)
+      ).toBe(2);
+      expect(
+        await connect.evaluate(
+          `document.querySelector('.page-body')?.hasAttribute('inert') === true && document.getElementById('library') !== null`
+        )
+      ).toBe(true);
 
-      await connect.until(`${text('#status')} === 'Connected'`, 15_000);
-      await connect.until(`document.querySelectorAll('#feed tbody tr').length === 2`);
+      await connect.until(CONNECTED, 15_000);
+      await connect.until(`document.querySelectorAll('#feed-scroll tbody tr').length === 2`);
     },
     TIMEOUT_MS
   );
@@ -694,7 +930,7 @@ describeWithChromium('the connect page in a headless Chromium', () => {
     'refuses a kept phone that answers with another fingerprint and pairs afresh with the notice',
     async () => {
       const paired = await visit(await scriptFor());
-      await paired.until(`${text('#status')} === 'Connected'`);
+      await paired.until(CONNECTED);
       await paired.close();
       open.pop();
 

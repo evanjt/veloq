@@ -22,7 +22,8 @@ import type {
   MapSourceSpec,
   MapTerrainSpec,
 } from '@/features/maps/lib/htmlBuilders';
-import { type MapStyleType, TERRAIN_3D_CONFIG, getStyleIcon } from './mapStyles';
+import { buildSubjectTerrain } from '@/features/maps/lib/terrainSpec';
+import { type MapStyleType, getStyleIcon } from './mapStyles';
 import {
   composeBaseMapLayers,
   type MapGradientForBase,
@@ -213,13 +214,7 @@ export function BaseMapView({
   );
 
   const terrain = useMemo<MapTerrainSpec | null>(
-    () =>
-      is3DMode
-        ? {
-            exaggeration: TERRAIN_3D_CONFIG.defaultExaggeration,
-            pitch: TERRAIN_3D_CONFIG.defaultPitch,
-          }
-        : null,
+    () => (is3DMode ? buildSubjectTerrain({ subjectSource: 'route' }) : null),
     [is3DMode]
   );
 

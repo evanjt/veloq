@@ -18,7 +18,9 @@
 // skipped and printed as such. The `all` set, a hook and an unreadable range run every
 // guard.
 //
-// Usage: node scripts/run-guards.mjs [--set commit|land|all|environment] [--list | --json]
+// Usage: node scripts/run-guards.mjs [--set commit|land|all|environment]
+//          [--list | --json | --planned]
+// `--planned` prints the names of the guards the set runs for the landing `VELOQ_MERGE_BASE` names.
 // GUARD_WORKERS sets how many run at once, 4 when unset.
 // `--guards <file.json>` swaps the list for a test's own, the way `--root` does in
 // the lints. `VELOQ_GUARD_KINDS_REPORT=<file>` has the kinds of the guards that
@@ -80,13 +82,23 @@ const GUARDS = [
   {
     name: 'check:apple-crypto',
     kind: 'build',
+    paths: ['modules/veloqrs/rust/', 'scripts/check-apple-crypto.mjs', 'scripts/lib/'],
     cmd: node('check-apple-crypto.mjs'),
     catches:
       'an Apple build carrying its own copy of a DTLS cipher for the remote link, or its own SHA-256 and HMAC for the pairing proof',
   },
   {
+    name: 'check:export-compliance',
+    kind: 'correctness',
+    paths: ['app.json', 'app.config.js', 'scripts/check-export-compliance.mjs'],
+    cmd: node('check-export-compliance.mjs'),
+    catches:
+      "a store build that is asked the encryption question at every upload because the declaration is missing, or one declaring non-exempt encryption for standard TLS and DTLS that protect only the app's own traffic",
+  },
+  {
     name: 'check:tracematch-docs',
     kind: 'build',
+    paths: ['modules/veloqrs/rust/tracematch', 'scripts/check-tracematch-docs.mjs', 'scripts/lib/'],
     cmd: node('check-tracematch-docs.mjs'),
     catches:
       "a tracematch doc link to a renamed, moved or private item, which passes every local gate and fails the doc step of tracematch's own CI",
@@ -258,6 +270,12 @@ const GUARDS = [
   {
     name: 'lint:engine-client-forwards',
     kind: 'style',
+    paths: [
+      'modules/veloqrs/src/EngineClient.ts',
+      'scripts/engine-client-forwards-baseline.json',
+      'scripts/lint-engine-client-forwards.mjs',
+      'scripts/lib/',
+    ],
     cmd: node('lint-engine-client-forwards.mjs'),
     catches:
       'a client member that only hands itself to a delegate, a second door to a function the bound namespace already exports',
@@ -265,6 +283,7 @@ const GUARDS = [
   {
     name: 'lint:connect-css',
     kind: 'style',
+    paths: ['web/connect/'],
     cmd: node('lint-connect-css.mjs'),
     catches:
       'a colour or a spacing, radius, border or font-size length written into the connect page past the generated token file, so the page drifts from the app',
@@ -362,7 +381,7 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-ios-availability.mjs'),
     catches:
-      'an iOS availability check at or below the deployment target, whose fallback no installable build reaches',
+      'an iOS availability check at or below the deployment target, whose fallback no installable build reaches, and reads the whole tree',
   },
   {
     name: 'lint:pod-source-links',
@@ -458,13 +477,29 @@ const GUARDS = [
   {
     name: 'lint:connect-theme-subset',
     kind: 'style',
+    paths: ['web/connect/', 'src/theme/', 'scripts/lint-connect-theme-subset.mjs', 'scripts/lib/'],
     cmd: node('lint-connect-theme-subset.mjs'),
     catches:
       'a native import reaching the connect page theme subset, which a browser bundle cannot load',
   },
   {
+    name: 'lint:connect-page-builds',
+    kind: 'correctness',
+    paths: [
+      'web/connect/',
+      'src/theme/',
+      'src/features/maps/',
+      'src/shared/',
+      'scripts/build-connect-page.mjs',
+    ],
+    cmd: node('lint-connect-page-builds.mjs'),
+    catches:
+      'a module the connect page bundles importing a name the page theme subset does not export, which stops the page building',
+  },
+  {
     name: 'lint:intervals-paths',
     kind: 'style',
+    paths: ['modules/veloqrs/rust/veloqrs/', 'scripts/lib/', 'scripts/lint-intervals-paths.mjs'],
     cmd: node('lint-intervals-paths.mjs'),
     catches:
       'an intervals.icu request built outside the endpoint module, which a second data source could not be put behind',
@@ -472,6 +507,7 @@ const GUARDS = [
   {
     name: 'lint:intervals-source',
     kind: 'style',
+    paths: ['modules/veloqrs/rust/veloqrs/', 'scripts/lib/', 'scripts/lint-intervals-source.mjs'],
     cmd: node('lint-intervals-source.mjs'),
     catches:
       'an intervals.icu request that calls the endpoint module past the session, or the intervals.icu session named past the live source owner, bypassing the source boundary a second data source is put behind',
@@ -485,6 +521,7 @@ const GUARDS = [
   {
     name: 'lint:link-serialize',
     kind: 'style',
+    paths: ['modules/veloqrs/rust/veloqrs/', 'scripts/lib/', 'scripts/lint-link-serialize.mjs'],
     cmd: node('lint-link-serialize.mjs'),
     catches:
       'a uniffi::Record or Enum without serde::Serialize, or a Vec<u8> field without the base64 helper, which the link protocol would then refuse or bloat',
@@ -506,6 +543,7 @@ const GUARDS = [
   {
     name: 'lint:maestro-open-link',
     kind: 'style',
+    paths: ['.maestro/', 'scripts/lint-maestro-open-link.mjs', 'scripts/lib/'],
     cmd: node('lint-maestro-open-link.mjs'),
     catches:
       'a Maestro flow following a deep link with a one-shot tap on the iOS open-in-app sheet, which a late sheet outlives so the flow asserts its screen behind the sheet',
@@ -513,6 +551,7 @@ const GUARDS = [
   {
     name: 'lint:maestro-strip-tap',
     kind: 'style',
+    paths: ['.maestro/', 'scripts/lint-maestro-strip-tap.mjs', 'scripts/lib/'],
     cmd: node('lint-maestro-strip-tap.mjs'),
     catches:
       'a Maestro flow tapping the insights Sections tab while the screen is still resizing, so the tap lands on the search field and the section list never appears',
@@ -520,13 +559,23 @@ const GUARDS = [
   {
     name: 'lint:maestro-capture-debug',
     kind: 'style',
+    paths: ['.maestro/', 'scripts/lint-maestro-capture-debug.mjs', 'scripts/lib/'],
     cmd: node('lint-maestro-capture-debug.mjs'),
     catches:
       'a store capture shot taken with debug mode on, putting the repost buttons into the listing set, or a debug-mode switch-off that is missed without the run noticing',
   },
   {
+    name: 'lint:maestro-debug-switch',
+    kind: 'style',
+    paths: ['.maestro/', 'scripts/lint-maestro-debug-switch.mjs', 'scripts/lib/'],
+    cmd: node('lint-maestro-debug-switch.mjs'),
+    catches:
+      'a Maestro flow tapping the debug switch under the version line before scrolling to it, so the switch reads as not found below the fold and the flow stops at the tap',
+  },
+  {
     name: 'lint:maestro-store-shots',
     kind: 'style',
+    paths: ['.maestro/', 'scripts/lint-maestro-store-shots.mjs', 'scripts/lib/'],
     cmd: node('lint-maestro-store-shots.mjs'),
     catches:
       'a store shot that no longer shows what its headline claims: a section page that is not the notified section, an insights shot with no insight opened to its method, or a recording shot taken before the ride has covered distance',
@@ -696,6 +745,7 @@ const GUARDS = [
   {
     name: 'lint:chrome-glyphs',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-source-rules.mjs', 'scripts/lib/'],
     cmd: node('lint-source-rules.mjs', '--rule', 'chrome-glyphs'),
     catches:
       "a share or delete action drawn with the other platform's glyph, or with a second glyph for the same role",
@@ -710,6 +760,7 @@ const GUARDS = [
   {
     name: 'lint:paper-spinner',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-source-rules.mjs', 'scripts/lib/'],
     cmd: node('lint-source-rules.mjs', '--rule', 'paper-spinner'),
     catches:
       "Paper's ActivityIndicator, a drawn Material arc that puts a second spinner style beside the system indicator on iOS",
@@ -717,6 +768,7 @@ const GUARDS = [
   {
     name: 'lint:bare-refresh-control',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-source-rules.mjs', 'scripts/lib/'],
     cmd: node('lint-source-rules.mjs', '--rule', 'bare-refresh-control'),
     catches:
       "a screen's own pull-to-refresh control, which draws Android's light disc and default arc in the dark theme and skips the pull haptic",
@@ -724,6 +776,7 @@ const GUARDS = [
   {
     name: 'lint:bare-spinner',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-source-rules.mjs', 'scripts/lib/'],
     cmd: node('lint-source-rules.mjs', '--rule', 'bare-spinner'),
     catches:
       "react-native's ActivityIndicator drawn outside Spinner and Button, a wait in the wrong colour for the theme that names nothing to a screen reader",
@@ -731,6 +784,7 @@ const GUARDS = [
   {
     name: 'lint:lone-spinner-in-padding',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-source-rules.mjs', 'scripts/lib/'],
     cmd: node('lint-source-rules.mjs', '--rule', 'lone-spinner-in-padding'),
     catches:
       'a spinner alone in a box sized by its padding, which the content it waits for replaces at another height and so moves everything below it',
@@ -832,7 +886,8 @@ const GUARDS = [
     name: 'lint:unused-i18n-keys',
     kind: 'style',
     cmd: node('lint-source-rules.mjs', '--rule', 'unused-i18n-keys'),
-    catches: 'a locale key with no reader, left in all locales after the feature that used it went',
+    catches:
+      'a locale key with no reader, left in all locales after the feature that used it went, and reads the whole tree',
   },
   {
     name: 'lint:unused-styles',
@@ -857,7 +912,8 @@ const GUARDS = [
     name: 'lint:reachability',
     kind: 'style',
     cmd: node('reachability-audit.mjs'),
-    catches: 'a module nothing imports, left behind after its caller went',
+    catches:
+      'a module nothing imports, left behind after its caller went, and reads the whole tree',
   },
   {
     name: 'lint:generated-typechecked',
@@ -891,25 +947,26 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-em-dashes.mjs'),
     catches:
-      'an em dash in prose, comments or a web page, written as the character or as its HTML reference',
+      'an em dash in prose, comments or a web page, written as the character or as its HTML reference, and reads the whole tree',
   },
   {
     name: 'lint:service-name',
     kind: 'style',
     cmd: node('lint-service-name.mjs'),
     catches:
-      'the data service named with a capital first letter in copy, where it writes its name in lower case',
+      'the data service named with a capital first letter in copy, where it writes its name in lower case, and reads the whole tree',
   },
   {
     name: 'lint:jsdoc-tags',
     kind: 'style',
     cmd: node('lint-jsdoc-tags.mjs'),
     catches:
-      'a JSDoc tag line (@param, @returns, @example, @throws, @fileoverview) in TypeScript, which style.md does not allow',
+      'a JSDoc tag line (@param, @returns, @example, @throws, @fileoverview) in TypeScript, which style.md does not allow, and reads the whole tree',
   },
   {
     name: 'lint:question-titles',
     kind: 'style',
+    paths: ['src/i18n/locales/', 'scripts/lib/', 'scripts/lint-question-titles.mjs'],
     cmd: node('lint-question-titles.mjs'),
     catches:
       'a settings group header or info title phrased as a clause opening with a question word where a noun belongs',
@@ -918,23 +975,25 @@ const GUARDS = [
     name: 'lint:comment-line-refs',
     kind: 'style',
     cmd: node('lint-comment-line-refs.mjs'),
-    catches: 'a comment citing a line number, which drifts',
+    catches: 'a comment citing a line number, which drifts, and reads the whole tree',
   },
   {
     name: 'lint:au-spelling',
     kind: 'style',
     cmd: node('lint-au-spelling.mjs'),
-    catches: 'American spelling in our own identifiers and prose',
+    catches: 'American spelling in our own identifiers and prose, and reads the whole tree',
   },
   {
     name: 'lint:sentence-case',
     kind: 'style',
+    paths: ['src/i18n/locales/', 'scripts/lib/', 'scripts/lint-sentence-case.mjs'],
     cmd: node('lint-sentence-case.mjs'),
     catches: 'a Title Case label beside sentence-case ones, so one term reads two ways',
   },
   {
     name: 'lint:locale-ellipsis',
     kind: 'style',
+    paths: ['src/i18n/locales/', 'scripts/lib/', 'scripts/lint-locale-ellipsis.mjs'],
     cmd: node('lint-locale-ellipsis.mjs'),
     catches:
       'three full stops written for an ellipsis in a locale value, which a line that adds its own then doubles',
@@ -961,6 +1020,7 @@ const GUARDS = [
   {
     name: 'lint:locale-capitals',
     kind: 'style',
+    paths: ['src/i18n/locales/', 'scripts/lib/', 'scripts/lint-locale-capitals.mjs'],
     cmd: node('lint-locale-capitals.mjs'),
     catches: 'a label stored in capitals, so the style and the string both claim the case',
   },
@@ -980,11 +1040,17 @@ const GUARDS = [
     name: 'lint:audit-ids',
     kind: 'style',
     cmd: node('lint-audit-ids.mjs'),
-    catches: 'a task tracker id in a comment, which rots',
+    catches: 'a task tracker id in a comment, which rots, and reads the whole tree',
   },
   {
     name: 'lint:exhaustive-deps-disables',
     kind: 'style',
+    paths: [
+      'src/',
+      'modules/veloqrs/src/',
+      'scripts/lint-exhaustive-deps-disables.mjs',
+      'scripts/lib/',
+    ],
     cmd: node('lint-exhaustive-deps-disables.mjs'),
     catches:
       'an exhaustive-deps disable with no stated reason for omitting a dependency, or any disable in an effect that rebuilds its list from a key',
@@ -992,12 +1058,14 @@ const GUARDS = [
   {
     name: 'lint:feature-imports',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-feature-imports.mjs', 'scripts/lib/'],
     cmd: node('lint-feature-imports.mjs'),
     catches: 'a new deep import between features, past the recorded baseline',
   },
   {
     name: 'lint:window-dimensions',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-window-dimensions.mjs', 'scripts/lib/'],
     cmd: node('lint-window-dimensions.mjs'),
     catches: 'a static Dimensions read that ignores rotation and split screen',
   },
@@ -1024,6 +1092,7 @@ const GUARDS = [
   {
     name: 'lint:point-shape',
     kind: 'style',
+    paths: ['src/', 'modules/veloqrs/src/', 'scripts/lint-point-shape.mjs', 'scripts/lib/'],
     cmd: node('lint-point-shape.mjs'),
     catches:
       'a second lat/lng point declaration, which typechecks beside LatLngShort and ignores a change to it',
@@ -1031,6 +1100,7 @@ const GUARDS = [
   {
     name: 'lint:retired-names',
     kind: 'style',
+    paths: ['src/', 'modules/veloqrs/', 'scripts/lint-retired-names.mjs', 'scripts/lib/'],
     cmd: node('lint-retired-names.mjs'),
     catches:
       'the removed activity retention path coming back by name, in the store, the engine or the stream window comment',
@@ -1038,12 +1108,14 @@ const GUARDS = [
   {
     name: 'lint:verdict-palette',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-verdict-palette.mjs', 'scripts/lib/'],
     cmd: node('lint-verdict-palette.mjs'),
     catches: 'a verdict colour outside the shared palette',
   },
   {
     name: 'lint:mark-contrast',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-mark-contrast.mjs', 'scripts/lib/'],
     cmd: node('lint-mark-contrast.mjs'),
     catches:
       'success or warning used as a text, border or icon colour, below the contrast a mark needs',
@@ -1051,6 +1123,7 @@ const GUARDS = [
   {
     name: 'lint:press-feedback',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-press-feedback.mjs', 'scripts/lib/'],
     cmd: node('lint-press-feedback.mjs'),
     catches:
       'a new press target that shows no focus ring, a pressable with no pressed state, a rendered Touchable control, a press wrapper that skips the platform press answer, or an icon glyph that takes a press itself',
@@ -1093,6 +1166,7 @@ const GUARDS = [
   {
     name: 'lint:haptics-owner',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-haptics-owner.mjs', 'scripts/lib/'],
     cmd: node('lint-haptics-owner.mjs'),
     catches: 'a haptic fired outside the one helper, with its own platform gate or no catch',
   },
@@ -1127,6 +1201,7 @@ const GUARDS = [
   {
     name: 'lint:switch-owner',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-switch-owner.mjs', 'scripts/lib/'],
     cmd: node('lint-switch-owner.mjs'),
     catches:
       'a switch drawing its own colours or carrying no name, so an off state falls under 3:1 or a screen reader reads no label',
@@ -1134,12 +1209,14 @@ const GUARDS = [
   {
     name: 'lint:hold-durations',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-hold-durations.mjs', 'scripts/lib/'],
     cmd: node('lint-hold-durations.mjs'),
     catches: 'a local hold drifting from its preview, deliberate or confirm class',
   },
   {
     name: 'lint:tap-targets',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-tap-targets.mjs', 'scripts/lib/'],
     cmd: node('lint-tap-targets.mjs'),
     catches:
       'an explicitly undersized pressable with no hit slop, or a literal hit slop that lets a target drift under the platform minimum',
@@ -1147,6 +1224,7 @@ const GUARDS = [
   {
     name: 'lint:rgba',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-rgba-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-rgba-literals.mjs'),
     catches: 'a colour literal outside the theme tokens',
   },
@@ -1155,11 +1233,20 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-unchecked-index.mjs'),
     catches:
-      'a new index read that can be undefined, in a directory whose count under noUncheckedIndexedAccess only falls',
+      'a new index read that can be undefined, in a directory whose count under noUncheckedIndexedAccess only falls, and reads the whole tree',
+  },
+  {
+    name: 'lint:connect-page-titles',
+    kind: 'style',
+    paths: ['web/connect/pages/', 'scripts/lint-connect-page-titles.mjs'],
+    cmd: node('lint-connect-page-titles.mjs'),
+    catches:
+      'a connect page drawing its own screen name as an h1 or h2 under the top bar, which already shows it, so the title appears twice',
   },
   {
     name: 'lint:connect-bare-controls',
     kind: 'style',
+    paths: ['web/connect/'],
     cmd: node('lint-connect-bare-controls.mjs'),
     catches:
       'a bare button, select or input in a connect page file instead of the kit in web/connect/ui, so controls differ page to page',
@@ -1167,6 +1254,7 @@ const GUARDS = [
   {
     name: 'lint:hand-rolled-buttons',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-hand-rolled-buttons.mjs', 'scripts/lib/'],
     cmd: node('lint-hand-rolled-buttons.mjs'),
     catches:
       "a new hand-built button instead of the shared one, or Paper's IconButton, which takes no label and reaches a screen reader unnamed",
@@ -1174,6 +1262,7 @@ const GUARDS = [
   {
     name: 'lint:heading-tokens',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-heading-tokens.mjs', 'scripts/lib/'],
     cmd: node('lint-heading-tokens.mjs'),
     catches:
       'a title styled as a section or card title by hand, with no header role for heading navigation',
@@ -1181,6 +1270,7 @@ const GUARDS = [
   {
     name: 'lint:icon-sizes',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-icon-sizes.mjs', 'scripts/lib/'],
     cmd: node('lint-icon-sizes.mjs'),
     catches:
       "an icon drawn at a size the guide does not have, so one screen's glyph reads larger than its neighbour's",
@@ -1188,6 +1278,7 @@ const GUARDS = [
   {
     name: 'lint:row-chevrons',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-row-chevrons.mjs', 'scripts/lib/'],
     cmd: node('lint-row-chevrons.mjs'),
     catches:
       'a disclosure chevron or typed › drawn beside the shared Row, or one on a row that acts rather than opens',
@@ -1195,6 +1286,7 @@ const GUARDS = [
   {
     name: 'lint:single-line-text',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-single-line-text.mjs', 'scripts/lib/'],
     cmd: node('lint-single-line-text.mjs'),
     catches:
       'a number, date or name held to one line and cut off with an ellipsis, past the recorded baseline, instead of shrinking through FitText or wrapping through NameText',
@@ -1202,6 +1294,7 @@ const GUARDS = [
   {
     name: 'lint:button-row-siblings',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-button-row-siblings.mjs', 'scripts/lib/'],
     cmd: node('lint-button-row-siblings.mjs'),
     catches:
       'a new row of flex: 1 Button siblings outside ButtonRow, which breaks a label inside a word when a share is narrower than its longest word',
@@ -1209,12 +1302,14 @@ const GUARDS = [
   {
     name: 'lint:empty-state-styles',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-empty-state-styles.mjs', 'scripts/lib/'],
     cmd: node('lint-empty-state-styles.mjs'),
     catches: 'a new hand-rolled empty state style instead of the shared EmptyState',
   },
   {
     name: 'lint:font-size-pluck',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-font-size-pluck.mjs', 'scripts/lib/'],
     cmd: node('lint-font-size-pluck.mjs'),
     catches:
       "a text style built from one role's size and a weight of its own, which drops the role's line height, tracking and figures",
@@ -1222,6 +1317,7 @@ const GUARDS = [
   {
     name: 'lint:floor-type-styles',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-floor-type-styles.mjs', 'scripts/lib/'],
     cmd: node('lint-floor-type-styles.mjs'),
     catches:
       'a sentence or a new label set at the 9 or 10px floor, except licence and attribution text',
@@ -1229,6 +1325,7 @@ const GUARDS = [
   {
     name: 'lint:style-font-weight',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-style-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-style-literals.mjs', '--class', 'font-weight'),
     catches:
       'a font weight written by hand instead of read from a typography role, or a weight of 500, which a platform with static font files draws as 400 or 600',
@@ -1236,6 +1333,7 @@ const GUARDS = [
   {
     name: 'lint:style-line-height',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-style-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-style-literals.mjs', '--class', 'line-height'),
     catches:
       'a line height written by hand, which drifts from the size it was paired with in the typography role',
@@ -1243,30 +1341,35 @@ const GUARDS = [
   {
     name: 'lint:style-letter-spacing',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-style-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-style-literals.mjs', '--class', 'letter-spacing'),
     catches: 'tracking written by hand instead of read from a typography role',
   },
   {
     name: 'lint:style-font-family',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-style-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-style-literals.mjs', '--class', 'font-family'),
     catches: 'a font family named in a component, which bypasses the type scale and a font change',
   },
   {
     name: 'lint:style-font-style',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-style-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-style-literals.mjs', '--class', 'font-style'),
     catches: 'italic text, which the design language does not draw',
   },
   {
     name: 'lint:style-border-width',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-style-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-style-literals.mjs', '--class', 'border-width'),
     catches: 'a border or rule width written by hand, a fourth hairline weight nobody chose',
   },
   {
     name: 'lint:style-stroke-width',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-style-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-style-literals.mjs', '--class', 'stroke-width'),
     catches:
       'a chart or glyph stroke width written by hand, so two charts draw the same line at two weights',
@@ -1274,12 +1377,14 @@ const GUARDS = [
   {
     name: 'lint:style-icon-size',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-style-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-style-literals.mjs', '--class', 'icon-size'),
     catches: 'an icon drawn at a size written by hand, off the icon ladder',
   },
   {
     name: 'lint:style-shadow',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-style-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-style-literals.mjs', '--class', 'shadow'),
     catches:
       'an elevation or shadow written by hand instead of a shadows preset, which drifts between platforms',
@@ -1287,12 +1392,14 @@ const GUARDS = [
   {
     name: 'lint:style-opacity',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-style-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-style-literals.mjs', '--class', 'opacity'),
     catches: 'an opacity written by hand instead of an opacity step',
   },
   {
     name: 'lint:style-alpha',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-style-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-style-literals.mjs', '--class', 'alpha'),
     catches:
       'a colour alpha written by hand, through colorWithOpacity or a hex suffix, instead of an opacity step',
@@ -1300,6 +1407,7 @@ const GUARDS = [
   {
     name: 'lint:style-status-tints',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-style-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-style-literals.mjs', '--class', 'status-tint'),
     catches:
       'a notice ground or edge tinted from a status hue by hand, which disagrees with the banner of its tone',
@@ -1307,6 +1415,7 @@ const GUARDS = [
   {
     name: 'lint:style-z-index',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-style-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-style-literals.mjs', '--class', 'z-index'),
     catches:
       'a layer written by hand, so two floating pieces can share a layer or cover each other',
@@ -1314,12 +1423,14 @@ const GUARDS = [
   {
     name: 'lint:style-motion',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-style-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-style-literals.mjs', '--class', 'motion'),
     catches: 'an animation duration or delay written by hand instead of a named duration',
   },
   {
     name: 'lint:style-containers',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-style-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-style-literals.mjs', '--class', 'container'),
     catches:
       'a card, button, chip, field, banner, sheet header or row drawn by hand outside src/shared/ui',
@@ -1327,18 +1438,21 @@ const GUARDS = [
   {
     name: 'lint:style-badges',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-style-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-style-literals.mjs', '--class', 'badge'),
     catches: 'a new hand-built badge with its own radius, padding and tint',
   },
   {
     name: 'lint:style-theme-imports',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-style-literals.mjs', 'scripts/lib/'],
     cmd: node('lint-style-literals.mjs', '--class', 'theme-import'),
     catches: 'a style value imported from inside src/theme rather than its one index',
   },
   {
     name: 'check:style-owners',
     kind: 'style',
+    paths: ['src/', 'scripts/check-style-owners.mjs', 'scripts/run-guards.mjs', 'scripts/lib/'],
     cmd: node('check-style-owners.mjs'),
     catches:
       'a style property key with no token owner in src/theme and no guard, so a new class of style value arrives unowned',
@@ -1352,12 +1466,14 @@ const GUARDS = [
   {
     name: 'lint:modal-sheets',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-modal-sheets.mjs', 'scripts/lib/'],
     cmd: node('lint-modal-sheets.mjs'),
     catches: 'a hand-built Modal sheet instead of a formSheet route',
   },
   {
     name: 'lint:react-native-text',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-react-native-text.mjs', 'scripts/lib/'],
     cmd: node('lint-react-native-text.mjs'),
     catches:
       "a new react-native Text, which skips the Material 3 type and colour defaults Android takes from Paper's",
@@ -1371,12 +1487,14 @@ const GUARDS = [
   {
     name: 'lint:sheet-headers',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-sheet-headers.mjs', 'scripts/lib/'],
     cmd: node('lint-sheet-headers.mjs'),
     catches: 'a sheet route drawing its own title row and dismissal instead of SheetHeader',
   },
   {
     name: 'lint:roleless-pressables',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-roleless-pressables.mjs', 'scripts/lib/'],
     cmd: node('lint-roleless-pressables.mjs'),
     catches:
       'a new press target outside the shared ui, an icon taking a press among them, that a screen reader announces with no role, or one anywhere with a role and no label or text, announced as "button" alone',
@@ -1398,6 +1516,7 @@ const GUARDS = [
   {
     name: 'lint:native-header',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-source-rules.mjs', 'scripts/lib/'],
     cmd: node('lint-source-rules.mjs', '--rule', 'native-header'),
     catches:
       'a screen drawing its own back button or header row, or the root stack turning the native header off',
@@ -1412,24 +1531,28 @@ const GUARDS = [
   {
     name: 'lint:ground-token-text',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-source-rules.mjs', 'scripts/lib/'],
     cmd: node('lint-source-rules.mjs', '--rule', 'ground-token-text'),
     catches: 'a ground token colouring text, a hue that answers to no contrast bar',
   },
   {
     name: 'lint:disabled-ink-content',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-source-rules.mjs', 'scripts/lib/'],
     cmd: node('lint-source-rules.mjs', '--rule', 'disabled-ink-content'),
     catches: 'disabled-grade ink on live content',
   },
   {
     name: 'lint:dark-counterpart',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-source-rules.mjs', 'scripts/lib/'],
     cmd: node('lint-source-rules.mjs', '--rule', 'dark-counterpart'),
     catches: 'a light-only text, ground or border colour drawn in dark mode',
   },
   {
     name: 'lint:light-only-roles',
     kind: 'style',
+    paths: ['src/', 'scripts/lint-light-only-roles.mjs', 'scripts/lib/'],
     cmd: node('lint-light-only-roles.mjs'),
     catches:
       'a bare light primary drawn on a dark ground, or a raw brand ramp step read outside the theme, in a file whose count only falls',
@@ -1474,40 +1597,42 @@ const GUARDS = [
     kind: 'environment',
     cmd: node('lint-module-link.mjs'),
     catches:
-      "node_modules/veloqrs pointing at a third tree, so a build anywhere ships that tree's engine",
+      "node_modules/veloqrs pointing at a third tree, so a build anywhere ships that tree's engine, and reads the whole tree",
   },
   {
     name: 'lint:node-modules-link',
     kind: 'environment',
     cmd: node('lint-node-modules-link.mjs'),
     catches:
-      "a job tree's node_modules linked to another job tree's install, which lacks packages the Jest config names and fails the suite at config validation",
+      "a job tree's node_modules linked to another job tree's install, which lacks packages the Jest config names and fails the suite at config validation, and reads the whole tree",
   },
   {
     name: 'lint:worktree-config',
     kind: 'environment',
     cmd: node('lint-worktree-config.mjs'),
-    catches: 'core.bare or user.email a leaked test fixture wrote onto the main checkout',
+    catches:
+      'core.bare or user.email a leaked test fixture wrote onto the main checkout, and reads the whole tree',
   },
   {
     name: 'lint:tracematch-clone',
     kind: 'environment',
     cmd: node('lint-tracematch-clone.mjs'),
     catches:
-      "a worktree's tracematch tree shared with the main checkout, so one job commits another's detector edits",
+      "a worktree's tracematch tree shared with the main checkout, so one job commits another's detector edits, and reads the whole tree",
   },
   {
     name: 'lint:cargo-config-reach',
     kind: 'environment',
     cmd: node('lint-cargo-config-reach.mjs'),
-    catches: 'a worktree outside the directory whose cargo config caps jobs and names the corpus',
+    catches:
+      'a worktree outside the directory whose cargo config caps jobs and names the corpus, and reads the whole tree',
   },
   {
     name: 'check:no-install-gate',
     kind: 'style',
     cmd: node('check-no-install-gate.mjs'),
     catches:
-      'a Play Integrity, Play Licensing, App Attest or install-source check entering the app or the proxy, which gates a feature on a store install and breaks it on the sideloaded and source builds',
+      'a Play Integrity, Play Licensing, App Attest or install-source check entering the app or the proxy, which gates a feature on a store install and breaks it on the sideloaded and source builds, and reads the whole tree',
   },
 ];
 
@@ -1518,19 +1643,25 @@ const SETS = {
   environment: ['environment'],
 };
 
+// The lines git prints for `args`, run without the environment a hook hands down.
+function gitLines(...args) {
+  return execFileSync('git', args, {
+    env: gitFreeEnv(),
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  })
+    .split('\n')
+    .filter(Boolean);
+}
+
 // The whole-tree guards read the index, which is the tree under judgement in a
 // hook and a stale base by hand: a build left unstaged would pass as its base.
 function unstagedPaths() {
-  const git = (...args) =>
-    execFileSync('git', args, {
-      env: gitFreeEnv(),
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-      .split('\n')
-      .filter(Boolean);
   return [
-    ...new Set([...git('diff', '--name-only'), ...git('ls-files', '-o', '--exclude-standard')]),
+    ...new Set([
+      ...gitLines('diff', '--name-only'),
+      ...gitLines('ls-files', '-o', '--exclude-standard'),
+    ]),
   ];
 }
 
@@ -1551,17 +1682,18 @@ function run(guard, set) {
 }
 
 // The files the landing changes, or null when the range cannot be read: no base, a base
-// the repository lacks, or not a repository. Then every guard runs.
+// the repository lacks, or not a repository. Then every guard runs. The working tree and its
+// untracked files count too: a job's gate runs before its work is committed, and a landing's
+// tree is clean, so the two agree there.
 function landedPaths(base) {
   if (!base) return null;
   try {
-    return execFileSync('git', ['diff', '--name-only', base, 'HEAD'], {
-      env: gitFreeEnv(),
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-      .split('\n')
-      .filter(Boolean);
+    return [
+      ...new Set([
+        ...gitLines('diff', '--name-only', base),
+        ...gitLines('ls-files', '-o', '--exclude-standard'),
+      ]),
+    ];
   } catch {
     return null;
   }
@@ -1596,6 +1728,11 @@ async function main() {
   }
   if (argv.includes('--list')) {
     for (const g of guards) console.log(`${g.kind.padEnd(12)} ${g.name.padEnd(26)} ${g.catches}`);
+    return;
+  }
+  if (argv.includes('--planned')) {
+    const plan = planGuards(guards, landedPaths(process.env.VELOQ_MERGE_BASE));
+    for (const g of plan.run) console.log(g.name);
     return;
   }
 

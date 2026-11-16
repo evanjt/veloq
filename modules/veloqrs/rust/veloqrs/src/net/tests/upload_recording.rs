@@ -32,6 +32,8 @@ struct Fake {
     sent: Mutex<Vec<String>>,
     /// The external id each file send carried.
     external_ids: Mutex<Vec<String>>,
+    /// The description each file send carried.
+    descriptions: Mutex<Vec<Option<String>>>,
     /// The FIT path each file send was handed.
     sent_paths: Mutex<Vec<String>>,
     manual_bodies: Mutex<Vec<ManualActivityBody>>,
@@ -73,6 +75,7 @@ impl Fake {
             rpe_answer: FfiCallKind::Ok,
             sent: Mutex::new(Vec::new()),
             external_ids: Mutex::new(Vec::new()),
+            descriptions: Mutex::new(Vec::new()),
             sent_paths: Mutex::new(Vec::new()),
             manual_bodies: Mutex::new(Vec::new()),
             rpe: Mutex::new(Vec::new()),
@@ -145,6 +148,7 @@ impl Uplink for Fake {
 
     fn send_file(&self, ride: &FfiRecordingEntry) -> FfiCallOutcome {
         self.sent_paths.lock().unwrap().push(ride.fit_path.clone());
+        self.descriptions.lock().unwrap().push(ride.notes.clone());
         self.external_ids.lock().unwrap().push(external_id_of(ride));
         let created = ListedActivity {
             external_id: Some(external_id_of(ride)),
@@ -1623,6 +1627,8 @@ fn a_recorded_strength_session_keeps_its_own_sets_when_the_upload_lands() {
             current_exercise: None,
             current_set: None,
             rest_started_at: None,
+            heart_rate: Vec::new(),
+            notes: Vec::new(),
         })
         .unwrap()
     })
@@ -1785,9 +1791,8 @@ fn store_garmin_original(dir: &TempDir) {
     }))
     .unwrap();
     let fit = crate::fit_synthetic::outdoor_ride().to_fit();
-    let path = source_fit_file(&garmin_key()).expect("a documents directory");
     with_persistent_engine(|e| {
-        crate::net::garmin::ingest::ingest_into(e, Some(&path), &listed, &fit).expect("stored")
+        crate::net::garmin::ingest::ingest_into(e, true, &listed, &fit).expect("stored")
     })
     .unwrap();
 }
@@ -1811,8 +1816,20 @@ fn a_sync_has_completed() {
     .unwrap();
 }
 
+/// Whether the originals owner still holds the Garmin ride's FIT.
 fn garmin_fit_on_disk() -> bool {
-    source_fit_file(&garmin_key()).is_some_and(|p| p.is_file())
+    with_persistent_engine(|e| {
+        crate::persistence::originals::original_of(&e.db, &garmin_key())
+            .unwrap()
+            .is_some()
+    })
+    .unwrap()
+}
+
+/// Whether a staged copy of the Garmin ride's FIT is left under the documents
+/// directory.
+fn garmin_file_left_behind() -> bool {
+    recording_file(&format!("{RECORDINGS_DIR}/{}.fit", garmin_key())).is_some_and(|p| p.is_file())
 }
 
 /// Scenario: a Garmin original no intervals.icu activity holds, the athlete's
@@ -1888,6 +1905,10 @@ fn a_refused_scope_parks_a_garmin_original_with_its_file() {
 
     assert_eq!(row(&garmin_key()).upload_status, "permissionBlocked");
     assert!(garmin_fit_on_disk());
+    assert!(
+        !garmin_file_left_behind(),
+        "a staged copy is removed after the attempt"
+    );
     assert_eq!(intervals_id_of_activity(&garmin_key()), None);
 }
 
@@ -1913,6 +1934,7 @@ fn a_garmin_fit_is_deleted_only_after_the_read_back_says_present() {
     sweep(&fake, &now);
 
     assert!(!garmin_fit_on_disk());
+    assert!(!garmin_file_left_behind());
     assert!(!exists(&garmin_key()));
     assert!(with_persistent_engine(|e| e.has_stored_activity(&garmin_key())).unwrap());
     assert_eq!(
@@ -1936,4 +1958,133 @@ fn only_a_garmin_original_is_sent_under_the_garmin_form() {
         upload_name_of(&ride(&dir, "r1", 1_000)).as_deref(),
         Some("Ride r1")
     );
+}
+
+/// A finished session of two exercises under `key`, as a recording saved it.
+fn finished_strength_session(key: &str) -> crate::persistence::strength_sessions::StrengthSession {
+    use crate::persistence::strength_sessions::{
+        SessionExercise, SessionKind, SessionSet, StrengthSession,
+    };
+    let exercise = crate::strength::catalogue::all()
+        .find(|e| e.label_key == "barbell_bench_press")
+        .unwrap();
+    let set = |reps, kg| SessionSet {
+        reps: Some(reps),
+        weight_kg: Some(kg),
+        done: true,
+        done_at: Some(1_000),
+        ..SessionSet::default()
+    };
+    StrengthSession {
+        id: format!("session-{key}"),
+        kind: SessionKind::Finished,
+        name: None,
+        activity_key: Some(key.to_string()),
+        intervals_id: None,
+        started_at: Some(900),
+        ended_at: Some(2_000),
+        last_used_at: None,
+        created_at: 900,
+        exercises: vec![SessionExercise {
+            exercise_category: exercise.category,
+            exercise_name: Some(exercise.name),
+            sets: vec![set(5, 60.0), set(5, 62.5)],
+            ..SessionExercise::default()
+        }],
+        groups: vec![],
+        rests: vec![],
+        current_exercise: None,
+        current_set: None,
+        rest_started_at: None,
+        heart_rate: Vec::new(),
+        notes: Vec::new(),
+    }
+}
+
+fn strength_ride(dir: &TempDir, id: &str, key: &str) -> FfiRecordingEntry {
+    let mut entry = with_provisional(ride(dir, id, 1_000), key);
+    entry.activity_type = "WeightTraining".to_string();
+    entry.notes = Some("Felt strong".to_string());
+    entry
+}
+
+/// Scenario: a strength recording with a finished session uploads as a file.
+/// Expected behaviour: the description is the sets' summary, then the notes.
+#[test]
+fn a_strength_file_upload_describes_its_sets_before_the_notes() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_strength_summary.db");
+    insert(&strength_ride(&dir, "s1", "local-s1"));
+    with_persistent_engine(|e| {
+        e.save_strength_session(&finished_strength_session("local-s1"))
+            .unwrap()
+    })
+    .unwrap();
+    let fake = Fake::answering(vec![landed("i9")]);
+
+    one_scheduled_pass(&fake);
+
+    assert_eq!(
+        fake.descriptions.lock().unwrap().clone(),
+        vec![Some(
+            "Barbell Bench Press: 5 × 60, 5 × 62.5 kg\n\nFelt strong".to_string()
+        )]
+    );
+    assert_eq!(row("s1").notes.as_deref(), Some("Felt strong"));
+}
+
+/// Expected behaviour: with the summary setting off only the notes go up.
+#[test]
+fn the_summary_setting_off_sends_only_the_notes() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_strength_summary_off.db");
+    insert(&strength_ride(&dir, "s1", "local-s1"));
+    with_persistent_engine(|e| {
+        e.save_strength_session(&finished_strength_session("local-s1"))
+            .unwrap();
+        e.set_setting(
+            crate::persistence::settings::settings_keys::STRENGTH_SUMMARY,
+            "0",
+        )
+        .unwrap();
+    })
+    .unwrap();
+    let fake = Fake::answering(vec![landed("i9")]);
+
+    one_scheduled_pass(&fake);
+
+    assert_eq!(
+        fake.descriptions.lock().unwrap().clone(),
+        vec![Some("Felt strong".to_string())]
+    );
+}
+
+/// Expected behaviour: a strength file with no session behind it, and a ride
+/// of another sport, keep their own notes as the description.
+#[test]
+fn a_file_with_no_session_keeps_its_notes_as_the_description() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_strength_no_session.db");
+    insert(&strength_ride(&dir, "s1", "local-s1"));
+    let fake = Fake::answering(vec![landed("i9")]);
+
+    one_scheduled_pass(&fake);
+
+    assert_eq!(
+        fake.descriptions.lock().unwrap().clone(),
+        vec![Some("Felt strong".to_string())]
+    );
+}
+
+/// Expected behaviour: an earlier attempt's strength file is found on the
+/// server by the external id it was sent under, as any file upload is.
+#[test]
+fn a_landed_strength_file_is_found_by_its_external_id() {
+    let listed = vec![ListedActivity {
+        id: "i77".to_string(),
+        external_id: Some("s1.fit".to_string()),
+        activity_type: Some("WeightTraining".to_string()),
+        ..ListedActivity::default()
+    }];
+    assert_eq!(landed_match("s1", None, &listed).as_deref(), Some("i77"));
 }

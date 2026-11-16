@@ -1,0 +1,393 @@
+#strength {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.strength-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.strength-actions {
+  display: flex;
+  gap: var(--space-md);
+  font-size: var(--web-type-body-size);
+}
+
+.strength-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.6fr);
+  gap: var(--space-md);
+  align-items: start;
+}
+
+.strength-overview .meta {
+  margin: var(--space-sm) 0 0;
+  font-size: var(--web-type-caption-size);
+  line-height: var(--web-type-caption-line);
+  color: var(--colour-text-secondary);
+}
+
+.strength-overview > * {
+  min-width: 0;
+}
+
+.strength-tables {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+.strength-table {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.strength-table .ui-card-header {
+  margin: var(--space-sm) 0 0;
+}
+
+.body-figure {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-lg);
+}
+
+.body-figure-view {
+  height: 280px;
+  width: auto;
+}
+
+.body-figure-head {
+  fill: var(--colour-fill-neutral);
+  stroke: var(--colour-border-strong);
+  stroke-width: 1;
+}
+
+.body-figure-muscle {
+  fill: var(--colour-brand-blue);
+  stroke: var(--colour-border-strong);
+  stroke-width: 1;
+  cursor: pointer;
+}
+
+.body-figure-muscle:hover,
+.body-figure-muscle:focus-visible {
+  stroke: var(--colour-text-primary);
+  outline: none;
+}
+
+.body-figure-muscle[data-chosen='true'] {
+  stroke: var(--colour-text-primary);
+  stroke-width: 2;
+}
+
+.balance-list,
+.progression-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.balance-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.balance-title,
+.progression-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: var(--web-type-body-size);
+  line-height: var(--web-type-body-line);
+}
+
+.balance-bar {
+  display: flex;
+  height: var(--space-sm-plus);
+  margin: var(--space-xs) 0;
+  border-radius: var(--web-radius-full);
+  overflow: hidden;
+  background: var(--colour-fill-neutral);
+}
+
+.balance-left {
+  background: var(--colour-brand-blue);
+}
+
+.balance-right {
+  background: var(--colour-chart-muted);
+  border-left: var(--stroke-2) solid var(--colour-surface-raised);
+}
+
+.balance-pair[data-status='imbalanced'] .balance-ratio {
+  color: var(--colour-error-text);
+}
+
+.balance-pair[data-status='watch'] .balance-ratio {
+  color: var(--colour-warning-text);
+}
+
+.balance-sides {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--web-type-caption-size);
+  line-height: var(--web-type-caption-line);
+  color: var(--colour-text-secondary);
+}
+
+.progression-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-sm-plus);
+}
+
+.progression {
+  padding: var(--space-sm);
+  border: var(--stroke-1) solid var(--colour-border);
+  border-radius: var(--web-radius-md);
+  min-width: 0;
+}
+
+.progression-head strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progression-change {
+  font-variant-numeric: var(--web-numerals);
+  color: var(--colour-text-secondary);
+}
+
+.progression[data-trend='rising'] .progression-change {
+  color: var(--colour-success-text);
+}
+
+.progression-line {
+  display: block;
+  width: 100%;
+  height: 32px;
+  margin: var(--space-xs) 0;
+}
+
+.progression-line polyline {
+  fill: none;
+  stroke: var(--colour-chart-series);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.progression-facts {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-xxs) var(--space-sm);
+  margin: 0;
+  font-size: var(--web-type-caption-size);
+  line-height: var(--web-type-caption-line);
+  color: var(--colour-text-secondary);
+}
+
+.progression-facts dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: var(--web-numerals);
+}
+
+#exercise-chart {
+  margin-bottom: var(--space-md);
+}
+
+#workouts {
+  height: 100%;
+  min-height: 560px;
+}
+
+.workouts-library,
+.workouts-editor-pane {
+  min-width: 0;
+}
+
+.workouts-library {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-right: var(--space-md);
+}
+
+.workouts-library h2 {
+  margin: var(--space-sm) 0 0;
+  font-size: var(--web-type-title-size);
+  line-height: var(--web-type-title-line);
+  font-weight: var(--web-type-title-weight);
+}
+
+.workouts-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.workouts-editor-pane {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
+  align-items: start;
+  padding-left: var(--space-md);
+}
+
+/* Beside the editor on a wide window; above it, as a short scrolling list, on a narrow one. */
+.workouts-picker {
+  order: -1;
+}
+
+.workouts-picker .ui-table-frame {
+  max-height: var(--web-size-table-max);
+  overflow: auto;
+}
+
+@media (min-width: 1500px) {
+  .workouts-editor-pane {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  }
+
+  .workouts-picker {
+    order: 0;
+    position: sticky;
+    top: 0;
+  }
+
+  .workouts-picker .ui-table-frame {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+.workouts-editor,
+.workouts-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.workouts-name {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
+}
+
+.workouts-name > :first-child {
+  flex: 1;
+}
+
+#workout-exercises {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.workout-exercise {
+  padding: var(--space-sm) var(--space-sm-plus);
+  border: var(--stroke-1) solid var(--colour-card-edge);
+  border-radius: var(--web-radius-lg);
+  background: var(--colour-surface-raised);
+  cursor: grab;
+}
+
+.workout-exercise[data-dragging='true'] {
+  opacity: 0.5;
+}
+
+.workout-exercise[data-over='true'] {
+  border-color: var(--colour-brand-blue);
+  border-width: var(--stroke-2);
+}
+
+.workout-exercise-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.workout-exercise-head h3 {
+  margin: 0;
+  font-size: var(--web-type-body-size);
+  line-height: var(--web-type-body-line);
+  font-weight: var(--web-type-title-weight);
+}
+
+.workout-exercise-actions,
+.workout-exercise-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.workout-exercise-tools {
+  margin-top: var(--space-sm);
+}
+
+.workout-sets {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--web-type-small-size);
+  line-height: var(--web-type-small-line);
+}
+
+.workout-sets th {
+  text-align: left;
+  font-weight: var(--web-type-body-weight);
+  color: var(--colour-text-secondary);
+}
+
+.workout-sets td,
+.workout-sets th {
+  padding: var(--space-xxs) var(--space-xs);
+  height: var(--web-size-row);
+}
+
+.workout-sets input {
+  width: 72px;
+}
+
+.workout-exercise-tools select {
+  max-width: 220px;
+}
+
+.workouts-name .ui-button {
+  white-space: nowrap;
+}
+
+.workout-exercise-head h3 {
+  min-width: 0;
+}
+
+@media (max-width: 1500px) {
+  .strength-overview {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .strength-overview > :last-child {
+    grid-column: 1 / -1;
+  }
+
+  .strength-tables {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

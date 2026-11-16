@@ -243,6 +243,19 @@ export enum CadenceUnit {
   StrokesPerMinute = 2,
 }
 
+/** `FfiWeightUnit` as generated, the unit an athlete reads and enters strength weight in. */
+/** `FfiFocusPhase` as generated: where a live strength session is, as the athlete would say it. */
+export enum FocusPhase {
+  Set = 0,
+  Rest = 1,
+  Finished = 2,
+}
+
+export enum WeightUnit {
+  Kilogram = 0,
+  Pound = 1,
+}
+
 /** `FfiActivityProvenance` as generated, where an activity's data was filled from. */
 export enum ActivityProvenance {
   Intervals = 0,
@@ -346,6 +359,22 @@ export enum FfiGarminPullPhase {
   Paused,
   Done,
   Stopped,
+}
+
+/** `FfiImportPhase` as generated, held to the source by the same test. */
+export enum FfiImportPhase {
+  Idle,
+  Running,
+  Done,
+  Cancelled,
+  Stopped,
+}
+
+/** `FfiImportHalt_Tags` as generated, held to the source by the same test. */
+export enum FfiImportHalt_Tags {
+  Cancelled = 'Cancelled',
+  Unreadable = 'Unreadable',
+  Unstorable = 'Unstorable',
 }
 
 /** `FfiGarminHalt` as generated, held to the source by the same test. */
@@ -584,6 +613,7 @@ export const recordings = {
   clearRecordingPermissionBlocked: jest.fn(),
   wakeUploadSchedule: jest.fn(),
   uploadRecording: jest.fn(),
+  finishStrengthRecording: jest.fn(),
   deleteOwnRecording: jest.fn(),
 };
 
@@ -591,6 +621,14 @@ export const strength = {
   getExerciseSets: jest.fn(),
   getExerciseDetailData: jest.fn(),
   getExercisePickerData: jest.fn(),
+  getStrengthStartData: jest.fn(),
+  getLiveStrengthSession: jest.fn(),
+  getLiveFocusState: jest.fn(),
+  getStrengthSessionFit: jest.fn(),
+  startLiveStrengthSession: jest.fn(),
+  startLiveStrengthSessionFromPlan: jest.fn(),
+  editLiveStrengthSession: jest.fn(),
+  discardLiveStrengthSession: jest.fn(),
   setExerciseLabels: jest.fn(),
   searchExercises: jest.fn(() => []),
   isFitProcessed: jest.fn(),
@@ -772,6 +810,8 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     PoolSwimState,
     PoolUnit,
     CadenceUnit,
+    WeightUnit,
+    FocusPhase,
     ActivityProvenance,
     BestEffortKind,
     StartOutcome,
@@ -780,6 +820,8 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     GarminKeyStatus,
     FfiGarminPullPhase,
     FfiGarminHalt,
+    FfiImportPhase,
+    FfiImportHalt_Tags,
     RetiredPairLink,
     DisconnectReason,
     FfiReferenceSource,

@@ -66,6 +66,7 @@ function screenRead(
     fatigueDays: 5,
     decouplingSources: [] as unknown[],
     loadDots: [] as unknown[],
+    uncountedImports: 0,
     ...noCalendarParts(),
   };
 }
@@ -307,6 +308,23 @@ const change = (day: string, activityId: string, hour = 12) => ({
   eftp: 406,
   delta: 20,
   activityName: 'Ride',
+});
+
+describe('the imports the figures leave out', () => {
+  it("hands the screen the engine's count, and none from a read that throws", async () => {
+    engine.getFitnessScreenData.mockImplementation(() => ({
+      ...screenRead(),
+      uncountedImports: 3,
+    }));
+    const { result } = await renderHook(useFitnessScreenRead);
+    expect(result.current.uncountedImports).toBe(3);
+
+    engine.getFitnessScreenData.mockImplementation(() => {
+      throw new Error('engine closed');
+    });
+    await emit('activities');
+    expect(result.current.uncountedImports).toBe(0);
+  });
 });
 
 describe('the eFTP markers', () => {

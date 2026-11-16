@@ -105,7 +105,6 @@ const NOT_A_GROUP = new Set([
   'insightToneColor',
   'colorWithOpacity',
   'sectionPaletteIndex',
-  'sectionPaletteExpression',
   'routePaletteExpression',
 ]);
 

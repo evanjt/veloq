@@ -252,10 +252,10 @@ export type Event =
   | { type: 'status'; value: string }
   | ({ type: 'hello'; methods: string[]; device?: string | null | undefined } & VersionRange)
   | { type: 'mismatch' }
-  | { type: 'screen'; method: string; params?: object }
   | { type: 'drop'; cause?: 'unreachable' }
   | { type: 'farewell'; reason: Farewell }
   | { type: 'stillWaiting' }
+  | { type: 'retry' }
   | { type: 'bye' }
   | { type: 'relayOpened' }
   | { type: 'relayClosed' }
@@ -274,9 +274,8 @@ export type Effect =
   | { do: 'hello' }
   | { do: 'speak'; version: number }
   | { do: 'redirect'; protocol: number }
-  | { do: 'fetchFeed' }
-  | { do: 'ask'; method: string; params: object }
   | { do: 'hangUp' }
+  | { do: 'signOut' }
   | { do: 'retry'; delay: number }
   | { do: 'rejoin'; room: string; delay: number };
 
@@ -291,16 +290,20 @@ const SETUP_STATES = new Set<string>(['inviting', 'waiting', 'connecting']);
 const flag = (event: { cause?: 'unreachable' }, state: { unreachable?: true }) =>
   event.cause === 'unreachable' || state.unreachable ? { unreachable: true as const } : {};
 
-/** Start pairing again, after a refusal or with nothing paired. */
+/**
+ * Start pairing again, after a refusal or with nothing paired. The connection
+ * is closed and every fetched row forgotten.
+ */
 const afresh = (notice?: Notice): Step =>
   to(notice ? { name: 'unpaired', notice } : { name: 'unpaired' }, [
     { do: 'hangUp' },
+    { do: 'signOut' },
     { do: 'invite' },
   ]);
 
 /**
  * One step of the page: the next state and what to do about it. Fetched
- * screen data is not here: app.ts keeps it per connection and clears it on a drop.
+ * screen data is not here: the session keeps it per connection, keeps it through a drop and clears it on `signOut`.
  */
 export function step(state: State, event: Event): Step {
   if (event.type === 'start') {
@@ -310,8 +313,14 @@ export function step(state: State, event: Event): Step {
     ]);
   }
   if (event.type === 'forget') {
-    return to({ name: 'unpaired' }, [{ do: 'hangUp' }, { do: 'forget' }, { do: 'invite' }]);
+    return to({ name: 'unpaired' }, [
+      { do: 'hangUp' },
+      { do: 'signOut' },
+      { do: 'forget' },
+      { do: 'invite' },
+    ]);
   }
+  if (event.type === 'retry') return retryNow(state);
   if (event.type === 'bye') {
     // The relay reports the phone leaving its room. Until the data channel opens
     // the room is the only route to the phone, so a bye there is a drop. After
@@ -411,6 +420,7 @@ export function step(state: State, event: Event): Step {
         if (event.fingerprint !== state.phone) {
           return to({ name: 'unpaired', notice: 'refused' }, [
             { do: 'hangUp' },
+            { do: 'signOut' },
             { do: 'forget' },
             { do: 'invite' },
           ]);
@@ -444,21 +454,13 @@ export function step(state: State, event: Event): Step {
             { do: 'redirect', protocol: max },
           ]);
         }
+        // The feed is what the page opens with, so a phone without it has
+        // nothing to show and is told to update.
+        if (!event.methods.includes('feed.page')) return update(state.phone);
         const device = event.device?.trim();
-        const next = step(
-          { ...state, methods: event.methods, version, ...(device ? { device } : {}) },
-          { type: 'screen', method: 'feed.page' }
-        );
-        return to(next.state, [{ do: 'speak', version }, ...next.effects]);
-      }
-      if (event.type === 'screen') {
-        if (!state.methods?.includes(event.method)) return update(state.phone);
-        return to(
-          state,
-          event.method === 'feed.page'
-            ? [{ do: 'fetchFeed' }]
-            : [{ do: 'ask', method: event.method, params: event.params ?? {} }]
-        );
+        return to({ ...state, methods: event.methods, version, ...(device ? { device } : {}) }, [
+          { do: 'speak', version },
+        ]);
       }
       if (event.type === 'drop') return dropped(state.phone, state.attempt, false);
       if (event.type === 'farewell') return left(state.phone, state.attempt, event.reason);
@@ -467,6 +469,26 @@ export function step(state: State, event: Event): Step {
     default:
       return to(state);
   }
+}
+
+/**
+ * The athlete asked to try the phone now rather than when the wait would end. A
+ * link still trying is torn down and joined at once, which also cancels the
+ * retry that was waiting; a phone that needed an update is joined again.
+ */
+function retryNow(state: State): Step {
+  if (state.name === 'waiting' || state.name === 'connecting') {
+    return to({ name: 'waiting', phone: state.phone, attempt: state.attempt }, [
+      { do: 'hangUp' },
+      { do: 'retry', delay: 0 },
+    ]);
+  }
+  if (state.name === 'update') {
+    return to({ name: 'waiting', phone: state.phone, attempt: 0 }, [
+      { do: 'joinLinked', phone: state.phone },
+    ]);
+  }
+  return to(state);
 }
 
 /** The data channel just opened: nothing is known of what the phone speaks. */
@@ -479,9 +501,9 @@ const opened = (phone: string): State => ({
 });
 
 /**
- * The phone and the page do not speak the same protocol, or the phone lacks a
- * method the page needs: the connection is closed and the athlete is told to
- * update Veloq on the phone. Unlinking is the only way out of it.
+ * The phone and the page do not speak the same protocol, or the phone lacks
+ * the feed the page opens with: the connection is closed and the athlete is
+ * told to update Veloq on the phone. Unlinking is the only way out of it.
  */
 function update(phone: string): Step {
   return to({ name: 'update', phone }, [{ do: 'hangUp' }]);
@@ -490,20 +512,24 @@ function update(phone: string): Step {
 /**
  * The phone said why it is leaving before it hung up, so the page acts at
  * once rather than when the connection times out. A removal is final: the
- * phone no longer holds this browser, so it is forgotten and pairs afresh.
+ * phone no longer holds this browser, so it is forgotten and pairs afresh. A
+ * disconnect or switch-off the athlete made on the phone signs the page out and
+ * clears every fetched row; the phone going to the background keeps them, as
+ * a drop does, until it answers again.
  */
 function left(phone: string, attempt: number, reason: Farewell): Step {
   if (reason === 'removed') {
     return to({ name: 'unpaired', notice: 'removed' }, [
       { do: 'hangUp' },
+      { do: 'signOut' },
       { do: 'forget' },
       { do: 'invite' },
     ]);
   }
-  return to({ name: 'waiting', phone, attempt: attempt + 1, reason }, [
-    { do: 'hangUp' },
-    { do: 'retry', delay: retryDelay(attempt) },
-  ]);
+  const effects: Effect[] = [{ do: 'hangUp' }];
+  if (reason !== 'background') effects.push({ do: 'signOut' });
+  effects.push({ do: 'retry', delay: retryDelay(attempt) });
+  return to({ name: 'waiting', phone, attempt: attempt + 1, reason }, effects);
 }
 
 function dropped(phone: string, attempt: number, unreachable: boolean): Step {
@@ -543,71 +569,6 @@ export function isChanged(reply: Reply): boolean {
   return reply.id === 0 && reply.event === 'changed';
 }
 
-/** Methods whose answer for an id never changes once stored. */
-const STABLE_METHODS = new Set(['activity.streams', 'activity.track']);
-
-/** The key an ask is held under: the method and its params with keys sorted. */
-function askKey(method: string, params: object): string {
-  const sorted = (value: unknown): unknown =>
-    Array.isArray(value)
-      ? value.map(sorted)
-      : value && typeof value === 'object'
-        ? Object.fromEntries(
-            Object.entries(value)
-              .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-              .map(([key, inner]) => [key, sorted(inner)])
-          )
-        : value;
-  return `${method} ${JSON.stringify(sorted(params))}`;
-}
-
-/**
- * What the phone answered on this connection, in memory only. An ask already
- * answered is not sent again. A word that the library changed drops every
- * entry but an activity's streams and track, which stay until no list carries
- * the activity. Nothing is written to storage.
- */
-export class AskCache {
-  private held = new Map<string, { stableId: string | null; answer: Promise<unknown> }>();
-
-  constructor(
-    private readonly send: (method: string, params: object, slot?: string) => Promise<unknown>
-  ) {}
-
-  /** The held answer for this ask, or a new ask sent in `slot`. */
-  ask(method: string, params: object, slot?: string): Promise<unknown> {
-    const key = askKey(method, params);
-    const kept = this.held.get(key);
-    if (kept) return kept.answer;
-    const id = (params as { id?: unknown }).id;
-    const stableId = STABLE_METHODS.has(method) && typeof id === 'string' ? id : null;
-    const answer = this.send(method, params, slot);
-    const entry = { stableId, answer };
-    this.held.set(key, entry);
-    answer.catch(() => {
-      if (this.held.get(key) === entry) this.held.delete(key);
-    });
-    return answer;
-  }
-
-  /** The library changed: forget every list and detail. */
-  changed() {
-    for (const [key, entry] of this.held) if (entry.stableId === null) this.held.delete(key);
-  }
-
-  /** Forget the streams and track of every activity not in `ids`. */
-  keepOnly(ids: Iterable<string>) {
-    const listed = new Set(ids);
-    for (const [key, entry] of this.held) {
-      if (entry.stableId !== null && !listed.has(entry.stableId)) this.held.delete(key);
-    }
-  }
-
-  clear() {
-    this.held.clear();
-  }
-}
-
 /**
  * The raw size limit of one message on the data channel, header included. It
  * is the engine's `FRAME_BYTES` in `remote/protocol.rs`, which names the
@@ -642,6 +603,29 @@ export class SupersededError extends Error {
 
 export function isSuperseded(error: unknown): boolean {
   return error instanceof Error && error.name === 'SupersededError';
+}
+
+/** Why an ask was rejected: the page withdrew it, as a view that asked it went away. */
+export class CancelledError extends Error {
+  constructor() {
+    super('cancelled');
+    this.name = 'CancelledError';
+  }
+}
+
+export function isCancelled(error: unknown): boolean {
+  return error instanceof Error && error.name === 'CancelledError';
+}
+
+/** Why an ask was rejected: the phone sent no reply within `REPLY_TIMEOUT_MS`. */
+export function replyTimeout(seconds = REPLY_TIMEOUT_MS / 1000): Error {
+  const error = new Error(`no reply in ${seconds} s`);
+  error.name = 'ReplyTimeout';
+  return error;
+}
+
+export function isReplyTimeout(error: unknown): boolean {
+  return error instanceof Error && error.name === 'ReplyTimeout';
 }
 
 /**
@@ -705,7 +689,7 @@ export class Replies {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.forget(id);
-        reject(new Error(`no reply in ${REPLY_TIMEOUT_MS / 1000} s`));
+        reject(replyTimeout());
       }, REPLY_TIMEOUT_MS);
       this.waiting.set(id, { resolve, reject, timer });
     });
@@ -735,6 +719,20 @@ export class Replies {
     this.held.delete(earlier);
     old.reject(new SupersededError());
     return earlier;
+  }
+
+  /**
+   * Withdraw ask `id`: its promise rejects as cancelled and a reply that
+   * comes later is ignored. False when the ask is no longer outstanding, so no
+   * cancel need be sent.
+   */
+  cancel(id: number): boolean {
+    const waiting = this.waiting.get(id);
+    if (!waiting) return false;
+    clearTimeout(waiting.timer);
+    this.forget(id);
+    waiting.reject(new CancelledError());
+    return true;
   }
 
   /** Hand a reply to the ask it answers. */
@@ -904,23 +902,6 @@ export function feedPageAsk(filter: FeedFilter, offset: number): Methods['feed.p
 }
 
 /**
- * The asks that open the feed screen: the summary card, the sparklines and
- * the first page, each only if the phone listed the method.
- */
-export function feedOpening(
-  methods: readonly string[],
-  filter: FeedFilter,
-  nowWallSeconds: number
-): { method: string; params: object }[] {
-  const asks: { method: string; params: object }[] = [
-    { method: 'feed.summary', params: { nowWallSeconds } },
-    { method: 'feed.sparklines', params: { days: FEED_SPARKLINE_DAYS } },
-    { method: 'feed.page', params: feedPageAsk(filter, 0) },
-  ];
-  return asks.filter((ask) => methods.includes(ask.method));
-}
-
-/**
  * The rows shown once a page answers: the first page replaces every row, so a
  * changed filter never leaves old rows behind, and a later page is appended
  * without repeating a row already held.
@@ -933,6 +914,26 @@ export function feedRows<Row extends { id: string }>(
   if (offset === 0) return [...page];
   const known = new Set(held.map((row) => row.id));
   return [...held, ...page.filter((row) => !known.has(row.id))];
+}
+
+/**
+ * The chips under the cards of a page, as the engine worded them: every id of
+ * the page gets a row, empty when it holds none, and the rows held for other
+ * pages stay.
+ */
+export function feedChips(
+  held: Readonly<Record<string, string[]>>,
+  ids: readonly string[],
+  bundle: {
+    routeHighlights: readonly { activityId: string; label: string }[];
+    indicators: readonly { activityId: string; label: string }[];
+  }
+): Record<string, string[]> {
+  const next: Record<string, string[]> = { ...held };
+  for (const id of ids) next[id] = [];
+  for (const route of bundle.routeHighlights) next[route.activityId]?.push(route.label);
+  for (const indicator of bundle.indicators) next[indicator.activityId]?.push(indicator.label);
+  return next;
 }
 
 /**
@@ -1021,24 +1022,6 @@ export function settingRows(answer: Methods['settings.get']['result'] | undefine
     value: settingText(held.get(key)),
     editable: false,
   }));
-}
-
-/**
- * The asks that open the settings screen: the settings, the profile and each
- * status, only those the phone listed.
- */
-export function settingsOpening(methods: readonly string[]): { method: string; params: object }[] {
-  const asks: { method: string; params: object }[] = [
-    { method: 'settings.get', params: { keys: SETTING_LABELS.map(([key]) => key) } },
-    { method: 'settings.profile', params: {} },
-    { method: 'status.backgroundJobs', params: {} },
-    { method: 'status.cache', params: {} },
-    { method: 'status.backup', params: {} },
-    { method: 'status.linkedDevices', params: {} },
-    { method: 'status.coverage', params: {} },
-    { method: 'status.sync', params: {} },
-  ];
-  return asks.filter((ask) => methods.includes(ask.method));
 }
 
 /** The linked devices, the browser that is reading marked. */

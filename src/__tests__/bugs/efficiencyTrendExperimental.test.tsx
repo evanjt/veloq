@@ -48,9 +48,6 @@ jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
 jest.mock('@/features/routes/components/section/SectionPerformanceSection', () => ({
   SectionPerformanceSection: () => null,
 }));
-jest.mock('@/features/routes/components/section/SectionInfoCard', () => ({
-  SectionInfoCard: () => null,
-}));
 
 const t = (key: string, params?: Record<string, string | number>) =>
   params ? `${key} ${JSON.stringify(params)}` : key;

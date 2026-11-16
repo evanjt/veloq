@@ -33,10 +33,23 @@ object SharedDocuments {
   /**
    * Copy `from` into the folder as `name`, answering the name the media store gave it, which
    * carries a suffix when the name was taken. The row is pending until the copy has finished,
-   * so nothing reads a partial zip, and a copy that fails takes its row with it.
+   * so nothing reads a partial zip, and a copy that fails takes its row with it. With `replace`,
+   * this install's own row of that name is deleted first, so the name is free and the file keeps it.
    */
   @TargetApi(Build.VERSION_CODES.Q)
-  fun write(resolver: ContentResolver, from: String, name: String, mimeType: String): String {
+  fun write(
+    resolver: ContentResolver,
+    from: String,
+    name: String,
+    mimeType: String,
+    replace: Boolean = false
+  ): String {
+    if (replace) {
+      var existing = find(resolver, name)
+      while (existing != null && resolver.delete(existing, null, null) > 0) {
+        existing = find(resolver, name)
+      }
+    }
     val values = ContentValues().apply {
       put(MediaStore.MediaColumns.DISPLAY_NAME, name)
       put(MediaStore.MediaColumns.MIME_TYPE, mimeType)

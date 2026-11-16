@@ -19,8 +19,8 @@ tags:
     visible:
       id: "detection-preview-screen"
     timeout: 30000
-- assertVisible:
-    id: "preview-param-panel"
+- runFlow:
+    file: helpers/expand-preview-sheet.yaml
 # Each release regenerates on its own, so from the second drag on a run is in
 # flight. The first pass moves every value off its default.
 - runFlow:

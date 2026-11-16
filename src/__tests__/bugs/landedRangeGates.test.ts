@@ -105,6 +105,7 @@ function fixture(): Fixture {
 
   copy(root, 'scripts/check-merge-tests.sh', 0o755);
   copy(root, 'scripts/check-merge-format.sh', 0o755);
+  copy(root, 'scripts/format-scope.sh', 0o755);
   copy(root, 'scripts/plan-merge-tests.ts');
   copy(root, 'scripts/lib/mergeTestTargets.ts');
   // The planner reads which suites cargo will accept from the real manifest.

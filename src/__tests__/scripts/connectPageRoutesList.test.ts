@@ -14,19 +14,26 @@ import {
   SECTION_SORTS,
   fromRoute,
   opening,
+  pageOpening,
   passes,
   pressed,
   queryFor,
   toRoute,
   toggled,
   type ListState,
+  type PageState,
   type SectionRow,
 } from '../../../web/connect/routesList';
 import { parse, write } from '../../../web/connect/router';
 
+const withList = (kind: 'routes' | 'sections', over: Partial<ListState>): PageState => {
+  const page = pageOpening();
+  return { ...page, [kind]: { ...page[kind], ...over } };
+};
+
 describe('the engine query', () => {
   vaultIt('asks each sections order by its name and leaves routes at the default', () => {
-    const asked = SECTION_SORTS.map((sort) => queryFor({ ...opening('sections'), sort }));
+    const asked = SECTION_SORTS.map((sort) => queryFor(withList('sections', { sort })));
     expect(asked.map((query) => query.sectionSort)).toEqual([
       'visits',
       'signature',
@@ -38,7 +45,7 @@ describe('the engine query', () => {
   });
 
   vaultIt('asks each routes order by its name and leaves sections at the default', () => {
-    const asked = ROUTE_SORTS.map((sort) => queryFor({ ...opening('routes'), sort }));
+    const asked = ROUTE_SORTS.map((sort) => queryFor(withList('routes', { sort })));
     expect(asked.map((query) => query.groupSort)).toEqual([
       'activities',
       'distance',
@@ -49,25 +56,39 @@ describe('the engine query', () => {
   });
 
   vaultIt('puts the search on the list it is typed in', () => {
-    expect(queryFor({ ...opening('routes'), search: 'loop' })).toMatchObject({
+    expect(queryFor(withList('routes', { search: 'loop' }))).toMatchObject({
       groupSearch: 'loop',
       sectionSearch: '',
     });
-    expect(queryFor({ ...opening('sections'), search: 'col' })).toMatchObject({
+    expect(queryFor(withList('sections', { search: 'col' }))).toMatchObject({
       groupSearch: '',
       sectionSearch: 'col',
     });
   });
 
+  vaultIt('asks both lists at once with each its own state', () => {
+    const page: PageState = {
+      ...pageOpening(),
+      routes: { ...opening('routes'), sort: 'name', search: 'loop' },
+      sections: { ...opening('sections'), sort: 'distance', search: 'col' },
+    };
+    expect(queryFor(page)).toMatchObject({
+      groupSort: 'name',
+      groupSearch: 'loop',
+      sectionSort: 'distance',
+      sectionSearch: 'col',
+    });
+  });
+
   vaultIt('hides the removed sections until the chip shows them, as the phone does', () => {
-    expect(queryFor(opening('sections')).sectionFilters).toEqual({
+    expect(queryFor(pageOpening()).sectionFilters).toEqual({
       hideCustom: false,
       hideAuto: false,
       hideDisabled: true,
       hideUnaccepted: false,
     });
     const all = CHIPS.reduce(toggled, opening('sections'));
-    expect(queryFor(all).sectionFilters).toEqual({
+    expect(queryFor(withList('sections', { chips: all.chips })).sectionFilters).toEqual({
       hideCustom: false,
       hideAuto: true,
       hideDisabled: false,
@@ -76,26 +97,38 @@ describe('the engine query', () => {
   });
 
   vaultIt('sends no place, so the engine reads its default', () => {
-    expect(queryFor(opening('routes'))).not.toHaveProperty('userLat');
+    expect(queryFor(pageOpening())).not.toHaveProperty('userLat');
   });
 });
 
 describe('the address', () => {
-  const states: ListState[] = [
-    opening('routes'),
-    opening('sections'),
-    { ...opening('routes'), sort: 'name', search: 'loop & climb' },
-    {
-      kind: 'sections',
+  const states: PageState[] = [
+    pageOpening(),
+    { ...pageOpening(), focus: 'sections' },
+    withList('routes', { sort: 'name', search: 'loop & climb' }),
+    withList('sections', {
       sort: 'signature',
       search: 'col',
       chips: ['custom', 'accepted'],
-      selected: null,
-      ids: [],
+    }),
+    {
+      ...pageOpening(),
+      focus: 'sections',
+      sections: { ...opening('sections', 's/1'), chips: ['removed'] },
     },
-    { ...opening('sections', 's/1'), chips: ['removed'] },
-    { ...opening('sections', 's1'), ids: ['p1', 'x,y'] },
-    opening('routes', 'g 7'),
+    {
+      ...pageOpening(),
+      focus: 'sections',
+      sections: { ...opening('sections', 's1'), ids: ['p1', 'x,y'] },
+    },
+    { ...pageOpening(), routes: opening('routes', 'g 7') },
+    {
+      routes: { ...opening('routes', 'g1'), sort: 'distance' },
+      sections: { ...opening('sections', 's2'), search: 'col' },
+      focus: 'sections',
+      order: null,
+    },
+    { ...pageOpening(), order: 'time:asc' },
   ];
 
   vaultIt.each(states.map((state) => [JSON.stringify(state), state] as const))(
@@ -106,17 +139,20 @@ describe('the address', () => {
   );
 
   vaultIt('leaves a value at its default out of the address', () => {
-    expect(write(toRoute(opening('sections')))).toBe('#/sections');
-    expect(write(toRoute(opening('routes', 'g1')))).toBe('#/route/g1');
+    expect(write(toRoute({ ...pageOpening(), focus: 'sections' }))).toBe('#/sections');
+    expect(write(toRoute({ ...pageOpening(), routes: opening('routes', 'g1') }))).toBe(
+      '#/route/g1'
+    );
   });
 
-  vaultIt('falls back on an order or chip the list does not have', () => {
-    const route = parse('#/routes?sort=signature&chips=custom');
-    expect(fromRoute(route)).toEqual(opening('routes'));
-    expect(fromRoute(parse('#/sections?sort=activities'))?.sort).toBe('visits');
+  vaultIt('falls back on an order the list does not have', () => {
+    expect(fromRoute(parse('#/routes?rsort=signature&chips=custom'))?.routes).toEqual(
+      opening('routes')
+    );
+    expect(fromRoute(parse('#/sections?ssort=activities'))?.sections.sort).toBe('visits');
   });
 
-  vaultIt('names no list for another screen', () => {
+  vaultIt('names no page for another screen', () => {
     expect(fromRoute(parse('#/feed'))).toBeNull();
   });
 

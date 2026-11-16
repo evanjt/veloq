@@ -1,8 +1,18 @@
-// The rail's glyphs: one 24-unit outline per screen, drawn as inline SVG in the
+// The sidebar's glyphs: one 24-unit outline per screen, drawn as inline SVG in the
 // current text colour so the page's content-security policy needs no font. A
 // selected entry fills its shape, as the phone's tab bar does.
 
-export type RailIcon = 'feed' | 'fitness' | 'insights' | 'map' | 'routes' | 'sections' | 'settings';
+export type RailIcon =
+  | 'feed'
+  | 'fitness'
+  | 'insights'
+  | 'map'
+  | 'recordings'
+  | 'routes'
+  | 'sections'
+  | 'settings'
+  | 'strength'
+  | 'workouts';
 
 const SHAPES: Record<RailIcon, string[]> = {
   feed: ['M4 11 12 4l8 7v9h-5v-6H9v6H4z'],
@@ -18,6 +28,9 @@ const SHAPES: Record<RailIcon, string[]> = {
     'M18 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
     'M8 17h6a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h6',
   ],
+  strength: ['M3 10v4', 'M6 7v10', 'M18 7v10', 'M21 10v4', 'M6 12h12'],
+  workouts: ['M5 4h14v16H5z', 'M9 9h6', 'M9 13h6', 'M9 17h3'],
+  recordings: ['M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z'],
   sections: ['M4 12h4', 'M16 12h4', 'M8 12h8', 'M8 8v8', 'M16 8v8'],
   settings: [
     'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
@@ -30,8 +43,8 @@ export function RailGlyph({ icon, selected }: { icon: RailIcon; selected: boolea
     <svg
       className="icon"
       viewBox="0 0 24 24"
-      width="24"
-      height="24"
+      width="20"
+      height="20"
       aria-hidden="true"
       focusable="false"
       fill={selected && (icon === 'feed' || icon === 'map') ? 'currentColor' : 'none'}

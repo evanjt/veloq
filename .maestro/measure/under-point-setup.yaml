@@ -1,0 +1,59 @@
+# Measurement only, left out of the flow packs. Demo mode, Debug Mode on, the
+# heatmap on, and the camera framed on the Rio run. Run by scripts/measure-under-point.sh.
+appId: ${APP_ID}
+---
+- runFlow:
+    file: ../helpers/setup-demo-mode.yaml
+- runFlow:
+    file: ../helpers/unlock-developer-links.yaml
+- scrollUntilVisible:
+    element:
+      id: "settings-debug-switch"
+    direction: DOWN
+    timeout: 8000
+    optional: true
+# Five quick taps are timing sensitive, so a lost unlock is asked for again.
+- runFlow:
+    when:
+      notVisible:
+        id: "settings-debug-switch"
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "settings-version-text"
+          direction: UP
+          optional: true
+      - tapOn:
+          id: "settings-version-text"
+          repeat: 5
+          delay: 80
+- scrollUntilVisible:
+    element:
+      id: "settings-debug-switch"
+    direction: DOWN
+- swipe:
+    start: 50%, 75%
+    end: 50%, 25%
+    duration: 300
+- tapOn:
+    id: "settings-debug-switch"
+- runFlow:
+    file: ../helpers/open-link.yaml
+    env:
+      LINK: "veloq://map?activity=demo-test-1"
+      TARGET: "map-screen"
+- runFlow:
+    file: ../helpers/open-map-layers.yaml
+- tapOn:
+    id: "map-toggle-heatmap"
+- waitForAnimationToEnd:
+    timeout: 3000
+- runFlow:
+    file: ../helpers/close-map-layers.yaml
+- waitForAnimationToEnd:
+    timeout: 6000
+- tapOn:
+    point: "14%,61%"
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: "/tmp/t1822-map"

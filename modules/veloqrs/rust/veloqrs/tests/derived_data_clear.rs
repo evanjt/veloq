@@ -518,6 +518,21 @@ fn activity_keyed_seeds() -> Vec<(&'static str, &'static str)> {
              VALUES (?1, 'did not decode', 0)",
         ),
         (
+            "strength_signatures",
+            "INSERT INTO strength_signatures (activity_id, signature, done_at) VALUES (?1, '1.2', 0)",
+        ),
+        (
+            "ride_originals",
+            "INSERT INTO ride_originals (activity_id, source, format, raw_len, sha256, body, kept_at)
+             VALUES (?1, 'import', 'fit', 0, x'00', x'00', 0)",
+        ),
+        (
+            "ride_identity",
+            "INSERT INTO ride_identity (activity_id, device_serial, created_unix, start_local, sport)
+             VALUES (?1, 1, 2, 3, 'Ride')
+             ON CONFLICT(activity_id) DO UPDATE SET device_serial = 1",
+        ),
+        (
             "activity_held_back",
             "INSERT INTO activity_held_back (activity_id, source) VALUES (?1, 'GARMIN_CONNECT')",
         ),

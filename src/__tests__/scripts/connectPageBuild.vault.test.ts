@@ -52,6 +52,8 @@ function scratch(): string {
   roots.push(root);
   mkdirSync(join(root, 'web'), { recursive: true });
   cpSync(join(ROOT, 'web/connect'), join(root, 'web/connect'), { recursive: true });
+  // The page's token stylesheet embeds the app's fonts by a path two levels up.
+  cpSync(join(ROOT, 'assets/fonts'), join(root, 'assets/fonts'), { recursive: true });
   // The page reads the engine's track encoding with the app's own decoder.
   mkdirSync(join(root, 'modules/veloqrs/src'), { recursive: true });
   cpSync(join(ROOT, 'modules/veloqrs/src/coords.ts'), join(root, 'modules/veloqrs/src/coords.ts'));
@@ -291,7 +293,7 @@ describe('connect page versioned builds', () => {
     mkdirSync(join(root, 'scripts'), { recursive: true });
     cpSync(BUILD, join(root, 'scripts/build-connect-page.mjs'));
     cpSync(join(ROOT, 'scripts/lib'), join(root, 'scripts/lib'), { recursive: true });
-    git('add', 'web/connect', 'scripts', 'src', 'modules');
+    git('add', 'web/connect', 'scripts', 'src', 'modules', 'assets');
     git('commit', '-q', '-m', 'the page as it was');
     return git('rev-parse', 'HEAD');
   }

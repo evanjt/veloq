@@ -4,12 +4,10 @@
  * Expected behaviour: the engine's 64-bit float buffers decode to the chart's
  * series on the time axis; a series of another length than the time axis is
  * dropped; an activity with no time axis has no chart; laps and sections
- * become the right column's rows without repeating a section; opening a second
- * ride withdraws the first ride's outstanding series.
+ * become the right column's rows without repeating a section.
  */
 
 import {
-  DETAIL_SLOTS,
   chartDataOf,
   doublesOf,
   factsOfDetail,
@@ -18,8 +16,6 @@ import {
   type Laps,
   type Streams,
 } from '../../../web/connect/activity';
-import { createClient, type Channel } from '../../../web/connect/client';
-import { isSuperseded } from '../../../web/connect/link';
 
 const encode = (values: number[]) => {
   const bytes = new Uint8Array(values.length * 8);
@@ -98,11 +94,63 @@ describe('the activity page data', () => {
     expect(facts.sections?.[1]?.name).toBe('c1');
     expect(factsOfDetail(undefined, undefined)).toEqual({
       sections: [],
+      passes: [],
+      standing: [],
       routes: [],
       intervals: [],
       zones: [],
       notes: [],
     });
+  });
+
+  it('places each interval in the zone band its mean power falls in, or its mean heart rate without power', () => {
+    const interval = (averageWatts: number | null, averageHeartrate: number | null) =>
+      ({
+        kind: 'work',
+        movingTime: 60,
+        distance: 300,
+        label: null,
+        averageWatts,
+        averageHeartrate,
+        startIndex: 0,
+        endIndex: 1,
+      }) as const;
+    const laps = {
+      intervals: {
+        intervals: [
+          interval(220, 120),
+          interval(200, null),
+          interval(null, 165),
+          interval(null, 185),
+          interval(400, null),
+          interval(null, null),
+        ],
+      },
+    } as unknown as Laps;
+    const detail = {
+      hrZones: [
+        { zone: 1, minBpm: 0, maxBpm: 120, share: 0.1 },
+        { zone: 2, minBpm: 120, maxBpm: 150, share: 0.2 },
+        { zone: 3, minBpm: 150, maxBpm: 170, share: 0.3 },
+      ],
+      powerZones: [
+        { zone: 1, minWatts: 0, maxWatts: 150, share: 0.1 },
+        { zone: 2, minWatts: 150, maxWatts: 200, share: 0.2 },
+        { zone: 3, minWatts: 200, maxWatts: 250, share: 0.3 },
+        { zone: 4, minWatts: 250, maxWatts: null, share: 0.4 },
+      ],
+    } as unknown as DetailData;
+    expect(factsOfDetail(laps, detail).intervals?.map((row) => row.band)).toEqual([
+      3,
+      3,
+      3,
+      3,
+      4,
+      undefined,
+    ]);
+    expect(
+      factsOfDetail(laps, { hrZones: detail.hrZones } as unknown as DetailData).intervals?.[0]?.band
+    ).toBe(2);
   });
 
   it('fills the right column from the whole detail read', () => {
@@ -145,6 +193,43 @@ describe('the activity page data', () => {
     expect(notes['Section changes']).toBe('1');
   });
 
+  it('lists the passes in track order with lap time, place, record flag and history, and the standing on each route', () => {
+    const pass = (sectionId: string, startIndex: number, lapTime: number, rank: number | null) => ({
+      sectionId,
+      sectionName: sectionId.toUpperCase(),
+      direction: 'forward',
+      startIndex,
+      lapTime,
+      rank,
+      isPr: rank === 1,
+      historyTimes: [lapTime + 20, lapTime],
+      historyActivityIds: ['other', 'a1'],
+    });
+    const detail = {
+      encounters: [pass('ford', 300, 50, null), pass('col', 40, 250, 1)],
+      routeGroups: [
+        {
+          groupId: 'g1',
+          customName: 'Lake loop',
+          activityIds: ['a1', 'a2'],
+          bestTime: 3500,
+          avgTime: 3700,
+          bestActivityId: 'a2',
+        },
+      ],
+    } as unknown as DetailData;
+    const facts = factsOfDetail(undefined, detail, 'a1', 3560);
+    expect(
+      facts.passes?.map((row) => [row.id, row.lapTime, row.rank, row.pr, row.current])
+    ).toEqual([
+      ['col', '4:10', 1, true, 1],
+      ['ford', '0:50', null, false, 1],
+    ]);
+    expect(facts.standing).toEqual([
+      expect.objectContaining({ id: 'g1', best: '58:20', average: '1:01:40', gap: '+1:00' }),
+    ]);
+  });
+
   it('lights a section while the crosshair is inside its portion', () => {
     const portion = { from: 10, to: 20 };
     expect(portionHolds(portion, 10)).toBe(true);
@@ -152,31 +237,5 @@ describe('the activity page data', () => {
     expect(portionHolds(portion, 21)).toBe(false);
     expect(portionHolds(portion, null)).toBe(false);
     expect(portionHolds(undefined, 12)).toBe(false);
-  });
-
-  it('withdraws the first ride’s series when a second ride is opened', async () => {
-    const sent: { id?: number; method: string; params: { id?: number | string } }[] = [];
-    const channel: Channel = {
-      readyState: 'open',
-      binaryType: 'blob',
-      send: (text) => sent.push(JSON.parse(text)),
-      onmessage: null,
-    };
-    const client = createClient(channel);
-    const types = ['time'];
-    const first = client
-      .ask('activity.streams', { id: 'a1', types }, DETAIL_SLOTS.streams)
-      .catch((error: unknown) => error);
-    const laps = client.ask('activity.intervals', { id: 'a1' }, DETAIL_SLOTS.laps);
-    void client.ask('activity.streams', { id: 'a2', types }, DETAIL_SLOTS.streams);
-    expect(sent.map((message) => message.method)).toEqual([
-      'activity.streams',
-      'activity.intervals',
-      'cancel',
-      'activity.streams',
-    ]);
-    expect(sent[2]?.params.id).toBe(1);
-    expect(isSuperseded(await first)).toBe(true);
-    void laps.catch(() => undefined);
   });
 });

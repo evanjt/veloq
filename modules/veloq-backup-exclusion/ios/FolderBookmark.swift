@@ -77,12 +77,17 @@ private func coordinated(_ url: URL, writing: Bool, _ body: (URL) throws -> Void
 }
 
 /// Copy a file into the folder under `name`. An existing file of that name is
-/// left alone and the copy fails, since nothing in the folder is ours to
-/// replace. A copy that fails part way takes its own partial file with it.
-func copyIntoFolder(_ folder: URL, from source: String, name: String) throws {
+/// left alone and the copy fails, unless `replace` is set: a pack object is
+/// rewritten under one name, so it is removed inside the same coordinated write
+/// and the copy follows. A copy that fails part way takes its own partial file
+/// with it.
+func copyIntoFolder(_ folder: URL, from source: String, name: String, replace: Bool = false) throws {
   let target = folder.appendingPathComponent(name, isDirectory: false)
   try coordinated(target, writing: true) { url in
     do {
+      if replace && FileManager.default.fileExists(atPath: url.path) {
+        try FileManager.default.removeItem(at: url)
+      }
       try FileManager.default.copyItem(at: URL(fileURLWithPath: source), to: url)
     } catch {
       if (error as NSError).code != NSFileWriteFileExistsError {

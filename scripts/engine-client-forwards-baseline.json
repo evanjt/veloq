@@ -116,8 +116,6 @@
     "debugCloneActivity",
     "getActivityHighlightsBundle",
     "getActivityDetailData",
-    "matchActivityToSections",
-    "rematchActivityToSection",
     "indexNewActivity",
     "runSectionMerge",
     "mergePreview",

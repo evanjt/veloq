@@ -28,9 +28,13 @@ fn token() -> String {
 }
 
 fn zip_of(bytes: &[u8]) -> Vec<u8> {
+    zip_entry("ride.fit", bytes)
+}
+
+fn zip_entry(name: &str, bytes: &[u8]) -> Vec<u8> {
     let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
     writer
-        .start_file("ride.fit", zip::write::SimpleFileOptions::default())
+        .start_file(name, zip::write::SimpleFileOptions::default())
         .unwrap();
     writer.write_all(bytes).unwrap();
     writer.finish().unwrap().into_inner()
@@ -43,6 +47,20 @@ fn listing(ids: &[i64]) -> serde_json::Value {
                 "activityId": id,
                 "startTimeLocal": "2026-10-20 07:00:00",
                 "startTimeGMT": "2026-10-20 05:00:00",
+                "activityType": {"typeKey": "cycling"}
+            }))
+            .collect::<Vec<_>>()
+    )
+}
+
+fn listing_on(rides: &[(i64, &str)]) -> serde_json::Value {
+    json!(
+        rides
+            .iter()
+            .map(|(id, local_day)| json!({
+                "activityId": id,
+                "startTimeLocal": format!("{local_day} 07:00:00"),
+                "startTimeGMT": format!("{local_day} 05:00:00"),
                 "activityType": {"typeKey": "cycling"}
             }))
             .collect::<Vec<_>>()
@@ -84,6 +102,28 @@ impl Garmin {
         })
     }
 
+    /// A download whose zip holds a GPX track and no FIT, which is how Garmin
+    /// answers for a ride imported from another service.
+    fn serves_gpx(&self, id: i64) -> httpmock::Mock<'_> {
+        self.server.mock(|when, then| {
+            when.method(GET)
+                .path(format!("/download-service/files/activity/{id}"));
+            then.status(200)
+                .body(zip_entry("ride.gpx", b"<gpx version=\"1.1\"/>"));
+        })
+    }
+
+    /// The whole-history listing, from which the backfill reads where
+    /// Garmin's history begins.
+    fn lists_history(&self, rides: &[(i64, &str)]) -> httpmock::Mock<'_> {
+        self.server.mock(|when, then| {
+            when.method(GET)
+                .path(LIST_PATH)
+                .query_param("startDate", "2000-01-01");
+            then.status(200).json_body(listing_on(rides));
+        })
+    }
+
     /// Anything not arranged above lists empty. Created last, so it only
     /// answers what the others do not.
     fn lists_nothing_else(&self) {
@@ -111,6 +151,7 @@ struct MemoryStore {
     settings: Mutex<HashMap<String, String>>,
     held: Mutex<HashSet<i64>>,
     ingested: Mutex<Vec<i64>>,
+    finished: Mutex<Vec<Vec<String>>>,
     on_set: Mutex<Option<OnSet>>,
 }
 
@@ -127,6 +168,10 @@ impl MemoryStore {
 
     fn get(&self, key: &str) -> Option<String> {
         self.setting(key)
+    }
+
+    fn finished(&self) -> Vec<Vec<String>> {
+        self.finished.lock().unwrap().clone()
     }
 }
 
@@ -155,6 +200,10 @@ impl PullStore for MemoryStore {
         self.held.lock().unwrap().insert(listed.activity_id);
         Ok(Ingested::Stored { tracked: true })
     }
+
+    fn finish(&self, keys: &[String]) {
+        self.finished.lock().unwrap().push(keys.to_vec());
+    }
 }
 
 fn run(
@@ -168,6 +217,36 @@ fn run(
 
 fn never() -> AtomicBool {
     AtomicBool::new(false)
+}
+
+/// Scenario: a window of three rides is pulled, and the next pass finds
+/// nothing new.
+///
+/// Expected behaviour: what the stored rides owe the library is worked out
+/// once for the window, over its three keys, and a pass that stores nothing
+/// works nothing out.
+#[test]
+fn a_window_settles_its_stored_rides_once() {
+    let garmin = Garmin::new();
+    garmin.lists("2026-09-25", "2026-10-25", &[1, 2, 3]);
+    garmin.lists("2026-10-23", "2026-10-26", &[1, 2, 3]);
+    garmin.serves(1);
+    garmin.serves(2);
+    garmin.serves(3);
+    let store = MemoryStore::with_backfill_done();
+
+    run(&garmin, &store, day(2026, 10, 25), &never()).unwrap();
+    assert_eq!(
+        store.finished(),
+        vec![vec![
+            "src-garmin-1".to_string(),
+            "src-garmin-2".to_string(),
+            "src-garmin-3".to_string()
+        ]]
+    );
+
+    run(&garmin, &store, day(2026, 10, 26), &never()).unwrap();
+    assert_eq!(store.finished().len(), 1, "nothing stored, nothing settled");
 }
 
 /// Scenario: a sync pulls a ride, and the next sync finds nothing new.
@@ -247,6 +326,7 @@ fn a_backfill_killed_after_two_months_resumes_at_the_third() {
     let september = garmin.lists("2026-09-01", "2026-09-24", &[11]);
     let august = garmin.lists("2026-08-01", "2026-08-31", &[12]);
     let july = garmin.lists("2026-07-01", "2026-07-31", &[13]);
+    garmin.lists_history(&[(13, "2026-07-15")]);
     for id in [11, 12, 13] {
         garmin.serves(id);
     }
@@ -287,23 +367,56 @@ fn a_backfill_killed_after_two_months_resumes_at_the_third() {
     assert_eq!(done.stored, 3);
 }
 
-/// Scenario: the backfill meets a year with no rides.
+/// Scenario: an athlete's history has a gap of fourteen months, with rides on
+/// both sides of it.
 ///
-/// Expected behaviour: twelve empty months in a row end it, the rides behind
-/// them are not looked for, and a pass after that asks only for the new days.
+/// Expected behaviour: the backfill walks through the gap to the oldest ride
+/// Garmin lists, stores the rides on both sides, and ends only after the
+/// month of the oldest one.
 #[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
-fn the_backfill_ends_after_a_year_with_no_rides() {
+fn the_backfill_walks_through_a_gap_longer_than_a_year() {
     let garmin = Garmin::new();
+    garmin.lists("2026-09-25", "2026-10-25", &[1]);
+    garmin.server.mock(|when, then| {
+        when.method(GET)
+            .path(LIST_PATH)
+            .query_param("startDate", "2000-01-01");
+        then.status(200)
+            .json_body(listing_on(&[(1, "2026-10-20"), (2, "2025-06-10")]));
+    });
+    garmin.lists("2025-06-01", "2025-06-30", &[2]);
+    for id in [1, 2] {
+        garmin.serves(id);
+    }
     garmin.lists_nothing_else();
     let store = MemoryStore::default();
 
     run(&garmin, &store, day(2026, 10, 25), &never()).unwrap();
 
+    assert_eq!(store.ingested(), vec![1, 2]);
     let done = progress(&store);
     assert!(done.backfill_done);
-    assert_eq!(done.reached, Some(day(2025, 10, 1)));
-    assert_eq!(store.get(EMPTY_MONTHS).as_deref(), Some("12"));
+    assert_eq!(done.reached, Some(day(2025, 6, 1)));
+}
+
+/// Scenario: Garmin holds nothing for the account.
+///
+/// Expected behaviour: the backfill is done after the first window, with no
+/// month walked.
+#[test]
+fn an_empty_history_ends_the_backfill_without_walking_a_month() {
+    let garmin = Garmin::new();
+    let any = garmin.server.mock(|when, then| {
+        when.method(GET).path(LIST_PATH);
+        then.status(200).json_body(json!([]));
+    });
+    let store = MemoryStore::default();
+
+    run(&garmin, &store, day(2026, 10, 25), &never()).unwrap();
+
+    assert!(progress(&store).backfill_done);
+    // The first window and the whole-history listing, and no month.
+    any.assert_calls(2);
 }
 
 /// Scenario: Garmin answers a download with a 429 and `Retry-After`.
@@ -457,6 +570,7 @@ fn a_first_pass_halted_as_unreachable_does_not_strand_the_next_pass_rides() {
 
     garmin.lists("2026-09-30", "2026-10-30", &[]);
     garmin.lists("2026-09-01", "2026-09-29", &[21, 22, 23]);
+    garmin.lists_history(&[(21, "2026-09-10")]);
     for id in [21, 22, 23] {
         garmin.serves(id);
     }
@@ -481,6 +595,7 @@ fn a_ride_owed_by_an_unsettled_first_window_is_found_by_the_pass_after_it() {
     let mut refusal = refuses_download(&garmin, 41);
     garmin.lists("2026-09-01", "2026-09-24", &[42]);
     refuses_download(&garmin, 42);
+    garmin.lists_history(&[(42, "2026-09-10")]);
     let store = MemoryStore::default();
 
     run(&garmin, &store, day(2026, 10, 25), &never()).unwrap();
@@ -539,6 +654,7 @@ fn a_month_with_a_failed_download_is_listed_again_by_the_next_pass() {
     let garmin = Garmin::new();
     garmin.lists("2026-09-25", "2026-10-25", &[]);
     garmin.lists("2026-09-01", "2026-09-24", &[21, 22, 23]);
+    garmin.lists_history(&[(21, "2026-09-10")]);
     garmin.serves(21);
     garmin.serves(23);
     let mut failing = refuses_download(&garmin, 22);
@@ -568,6 +684,7 @@ fn a_ride_that_never_downloads_is_given_up_after_a_bounded_number_of_passes() {
     let garmin = Garmin::new();
     garmin.lists("2026-09-25", "2026-10-25", &[]);
     garmin.lists("2026-09-01", "2026-09-24", &[31]);
+    garmin.lists_history(&[(31, "2026-09-10")]);
     let failing = refuses_download(&garmin, 31);
     garmin.lists_nothing_else();
     let store = MemoryStore::default();
@@ -623,6 +740,36 @@ fn a_manual_entry_is_not_downloaded() {
 
     manual.assert_calls(0);
     recorded.assert_calls(1);
+}
+
+/// Scenario: six rides in the forward window are imports whose original is a
+/// GPX track inside the zip, and a seventh is an ordinary FIT ride.
+///
+/// Expected behaviour: the six are given up on this pass without counting as
+/// failed downloads, so the pass ends settled rather than unreachable, and the
+/// seventh is stored.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn rides_whose_original_holds_no_fit_are_given_up_without_halting_the_pass() {
+    let garmin = Garmin::new();
+    let gpx_ids: Vec<i64> = (1..=6).collect();
+    let mut ids = gpx_ids.clone();
+    ids.push(7);
+    garmin.lists("2026-09-25", "2026-10-25", &ids);
+    let gpx: Vec<_> = gpx_ids.iter().map(|id| garmin.serves_gpx(*id)).collect();
+    garmin.serves(7);
+    let store = MemoryStore::with_backfill_done();
+
+    let ended = run(&garmin, &store, day(2026, 10, 25), &never());
+
+    assert_eq!(ended, Ok(()));
+    assert_eq!(store.ingested(), vec![7]);
+    assert_eq!(store.get(WATERMARK).as_deref(), Some("2026-10-25"));
+    let given_up: HashMap<i64, u32> = gpx_ids.iter().map(|id| (*id, SKIPS_TO_GIVE_UP)).collect();
+    assert_eq!(read_skipped(&store), given_up);
+    for mock in &gpx {
+        mock.assert_calls(1);
+    }
 }
 
 fn body(raw: serde_json::Value) -> String {

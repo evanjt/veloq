@@ -7,10 +7,10 @@ import type { ParseKeys } from 'i18next';
 import type { ExercisePickerRow } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
-import { PressTarget } from '@/shared/ui/PressTarget';
+import { Button, ToggleButton } from '@/shared/ui/Button';
+import { Row } from '@/shared/ui/Row';
 import { SearchBar } from '@/shared/ui/SearchBar';
-import { Icon } from '@/shared/ui/Icon';
-import { bodyDiagram, colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import { bodyDiagram, colors, darkColors, spacing, typography } from '@/theme';
 
 import { useExercisePicker, type JustDone } from '../hooks/useExercisePicker';
 import {
@@ -62,7 +62,7 @@ export function ExercisePicker({ gender, after = null, onPick }: ExercisePickerP
   const regionName = filter.region
     ? t(`strength.picker.regions.${filter.region}` as ParseKeys)
     : '';
-  const filterLine = filter.muscle ? `${regionName} › ${muscleName(filter.muscle, t)}` : regionName;
+  const filterLine = filter.muscle ? `${regionName} · ${muscleName(filter.muscle, t)}` : regionName;
 
   return (
     <View style={styles.container}>
@@ -70,22 +70,14 @@ export function ExercisePicker({ gender, after = null, onPick }: ExercisePickerP
         {data.equipment.map((slug) => {
           const on = filter.equipment.includes(slug);
           return (
-            <PressTarget
+            <ToggleButton
               key={slug}
               testID={`picker-equipment-${slug}`}
+              label={t(`strength.picker.equipment.${slug}` as ParseKeys)}
+              selected={on}
+              outlined
               onPress={() => setFilter((state) => toggleEquipment(state, slug))}
-              accessibilityRole="button"
-              accessibilityState={{ selected: on }}
-              style={[
-                styles.chip,
-                { borderColor: palette.border },
-                on && { backgroundColor: palette.fillNeutral },
-              ]}
-            >
-              <Text style={[styles.chipText, { color: palette.textPrimary }]}>
-                {t(`strength.picker.equipment.${slug}` as ParseKeys)}
-              </Text>
-            </PressTarget>
+            />
           );
         })}
       </View>
@@ -102,16 +94,15 @@ export function ExercisePicker({ gender, after = null, onPick }: ExercisePickerP
       />
 
       {filter.region ? (
-        <PressTarget
+        <Button
           testID="picker-filter-line"
-          onPress={() => setFilter(clearBody)}
-          accessibilityRole="button"
+          variant="ghost"
+          icon="close"
+          label={filterLine}
           accessibilityLabel={t('strength.picker.clearFilter')}
+          onPress={() => setFilter(clearBody)}
           style={styles.filterLine}
-        >
-          <Text style={[styles.filterText, { color: palette.textPrimary }]}>{filterLine}</Text>
-          <Icon name="close" size={iconSize.sm} color={palette.textSecondary} />
-        </PressTarget>
+        />
       ) : (
         <Text style={[styles.hint, { color: palette.textSecondary }]}>
           {t('strength.picker.bodyHint')}
@@ -136,11 +127,19 @@ export function ExercisePicker({ gender, after = null, onPick }: ExercisePickerP
           </Text>
         }
         renderItem={({ item }) => (
-          <PressTarget
+          <Row
             testID={`picker-row-${item.labelKey}`}
+            behaviour="act"
+            accessibilityLabel={[
+              item.displayName,
+              item.usuallyNext ? t('strength.picker.usuallyNext') : null,
+              item.lastDoneDays != null
+                ? t('strength.picker.daysAgo', { count: item.lastDoneDays })
+                : null,
+            ]
+              .filter(Boolean)
+              .join(', ')}
             onPress={() => onPick(item)}
-            accessibilityRole="button"
-            style={styles.row}
           >
             <View style={styles.rowName}>
               <Text style={[styles.rowTitle, { color: palette.textPrimary }]}>
@@ -160,7 +159,7 @@ export function ExercisePicker({ gender, after = null, onPick }: ExercisePickerP
                 {t('strength.picker.daysAgo', { count: item.lastDoneDays })}
               </Text>
             ) : null}
-          </PressTarget>
+          </Row>
         )}
       />
     </View>
@@ -176,36 +175,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  chip: {
-    minHeight: layout.minTapTarget,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.sm,
-    borderWidth: 1,
-    borderRadius: layout.borderRadiusMd,
-  },
-  chipText: { ...typography.bodyCompact },
   filterLine: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
-    minHeight: layout.minTapTarget,
+    alignSelf: 'center',
   },
-  filterText: { ...typography.bodyCompactBold },
   hint: {
     ...typography.caption,
     textAlign: 'center',
     paddingVertical: spacing.sm,
   },
   search: { marginHorizontal: spacing.md, marginBottom: spacing.xs },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: layout.minTapTarget,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
   rowName: { flex: 1, gap: spacing.xxs },
   rowTitle: { ...typography.bodyCompact },
   rowNote: { ...typography.caption },

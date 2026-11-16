@@ -2,6 +2,7 @@
 // The popover asks the session for the browser's stats once a second while it
 // is open, and never asks the phone.
 
+import { ChipButton } from './ui';
 import type { ParseKeys } from 'i18next';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -69,10 +70,8 @@ export function ConnectionChip({
 
   return (
     <div id="connection" ref={wrap} className="connection" onKeyDown={onKeyDown}>
-      <button
-        ref={button}
-        type="button"
-        className="chip"
+      <ChipButton
+        buttonRef={button}
         aria-expanded={showing}
         aria-haspopup="dialog"
         aria-controls={showing ? 'connection-details' : undefined}
@@ -80,10 +79,10 @@ export function ConnectionChip({
         onClick={() => setOpen(!showing)}
       >
         <span className={`dot ${tone}`} aria-hidden="true" />
-        <span id="status" role="status" aria-live="polite">
+        <span id="status" role="status" aria-live="polite" data-state={state.name}>
           {t(label)}
         </span>
-      </button>
+      </ChipButton>
       {showing && since !== null ? (
         <ConnectionDetails session={session} since={since} phone={phone} />
       ) : null}

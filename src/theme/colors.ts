@@ -109,9 +109,9 @@ export const sequentialRamp = {
 
 function divergingSteps(t: Tokens) {
   return {
-    cool: [t['data-div-cool-1'], t['data-div-cool-2'], t['data-div-cool-3']],
+    cool: [t['data-div-cool-1'], t['data-div-cool-2'], t['data-div-cool-3']] as const,
     mid: t['data-div-mid'],
-    warm: [t['data-div-warm-1'], t['data-div-warm-2'], t['data-div-warm-3']],
+    warm: [t['data-div-warm-1'], t['data-div-warm-2'], t['data-div-warm-3']] as const,
   };
 }
 
@@ -164,19 +164,17 @@ export const sportFamilyColours = {
 // SECTION OVERLAY PALETTE
 // =============================================================================
 
-// 8-color rotation for distinguishing overlapping section overlays on the map.
-// Derived from a stable hash of the section ID so colors don't shuffle when
-// the section list re-orders. Each clears 3:1 at the line's 0.95 opacity over
-// every base's edge, which the line sits on.
+// Five outlined hues for telling overlapping sections apart on the map, the
+// list disc and the badge. A section's slot is a stable hash of its id, so a
+// re-ordered list leaves each its hue. The hue is the same on every base and
+// in both themes; each clears 3:1 against every base's edge, which the line
+// is outlined in.
 export const sectionPalette = [
-  '#00BCD4',
-  '#C584D4',
-  '#FF7043',
-  '#66BB6A',
-  '#42A5F5',
-  '#FFCA28',
-  '#26A69A',
-  '#F06292',
+  colourTokens.light['section-1'],
+  colourTokens.light['section-2'],
+  colourTokens.light['section-3'],
+  colourTokens.light['section-4'],
+  colourTokens.light['section-5'],
 ] as const;
 
 // A separate warm/purple family so routes stay visually distinct from sections
@@ -206,18 +204,6 @@ function idHash(id: string): number {
 
 export function sectionPaletteIndex(sectionId: string): number {
   return idHash(sectionId) % sectionPalette.length;
-}
-
-// MapLibre expression builder: maps the `colorIndex` feature property to a
-// palette colour. Uses `match` (not `literal` + `at`) because MapLibre only
-// coerces hex strings to colours in direct positions - inside a literal array
-// they stay typed as strings and trigger "Expected array<color>" errors.
-export function sectionPaletteExpression(): unknown {
-  const branches: unknown[] = [];
-  sectionPalette.forEach((color, i) => {
-    branches.push(i, color);
-  });
-  return ['match', ['get', 'colorIndex'], ...branches, sectionPalette[0]];
 }
 
 // The same for a route line: its `palette` property is the engine's hash of
@@ -375,22 +361,21 @@ export function chartStreamColour(stream: ChartStream, isDark: boolean): string 
 
 // The ink a section's index number prints over its disc of section colour, one
 // per palette slot. The disc carries the hue the map draws the section in, and
-// the hue does not change with the theme, so neither does the ink: light
-// (white) where it clears 4.5:1, dark where white does not.
-export const sectionPaletteInk: readonly ('light' | 'dark')[] = [
-  'dark',
-  'dark',
-  'dark',
-  'dark',
-  'dark',
-  'dark',
-  'dark',
-  'dark',
-];
+// the hue does not change with the theme, so neither does the ink. Every slot's
+// ink token is neutral-900, which clears 4.5:1 on its hue where white does not.
+export const sectionPaletteInk: readonly ('light' | 'dark')[] = sectionPalette.map(() => 'dark');
+
+const sectionInkTokens = [
+  colourTokens.light['section-1-ink'],
+  colourTokens.light['section-2-ink'],
+  colourTokens.light['section-3-ink'],
+  colourTokens.light['section-4-ink'],
+  colourTokens.light['section-5-ink'],
+] as const;
 
 /** The ink colour a section's index number takes on its palette slot. */
 export function sectionNumberInk(slot: number): string {
-  return sectionPaletteInk[slot] === 'light' ? colors.textOnFill : colors.textOnBright;
+  return sectionInkTokens[slot] ?? sectionInkTokens[0];
 }
 
 // A list row's swipe actions: each fill with the ink its label and icon take.

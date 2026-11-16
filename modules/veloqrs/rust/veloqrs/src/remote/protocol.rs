@@ -62,6 +62,31 @@ pub const SETTING_KEYS: &[&str] = &[
     "dashboard_summary_card",
 ];
 
+/// A setting a linked browser may write: the one key, and every value the
+/// phone's own control for it offers. Each is also in [`SETTING_KEYS`], so a
+/// browser reads back what it wrote. The settings that carry a record rather
+/// than a choice, and every credential, account and bookkeeping key, are not
+/// here.
+pub struct WritableSetting {
+    pub key: &'static str,
+    pub values: &'static [&'static str],
+}
+
+pub const WRITABLE_SETTINGS: &[WritableSetting] = &[
+    WritableSetting {
+        key: "veloq-theme-preference",
+        values: &["system", "light", "dark"],
+    },
+    WritableSetting {
+        key: "veloq-unit-preference",
+        values: &["auto", "metric", "imperial"],
+    },
+    WritableSetting {
+        key: "veloq-primary-sport",
+        values: &["Cycling", "Running", "Swimming"],
+    },
+];
+
 /// Who is asking: the fingerprint the browser presented, the athlete the phone
 /// is signed in as and the connections that are up, for the reads that mark
 /// the asker or keep to that athlete's rows.
@@ -180,6 +205,18 @@ pub struct FfiLinkFeedPage {
     pub has_more: bool,
     /// One per card with GPS and a stored track; a card with none is absent.
     pub previews: Vec<crate::FfiPreviewTrack>,
+    /// Stored activities per sport family under the ask's search and window,
+    /// whatever families it names, so a chip counts what it would add. A
+    /// family with none is absent.
+    pub family_counts: Vec<FfiLinkFamilyCount>,
+}
+
+/// One sport family and how many stored activities fall in it.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkFamilyCount {
+    pub family: crate::FfiSportFamily,
+    pub count: u32,
 }
 
 /// What `feed.summary` is asked: the phone's wall-clock time in seconds, from
@@ -226,6 +263,27 @@ pub struct FfiLinkSettingValue {
 pub struct FfiLinkSettingsAnswer {
     pub values: Vec<FfiLinkSettingValue>,
     pub refused: Vec<String>,
+}
+
+/// What `settings.set` is asked: a setting from [`WRITABLE_SETTINGS`] and one
+/// of the values it offers.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSettingSetAsk {
+    pub key: String,
+    pub value: String,
+}
+
+/// What `settings.setThreshold` is asked: the sport the figure belongs to,
+/// the figure, and its value, or `null` to clear the athlete's own figure so
+/// the activity files answer again. `value` has to be present.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkThresholdAsk {
+    pub sport: String,
+    pub field: crate::FfiThresholdField,
+    #[serde(deserialize_with = "Option::deserialize")]
+    pub value: Option<f64>,
 }
 
 /// What a read that takes nothing is asked.
@@ -283,7 +341,7 @@ pub struct FfiLinkGeoText {
     pub text: String,
 }
 
-/// What `geo.route` and `geo.routeLatest` are asked: one route group.
+/// What `geo.route`, `geo.routeLatest` and `geo.routeAttempts` are asked: one route group.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkGeoGroupAsk {
@@ -295,6 +353,15 @@ pub struct FfiLinkGeoGroupAsk {
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkGeoSectionAsk {
     pub section_id: String,
+}
+
+/// What `geo.sectionVersion` is asked: one stored geometry version of one section.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkGeoSectionVersionAsk {
+    pub section_id: String,
+    /// A version number from `section.history`'s geometry versions.
+    pub version: f64,
 }
 
 /// What `heatmap.tile` is asked: one tile and the base map it is painted for.
@@ -412,6 +479,18 @@ pub struct FfiLinkSectionHistory {
     pub names: Vec<crate::FfiActivityName>,
 }
 
+/// What `section.extensionTrack` answers: the activity the section is cut from, that
+/// activity's whole stored track, and the inclusive indices where the section's line runs on it.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionExtension {
+    pub activity_id: String,
+    #[serde(with = "crate::remote::bytes")]
+    pub encoded_track: Vec<u8>,
+    pub section_start_idx: u32,
+    pub section_end_idx: u32,
+}
+
 /// How many activities of one ledger row get a name. The history panel draws
 /// this many chips per row, so the names it is never going to draw are not read.
 const LEDGER_CHIPS_PER_ROW: usize = 3;
@@ -430,6 +509,22 @@ pub struct FfiLinkSectionRenameAsk {
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkSectionAsk {
     pub id: String,
+}
+
+/// What `section.unaccept` is asked: the sections to hand back to detection.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionIdsAsk {
+    pub ids: Vec<String>,
+}
+
+/// What `section.acceptAll` answers: the sections the call accepted, which are
+/// the ones `section.unaccept` takes back.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionsAccepted {
+    pub ok: bool,
+    pub ids: Vec<String>,
 }
 
 /// What `section.setLift` is asked: the section and whether it is a lift.
@@ -457,6 +552,97 @@ pub struct FfiLinkLapAsk {
     pub id: String,
     pub activity_id: String,
     pub start_index: u32,
+}
+
+/// The edits `section.editBounds` makes to a section's line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum FfiLinkBoundsEdit {
+    /// Cut the line to `startIndex..=endIndex` of itself.
+    Trim,
+    /// Put back the line the section had before its first edit.
+    Reset,
+    /// Take `startIndex..=endIndex` of an activity's track as the line.
+    Expand,
+    /// Take the stretch of an activity's track that runs the line as the line.
+    SetReference,
+    /// Put back the line the section had before its reference was set.
+    ResetReference,
+    /// Put a stored geometry version back as the line.
+    Revert,
+}
+
+/// What `section.editBounds` is asked: the section, the edit and the
+/// parameters that edit reads. `trim` reads both indices, `expand` reads the
+/// activity and both indices, `setReference` the activity and `revert` the
+/// version. Any other parameter is ignored, and one the edit needs and the
+/// ask lacks is refused.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionBoundsAsk {
+    pub id: String,
+    pub edit: FfiLinkBoundsEdit,
+    #[serde(default)]
+    pub activity_id: Option<String>,
+    #[serde(default)]
+    pub start_index: Option<u32>,
+    #[serde(default)]
+    pub end_index: Option<u32>,
+    #[serde(default)]
+    pub version: Option<f64>,
+}
+
+/// What a section edit that can take rides out of the section answers: it was
+/// made, and the rides it left out. The rides stay in the library.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionEdited {
+    pub ok: bool,
+    pub departed: Vec<crate::FfiDepartedRide>,
+}
+
+/// What `section.create` is asked: the stored activity whose track is cut,
+/// the inclusive index range and the sport, with an optional name.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionCreateAsk {
+    pub activity_id: String,
+    pub start_index: u32,
+    pub end_index: u32,
+    pub sport: String,
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
+/// What `section.create` answers: the section it made.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionCreated {
+    pub section_id: String,
+}
+
+/// What `section.mergePreview` and `section.merge` are asked: the section kept
+/// and the one merged into it.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkMergeAsk {
+    pub primary_id: String,
+    pub secondary_id: String,
+}
+
+/// What `section.mergePreview` answers: the rides a merge would leave out of
+/// the kept section.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkMergePreview {
+    pub dropped: Vec<crate::FfiMergeDropped>,
+}
+
+/// What `route.resetReference` is asked: the route.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkRouteAsk {
+    pub id: String,
 }
 
 /// What `route.rename` is asked: the route and its new name, where an empty
@@ -557,6 +743,230 @@ pub struct FfiLinkRecordingAnswer {
     pub recording: Option<crate::persistence::recordings::FfiRecordingEntry>,
 }
 
+/// What `strength.picker` is asked: the picker's filters and typed query, the
+/// exercise just done whose usual followers lead, and the phone's wall clock in
+/// seconds, as the phone's exercise picker asks.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkPickerAsk {
+    #[serde(default)]
+    pub equipment: Vec<String>,
+    #[serde(default)]
+    pub region: Option<String>,
+    #[serde(default)]
+    pub muscle: Option<String>,
+    #[serde(default)]
+    pub query: String,
+    #[serde(default)]
+    pub after_category: Option<u16>,
+    #[serde(default)]
+    pub after_name: Option<u16>,
+    pub now_wall_seconds: f64,
+}
+
+/// What `strength.lastTime` is asked: one exercise and the phone's wall clock
+/// in seconds.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkLastTimeAsk {
+    pub category: u16,
+    #[serde(default)]
+    pub name: Option<u16>,
+    pub now_wall_seconds: f64,
+}
+
+/// What `strength.groups` is asked: the phone's wall clock in seconds.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkGroupsAsk {
+    pub now_wall_seconds: f64,
+}
+
+/// What `strength.workout` and the workout writes that name one are asked.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkWorkoutAsk {
+    pub id: String,
+}
+
+/// What `strength.live` answers: the session being recorded and what the focus
+/// view shows of it, both `None` when no session is live.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkLiveAnswer {
+    pub session: Option<crate::FfiLiveStrengthSession>,
+    pub focus: Option<crate::FfiFocusState>,
+}
+
+/// What `strength.liveEdit` is asked: the one change the phone's own recorder
+/// makes, in the athlete's unit.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkLiveEditAsk {
+    pub edit: crate::FfiLiveEdit,
+}
+
+/// What `strength.renameWorkout` is asked: the workout and its new name.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkWorkoutRenameAsk {
+    pub id: String,
+    pub name: String,
+}
+
+/// One set of a workout as the builder holds it: what the athlete means to
+/// do, with the optional side and warm-up behind the set's "more".
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkDraftSet {
+    #[serde(default)]
+    pub reps: Option<u32>,
+    #[serde(default)]
+    pub weight_kg: Option<f64>,
+    #[serde(default)]
+    pub duration_secs: Option<f64>,
+    #[serde(default)]
+    pub side: Option<String>,
+    #[serde(default)]
+    pub warm_up: bool,
+}
+
+/// One exercise of a workout: the FIT category and name pair, the group it is
+/// done with, the rest after it and its sets.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkDraftExercise {
+    pub category: u16,
+    #[serde(default)]
+    pub name: Option<u16>,
+    #[serde(default)]
+    pub group_no: Option<u32>,
+    #[serde(default)]
+    pub rest_secs: Option<u32>,
+    #[serde(default)]
+    pub sets: Vec<FfiLinkDraftSet>,
+}
+
+/// The rest planned after a group of exercises.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkDraftGroup {
+    pub group_no: u32,
+    #[serde(default)]
+    pub rest_secs: Option<u32>,
+}
+
+/// What `strength.saveWorkout` is asked: the workout the builder holds. With an
+/// `id` it replaces that saved workout.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSaveWorkoutAsk {
+    #[serde(default)]
+    pub id: Option<String>,
+    pub name: String,
+    #[serde(default)]
+    pub exercises: Vec<FfiLinkDraftExercise>,
+    #[serde(default)]
+    pub groups: Vec<FfiLinkDraftGroup>,
+}
+
+/// What `strength.restoreWorkout` is asked: a deleted workout as it was read
+/// before the delete, to be put back under its id with its times.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkRestoreWorkoutAsk {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub exercises: Vec<FfiLinkDraftExercise>,
+    #[serde(default)]
+    pub groups: Vec<FfiLinkDraftGroup>,
+    pub created_at: f64,
+    #[serde(default)]
+    pub last_used_at: Option<f64>,
+}
+
+/// What `strength.saveWorkout` answers: the workout's id.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkWorkoutSaved {
+    pub id: String,
+}
+
+/// An exercise as the latest session that did it left it.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkLastTime {
+    /// Whole days from that session to now.
+    pub days_ago: u32,
+    pub sets: Vec<FfiLinkDraftSet>,
+}
+
+/// What `strength.lastTime` answers: `None` for an exercise never done.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkLastTimeAnswer {
+    pub last_time: Option<FfiLinkLastTime>,
+}
+
+/// Sessions that did the same exercises, with the sets a new session of them
+/// starts from.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkStrengthGroup {
+    pub signature: String,
+    pub times: u32,
+    /// The day of the latest session of the group, in wall-clock seconds.
+    pub last_done: f64,
+    pub latest_activity_id: String,
+    pub muscles: Vec<crate::FfiMuscleGroup>,
+    pub equipment: Vec<String>,
+    pub exercises: Vec<FfiLinkDraftExercise>,
+}
+
+/// What `strength.groups` answers: the recent groups, newest first.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkStrengthGroups {
+    pub groups: Vec<FfiLinkStrengthGroup>,
+}
+
+/// A saved workout as the list shows it.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkWorkoutRow {
+    pub id: String,
+    pub name: String,
+    pub exercise_count: u32,
+    pub set_count: u32,
+    pub last_used_at: Option<f64>,
+    pub created_at: f64,
+}
+
+/// What `strength.workouts` answers: the saved workouts, last started first.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkWorkouts {
+    pub workouts: Vec<FfiLinkWorkoutRow>,
+}
+
+/// A saved workout in full.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkWorkout {
+    pub id: String,
+    pub name: String,
+    pub exercises: Vec<FfiLinkDraftExercise>,
+    pub groups: Vec<FfiLinkDraftGroup>,
+}
+
+/// What `strength.workout` answers: `None` when no saved workout has the id.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkWorkoutAnswer {
+    pub workout: Option<FfiLinkWorkout>,
+}
+
 /// The trailing weeks the strength tab draws, which the page asks for.
 pub const STRENGTH_WEEKS: u32 = 4;
 
@@ -565,6 +975,71 @@ pub const STRENGTH_WEEKS: u32 = 4;
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkWriteDone {
     pub ok: bool,
+}
+
+/// What `import.begin` is asked: the archive the page will send, by name,
+/// size and the SHA-256 of its bytes in lowercase hex.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkImportBeginAsk {
+    pub name: String,
+    /// Bytes, a whole number below 2^53.
+    pub size: f64,
+    pub sha256: String,
+}
+
+/// What `import.begin` answers: the id the binary frames carry, and how many
+/// bytes of this archive the phone already holds, so a page whose link dropped
+/// sends only the rest.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkImportBegun {
+    pub import_id: u32,
+    /// Bytes, a whole number below 2^53.
+    pub offset: f64,
+}
+
+/// What `import.commit` and `import.cancel` are asked: which import.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkImportRef {
+    pub import_id: u32,
+}
+
+/// What `import.commit` answers once the import job has the archive. There is
+/// one importer at a time, so the job is named by the import that started it.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkImportCommitted {
+    pub job_id: u32,
+}
+
+/// A file the import job could not make a ride of.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkImportFailure {
+    pub name: String,
+    pub key: Option<String>,
+    pub reason: String,
+}
+
+/// What `import.status` answers: where the import job stands and what it has
+/// walked. `state` is `idle`, `running`, `done` or `stopped`, and a stopped
+/// job says why in `stopped`: `cancelled`, `unreadable` or `unstorable`.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkImportStatus {
+    pub state: String,
+    pub stopped: Option<String>,
+    pub detail: Option<String>,
+    pub seen: u32,
+    pub stored: u32,
+    pub already_stored: u32,
+    pub failed: u32,
+    pub other_format: u32,
+    pub skipped: u32,
+    pub current: Option<String>,
+    pub failures: Vec<FfiLinkImportFailure>,
 }
 
 /// What `fitness.screen` is asked: the spans the decoupling ride and the
@@ -694,6 +1169,10 @@ enum Run {
     Read(fn(&Connection, Value) -> Result<Value, String>),
     ReadAs(fn(&Connection, &Caller, Value) -> Result<Value, String>),
     Write(fn(&mut crate::persistence::PersistentEngine, Value) -> Result<Written, String>),
+    /// A write that never touches the library's rows: it works on the spool
+    /// of a collection on its way in, for the browser that made it, and so
+    /// runs without the engine lock.
+    Spool(fn(&str, Value) -> Result<Value, String>),
 }
 
 /// What a write did, for the answer, the log and the announcement.
@@ -752,7 +1231,7 @@ pub struct Method {
 impl Method {
     /// Whether the write channel, not the read channel, answers this method.
     pub fn is_write(&self) -> bool {
-        matches!(self.run, Run::Write(_))
+        matches!(self.run, Run::Write(_) | Run::Spool(_))
     }
 }
 
@@ -896,6 +1375,12 @@ pub const METHODS: &[Method] = &[
         run: Run::Read(section_history),
     },
     Method {
+        name: "section.extensionTrack",
+        params: "FfiLinkActivityAsk",
+        result: "FfiLinkSectionExtension",
+        run: Run::Read(section_extension_track),
+    },
+    Method {
         name: "section.excluded",
         params: "FfiLinkActivityAsk",
         result: "FfiLinkSectionExcluded",
@@ -968,6 +1453,42 @@ pub const METHODS: &[Method] = &[
         run: Run::Read(strength_muscle),
     },
     Method {
+        name: "strength.picker",
+        params: "FfiLinkPickerAsk",
+        result: "FfiExercisePickerData",
+        run: Run::Read(strength_picker),
+    },
+    Method {
+        name: "strength.lastTime",
+        params: "FfiLinkLastTimeAsk",
+        result: "FfiLinkLastTimeAnswer",
+        run: Run::Read(strength_last_time),
+    },
+    Method {
+        name: "strength.groups",
+        params: "FfiLinkGroupsAsk",
+        result: "FfiLinkStrengthGroups",
+        run: Run::Read(strength_groups),
+    },
+    Method {
+        name: "strength.workouts",
+        params: "FfiLinkNoAsk",
+        result: "FfiLinkWorkouts",
+        run: Run::Read(strength_workouts),
+    },
+    Method {
+        name: "strength.workout",
+        params: "FfiLinkWorkoutAsk",
+        result: "FfiLinkWorkoutAnswer",
+        run: Run::Read(strength_workout),
+    },
+    Method {
+        name: "strength.live",
+        params: "FfiLinkNoAsk",
+        result: "FfiLinkLiveAnswer",
+        run: Run::Read(strength_live),
+    },
+    Method {
         name: "recordings.list",
         params: "FfiLinkRecordingsAsk",
         result: "FfiLinkRecordingsAnswer",
@@ -1022,10 +1543,22 @@ pub const METHODS: &[Method] = &[
         run: Run::Read(geo_route_latest),
     },
     Method {
+        name: "geo.routeAttempts",
+        params: "FfiLinkGeoGroupAsk",
+        result: "FfiLinkGeoText",
+        run: Run::Read(geo_route_attempts),
+    },
+    Method {
         name: "geo.section",
         params: "FfiLinkGeoSectionAsk",
         result: "FfiLinkGeoText",
         run: Run::Read(geo_section),
+    },
+    Method {
+        name: "geo.sectionVersion",
+        params: "FfiLinkGeoSectionVersionAsk",
+        result: "FfiLinkGeoText",
+        run: Run::Read(geo_section_version),
     },
     Method {
         name: "geo.sectionPasses",
@@ -1056,6 +1589,12 @@ pub const METHODS: &[Method] = &[
         params: "FfiLinkNoAsk",
         result: "AthleteProfile",
         run: Run::Read(settings_profile),
+    },
+    Method {
+        name: "settings.thresholds",
+        params: "FfiLinkNoAsk",
+        result: "FfiThresholdsScreenData",
+        run: Run::Read(settings_thresholds),
     },
     Method {
         name: "status.backgroundJobs",
@@ -1114,8 +1653,14 @@ pub const METHODS: &[Method] = &[
     Method {
         name: "section.acceptAll",
         params: "FfiLinkNoAsk",
-        result: "FfiLinkWriteDone",
+        result: "FfiLinkSectionsAccepted",
         run: Run::Write(section_accept_all),
+    },
+    Method {
+        name: "section.unaccept",
+        params: "FfiLinkSectionIdsAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(section_unaccept),
     },
     Method {
         name: "section.enable",
@@ -1154,6 +1699,36 @@ pub const METHODS: &[Method] = &[
         run: Run::Write(section_include_lap),
     },
     Method {
+        name: "section.editBounds",
+        params: "FfiLinkSectionBoundsAsk",
+        result: "FfiLinkSectionEdited",
+        run: Run::Write(section_edit_bounds),
+    },
+    Method {
+        name: "section.create",
+        params: "FfiLinkSectionCreateAsk",
+        result: "FfiLinkSectionCreated",
+        run: Run::Write(section_create),
+    },
+    Method {
+        name: "section.mergePreview",
+        params: "FfiLinkMergeAsk",
+        result: "FfiLinkMergePreview",
+        run: Run::Read(section_merge_preview),
+    },
+    Method {
+        name: "section.merge",
+        params: "FfiLinkMergeAsk",
+        result: "FfiMergeOutcome",
+        run: Run::Write(section_merge),
+    },
+    Method {
+        name: "section.restore",
+        params: "FfiLinkSectionAsk",
+        result: "FfiLinkSectionEdited",
+        run: Run::Write(section_restore),
+    },
+    Method {
         name: "route.rename",
         params: "FfiLinkRouteRenameAsk",
         result: "FfiLinkWriteDone",
@@ -1170,6 +1745,18 @@ pub const METHODS: &[Method] = &[
         params: "FfiLinkExcludeAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(route_include_activity),
+    },
+    Method {
+        name: "route.setReference",
+        params: "FfiLinkExcludeAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(route_set_reference),
+    },
+    Method {
+        name: "route.resetReference",
+        params: "FfiLinkRouteAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(route_reset_reference),
     },
     Method {
         name: "heatmap.setHidden",
@@ -1201,6 +1788,72 @@ pub const METHODS: &[Method] = &[
         result: "FfiLinkWriteDone",
         run: Run::Write(detection_set_section_config),
     },
+    Method {
+        name: "settings.set",
+        params: "FfiLinkSettingSetAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(settings_set),
+    },
+    Method {
+        name: "settings.setThreshold",
+        params: "FfiLinkThresholdAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(settings_set_threshold),
+    },
+    Method {
+        name: "strength.saveWorkout",
+        params: "FfiLinkSaveWorkoutAsk",
+        result: "FfiLinkWorkoutSaved",
+        run: Run::Write(strength_save_workout),
+    },
+    Method {
+        name: "strength.renameWorkout",
+        params: "FfiLinkWorkoutRenameAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(strength_rename_workout),
+    },
+    Method {
+        name: "strength.deleteWorkout",
+        params: "FfiLinkWorkoutAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(strength_delete_workout),
+    },
+    Method {
+        name: "strength.restoreWorkout",
+        params: "FfiLinkRestoreWorkoutAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(strength_restore_workout),
+    },
+    Method {
+        name: "strength.liveEdit",
+        params: "FfiLinkLiveEditAsk",
+        result: "FfiLiveStrengthOutcome",
+        run: Run::Write(strength_live_edit),
+    },
+    Method {
+        name: "import.begin",
+        params: "FfiLinkImportBeginAsk",
+        result: "FfiLinkImportBegun",
+        run: Run::Spool(import_begin),
+    },
+    Method {
+        name: "import.commit",
+        params: "FfiLinkImportRef",
+        result: "FfiLinkImportCommitted",
+        run: Run::Spool(import_commit),
+    },
+    Method {
+        name: "import.cancel",
+        params: "FfiLinkImportRef",
+        result: "FfiLinkWriteDone",
+        run: Run::Spool(import_cancel),
+    },
+    Method {
+        name: "import.status",
+        params: "FfiLinkNoAsk",
+        result: "FfiLinkImportStatus",
+        run: Run::Read(import_status),
+    },
 ];
 
 fn method(name: &str) -> Option<&'static Method> {
@@ -1210,6 +1863,11 @@ fn method(name: &str) -> Option<&'static Method> {
 /// Whether the write channel, not the read channel, answers this method.
 pub fn is_write(name: &str) -> bool {
     method(name).is_some_and(Method::is_write)
+}
+
+/// Whether the write is one on a spool, which runs without the engine lock.
+pub fn is_spool(name: &str) -> bool {
+    method(name).is_some_and(|method| matches!(method.run, Run::Spool(_)))
 }
 
 /// The text of `web/connect/methods.json`: the newest and oldest version and
@@ -1520,10 +2178,31 @@ fn geo_route_latest(conn: &Connection, ask: Value) -> Result<Value, String> {
     })
 }
 
+fn geo_route_attempts(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkGeoGroupAsk = params(ask)?;
+    to_result(&FfiLinkGeoText {
+        text: crate::basemap::route_attempts_collection(conn, &ask.group_id),
+    })
+}
+
 fn geo_section(conn: &Connection, ask: Value) -> Result<Value, String> {
     let ask: FfiLinkGeoSectionAsk = params(ask)?;
     to_result(&FfiLinkGeoText {
         text: crate::basemap::section_feature(conn, &ask.section_id),
+    })
+}
+
+fn geo_section_version(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkGeoSectionVersionAsk = params(ask)?;
+    if !ask.version.is_finite() || ask.version.fract() != 0.0 {
+        return Err("version is not a whole number".to_owned());
+    }
+    to_result(&FfiLinkGeoText {
+        text: crate::basemap::section_version_feature(
+            conn,
+            &ask.section_id,
+            crate::ffi_types::int_from_wire(ask.version),
+        ),
     })
 }
 
@@ -1571,6 +2250,11 @@ fn feed_page(conn: &Connection, ask: Value) -> Result<Value, String> {
     };
     let page = crate::persistence::activities::pooled::feed_card_page(conn, &query)
         .map_err(|error| error.to_string())?;
+    let family_counts = crate::persistence::activities::pooled::family_counts(conn, &query)
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .map(|(family, count)| FfiLinkFamilyCount { family, count })
+        .collect();
     let previews = page
         .cards
         .iter()
@@ -1582,6 +2266,7 @@ fn feed_page(conn: &Connection, ask: Value) -> Result<Value, String> {
         matched_count: page.matched_count,
         has_more: page.has_more,
         previews,
+        family_counts,
     })
 }
 
@@ -1762,6 +2447,31 @@ fn section_performance(conn: &Connection, ask: Value) -> Result<Value, String> {
             crate::persistence::sections::lap_curves::pooled::CurveRead::Computed,
         ),
     )
+}
+
+/// The track the section's ends are dragged along: the reference activity's, with the range the
+/// line holds on it.
+fn section_extension_track(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkActivityAsk = params(ask)?;
+    let config = crate::persistence::settings::section_config_from(conn)
+        .map_err(|error| error.to_string())?;
+    let (track, start, end) =
+        crate::persistence::sections::queries::pooled::section_extension_track(
+            conn, &ask.id, &config,
+        )?;
+    let activity_id: String = conn
+        .query_row(
+            "SELECT representative_activity_id FROM sections WHERE id = ?",
+            [&ask.id],
+            |row| row.get(0),
+        )
+        .map_err(|error| error.to_string())?;
+    to_result(&FfiLinkSectionExtension {
+        activity_id,
+        encoded_track: crate::persistence::codec::encode_polyline(&track),
+        section_start_idx: start,
+        section_end_idx: end,
+    })
 }
 
 fn section_history(conn: &Connection, ask: Value) -> Result<Value, String> {
@@ -1983,6 +2693,294 @@ fn strength_muscle(conn: &Connection, ask: Value) -> Result<Value, String> {
     to_result(&detail)
 }
 
+fn draft_set(set: &crate::persistence::strength_sessions::SessionSet) -> FfiLinkDraftSet {
+    FfiLinkDraftSet {
+        reps: set.reps.or(set.planned_reps),
+        weight_kg: set.weight_kg.or(set.planned_weight_kg),
+        duration_secs: set.duration_secs.or(set.planned_duration_secs),
+        side: set.side.clone(),
+        warm_up: set.warm_up,
+    }
+}
+
+fn last_time_sets(last: &crate::persistence::exercise_usage::LastTime) -> Vec<FfiLinkDraftSet> {
+    last.sets
+        .iter()
+        .map(|set| FfiLinkDraftSet {
+            reps: set.reps,
+            weight_kg: set.weight_kg,
+            duration_secs: set.duration_secs,
+            side: None,
+            warm_up: false,
+        })
+        .collect()
+}
+
+fn strength_picker(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkPickerAsk = params(ask)?;
+    let data = crate::persistence::screens::exercise_picker_data(
+        conn,
+        &ask.equipment,
+        ask.region.as_deref(),
+        ask.muscle.as_deref(),
+        &ask.query,
+        ask.after_category.zip(ask.after_name),
+        crate::ffi_types::int_from_wire(ask.now_wall_seconds),
+    )
+    .map_err(|error| error.to_string())?;
+    to_result(&data)
+}
+
+fn strength_last_time(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkLastTimeAsk = params(ask)?;
+    let last = crate::persistence::exercise_usage::last_time(
+        conn,
+        ask.category,
+        ask.name,
+        crate::ffi_types::int_from_wire(ask.now_wall_seconds),
+    )
+    .map_err(|error| error.to_string())?;
+    to_result(&FfiLinkLastTimeAnswer {
+        last_time: last.map(|last| FfiLinkLastTime {
+            days_ago: last.days_ago,
+            sets: last_time_sets(&last),
+        }),
+    })
+}
+
+fn strength_groups(conn: &Connection, ask: Value) -> Result<Value, String> {
+    use crate::persistence::{exercise_usage, strength_signature};
+    let ask: FfiLinkGroupsAsk = params(ask)?;
+    let now = crate::ffi_types::int_from_wire(ask.now_wall_seconds);
+    let recent = strength_signature::recent(conn, strength_signature::RECENT_GROUP_LIMIT)
+        .map_err(|error| error.to_string())?;
+    let mut groups = Vec::with_capacity(recent.len());
+    for group in recent {
+        let mut exercises = Vec::new();
+        for (category, name) in strength_signature::exercises_of(&group.signature) {
+            let last = exercise_usage::last_time(conn, category, name, now)
+                .map_err(|error| error.to_string())?;
+            exercises.push(FfiLinkDraftExercise {
+                category,
+                name,
+                group_no: None,
+                rest_secs: None,
+                sets: last.map(|last| last_time_sets(&last)).unwrap_or_default(),
+            });
+        }
+        groups.push(FfiLinkStrengthGroup {
+            signature: group.signature,
+            times: group.times,
+            last_done: group.last_done as f64,
+            latest_activity_id: group.latest_activity_id,
+            muscles: group.muscles,
+            equipment: group
+                .equipment
+                .iter()
+                .map(|kind| kind.slug().to_string())
+                .collect(),
+            exercises,
+        });
+    }
+    to_result(&FfiLinkStrengthGroups { groups })
+}
+
+fn strength_workouts(conn: &Connection, _ask: Value) -> Result<Value, String> {
+    let workouts = crate::persistence::strength_saved::saved_workouts(conn)
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .map(|row| FfiLinkWorkoutRow {
+            id: row.id,
+            name: row.name,
+            exercise_count: row.exercise_count,
+            set_count: row.set_count,
+            last_used_at: row.last_used_at.map(|at| at as f64),
+            created_at: row.created_at as f64,
+        })
+        .collect();
+    to_result(&FfiLinkWorkouts { workouts })
+}
+
+fn strength_live(conn: &Connection, _ask: Value) -> Result<Value, String> {
+    use crate::persistence::strength_live::read_live;
+    let unit = crate::persistence::strength_sessions::athlete_weight_unit_on(conn)
+        .map_err(|e| e.to_string())?;
+    let live = read_live(conn).map_err(|error| error.to_string())?;
+    to_result(&FfiLinkLiveAnswer {
+        session: live
+            .as_ref()
+            .map(|session| crate::objects::strength_live::session_to_ffi(session, unit)),
+        focus: live
+            .map(|session| crate::objects::strength_live::focus_to_ffi(session.focus_state(unit))),
+    })
+}
+
+fn strength_workout(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkWorkoutAsk = params(ask)?;
+    let found = crate::persistence::strength_saved::saved_workout_of(conn, &ask.id)
+        .map_err(|error| error.to_string())?;
+    let workout = found.map(|session| FfiLinkWorkout {
+        id: session.id,
+        name: session.name.unwrap_or_default(),
+        exercises: session
+            .exercises
+            .iter()
+            .map(|exercise| FfiLinkDraftExercise {
+                category: exercise.exercise_category,
+                name: exercise.exercise_name,
+                group_no: exercise.group_no,
+                rest_secs: exercise.rest_secs,
+                sets: exercise.sets.iter().map(draft_set).collect(),
+            })
+            .collect(),
+        groups: session
+            .groups
+            .iter()
+            .map(|group| FfiLinkDraftGroup {
+                group_no: group.group_no,
+                rest_secs: group.rest_secs,
+            })
+            .collect(),
+    });
+    to_result(&FfiLinkWorkoutAnswer { workout })
+}
+
+/// The engine's exercises and groups from the builder's.
+fn session_parts(
+    exercises: Vec<FfiLinkDraftExercise>,
+    groups: Vec<FfiLinkDraftGroup>,
+) -> (
+    Vec<crate::persistence::strength_sessions::SessionExercise>,
+    Vec<crate::persistence::strength_sessions::SessionGroup>,
+) {
+    use crate::persistence::strength_sessions::{SessionExercise, SessionGroup, SessionSet};
+    let exercises = exercises
+        .into_iter()
+        .map(|exercise| SessionExercise {
+            exercise_category: exercise.category,
+            exercise_name: exercise.name,
+            group_no: exercise.group_no,
+            rest_secs: exercise.rest_secs,
+            sets: exercise
+                .sets
+                .into_iter()
+                .map(|set| SessionSet {
+                    reps: set.reps,
+                    weight_kg: set.weight_kg,
+                    duration_secs: set.duration_secs,
+                    side: set.side,
+                    warm_up: set.warm_up,
+                    ..SessionSet::default()
+                })
+                .collect(),
+        })
+        .collect();
+    let groups = groups
+        .into_iter()
+        .map(|group| SessionGroup {
+            group_no: group.group_no,
+            rest_secs: group.rest_secs,
+        })
+        .collect();
+    (exercises, groups)
+}
+
+fn strength_restore_workout(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkRestoreWorkoutAsk = params(ask)?;
+    let (exercises, groups) = session_parts(ask.exercises, ask.groups);
+    engine
+        .restore_strength_workout(
+            &ask.id,
+            &ask.name,
+            exercises,
+            groups,
+            ask.created_at as i64,
+            ask.last_used_at.map(|at| at as i64),
+        )
+        .map_err(|error| error.to_string())?;
+    done(
+        "strength",
+        ask.id,
+        format!("Restored a strength workout called {}", ask.name.trim()),
+    )
+}
+
+fn strength_save_workout(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkSaveWorkoutAsk = params(ask)?;
+    let (exercises, groups) = session_parts(ask.exercises, ask.groups);
+    let now = crate::widget_snapshot::Clock::now().now_seconds;
+    let saved = engine
+        .save_strength_draft(ask.id.as_deref(), &ask.name, exercises, groups, now)
+        .map_err(|error| error.to_string())?;
+    let name = saved.name.clone().unwrap_or_default();
+    Ok(Written {
+        result: to_result(&FfiLinkWorkoutSaved {
+            id: saved.id.clone(),
+        })?,
+        moved: "strength",
+        summary: format!("Saved strength workout {name}"),
+        target_id: saved.id,
+        starts_backfill: false,
+    })
+}
+
+fn strength_live_edit(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkLiveEditAsk = params(ask)?;
+    let now = crate::widget_snapshot::Clock::now().now_seconds;
+    let outcome = crate::objects::strength_live::edit_session(engine, &ask.edit, now)
+        .map_err(|error| error.to_string())?;
+    let id = outcome.session.id.clone();
+    Ok(Written {
+        result: to_result(&outcome)?,
+        moved: "strength",
+        summary: format!("Changed the live strength session ({:?})", ask.edit.kind),
+        target_id: id,
+        starts_backfill: false,
+    })
+}
+
+fn strength_rename_workout(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkWorkoutRenameAsk = params(ask)?;
+    engine
+        .rename_strength_workout(&ask.id, &ask.name)
+        .map_err(|error| error.to_string())?;
+    done(
+        "strength",
+        ask.id,
+        format!("Renamed a strength workout to {}", ask.name.trim()),
+    )
+}
+
+fn strength_delete_workout(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkWorkoutAsk = params(ask)?;
+    let removed = engine
+        .delete_strength_workout(&ask.id)
+        .map_err(|error| error.to_string())?;
+    done(
+        "strength",
+        ask.id,
+        format!(
+            "Deleted a strength workout of {} exercises and {} sets",
+            removed.exercise_count, removed.set_count
+        ),
+    )
+}
+
 /// The library as the signed-in athlete sees it: their own rows and the
 /// unstamped ones, never another athlete's held ride.
 fn recordings_list(conn: &Connection, caller: &Caller, ask: Value) -> Result<Value, String> {
@@ -2022,6 +3020,10 @@ fn settings_get(conn: &Connection, ask: Value) -> Result<Value, String> {
 
 fn settings_profile(conn: &Connection, _ask: Value) -> Result<Value, String> {
     to_result(&crate::persistence::settings::athlete_profile(conn))
+}
+
+fn settings_thresholds(conn: &Connection, _ask: Value) -> Result<Value, String> {
+    to_result(&crate::persistence::screens::thresholds_screen_data(conn))
 }
 
 fn status_background_jobs(conn: &Connection, _ask: Value) -> Result<Value, String> {
@@ -2094,6 +3096,103 @@ fn done(moved: &'static str, target_id: String, summary: String) -> Result<Writt
     })
 }
 
+fn import_begin(browser: &str, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkImportBeginAsk = params(ask)?;
+    if ask.size.fract() != 0.0 || !(0.0..=super::import::MAX_BYTES as f64).contains(&ask.size) {
+        return Err("size is not a whole number of bytes the phone takes".into());
+    }
+    let begun = super::import::begin(
+        browser,
+        &super::import::Begin {
+            name: ask.name,
+            size: ask.size as u64,
+            sha256: ask.sha256,
+        },
+    )?;
+    to_result(&FfiLinkImportBegun {
+        import_id: begun.import_id,
+        offset: begun.offset as f64,
+    })
+}
+
+fn import_commit(browser: &str, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkImportRef = params(ask)?;
+    super::import::commit(browser, ask.import_id)?;
+    to_result(&FfiLinkImportCommitted {
+        job_id: ask.import_id,
+    })
+}
+
+fn import_cancel(browser: &str, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkImportRef = params(ask)?;
+    super::import::cancel(browser, ask.import_id)?;
+    to_result(&FfiLinkWriteDone { ok: true })
+}
+
+fn import_status(_conn: &Connection, _ask: Value) -> Result<Value, String> {
+    use crate::net::import::{Halt, State};
+    let snapshot = crate::net::import::progress_now();
+    let (state, stopped, detail) = match snapshot.state {
+        State::Idle => ("idle", None, None),
+        State::Running => ("running", None, None),
+        State::Done => ("done", None, None),
+        State::Stopped(Halt::Cancelled) => ("stopped", Some("cancelled"), None),
+        State::Stopped(Halt::Unreadable(why)) => ("stopped", Some("unreadable"), Some(why)),
+        State::Stopped(Halt::Unstorable) => ("stopped", Some("unstorable"), None),
+    };
+    let progress = snapshot.progress;
+    to_result(&FfiLinkImportStatus {
+        state: state.to_owned(),
+        stopped: stopped.map(str::to_owned),
+        detail,
+        seen: progress.seen,
+        stored: progress.stored,
+        already_stored: progress.already_stored,
+        failed: progress.failed,
+        other_format: progress.other_format,
+        skipped: progress.skipped,
+        current: progress.current,
+        failures: progress
+            .failures
+            .into_iter()
+            .map(|failure| FfiLinkImportFailure {
+                name: failure.name,
+                key: failure.key,
+                reason: failure.reason,
+            })
+            .collect(),
+    })
+}
+
+/// Answer one write that works on a spool, from the browser that presented
+/// `browser`. A write that succeeds is logged under it, as an engine write is.
+pub fn answer_spool(browser: &str, request: &str) -> String {
+    let Ok(request) = serde_json::from_str::<Request>(request) else {
+        return malformed();
+    };
+    let result = match method(&request.method).map(|method| &method.run) {
+        Some(Run::Spool(run)) => run(browser, request.params.clone()),
+        _ => Err(format!("unknown method: {}", request.method)),
+    };
+    if result.is_ok() && request.method == "import.commit" {
+        let target = request.params["importId"].to_string();
+        let logged = crate::persistence::settings_conn::with_settings_conn(|conn| {
+            crate::persistence::linked_devices::record_write(
+                conn,
+                browser,
+                &request.method,
+                &target,
+                "Sent a collection of rides to import",
+                super::service::now(),
+            )
+        });
+        if !matches!(logged, Some(Ok(()))) {
+            log::warn!("veloqrs: [remote] a write was made and not logged");
+        }
+    }
+    reply(request.id, result)
+}
+
 fn database_error(error: crate::objects::error::VeloqError) -> String {
     error.to_string()
 }
@@ -2150,10 +3249,29 @@ fn section_accept_all(
     ask: Value,
 ) -> Result<Written, String> {
     let _: FfiLinkNoAsk = params(ask)?;
-    let count = engine.accept_all_sections()?;
-    let summary = match count {
+    let ids = engine.accept_all_sections_listed()?;
+    let summary = match ids.len() {
         1 => "Accepted 1 section".to_owned(),
         count => format!("Accepted {count} sections"),
+    };
+    Ok(Written {
+        result: to_result(&FfiLinkSectionsAccepted { ok: true, ids })?,
+        moved: "sections",
+        target_id: String::new(),
+        summary,
+        starts_backfill: false,
+    })
+}
+
+fn section_unaccept(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkSectionIdsAsk = params(ask)?;
+    engine.unaccept_sections(&ask.ids)?;
+    let summary = match ask.ids.len() {
+        1 => "Took back the acceptance of 1 section".to_owned(),
+        count => format!("Took back the acceptance of {count} sections"),
     };
     done("sections", String::new(), summary)
 }
@@ -2239,6 +3357,201 @@ fn section_include_lap(
         "sections",
         ask.id,
         format!("Included a lap of {activity} in section {section}"),
+    )
+}
+
+/// A parameter an edit reads, refused by name when the ask lacks it.
+fn needed<T>(value: Option<T>, edit: &str, name: &str) -> Result<T, String> {
+    value.ok_or_else(|| bad(&format!("{edit} needs {name}")))
+}
+
+/// The engine edit a bounds ask names, with the parameters it reads.
+fn bounds_edit(
+    ask: FfiLinkSectionBoundsAsk,
+) -> Result<crate::objects::sections::FfiSectionBoundsEdit, String> {
+    use crate::objects::sections::FfiSectionBoundsEdit as Edit;
+    let section_id = ask.id;
+    Ok(match ask.edit {
+        FfiLinkBoundsEdit::Trim => Edit::Trim {
+            section_id,
+            start_index: needed(ask.start_index, "trim", "startIndex")?,
+            end_index: needed(ask.end_index, "trim", "endIndex")?,
+        },
+        FfiLinkBoundsEdit::Reset => Edit::Reset { section_id },
+        FfiLinkBoundsEdit::Expand => Edit::Expand {
+            section_id,
+            activity_id: needed(ask.activity_id, "expand", "activityId")?,
+            start_index: needed(ask.start_index, "expand", "startIndex")?,
+            end_index: needed(ask.end_index, "expand", "endIndex")?,
+        },
+        FfiLinkBoundsEdit::SetReference => Edit::SetReference {
+            section_id,
+            activity_id: needed(ask.activity_id, "setReference", "activityId")?,
+        },
+        FfiLinkBoundsEdit::ResetReference => Edit::ResetReference { section_id },
+        FfiLinkBoundsEdit::Revert => {
+            let version = needed(ask.version, "revert", "version")?;
+            if !version.is_finite() || version.fract() != 0.0 {
+                return Err(bad("version is not a whole number"));
+            }
+            Edit::Revert {
+                section_id,
+                version,
+            }
+        }
+    })
+}
+
+fn section_edit_bounds(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkSectionBoundsAsk = params(ask)?;
+    let shown = section_label(engine, &ask.id);
+    let edit = ask.edit;
+    let id = ask.id.clone();
+    let departed = bounds_edit(ask)?.apply(engine)?;
+    let summary = match edit {
+        FfiLinkBoundsEdit::Trim => format!("Trimmed section {shown}"),
+        FfiLinkBoundsEdit::Reset => format!("Reset the bounds of section {shown}"),
+        FfiLinkBoundsEdit::Expand => format!("Expanded section {shown}"),
+        FfiLinkBoundsEdit::SetReference => format!("Set the reference of section {shown}"),
+        FfiLinkBoundsEdit::ResetReference => format!("Reset the reference of section {shown}"),
+        FfiLinkBoundsEdit::Revert => format!("Reverted section {shown} to a stored version"),
+    };
+    edited("sections", id, summary, engine, &departed)
+}
+
+/// The answer a section edit gives: it was made, and these rides left.
+fn edited(
+    moved: &'static str,
+    target_id: String,
+    summary: String,
+    engine: &crate::persistence::PersistentEngine,
+    departed: &[String],
+) -> Result<Written, String> {
+    Ok(Written {
+        result: to_result(&FfiLinkSectionEdited {
+            ok: true,
+            departed: crate::objects::sections::departed_rides(engine, departed),
+        })?,
+        moved,
+        target_id,
+        summary,
+        starts_backfill: false,
+    })
+}
+
+fn section_create(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkSectionCreateAsk = params(ask)?;
+    let activity = activity_label(engine, &ask.activity_id);
+    let name = ask.name.filter(|name| !name.is_empty());
+    let shown = name.clone();
+    let id = crate::objects::sections::create_section_from_range(
+        engine,
+        ask.sport,
+        name,
+        ask.activity_id,
+        ask.start_index,
+        ask.end_index,
+    )
+    .map_err(database_error)?;
+    let summary = match shown {
+        Some(name) => format!("Cut section {name} from {activity}"),
+        None => format!("Cut a section from {activity}"),
+    };
+    Ok(Written {
+        result: to_result(&FfiLinkSectionCreated {
+            section_id: id.clone(),
+        })?,
+        moved: "sections",
+        target_id: id,
+        summary,
+        starts_backfill: false,
+    })
+}
+
+fn section_merge_preview(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkMergeAsk = params(ask)?;
+    known_section(conn, &ask.primary_id)?;
+    known_section(conn, &ask.secondary_id)?;
+    let dropped = crate::persistence::sections::merging::pooled::merge_preview(
+        conn,
+        &ask.primary_id,
+        &ask.secondary_id,
+    )
+    .map_err(|error| error.to_string())?;
+    to_result(&FfiLinkMergePreview { dropped })
+}
+
+fn section_merge(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkMergeAsk = params(ask)?;
+    let primary = section_label(engine, &ask.primary_id);
+    let secondary = section_label(engine, &ask.secondary_id);
+    let outcome =
+        crate::objects::sections::merge_sections(engine, &ask.primary_id, &ask.secondary_id)?;
+    Ok(Written {
+        result: to_result(&outcome)?,
+        moved: "sections",
+        target_id: outcome.section_id,
+        summary: format!("Merged section {secondary} into section {primary}"),
+        starts_backfill: false,
+    })
+}
+
+fn section_restore(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkSectionAsk = params(ask)?;
+    let retired = crate::persistence::sections::history::pooled::retirement_of(&engine.db, &ask.id)
+        .ok_or_else(|| format!("section {} is not retired", ask.id))?;
+    let version = retired
+        .restorable_version
+        .ok_or_else(|| format!("section {} has no version to restore", ask.id))?;
+    let shown = retired.name.unwrap_or_else(|| ask.id.clone());
+    let departed = engine.revert_section_to_version(&ask.id, version.0)?;
+    edited(
+        "sections",
+        ask.id,
+        format!("Restored section {shown}"),
+        engine,
+        &departed,
+    )
+}
+
+fn route_set_reference(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkExcludeAsk = params(ask)?;
+    let route = route_label(engine, &ask.id);
+    let activity = activity_label(engine, &ask.activity_id);
+    engine.set_route_representative(&ask.id, &ask.activity_id)?;
+    done(
+        "groups",
+        ask.id,
+        format!("Set {activity} as the reference of route {route}"),
+    )
+}
+
+fn route_reset_reference(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkRouteAsk = params(ask)?;
+    let route = route_label(engine, &ask.id);
+    engine.reset_route_representative(&ask.id)?;
+    done(
+        "groups",
+        ask.id,
+        format!("Reset the reference of route {route}"),
     )
 }
 
@@ -2425,6 +3738,64 @@ fn detection_set_section_config(
         .set_section_config(config)
         .map_err(|refusal| crate::objects::detection::refusal_reason(refusal).to_owned())?;
     done("settings", String::new(), summary)
+}
+
+fn settings_set(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkSettingSetAsk = params(ask)?;
+    let setting = WRITABLE_SETTINGS
+        .iter()
+        .find(|setting| setting.key == ask.key)
+        .ok_or_else(|| format!("{} is not a setting the link writes", ask.key))?;
+    if !setting.values.contains(&ask.value.as_str()) {
+        return Err(format!("{} is not a value of {}", ask.value, ask.key));
+    }
+    let was = engine
+        .get_setting(&ask.key)
+        .map_err(|error| error.to_string())?;
+    engine
+        .set_setting(&ask.key, &ask.value)
+        .map_err(|error| error.to_string())?;
+    let summary = match was {
+        Some(was) => format!("Changed {} from {was} to {}", ask.key, ask.value),
+        None => format!("Set {} to {}", ask.key, ask.value),
+    };
+    done("settings", ask.key, summary)
+}
+
+fn threshold_label(field: crate::FfiThresholdField) -> &'static str {
+    use crate::FfiThresholdField::{Ftp, MaxHr, RestingHr, ThresholdHr, WeightKg};
+    match field {
+        Ftp => "FTP",
+        ThresholdHr => "threshold heart rate",
+        MaxHr => "maximum heart rate",
+        RestingHr => "resting heart rate",
+        WeightKg => "weight",
+    }
+}
+
+fn settings_set_threshold(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkThresholdAsk = params(ask)?;
+    if !crate::persistence::screens::THRESHOLD_SPORTS.contains(&ask.sport.as_str()) {
+        return Err(format!("{} has no thresholds on the phone", ask.sport));
+    }
+    crate::persistence::fitness::sport_settings::set_threshold_override(
+        &engine.db,
+        &ask.sport,
+        ask.field.into(),
+        ask.value,
+    )?;
+    let label = threshold_label(ask.field);
+    let summary = match ask.value {
+        Some(value) => format!("Set {} {label} to {value}", ask.sport),
+        None => format!("Cleared the {} {label} set by hand", ask.sport),
+    };
+    done("settings", ask.sport, summary)
 }
 
 /// The name a section is shown under now: its own name, else the one

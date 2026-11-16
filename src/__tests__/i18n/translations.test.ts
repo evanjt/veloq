@@ -15,6 +15,7 @@ import * as path from 'path';
 import { glob } from 'glob';
 import acceptedIdenticalValues from './acceptedIdenticalValues.json';
 import { resolvedLocale } from './resolvedLocale';
+import { resolveLocaleChain } from '../../i18n/resolveLocale';
 
 // Reference locale (the source of truth)
 const REFERENCE_LOCALE = 'en-GB';
@@ -89,6 +90,25 @@ function getAvailableLocales(): string[] {
     .readdirSync(LOCALES_DIR)
     .filter((file) => file.endsWith('.json'))
     .map((file) => file.replace('.json', ''));
+}
+
+/** The language a locale tag belongs to: the part before its region or script. */
+function languageOf(locale: string): string {
+  return locale.split('-')[0];
+}
+
+/**
+ * The keys a locale's fallback chain fills from a bundle in another language. The chain's steps
+ * in the locale's own language count as its translation; any other step supplies the key in a
+ * different language, which the locale shows under its own name.
+ */
+function keysFilledFromOtherLanguage(locale: string, referenceKeys: string[]): string[] {
+  const language = languageOf(locale);
+  const ownLanguageSteps = resolveLocaleChain([locale]).filter(
+    (step) => languageOf(step) === language && fs.existsSync(path.join(LOCALES_DIR, `${step}.json`))
+  );
+  const held = new Set(ownLanguageSteps.flatMap((step) => getAllKeys(rawLocale(step))));
+  return referenceKeys.filter((key) => !held.has(key));
 }
 
 // Path to source directory
@@ -217,6 +237,15 @@ describe('Translation Completeness', () => {
       const localeKeys = getAllKeys(localeData as Record<string, unknown>);
       const missingKeys = referenceKeys.filter((key) => !localeKeys.includes(key));
       expect(missingKeys).toEqual([]);
+    }
+  );
+
+  // Key parity above reads the fallback chain, so a key the locale lacks passes from English.
+  // Here each key must be held by the locale's own file or a same-language step of its chain.
+  test.each(availableLocales.filter((l) => l !== REFERENCE_LOCALE))(
+    '%s holds every reference key in its own language',
+    (locale) => {
+      expect(keysFilledFromOtherLanguage(locale, referenceKeys)).toEqual([]);
     }
   );
 

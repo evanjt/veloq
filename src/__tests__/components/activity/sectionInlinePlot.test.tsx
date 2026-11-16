@@ -13,7 +13,7 @@ import type { ReactTestInstance } from 'react-test-renderer';
 
 import { SectionInlinePlot } from '@/features/activity/components/SectionInlinePlot';
 import { groupSectionEncounters } from '@/features/activity/lib/groupSectionEncounters';
-import { sectionPalette, sectionPaletteIndex } from '@/theme';
+import { colors, darkColors, sectionPalette, sectionPaletteIndex, stroke } from '@/theme';
 import type { SectionEncounter } from 'veloqrs';
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
@@ -79,16 +79,24 @@ function contrastRatio(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
+/** The flattened style of the nearest filled view behind a piece of text. */
+function filledAncestorStyle(screen: RenderAPI, text: string): Record<string, unknown> {
+  const label = screen.getByText(text);
+  for (let node = label.parent; node; node = node.parent) {
+    const style = typeof node.props.style === 'function' ? null : node.props.style;
+    const flat: Record<string, unknown> = StyleSheet.flatten(style) ?? {};
+    if (typeof flat.backgroundColor === 'string' && flat.backgroundColor !== 'transparent') {
+      return flat;
+    }
+  }
+  throw new Error(`nothing is drawn behind ${text}`);
+}
+
 /** The colour of a piece of text and of the nearest fill drawn behind it. */
 function inkAndGround(screen: RenderAPI, text: string): [string, string] {
   const label = screen.getByText(text);
   const ink = StyleSheet.flatten(label.props.style)?.color as string;
-  for (let node = label.parent; node; node = node.parent) {
-    const style = typeof node.props.style === 'function' ? null : node.props.style;
-    const fill = StyleSheet.flatten(style)?.backgroundColor;
-    if (typeof fill === 'string' && fill !== 'transparent') return [ink, fill];
-  }
-  throw new Error(`nothing is drawn behind ${text}`);
+  return [ink, filledAncestorStyle(screen, text).backgroundColor as string];
 }
 
 /** A section id whose palette slot is `slot`, found the way the map finds it. */
@@ -371,7 +379,7 @@ describe('SectionInlinePlot', () => {
   });
 
   // The index number matches its section's colour on the map, and the palette
-  // is drawn for map lines: six of its eight hues are under 3:1 on white.
+  // is drawn for map lines: four of the five hues are under 3:1 on white.
   vaultIt.each(
     sectionPalette.flatMap((hue, slot) => [
       [hue, slot, false],
@@ -394,13 +402,34 @@ describe('SectionInlinePlot', () => {
   );
 
   vaultIt('keeps the section colour beside the index number', async () => {
-    const slot = 5;
+    const slot = 4;
     const screen = await renderGroup([encounter({ sectionId: sectionIdInSlot(slot) })]);
 
     const [, ground] = inkAndGround(screen, '1');
 
     expect(ground).toBe(sectionPalette[slot]);
   });
+
+  // Four of the five palette hues are under 3:1 on white, so the disc's edge is
+  // drawn in the control boundary tone and tells the disc from the card.
+  it.each([false, true])(
+    'outlines the index disc in the control boundary at one point, dark %s',
+    async (dark) => {
+      const screen = await renderGroup(
+        [encounter({ sectionId: sectionIdInSlot(0) })],
+        0,
+        'Ride',
+        dark
+      );
+
+      const disc = filledAncestorStyle(screen, '1');
+      const card = dark ? darkColors.surfaceRaised : colors.surface;
+
+      expect(disc.borderColor).toBe(dark ? darkColors.controlBoundary : colors.controlBoundary);
+      expect(disc.borderWidth).toBe(stroke.one);
+      expect(contrastRatio(disc.borderColor as string, card)).toBeGreaterThanOrEqual(3);
+    }
+  );
 
   vaultIt(
     'speaks each direction with its distance, traversals, lap, record and place',

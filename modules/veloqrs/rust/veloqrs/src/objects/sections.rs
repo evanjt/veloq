@@ -8,7 +8,7 @@ use crate::persistence::sections::{SectionNameError, named, pooled, queries};
 use crate::sections::SectionType;
 
 /// The rides an edit took out of a section, named from the library.
-fn departed_rides(
+pub(crate) fn departed_rides(
     engine: &crate::persistence::PersistentEngine,
     departed: &[String],
 ) -> Vec<crate::FfiDepartedRide> {
@@ -107,6 +107,57 @@ pub(crate) fn include_lap_in(
     Ok(())
 }
 
+/// Cut a section from an inclusive index range of a stored activity's track.
+/// The engine holds the track, so the slice is taken here and the elevation
+/// travels with it. The phone's cut and the linked browser's both end here.
+pub(crate) fn create_section_from_range(
+    engine: &mut crate::persistence::PersistentEngine,
+    sport_type: String,
+    name: Option<String>,
+    source_activity_id: String,
+    start_index: u32,
+    end_index: u32,
+) -> Result<String, VeloqError> {
+    let track = engine
+        .get_gps_track(&source_activity_id)
+        .filter(|track| !track.is_empty())
+        .ok_or_else(|| VeloqError::NotFound {
+            msg: format!("No GPS track found for activity {}", source_activity_id),
+        })?;
+    let polyline = slice_inclusive(&track, start_index, end_index)?;
+    let distance_meters = tracematch::matching::calculate_route_distance(&polyline);
+
+    let params = crate::sections::CreateSectionParams {
+        sport_type,
+        polyline,
+        distance_meters,
+        name,
+        source_activity_id: Some(source_activity_id),
+        start_index: Some(start_index),
+        end_index: Some(end_index),
+    };
+    engine
+        .create_section(params)
+        .map_err(|e| VeloqError::Database { msg: e })
+}
+
+/// Merge `secondary_id` into `primary_id`, resolving with the section kept and
+/// the rides that left it. The phone's merge and the linked browser's both
+/// end here.
+pub(crate) fn merge_sections(
+    engine: &mut crate::persistence::PersistentEngine,
+    primary_id: &str,
+    secondary_id: &str,
+) -> Result<crate::FfiMergeOutcome, String> {
+    let (section_id, departed) = engine
+        .merge_user_sections_reporting(primary_id, secondary_id)
+        .map_err(|e| e.to_string())?;
+    Ok(crate::FfiMergeOutcome {
+        section_id,
+        departed: departed_rides(engine, &departed),
+    })
+}
+
 /// One edit to a section's line, each re-matching the section's rides.
 #[derive(Debug, Clone, serde::Serialize, uniffi::Enum)]
 #[serde(rename_all = "camelCase")]
@@ -142,7 +193,7 @@ pub enum FfiSectionBoundsEdit {
 
 impl FfiSectionBoundsEdit {
     /// Run the editor this edit names, returning the activities it took out.
-    fn apply(
+    pub(crate) fn apply(
         &self,
         engine: &mut crate::persistence::PersistentEngine,
     ) -> Result<Vec<String>, String> {
@@ -496,26 +547,14 @@ impl SectionManager {
         end_index: u32,
     ) -> Result<String, VeloqError> {
         with_engine(|e| {
-            let track = e
-                .get_gps_track(&source_activity_id)
-                .filter(|track| !track.is_empty())
-                .ok_or_else(|| VeloqError::NotFound {
-                    msg: format!("No GPS track found for activity {}", source_activity_id),
-                })?;
-            let polyline = slice_inclusive(&track, start_index, end_index)?;
-            let distance_meters = tracematch::matching::calculate_route_distance(&polyline);
-
-            let params = crate::sections::CreateSectionParams {
+            create_section_from_range(
+                e,
                 sport_type,
-                polyline,
-                distance_meters,
                 name,
-                source_activity_id: Some(source_activity_id),
-                start_index: Some(start_index),
-                end_index: Some(end_index),
-            };
-            e.create_section(params)
-                .map_err(|e| VeloqError::Database { msg: e })
+                source_activity_id,
+                start_index,
+                end_index,
+            )
         })?
     }
 
@@ -664,23 +703,6 @@ impl SectionManager {
         })?
     }
 
-    /// Match an activity's GPS track against all existing sections.
-    /// Returns all matches found (may be empty if activity doesn't traverse any section).
-    fn match_activity_to_sections(
-        &self,
-        activity_id: String,
-    ) -> Result<Vec<crate::FfiSectionMatch>, VeloqError> {
-        with_reader(|conn| {
-            let config = crate::persistence::settings::section_config_from(conn)
-                .map_err(|e| VeloqError::Database { msg: e.to_string() })?;
-            Ok(queries::pooled::activity_section_matches(
-                conn,
-                &activity_id,
-                &config,
-            ))
-        })?
-    }
-
     /// Cheap post-ingest indexing for one freshly downloaded activity: match it
     /// against existing sections, insert junction rows, and schedule regroup.
     /// The worker refreshes indicators. New sections wait for
@@ -703,23 +725,6 @@ impl SectionManager {
         Ok(summary)
     }
 
-    /// Force-match a single activity to a specific section with relaxed thresholds.
-    /// Returns true if a match was found and the section_activities row was inserted.
-    fn rematch_activity_to_section(
-        &self,
-        activity_id: String,
-        section_id: String,
-    ) -> Result<bool, VeloqError> {
-        with_engine(|engine| {
-            engine
-                .rematch_activity_to_section(&activity_id, &section_id)
-                .unwrap_or_else(|e| {
-                    log::warn!("veloqrs: [rematch] {}", e);
-                    false
-                })
-        })
-    }
-
     /// Merge two sections. Rebuilds the primary's traversals against its own line
     /// over the rides of both. A donor ride with no pass over that line leaves
     /// the section and stays in the library. Deletes secondary. Resolves with
@@ -735,13 +740,7 @@ impl SectionManager {
     ) -> Result<crate::FfiMergeOutcome, VeloqError> {
         let slot = InFlight::claim(&SECTION_EDIT_IN_FLIGHT, "A section edit is already running")?;
         section_edit_for(crate::persistence::engine_install(), slot, move |engine| {
-            let (section_id, departed) = engine
-                .merge_user_sections_reporting(&primary_id, &secondary_id)
-                .map_err(|e| e.to_string())?;
-            Ok(crate::FfiMergeOutcome {
-                section_id,
-                departed: departed_rides(engine, &departed),
-            })
+            merge_sections(engine, &primary_id, &secondary_id)
         })
         .await
     }
@@ -1076,9 +1075,8 @@ mod tests {
         );
         assert_eq!(sections.accept_all().unwrap(), 0);
         assert!(
-            sections
-                .match_activity_to_sections("a1".into())
-                .unwrap()
+            crate::persistence::with_persistent_engine(|e| e.match_activity_to_sections("a1"))
+                .expect("engine")
                 .is_empty()
         );
     }

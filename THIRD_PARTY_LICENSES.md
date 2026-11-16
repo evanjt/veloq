@@ -396,6 +396,10 @@ This register lists every direct app and engine dependency. The in-app Third-par
 | str0m | MIT OR Apache-2.0 | https://github.com/algesten/str0m |
 | hmac | MIT OR Apache-2.0 | https://github.com/RustCrypto/MACs |
 | sha2 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
+| argon2 | MIT OR Apache-2.0 | https://github.com/RustCrypto/password-hashes |
+| aes-gcm | Apache-2.0 OR MIT | https://github.com/RustCrypto/AEADs |
+| getrandom | MIT OR Apache-2.0 | https://github.com/rust-random/getrandom |
+| zeroize | Apache-2.0 OR MIT | https://github.com/RustCrypto/utils |
 | log | MIT OR Apache-2.0 | https://github.com/rust-lang/log |
 | libc | MIT OR Apache-2.0 | https://github.com/rust-lang/libc |
 | serde | MIT OR Apache-2.0 | https://github.com/serde-rs/serde |
@@ -409,6 +413,7 @@ This register lists every direct app and engine dependency. The in-app Third-par
 | rstar | MIT OR Apache-2.0 | https://github.com/georust/rstar |
 | zip | MIT | https://github.com/zip-rs/zip2 |
 | flate2 | MIT OR Apache-2.0 | https://github.com/rust-lang/flate2-rs |
+| quick-xml | MIT | https://github.com/tafia/quick-xml |
 | android_logger | MIT OR Apache-2.0 | https://github.com/rust-mobile/android_logger-rs |
 | jni | MIT OR Apache-2.0 | https://github.com/jni-rs/jni-rs |
 | oslog | MIT | https://github.com/steven-joruk/oslog |

@@ -9,7 +9,7 @@
  * one point or a non-finite pair crashes the iOS renderer.
  */
 import * as coords from 'veloqrs/src/coords';
-import { sectionPalette, sectionPaletteIndex } from '@/theme/colors';
+import { sectionPaletteIndex } from '@/theme/colors';
 import { createSectionLineCache } from '@/features/maps/lib/sectionLineCollection';
 import { createSurfacePatcher } from '@/features/maps/lib/mapSurfacePatch';
 
@@ -60,7 +60,7 @@ describe('section line collection', () => {
         name: 'Lane s1',
         visitCount: 3,
         distanceMeters: 1500,
-        color: sectionPalette[sectionPaletteIndex('s1')],
+        colorIndex: sectionPaletteIndex('s1'),
       },
       geometry: {
         type: 'LineString',
@@ -118,13 +118,14 @@ describe('section line collection', () => {
     const forward = draw(ids);
     const reversed = draw([...ids].reverse());
     const colourOf = (fs: GeoJSON.Feature[], id: string) =>
-      fs.find((f) => f.id === id)?.properties?.color;
+      fs.find((f) => f.id === id)?.properties?.colorIndex;
 
     for (const id of ids) {
-      expect(colourOf(forward, id)).toBe(sectionPalette[sectionPaletteIndex(id)]);
+      expect(colourOf(forward, id)).toBe(sectionPaletteIndex(id));
       expect(colourOf(reversed, id)).toBe(colourOf(forward, id));
     }
     expect(forward[0]?.properties).not.toHaveProperty('patternIndex');
+    expect(forward[0]?.properties).not.toHaveProperty('color');
   });
 
   vaultIt(

@@ -144,6 +144,16 @@ const ROWS: [State, Expected][] = [
     },
   ],
   [
+    state('files', false, null),
+    {
+      header: null,
+      canRecord: [false, 'not_signed_in'],
+      writeMissing: false,
+      uploadReachesEngine: false,
+      registersOnLaunch: false,
+    },
+  ],
+  [
     state('apiKey', false, 'demo'),
     {
       header: null,

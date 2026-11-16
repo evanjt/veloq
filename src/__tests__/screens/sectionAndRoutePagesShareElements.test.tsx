@@ -424,8 +424,16 @@ const SHARED: SharedElement[] = [
     route: 'chart-plot-histogram',
   },
   { element: 'delta plot choice', section: 'chart-plot-delta', route: 'chart-plot-delta' },
-  { element: 'info card first', section: 'section-first', route: 'section-first' },
-  { element: 'info card last', section: 'section-last', route: 'section-last' },
+  {
+    element: 'direction averages',
+    section: 'section-direction-averages',
+    route: 'section-direction-averages',
+  },
+  {
+    element: 'date line',
+    section: 'section-card-date-line',
+    route: 'route-card-date-line',
+  },
   {
     element: 'efficiency card',
     section: 'section-efficiency-card',
@@ -485,19 +493,25 @@ describe('the section page and the route page over one demo route', () => {
 
   it('dates the first and last attempt the same on both pages', async () => {
     expect(attempts.length).toBeGreaterThan(2);
+    // The section page's line leads with the range it is narrowed to; the span closes both.
+    const span = (line: unknown) => String(line).split(' · ').at(-1);
 
     const sectionPage = await openPage('section');
-    const sectionDates = ['section-first', 'section-last'].map(
-      (id) => sectionPage.getByTestId(id).props.children
-    );
+    const sectionSpan = span(sectionPage.getByTestId('section-card-date-line').props.children);
     await sectionPage.unmount();
     const routePage = await openPage('route');
-    const routeDates = ['section-first', 'section-last'].map(
-      (id) => routePage.getByTestId(id).props.children
-    );
+    const routeSpan = span(routePage.getByTestId('route-card-date-line').props.children);
 
-    expect(routeDates).toEqual(sectionDates);
-    expect(sectionDates[0]).not.toEqual(sectionDates[1]);
+    expect(routeSpan).toEqual(sectionSpan);
+    expect(sectionSpan).toMatch(/–/);
+  });
+
+  it('draws no Summary card on either page', async () => {
+    const sectionPage = await openPage('section');
+    expect(sectionPage.queryByTestId('section-summary')).toBeNull();
+    await sectionPage.unmount();
+    const routePage = await openPage('route');
+    expect(routePage.queryByTestId('section-summary')).toBeNull();
   });
 
   vaultIt.each(SHARED)('finds the $element on both pages', async ({ section, route }) => {

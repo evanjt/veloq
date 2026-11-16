@@ -25,6 +25,7 @@ import { LIBERTY_SOURCES, NATURAL_EARTH_ORIGIN } from '@/features/maps/styles/li
 import {
   mapPageBaseUrl,
   nativeTileUrls,
+  tileExtension,
   registerTileListenerResume,
 } from '@/features/maps/lib/tileTransport';
 
@@ -272,5 +273,23 @@ describe('a return to the foreground', () => {
     onPlatform('ios');
     registerTileListenerResume();
     expect(changes).toHaveLength(0);
+  });
+});
+
+describe('the extension a tile template is asked for under', () => {
+  it('types a map service request by its FORMAT, whatever its path ends in', () => {
+    expect(
+      tileExtension(
+        'https://h/wms/rp_dop20.fcgi?SERVICE=WMS&FORMAT=image/jpeg&BBOX={bbox-epsg-3857}'
+      )
+    ).toBe('jpeg');
+    expect(tileExtension('https://h/owsproxy/ows/L?FORMAT=image/png&BBOX={bbox-epsg-3857}')).toBe(
+      'png'
+    );
+  });
+
+  it('keeps the path extension for a template with no FORMAT, and bin for none', () => {
+    expect(tileExtension('https://h/{z}/{x}/{y}.PNG?v=2')).toBe('png');
+    expect(tileExtension('https://h/wmts?TILEROW={y}')).toBe('bin');
   });
 });

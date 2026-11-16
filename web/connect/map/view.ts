@@ -2,8 +2,12 @@
 // the viewport holds, and the box the athlete drags. Pure, so a test drives it
 // without a renderer.
 
-import { type Route, write } from '../router';
+import { SPORT_FAMILY_MEMBERS, type SportFamily } from '@/shared/native/sportTaxonomy.generated';
+
+import { queryValue, type Route, write } from '../router';
 import { RANGES, type RangePreset } from '../table';
+import { orderKey } from '../tableOrder';
+import type { PageBase } from './style';
 
 /** `[west, south, east, north]`. West may exceed east for a view across the antimeridian. */
 export type Box = [number, number, number, number];
@@ -28,6 +32,21 @@ export type Layer = (typeof LAYERS)[number];
 export const BANDS = ['all', 'xShort', 'short', 'medium', 'long'] as const;
 export type Band = (typeof BANDS)[number];
 
+/** How the activity markers are coloured: by sport family, or by how long ago the activity was. */
+export const COLOURINGS = ['sport', 'recency'] as const;
+export type Colouring = (typeof COLOURINGS)[number];
+
+/** What the list pane holds. */
+export const LISTS = ['activities', 'routes', 'sections'] as const;
+
+export type ListKind = (typeof LISTS)[number];
+
+/** The bases the address may name; a colour scheme's own is the absence of one. */
+export const BASES = ['light', 'dark', 'satellite'] as const satisfies readonly PageBase[];
+
+/** Where the camera is: the centre as `[lng, lat]` and the zoom. */
+export type Viewport = { center: [number, number]; zoom: number };
+
 export type MapState = {
   range: RangePreset | null;
   /** The sport types kept; none keeps every sport. */
@@ -35,9 +54,31 @@ export type MapState = {
   band: Band;
   layers: Layer[];
   needle: string;
-  /** `section:<id>` or `route:<id>`: the detail open in the side pane. */
-  open: string | null;
+  /**
+   * What the selection panel holds: `activity:<id>`, `route:<id>`, `section:<id>`, or
+   * `point:<lng>,<lat>` for a click on the heatmap.
+   */
+  selected: string | null;
+  /** The activity list's order as the address writes it, `column:asc|desc`; null for the default. */
+  sort: string | null;
+  list: ListKind;
+  /** The camera the address restores; null leaves the map where its first fit puts it. */
+  view: Viewport | null;
+  colour: Colouring;
+  /** The base chosen; null follows the page's colour scheme. */
+  base: PageBase | null;
+  /** The first day the timeline shows, `YYYY-MM-DD`; null starts at the first activity. */
+  since: string | null;
+  /** The map draped over the elevation model and tilted. */
+  terrain: boolean;
+  /** The last day the timeline shows, `YYYY-MM-DD`; null shows every day. */
+  until: string | null;
+  /** Whether the floating panel is open; false folds it to its chip. */
+  panel: boolean;
 };
+
+/** The table id the activity list's order is kept under. */
+export const ACTIVITY_LIST = 'map-activities';
 
 export const DEFAULT_MAP: Readonly<MapState> = Object.freeze({
   range: null,
@@ -45,7 +86,16 @@ export const DEFAULT_MAP: Readonly<MapState> = Object.freeze({
   band: 'all',
   layers: [...LAYERS],
   needle: '',
-  open: null,
+  selected: null,
+  sort: null,
+  list: 'activities',
+  view: null,
+  colour: 'sport',
+  base: null,
+  since: null,
+  terrain: false,
+  until: null,
+  panel: true,
 });
 
 const sameLayers = (a: readonly Layer[], b: readonly Layer[]) =>
@@ -61,7 +111,19 @@ export function mapQuery(state: MapState): [string, string][] {
   if (!sameLayers(layers, LAYERS))
     query.push(['layers', layers.length ? layers.join(',') : 'none']);
   if (state.needle) query.push(['q', state.needle]);
-  if (openRef(state.open)) query.push(['open', state.open as string]);
+  if (selectionRef(state.selected)) query.push(['selected', state.selected as string]);
+  if (state.sort) query.push([orderKey(ACTIVITY_LIST), state.sort]);
+  if (state.list !== 'activities') query.push(['list', state.list]);
+  if (state.view) {
+    const [lng, lat] = state.view.center;
+    query.push(['view', [lng.toFixed(5), lat.toFixed(5), state.view.zoom.toFixed(2)].join(',')]);
+  }
+  if (state.colour !== 'sport') query.push(['colour', state.colour]);
+  if (state.base) query.push(['base', state.base]);
+  if (state.since) query.push(['since', state.since]);
+  if (state.terrain) query.push(['terrain', '1']);
+  if (state.until) query.push(['until', state.until]);
+  if (!state.panel) query.push(['panel', 'closed']);
   return query;
 }
 
@@ -72,9 +134,9 @@ export function mapHash(state: MapState): string {
 
 /** The state in a route's query; anything unknown reads as the default. */
 export function readMapQuery(route: Route): MapState {
-  const get = (key: string) => route.query.find(([name]) => name === key)?.[1] ?? null;
+  const get = (key: string) => queryValue(route, key);
   const layers = get('layers');
-  const open = get('open');
+  const selected = get('selected');
   return {
     range: RANGES.find((preset) => preset === get('range')) ?? null,
     sports: (get('sport') ?? '').split(',').filter(Boolean),
@@ -82,14 +144,156 @@ export function readMapQuery(route: Route): MapState {
     layers:
       layers === null ? [...LAYERS] : LAYERS.filter((layer) => layers.split(',').includes(layer)),
     needle: get('q') ?? '',
-    open: openRef(open) ? open : null,
+    selected: selectionRef(selected) ? selected : null,
+    sort: get(orderKey(ACTIVITY_LIST)),
+    list: LISTS.find((list) => list === get('list')) ?? 'activities',
+    view: readViewport(get('view')),
+    colour: COLOURINGS.find((colouring) => colouring === get('colour')) ?? 'sport',
+    base: BASES.find((base) => base === get('base')) ?? null,
+    terrain: get('terrain') === '1',
+    since: dayOrNull(get('since')),
+    until: dayOrNull(get('until')),
+    panel: get('panel') !== 'closed',
   };
 }
 
-/** The route or section an `open` value names, or null for any other text. */
-export function openRef(open: string | null): { kind: 'route' | 'section'; id: string } | null {
-  const found = /^(route|section):(.+)$/.exec(open ?? '');
-  return found ? { kind: found[1] as 'route' | 'section', id: found[2] as string } : null;
+function dayOrNull(text: string | null): string | null {
+  return /^\d{4}-\d{2}-\d{2}$/.test(text ?? '') ? text : null;
+}
+
+function readViewport(text: string | null): Viewport | null {
+  const [lng, lat, zoom, ...rest] = (text ?? '').split(',').map(Number);
+  if (rest.length || lng === undefined || lat === undefined || zoom === undefined) return null;
+  if (![lng, lat, zoom].every(Number.isFinite)) return null;
+  if (Math.abs(lng) > 180 || Math.abs(lat) > 90 || zoom < 0 || zoom > 24) return null;
+  return { center: [lng, lat], zoom };
+}
+
+export type Selection =
+  { kind: 'activity' | 'route' | 'section'; id: string } | { kind: 'point'; at: [number, number] };
+
+/** What a `selected` value names, or null for any other text. */
+export function selectionRef(selected: string | null): Selection | null {
+  const found = /^(activity|route|section|point):(.+)$/.exec(selected ?? '');
+  if (!found) return null;
+  const kind = found[1] as Selection['kind'];
+  const rest = found[2] as string;
+  if (kind !== 'point') return { kind, id: rest };
+  const [lng, lat, ...extra] = rest.split(',').map(Number);
+  if (extra.length || lng === undefined || lat === undefined) return null;
+  return Number.isFinite(lng) && Number.isFinite(lat) ? { kind, at: [lng, lat] } : null;
+}
+
+/** The selection value for a click on the heatmap. */
+export function pointSelection(at: [number, number]): string {
+  return `point:${at[0].toFixed(5)},${at[1].toFixed(5)}`;
+}
+
+/** The activities whose bounds hold a point: what lies under a click on the heatmap. */
+export function activitiesUnder<A extends MapActivity>(
+  at: [number, number],
+  all: readonly A[]
+): A[] {
+  return all.filter(
+    ({ bounds }) =>
+      at[0] >= bounds.minLng &&
+      at[0] <= bounds.maxLng &&
+      at[1] >= bounds.minLat &&
+      at[1] <= bounds.maxLat
+  );
+}
+
+export type { SportFamily };
+
+/** The family name the engine's lower-case family spells, as the taxonomy keys it. */
+export const familyName = (engine: string): SportFamily =>
+  (engine.charAt(0).toUpperCase() + engine.slice(1)) as SportFamily;
+
+const familyOf = (type: string): SportFamily =>
+  (Object.keys(SPORT_FAMILY_MEMBERS) as SportFamily[]).find((family) =>
+    (SPORT_FAMILY_MEMBERS[family] as readonly string[]).includes(type)
+  ) ?? 'Other';
+
+/** The family a sport type is drawn in; a type no family lists is Other. */
+export const sportFamilyOf = familyOf;
+
+const typesOf = (family: SportFamily, available: readonly string[]) =>
+  available.filter((type) => familyOf(type) === family);
+
+/** A family chip is on when every sport type the library holds in it is chosen. */
+export function familyChipOn(
+  sports: readonly string[],
+  family: SportFamily,
+  available: readonly string[]
+): boolean {
+  const types = typesOf(family, available);
+  return types.length > 0 && types.every((type) => sports.includes(type));
+}
+
+/** The sport types after a family chip is pressed: its types all on, or all off when they were. */
+export function toggleFamily(
+  sports: readonly string[],
+  family: SportFamily,
+  available: readonly string[]
+): string[] {
+  const types = typesOf(family, available);
+  if (familyChipOn(sports, family, available)) return sports.filter((s) => !types.includes(s));
+  return [...sports, ...types.filter((type) => !sports.includes(type))];
+}
+
+const isoDay = (seconds: number) => new Date(seconds * 1000).toISOString().slice(0, 10);
+
+/** The activities from the first day to the last, both inclusive; null leaves that end open. */
+export function within<A extends { date: number }>(
+  rows: readonly A[],
+  since: string | null,
+  until: string | null
+): A[] {
+  return rows.filter((row) => {
+    const day = isoDay(row.date);
+    return (since === null || day >= since) && (until === null || day <= until);
+  });
+}
+
+export type MonthMark = {
+  /** `YYYY-MM`. */
+  month: string;
+  /** Where the month starts along the timeline, 0 at the first day and under 1. */
+  position: number;
+  /** Whether an activity falls in the month. */
+  active: boolean;
+};
+
+const DAY_SECONDS = 86_400;
+
+/** A mark for each month the timeline spans, solid where an activity falls and muted where none does. */
+export function monthMarks(first: number, last: number, dates: readonly number[]): MonthMark[] {
+  if (dates.length === 0) return [];
+  const from = new Date(first * 1000);
+  const days = Math.max(1, Math.round((last - first) / DAY_SECONDS));
+  const used = new Set(dates.map((date) => isoDay(date).slice(0, 7)));
+  const marks: MonthMark[] = [];
+  const end = isoDay(last).slice(0, 7);
+  for (let at = Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1); ;) {
+    const month = new Date(at).toISOString().slice(0, 7);
+    if (month > end) break;
+    const starts = Math.max(first, at / 1000);
+    marks.push({
+      month,
+      position: Math.min(0.999, (starts - first) / DAY_SECONDS / days),
+      active: used.has(month),
+    });
+    const next = new Date(at);
+    at = Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 1);
+  }
+  return marks;
+}
+
+const AGE_SPAN_SECONDS = 365 * 86_400;
+
+/** How old an activity is on a scale from 0 (now) to 1 (a year or more), as the age colour reads it. */
+export function recencyAge(date: number, now: number): number {
+  return Math.min(1, Math.max(0, (now - date) / AGE_SPAN_SECONDS));
 }
 
 /** The box two opposite corners, `[lng, lat]`, span. */

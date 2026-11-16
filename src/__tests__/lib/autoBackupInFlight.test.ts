@@ -75,6 +75,9 @@ const testBackend: BackupBackend = {
   upload: () => upload(),
   download: async () => {},
   delete: async () => {},
+  putObject: async () => {},
+  listObjects: async () => [],
+  fetchObject: async () => {},
 };
 
 mockCarriers.push(testBackend);

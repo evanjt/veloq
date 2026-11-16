@@ -42,10 +42,9 @@ fn listed(id: i64) -> ListedActivity {
 }
 
 /// The original of `id`: a thirty second ride starting at 09:00 local.
-fn store_original(dir: &TempDir, engine: &mut PersistentEngine, id: i64) -> String {
+fn store_original(_dir: &TempDir, engine: &mut PersistentEngine, id: i64) -> String {
     let key = garmin_source_key(id);
-    let path = dir.path().join("recordings").join(format!("{key}.fit"));
-    ingest_into(engine, Some(&path), &listed(id), &outdoor_ride().to_fit()).expect("stored");
+    ingest_into(engine, true, &listed(id), &outdoor_ride().to_fit()).expect("stored");
     key
 }
 

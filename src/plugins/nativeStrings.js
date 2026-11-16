@@ -127,6 +127,9 @@ const APPLE_STRINGS = [
   { key: 'Paused', path: 'recording.paused' },
   { key: 'Pause recording', path: 'systemSurfaces.spoken.pauseRecording' },
   { key: 'Resume recording', path: 'systemSurfaces.spoken.resumeRecording' },
+  // The strength card's rest countdown and the set that follows.
+  { key: 'Rest', path: 'recording.strengthRest' },
+  { key: 'Next step', path: 'recording.workoutNext' },
 ];
 
 /**

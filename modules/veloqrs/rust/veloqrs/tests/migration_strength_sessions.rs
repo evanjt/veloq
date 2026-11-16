@@ -67,6 +67,8 @@ fn session() -> StrengthSession {
         current_exercise: None,
         current_set: None,
         rest_started_at: None,
+        heart_rate: Vec::new(),
+        notes: Vec::new(),
     }
 }
 

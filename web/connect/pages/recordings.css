@@ -1,0 +1,62 @@
+#recordings-list {
+  min-width: 0;
+}
+
+.page-intro {
+  margin: 0 0 var(--space-md);
+  color: var(--text-muted);
+}
+
+.detail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.detail-facts {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.detail-provenance {
+  margin-left: var(--space-sm);
+}
+
+.recording-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+#recording-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-md);
+  margin: 0;
+}
+
+.recording-stat dt {
+  color: var(--text-muted);
+}
+
+.recording-stat dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--web-type-display-size);
+  line-height: var(--web-type-display-line);
+}
+
+.recording-status p {
+  margin: var(--space-xs) 0;
+}
+
+.recording-status .recording-phone {
+  color: var(--text-muted);
+}
+
+#recording-notes {
+  margin-top: var(--space-lg);
+}

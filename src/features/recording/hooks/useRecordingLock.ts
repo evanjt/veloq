@@ -20,7 +20,10 @@ export function useRecordingLock(status: RecordingStatus) {
   const previousStatus = useRef<RecordingStatus>(status);
 
   useEffect(() => {
-    const startedRecording = previousStatus.current === 'stopped' && status === 'recording';
+    // A reset session reads `idle`, so a screen still mounted across a reset
+    // starts its next recording from `idle` as well as from `stopped`.
+    const wasOver = previousStatus.current === 'stopped' || previousStatus.current === 'idle';
+    const startedRecording = wasOver && status === 'recording';
     previousStatus.current = status;
     if (startedRecording) setIsLocked(true);
   }, [status]);

@@ -85,3 +85,13 @@ fn hmac_sha256_over_parts_is_the_mac_of_their_concatenation() {
         hmac_sha256(&key, &[b"Hi There"])
     );
 }
+
+#[test]
+fn a_digest_fed_in_pieces_is_the_digest_of_the_whole() {
+    let message: Vec<u8> = (0..10_000u32).map(|n| (n % 251) as u8).collect();
+    let mut stream = Sha256Stream::new();
+    for piece in message.chunks(777) {
+        stream.update(piece);
+    }
+    assert_eq!(stream.finish(), sha256(&[&message]));
+}

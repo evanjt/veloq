@@ -137,7 +137,8 @@ export function useInfiniteActivities() {
     staleTime: Infinity,
     gcTime: CACHE.HOUR, // 1 hour - keep in memory for navigation
     maxPages: 10,
-    enabled: isAuthenticated && !!athleteId,
+    // A library filled from files names no athlete, and the read does not ask.
+    enabled: isAuthenticated,
   });
 
   // All activities flattened from loaded pages
@@ -210,7 +211,7 @@ export function useFeedSearch(
   const searching = isFeedSearch({ searchText, groups });
   const countOnly = !searching && range !== null;
   const limit = countOnly ? 0 : SEARCH_PAGE_SIZE;
-  const enabled = isAuthenticated && !!athleteId && (searching || countOnly);
+  const enabled = isAuthenticated && (searching || countOnly);
 
   useEngineChannel('activities', queryKeys.activities.search.all);
 
@@ -435,7 +436,7 @@ export function useRangeActivities(range: FeedRange | null) {
       range ? olderRangePage(range, lastPageParam as FeedRange) : undefined,
     staleTime: Infinity,
     gcTime: CACHE.HOUR,
-    enabled: isAuthenticated && !!athleteId && range !== null,
+    enabled: isAuthenticated && range !== null,
   });
 
   const allActivities = useMemo(() => query.data?.pages.flat() ?? [], [query.data]);

@@ -16,13 +16,14 @@ import {
 } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { openExternal } from '@/shared/app/openExternal';
+import { setPostEntryRoute } from '@/shared/app/postEntryRoute';
 import { VELOQ_PRIVACY_URL } from '@/shared/app/supportLinks';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { createSharedStyles } from '@/styles';
 import { clearAccountData } from '@/shared/storage';
-import { GARMIN_KEY_PAGE, RestoreChooser } from '@/features/settings';
+import { ExperimentalOnly, GARMIN_KEY_PAGE, RestoreChooser } from '@/features/settings';
 import {
   useAuthStore,
   INTERVALS_URLS,
@@ -48,6 +49,7 @@ function LoginScreenContent() {
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
   const enterDemoMode = useAuthStore((state) => state.enterDemoMode);
+  const enterFilesMode = useAuthStore((state) => state.enterFilesMode);
   const queryClient = useQueryClient();
   const resetSyncDateRange = useSyncDateRange((state) => state.reset);
   const [showRestore, setShowRestore] = useState(false);
@@ -106,6 +108,13 @@ function LoginScreenContent() {
     resetSyncDateRange();
     // The root layout takes the athlete in once the library's identity is settled.
     enterDemoMode();
+  };
+
+  // A library filled from files has no account to wipe or adopt, so entering it
+  // asks nothing and clears nothing: whatever is on the device stays as it is.
+  const handleFilesEntry = (route: string) => {
+    setPostEntryRoute(route);
+    enterFilesMode();
   };
 
   const handleCreateAccount = () => {
@@ -204,6 +213,32 @@ function LoginScreenContent() {
               {t('login.demoCaption')}
             </Text>
 
+            {/* Files only: a library with no account behind it */}
+            <Button
+              testID="login-files-button"
+              label={t('filesSource.importButton')}
+              variant="secondary"
+              onPress={() => handleFilesEntry('/import-collection')}
+              disabled={isLoading || isApiKeyLoading}
+              icon="file-import-outline"
+              style={styles.filesButton}
+            />
+            <ExperimentalOnly feature="remoteLink">
+              <Button
+                testID="login-link-browser-button"
+                label={t('filesSource.linkBrowserButton')}
+                variant="ghost"
+                size="sm"
+                onPress={() => handleFilesEntry('/linked-devices')}
+                disabled={isLoading || isApiKeyLoading}
+                icon="laptop"
+                style={styles.restoreButton}
+              />
+            </ExperimentalOnly>
+            <Text style={[styles.demoCaption, isDark && styles.textDark]}>
+              {t('filesSource.caption')}
+            </Text>
+
             {/* Restore from Backup */}
             <Button
               testID="login-restore-button"
@@ -230,13 +265,15 @@ function LoginScreenContent() {
               prefillApiKey={prefillApiKey}
             />
 
-            {/* Garmin key only */}
-            <GarminLoginForm
-              onLogin={handleGarminLogin}
-              isLoading={isGarminLoading}
-              disabled={isLoading || isApiKeyLoading}
-              onOpenKeyPage={handleOpenGarminKeyPage}
-            />
+            {/* Garmin key only, while Garmin is switched on as experimental */}
+            <ExperimentalOnly feature="garminUpdate">
+              <GarminLoginForm
+                onLogin={handleGarminLogin}
+                isLoading={isGarminLoading}
+                disabled={isLoading || isApiKeyLoading}
+                onOpenKeyPage={handleOpenGarminKeyPage}
+              />
+            </ExperimentalOnly>
           </Card>
         </View>
 
@@ -360,6 +397,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  filesButton: {
+    marginTop: spacing.md,
   },
   restoreButton: {
     marginTop: spacing.sm,

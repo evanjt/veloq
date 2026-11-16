@@ -1,3 +1,4 @@
+import type { ActivityType } from '@/types';
 import { i18n } from '@/i18n';
 import { formatDistance } from '@/shared/format/format';
 import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
@@ -11,6 +12,7 @@ import {
 
 import { sessionGuidanceCue } from '@/features/recording/lib/guidanceCue';
 import { buildContentState, type LiveActivityContentState } from './contentState';
+import type { StrengthLiveActivityState } from './strengthContentState';
 import {
   endAllNativeLiveActivities,
   endNativeLiveActivity,
@@ -147,4 +149,39 @@ export function reapOrphanedLiveActivities(): void {
   cardEndedOnScreen = false;
   if (!isLiveActivitySupported()) return;
   endAllNativeLiveActivities();
+}
+
+/**
+ * The strength session's card. It is separate from the recording's: a strength
+ * session has no store of its own to compose from, so the screen that follows the
+ * plan pushes each state. A second begin replaces nothing, like `beginLiveActivity`.
+ */
+let strengthCardRunning = false;
+
+export function pushStrengthLiveActivity(
+  state: StrengthLiveActivityState,
+  activityType: ActivityType
+): void {
+  if (!isLiveActivitySupported()) return;
+  if (strengthCardRunning) {
+    updateNativeLiveActivity(JSON.stringify(state));
+    return;
+  }
+  const attributes: LiveActivityAttributes = {
+    activityType,
+    activityLabel: activityLabel(activityType),
+    sportCategory: getSportCategory(activityType),
+    stoppedLabel: translated(
+      'recording.interruptedNotice.card',
+      'Recording stopped. Open Veloq to resume.'
+    ),
+  };
+  startNativeLiveActivity(JSON.stringify(attributes), JSON.stringify(state));
+  strengthCardRunning = true;
+}
+
+export function endStrengthLiveActivity(): void {
+  if (!strengthCardRunning) return;
+  strengthCardRunning = false;
+  endNativeLiveActivity(null);
 }

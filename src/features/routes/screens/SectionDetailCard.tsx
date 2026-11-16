@@ -26,6 +26,7 @@ import {
   sectionHeroName,
   sectionStreamsState,
 } from '../components/section';
+import { attemptBasis } from '../lib/attemptBasis';
 import { useRouteSettings } from '../stores/RouteSettingsStore';
 import { useSectionActions } from '../hooks/useSectionActions';
 import { useSectionChartData, useSectionChartDataEnriched } from '../hooks';
@@ -368,7 +369,7 @@ function SectionDetailCardContent({
   });
   const grades = sectionGradeStats(section, t);
   const showsStatus = partlyExcluded || chips.pinned || chips.accept === 'accepted';
-  const infoFooter =
+  const heroFooter =
     grades.length > 0 || showsStatus ? (
       <>
         {grades.length > 0 ? (
@@ -398,6 +399,10 @@ function SectionDetailCardContent({
           bestTimeSecs={bestTimeValue}
           firstDate={firstActivityDate}
           lastDate={lastActivityDate}
+          forwardStats={forwardStats}
+          reverseStats={reverseStats}
+          basis={attemptBasis(effectiveSportType, false)}
+          footer={heroFooter}
           customName={customName}
           onUnflagLift={handleUnflagLift}
           onSaveName={handleSaveName}
@@ -435,8 +440,6 @@ function SectionDetailCardContent({
           isSectionDisabled={isSectionDisabled}
           mergeCandidates={mergeCandidates}
           combinedChartData={combinedChartData}
-          firstActivityDate={firstActivityDate}
-          lastActivityDate={lastActivityDate}
           trendCurves={performance?.trendCurves ?? NO_TREND_CURVES}
           histograms={performance?.histograms ?? NO_HISTOGRAMS}
           scatterFocus={performance?.scatterFocus}
@@ -471,7 +474,6 @@ function SectionDetailCardContent({
             // Tapping the chip already picked hands the choice back to the engine's default.
             setSelectedSportType(selectedSportType === st ? undefined : st);
           }}
-          infoFooter={infoFooter}
           onToggleDisable={handleToggleDisable}
           onMergePress={startMerge}
         >

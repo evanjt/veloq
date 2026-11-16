@@ -133,6 +133,12 @@
       "write": false
     },
     {
+      "name": "section.extensionTrack",
+      "params": "FfiLinkActivityAsk",
+      "result": "FfiLinkSectionExtension",
+      "write": false
+    },
+    {
       "name": "section.excluded",
       "params": "FfiLinkActivityAsk",
       "result": "FfiLinkSectionExcluded",
@@ -205,6 +211,42 @@
       "write": false
     },
     {
+      "name": "strength.picker",
+      "params": "FfiLinkPickerAsk",
+      "result": "FfiExercisePickerData",
+      "write": false
+    },
+    {
+      "name": "strength.lastTime",
+      "params": "FfiLinkLastTimeAsk",
+      "result": "FfiLinkLastTimeAnswer",
+      "write": false
+    },
+    {
+      "name": "strength.groups",
+      "params": "FfiLinkGroupsAsk",
+      "result": "FfiLinkStrengthGroups",
+      "write": false
+    },
+    {
+      "name": "strength.workouts",
+      "params": "FfiLinkNoAsk",
+      "result": "FfiLinkWorkouts",
+      "write": false
+    },
+    {
+      "name": "strength.workout",
+      "params": "FfiLinkWorkoutAsk",
+      "result": "FfiLinkWorkoutAnswer",
+      "write": false
+    },
+    {
+      "name": "strength.live",
+      "params": "FfiLinkNoAsk",
+      "result": "FfiLinkLiveAnswer",
+      "write": false
+    },
+    {
       "name": "recordings.list",
       "params": "FfiLinkRecordingsAsk",
       "result": "FfiLinkRecordingsAnswer",
@@ -259,8 +301,20 @@
       "write": false
     },
     {
+      "name": "geo.routeAttempts",
+      "params": "FfiLinkGeoGroupAsk",
+      "result": "FfiLinkGeoText",
+      "write": false
+    },
+    {
       "name": "geo.section",
       "params": "FfiLinkGeoSectionAsk",
+      "result": "FfiLinkGeoText",
+      "write": false
+    },
+    {
+      "name": "geo.sectionVersion",
+      "params": "FfiLinkGeoSectionVersionAsk",
       "result": "FfiLinkGeoText",
       "write": false
     },
@@ -292,6 +346,12 @@
       "name": "settings.profile",
       "params": "FfiLinkNoAsk",
       "result": "AthleteProfile",
+      "write": false
+    },
+    {
+      "name": "settings.thresholds",
+      "params": "FfiLinkNoAsk",
+      "result": "FfiThresholdsScreenData",
       "write": false
     },
     {
@@ -351,6 +411,12 @@
     {
       "name": "section.acceptAll",
       "params": "FfiLinkNoAsk",
+      "result": "FfiLinkSectionsAccepted",
+      "write": true
+    },
+    {
+      "name": "section.unaccept",
+      "params": "FfiLinkSectionIdsAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
@@ -391,6 +457,36 @@
       "write": true
     },
     {
+      "name": "section.editBounds",
+      "params": "FfiLinkSectionBoundsAsk",
+      "result": "FfiLinkSectionEdited",
+      "write": true
+    },
+    {
+      "name": "section.create",
+      "params": "FfiLinkSectionCreateAsk",
+      "result": "FfiLinkSectionCreated",
+      "write": true
+    },
+    {
+      "name": "section.mergePreview",
+      "params": "FfiLinkMergeAsk",
+      "result": "FfiLinkMergePreview",
+      "write": false
+    },
+    {
+      "name": "section.merge",
+      "params": "FfiLinkMergeAsk",
+      "result": "FfiMergeOutcome",
+      "write": true
+    },
+    {
+      "name": "section.restore",
+      "params": "FfiLinkSectionAsk",
+      "result": "FfiLinkSectionEdited",
+      "write": true
+    },
+    {
       "name": "route.rename",
       "params": "FfiLinkRouteRenameAsk",
       "result": "FfiLinkWriteDone",
@@ -405,6 +501,18 @@
     {
       "name": "route.includeActivity",
       "params": "FfiLinkExcludeAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "route.setReference",
+      "params": "FfiLinkExcludeAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "route.resetReference",
+      "params": "FfiLinkRouteAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
@@ -437,6 +545,72 @@
       "params": "FfiSectionConfig",
       "result": "FfiLinkWriteDone",
       "write": true
+    },
+    {
+      "name": "settings.set",
+      "params": "FfiLinkSettingSetAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "settings.setThreshold",
+      "params": "FfiLinkThresholdAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "strength.saveWorkout",
+      "params": "FfiLinkSaveWorkoutAsk",
+      "result": "FfiLinkWorkoutSaved",
+      "write": true
+    },
+    {
+      "name": "strength.renameWorkout",
+      "params": "FfiLinkWorkoutRenameAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "strength.deleteWorkout",
+      "params": "FfiLinkWorkoutAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "strength.restoreWorkout",
+      "params": "FfiLinkRestoreWorkoutAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "strength.liveEdit",
+      "params": "FfiLinkLiveEditAsk",
+      "result": "FfiLiveStrengthOutcome",
+      "write": true
+    },
+    {
+      "name": "import.begin",
+      "params": "FfiLinkImportBeginAsk",
+      "result": "FfiLinkImportBegun",
+      "write": true
+    },
+    {
+      "name": "import.commit",
+      "params": "FfiLinkImportRef",
+      "result": "FfiLinkImportCommitted",
+      "write": true
+    },
+    {
+      "name": "import.cancel",
+      "params": "FfiLinkImportRef",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "name": "import.status",
+      "params": "FfiLinkNoAsk",
+      "result": "FfiLinkImportStatus",
+      "write": false
     }
   ],
   "minProtocol": 2,

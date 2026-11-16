@@ -33,7 +33,7 @@ import {
   PAGE_PROTOCOL,
   STUN_SERVER,
 } from '../../../web/connect/link';
-import { VELOQ_TILE_SCHEME } from '@/features/maps/lib/tileTransport';
+import { VELOQ_TILE_SCHEME, tileExtension } from '@/features/maps/lib/tileTransport';
 import { PAGE_REVISION_META } from '@/features/maps/lib/htmlBuilders/shared';
 import {
   VELOQ_MAP3D_WEBVIEW_COMPONENT_NAME,
@@ -1594,7 +1594,7 @@ function tileExtensions(): string[] {
     ...Object.values(SATELLITE_SOURCES),
     ...Object.values(LIBERTY_SOURCES),
   ].flatMap((source) => ((source as { tiles?: string[] }).tiles ?? []) as string[]);
-  return templates.map((t) => /\.([a-z0-9]+)(?:\?|$)/.exec(t)?.[1]).filter((e): e is string => !!e);
+  return templates.map(tileExtension).filter((e) => e !== 'bin');
 }
 
 const WIDGET_RS = `${RUST}/widget_snapshot.rs`;
@@ -1884,9 +1884,15 @@ const SETS: SetContract[] = [
     b: () => javaTypeTable(read(`${TILE_ANDROID}/TileIntercept.java`)),
   },
   {
-    agree: 'the Live Activity state TypeScript writes is the ContentState Swift decodes',
+    agree:
+      'the Live Activity states TypeScript writes, recording and strength, are the ContentState Swift decodes',
     mode: 'equal',
-    a: () => Object.keys(liveState),
+    a: () => {
+      const ts = read('src/features/recording/lib/liveActivity/strengthContentState.ts');
+      const body = /interface StrengthLiveActivityState \{([\s\S]*?)\n\}/.exec(ts)?.[1] ?? '';
+      const strength = [...body.matchAll(/^  (\w+):/gm)].map((m) => m[1]);
+      return [...new Set([...Object.keys(liveState), ...strength])];
+    },
     b: () => swiftProperties(read(LIVE_ACTIVITY), 'ContentState'),
   },
   {

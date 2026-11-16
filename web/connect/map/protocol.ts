@@ -9,6 +9,9 @@
 //   veloq://heatmap-<base>/{z}/{x}/{y}      one heatmap tile as a PNG, answered as
 //                                           `{ png }` in base64, or null for no heat
 
+import { NOT_CONNECTED } from '../connection';
+import { isCancelled } from '../link';
+
 /** What the handler needs of the link: one ask, any method, answered with the reply's result. */
 export type Ask = (method: string, params: object) => Promise<unknown>;
 
@@ -26,8 +29,17 @@ const GEO_KINDS: Record<string, { method: string; params: (key: string) => objec
   'route-lines': { method: 'geo.routeLines', params: () => ({}) },
   sections: { method: 'geo.sections', params: () => ({}) },
   route: { method: 'geo.route', params: (key) => ({ groupId: key }) },
+  'route-attempts': { method: 'geo.routeAttempts', params: (key) => ({ groupId: key }) },
   'route-latest': { method: 'geo.routeLatest', params: (key) => ({ groupId: key }) },
   section: { method: 'geo.section', params: (key) => ({ sectionId: key }) },
+  // The key is `<version>:<section id>`, a version being digits.
+  'section-version': {
+    method: 'geo.sectionVersion',
+    params: (key) => {
+      const at = key.indexOf(':');
+      return { sectionId: key.slice(at + 1), version: Number(key.slice(0, at)) };
+    },
+  },
   'section-passes': { method: 'geo.sectionPasses', params: (key) => ({ sectionId: key }) },
 };
 
@@ -94,6 +106,9 @@ function base64Bytes(text: string): Uint8Array {
 const buffer = (bytes: Uint8Array): ArrayBuffer =>
   bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 
+/** How many times a read cancelled by edits is asked again before the failure is passed on. */
+const ASKS_AFTER_CANCEL = 4;
+
 function aborted(): Error {
   return Object.assign(new Error('aborted'), { name: 'AbortError' });
 }
@@ -127,17 +142,29 @@ export function createHandler(ask: () => Ask): maplibregl.ProtocolHandler {
     const parsed = parse(request.url);
     if (parsed.kind === 'refused') throw new Error(parsed.reason);
 
-    let reply = waiting.get(request.url);
-    if (!reply) {
-      reply = ask()(parsed.method, parsed.params).finally(() => waiting.delete(request.url));
-      waiting.set(request.url, reply);
-    }
-    const result = await Promise.race([
-      reply,
-      new Promise<never>((_, reject) =>
-        signal.addEventListener('abort', () => reject(aborted()), { once: true })
-      ),
-    ]);
+    const send = () => {
+      const sent = ask()(parsed.method, parsed.params).finally(() => {
+        if (waiting.get(request.url) === sent) waiting.delete(request.url);
+      });
+      waiting.set(request.url, sent);
+      return sent;
+    };
+    const cancelled = new Promise<never>((_, reject) =>
+      signal.addEventListener('abort', () => reject(aborted()), { once: true })
+    );
+    // An edit makes every held read stale and withdraws the one in flight, which rejects it as
+    // cancelled. The line it was loading is still wanted, so it is asked for again, once per
+    // edit that lands while it waits, up to `ASKS_AFTER_CANCEL` times.
+    const answer = async (): Promise<unknown> => {
+      for (let again = 0; ; again += 1) {
+        try {
+          return await (waiting.get(request.url) ?? send());
+        } catch (error) {
+          if (!isCancelled(error) || signal.aborted || again >= ASKS_AFTER_CANCEL) throw error;
+        }
+      }
+    };
+    const result = await Promise.race([answer(), cancelled]);
     if (signal.aborted) throw aborted();
     return respond(parsed, result, request.type);
   };
@@ -157,7 +184,7 @@ export function installProtocol(renderer: Pick<typeof maplibregl, 'addProtocol'>
     renderer.addProtocol(
       SCHEME,
       createHandler(() => {
-        if (!current) throw new Error('not connected');
+        if (!current) throw new Error(NOT_CONNECTED);
         return current;
       })
     );

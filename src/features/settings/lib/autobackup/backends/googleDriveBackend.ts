@@ -35,7 +35,7 @@ import {
 } from '../googleDriveAccount';
 import { BackupTransferError, classifyStatus, transportFailure } from './errors';
 import { backupFileName, backupNameTimestamp } from './backupName';
-import type { BackupBackend, BackupEntry } from './types';
+import type { BackupBackend, BackupEntry, BackupObject } from './types';
 
 export { getGoogleDriveAccount, isGoogleDriveSupported, loadGoogleDriveAccount };
 
@@ -264,6 +264,91 @@ export function forgetGoogleDrive(): Promise<void> {
   return Promise.all([cleared, revoked]).then(() => undefined);
 }
 
+/**
+ * Create a file in the app data folder, then send its content from disk. A
+ * content upload that fails takes the empty file it created with it.
+ */
+async function createWithContent(
+  operation: string,
+  name: string,
+  localPath: string,
+  mimeType: string
+): Promise<void> {
+  const token = await accessToken(operation);
+  const created = await driveCall<{ id: string }>(
+    operation,
+    `${DRIVE}/files?fields=id`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, parents: [APP_DATA], mimeType }),
+    },
+    token
+  );
+  const failure = await sendContent(operation, token, created.id, localPath, mimeType);
+  if (failure) {
+    await request('Delete partial backup', `${DRIVE}/files/${encodeURIComponent(created.id)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => {});
+    throw failure;
+  }
+  fileIds.set(name, created.id);
+}
+
+/** Send a file's bytes to an existing Drive file, answering the failure or null. */
+async function sendContent(
+  operation: string,
+  token: string,
+  id: string,
+  localPath: string,
+  mimeType: string
+): Promise<BackupTransferError | null> {
+  try {
+    const result = await FileSystem.uploadAsync(
+      `${DRIVE_UPLOAD}/files/${encodeURIComponent(id)}?uploadType=media`,
+      localPath,
+      {
+        httpMethod: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': mimeType },
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      }
+    );
+    if (result.status < 200 || result.status >= 300) {
+      const failure = driveFailure(operation, result.status, result.body);
+      forgetRefusedToken(token, failure);
+      return failure;
+    }
+    return null;
+  } catch (error) {
+    return transportFailure(operation, error);
+  }
+}
+
+/** Download the file named `name` from the app data folder to `destPath`. */
+async function fetchContent(operation: string, name: string, destPath: string): Promise<void> {
+  const token = await accessToken(operation);
+  const id = await fileIdOf(operation, name);
+  let result;
+  try {
+    result = await FileSystem.downloadAsync(
+      `${DRIVE}/files/${encodeURIComponent(id)}?alt=media`,
+      destPath,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+  } catch (error) {
+    throw transportFailure(operation, error);
+  }
+  if (result.status !== 200) {
+    if (result.status === 404) fileIds.delete(name);
+    const failure = driveFailure(operation, result.status);
+    forgetRefusedToken(token, failure);
+    throw failure;
+  }
+}
+
+const OBJECT_MIME_TYPE = 'application/octet-stream';
+
 export const googleDriveBackend: BackupBackend = {
   id: 'googleDrive',
   name: 'Google Drive',
@@ -300,67 +385,12 @@ export const googleDriveBackend: BackupBackend = {
   async upload(localPath: string, metadata: Omit<BackupEntry, 'id'>): Promise<string> {
     const operation = 'Upload backup';
     const name = backupFileName(metadata.timestamp);
-    const token = await accessToken(operation);
-    const created = await driveCall<{ id: string }>(
-      operation,
-      `${DRIVE}/files?fields=id`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, parents: [APP_DATA], mimeType: 'application/zip' }),
-      },
-      token
-    );
-
-    let failure: BackupTransferError | null = null;
-    try {
-      const result = await FileSystem.uploadAsync(
-        `${DRIVE_UPLOAD}/files/${encodeURIComponent(created.id)}?uploadType=media`,
-        localPath,
-        {
-          httpMethod: 'PATCH',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/zip' },
-          uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-        }
-      );
-      if (result.status < 200 || result.status >= 300) {
-        failure = driveFailure(operation, result.status, result.body);
-        forgetRefusedToken(token, failure);
-      }
-    } catch (error) {
-      failure = transportFailure(operation, error);
-    }
-    if (failure) {
-      await request('Delete partial backup', `${DRIVE}/files/${encodeURIComponent(created.id)}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {});
-      throw failure;
-    }
-    fileIds.set(name, created.id);
+    await createWithContent(operation, name, localPath, 'application/zip');
     return name;
   },
 
   async download(backupId: string, destPath: string): Promise<void> {
-    const operation = 'Download backup';
-    const token = await accessToken(operation);
-    const id = await fileIdOf(operation, backupId);
-    let result;
-    try {
-      result = await FileSystem.downloadAsync(
-        `${DRIVE}/files/${encodeURIComponent(id)}?alt=media`,
-        destPath,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-    } catch (error) {
-      throw transportFailure(operation, error);
-    }
-    if (result.status !== 200) {
-      if (result.status === 404) fileIds.delete(backupId);
-      const failure = driveFailure(operation, result.status);
-      forgetRefusedToken(token, failure);
-      throw failure;
-    }
+    await fetchContent('Download backup', backupId, destPath);
   },
 
   async delete(backupId: string): Promise<void> {
@@ -368,5 +398,37 @@ export const googleDriveBackend: BackupBackend = {
     const id = await fileIdOf(operation, backupId);
     await driveCall(operation, `${DRIVE}/files/${encodeURIComponent(id)}`, { method: 'DELETE' });
     fileIds.delete(backupId);
+  },
+
+  /**
+   * An object of the same name is found by name, not from memory, and its
+   * content replaced in place, so the current month's pack is rewritten rather
+   * than duplicated and a failed rewrite leaves the earlier content.
+   */
+  async putObject(name: string, localPath: string): Promise<void> {
+    const operation = 'Upload backup object';
+    const [existing] = await listAppData(operation, name);
+    if (!existing) {
+      await createWithContent(operation, name, localPath, OBJECT_MIME_TYPE);
+      return;
+    }
+    const token = await accessToken(operation);
+    const failure = await sendContent(operation, token, existing.id, localPath, OBJECT_MIME_TYPE);
+    if (failure) throw failure;
+  },
+
+  /**
+   * The app data folder is listed whole and filtered here: a search by name
+   * matches whole words, which a prefix ending in a hyphen is not.
+   */
+  async listObjects(prefix: string): Promise<BackupObject[]> {
+    const files = await listAppData('List backup objects');
+    return files
+      .filter((file) => file.name.startsWith(prefix))
+      .map((file) => ({ name: file.name, sizeBytes: Number(file.size) || 0 }));
+  },
+
+  async fetchObject(name: string, destPath: string): Promise<void> {
+    await fetchContent('Download backup object', name, destPath);
   },
 };

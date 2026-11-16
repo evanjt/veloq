@@ -1,0 +1,246 @@
+/* The sections list and one section. Both pages scroll with the content pane and
+   keep the map in view beside them, its height bound to the window and not to the
+   tallest thing beside it. */
+
+#sections-page,
+#section-page {
+  margin-top: 0;
+  --sections-viewport: calc(100vh - var(--web-layout-topbar) - 2 * var(--page-gutter));
+  display: grid;
+  gap: var(--space-md);
+  align-items: start;
+}
+
+#sections-page {
+  grid-template-columns: minmax(38rem, 6fr) minmax(0, 5fr);
+}
+
+#sections-page[data-view='retired'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#section-page {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+}
+
+#section-body .ui-tablist button {
+  white-space: nowrap;
+}
+
+#sections-map,
+#section-map {
+  position: sticky;
+  top: 0;
+  height: var(--sections-viewport);
+  min-height: 0;
+  overflow: hidden;
+  background: var(--card);
+  border: var(--stroke-1) solid var(--border);
+  border-radius: var(--web-radius-lg);
+}
+
+#section-map {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+#section-body {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+
+#sections-selection {
+  position: absolute;
+  top: var(--space-md);
+  right: var(--space-md);
+  z-index: 1;
+  width: min(var(--web-layout-selection-panel), calc(100% - 2 * var(--space-md)));
+}
+
+#sections-selection .badge-row {
+  margin: var(--space-xs) 0 var(--space-sm);
+}
+
+#sections-page .filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.section-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+[data-trend='faster'] {
+  color: var(--colour-success-text);
+}
+
+[data-trend='slower'] {
+  color: var(--colour-warning-text);
+}
+
+.section-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.section-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.section-name {
+  margin: 0;
+}
+
+.section-facts,
+#sections-selection .facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max-content, 1fr));
+  gap: var(--space-xs) var(--space-md);
+  margin: 0;
+}
+
+#sections-selection .facts {
+  grid-template-columns: max-content 1fr;
+}
+
+.section-facts dt {
+  color: var(--text-muted);
+  font-size: var(--web-type-micro-size);
+  text-transform: uppercase;
+}
+
+.section-facts dd {
+  margin: 0;
+  font-size: var(--web-type-bodyLarge-size);
+  font-variant-numeric: var(--web-numerals);
+}
+
+.section-facts {
+  grid-auto-flow: column;
+  grid-template-rows: auto auto;
+  grid-template-columns: none;
+  grid-auto-columns: max-content;
+  column-gap: var(--space-lg);
+}
+
+.section-actions,
+.section-controls,
+#sections-selection .actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.section-stats {
+  border-collapse: collapse;
+  font-size: var(--web-type-small-size);
+}
+
+.section-stats :is(th, td) {
+  padding: var(--space-xs-plus) var(--space-sm-plus);
+  text-align: left;
+  border-bottom: var(--stroke-1) solid var(--border);
+}
+
+.section-stats [data-numeric] {
+  text-align: right;
+  font-variant-numeric: var(--web-numerals);
+}
+
+.section-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+}
+
+.section-view .panel-title {
+  margin: var(--space-sm) 0 0;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.ui-table tr[data-excluded] td {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.ui-table tr[data-excluded] td:last-child {
+  text-decoration: none;
+}
+
+.section-open {
+  display: inline-flex;
+  align-items: center;
+  height: var(--web-size-control);
+  padding: 0 var(--space-sm-plus);
+  border-radius: var(--web-radius-md);
+  background: var(--colour-action-primary);
+  color: var(--colour-text-on-fill);
+  text-decoration: none;
+}
+
+#section-page .rename {
+  min-width: 0;
+}
+
+#sections-page .ui-card,
+#section-page .ui-card {
+  margin-top: 0;
+}
+
+.section-name .ui-button {
+  font-size: var(--web-type-heading-size);
+  line-height: var(--web-type-heading-line);
+  font-weight: var(--web-type-heading-weight);
+  color: var(--text);
+}
+
+/* The bounds editor over the section's tabs: the readouts, the choice of what the ends run
+   along, and Save, Reset and Cancel in one row. */
+#section-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm-plus) var(--space-md);
+}
+
+#section-editor .panel-title,
+#section-editor .meta {
+  margin: 0;
+}
+
+#section-editor .ui-segmented {
+  align-self: flex-start;
+}
+
+#section-editor .section-facts dd {
+  min-width: 6ch;
+}
+
+.merge-dropped {
+  margin: var(--space-sm) 0 0;
+  padding-left: var(--space-md);
+  font-size: var(--web-type-small-size);
+  color: var(--text-muted);
+}

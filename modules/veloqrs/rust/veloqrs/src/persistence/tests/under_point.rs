@@ -419,9 +419,9 @@ fn at(north: f64, east: f64) -> GpsPoint {
     GpsPoint::new(north_of_tap(north), east_of_tap(east))
 }
 
-/// Scenario: a route of 30 activities passes the tap beside two one-offs.
+/// Scenario: a route of more activities than the cap passes the tap beside two one-offs.
 ///
-/// Expected behaviour: the route's group answers the newest 25 as lines inside
+/// Expected behaviour: the route's group answers the newest `MAX_TRACES` as lines inside
 /// the clip circle with fewer points than the stored tracks; the no-route
 /// group answers the two one-offs; a group that is not there answers nothing;
 /// a hidden member is absent.
@@ -430,7 +430,8 @@ fn at(north: f64, east: f64) -> GpsPoint {
 fn a_group_answers_its_newest_traces_clipped_to_the_circle_and_simplified() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     let mut members = Vec::new();
-    for i in 0..30i64 {
+    let members_count = MAX_TRACES as i64 + 5;
+    for i in 0..members_count {
         let id = format!("m{i}");
         store(&mut engine, &id, 1_700_000_000 + i * 60, passing(3.0, 200));
         members.push(id);
@@ -439,7 +440,7 @@ fn a_group_answers_its_newest_traces_clipped_to_the_circle_and_simplified() {
     store(&mut engine, "solo-b", 1_700_100_060, passing(3.0, 200));
     add_route(&engine, "loop", &members);
     engine
-        .set_heatmap_hidden("m29", true)
+        .set_heatmap_hidden(&format!("m{}", members_count - 1), true)
         .expect("hidden stored");
     let source = source_of(&engine);
     let radius = clip_radius_metres(TAP.0, 14);
@@ -447,7 +448,10 @@ fn a_group_answers_its_newest_traces_clipped_to_the_circle_and_simplified() {
     let route = traces(&source, &engine.db, tap(), 14, Some("loop"));
 
     assert_eq!(route.len(), MAX_TRACES);
-    let expected: Vec<String> = (4..29).rev().map(|i| format!("m{i}")).collect();
+    let expected: Vec<String> = (4..members_count - 1)
+        .rev()
+        .map(|i| format!("m{i}"))
+        .collect();
     let got: Vec<&str> = route.iter().map(|t| t.activity_id.as_str()).collect();
     assert_eq!(got, expected.iter().map(String::as_str).collect::<Vec<_>>());
     for trace in &route {

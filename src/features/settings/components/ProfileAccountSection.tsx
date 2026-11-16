@@ -182,6 +182,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
   };
 
   const isDemo = source?.id === 'demo';
+  const isFiles = source?.id === 'files';
   const signOutLabel = isDemo ? t('settings.leaveDemo') : t('settings.signOut');
   // The OAuth label already names intervals.icu, so only an API key session
   // carries the source beside its method.
@@ -255,23 +256,27 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
         </ExternalLinkRow>
       )}
 
-      {/* Logout row - keeps cached data for instant re-login */}
-      <RowDivider />
-      <Row
-        testID="settings-logout-button"
-        behaviour="act"
-        onPress={handleLogout}
-        accessibilityLabel={signOutLabel}
-      >
-        <Icon
-          name="logout"
-          size={iconSize.lg}
-          color={isDark ? darkColors.textSecondary : colors.textSecondary}
-        />
-        <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
-          {signOutLabel}
-        </Text>
-      </Row>
+      {/* Logout row - keeps cached data for instant re-login. A files library has no session to end. */}
+      {!isFiles && (
+        <>
+          <RowDivider />
+          <Row
+            testID="settings-logout-button"
+            behaviour="act"
+            onPress={handleLogout}
+            accessibilityLabel={signOutLabel}
+          >
+            <Icon
+              name="logout"
+              size={iconSize.lg}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+            />
+            <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
+              {signOutLabel}
+            </Text>
+          </Row>
+        </>
+      )}
 
       {/* Destructive sign-out - wipes activities/GPS/sections too */}
       {!isDemo && (

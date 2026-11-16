@@ -3,6 +3,7 @@ export { ExercisePicker } from './components/ExercisePicker';
 export { ExerciseTable } from './components/ExerciseTable';
 export { MuscleGroupView } from './components/MuscleGroupView';
 export { StrengthActivityCard, type StrengthCardData } from './components/StrengthActivityCard';
+export { StrengthCardBodies } from './components/StrengthCardBodies';
 export { StrengthBodyDiagram, StrengthBodyDiagramSkeleton } from './components/StrengthBodyDiagram';
 export { StrengthProgressionCard } from './components/StrengthProgressionCard';
 export { StrengthExerciseList } from './components/StrengthExerciseList';

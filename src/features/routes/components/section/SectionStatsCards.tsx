@@ -78,12 +78,7 @@ export function SectionStatsCards({
   const { t } = useTranslation();
   const openDetail = useOpenDetail();
   const isMetric = useMetricSystem();
-  const [expandedYears, setExpandedYears] = useState<Set<number>>(() => {
-    if (calendarSummary.years.length > 0) {
-      return new Set([calendarSummary.years[0].year]);
-    }
-    return new Set();
-  });
+  const [expandedYears, setExpandedYears] = useState<Set<number>>(() => new Set());
 
   const toggleYear = useCallback((year: number) => {
     setExpandedYears((prev) => {

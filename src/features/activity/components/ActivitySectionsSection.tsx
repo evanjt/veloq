@@ -6,12 +6,7 @@ import {
   type LayoutChangeEvent,
   type ViewInstance,
 } from 'react-native';
-import { Text } from 'react-native-paper';
-import type {
-  ActivityLedgerChange,
-  SectionMatch as FfiSectionMatch,
-  SectionEncounter,
-} from 'veloqrs';
+import type { ActivityLedgerChange, SectionEncounter } from 'veloqrs';
 import type { LatLng } from '@/shared/geo/polyline';
 import type { SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -29,24 +24,14 @@ import {
   sectionSwipeAction,
   sectionSwipeKind,
 } from '@/features/routes';
-import {
-  Button,
-  Card,
-  composeAccessibilityLabel,
-  EmptyState,
-  useBottomClearance,
-  type AccessibleAction,
-  PressTarget,
-} from '@/shared/ui';
+import { Button, EmptyState, useBottomClearance, type AccessibleAction } from '@/shared/ui';
 import {
   groupSectionEncounters,
   sectionGroupIndex,
   type SectionEncounterGroup,
 } from '@/features/activity/lib/groupSectionEncounters';
 import { useOpenDetail } from '@/shared/app/MapSheetCards';
-import { formatDistance } from '@/shared/format/format';
-import { formatPercent } from '@/shared/format';
-import { colors, darkColors, duration, spacing, typography } from '@/theme';
+import { duration, spacing } from '@/theme';
 import { debug } from '@/shared/debug/debug';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 import { confirmAction, inform } from '@/shared/ui/dialog';
@@ -70,14 +55,6 @@ interface ActivitySectionsSectionProps {
   onHighlightedSectionIdChange: (id: string | null) => void;
   onSectionCreationModeChange: (mode: boolean) => void;
   removeSection: (sectionId: string) => Promise<void>;
-  /** Scan results from useActivityRematch */
-  scanMatches: FfiSectionMatch[];
-  /** Whether a scan has returned, including one that found nothing */
-  hasScanned: boolean;
-  /** Trigger a scan for this activity */
-  onScan: () => void | Promise<void>;
-  /** Force-match to a specific section */
-  onRematch: (sectionId: string) => boolean;
   /** A section to bring into view and mark, such as one whose map marker was tapped */
   focusSectionId?: string | null;
   /** Called once the focus has been taken, so the same section can be focused again */
@@ -100,10 +77,6 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   onHighlightedSectionIdChange,
   onSectionCreationModeChange,
   removeSection,
-  scanMatches,
-  hasScanned: scanReturned,
-  onScan,
-  onRematch,
   focusSectionId = null,
   onFocusHandled,
 }: ActivitySectionsSectionProps) {
@@ -116,51 +89,8 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   const swipeableRefs = useRef<Map<string, SwipeableMethods | null>>(new Map());
   const openSwipeableRef = useRef<string | null>(null);
 
-  // Track which scan matches have been successfully added
-  const [addedSectionIds, setAddedSectionIds] = useState(new Set<string>());
-  const [scanning, setScanning] = useState(false);
-  const scanningRef = useRef(false);
-
-  const handleScan = useCallback(() => {
-    if (scanningRef.current) return;
-    scanningRef.current = true;
-    setScanning(true);
-    Promise.resolve()
-      .then(onScan)
-      .finally(() => {
-        scanningRef.current = false;
-        setScanning(false);
-      });
-  }, [onScan]);
-
-  const hasScanned = scanReturned || addedSectionIds.size > 0;
-
-  // Filter scan results: exclude sections already in the encounter list and already added
-  const existingSectionIds = useMemo(
-    () => new Set(encounters.map((e) => e.sectionId)),
-    [encounters]
-  );
-
   // One card per section, however many directions the activity crossed it in.
   const groups = useMemo(() => groupSectionEncounters(encounters), [encounters]);
-
-  const filteredScanMatches = useMemo(
-    () =>
-      scanMatches.filter(
-        (m) => !existingSectionIds.has(m.sectionId) && !addedSectionIds.has(m.sectionId)
-      ),
-    [scanMatches, existingSectionIds, addedSectionIds]
-  );
-
-  const handleRematch = useCallback(
-    (sectionId: string) => {
-      const success = onRematch(sectionId);
-      if (success) {
-        setAddedSectionIds((prev) => new Set(prev).add(sectionId));
-      }
-    },
-    [onRematch]
-  );
 
   // Close any open swipeable when another opens
   const handleSwipeableOpen = useCallback((sectionId: string) => {
@@ -581,107 +511,15 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         icon="road-variant"
         title={t('activityDetail.noMatchedSections')}
         description={t('activityDetail.noMatchedSectionsDescription')}
-        actionLabel={hasScanned ? undefined : t('sections.scanForMatches')}
-        onAction={handleScan}
-        actionLoading={scanning}
       />
     );
-  }, [t, hasScanned, handleScan, scanning]);
-
-  // Render a single scan match result row. The engine sends the name it
-  // resolves for the section, the one every other screen shows.
-  const renderScanMatch = useCallback(
-    (match: FfiSectionMatch) => {
-      const quality = Math.round(match.matchQuality * 100);
-      const baseName = match.sectionName || match.sectionId.slice(0, 8);
-      const displayName = !match.sameDirection ? `${baseName} \u21A9` : baseName;
-      const distance = formatDistance(match.distanceMeters, isMetric);
-      const position = t('sections.startsAt', {
-        distance: formatDistance(match.startDistanceMeters, isMetric),
-      });
-      const qualityText =
-        quality < 90 ? t('sections.matchQuality', { quality: formatPercent(quality, 0) }) : null;
-      // The row is one element: the arrow is spoken as the reverse word, then
-      // the meta line it draws.
-      const spokenName = composeAccessibilityLabel(
-        baseName,
-        !match.sameDirection && t('sections.reverse'),
-        distance,
-        position,
-        qualityText
-      );
-      return (
-        <View key={`${match.sectionId}-${match.startIndex}`} style={styles.scanMatchFrame}>
-          <Card variant="flat" padding="none">
-            <View style={styles.scanMatchRow}>
-              <PressTarget
-                accessibilityRole="button"
-                accessibilityLabel={spokenName}
-                style={styles.scanMatchInfo}
-                onPress={() => handleSectionPress(match.sectionId)}
-              >
-                <Text
-                  numberOfLines={2}
-                  style={[styles.scanMatchName, isDark && { color: darkColors.textPrimary }]}
-                >
-                  {displayName}
-                </Text>
-                <Text style={[styles.scanMatchMeta, isDark && { color: darkColors.textSecondary }]}>
-                  {distance}
-                  {` · ${position}`}
-                  {qualityText ? ` · ${qualityText}` : ''}
-                </Text>
-              </PressTarget>
-              <Button
-                label={t('sections.addToSection')}
-                variant="secondary"
-                size="sm"
-                onPress={() => handleRematch(match.sectionId)}
-              />
-            </View>
-          </Card>
-        </View>
-      );
-    },
-    [isDark, isMetric, handleRematch, handleSectionPress, t]
-  );
+  }, [t]);
 
   // Render footer for section list
   const renderSectionsListFooter = useCallback(() => {
     return (
       <>
         <ActivityLedgerChanges changes={ledgerChanges} isDark={isDark} />
-
-        {/* Scan trigger: show "Scan for more sections" link when sections exist */}
-        {encounters.length > 0 && !hasScanned && (
-          <Button
-            label={t('sections.scanForMore')}
-            variant="ghost"
-            icon="magnify"
-            onPress={handleScan}
-            loading={scanning}
-            style={styles.scanLink}
-          />
-        )}
-
-        {/* Scan results */}
-        {hasScanned && filteredScanMatches.length > 0 ? (
-          <View style={styles.scanResultsContainer}>
-            <Text style={[styles.scanResultsTitle, isDark && { color: darkColors.textPrimary }]}>
-              {t('sections.nearbySectionsCount', { count: filteredScanMatches.length })}
-            </Text>
-            {filteredScanMatches.map(renderScanMatch)}
-          </View>
-        ) : null}
-
-        {/* Scan performed but no new results */}
-        {hasScanned && filteredScanMatches.length === 0 ? (
-          <View style={styles.scanNoResults}>
-            <Text style={[styles.scanNoResultsText, isDark && { color: darkColors.textSecondary }]}>
-              {t('sections.noMatchesFound')}
-            </Text>
-          </View>
-        ) : null}
 
         {coordinates.length > 0 && !sectionCreationMode && (
           <Button
@@ -702,13 +540,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     cacheDays,
     t,
     onSectionCreationModeChange,
-    encounters.length,
     ledgerChanges,
-    hasScanned,
-    filteredScanMatches,
-    handleScan,
-    scanning,
-    renderScanMatch,
   ]);
 
   return (
@@ -764,49 +596,5 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginTop: spacing.lg,
     marginBottom: spacing.md,
-  },
-  scanLink: {
-    marginHorizontal: spacing.md,
-  },
-  // Scan results
-  scanResultsContainer: {
-    marginHorizontal: spacing.md,
-    marginTop: spacing.sm,
-  },
-  scanResultsTitle: {
-    ...typography.sectionHeader,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  scanMatchFrame: {
-    marginBottom: spacing.sm,
-  },
-  scanMatchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  scanMatchInfo: {
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  scanMatchName: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
-  },
-  scanMatchMeta: {
-    ...typography.bodyCompact,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
-  },
-  // No results
-  scanNoResults: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-  },
-  scanNoResultsText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
   },
 });

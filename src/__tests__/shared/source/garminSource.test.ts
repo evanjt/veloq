@@ -16,7 +16,42 @@ import {
   resolveStoredSession,
 } from '@/shared/app/storedSession';
 import { launchIdentityAction } from '@/features/auth/lib/launchIdentity';
-import { accountChangeAction } from '@/features/auth/lib/accountChange';
+import { accountChangeAction, getCachedAthleteId } from '@/features/auth/lib/accountChange';
+import { resolveLoginLibrary } from '@/features/auth/lib/loginLibrary';
+import { connectGarminKey } from '@/features/settings/lib/garminConnector';
+import { GarminKeyStatus, type GarminAccount } from 'veloqrs';
+import { confirmAction } from '@/shared/ui/dialog';
+
+const mockEngineState = { settings: new Map<string, string>() };
+
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: () => ({
+    getAthleteProfile: () => null,
+    getSetting: (key: string) => mockEngineState.settings.get(key),
+    setSetting: (key: string, value: string) => {
+      mockEngineState.settings.set(key, value);
+    },
+    getStats: () => ({ activityCount: 0, libraryCount: 400 }),
+  }),
+}));
+
+jest.mock('@/shared/ui/dialog', () => ({
+  confirmAction: jest.fn(),
+  chooseAction: jest.fn(),
+  inform: jest.fn(),
+}));
+
+const mockStore = new Map<string, string>();
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  setItem: jest.fn(async (k: string, v: string) => {
+    mockStore.set(k, v);
+  }),
+  getItem: jest.fn(async (k: string) => mockStore.get(k) ?? null),
+  removeItem: jest.fn(async (k: string) => {
+    mockStore.delete(k);
+  }),
+}));
 
 const none = { apiKey: null, accessToken: null, athleteId: null, garminKey: null };
 
@@ -25,7 +60,7 @@ describe('the Garmin source', () => {
     const source = sourceFor({ authMethod: 'garmin' })!;
     expect(source.id).toBe('garmin');
     expect(source.scheme).toBe('garmin');
-    expect(source.can).toEqual({ push: false, scoped: false, uploads: false });
+    expect(source.can).toEqual({ push: false, scoped: false, uploads: false, records: true });
     expect(source.links).toBeNull();
     expect(Object.isFrozen(source)).toBe(true);
   });
@@ -137,21 +172,45 @@ describe('a Garmin library at launch', () => {
 
   it('is still confirmed before an intervals.icu library gives way to a Garmin key', () => {
     expect(accountChangeAction('i77', 'garmin:8841', 400)).toBe('confirm-then-wipe');
-    expect(accountChangeAction('i77', 'garmin:8841', 400, null)).toBe('confirm-then-wipe');
-  });
-
-  it('is kept, never confirmed or wiped, when the account that signs in is the one it was adopted from', () => {
-    expect(accountChangeAction('i77', 'garmin:8841', 400, 'garmin:8841')).toBe('keep');
-    expect(launchIdentityAction('i77', 'garmin:8841', 400, 'garmin:8841')).toBe('adopt');
-  });
-
-  it('is still confirmed for another Garmin account than the one it was adopted from', () => {
-    expect(accountChangeAction('i77', 'garmin:9000', 400, 'garmin:8841')).toBe('confirm-then-wipe');
-    expect(launchIdentityAction('i77', 'garmin:9000', 400, 'garmin:8841')).toBe('ask-first');
   });
 
   it('is not returned to from demo mode or by an intervals.icu sign-in', () => {
-    expect(accountChangeAction('demo', 'garmin:8841', 400, 'garmin:8841')).toBe('wipe');
-    expect(accountChangeAction('i77', 'i88', 400, 'garmin:8841')).toBe('confirm-then-wipe');
+    expect(accountChangeAction('demo', 'garmin:8841', 400)).toBe('wipe');
+    expect(accountChangeAction('i77', 'i88', 400)).toBe('confirm-then-wipe');
+  });
+});
+
+describe('a Garmin key connected on an intervals.icu library', () => {
+  beforeEach(() => {
+    mockStore.clear();
+    mockEngineState.settings.clear();
+    (confirmAction as jest.Mock).mockReset();
+  });
+
+  it('leaves the library named for intervals.icu, so a Garmin sign-in by that account asks first', async () => {
+    mockEngineState.settings.set('__athlete_id', 'i77');
+    const held = new Map<string, string>();
+    const io = {
+      read: jest.fn(async (key: string) => held.get(key) ?? null),
+      write: jest.fn(async (key: string, value: string) => {
+        held.set(key, value);
+      }),
+      remove: jest.fn(async (key: string) => {
+        held.delete(key);
+      }),
+    };
+    const engine = {
+      connectGarmin: jest.fn(async () => GarminKeyStatus.Connected),
+      garminAccount: jest.fn(async () => ({ accountId: '8841' }) as GarminAccount),
+      holdGarminKey: jest.fn(),
+      clearGarminKey: jest.fn(),
+    };
+    await connectGarminKey('abc', { io, engine, setEnabled: jest.fn() });
+
+    expect(await getCachedAthleteId()).toBe('i77');
+    expect(accountChangeAction('i77', 'garmin:8841', 400)).toBe('confirm-then-wipe');
+    (confirmAction as jest.Mock).mockImplementation(({ onCancel }) => onCancel());
+    await expect(resolveLoginLibrary('garmin:8841')).resolves.toBe('refused');
+    expect(confirmAction).toHaveBeenCalled();
   });
 });

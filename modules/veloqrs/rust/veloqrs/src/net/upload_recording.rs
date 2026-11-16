@@ -22,6 +22,7 @@ use serde::Deserialize;
 use crate::net::intervals::wire::{ListedActivity, ManualActivityBody};
 use crate::objects::observer::{Announcement, notify};
 use crate::objects::sync::{FfiCallKind, FfiCallOutcome};
+use crate::persistence::originals::{drop_original, original_of};
 use crate::persistence::recordings::UploadTransition;
 use crate::persistence::{FfiRecordingEntry, PersistentEngine, with_persistent_engine_for};
 
@@ -366,13 +367,6 @@ pub(crate) fn recording_file(stored: &str) -> Option<PathBuf> {
     }
 }
 
-/// Where the original FIT of an activity read from a file sits, named by the
-/// activity's key and resolved as any recording's file is. `None` while the
-/// app has not said where its documents directory is.
-pub(crate) fn source_fit_file(key: &str) -> Option<PathBuf> {
-    recording_file(&format!("{RECORDINGS_DIR}/{key}.fit"))
-}
-
 /// The ride with each file it names resolved to where it sits now, `None`
 /// when one cannot be resolved yet. A manual entry's empty FIT path stays
 /// empty.
@@ -385,6 +379,34 @@ fn with_live_paths(mut ride: FfiRecordingEntry) -> Option<FfiRecordingEntry> {
         ride.streams_path = Some(live(&body)?);
     }
     Some(ride)
+}
+
+/// Write a Garmin ride's kept original to the file its row names, which is
+/// where the upload streams from. False when no original is kept or the file
+/// cannot be written.
+fn stage_original(install: u64, ride: &FfiRecordingEntry) -> bool {
+    let Some(key) = ride.engine_activity_id.as_deref() else {
+        return false;
+    };
+    let Some(Ok(Some(bytes))) = under(install, |e| original_of(&e.db, key)) else {
+        return false;
+    };
+    let path = Path::new(&ride.fit_path);
+    if let Some(parent) = path.parent()
+        && std::fs::create_dir_all(parent).is_err()
+    {
+        return false;
+    }
+    crate::atomic_file::write_atomically(path, &bytes).is_ok()
+}
+
+/// The file an upload was staged in, removed when the attempt ends.
+struct StagedFit(String);
+
+impl Drop for StagedFit {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
 }
 
 fn fit_on_disk(ride: &FfiRecordingEntry) -> bool {
@@ -539,11 +561,16 @@ fn upload_ride_under(
             None => return missing("Manual entry body missing on device"),
         }
     } else {
-        if !fit_on_disk(&ride) {
+        if ride.kind == GARMIN_KIND {
+            if !stage_original(install, &ride) {
+                return missing("FIT file missing on device");
+            }
+        } else if !fit_on_disk(&ride) {
             return missing("FIT file missing on device");
         }
         None
     };
+    let _staged = (ride.kind == GARMIN_KIND).then(|| StagedFit(ride.fit_path.clone()));
 
     // A refused begin means the ride is not pending, or another run has it:
     // sending now would upload one ride twice.
@@ -554,6 +581,7 @@ fn upload_ride_under(
             FfiUploadResult::bare(O::NotStarted)
         };
     };
+    let ride = with_strength_description(install, ride);
     let result = send_and_settle(install, &ride, manual_body, uplink, now_ms);
     flight.land(&result);
     result
@@ -625,6 +653,35 @@ fn join_or_read(install: u64, id: &str) -> FfiUploadResult {
     } else {
         FfiUploadOutcome::NotStarted
     })
+}
+
+/// A strength file's upload description: the summary of the sets its session
+/// holds, when the athlete has not switched that off, then the notes. Any other
+/// ride, and a strength ride with no finished session behind it, keeps its
+/// notes as they are. The row itself is not changed.
+fn with_strength_description(install: u64, mut ride: FfiRecordingEntry) -> FfiRecordingEntry {
+    if ride.kind == "manual" || ride.activity_type != "WeightTraining" {
+        return ride;
+    }
+    let Some(key) = ride.engine_activity_id.clone() else {
+        return ride;
+    };
+    let found = under(install, |e| {
+        let session = e.finished_strength_session_for(&key).ok().flatten()?;
+        let summary = e
+            .get_setting(crate::persistence::settings::settings_keys::STRENGTH_SUMMARY)
+            .ok()
+            .flatten()
+            .as_deref()
+            != Some("0");
+        Some((session, summary))
+    })
+    .flatten();
+    if let Some((session, summary)) = found {
+        ride.notes =
+            crate::strength::summary::description(&session, summary, ride.notes.as_deref());
+    }
+    ride
 }
 
 /// Send a begun ride and move it by the transition the answer names.
@@ -900,7 +957,7 @@ pub(crate) fn sweep(uplink: &dyn Uplink, now_ms: &dyn Fn() -> i64) -> bool {
 }
 
 /// Queue the Garmin originals the upload owes, under the athlete signed in,
-/// for those whose FIT is still on the phone. One without its file stays a
+/// for those whose original is still kept. One without its file stays a
 /// complete local row and is not offered. True when a row was queued; an offer
 /// that could not be written sets `owed`.
 pub(crate) fn offer_garmin_originals(
@@ -919,17 +976,18 @@ pub(crate) fn offer_garmin_originals(
     };
     let mut queued = false;
     for offer in offers {
-        let Some(path) = source_fit_file(&offer.key).filter(|p| p.is_file()) else {
+        if !matches!(
+            under(install, |e| original_of(&e.db, &offer.key)),
+            Some(Ok(Some(_)))
+        ) {
             continue;
-        };
+        }
         let record = &offer.record;
         let seconds = record.elapsed_time.or(record.moving_time).unwrap_or(0);
         let entry = FfiRecordingEntry {
             id: offer.key.clone(),
             kind: GARMIN_KIND.to_string(),
-            fit_path: format!("{RECORDINGS_DIR}/{}", {
-                path.file_name().unwrap_or_default().to_string_lossy()
-            }),
+            fit_path: format!("{RECORDINGS_DIR}/{}.fit", offer.key),
             streams_path: None,
             activity_type: record.activity_type.clone().unwrap_or_default(),
             name: record.name.clone().unwrap_or_default(),
@@ -1096,6 +1154,12 @@ fn delete_confirmed(install: u64, id: &str, athlete: &str) -> bool {
                 path.display()
             );
         }
+    }
+    if ride.kind == GARMIN_KIND
+        && let Some(key) = ride.engine_activity_id.as_deref()
+        && let Some(Err(err)) = under(install, |e| drop_original(&e.db, key))
+    {
+        log::warn!("veloqrs: [upload] could not drop the original of {key}: {err}");
     }
     log::info!("veloqrs: [upload] confirmed and deleted recording {id}");
     true

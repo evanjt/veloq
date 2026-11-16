@@ -75,11 +75,16 @@ const EXEMPT = [
   // A key of the widget snapshot JSON, which the Kotlin and Swift widgets
   // already shipped read by that name, so a rename strands every placed widget.
   '"colorkey"',
+  // A property of the section and portion features the overlay hands the map,
+  // which the map layer expressions in TypeScript read by that name.
+  'colorindex',
   // rusqlite's transaction mode enum.
   'transactionbehavior',
   // The png crate's encoder method and its colour type enum.
   'set_color',
   'png::colortype',
+  // quick_xml's attribute method, which resolves entities.
+  '.normalized_value(',
 ];
 
 // Not ours to spell, in TypeScript only. `color` is not banned there at all:
@@ -116,6 +121,8 @@ const TS_EXEMPT = [
   'ignore_battery_optimization_settings',
   // Node's path normalisation.
   'posix.normalize',
+  "normalize, resolve, sep } from 'node:path'",
+  'normalize(join(',
   // intervals.icu's webhook event type.
   'activity_analyzed',
   // The phase token TypeScript keys on, single quoted as it is in TypeScript.

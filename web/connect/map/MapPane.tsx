@@ -3,7 +3,7 @@
 // the last one, a base change swaps the style and puts the spec back, and a
 // camera change moves the camera.
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type {
   MapLayerSpec,
@@ -11,11 +11,13 @@ import type {
   MapSurfaceSpec,
 } from '@/features/maps/lib/htmlBuilders/mapSurface';
 
+import { NOT_CONNECTED } from '../connection';
 import { hitBox, pickFeature, type PickedFeature } from './hit';
-import { boxFromCorners, type Box } from './view';
-import { installProtocol, type Ask } from './protocol';
+import { boxFromCorners, type Box, type Viewport } from './view';
+import type { QueryClient } from '../query';
+import { installProtocol } from './protocol';
 import { highlightChange, reconcile } from './reconcile';
-import { pageAttribution, pageStyle, type PageBase } from './style';
+import { TERRAIN_PITCH, pageAttribution, pageStyle, type PageBase } from './style';
 
 export interface MapCamera {
   center?: maplibregl.LngLat;
@@ -25,26 +27,46 @@ export interface MapCamera {
   padding?: number;
 }
 
+/** A grip on the map that the pointer drags and the arrow keys step. */
+export interface MapHandle {
+  id: string;
+  at: maplibregl.LngLat;
+  /** What a screen reader and the tooltip call the grip. */
+  label: string;
+}
+
 export interface MapPaneProps {
   base: PageBase;
+  /** Drape the map over the elevation model and tilt it; flat when absent. */
+  terrain?: boolean;
   spec: MapSurfaceSpec;
   /** Controlled: a new camera moves the map, and the map's own movement does not report. */
   camera: MapCamera;
   /** Ids lit through feature state, as `highlighted`. */
   highlightedIds?: readonly string[];
   minZoom?: number;
-  /** How the `veloq` sources reach the phone. */
-  read: Ask;
+  /** The layer the `veloq` sources reach the phone through. */
+  queries: QueryClient;
   onHover?: (id: string | null) => void;
   /** Every pointer move over the map: what is under it and where, as `[lng, lat]`. */
   onMove?: (found: PickedFeature | null, at: [number, number]) => void;
   onClick?: (feature: PickedFeature) => void;
+  /** A click on the map where no interactive feature lies, as `[lng, lat]`. */
+  onPoint?: (at: [number, number]) => void;
+  /** The camera, after every move. */
+  onCamera?: (view: Viewport) => void;
   /** The visible area, once the map has loaded and after every move. */
   onView?: (box: Box) => void;
   /** A box dragged with shift held. */
   onBox?: (box: Box) => void;
   /** Escape pressed while the map has focus. */
   onEscape?: () => void;
+  /** Grips drawn at positions. The map never moves one itself: it reports where it was dragged. */
+  handles?: readonly MapHandle[];
+  /** A grip dragged to a position, on every move of the pointer and when it is let go. */
+  onHandleMove?: (id: string, at: maplibregl.LngLat) => void;
+  /** An arrow key pressed on a grip: -1 for left or down, 1 for right or up. */
+  onHandleStep?: (id: string, delta: number) => void;
 }
 
 const FIT_PADDING_PX = 48;
@@ -214,6 +236,49 @@ function trackBox(element: HTMLElement, map: maplibregl.Map, report: (box: Box) 
   };
 }
 
+/** One grip: a focusable element the renderer drags, kept in step with the positions it is given. */
+function makeGrip(
+  map: maplibregl.Map,
+  handle: MapHandle,
+  report: {
+    move: (id: string, at: maplibregl.LngLat) => void;
+    step: (id: string, d: number) => void;
+    end: () => void;
+  }
+) {
+  const element = document.createElement('button');
+  element.type = 'button';
+  element.className = 'map-handle';
+  element.dataset.handle = handle.id;
+  element.setAttribute('aria-label', handle.label);
+  element.title = handle.label;
+  element.addEventListener('keydown', (event) => {
+    const delta =
+      event.key === 'ArrowLeft' || event.key === 'ArrowDown'
+        ? -1
+        : event.key === 'ArrowRight' || event.key === 'ArrowUp'
+          ? 1
+          : 0;
+    if (delta === 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    report.step(handle.id, delta);
+  });
+  const marker = new maplibregl.Marker({ element, draggable: true })
+    .setLngLat(handle.at)
+    .addTo(map);
+  const dragged = () => {
+    const at = marker.getLngLat();
+    report.move(handle.id, [at.lng, at.lat]);
+  };
+  marker.on('drag', dragged);
+  marker.on('dragend', () => {
+    dragged();
+    report.end();
+  });
+  return marker;
+}
+
 export function MapPane(props: MapPaneProps) {
   const container = useRef<HTMLDivElement>(null);
   const live = useRef<{
@@ -222,6 +287,7 @@ export function MapPane(props: MapPaneProps) {
     applied: MapSurfaceSpec | null;
     lit: ReadonlySet<string>;
     base: PageBase;
+    terrain: boolean;
   } | null>(null);
   // What the handlers below read, so the map is made once and they never go stale.
   const latest = useRef(props);
@@ -254,12 +320,14 @@ export function MapPane(props: MapPaneProps) {
     const element = container.current;
     if (!element) return undefined;
     const { camera, base, minZoom } = latest.current;
+    const terrain = latest.current.terrain ?? false;
     const release = installProtocol(maplibregl, (method, params) =>
-      latest.current.read(method, params)
+      latest.current.queries.ask(method, params)
     );
     const options: maplibregl.MapOptions = {
       container: element,
-      style: pageStyle(base),
+      style: pageStyle(base, terrain),
+      ...(terrain && { pitch: TERRAIN_PITCH }),
       center: camera.center ?? [0, 0],
       zoom: camera.zoom ?? 1,
       attributionControl: false,
@@ -267,12 +335,19 @@ export function MapPane(props: MapPaneProps) {
     };
     if (minZoom !== undefined) options.minZoom = minZoom;
     const map = new maplibregl.Map(options);
+    // A request in flight when the link drops fails as not connected. The map keeps what it has
+    // and asks again once the view moves, so that failure is not logged as an error.
+    map.on('error', (event) => {
+      if (event.error instanceof Error && event.error.message === NOT_CONNECTED) return;
+      console.error(event.error);
+    });
     const state = {
       map,
       ready: false,
       applied: null as MapSurfaceSpec | null,
       lit: new Set<string>() as ReadonlySet<string>,
       base,
+      terrain,
     };
     live.current = state;
 
@@ -313,6 +388,7 @@ export function MapPane(props: MapPaneProps) {
     const click = (event: maplibregl.PointerEvent) => {
       const found = pick(event.point);
       if (found) latest.current.onClick?.(found);
+      else latest.current.onPoint?.([event.lngLat.lng, event.lngLat.lat]);
     };
     const leave = () => {
       if (hovered !== null) {
@@ -327,7 +403,12 @@ export function MapPane(props: MapPaneProps) {
       const [[west, south], [east, north]] = map.getBounds().toArray();
       latest.current.onView?.([west, south, east, north]);
     };
+    const reportCamera = () => {
+      const center = map.getCenter();
+      latest.current.onCamera?.({ center: [center.lng, center.lat], zoom: map.getZoom() });
+    };
     map.on('moveend', reportView);
+    map.on('moveend', reportCamera);
     map.once('load', reportView);
     const drag = trackBox(element, map, (box) => latest.current.onBox?.(box));
     map.on('mousemove', move);
@@ -346,12 +427,15 @@ export function MapPane(props: MapPaneProps) {
   }, []);
 
   const { spec, base, camera, highlightedIds } = props;
+  const terrain = props.terrain ?? false;
 
   useEffect(() => {
     const state = live.current;
     if (!state?.ready) return;
-    if (state.base !== base) {
+    if (state.base !== base || state.terrain !== terrain) {
+      const tilt = state.terrain !== terrain;
       state.base = base;
+      state.terrain = terrain;
       state.ready = false;
       state.map.once('style.load', () => {
         state.ready = true;
@@ -359,13 +443,56 @@ export function MapPane(props: MapPaneProps) {
         apply(state.map, null, latest.current.spec);
         state.applied = latest.current.spec;
         light(latest.current.spec, new Set(latest.current.highlightedIds ?? []));
+        if (tilt) state.map.easeTo({ pitch: terrain ? TERRAIN_PITCH : 0 });
       });
-      state.map.setStyle(pageStyle(base));
+      // A swap to a style with other sources builds a new style that has no projection until it
+      // loads, and the renderer would draw the old terrain against it meanwhile.
+      if (state.map.getTerrain()) state.map.setTerrain(null);
+      state.map.setStyle(pageStyle(base, terrain));
       return;
     }
     apply(state.map, state.applied, spec);
     state.applied = spec;
-  }, [spec, base]);
+  }, [spec, base, terrain]);
+
+  // The grips follow the positions the page holds: one is made when it first appears, moved when
+  // its position changes and removed when it is gone. A grip being dragged is put where the page
+  // says once the pointer is up, which snaps it to the vertex the page chose.
+  const grips = useRef(new Map<string, maplibregl.Marker>());
+  const [letGo, setLetGo] = useState(0);
+  useEffect(() => {
+    const map = live.current?.map;
+    const held = grips.current;
+    if (!map) return;
+    const wanted = props.handles ?? [];
+    for (const [id, marker] of held) {
+      if (!wanted.some((h) => h.id === id)) {
+        marker.remove();
+        held.delete(id);
+      }
+    }
+    for (const handle of wanted) {
+      const marker = held.get(handle.id);
+      if (marker) marker.setLngLat(handle.at);
+      else {
+        held.set(
+          handle.id,
+          makeGrip(map, handle, {
+            move: (id, at) => latest.current.onHandleMove?.(id, at),
+            step: (id, delta) => latest.current.onHandleStep?.(id, delta),
+            end: () => setLetGo((n) => n + 1),
+          })
+        );
+      }
+    }
+  }, [props.handles, letGo]);
+  useEffect(
+    () => () => {
+      for (const marker of grips.current.values()) marker.remove();
+      grips.current.clear();
+    },
+    []
+  );
 
   const cameraKey = JSON.stringify(camera);
   const firstCamera = useRef(true);
@@ -408,7 +535,7 @@ export function MapPane(props: MapPaneProps) {
       }}
     >
       <div ref={container} className="map-canvas" />
-      <p className="map-attribution">{pageAttribution()}</p>
+      <p className="map-attribution">{pageAttribution(base, terrain)}</p>
     </div>
   );
 }

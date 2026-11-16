@@ -875,4 +875,32 @@ mod tests {
             (Some(240.0), Some(Source::File))
         );
     }
+
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn the_thresholds_screen_carries_each_sports_zone_bounds_with_their_source() {
+        use crate::FfiZoneSource as Source;
+        let conn = settings_db();
+        conn.execute(
+            "INSERT INTO sport_settings (id, data) VALUES ('current', ?)",
+            [r#"[{"types":["Ride"],"hr_zones":[120,140,155,170,185],"power_zones":[55,75,90,105,120,150,999]},
+                 {"types":["Run"],"hr_zones":[0,"x"]}]"#],
+        )
+        .unwrap();
+        let screen = crate::persistence::screens::thresholds_screen_at(&conn, 20 * DAY);
+        let of = |sport: &str| screen.sports.iter().find(|s| s.sport == sport).unwrap();
+
+        let ride = of("Ride");
+        assert_eq!(ride.hr_zones.source, Source::SportSettings);
+        assert_eq!(ride.hr_zones.upper, vec![120.0, 140.0, 155.0, 170.0, 185.0]);
+        assert_eq!(
+            ride.power_zones,
+            vec![55.0, 75.0, 90.0, 105.0, 120.0, 150.0, 999.0]
+        );
+
+        let run = of("Run");
+        assert_eq!(run.hr_zones.source, Source::Default);
+        assert_eq!(run.hr_zones.upper, vec![60.0, 70.0, 80.0, 90.0, 100.0]);
+        assert!(run.power_zones.is_empty());
+    }
 }

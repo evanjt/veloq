@@ -15,7 +15,7 @@ export {
   zoneColorsLight,
 } from '@/theme/colors';
 export type { ChartStream, SportFamilyName } from '@/theme/colors';
-export { mapPalette, themePalette } from '@/theme/palette';
+export { colourIndexExpression, mapPalette, themePalette } from '@/theme/palette';
 export type { MapBase, MapPalette, Palette, VectorMapPalette } from '@/theme/palette';
 export { spacing } from '@/theme/spacing';
 export { iconSize } from '@/theme/iconSize';

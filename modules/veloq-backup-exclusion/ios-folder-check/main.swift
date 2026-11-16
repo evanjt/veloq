@@ -62,6 +62,13 @@ expect(refused, "copying over an existing name throws")
 expect(contents(folder.appendingPathComponent(first)) == contents(URL(fileURLWithPath: zip)),
   "the existing file is unchanged")
 
+// With replace, the file under a taken name is swapped for the new bytes.
+_ = try withBookmarkedFolder(bookmark) {
+  try copyIntoFolder($0, from: other, name: first, replace: true)
+}
+expect(contents(folder.appendingPathComponent(first)) == Data([9, 9]),
+  "replacing a taken name leaves the new bytes under it")
+
 // A missing source throws and leaves nothing behind.
 var missingThrown = false
 do {

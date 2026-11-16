@@ -676,6 +676,25 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn a_bbox_template_is_planned_with_metres_in_the_url() {
+        let bounds = Bounds {
+            min_lat: 46.5,
+            max_lat: 46.6,
+            min_lng: 7.5,
+            max_lng: 7.6,
+        };
+        let mut wms = source("wms", 5..=5);
+        wms.template = "https://ortho.test/wms?BBOX={bbox-epsg-3857}&WIDTH=256".to_string();
+
+        let planned = plan_preseed(&[bounds], &[wms]);
+
+        assert!(!planned.is_empty());
+        assert!(planned.iter().all(|t| !t.url.contains('{')));
+        assert!(planned.iter().all(|t| t.url.contains("BBOX=")));
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_source_takes_only_its_own_zooms() {
         let bounds = Bounds {
             min_lat: 46.5,

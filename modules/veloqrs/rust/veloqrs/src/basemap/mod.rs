@@ -47,8 +47,9 @@ pub(crate) use geo::sections_collection;
 #[cfg(test)]
 pub(crate) use geo::sections_features;
 pub(crate) use geo::{
-    OverlayEncounter, OverlaySection, activity_overlay_features, route_feature,
-    route_latest_feature, section_feature, section_passes_collection, track_collection,
+    OverlayEncounter, OverlaySection, activity_overlay_features, route_attempts_collection,
+    route_feature, route_latest_feature, section_feature, section_passes_collection,
+    section_version_feature, track_collection,
 };
 pub use preseed::{
     GROUND_BUDGET_BYTES, GROUND_ZOOMS, PlannedTile, PreseedSource, SeedOutcome, TERRAIN_ZOOMS,
@@ -150,7 +151,8 @@ pub fn set_composite(name: String, members: Vec<CompositeMember>) {
 /// second vector host went uncached with nothing saying so.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TemplateSource {
-    /// `{z}/{x}/{y}` are in the string: it names tiles already.
+    /// `{z}/{x}/{y}` or `{bbox-epsg-3857}` are in the string: it names tiles
+    /// already.
     Tiles,
     /// No placeholders: it names a TileJSON document, which names the tiles.
     TileJson,
@@ -158,7 +160,8 @@ pub enum TemplateSource {
 
 impl TemplateSource {
     pub fn of(template: &str) -> Self {
-        if template.contains("{z}") && template.contains("{x}") && template.contains("{y}") {
+        let grid = template.contains("{z}") && template.contains("{x}") && template.contains("{y}");
+        if grid || template.contains(BBOX_PLACEHOLDER) {
             TemplateSource::Tiles
         } else {
             TemplateSource::TileJson
@@ -641,19 +644,52 @@ pub async fn warm_source(source: String) {
     }
 }
 
-/// A `{z}/{x}/{y}` template with one tile's coordinates in it.
+/// The placeholder a template carries to name a tile by its web-mercator
+/// bounding box, for hosts that answer a WMS GetMap request and hold no tile
+/// grid. It is MapLibre's own spelling.
+const BBOX_PLACEHOLDER: &str = "{bbox-epsg-3857}";
+
+/// A template with one tile's coordinates in it: `{z}`, `{x}` and `{y}`, and
+/// `{bbox-epsg-3857}` as `west,south,east,north` in metres to three decimals.
 pub(crate) fn fill_template(template: &str, z: u8, x: u32, y: u32) -> String {
+    let template = if template.contains(BBOX_PLACEHOLDER) {
+        let [west, south, east, north] = composite::tile_bounds_metres(z, x, y);
+        let bbox = format!("{west:.3},{south:.3},{east:.3},{north:.3}");
+        std::borrow::Cow::Owned(template.replace(BBOX_PLACEHOLDER, &bbox))
+    } else {
+        std::borrow::Cow::Borrowed(template)
+    };
     template
         .replace("{z}", &z.to_string())
         .replace("{x}", &x.to_string())
         .replace("{y}", &y.to_string())
 }
 
-/// The file extension a URL stores under, ignoring any query string. Tile
-/// hosts that carry z/x/y in query parameters have no extension at all, so
-/// there is a fallback rather than a failure.
+/// The file extension a URL stores under. A map service request names its
+/// image type in `FORMAT=image/<type>`, since its path ends in a service name
+/// or a script, so that type is the extension. Any other URL stores under its
+/// path extension, ignoring the query string. Tile hosts that carry z/x/y in
+/// query parameters have no extension at all, so there is a fallback rather
+/// than a failure. The page derives the same name, `tileExtension`.
 fn extension_of(url: &str) -> String {
-    let path = url.split(['?', '#']).next().unwrap_or(url);
+    let without_fragment = url.split('#').next().unwrap_or(url);
+    let (path, query) = without_fragment
+        .split_once('?')
+        .unwrap_or((without_fragment, ""));
+    let format = query
+        .split('&')
+        .find_map(|pair| {
+            let (key, value) = pair.split_once('=')?;
+            let subtype = value
+                .get(..6)
+                .filter(|head| head.eq_ignore_ascii_case("image/"))
+                .and_then(|_| value.get(6..))?;
+            key.eq_ignore_ascii_case("FORMAT").then_some(subtype)
+        })
+        .filter(|f| !f.is_empty() && f.len() <= 5 && f.chars().all(|c| c.is_ascii_alphanumeric()));
+    if let Some(format) = format {
+        return format.to_ascii_lowercase();
+    }
     match path.rsplit_once('.') {
         Some((_, ext))
             if !ext.is_empty() && ext.len() <= 5 && ext.chars().all(|c| c.is_alphanumeric()) =>
@@ -1089,6 +1125,37 @@ mod sidecar_tests {
 mod template_tests {
     use super::*;
 
+    const BBOX_TEMPLATE: &str = "https://ortho.test/wms?BBOX={bbox-epsg-3857}&WIDTH=256";
+
+    #[test]
+    fn a_template_naming_the_tile_bbox_is_a_tile_template() {
+        assert_eq!(TemplateSource::of(BBOX_TEMPLATE), TemplateSource::Tiles);
+    }
+
+    #[test]
+    fn the_bbox_placeholder_is_filled_with_the_tile_edges_in_metres() {
+        assert_eq!(
+            fill_template(BBOX_TEMPLATE, 16, 34034, 21957),
+            "https://ortho.test/wms?BBOX=774154.222,6610274.206,774765.719,6610885.702&WIDTH=256"
+        );
+    }
+
+    #[test]
+    fn the_whole_world_tile_spans_the_web_mercator_square() {
+        assert_eq!(
+            fill_template("{bbox-epsg-3857}", 0, 0, 0),
+            "-20037508.343,-20037508.343,20037508.343,20037508.343"
+        );
+    }
+
+    #[test]
+    fn a_grid_template_is_filled_as_before() {
+        assert_eq!(
+            fill_template("https://t.test/{z}/{x}/{y}.png", 3, 4, 5),
+            "https://t.test/3/4/5.png"
+        );
+    }
+
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_ground_tile_at_z0_is_answered_from_the_app_with_nothing_fetched() {
@@ -1175,5 +1242,20 @@ mod template_tests {
         assert_eq!(extension_of("https://h/1/2/3.jpg"), "jpg");
         assert_eq!(extension_of("https://h/1/2/3.PNG?v=2"), "png");
         assert_eq!(extension_of("https://h/wmts?TILEROW=3&TILECOL=4"), "bin");
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn a_map_service_request_is_typed_by_its_format_not_its_path() {
+        assert_eq!(
+            extension_of(
+                "https://h/wms/rp_dop20.fcgi?SERVICE=WMS&FORMAT=image/jpeg&BBOX={bbox-epsg-3857}"
+            ),
+            "jpeg"
+        );
+        assert_eq!(
+            extension_of("https://h/owsproxy/ows/LAYER?FORMAT=image/png&BBOX={bbox-epsg-3857}"),
+            "png"
+        );
     }
 }

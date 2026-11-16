@@ -8,7 +8,12 @@
 
 import * as FileSystem from 'expo-file-system/legacy';
 import { backupFileName, backupNameTimestamp } from './backupName';
-import { backupEntryFromSidecar, type BackupBackend, type BackupEntry } from './types';
+import {
+  backupEntryFromSidecar,
+  type BackupBackend,
+  type BackupEntry,
+  type BackupObject,
+} from './types';
 import {
   getWebdavConfig,
   webdavConfigProblem,
@@ -159,6 +164,22 @@ export async function testWebdavConnection(): Promise<WebdavTestOutcome> {
   }
 }
 
+async function downloadNamed(operation: string, name: string, destPath: string): Promise<void> {
+  const config = requireConfig(operation);
+  const headers = authHeaders(config.username, config.password);
+  const fileUrl = joinUrl(config.url, REMOTE_DIR, name);
+
+  let result;
+  try {
+    result = await FileSystem.downloadAsync(fileUrl, destPath, { headers });
+  } catch (error) {
+    throw transportFailure(operation, error);
+  }
+  if (result.status !== 200) {
+    throw transferFailure(operation, result.status);
+  }
+}
+
 export const webdavBackend: BackupBackend = {
   id: 'webdav',
   name: 'WebDAV',
@@ -271,20 +292,7 @@ export const webdavBackend: BackupBackend = {
   },
 
   async download(backupId: string, destPath: string): Promise<void> {
-    const config = requireConfig('Download backup');
-
-    const headers = authHeaders(config.username, config.password);
-    const fileUrl = joinUrl(config.url, REMOTE_DIR, backupId);
-
-    let result;
-    try {
-      result = await FileSystem.downloadAsync(fileUrl, destPath, { headers });
-    } catch (error) {
-      throw transportFailure('Download backup', error);
-    }
-    if (result.status !== 200) {
-      throw transferFailure('Download backup', result.status);
-    }
+    await downloadNamed('Download backup', backupId, destPath);
   },
 
   async delete(backupId: string): Promise<void> {
@@ -297,7 +305,72 @@ export const webdavBackend: BackupBackend = {
     await deleteQuietly(fileUrl, headers);
     await deleteQuietly(`${fileUrl}.meta.json`, headers);
   },
+
+  /** One PUT, which replaces an object of the same name. The manifest is the listing, so no sidecar. */
+  async putObject(name: string, localPath: string): Promise<void> {
+    const operation = 'Upload backup object';
+    const config = requireConfig(operation);
+    const headers = authHeaders(config.username, config.password);
+    await ensureRemoteDir(config.url, headers);
+
+    let result;
+    try {
+      result = await FileSystem.uploadAsync(joinUrl(config.url, REMOTE_DIR, name), localPath, {
+        httpMethod: 'PUT',
+        headers,
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      });
+    } catch (error) {
+      throw transportFailure(operation, error);
+    }
+    if (result.status < 200 || result.status >= 300) {
+      throw transferFailure(operation, result.status);
+    }
+  },
+
+  async listObjects(prefix: string): Promise<BackupObject[]> {
+    const operation = 'List backup objects';
+    const config = requireConfig(operation);
+    const headers = authHeaders(config.username, config.password);
+    const res = await request(operation, joinUrl(config.url, REMOTE_DIR), {
+      method: 'PROPFIND',
+      headers: { ...headers, Depth: '1', 'Content-Type': 'application/xml' },
+      body: PROPFIND_SIZE_BODY,
+    });
+    // 404 is a directory not created yet, which is an empty list.
+    if (res.status === 404) return [];
+    if (!res.ok && res.status !== 207) throw transferFailure(operation, res.status);
+
+    const objects: BackupObject[] = [];
+    for (const { href, sizeBytes } of extractResponses(await res.text())) {
+      if (!resolveHref(config.url, href)) continue;
+      const name = href.replace(/\/+$/, '').split('/').pop() ?? '';
+      if (name.startsWith(prefix)) objects.push({ name, sizeBytes });
+    }
+    return objects;
+  },
+
+  async fetchObject(name: string, destPath: string): Promise<void> {
+    await downloadNamed('Download backup object', name, destPath);
+  },
 };
+
+const PROPFIND_SIZE_BODY = `<?xml version="1.0" encoding="UTF-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:getcontentlength/></d:prop></d:propfind>`;
+
+/** Each response of a PROPFIND reply: its decoded href and its content length, 0 when absent. */
+function extractResponses(xml: string): { href: string; sizeBytes: number }[] {
+  const responses: { href: string; sizeBytes: number }[] = [];
+  const block = /<(?:[\w.-]+:)?response\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?response>/gi;
+  let match;
+  while ((match = block.exec(xml)) !== null) {
+    const inner = match[1] ?? '';
+    const [href] = extractHrefs(inner);
+    if (href === undefined) continue;
+    const length = /<(?:[\w.-]+:)?getcontentlength\b[^>]*>\s*(\d+)\s*</i.exec(inner);
+    responses.push({ href, sizeBytes: length ? Number(length[1]) : 0 });
+  }
+  return responses;
+}
 
 /**
  * Extract href values from a PROPFIND XML response. The server picks the
@@ -310,7 +383,7 @@ function extractHrefs(xml: string): string[] {
   let match;
   while ((match = regex.exec(xml)) !== null) {
     try {
-      hrefs.push(decodeURIComponent(match[1]));
+      hrefs.push(decodeURIComponent(match[1] ?? ''));
     } catch {
       // Malformed percent-encoding names no file this app wrote.
     }

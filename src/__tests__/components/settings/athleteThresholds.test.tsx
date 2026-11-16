@@ -35,6 +35,8 @@ function screen(ftp: ReturnType<typeof figure>) {
     sports: [
       {
         sport: 'Ride',
+        hrZones: { upper: [60, 70, 80, 90, 100], source: 'default' },
+        powerZones: [],
         figures: [
           ftp,
           figure(ThresholdField.ThresholdHr, null, null),

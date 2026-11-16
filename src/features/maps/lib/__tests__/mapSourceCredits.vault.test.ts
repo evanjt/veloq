@@ -82,3 +82,47 @@ describe('eoxDataYear', () => {
     expect(() => eoxDataYear('https://example.org/{z}/{x}/{y}.png')).toThrow();
   });
 });
+
+describe('credits whose licence asks for the data year', () => {
+  it.each(['baden-wuerttemberg', 'lower-saxony', 'rhineland-palatinate', 'estonia'] as const)(
+    'names a four-digit year in the %s short credit',
+    (id) => {
+      expect(MAP_SOURCE_CREDITS[id].shortCredit).toMatch(/\(\d{4}\)$/);
+    }
+  );
+
+  it('has no Mecklenburg-Vorpommern credit, its licence permitting internal use only', () => {
+    expect(MAP_SOURCE_CREDITS).not.toHaveProperty('mecklenburg-vorpommern');
+  });
+
+  it('names a four-digit year in the Estonian and Slovenian full texts', () => {
+    expect(MAP_SOURCE_CREDITS.estonia.fullText).toMatch(/Orthophoto \d{4}, /);
+    expect(MAP_SOURCE_CREDITS.slovenia.fullText).toMatch(/Digitalni ortofoto 25 cm, \d{4}\./);
+  });
+});
+
+describe('credits in the wording their licensors prescribe', () => {
+  it('gives Bavaria the attribution form its licensor asks for', () => {
+    const attribution = 'Bayerische Vermessungsverwaltung – www.geodaten.bayern.de';
+    expect(MAP_SOURCE_CREDITS.bavaria.shortCredit).toContain(attribution);
+    expect(MAP_SOURCE_CREDITS.bavaria.fullText).toContain(attribution);
+  });
+
+  it('licenses Bremen under CC BY 4.0 and names both cities the service covers', () => {
+    expect(MAP_SOURCE_CREDITS.bremen.licence).toBe('CC BY 4.0');
+    expect(MAP_SOURCE_CREDITS.bremen.fullText).toContain('Bremen and Bremerhaven');
+  });
+
+  it('credits Estonia under the Maa- ja Ruumiamet name the licence gives', () => {
+    expect(MAP_SOURCE_CREDITS.estonia.shortCredit).toContain('Maa- ja Ruumiamet');
+    expect(MAP_SOURCE_CREDITS.estonia.fullText).toContain(
+      'Republic of Estonia Land and Spatial Development Board'
+    );
+    expect(MAP_SOURCE_CREDITS.estonia.fullText).not.toContain('dated by sheet');
+  });
+
+  it('cites both sections of the Hesse act that make the data usable', () => {
+    expect(MAP_SOURCE_CREDITS.hesse.licence).toBe('HVGG §§ 18, 24');
+    expect(MAP_SOURCE_CREDITS.hesse.fullText).toContain('§§ 18 and 24');
+  });
+});

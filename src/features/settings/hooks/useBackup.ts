@@ -138,9 +138,11 @@ export function useImportDatabaseBackup() {
         return null;
       }
 
-      const fileUri = result.assets[0].uri;
+      const asset = result.assets[0];
+      if (!asset) return null;
+      const fileUri = asset.uri;
       if (isPickerCopy(fileUri)) pickedCopy = fileUri;
-      const fileName = result.assets[0].name ?? '';
+      const fileName = asset.name ?? '';
 
       return await importBackupFile(fileUri, fileName, t);
     } catch (error) {

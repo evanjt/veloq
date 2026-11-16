@@ -5124,6 +5124,26 @@ impl SyncManager {
         crate::net::garmin::pull::pull_now(crate::persistence::engine_install())
     }
 
+    /// Import the FIT files at `path`: a file, a directory, a zip or a zip of
+    /// zips the app can read. Runs on a thread of its own. Returns whether a
+    /// job started; it does not while another import or the Garmin pass runs.
+    fn start_import(&self, path: String) -> bool {
+        crate::net::import::start(
+            crate::persistence::engine_install(),
+            std::path::PathBuf::from(path),
+        )
+    }
+
+    /// Stop the import at its next file. What is stored stays.
+    fn cancel_import(&self) {
+        crate::net::import::cancel();
+    }
+
+    /// The import's state, counts and failures, in this process.
+    fn import_progress(&self) -> crate::ffi_types::FfiImportProgress {
+        crate::net::import::progress_now().into()
+    }
+
     /// A webhook named this activity: start a Garmin pass when intervals.icu
     /// says Garmin supplied it. Returns whether one started.
     fn pull_garmin_for_activity(&self, activity_id: String) -> bool {

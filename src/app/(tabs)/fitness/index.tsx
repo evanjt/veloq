@@ -236,6 +236,7 @@ function FitnessScreenContent() {
     wellnessCoverage,
     wellnessHeld,
     loadDots,
+    uncountedImports,
     dailyLoads,
     powerZones,
     hrZones,
@@ -409,6 +410,7 @@ function FitnessScreenContent() {
                 wellness={wellness ?? NO_WELLNESS}
                 wellnessCoverage={wellnessCoverage}
                 loadDots={loadDots}
+                uncountedImports={uncountedImports}
                 dailyLoads={dailyLoads}
                 eftpChanges={eftpChanges}
                 selectedDate={selectedDate}

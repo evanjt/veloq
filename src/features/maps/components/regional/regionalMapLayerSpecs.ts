@@ -249,7 +249,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       source: 'sections',
       layout: { 'line-cap': 'butt', 'line-join': 'round' },
       paint: {
-        'line-color': ['get', 'color'],
+        'line-color': colourIndexExpression(layer.sections, ['get', 'colorIndex']),
         'line-width': selectedSectionId
           ? ['case', isSelectedSection, size(4), size(2)]
           : lineWidthRamp(SECTION_LINE_WIDTHS, 0, scale),

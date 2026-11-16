@@ -45,6 +45,27 @@ impl From<&crate::FfiExerciseSet> for FitExerciseSet {
     }
 }
 
+/// The unit the first set's weight was displayed in, when the file names one. Weights are
+/// kilograms either way; this is only how the athlete read them.
+pub fn strength_weight_unit(
+    data: &[u8],
+) -> Result<Option<crate::strength::weight::WeightUnit>, FitParseError> {
+    for record in decode(data)? {
+        if record.kind() != fitparser::profile::MesgNum::Set {
+            continue;
+        }
+        for field in record.fields() {
+            if field.name() == "weight_display_unit"
+                && let fitparser::Value::SInt64(v) = field.value()
+                && let Some(unit) = crate::strength::weight::WeightUnit::from_fit_value(*v)
+            {
+                return Ok(Some(unit));
+            }
+        }
+    }
+    Ok(None)
+}
+
 /// Errors from parsing a FIT binary file.
 #[derive(Debug, thiserror::Error)]
 pub enum FitParseError {
@@ -421,6 +442,11 @@ pub struct FitActivity {
     /// The recording device, from the file's `file_id` message: its product
     /// name, or its manufacturer when the product has none.
     pub device: Option<String>,
+    /// The recording device's serial number and the time the file was created,
+    /// in Unix seconds, from the same message. A file that was written again
+    /// by another program carries its own, or none.
+    pub serial_number: Option<u64>,
+    pub time_created: Option<i64>,
     /// The athlete's thresholds and profile, `None` when the file carries none.
     pub thresholds: Option<FitThresholds>,
     /// The `lap` messages, in file order.
@@ -519,9 +545,7 @@ pub fn parse_fit_activity(data: &[u8]) -> Result<FitActivity, FitParseError> {
             }
             fitparser::profile::MesgNum::Session => sessions.push(read_session(record)),
             fitparser::profile::MesgNum::Lap => activity.laps.extend(read_lap(record)),
-            fitparser::profile::MesgNum::FileId if activity.device.is_none() => {
-                activity.device = device_of(record);
-            }
+            fitparser::profile::MesgNum::FileId => read_file_id(&mut activity, record),
             fitparser::profile::MesgNum::Activity => {
                 for field in record.fields() {
                     if let fitparser::Value::Timestamp(at) = field.value() {
@@ -548,6 +572,27 @@ pub fn parse_fit_activity(data: &[u8]) -> Result<FitActivity, FitParseError> {
         activity.utc_offset_secs = utc_offset_of(utc.timestamp(), &local);
     }
     Ok(activity)
+}
+
+/// What the first `file_id` message says about the device and the file. A
+/// later one fills only what the first left unset.
+fn read_file_id(activity: &mut FitActivity, record: &fitparser::FitDataRecord) {
+    if activity.device.is_none() {
+        activity.device = device_of(record);
+    }
+    for field in record.fields() {
+        match (field.name(), field.value()) {
+            ("serial_number", fitparser::Value::UInt32z(n) | fitparser::Value::UInt32(n))
+                if activity.serial_number.is_none() && *n != 0 =>
+            {
+                activity.serial_number = Some(u64::from(*n));
+            }
+            ("time_created", value) if activity.time_created.is_none() => {
+                activity.time_created = timestamp_of(value);
+            }
+            _ => {}
+        }
+    }
 }
 
 /// The device a `file_id` message names: the product name when it has one,
@@ -1269,6 +1314,42 @@ pub(crate) fn pool_swim_fit() -> Vec<u8> {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    /// Scenario: a file declares a developer field in a `field_description`
+    /// message, as running-power and trainer-app files do.
+    ///
+    /// Expected behaviour: the file decodes, with the developer field's
+    /// message among the records, rather than failing as a whole.
+    #[test]
+    fn a_file_declaring_a_developer_field_decodes() {
+        // The FIT SDK's developer data sample, held inline because no .fit file is tracked.
+        let bytes: &[u8] = &[
+            0x0e, 0x20, 0x68, 0x06, 0xa2, 0x00, 0x00, 0x00, 0x2e, 0x46, 0x49, 0x54, 0xbe, 0xd0,
+            0x40, 0x00, 0x01, 0x00, 0x00, 0x04, 0x01, 0x02, 0x84, 0x00, 0x01, 0x00, 0x02, 0x02,
+            0x84, 0x03, 0x04, 0x8c, 0x00, 0x00, 0x0f, 0x04, 0x23, 0x29, 0x00, 0x00, 0x06, 0xa5,
+            0x40, 0x00, 0x01, 0x00, 0xcf, 0x02, 0x01, 0x10, 0x0d, 0x03, 0x01, 0x02, 0x00, 0x01,
+            0x01, 0x02, 0x03, 0x05, 0x08, 0x0d, 0x15, 0x22, 0x37, 0x59, 0x90, 0xe9, 0x79, 0x62,
+            0xdb, 0x00, 0x40, 0x00, 0x01, 0x00, 0xce, 0x05, 0x00, 0x01, 0x02, 0x01, 0x01, 0x02,
+            0x02, 0x01, 0x02, 0x03, 0x11, 0x07, 0x08, 0x0a, 0x07, 0x00, 0x00, 0x00, 0x01, 0x64,
+            0x6f, 0x75, 0x67, 0x68, 0x6e, 0x75, 0x74, 0x73, 0x5f, 0x65, 0x61, 0x72, 0x6e, 0x65,
+            0x64, 0x00, 0x64, 0x6f, 0x75, 0x67, 0x68, 0x6e, 0x75, 0x74, 0x73, 0x00, 0x60, 0x00,
+            0x01, 0x00, 0x14, 0x04, 0x03, 0x01, 0x02, 0x04, 0x01, 0x02, 0x05, 0x04, 0x86, 0x06,
+            0x02, 0x84, 0x01, 0x00, 0x01, 0x00, 0x00, 0x8c, 0x58, 0x00, 0x00, 0xc7, 0x38, 0xb9,
+            0x80, 0x01, 0x00, 0x8f, 0x5a, 0x00, 0x03, 0x2c, 0x80, 0x8e, 0x40, 0x02, 0x00, 0x90,
+            0x5c, 0x00, 0x05, 0xa9, 0x38, 0x8a, 0x10, 0x03, 0xd3, 0x9e,
+        ];
+        let records = super::decode(bytes).expect("developer field file decodes");
+        assert!(
+            records
+                .iter()
+                .any(|r| r.kind() == fitparser::profile::MesgNum::FieldDescription)
+        );
+        let parsed = super::parse_fit_activity(bytes);
+        assert!(
+            !matches!(&parsed, Err(super::FitParseError::Decode(m)) if m.contains("must be string")),
+            "{parsed:?}"
+        );
+    }
+
     /// Scenario: a device's own file holds fields that intervals.icu's copy of
     /// the same ride dropped.
     ///
@@ -1510,6 +1591,26 @@ pub(crate) mod tests {
         let mut ride = crate::fit_synthetic::outdoor_ride();
         ride.thresholds = thresholds;
         parse_fit_activity(&ride.to_fit()).expect("a readable FIT")
+    }
+
+    /// Scenario: a head unit writes its serial number and creation time into
+    /// `file_id`, and a program that wrote the file again writes neither.
+    ///
+    /// Expected behaviour: the serial number and creation time come back
+    /// whole, and a file with no `file_id` leaves both unset.
+    #[test]
+    fn a_file_id_serial_and_creation_time_come_back_and_absent_ones_stay_unset() {
+        let mut ride = crate::fit_synthetic::outdoor_ride();
+        ride.device = Some((1, 3_990));
+        ride.serial = Some(3_912_345_678);
+        ride.time_created = Some(1_773_471_000);
+        let activity = parse_fit_activity(&ride.to_fit()).expect("a readable FIT");
+        assert_eq!(activity.serial_number, Some(3_912_345_678));
+        assert_eq!(activity.time_created, Some(1_773_471_000));
+
+        let bare = parse_fit_activity(&crate::fit_synthetic::outdoor_ride().to_fit()).unwrap();
+        assert_eq!(bare.serial_number, None);
+        assert_eq!(bare.time_created, None);
     }
 
     #[test]

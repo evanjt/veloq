@@ -29,6 +29,16 @@ export function eoxDataYear(tilesUrl: string): string {
   return match[1] ?? '2016';
 }
 
+/**
+ * The year the imagery is retrieved, for the credits of the licences that ask
+ * for a data year or date: three German Land licences ask for the year of data
+ * retrieval ("Jahr des Datenbezugs"), Estonia for the date of extraction and
+ * Slovenia for the time the data refer to. Their services serve flights of
+ * several years with no single year stated, so the credit names the year the
+ * app fetches the tiles.
+ */
+const DATA_RETRIEVAL_YEAR = new Date().getFullYear();
+
 const TERRAIN_SOURCES = [
   '3DEP, SRTM and GMTED2010 data courtesy of the U.S. Geological Survey',
   'ETOPO1 data from the U.S. National Oceanic and Atmospheric Administration (DOC/NOAA/NESDIS/NCEI)',
@@ -145,6 +155,131 @@ export const MAP_SOURCE_CREDITS: Record<MapSourceId, MapSourceCredit> = {
     url: 'https://data.public.lu',
     fullText:
       'Aerial imagery of Luxembourg. © Administration du cadastre et de la topographie (ACT), BD-L-ORTHO.',
+  },
+  estonia: {
+    name: 'Maa- ja Ruumiamet ortofoto',
+    shortCredit: `© Maa- ja Ruumiamet (${DATA_RETRIEVAL_YEAR})`,
+    licence: 'Estonian Land Board open data licence',
+    url: 'https://geoportaal.maaruum.ee/opendata-licence',
+    fullText: `Aerial imagery of Estonia. Orthophoto ${DATA_RETRIEVAL_YEAR}, Republic of Estonia Land and Spatial Development Board.`,
+  },
+  wallonia: {
+    name: 'SPW Orthophotos',
+    shortCredit: 'Source : SPW',
+    licence: 'CC BY 4.0',
+    url: 'https://creativecommons.org/licenses/by/4.0/',
+    fullText:
+      'Aerial imagery of Wallonia. Source : Service public de Wallonie (SPW) – Orthophotos – Vues aériennes les plus récentes.',
+  },
+  slovenia: {
+    name: 'GURS Digitalni ortofoto',
+    shortCredit: '© GURS',
+    licence: 'CC BY 4.0',
+    url: 'https://www.e-prostor.gov.si/en/access-to-geodetic-data/',
+    fullText: `Aerial imagery of Slovenia. © Geodetska uprava Republike Slovenije (GURS), Digitalni ortofoto 25 cm, ${DATA_RETRIEVAL_YEAR}.`,
+  },
+  berlin: {
+    name: 'Berlin TrueDOP',
+    shortCredit: '© Geoportal Berlin',
+    licence: 'dl-de/zero-2.0',
+    url: 'https://www.govdata.de/dl-de/zero-2-0',
+    fullText:
+      'Aerial imagery of Berlin. © Geoportal Berlin, Digitale farbige TrueOrthophotos 2024, Datenlizenz Deutschland – Zero – Version 2.0.',
+  },
+  bremen: {
+    name: 'Bremen DOP20',
+    shortCredit: '© Landesamt GeoInformation Bremen',
+    licence: 'CC BY 4.0',
+    url: 'https://creativecommons.org/licenses/by/4.0/deed.de',
+    fullText:
+      'Aerial imagery of Bremen and Bremerhaven. © Landesamt GeoInformation Bremen, DOP20 2023, Creative Commons Namensnennung 4.0 (CC BY 4.0).',
+  },
+  'baden-wuerttemberg': {
+    name: 'LGL-BW DOP20',
+    shortCredit: `© LGL-BW (${DATA_RETRIEVAL_YEAR})`,
+    licence: 'dl-de/by-2.0',
+    url: 'https://www.govdata.de/dl-de/by-2-0',
+    fullText:
+      'Aerial imagery of Baden-Württemberg. © Landesamt für Geoinformation und Landentwicklung Baden-Württemberg (LGL-BW), Digitale Orthophotos 20 cm, Datenlizenz Deutschland – Namensnennung – Version 2.0, www.lgl-bw.de.',
+  },
+  bavaria: {
+    name: 'Bayern DOP40',
+    shortCredit: '© Bayerische Vermessungsverwaltung – www.geodaten.bayern.de',
+    licence: 'CC BY 4.0',
+    url: 'https://creativecommons.org/licenses/by/4.0/deed.de',
+    fullText:
+      'Aerial imagery of Bavaria. © Bayerische Vermessungsverwaltung – www.geodaten.bayern.de, Digitales Orthophoto 40 cm, CC BY 4.0.',
+  },
+  brandenburg: {
+    name: 'LGB DOP20',
+    shortCredit: '© GeoBasis-DE/LGB',
+    licence: 'dl-de/by-2.0',
+    url: 'https://www.govdata.de/dl-de/by-2-0',
+    fullText: 'Aerial imagery of Brandenburg. © GeoBasis-DE/LGB, dl-de/by-2-0.',
+  },
+  hesse: {
+    name: 'HVBG DOP20',
+    shortCredit: '© HVBG',
+    licence: 'HVGG \u00a7\u00a7 18, 24',
+    url: 'https://hvbg.hessen.de',
+    fullText:
+      'Aerial imagery of Hesse. © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG), Digitale Orthophotos 20 cm, free for any use under §§ 18 and 24 of the Hessian Surveying and Geoinformation Act.',
+  },
+  'lower-saxony': {
+    name: 'LGLN DOP20',
+    shortCredit: `© LGLN (${DATA_RETRIEVAL_YEAR})`,
+    licence: 'CC BY 4.0',
+    url: 'https://creativecommons.org/licenses/by/4.0/',
+    fullText:
+      'Aerial imagery of Lower Saxony. © Landesamt für Geoinformation und Landesvermessung Niedersachsen (LGLN), Digitale Orthophotos 20 cm, Creative Commons Namensnennung – 4.0 International (CC BY 4.0).',
+  },
+  'north-rhine-westphalia': {
+    name: 'Geobasis NRW DOP',
+    shortCredit: '© Geobasis NRW',
+    licence: 'dl-de/zero-2.0',
+    url: 'https://www.govdata.de/dl-de/zero-2-0',
+    fullText:
+      'Aerial imagery of North Rhine-Westphalia. © Geobasis NRW, Digitale Orthophotos, Datenlizenz Deutschland – Zero – Version 2.0.',
+  },
+  'rhineland-palatinate': {
+    name: 'LVermGeoRP DOP20',
+    shortCredit: `© GeoBasis-DE / LVermGeoRP (${DATA_RETRIEVAL_YEAR})`,
+    licence: 'dl-de/by-2.0',
+    url: 'https://www.govdata.de/dl-de/by-2-0',
+    fullText:
+      'Aerial imagery of Rhineland-Palatinate. © GeoBasis-DE / LVermGeoRP, Digitale Orthophotos 20 cm, dl-de/by-2-0, http://www.lvermgeo.rlp.de.',
+  },
+  'saxony-anhalt': {
+    name: 'LVermGeo ST DOP20',
+    shortCredit: '© GeoBasis-DE / LVermGeo ST',
+    licence: 'dl-de/by-2.0',
+    url: 'https://www.govdata.de/dl-de/by-2-0',
+    fullText:
+      'Aerial imagery of Saxony-Anhalt. © GeoBasis-DE / LVermGeo ST, Digitale Orthophotos 20 cm, Datenlizenz Deutschland – Namensnennung – Version 2.0.',
+  },
+  saxony: {
+    name: 'GeoSN DOP20',
+    shortCredit: '© GeoSN',
+    licence: 'dl-de/by-2.0',
+    url: 'https://www.govdata.de/dl-de/by-2-0',
+    fullText:
+      'Aerial imagery of Saxony. © Landesamt für Geobasisinformation Sachsen (GeoSN), Digitale Orthophotos 20 cm, Datenlizenz Deutschland – Namensnennung – Version 2.0.',
+  },
+  'schleswig-holstein': {
+    name: 'LVermGeo SH DOP20',
+    shortCredit: '© GeoBasis-DE/LVermGeo SH/CC BY 4.0',
+    licence: 'CC BY 4.0',
+    url: 'https://creativecommons.org/licenses/by/4.0',
+    fullText:
+      'Aerial imagery of Schleswig-Holstein. © GeoBasis-DE/LVermGeo SH/CC BY 4.0, Digitale Orthophotos 20 cm.',
+  },
+  thuringia: {
+    name: 'GDI-Th DOP20',
+    shortCredit: '© GDI-Th',
+    licence: 'CC BY 4.0',
+    url: 'https://creativecommons.org/licenses/by/4.0/deed.de',
+    fullText:
+      'Aerial imagery of Thuringia. © GDI-Th, Digitale Orthophotos 20 cm, Creative Commons Namensnennung 4.0 (CC BY 4.0).',
   },
   eox: {
     name: 'EOX Sentinel-2 cloudless',

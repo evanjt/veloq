@@ -7,13 +7,14 @@
 // its styles must be relative, and its content security policy must allow
 // scripts and styles from itself only.
 //
-// The map reaches two places beyond the page: the relay, and the host the
-// basemap's tiles, glyphs and sprite come from. The policy names those two in
-// `connect-src`, beside `'self'` for the page's own locale chunks, and nothing
-// else, so a tile host added by hand, which would see the athlete's viewport,
-// fails here. Workers and decoded images come from
-// `blob:` and `data:`, which hold nothing the page did not fetch. Any other
-// directive allows nothing beyond the page itself.
+// The map reaches four places beyond the page: the relay, the host the
+// basemap's tiles, glyphs and sprite come from, the host of the satellite
+// imagery, and the one bucket path the elevation tiles of 3D terrain come
+// from. The policy names those four in `connect-src`, beside `'self'` for the
+// page's own locale chunks, and nothing else, so a tile host added by hand,
+// which would see the athlete's viewport, fails here. Workers and decoded
+// images come from `blob:` and `data:`, which hold nothing the page did not
+// fetch. Any other directive allows nothing beyond the page itself.
 //
 // The page's source, `web/connect/`, is read as the index holds it, so a
 // commit that adds a foreign load fails there. The built output,
@@ -52,9 +53,11 @@ const APP_SOURCE = /^@\//;
 const notRelative = (specifier) =>
   !/^\.{1,2}\//.test(specifier) && !APP_SOURCE.test(specifier) && !BUNDLED.has(specifier);
 
-/** The relay the page links through, and the host the basemap is drawn from. */
+/** The relay the page links through, the basemap's host, the satellite imagery's host and the elevation tiles' bucket path. */
 const RELAY = 'wss://auth.veloq.fit';
 const BASEMAP = 'https://tiles.openfreemap.org';
+const IMAGERY = 'https://tiles.maps.eox.at';
+const ELEVATION = 'https://s3.amazonaws.com/elevation-tiles-prod/';
 
 /** What each directive of the policy may name, beyond `'none'`. Any directive not listed may name `'self'`. */
 const ALLOWED_SOURCES = {
@@ -64,7 +67,7 @@ const ALLOWED_SOURCES = {
   'font-src': ["'self'"],
   'worker-src': ['blob:'],
   'img-src': ["'self'", 'data:', 'blob:'],
-  'connect-src': ["'self'", RELAY, BASEMAP],
+  'connect-src': ["'self'", RELAY, BASEMAP, IMAGERY, ELEVATION],
 };
 
 /** The policy's sources for one directive, or undefined when it has none. */

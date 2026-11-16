@@ -41,9 +41,22 @@ function nativeTilePrefix(): string {
   return `${mapPageBaseUrl()}veloq-tile`;
 }
 
-/** The extension the store files a tile under, ignoring any query string. */
-function extensionOf(template: string): string {
-  const path = template.split(/[?#]/)[0];
+/**
+ * The extension the store files a tile under, and the page asks for it by.
+ *
+ * A map service request names its image type in `FORMAT=image/<type>`, since
+ * its path ends in a service name or a script (`.fcgi`) that says nothing of
+ * the bytes, so that type is the extension. Any other template is filed under
+ * its path extension, ignoring the query string. The engine derives the same
+ * name, `extension_of` in `basemap/mod.rs`.
+ */
+export function tileExtension(template: string): string {
+  const bare = template.split('#')[0] ?? template;
+  const cut = bare.indexOf('?');
+  const path = cut < 0 ? bare : bare.slice(0, cut);
+  const query = cut < 0 ? '' : bare.slice(cut + 1);
+  const format = /(?:^|&)FORMAT=image\/([a-z0-9]{1,5})(?:&|$)/i.exec(query)?.[1];
+  if (format) return format.toLowerCase();
   const dot = path.lastIndexOf('.');
   if (dot < 0) return 'bin';
   const ext = path.slice(dot + 1).toLowerCase();
@@ -95,7 +108,7 @@ export function nativeTileUrls(
   } catch {
     return null;
   }
-  const file = `{z}/{x}/{y}.${extension ?? extensionOf(template)}`;
+  const file = `{z}/{x}/{y}.${extension ?? tileExtension(template)}`;
   return prefixes.map((prefix) => `${prefix}${source}/${file}`);
 }
 
@@ -103,7 +116,11 @@ export function nativeTileUrls(
 export interface CompositeProvider {
   /** The provider's own source name, which the store files its tiles under. */
   source: string;
-  /** The provider's upstream tile template. */
+  /**
+   * The provider's upstream tile template: `{z}/{x}/{y}`, or
+   * `{bbox-epsg-3857}` for a host that answers a WMS GetMap request by the
+   * tile's web-mercator bounding box.
+   */
   template: string;
   /** The shallowest tile zoom it is asked for. */
   minZoom: number;

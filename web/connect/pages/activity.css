@@ -1,0 +1,311 @@
+#activity-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
+  margin-top: 0;
+}
+
+#activity-top {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-md);
+  align-items: stretch;
+}
+
+#activity-map {
+  position: relative;
+  min-height: 440px;
+  overflow: hidden;
+  border: var(--stroke-1) solid var(--colour-card-edge);
+  border-radius: var(--web-radius-lg);
+}
+
+#activity-colour {
+  position: absolute;
+  top: var(--space-sm);
+  left: var(--space-sm);
+  z-index: 1;
+}
+
+#map-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  margin: 0;
+  border: var(--stroke-1) dashed var(--colour-card-edge);
+  border-radius: var(--web-radius-lg);
+  color: var(--colour-text-secondary);
+  font-size: var(--web-type-body-size);
+}
+
+#activity-top[data-map='none'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#activity-summary {
+  align-self: start;
+  column-width: 168px;
+  column-gap: var(--space-md);
+  padding: var(--space-md);
+  border: var(--stroke-1) solid var(--colour-card-edge);
+  border-radius: var(--web-radius-lg);
+  background: var(--colour-surface-raised);
+}
+
+/* The shell's rule spaces every section from the one above it; the grid's gap does that here. */
+#activity-summary section,
+#activity-page .ui-card {
+  margin-top: 0;
+}
+
+#activity-summary section {
+  min-width: 0;
+  padding-bottom: var(--space-sm-plus);
+  break-inside: avoid;
+}
+
+#activity-summary h2 {
+  margin: 0 0 var(--space-xxs);
+  overflow: hidden;
+  color: var(--colour-text-secondary);
+  font-size: var(--web-type-micro-size);
+  line-height: var(--web-type-micro-line);
+  font-weight: var(--web-type-micro-weight);
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+#activity-summary dl {
+  display: grid;
+  gap: var(--space-xs);
+  margin: 0;
+}
+
+#activity-summary dl > div {
+  min-width: 0;
+}
+
+#activity-summary dt {
+  overflow: hidden;
+  color: var(--colour-text-secondary);
+  font-size: var(--web-type-small-size);
+  line-height: var(--web-type-small-line);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#activity-summary dd {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--web-type-heading-size);
+  line-height: var(--web-type-heading-line);
+  font-weight: var(--web-type-heading-weight);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#chart .line-0 {
+  stroke: var(--line-0);
+}
+
+#chart .line-1 {
+  stroke: var(--line-1);
+}
+
+#chart .line-2 {
+  stroke: var(--line-2);
+}
+
+#chart .line-3 {
+  stroke: var(--line-3);
+}
+
+#chart .line-4 {
+  stroke: var(--line-4);
+}
+
+#chart .line-5 {
+  stroke: var(--line-5);
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--web-radius-sm);
+}
+
+.swatch.line-0 { background: var(--line-0); }
+
+.swatch.line-1 { background: var(--line-1); }
+
+.swatch.line-2 { background: var(--line-2); }
+
+.swatch.line-3 { background: var(--line-3); }
+
+#compare-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.compare-track {
+  stroke-width: 3;
+}
+
+.compare-track.line-0 { stroke: var(--line-0); }
+
+.compare-track.line-1 { stroke: var(--line-1); }
+
+.compare-track.line-2 { stroke: var(--line-2); }
+
+.compare-track.line-3 { stroke: var(--line-3); }
+
+
+#activity-lanes {
+  display: grid;
+  gap: var(--space-md);
+}
+
+#crosshair-reading {
+  font-variant-numeric: tabular-nums;
+  color: var(--colour-text-secondary);
+}
+
+#range-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md);
+  margin: var(--space-sm) 0;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--web-radius-md);
+  background: var(--colour-fill-neutral);
+  font-size: var(--web-type-small-size);
+  line-height: var(--web-type-small-line);
+  font-variant-numeric: tabular-nums;
+}
+
+#range-readout span:first-child {
+  color: var(--colour-text-secondary);
+}
+
+#activity-tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-md);
+  align-items: start;
+}
+
+#activity-tables a {
+  color: var(--primary);
+}
+
+.ui-detail-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm-plus);
+  min-height: var(--web-size-control);
+}
+
+.ui-detail-glyph {
+  display: inline-flex;
+  color: var(--colour-text-secondary);
+}
+
+.ui-detail-meta {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-xs) var(--space-sm-plus);
+  min-width: 0;
+}
+
+.ui-detail-meta p {
+  margin: 0;
+  font-size: var(--web-type-body-size);
+  line-height: var(--web-type-body-line);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-detail-meta .ui-detail-note {
+  color: var(--colour-text-secondary);
+  font-size: var(--web-type-small-size);
+}
+
+.ui-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+@media (max-width: 1100px) {
+  #activity-top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+#activity-tables .activity-zones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-md);
+  align-items: start;
+}
+
+#activity-tables tr[data-row] {
+  cursor: pointer;
+}
+
+/* An interval row's first cell carries the colour of the zone band it sits in. */
+#activity-tables tr[data-zone='1'] > td:first-child { box-shadow: inset 3px 0 0 var(--colour-zone-1); }
+#activity-tables tr[data-zone='2'] > td:first-child { box-shadow: inset 3px 0 0 var(--colour-zone-2); }
+#activity-tables tr[data-zone='3'] > td:first-child { box-shadow: inset 3px 0 0 var(--colour-zone-3); }
+#activity-tables tr[data-zone='4'] > td:first-child { box-shadow: inset 3px 0 0 var(--colour-zone-4); }
+#activity-tables tr[data-zone='5'] > td:first-child { box-shadow: inset 3px 0 0 var(--colour-zone-5); }
+#activity-tables tr[data-zone='6'] > td:first-child { box-shadow: inset 3px 0 0 var(--colour-zone-6); }
+#activity-tables tr[data-zone='7'] > td:first-child { box-shadow: inset 3px 0 0 var(--colour-zone-7); }
+
+.history-line {
+  display: block;
+  width: 96px;
+  height: 20px;
+  fill: none;
+  stroke: var(--colour-chart-series);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.history-line circle {
+  fill: var(--primary);
+  stroke: none;
+}
+
+/* Cutting a section: the two distances, the name and the length, beside the map. */
+#create-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm-plus) var(--space-md);
+}
+
+#create-section .panel-title,
+#create-section .meta {
+  margin: 0;
+}
+
+.create-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm-plus);
+}
+
+.create-length {
+  margin: 0;
+  font-variant-numeric: var(--web-numerals);
+}

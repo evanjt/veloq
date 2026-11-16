@@ -108,6 +108,7 @@ import {
   useExperimental,
 } from '@/features/settings';
 import { sourceFor } from '@/shared/app/source';
+import { takePostEntryRoute } from '@/shared/app/postEntryRoute';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
 import { reconsiderFallback } from '@/shared/native/eventFallback';
@@ -358,10 +359,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             // A failed read is not an absent identity: proceeding on it would sync
             // one athlete's credentials into a library that may be another's.
             let cachedAthleteId: string | undefined;
-            let garminLibraryId: string | undefined;
             try {
               cachedAthleteId = engine.getSetting('__athlete_id');
-              garminLibraryId = engine.getSetting('__garmin_library_id');
             } catch {
               return 'failed';
             }
@@ -370,8 +369,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             const action = launchIdentityAction(
               cachedAthleteId,
               credentialsAthleteId,
-              activityCount,
-              garminLibraryId
+              activityCount
             );
             if (action !== 'proceed' && __DEV__) {
               log.log(
@@ -503,7 +501,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       if (launchIdentityRef.current === 'pending') return undefined;
       // The root layout seats the tab group under the login screen of a cold
       // start, so the way in returns to it rather than stacking a second one.
-      const enterApp = () => router.dismissTo('/' as Href);
+      const enterApp = () => {
+        router.dismissTo('/' as Href);
+        // A destination the sign-in screen asked for opens over the tabs.
+        const next = takePostEntryRoute();
+        if (next) setTimeout(() => router.push(next as Href), 0);
+      };
       const engine = getEngine();
       const currentAthleteId = useAuthStore.getState().athleteId;
       // Update athlete ID for this account, only on a library whose identity

@@ -253,6 +253,7 @@ fn a_library_upgraded_with_stored_groups_reads_its_lines_after_the_load() {
                  ALTER TABLE strength_sessions DROP COLUMN current_exercise;
                  ALTER TABLE strength_sessions DROP COLUMN current_set;
                  ALTER TABLE strength_sessions DROP COLUMN rest_started_at;
+                 ALTER TABLE strength_sessions DROP COLUMN notes;
                  DROP TABLE remote_writes;
                  DROP TABLE activity_curves;
                  ALTER TABLE curve_bodies DROP COLUMN source;

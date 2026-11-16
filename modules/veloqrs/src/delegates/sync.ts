@@ -28,6 +28,8 @@ import {
   RangeCoverage,
   type LibraryCoverage,
   type FfiSyncStatus,
+  type FfiImportProgress,
+  FfiImportPhase,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 import { hasStarted, startResult } from './start';
@@ -85,6 +87,36 @@ export function clearGarminKey(host: DelegateHost): void {
 export function pullGarminNow(host: DelegateHost): boolean {
   if (!host.ready) return false;
   return host.timed('pullGarminNow', () => host.engine.sync().pullGarminNow());
+}
+
+/** Start importing the FIT files at `path`: a file, directory, zip or zip of zips. False when
+ *  the engine is not open or another import or the Garmin pass is running. */
+export function startImport(host: DelegateHost, path: string): boolean {
+  if (!host.ready) return false;
+  return host.timed('startImport', () => host.engine.sync().startImport(path));
+}
+
+/** Stop the import at its next file. What is stored stays. */
+export function cancelImport(host: DelegateHost): void {
+  if (!host.ready) return;
+  host.timed('cancelImport', () => host.engine.sync().cancelImport());
+}
+
+/** The import's state, counts and failures; idle with zero counts while the engine is closed. */
+export function importProgress(host: DelegateHost): FfiImportProgress {
+  if (!host.ready) {
+    return {
+      phase: FfiImportPhase.Idle,
+      seen: 0,
+      stored: 0,
+      alreadyStored: 0,
+      failed: 0,
+      otherFormat: 0,
+      skipped: 0,
+      failures: [],
+    };
+  }
+  return host.timed('importProgress', () => host.engine.sync().importProgress());
 }
 
 /** A webhook named this activity: the engine starts a Garmin pass when

@@ -19,3 +19,19 @@ pub(super) fn hmac_sha256(key: &[u8], parts: &[&[u8]]) -> [u8; 32] {
     }
     mac.finalize().into_bytes().into()
 }
+
+pub(super) struct Stream(Sha256);
+
+impl Stream {
+    pub(super) fn new() -> Self {
+        Self(Sha256::new())
+    }
+
+    pub(super) fn update(&mut self, bytes: &[u8]) {
+        self.0.update(bytes);
+    }
+
+    pub(super) fn finish(self) -> [u8; 32] {
+        self.0.finalize().into()
+    }
+}

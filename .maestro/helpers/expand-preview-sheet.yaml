@@ -1,0 +1,14 @@
+# Expand the detection preview's control sheet, so the parameter card is on screen.
+# The sheet opens collapsed and holds only the diff and the decision, so the card
+# is not in view until the handle is tapped. Runs only while the card is hidden.
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      notVisible:
+        id: "preview-param-panel"
+    commands:
+      - tapOn:
+          id: "preview-control-panel-handle"
+- assertVisible:
+    id: "preview-param-panel"

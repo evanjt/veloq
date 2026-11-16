@@ -154,7 +154,7 @@ impl ActivityManager {
 
     /// The recording identity survives retries before its library update lands.
     fn provisional_id(&self, recording_id: String) -> String {
-        format!("local-recording-{recording_id}")
+        crate::persistence::recordings::provisional_activity_id(&recording_id)
     }
 
     fn get_ids(&self) -> Result<Vec<String>, VeloqError> {

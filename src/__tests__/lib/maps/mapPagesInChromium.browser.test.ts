@@ -14,6 +14,8 @@
  * Runs with `npm run test:map-pages`, which needs a Chromium.
  */
 
+import type { MapTerrainSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
+import { buildSubjectTerrain } from '@/features/maps/lib/terrainSpec';
 import { Platform } from 'react-native';
 
 import { MAPLIBRE_GL_VERSION } from '@/features/maps/assets/maplibreRenderer.generated';
@@ -405,7 +407,7 @@ describe('the map pages in a headless Chromium', () => {
       true;
     `;
 
-    async function terrainOn(terrain: Record<string, unknown>) {
+    async function terrainOn(terrain: Partial<MapTerrainSpec>) {
       const page = await openSurface(browser);
       try {
         await page.evaluate(STUB_PICK);
@@ -424,7 +426,7 @@ describe('the map pages in a headless Chromium', () => {
     it(
       'turns to the camera the pick chooses when the terrain has a subject line',
       async () => {
-        const { bearing, picks } = await terrainOn({ subjectSource: 'ride' });
+        const { bearing, picks } = await terrainOn(buildSubjectTerrain({ subjectSource: 'ride' }));
 
         expect(picks).toHaveLength(1);
         expect(picks[0].coords).toBe(ROUTE.length);
@@ -436,7 +438,9 @@ describe('the map pages in a headless Chromium', () => {
     it(
       'keeps the opening bearing when the camera is pinned',
       async () => {
-        const { bearing, picks } = await terrainOn({ subjectSource: 'ride', cameraPinned: true });
+        const { bearing, picks } = await terrainOn(
+          buildSubjectTerrain({ subjectSource: 'ride', pinned: true })
+        );
 
         expect(picks).toEqual([]);
         expect(bearing).toBe(0);

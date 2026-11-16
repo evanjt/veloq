@@ -71,6 +71,36 @@ describe('the yearly history card', () => {
     await initialiseI18n('en-AU');
   });
 
+  it('lists every year closed until a year is opened', async () => {
+    const tree = await renderCard();
+
+    expect(tree.getByLabelText('Year 2026').props.accessibilityState.expanded).toBe(false);
+    expect(tree.getByLabelText('Year 2025').props.accessibilityState.expanded).toBe(false);
+    expect(tree.queryAllByTestId('calendar-month-time')).toHaveLength(0);
+    expect(tree.queryByText('Apr')).toBeNull();
+    expect(tree.queryByText('Sep')).toBeNull();
+
+    fireEvent.press(tree.getByLabelText('Year 2026'));
+
+    expect(tree.getByLabelText('Year 2026').props.accessibilityState.expanded).toBe(true);
+    expect(tree.getByLabelText('Year 2025').props.accessibilityState.expanded).toBe(false);
+    expect(tree.getByText('Apr')).toBeTruthy();
+    expect(tree.queryByText('Sep')).toBeNull();
+  });
+
+  it('keeps a single year closed until it is opened', async () => {
+    const tree = render(
+      <SectionStatsCards
+        calendarSummary={{ ...summary, years: [summary.years[0]] }}
+        isDark={false}
+        basis="speed"
+      />
+    );
+
+    expect(tree.getByLabelText('Year 2026').props.accessibilityState.expanded).toBe(false);
+    expect(tree.queryAllByTestId('calendar-month-time')).toHaveLength(0);
+  });
+
   it("draws no trophy for a month holding the year's best that is not the record", async () => {
     const tree = await renderCard();
 
@@ -109,6 +139,7 @@ describe('the yearly history card', () => {
 
   vaultIt("names what each month's count counts", async () => {
     const tree = await renderCard();
+    fireEvent.press(tree.getByLabelText('Year 2026'));
 
     expect(tree.getByText('1 traversal')).toBeTruthy();
     expect(tree.getByText('2 traversals')).toBeTruthy();

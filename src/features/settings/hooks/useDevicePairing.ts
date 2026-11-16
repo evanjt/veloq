@@ -4,6 +4,16 @@ import { remote } from 'veloqrs';
 import { confirmAction } from '@/shared/ui/dialog';
 import { remoteLink } from '../lib/remoteLinkSession';
 
+/**
+ * Starts pairing from an invitation the opening link carried. Nothing happens
+ * for a missing or empty code; the invitation goes through `read` exactly as
+ * a scanned one does, and a refusal leaves the screen as it was.
+ */
+export function pairFromLink(code: string | undefined, read: (qr: string) => boolean): boolean {
+  if (!code) return false;
+  return read(code);
+}
+
 export type PairingPhase = 'idle' | 'scanning' | 'waiting' | 'expired';
 
 const POLL_MS = 500;
@@ -14,7 +24,7 @@ const GIVE_UP_MS = 130_000;
  * Linking a browser: scan its code, wait in its room for it to prove the
  * secret, then ask the athlete. Only an accept pins the browser.
  */
-export function useDevicePairing(onLinked: () => void) {
+export function useDevicePairing(onLinked: () => void, inviteCode?: string | undefined) {
   const { t } = useTranslation();
   const [phase, setPhase] = useState<PairingPhase>('idle');
   const room = useRef<string | null>(null);
@@ -37,6 +47,15 @@ export function useDevicePairing(onLinked: () => void) {
     remoteLink.join(opened);
     setPhase('waiting');
     return true;
+  }, []);
+
+  // The opening link's invitation is read once, when the screen first mounts.
+  const invited = useRef(false);
+  useEffect(() => {
+    if (invited.current) return;
+    invited.current = true;
+    pairFromLink(inviteCode, read);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on mount
   }, []);
 
   const cancel = useCallback(() => {

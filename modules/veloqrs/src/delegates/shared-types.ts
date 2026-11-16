@@ -12,7 +12,6 @@ export type {
   FfiActivityIndicator,
   FfiActivityRouteHighlight,
   FfiMergeCandidate,
-  FfiSectionMatch,
 } from '../generated/veloqrs';
 
 /** Pre-computed daily activity intensity from Rust heatmap cache. */

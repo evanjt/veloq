@@ -27,11 +27,28 @@ export const km = (metres: number | null | undefined) =>
       ? `${oneDecimal(metres / METRES_PER_MILE)} mi`
       : `${oneDecimal(metres / 1000)} km`;
 
+/** A distance as a number in the unit `distanceUnit` names, for an axis that carries the unit in its title. */
+export const distanceValue = (metres: number) =>
+  oneDecimal(units === 'imperial' ? metres / METRES_PER_MILE : metres / 1000);
+
+/** Metres for a number typed in the unit `distanceUnit` names. */
+export const metresOfDistance = (value: number) =>
+  units === 'imperial' ? value * METRES_PER_MILE : value * 1000;
+
+/** The unit distances are written in. */
+export const distanceUnit = () => (units === 'imperial' ? 'mi' : 'km');
+
 export function clock(seconds: number | null | undefined) {
   if (seconds == null) return null;
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   return h > 0 ? `${h} h ${String(m).padStart(2, '0')} min` : `${m} min`;
+}
+
+/** A pace in decimal minutes per kilometre as minutes and seconds, `5:24`. */
+export function paceText(minutes: number): string {
+  const total = Math.round(minutes * 60);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
 export const kmh = (speed: number | null | undefined) =>
@@ -55,3 +72,14 @@ export const rate = (bytesPerSecond: number) =>
   bytesPerSecond < 1000
     ? `${Math.round(bytesPerSecond)} B/s`
     : `${oneDecimal(bytesPerSecond / 1000)} kB/s`;
+
+/** A moment in the phone's local time, as the page writes a start: `2026-11-06 06:00`. */
+export function localDateTime(milliseconds: number | null | undefined) {
+  if (milliseconds == null) return null;
+  const at = new Date(milliseconds);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
+}
+
+/** Whether distances are written in metres and kilometres. */
+export const metricUnits = () => units === 'metric';

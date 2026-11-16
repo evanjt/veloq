@@ -1,0 +1,66 @@
+# Stress Test: Chart Scrubbing, part 1 of 2
+# Rapidly toggles chart types to find render issues
+
+appId: ${APP_ID}
+tags:
+  - tier3
+  - pack-stress-long
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Navigate to activity detail with charts
+- runFlow:
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-0"
+      TARGET: "activity-detail-screen"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-screen"
+    timeout: 15000
+
+- extendedWaitUntil:
+    visible:
+      id: "chart-type-selector"
+    timeout: 10000
+
+# Rapidly toggle between chart types (5 rounds, first half)
+- repeat:
+    times: 5
+    commands:
+      - runFlow:
+          file: helpers/reveal-chart-type.yaml
+          env:
+            CHART_TYPE: heartrate
+      - tapOn:
+          id: "chart-type-heartrate"
+          optional: true
+      - runFlow:
+          file: helpers/reveal-chart-type.yaml
+          env:
+            CHART_TYPE: power
+      - tapOn:
+          id: "chart-type-power"
+          optional: true
+      - runFlow:
+          file: helpers/reveal-chart-type.yaml
+          env:
+            CHART_TYPE: elevation
+      - tapOn:
+          id: "chart-type-elevation"
+          optional: true
+      - runFlow:
+          file: helpers/reveal-chart-type.yaml
+          env:
+            CHART_TYPE: speed
+      - tapOn:
+          id: "chart-type-speed"
+          optional: true
+
+# Verify chart selector is still visible
+- assertVisible:
+    id: "chart-type-selector"
+
+- takeScreenshot: "screenshots/stress-chart-scrubbing-1-complete"

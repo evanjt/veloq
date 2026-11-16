@@ -4,7 +4,8 @@
 # rows under the card, so it reads as visible there. `below` and `above` compare
 # top edges, so a row counts as in view only once its caption starts below the
 # card's top and the caption under its slider starts above whatever is under
-# the card: the diff strip once there is a result. Before one nothing sits under
+# the card: the run's cost line once there is a result. The diff strip sits above
+# the card, so it bounds nothing. Before a result nothing sits under
 # the card, so the control panel's own bottom edge bounds it and a row counts
 # as in view once it is on screen. A run adds its progress under the card, so
 # any run in flight ends first. Each
@@ -41,7 +42,7 @@ appId: ${APP_ID}
             notVisible:
               id: "param-edit-${NEXT}"
               above:
-                id: "preview-diff-strip"
+                id: "preview-run-cost"
           times: 6
           commands:
             - swipe:
@@ -51,7 +52,7 @@ appId: ${APP_ID}
       - assertVisible:
           id: "param-edit-${NEXT}"
           above:
-            id: "preview-diff-strip"
+            id: "preview-run-cost"
 - runFlow:
     when:
       true: ${NEXT !== 'presets'}
@@ -81,7 +82,7 @@ appId: ${APP_ID}
             notVisible:
               id: "preset-default"
               above:
-                id: "preview-diff-strip"
+                id: "preview-run-cost"
           times: 6
           commands:
             - swipe:
@@ -91,7 +92,7 @@ appId: ${APP_ID}
       - assertVisible:
           id: "preset-default"
           above:
-            id: "preview-diff-strip"
+            id: "preview-run-cost"
 - runFlow:
     when:
       true: ${NEXT === 'presets'}

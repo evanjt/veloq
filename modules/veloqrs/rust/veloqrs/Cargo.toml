@@ -23,6 +23,9 @@ lock-trace = []
 # Runs the vault tests: edge cases and checks kept for a release run, ignored
 # otherwise so they cost every change nothing.
 vault = []
+# Set by the release script once a release build carries the sealed container,
+# so `every_released_sealed_archive_restores` refuses an empty release table.
+sealed-releases = []
 
 [dependencies]
 # Core algorithm library
@@ -59,7 +62,7 @@ base64 = "0.23"
 thiserror = "2"
 
 # FIT file parsing
-fitparser = "0.11"
+fitparser = "0.12"
 
 # Common
 log = "0.4"
@@ -74,6 +77,16 @@ png = "0.18"
 crc32fast = "1.5"
 rstar = "0.12"
 zip = { version = "9", default-features = false, features = ["deflate"] }
+quick-xml = "0.41"
+
+# The sealed backup container, `persistence::seal`, is the only user of these
+# three: Argon2id derives the key that wraps the data key, `getrandom` draws the
+# keys, salts and nonces, and `zeroize` clears the keys when they drop. Its
+# AES-256-GCM comes from the operating system on Apple targets, and from
+# `aes-gcm` in the non-Apple table below.
+argon2 = { version = "0.5", default-features = false, features = ["alloc"] }
+getrandom = "0.4"
+zeroize = "1.9"
 
 # The remote link's DTLS ciphers and the pairing's SHA-256 and HMAC: Apple targets
 # take them from the operating system (CryptoKit and the Security framework for the
@@ -88,6 +101,7 @@ str0m = { version = "0.25", default-features = false, features = ["apple-crypto"
 str0m = { version = "0.25", default-features = false, features = ["rust-crypto"] }
 hmac = "0.13"
 sha2 = "0.11"
+aes-gcm = { version = "0.11", features = ["zeroize"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
@@ -422,6 +436,10 @@ test = true
 [[example]]
 name = "released_library"
 path = "examples/released_library.rs"
+
+[[example]]
+name = "sealed_release_fixture"
+path = "examples/sealed_release_fixture.rs"
 
 [[example]]
 name = "stream_store_cost"

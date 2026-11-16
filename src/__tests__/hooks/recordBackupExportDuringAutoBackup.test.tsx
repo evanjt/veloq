@@ -79,6 +79,9 @@ const testBackend: BackupBackend = {
   upload: async () => 'veloq-backup.zip',
   download: async () => {},
   delete: async () => {},
+  putObject: async () => {},
+  listObjects: async () => [],
+  fetchObject: async () => {},
 };
 
 const mockCarriers: BackupBackend[] = [testBackend];

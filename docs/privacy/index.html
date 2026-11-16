@@ -418,17 +418,24 @@
         <p data-i18n="thirdParty.maps.desc">Each tile request carries your device's IP address and the coordinates of the map area shown, with no account or athlete ID:</p>
         <ul>
           <li data-i18n="thirdParty.maps.base">Base and dark map: OpenFreeMap / OpenStreetMap (tiles.openfreemap.org)</li>
-          <li data-i18n="thirdParty.maps.satellite">Satellite imagery: EOX Sentinel-2 (tiles.maps.eox.at), and by region swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl) and Luxembourg (wmts1-4.geoportail.lu)</li>
+          <li data-i18n="thirdParty.maps.satellite">Satellite imagery: EOX Sentinel-2 (tiles.maps.eox.at), and by region swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl) and Luxembourg (wmts1-4.geoportail.lu), Estonia (tiles.maaamet.ee), Wallonia (geoservices.wallonie.be), Slovenia (ipi.eprostor.gov.si), and for Germany the Länder Berlin (gdi.berlin.de), Brandenburg (isk.geobasis-bb.de), Bremen (geodienste.bremen.de), Baden-Württemberg (owsproxy.lgl-bw.de), Bayern (geoservices.bayern.de), Hessen (www.gds-srv.hessen.de), Niedersachsen (opendata.lgln.niedersachsen.de), Nordrhein-Westfalen (www.wms.nrw.de), Rheinland-Pfalz (geo4.service24.rlp.de), Sachsen (geodienste.sachsen.de), Sachsen-Anhalt (www.geodatenportal.sachsen-anhalt.de), Schleswig-Holstein (dienste.gdi-sh.de) and Thüringen (www.geoproxy.geoportal-th.de)</li>
           <li data-i18n="thirdParty.maps.terrain">3D terrain: AWS Terrain Tiles (s3.amazonaws.com)</li>
         </ul>
 
-        <h3 data-i18n="thirdParty.cloudflare.title">Cloudflare Workers (OAuth mode only)</h3>
+        <h3 data-i18n="thirdParty.cloudflare.title">Cloudflare Workers</h3>
         <ul>
           <li data-i18n="thirdParty.cloudflare.item1">Temporarily stores OAuth state parameters (5-minute TTL)</li>
           <li data-i18n="thirdParty.cloudflare.item2">If you opt in to push notifications: stores your athlete ID and an Expo push token (30-day TTL)</li>
           <li data-i18n="thirdParty.cloudflare.item3">Stores your IP address as a rate-limit counter for 60 seconds</li>
           <li data-i18n="thirdParty.cloudflare.item4">Records each webhook event handled (athlete ID, event type, activity ID, event time) for 5 minutes, so a re-delivered event is not pushed twice</li>
           <li data-i18n="thirdParty.cloudflare.item5">Does not store access tokens</li>
+        </ul>
+
+        <h3 data-i18n="thirdParty.link.title">Linked browser (experimental, off until you turn it on)</h3>
+        <ul>
+          <li data-i18n="thirdParty.link.item1">The link relay at auth.veloq.fit/link/ passes only offer, answer and candidate messages between your phone and the browser. It keeps no log and no payload, and counts requests per address in a counter for 60 seconds</li>
+          <li data-i18n="thirdParty.link.item2">The phone and the browser each ask a STUN server (stun.cloudflare.com) for their public address. It learns that address and never receives data</li>
+          <li data-i18n="thirdParty.link.item3">Your training data travels end to end between the phone and the browser and reaches no server of ours</li>
         </ul>
 
         <h3 data-i18n="thirdParty.google.title">Google Drive (Android, optional)</h3>
@@ -622,14 +629,18 @@
           "thirdParty.maps.title": "Map Tile Providers",
           "thirdParty.maps.desc": "Each tile request carries your device's IP address and the coordinates of the map area shown, with no account or athlete ID:",
           "thirdParty.maps.base": "Base and dark map: OpenFreeMap / OpenStreetMap (tiles.openfreemap.org)",
-          "thirdParty.maps.satellite": "Satellite imagery: EOX Sentinel-2 (tiles.maps.eox.at), and by region " + "swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl), Luxembourg (wmts1-4.geoportail.lu)",
+          "thirdParty.maps.satellite": "Satellite imagery: EOX Sentinel-2 (tiles.maps.eox.at), and by region " + "swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl), Luxembourg (wmts1-4.geoportail.lu), Estonia (tiles.maaamet.ee), Wallonia (geoservices.wallonie.be), Slovenia (ipi.eprostor.gov.si), and for Germany the Länder Berlin (gdi.berlin.de), Brandenburg (isk.geobasis-bb.de), Bremen (geodienste.bremen.de), Baden-Württemberg (owsproxy.lgl-bw.de), Bayern (geoservices.bayern.de), Hessen (www.gds-srv.hessen.de), Niedersachsen (opendata.lgln.niedersachsen.de), Nordrhein-Westfalen (www.wms.nrw.de), Rheinland-Pfalz (geo4.service24.rlp.de), Sachsen (geodienste.sachsen.de), Sachsen-Anhalt (www.geodatenportal.sachsen-anhalt.de), Schleswig-Holstein (dienste.gdi-sh.de) and Thüringen (www.geoproxy.geoportal-th.de)",
           "thirdParty.maps.terrain": "3D terrain: AWS Terrain Tiles (s3.amazonaws.com)",
-          "thirdParty.cloudflare.title": "Cloudflare Workers (OAuth mode only)",
+          "thirdParty.cloudflare.title": "Cloudflare Workers",
           "thirdParty.cloudflare.item1": "Temporarily stores OAuth state parameters (5-minute TTL)",
           "thirdParty.cloudflare.item2": "If you opt in to push notifications: stores your athlete ID and an Expo push token (30-day TTL)",
           "thirdParty.cloudflare.item3": "Stores your IP address as a rate-limit counter for 60 seconds",
           "thirdParty.cloudflare.item4": "Records each webhook event handled (athlete ID, event type, activity ID, event time) for 5 minutes, so a re-delivered event is not pushed twice",
           "thirdParty.cloudflare.item5": "Does not store access tokens",
+          "thirdParty.link.title": "Linked browser (experimental, off until you turn it on)",
+          "thirdParty.link.item1": "The link relay at auth.veloq.fit/link/ passes only offer, answer and candidate messages between your phone and the browser. It keeps no log and no payload, and counts requests per address in a counter for 60 seconds",
+          "thirdParty.link.item2": "The phone and the browser each ask a STUN server (stun.cloudflare.com) for their public address. It learns that address and never receives data",
+          "thirdParty.link.item3": "Your training data travels end to end between the phone and the browser and reaches no server of ours",
           "thirdParty.google.title": "Google Drive (Android, optional)",
           "thirdParty.google.item1": "Only when you sign in to Google for backups. It is off until you do",
           "thirdParty.google.item2": "Veloq asks Google for access to its own hidden app folder in your Drive and nothing else, so it cannot see your other files. Google Play services keeps the sign-in, and Veloq stores no Google password or token",
@@ -739,14 +750,18 @@
           "thirdParty.maps.title": "Proveedores de Mapas",
           "thirdParty.maps.desc": "Cada solicitud de teselas lleva la dirección IP de tu dispositivo y las coordenadas de la zona del mapa mostrada, sin cuenta ni ID de atleta:",
           "thirdParty.maps.base": "Mapa base y oscuro: OpenFreeMap / OpenStreetMap (tiles.openfreemap.org)",
-          "thirdParty.maps.satellite": "Imágenes satelitales: EOX Sentinel-2 (tiles.maps.eox.at), y según la región " + "swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl), Luxembourg (wmts1-4.geoportail.lu)",
+          "thirdParty.maps.satellite": "Imágenes satelitales: EOX Sentinel-2 (tiles.maps.eox.at), y según la región " + "swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl), Luxembourg (wmts1-4.geoportail.lu), Estonia (tiles.maaamet.ee), Wallonia (geoservices.wallonie.be), Slovenia (ipi.eprostor.gov.si), y en Alemania los Länder Berlin (gdi.berlin.de), Brandenburg (isk.geobasis-bb.de), Bremen (geodienste.bremen.de), Baden-Württemberg (owsproxy.lgl-bw.de), Bayern (geoservices.bayern.de), Hessen (www.gds-srv.hessen.de), Niedersachsen (opendata.lgln.niedersachsen.de), Nordrhein-Westfalen (www.wms.nrw.de), Rheinland-Pfalz (geo4.service24.rlp.de), Sachsen (geodienste.sachsen.de), Sachsen-Anhalt (www.geodatenportal.sachsen-anhalt.de), Schleswig-Holstein (dienste.gdi-sh.de) and Thüringen (www.geoproxy.geoportal-th.de)",
           "thirdParty.maps.terrain": "Terreno 3D: AWS Terrain Tiles (s3.amazonaws.com)",
-          "thirdParty.cloudflare.title": "Cloudflare Workers (solo modo OAuth)",
+          "thirdParty.cloudflare.title": "Cloudflare Workers",
           "thirdParty.cloudflare.item1": "Almacena temporalmente parámetros de estado OAuth (TTL de 5 minutos)",
           "thirdParty.cloudflare.item2": "Si activas las notificaciones push: almacena tu ID de atleta y un token push de Expo (TTL de 30 días)",
           "thirdParty.cloudflare.item3": "Almacena tu dirección IP como contador de límite de solicitudes durante 60 segundos",
           "thirdParty.cloudflare.item4": "Registra cada evento de webhook procesado (ID de atleta, tipo de evento, ID de actividad, hora del evento) durante 5 minutos, para no enviar dos veces un evento reenviado",
           "thirdParty.cloudflare.item5": "No almacena tokens de acceso",
+          "thirdParty.link.title": "Navegador vinculado (experimental, desactivado hasta que lo actives)",
+          "thirdParty.link.item1": "El relé de enlace en auth.veloq.fit/link/ solo transmite mensajes de oferta, respuesta y candidatos entre tu teléfono y el navegador. No guarda registro ni contenido, y cuenta las solicitudes por dirección en un contador durante 60 segundos",
+          "thirdParty.link.item2": "El teléfono y el navegador piden cada uno a un servidor STUN (stun.cloudflare.com) su dirección pública. Solo conoce esa dirección y nunca recibe datos",
+          "thirdParty.link.item3": "Tus datos de entrenamiento viajan de extremo a extremo entre el teléfono y el navegador y no llegan a ningún servidor nuestro",
           "thirdParty.google.title": "Google Drive (Android, opcional)",
           "thirdParty.google.item1": "Solo cuando inicias sesión en Google para las copias. Está desactivado hasta que lo hagas",
           "thirdParty.google.item2": "Veloq pide a Google acceso solo a su propia carpeta oculta de la app en tu Drive, así que no puede ver tus otros archivos. Los servicios de Google Play guardan la sesión, y Veloq no guarda ninguna contraseña ni token de Google",
@@ -856,14 +871,18 @@
           "thirdParty.maps.title": "Fournisseurs de Tuiles Cartographiques",
           "thirdParty.maps.desc": "Chaque requête de tuiles transmet l'adresse IP de votre appareil et les coordonnées de la zone de carte affichée, sans compte ni ID d'athlète :",
           "thirdParty.maps.base": "Carte de base et sombre: OpenFreeMap / OpenStreetMap (tiles.openfreemap.org)",
-          "thirdParty.maps.satellite": "Imagerie satellite: EOX Sentinel-2 (tiles.maps.eox.at), et selon la région " + "swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl), Luxembourg (wmts1-4.geoportail.lu)",
+          "thirdParty.maps.satellite": "Imagerie satellite: EOX Sentinel-2 (tiles.maps.eox.at), et selon la région " + "swisstopo (wmts.geo.admin.ch), IGN France (data.geopf.fr), USGS (imagery.nationalmap.gov), IGN Spain (www.ign.es), Vienna (maps.wien.gv.at), PDOK (service.pdok.nl), CUZK (ags.cuzk.gov.cz), GUGiK (mapy.geoportal.gov.pl), Luxembourg (wmts1-4.geoportail.lu), Estonia (tiles.maaamet.ee), Wallonia (geoservices.wallonie.be), Slovenia (ipi.eprostor.gov.si), et en Allemagne les Länder Berlin (gdi.berlin.de), Brandenburg (isk.geobasis-bb.de), Bremen (geodienste.bremen.de), Baden-Württemberg (owsproxy.lgl-bw.de), Bayern (geoservices.bayern.de), Hessen (www.gds-srv.hessen.de), Niedersachsen (opendata.lgln.niedersachsen.de), Nordrhein-Westfalen (www.wms.nrw.de), Rheinland-Pfalz (geo4.service24.rlp.de), Sachsen (geodienste.sachsen.de), Sachsen-Anhalt (www.geodatenportal.sachsen-anhalt.de), Schleswig-Holstein (dienste.gdi-sh.de) and Thüringen (www.geoproxy.geoportal-th.de)",
           "thirdParty.maps.terrain": "Terrain 3D: AWS Terrain Tiles (s3.amazonaws.com)",
-          "thirdParty.cloudflare.title": "Cloudflare Workers (mode OAuth uniquement)",
+          "thirdParty.cloudflare.title": "Cloudflare Workers",
           "thirdParty.cloudflare.item1": "Stocke temporairement les paramètres d'état OAuth (TTL de 5 minutes)",
           "thirdParty.cloudflare.item2": "Si vous activez les notifications push : stocke votre ID d'athlète et un jeton push Expo (TTL de 30 jours)",
           "thirdParty.cloudflare.item3": "Stocke votre adresse IP comme compteur de limitation de débit pendant 60 secondes",
           "thirdParty.cloudflare.item4": "Enregistre chaque événement webhook traité (ID d'athlète, type d'événement, ID d'activité, heure de l'événement) pendant 5 minutes, pour qu'un événement renvoyé ne soit pas notifié deux fois",
           "thirdParty.cloudflare.item5": "Ne stocke pas les jetons d'accès",
+          "thirdParty.link.title": "Navigateur lié (expérimental, désactivé tant que vous ne l'activez pas)",
+          "thirdParty.link.item1": "Le relais de liaison à auth.veloq.fit/link/ ne transmet que des messages d'offre, de réponse et de candidats entre votre téléphone et le navigateur. Il ne conserve ni journal ni contenu, et compte les requêtes par adresse dans un compteur pendant 60 secondes",
+          "thirdParty.link.item2": "Le téléphone et le navigateur demandent chacun leur adresse publique à un serveur STUN (stun.cloudflare.com). Il ne connaît que cette adresse et ne reçoit jamais de données",
+          "thirdParty.link.item3": "Vos données d'entraînement circulent de bout en bout entre le téléphone et le navigateur et n'atteignent aucun de nos serveurs",
           "thirdParty.google.title": "Google Drive (Android, facultatif)",
           "thirdParty.google.item1": "Uniquement lorsque vous vous connectez à Google pour les sauvegardes. Désactivé tant que vous ne le faites pas",
           "thirdParty.google.item2": "Veloq demande à Google l'accès à son propre dossier d'application masqué dans votre Drive et à rien d'autre, il ne peut donc pas voir vos autres fichiers. Les services Google Play conservent la connexion, et Veloq ne stocke aucun mot de passe ni jeton Google",

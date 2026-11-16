@@ -211,15 +211,21 @@ fn a_download_yields_the_fit_inside_the_zip() {
     });
     let got =
         crate::runtime::block_on(client(&server).download_original(4242, dispatch())).unwrap();
-    assert_eq!(got, fit);
+    assert_eq!(got, Some(fit));
     download.assert_calls(1);
 }
 
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
-fn a_zip_without_a_fit_is_a_decode_error() {
-    let err = endpoints::unzip_fit(&zip_of(&[("readme.txt", b"x")])).unwrap_err();
-    assert!(matches!(err, NetError::Decode(_)), "{err}");
+fn a_zip_without_a_fit_is_no_original_and_a_broken_zip_is_a_decode_error() {
+    assert_eq!(
+        endpoints::unzip_fit(&zip_of(&[("2026-10-20_ride.gpx", b"<gpx/>")])).unwrap(),
+        None
+    );
+    assert_eq!(
+        endpoints::unzip_fit(&zip_of(&[("readme.txt", b"x")])).unwrap(),
+        None
+    );
     assert!(matches!(
         endpoints::unzip_fit(b"not a zip"),
         Err(NetError::Decode(_))

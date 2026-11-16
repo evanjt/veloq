@@ -45,11 +45,9 @@ export type InsightsSettings = {
 
 /** The reads of the insights page, each kept as it answers. */
 export type InsightsParts = {
-  settings?: SettingValues;
-  data?: InsightsReply;
+  settings?: SettingValues | undefined;
+  data?: InsightsReply | undefined;
 };
-
-export const INSIGHTS_PARTS_KEY = 'insights-parts';
 
 function parsed(text: string | null | undefined): Record<string, unknown> {
   if (!text) return {};

@@ -144,6 +144,9 @@ function stubCarrier(id: 'webdav' | 'folder'): StubCarrier {
       }
     },
     delete: async () => {},
+    putObject: async () => {},
+    listObjects: async () => [],
+    fetchObject: async () => {},
   };
   return carrier;
 }

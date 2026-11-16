@@ -7,7 +7,7 @@ import type { ParseKeys } from 'i18next';
 import type { ChartData } from './chart';
 import { fitLines, type Box, type LatLng } from './fit';
 import { clock, km, kmh } from './format';
-import type { Card, Detail } from './session';
+import type { Card, Detail } from './feedReads';
 
 export const MAX_COMPARED = 4;
 

@@ -157,11 +157,27 @@ const LINE_COLUMNS: &[(&str, &str, &str)] = &[
     ),
 ];
 
+/// The columns of a table a backup carries when it carries only some. A table
+/// not listed here travels whole.
+///
+/// A recording's file paths name a disk the restored phone does not have, and
+/// its upload state and retry count describe this phone's queue, so only the
+/// athlete's own columns and the keys that name the ride travel.
+const RECORD_COLUMNS: &[(&str, &str)] = &[(
+    "recordings",
+    "id, athlete_id, kind, activity_type, start_time, name, notes, rpe, paired_event_id, \
+     intervals_activity_id",
+)];
+
 fn rows(db: &Connection, table: &str, filter: &str) -> Result<Vec<RecordRow>, String> {
     if !table_exists(db, table)? {
         return Ok(Vec::new());
     }
-    let sql = format!("SELECT * FROM {table} WHERE {filter}");
+    let columns = RECORD_COLUMNS
+        .iter()
+        .find_map(|(name, columns)| (*name == table).then_some(*columns))
+        .unwrap_or("*");
+    let sql = format!("SELECT {columns} FROM {table} WHERE {filter}");
     let mut statement = db.prepare(&sql).map_err(|e| e.to_string())?;
     let columns: Vec<String> = statement
         .column_names()
@@ -504,6 +520,8 @@ pub(crate) const RECORD_TABLES: &[(&str, &str)] = &[
     ("strength_session_sets", "1 = 1"),
     ("strength_session_groups", "1 = 1"),
     ("strength_session_rests", "1 = 1"),
+    ("strength_session_heart_rate", "1 = 1"),
+    ("recordings", "1 = 1"),
     ("section_activities", "excluded != 0"),
     ("activity_matches", "excluded != 0"),
     // After the sections, so a restore has recreated a hand-cut before
@@ -579,6 +597,7 @@ pub(crate) fn is_record_setting(key: &str) -> bool {
     // What the Garmin pull has fetched is the originals on this device.
     if DEVICE_SETTINGS.contains(&key)
         || crate::net::garmin::pull::SETTING_KEYS.contains(&key)
+        || crate::net::import::SETTING_KEYS.contains(&key)
         || crate::net::garmin_auto_swap::SETTING_KEYS.contains(&key)
     {
         return false;
@@ -941,6 +960,7 @@ mod tests {
         for key in ["veloq-garmin-feed", "veloq-garmin-upload"]
             .into_iter()
             .chain(crate::net::garmin::pull::SETTING_KEYS)
+            .chain(crate::net::import::SETTING_KEYS)
             .chain(crate::net::garmin_auto_swap::SETTING_KEYS)
         {
             assert!(!super::is_record_setting(key), "{key} travelled");
@@ -1561,7 +1581,10 @@ mod tests {
             .collect();
         let held: Vec<&str> = declared_tables()
             .iter()
-            .filter(|t| t.class != TableClass::Meta && t.class != TableClass::Device)
+            .filter(|t| {
+                (t.class != TableClass::Meta && t.class != TableClass::Device)
+                    || t.record_part.is_some()
+            })
             .map(|t| t.name)
             .collect();
         // A table the declaration calls record has to take its row. Any other

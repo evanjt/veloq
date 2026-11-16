@@ -454,6 +454,8 @@ fn spawn_tile_sweep(tiles_path: String, ground: Vec<SweepGround>, reason: &'stat
 /// removal has to clear them by hand. `overlap_cache` holds a pair, so it is
 /// cleared by its own statement.
 const ACTIVITY_KEYED_TABLES: &[&str] = &[
+    "ride_originals",
+    "ride_identity",
     "activity_sync_failures",
     "activity_held_back",
     "garmin_link_unresolved",
@@ -1403,6 +1405,59 @@ pub(crate) mod pooled {
             matched_count,
             has_more,
         })
+    }
+
+    /// How many stored bodies each sport family holds in the query's window
+    /// under its search, the family filter left out so a chip shows what
+    /// turning it on would list. Families with no body are absent. Reads the
+    /// same two metrics columns the page match reads, and a body the metrics
+    /// write missed is read from its payload the same way.
+    pub(crate) fn family_counts(
+        conn: &Connection,
+        query: &crate::FfiActivityBodiesQuery,
+    ) -> rusqlite::Result<Vec<(crate::FfiSportFamily, u32)>> {
+        let needle = query.needle.trim().to_lowercase();
+        let mut stmt = conn.prepare_cached(
+            "SELECT m.name, m.sport_type, b.raw
+             FROM activity_bodies b
+             LEFT JOIN activity_metrics m ON m.activity_id = b.activity_id
+             WHERE b.date >= ?1 AND b.date <= ?2",
+        )?;
+        let mut rows = stmt.query(params![
+            query.oldest_ts.map_or(i64::MIN, |ts| ts as i64),
+            query.newest_ts.map_or(i64::MAX, |ts| ts as i64)
+        ])?;
+        let mut counts = [0u32; crate::FfiSportFamily::ALL.len()];
+        while let Some(row) = rows.next()? {
+            let (name, sport) = match (
+                row.get::<_, Option<String>>(0)?,
+                row.get::<_, Option<String>>(1)?,
+            ) {
+                (Some(name), Some(sport)) => (name, sport),
+                _ => match serde_json::from_str::<serde_json::Value>(&row.get::<_, String>(2)?) {
+                    Ok(body) => (
+                        body["name"].as_str().unwrap_or_default().to_owned(),
+                        body["type"].as_str().unwrap_or_default().to_owned(),
+                    ),
+                    Err(_) => continue,
+                },
+            };
+            if !needle.is_empty()
+                && !name.to_lowercase().contains(&needle)
+                && !sport.to_lowercase().contains(&needle)
+            {
+                continue;
+            }
+            let family = crate::FfiSportFamily::of(&sport);
+            if let Some(at) = crate::FfiSportFamily::ALL.iter().position(|f| *f == family) {
+                counts[at] += 1;
+            }
+        }
+        Ok(crate::FfiSportFamily::ALL
+            .into_iter()
+            .zip(counts)
+            .filter(|(_, count)| *count > 0)
+            .collect())
     }
 
     /// The bodies in a window, newest first, narrowed by a search and a sport
@@ -2810,7 +2865,8 @@ impl PersistentEngine {
     /// table missing from this list survives indefinitely.
     ///
     /// The list stays hand-ordered because the order is a foreign-key order,
-    /// not an alphabetical one. What holds it to the schema is
+    /// not an alphabetical one; the strength session tables are the exception,
+    /// taken in reverse from `SESSION_TABLES`. What holds it to the schema is
     /// `clear_wipes_every_table`, and what decides which tables belong in it is
     /// `persistence::tables`, read by that test rather than restated here.
     pub fn clear(&mut self) -> SqlResult<()> {
@@ -2848,6 +2904,8 @@ impl PersistentEngine {
              DELETE FROM activity_curves;
              DELETE FROM calendar_event_bodies;
              DELETE FROM exercise_sets;
+             DELETE FROM ride_originals;
+             DELETE FROM ride_identity;
              DELETE FROM exercise_usage;
              DELETE FROM exercise_followers;
              DELETE FROM strength_signatures;
@@ -2874,13 +2932,14 @@ impl PersistentEngine {
              DELETE FROM retired_ground_lines;
              DELETE FROM retired_ground_pairs;
              DELETE FROM route_group_sizes;
-             DELETE FROM linked_devices;
-             DELETE FROM strength_session_rests;
-             DELETE FROM strength_session_groups;
-             DELETE FROM strength_session_sets;
-             DELETE FROM strength_session_exercises;
-             DELETE FROM strength_sessions;",
+             DELETE FROM linked_devices;",
         )?;
+        // The session tables are the athlete's own, listed once in
+        // `SESSION_TABLES` beside the record backup. Reversed, a child table
+        // goes before the session row it hangs off.
+        for table in super::strength_sessions::SESSION_TABLES.iter().rev() {
+            tx.execute(&format!("DELETE FROM {table}"), [])?;
+        }
 
         // Settings survive `clear()` on purpose, but detector, owner and record
         // restore keys describe the library that was just deleted. Left
@@ -2900,7 +2959,6 @@ impl PersistentEngine {
             super::cutover::CUTOVER_ARCHIVE_KEY,
             super::settings_keys::SECTION_CONFIG_JSON,
             super::settings_keys::ATHLETE_ID,
-            super::settings_keys::GARMIN_LIBRARY_ID,
             super::settings_keys::SECTION_PROXIMITY_THRESHOLD,
             super::settings_keys::SECTION_MIN_LENGTH,
             super::settings_keys::SECTION_MIN_ACTIVITIES,
@@ -2934,6 +2992,7 @@ impl PersistentEngine {
         for key in library_keys
             .into_iter()
             .chain(crate::net::garmin::pull::SETTING_KEYS)
+            .chain(crate::net::import::SETTING_KEYS)
         {
             stmt.execute(params![key])?;
         }
@@ -2958,6 +3017,9 @@ impl PersistentEngine {
             )?;
         }
         tx.commit()?;
+        // A collection a linked browser was sending is the deleted library's
+        // too, and its spool is the athlete's rides on disk.
+        crate::remote::import::forget_all_beside(&self.db_path);
 
         self.activity_metadata.clear();
         self.activity_metrics.clear();
@@ -3052,20 +3114,28 @@ impl PersistentEngine {
     /// section's replacement of one.
     /// Every spared section comes back memberless until the next detect
     /// re-matches it.
+    /// An activity is deleted only when intervals.icu sends it again; a key
+    /// minted here with no upload behind it stays, and `activities_kept`
+    /// counts it.
     pub fn clear_derived(&mut self) -> SqlResult<DerivedClear> {
         let tx = self.db.unchecked_transaction()?;
         let sections_removed = wipe_derived_catalogue(&tx)?;
+        // Only a row intervals.icu sends again is the engine's to delete: a
+        // key minted here with no upload behind it has no other copy.
+        let doomed = format!(
+            "FROM activities a WHERE {} AND {REFERENCE_ACTIVITY_EXCLUSION}",
+            super::streams::SERVER_REFILLABLE_SQL,
+        );
+        // A row that fails to read is an unreadable dormant reference, and the
+        // clear stops there rather than keep going with a partial list.
         let removed_ids: Vec<String> = tx
-            .prepare(&format!(
-                "SELECT id FROM activities WHERE {REFERENCE_ACTIVITY_EXCLUSION}"
-            ))?
+            .prepare(&format!("SELECT a.id {doomed}"))?
             .query_map([], |row| row.get::<_, String>(0))?
-            .filter_map(Result::ok)
-            .collect();
-        let activities_removed = tx.execute(
-            &format!("DELETE FROM activities WHERE {REFERENCE_ACTIVITY_EXCLUSION}"),
-            [],
-        )?;
+            .collect::<SqlResult<_>>()?;
+        let mut activities_removed = 0;
+        for id in &removed_ids {
+            activities_removed += tx.execute("DELETE FROM activities WHERE id = ?1", [id])?;
+        }
         for id in &removed_ids {
             delete_activity_keyed_rows(&tx, id, KeepAthleteRows::Yes)?;
         }
@@ -6089,6 +6159,76 @@ mod tests {
         assert!(!engine.has_activity("a1"));
     }
 
+    fn track_of(engine: &mut PersistentEngine, id: &str) {
+        let coords = vec![
+            GpsPoint {
+                latitude: 47.0,
+                longitude: 8.0,
+                elevation: None,
+            },
+            GpsPoint {
+                latitude: 47.1,
+                longitude: 8.1,
+                elevation: None,
+            },
+        ];
+        engine
+            .add_activity(id.to_string(), coords, "Ride".to_string())
+            .unwrap();
+    }
+
+    fn held_ids(engine: &PersistentEngine) -> Vec<String> {
+        let mut stmt = engine
+            .db
+            .prepare("SELECT id FROM activities ORDER BY id")
+            .unwrap();
+        stmt.query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect()
+    }
+
+    #[test]
+    fn clearing_derived_keeps_rides_no_sync_refills() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        for id in [
+            "12345",
+            "src-garmin-777",
+            "src-fit-abc",
+            "local-rec",
+            "local-sent",
+        ] {
+            track_of(&mut engine, id);
+        }
+        engine
+            .db
+            .execute(
+                "UPDATE activities SET intervals_id = 'i99' WHERE id = 'local-sent'",
+                [],
+            )
+            .unwrap();
+
+        let cleared = engine.clear_derived().unwrap();
+
+        assert_eq!(
+            held_ids(&engine),
+            vec!["local-rec", "src-fit-abc", "src-garmin-777"]
+        );
+        assert_eq!(cleared.activities_removed, 2);
+        assert_eq!(cleared.activities_kept, 3);
+        for id in ["local-rec", "src-fit-abc", "src-garmin-777"] {
+            let tracks: i64 = engine
+                .db
+                .query_row(
+                    "SELECT COUNT(*) FROM gps_tracks WHERE activity_id = ?1",
+                    [id],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(tracks, 1, "{id} lost its track");
+        }
+    }
+
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn clearing_derived_activities_drops_their_metrics_from_memory() {
@@ -6155,13 +6295,19 @@ mod tests {
     #[test]
     fn clear_forgets_garmin_pull_state() {
         let mut engine = PersistentEngine::in_memory().unwrap();
-        for key in crate::net::garmin::pull::SETTING_KEYS {
+        for key in crate::net::garmin::pull::SETTING_KEYS
+            .into_iter()
+            .chain(crate::net::import::SETTING_KEYS)
+        {
             engine.set_setting(key, "1").unwrap();
         }
 
         engine.clear().unwrap();
 
-        for key in crate::net::garmin::pull::SETTING_KEYS {
+        for key in crate::net::garmin::pull::SETTING_KEYS
+            .into_iter()
+            .chain(crate::net::import::SETTING_KEYS)
+        {
             assert_eq!(
                 engine.get_setting(key).unwrap(),
                 None,

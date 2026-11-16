@@ -71,6 +71,12 @@ pub struct FfiRecordingEntry {
     pub rpe_sent: bool,
 }
 
+/// The key a recording's library row is written under before the upload gives
+/// it an id.
+pub fn provisional_activity_id(recording_id: &str) -> String {
+    format!("local-recording-{recording_id}")
+}
+
 const COLUMNS: &str = "id, kind, fit_path, streams_path, activity_type, name, start_time, \
      duration_seconds, distance_meters, elevation_gain, avg_heartrate, paired_event_id, \
      created_at, upload_status, retry_count, last_attempt_at, last_error, \

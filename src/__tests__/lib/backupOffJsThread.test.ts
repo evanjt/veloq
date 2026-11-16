@@ -60,6 +60,9 @@ const uploadBackend: BackupBackend = {
   upload: (localPath, metadata) => upload(localPath, metadata),
   download: async () => {},
   delete: async () => {},
+  putObject: async () => {},
+  listObjects: async () => [],
+  fetchObject: async () => {},
 };
 const mockCarriers: BackupBackend[] = [uploadBackend];
 jest.mock('@/features/settings/lib/autobackup/backends/carriers', () => ({

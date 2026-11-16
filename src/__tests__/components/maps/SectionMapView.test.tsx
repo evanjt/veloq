@@ -191,8 +191,15 @@ describe('SectionMapView', () => {
 
     await fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
     expect(surfaceTerrain()).toEqual(
-      expect.objectContaining({ exaggeration: expect.any(Number), pitch: expect.any(Number) })
+      expect.objectContaining({
+        exaggeration: expect.any(Number),
+        pitch: expect.any(Number),
+        subjectSource: 'section',
+        cameraPinned: false,
+      })
     );
+    const { sources, terrain } = screen.UNSAFE_getByType(MapSurface).props;
+    expect(sources).toHaveProperty(terrain.subjectSource);
     expect(screen.UNSAFE_getAllByType(MapSurface)).toHaveLength(1);
 
     await fireEvent.press(screen.getByTestId('section-map-3d-toggle'));

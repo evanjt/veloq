@@ -18,6 +18,9 @@ const DIR = path.join(__dirname, '../../../web/connect');
 const NOT_TEXT = new Set([
   'Veloq',
   'Ride',
+  'Cycling',
+  'Running',
+  'Swimming',
   'Esc',
   'Escape',
   'ArrowRight',
@@ -25,6 +28,8 @@ const NOT_TEXT = new Set([
   'currentColor',
   'Fi',
   'SupersededError',
+  'CancelledError',
+  'ReplyTimeout',
   'veloq link room',
   'phone locked',
 ]);

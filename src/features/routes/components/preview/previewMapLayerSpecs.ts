@@ -6,7 +6,7 @@
  * rebuild, and the layer count stays fixed.
  */
 
-import type { MapPalette } from '@/theme';
+import { colourIndexExpression, type MapPalette } from '@/theme';
 import { previewAreaLayerSpec } from '@/features/routes/lib/previewAreaOutline';
 import { EMPTY_FEATURE_COLLECTION, type MapLayerSpec, type MapSourceSpec } from '@/features/maps';
 
@@ -71,7 +71,12 @@ export function buildPreviewLayers(
     ? layer.proposed
     : diffRun
       ? layer.current
-      : ['coalesce', ['get', 'color'], layer.current];
+      : [
+          'case',
+          ['has', 'colorIndex'],
+          colourIndexExpression(layer.sections, ['get', 'colorIndex']),
+          layer.current,
+        ];
   const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
   return [
     previewAreaLayerSpec(palette),

@@ -33,6 +33,22 @@ export function waitingKey(state: State): ParseKeys {
   return state.long ? 'connectPage.waiting.long' : 'connectPage.waiting.body';
 }
 
+/** The message a read carries while the link is down, told apart from a failure of the phone. */
+export const NOT_CONNECTED = 'not connected';
+
+/** The states of pairing a browser that has no phone linked yet. */
+export const PAIRING = new Set<State['name']>(['unpaired', 'inviting', 'proving', 'confirming']);
+
+/** The states in which the link is trying to reach the phone, under a banner on the page. */
+export function isLinking(state: State): boolean {
+  return state.name === 'waiting' || state.name === 'connecting';
+}
+
+/** The states a retry acts on: the link is trying again, or the phone needs an update. */
+export function canRetry(state: State): boolean {
+  return isLinking(state) || state.name === 'update';
+}
+
 export type Tone = 'live' | 'waiting' | 'idle' | 'warning';
 
 const TONE: Record<State['name'], Tone> = {

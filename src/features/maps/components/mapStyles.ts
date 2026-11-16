@@ -17,6 +17,7 @@ import {
 import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
 import { NATURAL_EARTH_ORIGIN } from '@/features/maps/styles/liberty/sources';
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
+import { GERMAN_LAND_BOXES, type GermanLandId } from '@/features/maps/lib/germanLandBoxes';
 
 export type MapStyleType = 'light' | 'dark' | 'satellite';
 
@@ -31,7 +32,11 @@ export type SatelliteSourceId =
   | 'netherlands'
   | 'czechia'
   | 'poland'
-  | 'luxembourg';
+  | 'luxembourg'
+  | 'estonia'
+  | 'wallonia'
+  | 'slovenia'
+  | GermanLandId;
 
 // Base styles the surfaces load. Liberty is embedded locally rather than
 // fetched, so a cold map does not wait on a style request and the CDN cannot
@@ -115,6 +120,48 @@ const REGIONS = {
     maxLng: 6.53,
     minZoom: 8,
   },
+  // Estonia
+  estonia: {
+    minLat: 57.9,
+    maxLat: 59.65,
+    minLng: 21.7,
+    maxLng: 27.7,
+    minZoom: 8,
+  },
+  // Wallonia
+  wallonia: {
+    minZoom: 8,
+  },
+  // Slovenia
+  slovenia: {
+    minLat: 45.47,
+    maxLat: 46.88,
+    minLng: 13.5,
+    maxLng: 16.62,
+    minZoom: 8,
+  },
+  // The German Länder with open orthophotos over WMS, each the extent of its boxes. A WMS
+  // renders a tile on demand from imagery of 20 to 40 cm, so each starts at the zoom where a
+  // tile is a district, not a Land.
+  berlin: { minLat: 52.39, maxLat: 52.65, minLng: 13.13, maxLng: 13.74, minZoom: 10 },
+  bremen: { minLat: 53.02, maxLat: 53.21, minLng: 8.52, maxLng: 8.97, minZoom: 10 },
+  'baden-wuerttemberg': { minLat: 47.56, maxLat: 49.77, minLng: 7.56, maxLng: 10.42, minZoom: 10 },
+  bavaria: { minLat: 47.3, maxLat: 50.54, minLng: 9.07, maxLng: 13.79, minZoom: 10 },
+  brandenburg: { minLat: 51.38, maxLat: 53.46, minLng: 11.3, maxLng: 14.73, minZoom: 10 },
+  hesse: { minLat: 49.53, maxLat: 51.63, minLng: 7.87, maxLng: 10.13, minZoom: 10 },
+  'lower-saxony': { minLat: 51.33, maxLat: 53.88, minLng: 6.72, maxLng: 11.5, minZoom: 10 },
+  'north-rhine-westphalia': {
+    minLat: 50.38,
+    maxLat: 52.5,
+    minLng: 5.91,
+    maxLng: 9.38,
+    minZoom: 10,
+  },
+  'rhineland-palatinate': { minLat: 49, maxLat: 50.88, minLng: 6.16, maxLng: 8.45, minZoom: 10 },
+  'saxony-anhalt': { minLat: 50.98, maxLat: 52.99, minLng: 10.59, maxLng: 13.14, minZoom: 10 },
+  saxony: { minLat: 50.19, maxLat: 51.64, minLng: 11.94, maxLng: 14.99, minZoom: 10 },
+  'schleswig-holstein': { minLat: 53.39, maxLat: 54.9, minLng: 8.43, maxLng: 11.28, minZoom: 10 },
+  thuringia: { minLat: 50.22, maxLat: 51.62, minLng: 9.95, maxLng: 12.63, minZoom: 10 },
 } as const;
 
 /** Geographic bounds, [west, south, east, north]. */
@@ -145,6 +192,26 @@ export const SATELLITE_TILE_SIZE = 128;
 
 /** Every provider serves JPEG, and the composite answers its tiles under that name. */
 const SATELLITE_TILE_EXTENSION = 'jpg';
+
+/**
+ * The template of a Land's orthophoto service that has no tile grid in web mercator zoom
+ * levels, so it is asked through WMS GetMap for each tile's bounding box instead.
+ */
+function wmsOrthophotoTemplate(service: string, layer: string): string {
+  const query = [
+    'SERVICE=WMS',
+    'VERSION=1.3.0',
+    'REQUEST=GetMap',
+    `LAYERS=${layer}`,
+    'STYLES=',
+    'CRS=EPSG:3857',
+    'WIDTH=256',
+    'HEIGHT=256',
+    'FORMAT=image/jpeg',
+    'BBOX={bbox-epsg-3857}',
+  ].join('&');
+  return `${service}?${query}`;
+}
 
 // Satellite tile sources - all commercially licensed
 export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
@@ -230,7 +297,8 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
       [-5.142, 45.818, 7.05, 46.55], // Haute-Savoie, Chamonix and the lake shore
       [-5.142, 46.55, 6.95, 47.5], // Jura and Doubs
       [-5.142, 47.5, 7.45, 47.85], // Sundgau, west of Basel
-      [-5.142, 47.85, 8.25, 51.089], // Alsace north of Switzerland, and the rest
+      [-5.142, 47.85, 3.2, 51.089], // Alsace north of Switzerland, and the rest, to Lille
+      [3.2, 47.85, 8.25, 50.4], // Hainaut, the Ardennes and Lorraine, below Belgium
     ],
   },
   // USA: USGS NAIP (Public Domain - commercial OK)
@@ -271,7 +339,14 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 21,
     attribution: MAP_SOURCE_CREDITS.netherlands.shortCredit,
-    bounds: [3.37, 50.75, 7.21, 53.55],
+    // A staircase down the Belgian border. The single box ran south to 50.75
+    // from 3.37E, which holds Brussels, Antwerp and Ghent, and PDOK answers
+    // nothing over them.
+    boxes: [
+      [3.37, 51.2, 4.2, 51.5], // Zeeuws-Vlaanderen
+      [4.2, 51.45, 5.6, 53.55], // Zeeland, Brabant and the north
+      [5.6, 50.75, 7.21, 53.55], // Limburg and the east
+    ],
   },
   // Czech Republic: CUZK Orthophoto (CC BY 4.0 since July 2023 - commercial OK)
   czechia: {
@@ -305,6 +380,232 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     maxzoom: 21,
     attribution: MAP_SOURCE_CREDITS.luxembourg.shortCredit,
     bounds: [5.73, 49.44, 6.53, 50.18],
+  },
+  // Estonia: orthophoto of the Republic of Estonia Land and Spatial Development Board
+  // (Maa- ja Ruumiamet), open data licence (commercial use permitted, attribution required).
+  // Over Riga the service answers a 116-byte blank PNG with status 200, not a 404,
+  // so the boxes stop short of the Latvian and Russian borders and of the Finnish
+  // coast. They are drawn from named places inside the border, not from a boundary
+  // dataset, so the margin is a few kilometres on each side. Parts of the south-east
+  // corner, Ruhnu and Narva are left to the global imagery as a result. The GMC
+  // matrix set has no level past 18.
+  estonia: {
+    tiles: ['https://tiles.maaamet.ee/tm/wmts/1.0.0/foto/default/GMC/{z}/{y}/{x}.jpg'],
+    tileSize: SATELLITE_TILE_SIZE,
+    maxzoom: 18,
+    attribution: MAP_SOURCE_CREDITS.estonia.shortCredit,
+    boxes: [
+      [21.7, 57.95, 23.5, 59.3], // Saaremaa, Hiiumaa and the western islands
+      [23.5, 58.05, 26.0, 59.65], // Pärnu, Tallinn and the north-western coast
+      [26.0, 57.9, 27.2, 59.3], // Tartu, Otepää and the south-east, north of Valga
+      [26.0, 59.3, 27.0, 59.65], // Rakvere, Tapa and the north-east
+      [27.0, 59.33, 27.7, 59.65], // Jõhvi and the north-east county
+    ],
+  },
+  // Wallonia: SPW Orthophotos (CC BY 4.0 with the source named - commercial OK)
+  //
+  // The service's own tile grid is Belgian Lambert 72, so only its WMS serves
+  // web-mercator tiles, by the tile's bounding box. Its metadata sets no
+  // maximum scale; the imagery is flown at 25 cm, which a 256-pixel tile
+  // resolves at tile zoom 19.
+  //
+  // A staircase along the French, Luxembourg and German borders and the
+  // Flemish and Brussels edge. It sits beneath Luxembourg and the Netherlands,
+  // which hold the ground their boxes reach, and above IGN, whose boxes run on
+  // to the north-east corner of France and would otherwise answer 404 over
+  // Belgium.
+  wallonia: {
+    tiles: [
+      'https://geoservices.wallonie.be/arcgis/services/IMAGERIE/ORTHO_LAST/MapServer/WMSServer?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=0&STYLES=&CRS=EPSG:3857&WIDTH=256&HEIGHT=256&FORMAT=image/jpeg&BBOX={bbox-epsg-3857}',
+    ],
+    tileSize: SATELLITE_TILE_SIZE,
+    maxzoom: 19,
+    attribution: MAP_SOURCE_CREDITS.wallonia.shortCredit,
+    boxes: [
+      [2.95, 50.72, 3.2, 50.8], // Comines-Warneton
+      [3.2, 50.58, 3.6, 50.76], // Mouscron and Tournai
+      [3.6, 50.42, 3.9, 50.76], // Péruwelz and Ath
+      [3.9, 50.33, 4.25, 50.76], // Mons and Binche
+      [4.25, 50.0, 4.6, 50.74], // Charleroi, Chimay and the Brabant Walloon
+      [4.6, 50.02, 4.8, 50.74], // Gembloux and the Viroin
+      [4.8, 50.15, 5.05, 50.74], // Namur and Dinant
+      [4.9, 49.9, 5.05, 50.15], // Gedinne
+      [5.05, 49.74, 5.3, 50.74], // Bouillon and the Hesbaye
+      [5.3, 49.5, 5.73, 50.74], // Liège, Virton and Bastogne
+      [5.73, 50.18, 6.15, 50.74], // Malmedy, Spa and Eupen, north of Luxembourg
+      [6.15, 50.2, 6.4, 50.5], // The Eastern Cantons
+    ],
+  },
+  // Slovenia: GURS DOF025 orthophoto over its WMS (CC BY 4.0 - commercial OK)
+  //
+  // The service answers a blank 200 outside its data, so the boxes are a
+  // staircase that stops at the Italian, Austrian, Croatian and Hungarian
+  // borders. It is listed above Austria in the stack: Austria's box reaches
+  // south to 46.37 and holds Kranjska Gora and Maribor, which Slovenia must
+  // draw. The WMS names no tile grid, so the engine fills the bbox
+  // placeholder with each tile's edges.
+  slovenia: {
+    tiles: [
+      'https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=SI.GURS.ZPDZ:DOF025_3857&STYLES=&CRS=EPSG:3857&WIDTH=256&HEIGHT=256&FORMAT=image/jpeg&BBOX={bbox-epsg-3857}',
+    ],
+    tileSize: SATELLITE_TILE_SIZE,
+    maxzoom: 20,
+    attribution: MAP_SOURCE_CREDITS.slovenia.shortCredit,
+    boxes: [
+      [13.58, 45.47, 13.88, 45.6], // The coast around Koper
+      [13.88, 45.5, 14.0, 45.75], // The Karst, east of Trieste
+      [13.7, 45.75, 14.0, 45.9], // The Vipava valley
+      [13.63, 45.9, 14.0, 46.0], // Nova Gorica, beside Gorizia
+      [13.5, 46.0, 14.0, 46.38], // The Soča valley, east of Italy
+      [13.7, 46.38, 14.0, 46.5], // Kranjska Gora, south of the Karawanks
+      [14.0, 45.5, 14.7, 46.48], // Ljubljana and the Karawanks, south of Klagenfurt
+      [14.7, 45.45, 15.1, 46.6], // Kočevje and the Savinja Alps
+      [15.1, 45.5, 15.72, 46.66], // Celje, Maribor and the Sutla
+      [15.72, 46.3, 16.1, 46.66], // Ptuj and Ljutomer
+      [16.1, 46.4, 16.62, 46.88], // Prekmurje
+    ],
+  },
+  // Berlin: TrueDOP 2024 (dl-de/zero-2.0 - commercial OK, no attribution required)
+  berlin: {
+    tiles: [
+      wmsOrthophotoTemplate('https://gdi.berlin.de/services/wms/truedop_2024', 'truedop_2024'),
+    ],
+    tileSize: SATELLITE_TILE_SIZE,
+    maxzoom: 20,
+    attribution: MAP_SOURCE_CREDITS['berlin'].shortCredit,
+    boxes: GERMAN_LAND_BOXES['berlin'],
+  },
+  // Bremen: DOP20 2023, boxed to the city of Bremen (CC BY 4.0 - commercial OK)
+  bremen: {
+    tiles: [wmsOrthophotoTemplate('https://geodienste.bremen.de/wms_dop20_2023', 'DOP20_2023_HB')],
+    tileSize: SATELLITE_TILE_SIZE,
+    maxzoom: 20,
+    attribution: MAP_SOURCE_CREDITS['bremen'].shortCredit,
+    boxes: GERMAN_LAND_BOXES['bremen'],
+  },
+  // Baden-Württemberg: LGL-BW DOP20 (dl-de/by-2.0 - commercial OK)
+  'baden-wuerttemberg': {
+    tiles: [
+      wmsOrthophotoTemplate(
+        'https://owsproxy.lgl-bw.de/owsproxy/ows/WMS_LGL-BW_ATKIS_DOP_20_C',
+        'IMAGES_DOP_20_RGB'
+      ),
+    ],
+    tileSize: SATELLITE_TILE_SIZE,
+    maxzoom: 20,
+    attribution: MAP_SOURCE_CREDITS['baden-wuerttemberg'].shortCredit,
+    boxes: GERMAN_LAND_BOXES['baden-wuerttemberg'],
+  },
+  // Bavaria: DOP40 (CC BY 4.0 - commercial OK)
+  bavaria: {
+    tiles: [
+      wmsOrthophotoTemplate('https://geoservices.bayern.de/od/wms/dop/v1/dop40', 'by_dop40c'),
+    ],
+    tileSize: SATELLITE_TILE_SIZE,
+    maxzoom: 20,
+    attribution: MAP_SOURCE_CREDITS['bavaria'].shortCredit,
+    boxes: GERMAN_LAND_BOXES['bavaria'],
+  },
+  // Brandenburg: LGB DOP20 (dl-de/by-2.0 - commercial OK)
+  brandenburg: {
+    tiles: [
+      wmsOrthophotoTemplate(
+        'https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms',
+        'bebb_dop20c'
+      ),
+    ],
+    tileSize: SATELLITE_TILE_SIZE,
+    maxzoom: 20,
+    attribution: MAP_SOURCE_CREDITS['brandenburg'].shortCredit,
+    boxes: GERMAN_LAND_BOXES['brandenburg'],
+  },
+  // Hesse: DOP20 (HVGG §§ 18 and 24 permit any use - commercial OK)
+  hesse: {
+    tiles: [
+      wmsOrthophotoTemplate(
+        'https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows',
+        'he_dop20_rgb'
+      ),
+    ],
+    tileSize: SATELLITE_TILE_SIZE,
+    maxzoom: 20,
+    attribution: MAP_SOURCE_CREDITS['hesse'].shortCredit,
+    boxes: GERMAN_LAND_BOXES['hesse'],
+  },
+  // Lower Saxony: LGLN DOP20 (CC BY 4.0 - commercial OK); the Bremerhaven exclave is blank
+  'lower-saxony': {
+    tiles: [
+      wmsOrthophotoTemplate(
+        'https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms',
+        'ni_dop20'
+      ),
+    ],
+    tileSize: SATELLITE_TILE_SIZE,
+    maxzoom: 20,
+    attribution: MAP_SOURCE_CREDITS['lower-saxony'].shortCredit,
+    boxes: GERMAN_LAND_BOXES['lower-saxony'],
+  },
+  // North Rhine-Westphalia: DOP (dl-de/zero-2.0 - commercial OK)
+  'north-rhine-westphalia': {
+    tiles: [wmsOrthophotoTemplate('https://www.wms.nrw.de/geobasis/wms_nw_dop', 'nw_dop_rgb')],
+    tileSize: SATELLITE_TILE_SIZE,
+    maxzoom: 20,
+    attribution: MAP_SOURCE_CREDITS['north-rhine-westphalia'].shortCredit,
+    boxes: GERMAN_LAND_BOXES['north-rhine-westphalia'],
+  },
+  // Rhineland-Palatinate: DOP20 (dl-de/by-2.0 - commercial OK)
+  'rhineland-palatinate': {
+    tiles: [wmsOrthophotoTemplate('https://geo4.service24.rlp.de/wms/rp_dop20.fcgi', 'rp_dop20')],
+    tileSize: SATELLITE_TILE_SIZE,
+    maxzoom: 20,
+    attribution: MAP_SOURCE_CREDITS['rhineland-palatinate'].shortCredit,
+    boxes: GERMAN_LAND_BOXES['rhineland-palatinate'],
+  },
+  // Saxony-Anhalt: LVermGeo DOP20 (dl-de/by-2.0 per the Land's open-data terms - commercial OK)
+  'saxony-anhalt': {
+    tiles: [
+      wmsOrthophotoTemplate(
+        'https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest',
+        'lsa_lvermgeo_dop20_2'
+      ),
+    ],
+    tileSize: SATELLITE_TILE_SIZE,
+    maxzoom: 20,
+    attribution: MAP_SOURCE_CREDITS['saxony-anhalt'].shortCredit,
+    boxes: GERMAN_LAND_BOXES['saxony-anhalt'],
+  },
+  // Saxony: GeoSN DOP20 (SächsGDNutzVO unrestricted reuse, dl-de/by-2.0 form - commercial OK)
+  saxony: {
+    tiles: [
+      wmsOrthophotoTemplate('https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest', 'sn_dop_020'),
+    ],
+    tileSize: SATELLITE_TILE_SIZE,
+    maxzoom: 20,
+    attribution: MAP_SOURCE_CREDITS['saxony'].shortCredit,
+    boxes: GERMAN_LAND_BOXES['saxony'],
+  },
+  // Schleswig-Holstein: DOP20 (CC BY 4.0 - commercial OK)
+  'schleswig-holstein': {
+    tiles: [
+      wmsOrthophotoTemplate('https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD', 'sh_dop20_rgb'),
+    ],
+    tileSize: SATELLITE_TILE_SIZE,
+    maxzoom: 20,
+    attribution: MAP_SOURCE_CREDITS['schleswig-holstein'].shortCredit,
+    boxes: GERMAN_LAND_BOXES['schleswig-holstein'],
+  },
+  // Thuringia: DOP20 (CC BY 4.0 - commercial OK)
+  thuringia: {
+    tiles: [
+      wmsOrthophotoTemplate(
+        'https://www.geoproxy.geoportal-th.de/geoproxy/services/DOP20',
+        'th_dop'
+      ),
+    ],
+    tileSize: SATELLITE_TILE_SIZE,
+    maxzoom: 20,
+    attribution: MAP_SOURCE_CREDITS['thuringia'].shortCredit,
+    boxes: GERMAN_LAND_BOXES['thuringia'],
   },
   // Global fallback: EOX Sentinel-2 2016/2017 (CC BY 4.0 - commercial OK)
   // Note: 2018+ versions are CC BY-NC-SA (not commercial)
@@ -359,14 +660,30 @@ function providerName(id: SatelliteSourceId): string {
  */
 const REGIONAL_STACK: { id: SatelliteSourceId; minZoom: number }[] = [
   { id: 'swisstopo', minZoom: 8 },
+  { id: 'berlin', minZoom: REGIONS['berlin'].minZoom },
+  { id: 'bremen', minZoom: REGIONS['bremen'].minZoom },
+  { id: 'baden-wuerttemberg', minZoom: REGIONS['baden-wuerttemberg'].minZoom },
+  { id: 'bavaria', minZoom: REGIONS['bavaria'].minZoom },
+  { id: 'brandenburg', minZoom: REGIONS['brandenburg'].minZoom },
+  { id: 'hesse', minZoom: REGIONS['hesse'].minZoom },
+  { id: 'lower-saxony', minZoom: REGIONS['lower-saxony'].minZoom },
+  { id: 'north-rhine-westphalia', minZoom: REGIONS['north-rhine-westphalia'].minZoom },
+  { id: 'rhineland-palatinate', minZoom: REGIONS['rhineland-palatinate'].minZoom },
+  { id: 'saxony-anhalt', minZoom: REGIONS['saxony-anhalt'].minZoom },
+  { id: 'saxony', minZoom: REGIONS['saxony'].minZoom },
+  { id: 'schleswig-holstein', minZoom: REGIONS['schleswig-holstein'].minZoom },
+  { id: 'thuringia', minZoom: REGIONS['thuringia'].minZoom },
   { id: 'luxembourg', minZoom: REGIONS.luxembourg.minZoom },
+  { id: 'slovenia', minZoom: REGIONS.slovenia.minZoom },
   { id: 'austria', minZoom: REGIONS.austria.minZoom },
   { id: 'netherlands', minZoom: REGIONS.netherlands.minZoom },
+  { id: 'wallonia', minZoom: REGIONS.wallonia.minZoom },
   { id: 'czechia', minZoom: REGIONS.czechia.minZoom },
   { id: 'naip', minZoom: REGIONS.usa.minZoom },
   { id: 'ign', minZoom: REGIONS.france.minZoom },
   { id: 'poland', minZoom: REGIONS.poland.minZoom },
   { id: 'spain', minZoom: REGIONS.spain.minZoom },
+  { id: 'estonia', minZoom: REGIONS.estonia.minZoom },
 ];
 
 /**

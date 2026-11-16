@@ -154,7 +154,8 @@ function mockDriveAnswer(
   }
   if (method === 'GET' && path === '/drive/v3/files') {
     if (at.searchParams.get('spaces') !== 'appDataFolder') return json(200, { files: [] });
-    const nameQuery = /name\s*=\s*'([^']+)'/.exec(at.searchParams.get('q') ?? '')?.[1];
+    const q = at.searchParams.get('q') ?? '';
+    const nameQuery = /name\s*=\s*'([^']+)'/.exec(q)?.[1];
     const files = [...mockDrive.files.entries()]
       .filter(([, f]) => f.parents.includes('appDataFolder'))
       .filter(([, f]) => !nameQuery || f.name === nameQuery)
@@ -324,6 +325,66 @@ describe('on Android, signed in to Google Drive', () => {
     expect(mockDrive.requests).toContain(`GET /drive/v3/files/${[...mockDrive.files.keys()][0]}`);
     expect(getDestinationLastBackup('googleDrive')).not.toBeNull();
     expect(getBackupFailures()).toEqual({});
+  });
+
+  describe('sealed pack objects beside the record', () => {
+    const PACK_BYTES = new Uint8Array([9, 8, 7, 6, 5]);
+    const PACK = 'veloq-pack-abcd-2024-05.sealed';
+
+    beforeEach(() => {
+      mockFiles.set('file:///cache/pack', PACK_BYTES);
+    });
+
+    it('puts an object by name, lists it by prefix with its size and fetches the same bytes', async () => {
+      await googleDriveBackend.putObject(PACK, 'file:///cache/pack');
+
+      expect(driveFiles()).toHaveLength(1);
+      expect(driveFiles()[0].name).toBe(PACK);
+      expect(driveFiles()[0].parents).toEqual(['appDataFolder']);
+      await expect(googleDriveBackend.listObjects('veloq-pack-abcd-')).resolves.toEqual([
+        { name: PACK, sizeBytes: PACK_BYTES.length },
+      ]);
+      await expect(googleDriveBackend.listObjects('veloq-pack-zzzz-')).resolves.toEqual([]);
+      await googleDriveBackend.fetchObject(PACK, 'file:///cache/out');
+      expect(mockFiles.get('file:///cache/out')).toEqual(PACK_BYTES);
+    });
+
+    it('keeps the object out of the record listing and the record out of the object listing', async () => {
+      await performBackup(true);
+      await googleDriveBackend.putObject(PACK, 'file:///cache/pack');
+
+      const listed = await googleDriveBackend.listBackups();
+      expect(listed).toHaveLength(1);
+      expect(listed[0].id).toMatch(/^veloq-backup-/);
+      await expect(googleDriveBackend.listObjects('veloq-pack-')).resolves.toHaveLength(1);
+    });
+
+    it('replaces an object of the same name in place rather than duplicating it', async () => {
+      await googleDriveBackend.putObject(PACK, 'file:///cache/pack');
+      mockFiles.set('file:///cache/pack', new Uint8Array([1, 2]));
+      await googleDriveBackend.putObject(PACK, 'file:///cache/pack');
+
+      expect(driveFiles()).toHaveLength(1);
+      expect(driveFiles()[0].bytes).toEqual(new Uint8Array([1, 2]));
+    });
+
+    it('replaces an object another process wrote, found by name rather than by memory', async () => {
+      await googleDriveBackend.putObject(PACK, 'file:///cache/pack');
+      forgetBackupCarrier();
+      await settle();
+      await signInToGoogleDrive();
+      mockFiles.set('file:///cache/pack', new Uint8Array([3]));
+      await googleDriveBackend.putObject(PACK, 'file:///cache/pack');
+
+      expect(driveFiles()).toHaveLength(1);
+      expect(driveFiles()[0].bytes).toEqual(new Uint8Array([3]));
+    });
+
+    it('fails a fetch of an object that is not there as a path failure', async () => {
+      await expect(googleDriveBackend.fetchObject(PACK, 'file:///cache/out')).rejects.toMatchObject(
+        { kind: 'path' }
+      );
+    });
   });
 
   it('reports a copy that did not read back the same as unverified and owes it', async () => {

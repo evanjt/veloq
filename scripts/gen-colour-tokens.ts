@@ -52,6 +52,10 @@ const HEAT_PALETTES: HeatPalette[] = (['light', 'dark', 'satellite'] as const).m
   ...(base === 'satellite' && { halo: 'neutral-950' }),
 }));
 
+// The section hues and their inks are read by sectionPalette and sectionNumberInk in colors.ts,
+// which hold them outside the interface palette.
+const SECTION_TOKENS = [1, 2, 3, 4, 5].flatMap((n) => [`section-${n}`, `section-${n}-ink`]);
+
 // Native code draws these before any JavaScript runs: the adaptive icon, the
 // splash and the notification accent, through app.config.js and the icon generator.
 // The brand ground is a blue-600 to blue-700 gradient under a gold-300 to
@@ -130,6 +134,7 @@ async function main() {
     ...HEAT_PALETTES.flatMap((p) => [...p.steps, ...(p.halo ? [p.halo] : [])]),
     ...Object.values(APP_COLOURS),
     ...BRAND_TOKENS,
+    ...SECTION_TOKENS,
   ]);
   if (problems.length > 0) {
     for (const problem of problems) console.error(`${ROLES}: ${problem}`);

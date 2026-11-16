@@ -12,18 +12,12 @@ import { i18n } from '@/i18n';
 import { getEngine, isEngineReady } from '@/shared/native/engine';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { DEMO_ATHLETE_ID, useAuthStore } from '@/shared/app/AuthStore';
-import {
-  adoptsGarminLibrary,
-  garminAthleteId,
-  isGarminAthleteId,
-  returnsToGarminLibrary,
-} from '@/shared/app/storedSession';
+import { adoptsGarminLibrary } from '@/shared/app/storedSession';
 import {
   rememberCachedAthleteId,
   readCachedAthleteIdMirror,
-  readLinkedGarminIdMirror,
-  rememberLinkedGarminId,
   wipeLibrary,
+  wipeListText,
 } from '@/shared/storage';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 
@@ -61,66 +55,10 @@ export async function getCachedAthleteId(): Promise<string | null> {
   return readCachedAthleteIdMirror();
 }
 
-/** The engine setting that holds the Garmin account an intervals.icu sign-in adopted the library from. */
-const GARMIN_LIBRARY_ID_KEY = '__garmin_library_id';
-
-/**
- * The Garmin account identity the library held before an intervals.icu sign-in
- * took its name, or null when it never held one. The engine records it when
- * the library's name leaves a Garmin identity; the device mirror answers when
- * the engine is closed, as at the login screen on a cold start.
- */
-export async function getGarminLibraryId(): Promise<string | null> {
-  const engine = isEngineReady() ? getEngine() : null;
-  if (engine) {
-    let id: string | undefined;
-    try {
-      id = engine.getSetting(GARMIN_LIBRARY_ID_KEY);
-    } catch {
-      // A failed read names no one, and the mirror below is the fallback for that.
-      id = undefined;
-    }
-    if (id) {
-      await rememberLinkedGarminId(id);
-      return id;
-    }
-  }
-  return readLinkedGarminIdMirror();
-}
-
-/**
- * Names the library for `athleteId` and mirrors what the engine recorded
- * beside the name, so a closed engine can still tell whose library it is and
- * which Garmin account it was adopted from.
- */
+/** Names the library for `athleteId`, in the engine and in the device mirror a closed engine reads. */
 export async function nameLibrary(athleteId: string): Promise<void> {
-  const engine = getEngine();
-  engine?.setSetting('__athlete_id', athleteId);
+  getEngine()?.setSetting('__athlete_id', athleteId);
   await rememberCachedAthleteId(athleteId);
-  let linked: string | undefined;
-  try {
-    linked = engine?.getSetting(GARMIN_LIBRARY_ID_KEY);
-  } catch {
-    // The mirror is best-effort, and the next read of the engine writes it.
-    linked = undefined;
-  }
-  if (linked) await rememberLinkedGarminId(linked);
-}
-
-/**
- * Records the Garmin account a key connected on an intervals.icu library
- * names, beside the name, as an adoption would: a later Garmin sign-in by that
- * account then keeps the library. A library named for a Garmin account, an
- * unnamed one, a closed engine and a blank account record nothing.
- */
-export async function recordConnectedGarminAccount(accountId: string): Promise<void> {
-  if (!accountId.trim() || !isEngineReady()) return;
-  const engine = getEngine();
-  const named = engine?.getSetting('__athlete_id');
-  if (!engine || !named || isGarminAthleteId(named)) return;
-  const linked = garminAthleteId(accountId);
-  engine.setSetting(GARMIN_LIBRARY_ID_KEY, linked);
-  await rememberLinkedGarminId(linked);
 }
 
 /**
@@ -140,9 +78,9 @@ export type AccountChangeAction = 'keep' | 'adopt' | 'wipe' | 'confirm-then-wipe
  * The one rule three screens ask: the two login paths and `Try demo`.
  *
  * A library named for a Garmin account is adopted by an intervals.icu sign-in
- * rather than wiped, whatever it holds: the rides are the athlete's own. The
- * reverse holds for the account it was adopted from: a Garmin sign-in naming
- * `garminLibraryId` keeps the intervals.icu library it left.
+ * rather than wiped, whatever it holds: the rides are the athlete's own. A
+ * Garmin sign-in over an intervals.icu library is another account's change,
+ * whichever Garmin account the library was once named for.
  *
  * Demo fixtures are not an account. They are generated on demand and the demo
  * banner already discards them without asking, so a sign-in that has to clear
@@ -152,15 +90,13 @@ export type AccountChangeAction = 'keep' | 'adopt' | 'wipe' | 'confirm-then-wipe
 export function accountChangeAction(
   cachedAthleteId: string | null,
   incomingAthleteId: string,
-  storedActivityCount = 0,
-  garminLibraryId?: string | null
+  storedActivityCount = 0
 ): AccountChangeAction {
   if (cachedAthleteId === incomingAthleteId) return 'keep';
   // A restore from the login screen leaves a full library nothing has named,
   // so the count is the only evidence there is anything to lose.
   if (!cachedAthleteId) return storedActivityCount > 0 ? 'confirm-then-wipe' : 'keep';
   if (adoptsGarminLibrary(cachedAthleteId, incomingAthleteId)) return 'adopt';
-  if (returnsToGarminLibrary(cachedAthleteId, incomingAthleteId, garminLibraryId)) return 'keep';
   if (cachedAthleteId === DEMO_ATHLETE_ID) return 'wipe';
   return 'confirm-then-wipe';
 }
@@ -211,6 +147,7 @@ export function confirmAccountChange(args: ConfirmAccountChangeArgs): Promise<bo
             defaultValue:
               'This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account permanently deletes it. To keep it, go back and sign in to that account.',
           });
+  const deleted = wipeListText('deleted', t);
   const continueLabel = t('alerts.accountChangeContinue', {
     defaultValue: 'Continue and delete',
   });
@@ -219,7 +156,7 @@ export function confirmAccountChange(args: ConfirmAccountChangeArgs): Promise<bo
   return new Promise((resolve) => {
     confirmAction({
       title,
-      message: body,
+      message: `${body}\n\n${deleted}`,
       confirmLabel: continueLabel,
       cancelLabel,
       destructive: true,
@@ -248,17 +185,20 @@ export function promptAccountMismatch(args: PromptAccountMismatchArgs): Promise<
   const { storedAthleteId, credentialsAthleteId, activityCount } = args;
   const t = i18n.t.bind(i18n);
 
+  const body = t('backup.differentAccountMessage', {
+    cachedAthleteId: storedAthleteId,
+    count: activityCount,
+    defaultValue:
+      'This device holds {{count}} activities from another account ({{cachedAthleteId}}). Clearing and syncing permanently deletes them. To keep them, cancel and sign in to that account instead.',
+  });
+  const deleted = wipeListText('deleted', t);
+
   return new Promise((resolve) => {
     confirmAction({
       title: t('backup.deviceLibraryDifferentAccount', {
         defaultValue: 'Library on this device belongs to another account',
       }),
-      message: t('backup.differentAccountMessage', {
-        cachedAthleteId: storedAthleteId,
-        count: activityCount,
-        defaultValue:
-          'This device holds {{count}} activities from another account ({{cachedAthleteId}}). Clearing and syncing permanently deletes them. To keep them, cancel and sign in to that account instead.',
-      }),
+      message: `${body}\n\n${deleted}`,
       cancelLabel: t('common.cancel'),
       onCancel: () => {
         useAuthStore.getState().clearCredentials();

@@ -5,7 +5,7 @@
  * and FIT file parsing.
  */
 
-import { FfiStartOutcome } from '../generated/veloqrs';
+import { FfiLiveEditKind, FfiStartOutcome, FfiStrengthStartKind } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 import { startResult } from './start';
 import type {
@@ -14,10 +14,15 @@ import type {
   FfiExercisePickerData,
   FfiExerciseSession,
   FfiExerciseSet,
+  FfiFocusState,
+  FfiLiveEdit,
+  FfiLiveStrengthOutcome,
+  FfiLiveStrengthSession,
   FfiMuscleGroup,
   FfiMuscleGroupDetail,
   FfiStrengthInsightSeries,
   FfiStrengthScreenData,
+  FfiStrengthStartData,
   FfiStrengthSummary,
 } from '../generated/veloqrs';
 
@@ -186,5 +191,117 @@ export function bulkInsertExerciseSets(
 ): void {
   host.write('bulkInsertExerciseSets', () =>
     host.engine.strength().bulkInsertExerciseSets(activityId, sets)
+  );
+}
+
+const EMPTY_START_DATA: FfiStrengthStartData = { live: false, groups: [], workouts: [] };
+
+/**
+ * What the strength start screen shows: whether a session is live, the sessions the
+ * athlete has done the same way before and the saved workouts. `now` is epoch seconds.
+ */
+export function getStrengthStartData(host: DelegateHost, now: number): FfiStrengthStartData {
+  if (!host.ready) return EMPTY_START_DATA;
+  return host.timed('getStrengthStartData', () => host.engine.strength().getStrengthStartData(now));
+}
+
+/** The strength session being recorded, or null when none is or the engine is closed. */
+export function getLiveStrengthSession(host: DelegateHost): FfiLiveStrengthSession | null {
+  if (!host.ready) return null;
+  return (
+    host.timed('getLiveStrengthSession', () => host.engine.strength().getLiveStrengthSession()) ??
+    null
+  );
+}
+
+/**
+ * What the focus view and the lock screen show of the live session: the set to do with its
+ * weight in the athlete's unit and the stored kilograms one stepper tap up or down lands on, the
+ * neighbouring exercises and the rest. Null when no session is live or the engine is closed.
+ */
+export function getLiveFocusState(host: DelegateHost): FfiFocusState | null {
+  if (!host.ready) return null;
+  return host.timed('getLiveFocusState', () => host.engine.strength().getLiveFocusState()) ?? null;
+}
+
+/**
+ * A strength session's FIT file with its weights displayed in the athlete's unit, the bytes an
+ * upload sends. Null for an id nothing holds or while the engine is closed.
+ */
+export function getStrengthSessionFit(host: DelegateHost, id: string): ArrayBuffer | null {
+  if (!host.ready) return null;
+  return (
+    host.timed('getStrengthSessionFit', () => host.engine.strength().getStrengthSessionFit(id)) ??
+    null
+  );
+}
+
+/** Where a new live session takes its exercises from; the id names the source it needs. */
+export type StrengthStart =
+  { kind: 'Blank' } | { kind: 'Session' | 'Activity' | 'Workout'; id: string };
+
+/**
+ * Start the live session, prepared with nothing done. Null while the engine is closed.
+ * The engine refuses a start while a session is live, and the refusal throws.
+ */
+export function startLiveStrengthSession(
+  host: DelegateHost,
+  from: StrengthStart,
+  now: number
+): FfiLiveStrengthSession | null {
+  if (!host.ready) return null;
+  return host.timed('startLiveStrengthSession', () =>
+    host.engine
+      .strength()
+      .startLiveStrengthSession(
+        FfiStrengthStartKind[from.kind],
+        from.kind === 'Blank' ? undefined : from.id,
+        now
+      )
+  );
+}
+
+/**
+ * Start the live session from the lines of a planned workout: the engine reads each line into
+ * an exercise with its sets, a rest or a session note. Null while the engine is closed; the
+ * engine refuses a start while a session is live, and the refusal throws.
+ */
+export function startLiveStrengthSessionFromPlan(
+  host: DelegateHost,
+  lines: string[],
+  now: number
+): FfiLiveStrengthSession | null {
+  if (!host.ready) return null;
+  return host.timed('startLiveStrengthSessionFromPlan', () =>
+    host.engine.strength().startLiveStrengthSessionFromPlan(lines, now)
+  );
+}
+
+/** One change to the live session: its kind and the fields that kind reads. */
+export type LiveStrengthEdit = Omit<FfiLiveEdit, 'kind'> & {
+  kind: keyof typeof FfiLiveEditKind;
+};
+
+/**
+ * Make one change to the live session and answer it as it now stands. Null while the engine
+ * is closed; a change the engine refuses throws and leaves the session as it was.
+ */
+export function editLiveStrengthSession(
+  host: DelegateHost,
+  edit: LiveStrengthEdit,
+  now: number
+): FfiLiveStrengthOutcome | null {
+  if (!host.ready) return null;
+  return host.timed('editLiveStrengthSession', () =>
+    host.engine
+      .strength()
+      .editLiveStrengthSession({ ...edit, kind: FfiLiveEditKind[edit.kind] }, now)
+  );
+}
+
+/** Drop the live session and everything in it. Held in order until the engine opens. */
+export function discardLiveStrengthSession(host: DelegateHost): void {
+  host.write('discardLiveStrengthSession', () =>
+    host.engine.strength().discardLiveStrengthSession()
   );
 }

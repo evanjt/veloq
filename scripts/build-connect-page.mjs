@@ -64,6 +64,7 @@ const KEPT_SOURCES = [
   'src',
   'modules/veloqrs/src',
   'modules/veloqrs/assets/basemap',
+  'assets/fonts',
 ];
 /** Where the template reaches the shared icon, one directory above the page. */
 const ICON = 'href="../icon.png"';

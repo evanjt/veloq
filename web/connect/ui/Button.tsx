@@ -39,3 +39,29 @@ export function Button({
     </button>
   );
 }
+
+/** A link drawn as a button, for an action that leaves the page; it opens in a new tab. */
+export function LinkButton({
+  variant = 'secondary',
+  size = 'md',
+  href,
+  children,
+}: {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  href: string;
+  children: ReactNode;
+}) {
+  return (
+    <a
+      className="ui-button"
+      data-variant={variant}
+      data-size={size}
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {children}
+    </a>
+  );
+}

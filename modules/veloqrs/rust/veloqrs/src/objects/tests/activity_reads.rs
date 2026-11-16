@@ -542,3 +542,33 @@ fn test_feed_search_reads_a_body_with_no_metrics_row_and_skips_a_corrupt_one() {
         vec!["old-swim", "bare"]
     );
 }
+
+#[test]
+fn a_route_chip_names_the_route_and_marks_a_record() {
+    assert_eq!(crate::route_chip_label("Lake loop", true), "Lake loop PR");
+    assert_eq!(crate::route_chip_label("Lake loop", false), "Lake loop");
+}
+
+#[test]
+fn an_indicator_chip_marks_a_section_record_or_the_trend_and_never_shows_the_kind() {
+    assert_eq!(
+        crate::indicator_chip_label("section_pr", "Hill", 0),
+        "Hill PR"
+    );
+    assert_eq!(
+        crate::indicator_chip_label("section_pr", "Hill", -1),
+        "Hill PR"
+    );
+    assert_eq!(
+        crate::indicator_chip_label("section_trend", "Hill", 1),
+        "Hill ↑"
+    );
+    assert_eq!(
+        crate::indicator_chip_label("route_trend", "Loop", -1),
+        "Loop ↓"
+    );
+    assert_eq!(
+        crate::indicator_chip_label("section_trend", "Hill", 0),
+        "Hill"
+    );
+}

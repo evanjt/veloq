@@ -15,6 +15,9 @@ export const EXPORTS_DIR = 'exports/';
 /** The route line an enriched notification carries. */
 export const ROUTE_LINE_DIR = 'notification_routes/';
 
+/** The directory a pick of several files, or a folder, is gathered into before it is imported. */
+export const IMPORT_STAGING_DIR = 'collection-imports/';
+
 /** Where the document picker copies a file chosen for import, on both platforms. */
 const PICKER_DIR = 'DocumentPicker/';
 
@@ -84,9 +87,14 @@ export function isPickerCopy(uri: string): boolean {
 export async function deleteCachedAthleteFiles(): Promise<void> {
   const cacheDir = FileSystem.cacheDirectory;
   if (!cacheDir) return;
-  const deletions = [EXPORTS_DIR, ROUTE_LINE_DIR, PICKER_DIR, RESTORES_DIR, READ_BACKS_DIR].map(
-    (dir) => FileSystem.deleteAsync(`${cacheDir}${dir}`, { idempotent: true })
-  );
+  const deletions = [
+    EXPORTS_DIR,
+    ROUTE_LINE_DIR,
+    PICKER_DIR,
+    RESTORES_DIR,
+    READ_BACKS_DIR,
+    IMPORT_STAGING_DIR,
+  ].map((dir) => FileSystem.deleteAsync(`${cacheDir}${dir}`, { idempotent: true }));
   const info = await FileSystem.getInfoAsync(cacheDir);
   const names = info.exists ? await FileSystem.readDirectoryAsync(cacheDir) : [];
   for (const name of names) {

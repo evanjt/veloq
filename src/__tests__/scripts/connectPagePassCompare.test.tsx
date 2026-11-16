@@ -10,9 +10,9 @@
 
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
-import { RoutesPage } from '../../../web/connect/RoutesPage';
+import { RoutesPage } from '../../../web/connect/pages/RoutesPage';
 import type { Route } from '../../../web/connect/router';
-import type { Session } from '../../../web/connect/session';
+import { fakePhone } from '../__shared__/connectPhone';
 import vectors from '../../../modules/veloqrs/rust/veloqrs/tests/fixtures/track_codec_vectors.json';
 
 type Case = { name: string; bytes: number[] };
@@ -60,16 +60,16 @@ const DETAIL = {
   history: [],
   geometryVersions: [],
   mergeCandidates: [],
+  excludedActivityIds: [],
 };
 
-function fakeSession(): Session {
-  const read = async (method: string) => {
+function fakeSession() {
+  return fakePhone(async (method: string) => {
     if (method === 'routes.screen') return LIST;
     if (method === 'section.detail') return DETAIL;
     if (method === 'activity.streams') return { latlng: TRACK };
     throw new Error(`unexpected read ${method}`);
-  };
-  return { read: jest.fn(read) } as unknown as Session;
+  });
 }
 
 async function settle() {
@@ -113,7 +113,7 @@ describe('the section page with two passes selected', () => {
     const session = fakeSession();
     let root!: ReactTestRenderer;
     await act(async () => {
-      root = create(<RoutesPage session={session} route={sectionAt('p1,p2')} />);
+      root = create(session.wrap(<RoutesPage route={sectionAt('p1,p2')} />));
     });
     await settle();
     expect(swatches(root)).toEqual([
@@ -121,10 +121,8 @@ describe('the section page with two passes selected', () => {
       { row: 'p1', colour: 'line-0' },
     ]);
     expect(overlays(root)).toEqual(['p1', 'p2']);
-    const streamReads = (session.read as jest.Mock).mock.calls.filter(
-      ([method]) => method === 'activity.streams'
-    );
-    expect(streamReads.map(([, params]) => params.id)).toEqual(['p1', 'p2']);
+    const streamReads = session.callsOf('activity.streams');
+    expect(streamReads.map((call) => (call.params as { id: string }).id)).toEqual(['p1', 'p2']);
     root.unmount();
   });
 
@@ -132,12 +130,105 @@ describe('the section page with two passes selected', () => {
     const session = fakeSession();
     let root!: ReactTestRenderer;
     await act(async () => {
-      root = create(<RoutesPage session={session} route={sectionAt(null)} />);
+      root = create(session.wrap(<RoutesPage route={sectionAt(null)} />));
     });
     await settle();
     expect(swatches(root)).toEqual([]);
     expect(overlays(root)).toEqual([]);
-    expect(session.read).not.toHaveBeenCalledWith('activity.streams', expect.anything());
+    expect(session.callsOf('activity.streams')).toHaveLength(0);
+    root.unmount();
+  });
+});
+
+describe('the route page with two attempts selected', () => {
+  const ROUTE_LIST = {
+    ...LIST,
+    groups: [
+      {
+        groupId: 'r1',
+        customName: 'Loop',
+        distanceMeters: 1000,
+        activityCount: 3,
+        sportTypes: ['Ride'],
+      },
+    ],
+    filteredGroupCount: 1,
+    sections: [],
+    filteredSectionCount: 0,
+  };
+  const ATTEMPT = (activityId: string, movingTime: number, date: number) => ({
+    activityId,
+    name: activityId,
+    date,
+    speed: 3,
+    movingTime,
+  });
+  const routeSession = () =>
+    fakePhone(async (method: string) => {
+      if (method === 'routes.screen') return ROUTE_LIST;
+      if (method === 'route.detail') {
+        return {
+          activityCount: 3,
+          group: { customName: 'Loop' },
+          distanceMeters: 1000,
+          elevationGainMeters: 10,
+          excludedActivityIds: [],
+        };
+      }
+      if (method === 'route.performance') {
+        return {
+          chartData: { points: [] },
+          histograms: { forward: null, reverse: null },
+          recordProgression: { forward: [], reverse: [] },
+          trendCurves: { forwardTime: null },
+          curves: null,
+          curvesPending: false,
+        };
+      }
+      if (method === 'route.attempts') {
+        return {
+          best: { activityId: 'a2' },
+          performances: [
+            ATTEMPT('a1', 300, 1_700_000_000),
+            ATTEMPT('a2', 280, 1_700_100_000),
+            ATTEMPT('a3', 310, 1_700_200_000),
+          ],
+        };
+      }
+      if (method === 'activity.streams') return { latlng: TRACK };
+      throw new Error(`unexpected read ${method}`);
+    });
+  const routeAt = (ids: string | null): Route => ({
+    screen: 'route',
+    id: 'r1',
+    query: ids === null ? [] : [['ids', ids]],
+  });
+
+  it('shows a swatch on each selected attempt and an overlay path for each', async () => {
+    const session = routeSession();
+    let root!: ReactTestRenderer;
+    await act(async () => {
+      root = create(session.wrap(<RoutesPage route={routeAt('a1,a2')} />));
+    });
+    await settle();
+    expect(swatches(root)).toEqual([
+      { row: 'a2', colour: 'line-1' },
+      { row: 'a1', colour: 'line-0' },
+    ]);
+    expect(overlays(root)).toEqual(['a1', 'a2']);
+    root.unmount();
+  });
+
+  it('draws neither a swatch nor an overlay without a selection', async () => {
+    const session = routeSession();
+    let root!: ReactTestRenderer;
+    await act(async () => {
+      root = create(session.wrap(<RoutesPage route={routeAt(null)} />));
+    });
+    await settle();
+    expect(swatches(root)).toEqual([]);
+    expect(overlays(root)).toEqual([]);
+    expect(session.callsOf('activity.streams')).toHaveLength(0);
     root.unmount();
   });
 });

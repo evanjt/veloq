@@ -15,29 +15,27 @@ use crate::fit::{FitActivity, FitParseError, parse_fit_activity};
 use crate::net::types::StreamDto;
 use crate::persistence::PersistentEngine;
 use crate::persistence::activities::FileSeries;
-use crate::persistence::origin::garmin_source_key;
+use crate::persistence::origin::{FILE_KEY_PREFIX, garmin_source_key};
+use crate::persistence::ride_identity::{self, Existing, RideIdentity};
 use crate::{FfiActivityBody, GpsPoint};
-use std::path::{Path, PathBuf};
 
 /// What storing an original did.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ingested {
     /// A new row. `tracked` is whether it has a track for section detection.
     Stored { tracked: bool },
     /// The key was already stored, and nothing was written.
     AlreadyStored,
+    /// The ride is one the library already holds under another key. No row
+    /// was stored; the file is kept as that row's original when it is the
+    /// fuller one.
+    Linked { to: String },
 }
 
 #[derive(Debug)]
 pub enum IngestError {
     /// The file did not decode, or holds no start time.
     Fit(FitParseError),
-    /// The app has not said where its documents directory is, so the FIT has
-    /// nowhere to be kept. Nothing is stored and nothing is recorded: the
-    /// activity is not at fault.
-    NoFilesRoot,
-    /// The FIT could not be written to its place.
-    File(std::io::Error),
     /// The engine would not store the row.
     Storage(String),
     /// The engine this was started on has closed.
@@ -48,8 +46,6 @@ impl std::fmt::Display for IngestError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             IngestError::Fit(e) => write!(f, "the original did not decode: {e}"),
-            IngestError::NoFilesRoot => write!(f, "the documents directory is not known yet"),
-            IngestError::File(e) => write!(f, "the original could not be kept: {e}"),
             IngestError::Storage(e) => write!(f, "the activity did not store: {e}"),
             IngestError::EngineClosed => write!(f, "the engine closed"),
         }
@@ -76,6 +72,10 @@ pub struct Prepared {
     /// The interval body the file's laps make, none for a file with fewer
     /// than two laps.
     pub laps: Option<String>,
+    /// What the library compares this ride to its rows by.
+    pub identity: RideIdentity,
+    /// What the original's bytes are, as the originals table names it.
+    pub format: &'static str,
 }
 
 /// The wall clock minus UTC in seconds from a list entry's two start times.
@@ -89,25 +89,28 @@ fn listed_offset(listed: &ListedActivity) -> Option<i64> {
 }
 
 /// The intervals.icu activity body the row is stored with. A figure neither
-/// the file nor the list entry gives is left out, never written as zero.
+/// the file nor the list entry gives is left out, never written as zero. A
+/// file with no list entry behind it is named by its sport.
 fn body_of(
     key: &str,
     sport: &str,
     activity: &FitActivity,
-    listed: &ListedActivity,
+    listed: Option<&ListedActivity>,
     stream_types: &[String],
 ) -> FfiActivityBody {
     let offset = activity
         .utc_offset_secs
-        .or_else(|| listed_offset(listed))
+        .or_else(|| listed.and_then(listed_offset))
         .unwrap_or(0);
     let local = chrono::DateTime::from_timestamp(activity.start_unix + offset, 0)
         .unwrap_or_default()
         .naive_utc();
     let totals = &activity.totals;
-    let moving = totals.moving_secs.or(listed.duration);
-    let elapsed = totals.elapsed_secs.or(listed.elapsed_duration);
-    let distance = totals.distance.or(listed.distance);
+    let moving = totals.moving_secs.or(listed.and_then(|l| l.duration));
+    let elapsed = totals
+        .elapsed_secs
+        .or(listed.and_then(|l| l.elapsed_duration));
+    let distance = totals.distance.or(listed.and_then(|l| l.distance));
     let average_speed = totals.avg_speed.or_else(|| {
         distance
             .zip(moving)
@@ -120,8 +123,7 @@ fn body_of(
     raw.insert(
         "name".into(),
         listed
-            .activity_name
-            .as_deref()
+            .and_then(|l| l.activity_name.as_deref())
             .filter(|name| !name.trim().is_empty())
             .unwrap_or(sport)
             .into(),
@@ -166,8 +168,32 @@ fn body_of(
 /// track's index and the clock is the track's, and with none they stay in the
 /// file's own samples with their `time`.
 pub fn prepare(listed: &ListedActivity, fit: &[u8]) -> Result<Prepared, IngestError> {
-    let key = garmin_source_key(listed.activity_id);
+    prepare_with(garmin_source_key(listed.activity_id), fit, Some(listed))
+}
+
+/// [`prepare`] for a file with no list entry behind it, under the key its
+/// source mints. The file alone says everything the row holds.
+pub fn prepare_file(key: &str, fit: &[u8]) -> Result<Prepared, IngestError> {
+    prepare_with(key.to_string(), fit, None)
+}
+
+fn prepare_with(
+    key: String,
+    fit: &[u8],
+    listed: Option<&ListedActivity>,
+) -> Result<Prepared, IngestError> {
     let activity = parse_fit_activity(fit).map_err(IngestError::Fit)?;
+    prepare_activity(key, &activity, listed, "fit")
+}
+
+/// Build what a decoded activity stores, whichever file format it was read
+/// from. `format` names the original's bytes in the originals table.
+pub fn prepare_activity(
+    key: String,
+    activity: &FitActivity,
+    listed: Option<&ListedActivity>,
+    format: &'static str,
+) -> Result<Prepared, IngestError> {
     let sport = crate::sport::from_fit(activity.sport, activity.sub_sport);
     let raw = activity.streams();
     let stream_types: Vec<String> = raw.iter().map(|s| s.kind.clone()).collect();
@@ -196,38 +222,67 @@ pub fn prepare(listed: &ListedActivity, fit: &[u8]) -> Result<Prepared, IngestEr
         let without_fix: Vec<StreamDto> = raw.into_iter().filter(|s| s.kind != "latlng").collect();
         streams = crate::net::types::trackless_series(&without_fix);
     }
-    let body = body_of(&key, sport, &activity, listed, &stream_types);
+    let body = body_of(&key, sport, activity, listed, &stream_types);
+    let identity = RideIdentity {
+        device_serial: activity.serial_number,
+        created_unix: activity.time_created,
+        start_local: body.date as i64,
+        sport: sport.to_string(),
+    };
     Ok(Prepared {
         key,
         body,
+        identity,
         coords,
         streams,
         clock,
         sport: sport.to_string(),
         start_unix: activity.start_unix,
-        laps: crate::persistence::intervals::lap_body(&activity),
-        thresholds: activity.thresholds,
+        laps: crate::persistence::intervals::lap_body(activity),
+        thresholds: activity.thresholds.clone(),
+        format,
     })
 }
 
-/// Store the row, and keep the original at `path` when one is given. A
-/// `None` path keeps nothing: Garmin holds the original and serves it again.
-/// A row that fails to store takes a kept file back out, and a file that
-/// cannot be written stores no row.
+/// Where a stored file's original is kept.
+#[derive(Debug, Clone, Copy)]
+pub enum Kept<'a> {
+    /// Nowhere: Garmin holds the original and serves it again.
+    Nowhere,
+    /// The originals table, under `source`, for an upload that reads it back
+    /// or a ride no connector can serve again.
+    Table { source: &'a str },
+}
+
+/// Store the row, and keep the original where `kept` says. A row that fails
+/// to store takes a kept original back out, and an original that cannot be
+/// kept stores no row.
+///
+/// The curves, the fitness series and the ride's scores are not worked out
+/// here: they fold in every ride, so a caller storing a batch calls
+/// [`finish_batch`] once after it.
 pub fn store(
     engine: &mut PersistentEngine,
     prepared: &Prepared,
     fit: &[u8],
-    path: Option<&Path>,
+    kept: Kept<'_>,
 ) -> Result<Ingested, IngestError> {
     if engine.has_stored_activity(&prepared.key) {
         return Ok(Ingested::AlreadyStored);
     }
-    if let Some(path) = path {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(IngestError::File)?;
+    match kept {
+        Kept::Nowhere => {}
+        Kept::Table { source } => {
+            crate::persistence::originals::keep_original(
+                &engine.db,
+                &prepared.key,
+                source,
+                prepared.format,
+                fit,
+                chrono::Utc::now().timestamp(),
+            )
+            .map_err(|e| IngestError::Storage(e.to_string()))?;
         }
-        crate::atomic_file::write_atomically(path, fit).map_err(IngestError::File)?;
     }
     let series = FileSeries {
         streams: &prepared.streams,
@@ -239,6 +294,13 @@ pub fn store(
             // links it when this does not.
             if let Err(e) = engine.link_garmin_original(&prepared.key) {
                 log::warn!("veloqrs: [garmin] link of {} failed: {}", prepared.key, e);
+            }
+            if let Err(e) = ride_identity::record(&engine.db, &prepared.key, &prepared.identity) {
+                log::warn!(
+                    "veloqrs: [garmin] identity of {} not kept: {}",
+                    prepared.key,
+                    e
+                );
             }
             if let Some(laps) = &prepared.laps
                 && let Err(e) = engine.set_interval_body(&prepared.key, laps)
@@ -260,45 +322,138 @@ pub fn store(
                     e
                 );
             }
-            // After the file's thresholds are kept, since they are what the
-            // ride is scored against.
-            if let Err(e) = engine.settle_ride_metrics(&prepared.key) {
-                log::warn!(
-                    "veloqrs: [garmin] metrics of {} not worked out: {}",
-                    prepared.key,
-                    e
-                );
-            }
-            if let Err(e) = crate::persistence::fitness::curves_local::refresh(
-                &engine.db,
-                chrono::Utc::now().timestamp(),
-            ) {
-                log::warn!(
-                    "veloqrs: [garmin] curves after {} not worked out: {}",
-                    prepared.key,
-                    e
-                );
-            }
-            if let Err(e) = crate::persistence::fitness::fitness_series::refresh(
-                &engine.db,
-                &crate::persistence::wellness::today_iso(),
-            ) {
-                log::warn!(
-                    "veloqrs: [garmin] fitness after {} not worked out: {}",
-                    prepared.key,
-                    e
-                );
-            }
             Ok(Ingested::Stored {
                 tracked: !prepared.coords.is_empty(),
             })
         }
         Err(e) => {
-            if let Some(path) = path {
-                let _ = std::fs::remove_file(path);
+            match kept {
+                Kept::Nowhere => {}
+                Kept::Table { .. } => {
+                    let _ = crate::persistence::originals::drop_original(&engine.db, &prepared.key);
+                }
             }
             Err(IngestError::Storage(e.to_string()))
         }
+    }
+}
+
+#[cfg(test)]
+thread_local! {
+    static FINISHED_BATCHES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// The batches finished on this thread since [`reset_finished_batches`].
+#[cfg(test)]
+pub(crate) fn finished_batches() -> usize {
+    FINISHED_BATCHES.with(std::cell::Cell::get)
+}
+
+#[cfg(test)]
+pub(crate) fn reset_finished_batches() {
+    FINISHED_BATCHES.with(|n| n.set(0));
+}
+
+/// What the stored rides of a batch owe the library, worked out once for the
+/// whole batch: each ride's scores, against the thresholds every file of the
+/// batch has recorded by now, then the local curves and the fitness series,
+/// which fold in every ride and so grow with the library.
+///
+/// A batch of one is a push or a swap; a window of rides or a whole import is
+/// one batch.
+pub fn finish_batch(engine: &mut PersistentEngine, keys: &[String]) {
+    #[cfg(test)]
+    FINISHED_BATCHES.with(|n| n.set(n.get() + 1));
+    for key in keys {
+        if let Err(e) = engine.settle_ride_metrics(key) {
+            log::warn!("veloqrs: [garmin] metrics of {key} not worked out: {e}");
+        }
+    }
+    if let Err(e) = crate::persistence::fitness::curves_local::refresh(
+        &engine.db,
+        chrono::Utc::now().timestamp(),
+    ) {
+        log::warn!(
+            "veloqrs: [garmin] curves after a batch of {} not worked out: {e}",
+            keys.len()
+        );
+    }
+    if let Err(e) = crate::persistence::fitness::fitness_series::refresh(
+        &engine.db,
+        &crate::persistence::wellness::today_iso(),
+    ) {
+        log::warn!(
+            "veloqrs: [garmin] fitness after a batch of {} not worked out: {e}",
+            keys.len()
+        );
+    }
+}
+
+/// [`finish_batch`] on the library open at `install`. `false` when it has
+/// closed.
+pub fn finish_batch_for(install: u64, keys: &[String]) -> bool {
+    crate::persistence::with_persistent_engine_for(install, |e| finish_batch(e, keys)).is_some()
+}
+
+/// The stored rows that hold the ride a prepared file records. A file that did
+/// not decode holds none.
+pub fn same_ride(engine: &PersistentEngine, prepared: &Result<Prepared, IngestError>) -> Existing {
+    let Ok(prepared) = prepared else {
+        return Existing::Nothing;
+    };
+    ride_identity::existing_ride_for(&engine.db, &prepared.identity).unwrap_or_else(|e| {
+        log::warn!(
+            "veloqrs: [garmin] the library was not asked for {}: {e}",
+            prepared.key
+        );
+        Existing::Nothing
+    })
+}
+
+/// A file whose ride the library holds as the row `row`: nothing is stored.
+/// The file becomes that row's original when it keeps none, or when the file
+/// holds a message or field the kept one lacks.
+pub fn link_to_row(
+    engine: &PersistentEngine,
+    row: &str,
+    source: &str,
+    fit: &[u8],
+) -> Result<Ingested, IngestError> {
+    let storage = |e: rusqlite::Error| IngestError::Storage(e.to_string());
+    let fuller =
+        match crate::persistence::originals::original_of(&engine.db, row).map_err(storage)? {
+            None => true,
+            Some(kept) => crate::fit::holds_more_than(fit, &kept).unwrap_or(false),
+        };
+    if fuller {
+        crate::persistence::originals::keep_original(
+            &engine.db,
+            row,
+            source,
+            "fit",
+            fit,
+            chrono::Utc::now().timestamp(),
+        )
+        .map_err(storage)?;
+    }
+    Ok(Ingested::Linked {
+        to: row.to_string(),
+    })
+}
+
+/// A Garmin original whose ride was read from a file first is that file's
+/// row, not a second one. A match with any other kind of row is left to the
+/// Garmin link, which goes by Garmin's id alone.
+fn linked_to_file_row(
+    engine: &PersistentEngine,
+    prepared: &Result<Prepared, IngestError>,
+    fit: &[u8],
+) -> Option<Result<Ingested, IngestError>> {
+    match same_ride(engine, prepared) {
+        Existing::One(row) if row.starts_with(FILE_KEY_PREFIX) => {
+            Some(link_to_row(engine, &row, "garmin", fit))
+        }
+        _ => None,
     }
 }
 
@@ -307,11 +462,11 @@ pub fn store(
 pub fn settle(
     engine: &mut PersistentEngine,
     key: &str,
-    path: Option<&Path>,
+    kept: Kept<'_>,
     fit: &[u8],
     prepared: Result<Prepared, IngestError>,
 ) -> Result<Ingested, IngestError> {
-    let outcome = prepared.and_then(|prepared| store(engine, &prepared, fit, path));
+    let outcome = prepared.and_then(|prepared| store(engine, &prepared, fit, kept));
     match &outcome {
         Ok(_) => crate::persistence::activity_sync_failures::clear(&engine.db, key),
         Err(e @ (IngestError::Fit(_) | IngestError::Storage(_))) => {
@@ -328,10 +483,10 @@ pub fn settle(
 }
 
 /// [`prepare`] and [`settle`] in one call, for a caller already holding the
-/// engine.
+/// engine. A stored row is a batch of one.
 pub fn ingest_into(
     engine: &mut PersistentEngine,
-    path: Option<&Path>,
+    keep: bool,
     listed: &ListedActivity,
     fit: &[u8],
 ) -> Result<Ingested, IngestError> {
@@ -339,14 +494,27 @@ pub fn ingest_into(
     if engine.has_stored_activity(&key) {
         return Ok(Ingested::AlreadyStored);
     }
-    settle(engine, &key, path, fit, prepare(listed, fit))
+    let kept = if keep {
+        Kept::Table { source: "garmin" }
+    } else {
+        Kept::Nowhere
+    };
+    let prepared = prepare(listed, fit);
+    if let Some(linked) = linked_to_file_row(engine, &prepared, fit) {
+        return linked;
+    }
+    let ingested = settle(engine, &key, kept, fit, prepared)?;
+    if matches!(ingested, Ingested::Stored { .. }) {
+        finish_batch(engine, &[key]);
+    }
+    Ok(ingested)
 }
 
 /// Store the original of one listed activity in the library open at
 /// `install`, and queue section detection for a new row with a track.
 ///
-/// The original is kept on the phone only when `keep_for_upload` is set, which
-/// is the case for an upload that reads it back. Otherwise nothing is written.
+/// The original is kept only when `keep_for_upload` is set, which is the case
+/// for an upload that reads it back. Otherwise nothing is kept.
 ///
 /// The decode runs before the engine is taken, so the lock is held for the
 /// writes alone.
@@ -356,12 +524,20 @@ pub fn ingest_original(
     fit: &[u8],
     keep_for_upload: bool,
 ) -> Result<Ingested, IngestError> {
+    ingest_original_in_batch(install, listed, fit, keep_for_upload, true)
+}
+
+/// [`ingest_original`] for a caller storing a batch of rides, which passes
+/// `finish` false and calls [`finish_batch`] over the keys it stored when the
+/// batch ends.
+pub fn ingest_original_in_batch(
+    install: u64,
+    listed: &ListedActivity,
+    fit: &[u8],
+    keep_for_upload: bool,
+    finish: bool,
+) -> Result<Ingested, IngestError> {
     let key = garmin_source_key(listed.activity_id);
-    let path: Option<PathBuf> = keep_for_upload
-        .then(|| {
-            crate::net::upload_recording::source_fit_file(&key).ok_or(IngestError::NoFilesRoot)
-        })
-        .transpose()?;
     let stored =
         crate::persistence::with_persistent_engine_for(install, |e| e.has_stored_activity(&key))
             .ok_or(IngestError::EngineClosed)?;
@@ -370,7 +546,19 @@ pub fn ingest_original(
     }
     let prepared = prepare(listed, fit);
     let ingested = crate::persistence::with_persistent_engine_for(install, |e| {
-        settle(e, &key, path.as_deref(), fit, prepared)
+        let kept = if keep_for_upload {
+            Kept::Table { source: "garmin" }
+        } else {
+            Kept::Nowhere
+        };
+        if let Some(linked) = linked_to_file_row(e, &prepared, fit) {
+            return linked;
+        }
+        let ingested = settle(e, &key, kept, fit, prepared)?;
+        if finish && matches!(ingested, Ingested::Stored { .. }) {
+            finish_batch(e, std::slice::from_ref(&key));
+        }
+        Ok::<_, IngestError>(ingested)
     })
     .ok_or(IngestError::EngineClosed)??;
     if keep_for_upload

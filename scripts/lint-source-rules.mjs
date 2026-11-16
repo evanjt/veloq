@@ -644,6 +644,8 @@ const DYNAMIC_PREFIXES = [
   'recording.gpsModes.',
   'recording.library.status.',
   'recording.rpeLabels.',
+  // The catalogue's label keys, listed from the root bundle by exerciseLabels.ts.
+  'exerciseLabels.',
   'sectionHistory.kind_',
   'sensors.kinds.',
   'sensors.status.',
@@ -652,6 +654,22 @@ const DYNAMIC_PREFIXES = [
 // Closed sets, built at runtime from a value the sweep cannot see but whose
 // members are enumerable from the source.
 const DYNAMIC_KEYS = [
+  // `strength.picker.equipment.${slug}` in ExercisePicker.tsx, over the equipment kinds.
+  'strength.picker.equipment.barbell',
+  'strength.picker.equipment.dumbbell',
+  'strength.picker.equipment.kettlebell',
+  'strength.picker.equipment.cable',
+  'strength.picker.equipment.machine',
+  'strength.picker.equipment.band',
+  'strength.picker.equipment.bodyweight',
+  'strength.picker.equipment.other',
+  // `strength.picker.regions.${region}` in ExercisePicker.tsx, over the body regions.
+  'strength.picker.regions.arms',
+  'strength.picker.regions.shoulders',
+  'strength.picker.regions.chest',
+  'strength.picker.regions.back',
+  'strength.picker.regions.core',
+  'strength.picker.regions.legs',
   // `sensors.silent.${kind}` in SessionSensorList.tsx, over the sensor kinds.
   'sensors.silent.heartRate',
   'sensors.silent.power',
@@ -705,6 +723,32 @@ const DYNAMIC_KEYS = [
   'settings.satellite',
   'settings.terrain3DOff',
   'settings.terrain3DAlways',
+  // `connectPage.recordings.next.${status}` in web/connect/pages/Recording.tsx, over the upload statuses.
+  'connectPage.recordings.next.localOnly',
+  'connectPage.recordings.next.pending',
+  'connectPage.recordings.next.uploading',
+  'connectPage.recordings.next.uploaded',
+  'connectPage.recordings.next.failed',
+  'connectPage.recordings.next.permissionBlocked',
+  // `connectPage.sections.range_${entry.id}` in SectionDetailPage.tsx, over RANGES.
+  'connectPage.sections.range_90d',
+  'connectPage.sections.range_1y',
+  'connectPage.sections.range_all',
+  // `connectPage.sections.${row.direction}` in SectionDetailPage.tsx, over Direction.
+  'connectPage.sections.forward',
+  'connectPage.sections.reverse',
+  // `connectPage.insights.category.${group.category}` in InsightsPane.tsx, over InsightCategory.
+  'connectPage.insights.category.section_pr',
+  'connectPage.insights.category.section_trend',
+  'connectPage.insights.category.route',
+  'connectPage.insights.category.stale_pr',
+  'connectPage.insights.category.fitness_milestone',
+  'connectPage.insights.category.period_comparison',
+  'connectPage.insights.category.strength_progression',
+  'connectPage.insights.category.strength_balance',
+  'connectPage.insights.category.hrv_trend',
+  'connectPage.insights.category.efficiency_trend',
+  'connectPage.insights.category.section_changed',
 ];
 
 const GEOCODING_HOSTS =

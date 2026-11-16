@@ -1,0 +1,296 @@
+/**
+ * Scenario: a collection of 5,000 rows is shown in the connect page's data table.
+ *
+ * Expected behaviour: j and k move the active row and Enter opens it; a
+ * shift-click selects the range from the anchor and shows the bulk bar; a
+ * table of 5,000 rows mounts a window of rows, not all of them; a column the
+ * browser hid stays hidden on the next mount.
+ */
+
+import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+
+import { DataTable, type Column, type TableLabels } from '../../../web/connect/ui/DataTable';
+import {
+  clickMode,
+  keepPresent,
+  moveActive,
+  readHidden,
+  selectRow,
+  storedHidden,
+  toggleColumn,
+  visibleWindow,
+  writeHidden,
+  type TableStorage,
+} from '../../../web/connect/ui/tableModel';
+
+type Item = { id: string; name: string; metres: number };
+
+const items = (count: number): Item[] =>
+  Array.from({ length: count }, (_, at) => ({ id: `r${at}`, name: `Row ${at}`, metres: at * 10 }));
+
+const columns: Column<Item>[] = [
+  { key: 'name', header: 'Name', sortable: true, cell: (row) => row.name },
+  { key: 'metres', header: 'Metres', numeric: true, cell: (row) => row.metres },
+];
+
+const labels: TableLabels = {
+  count: (rows) => `${rows} rows`,
+  selected: (count) => `${count} selected`,
+  clearSelection: 'Clear',
+  selectAll: 'Select all',
+  columns: 'Columns',
+};
+
+const memory = (): TableStorage & { data: Map<string, string> } => {
+  const data = new Map<string, string>();
+  return {
+    data,
+    getItem: (key) => data.get(key) ?? null,
+    setItem: (key, value) => void data.set(key, value),
+  };
+};
+
+const key = (name: string, extra: object = {}) => ({
+  key: name,
+  shiftKey: false,
+  ctrlKey: false,
+  metaKey: false,
+  altKey: false,
+  target: { tagName: 'DIV' },
+  preventDefault: () => undefined,
+  ...extra,
+});
+
+const scroller = (root: ReactTestRenderer) =>
+  root.root.findByProps({ className: 'ui-table-scroll' });
+const dataRows = (root: ReactTestRenderer) =>
+  root.root.findAll((node) => node.type === 'tr' && node.props['data-row'] !== undefined);
+
+function mount(props: Partial<Parameters<typeof DataTable<Item>>[0]> = {}) {
+  let root!: ReactTestRenderer;
+  act(() => {
+    root = create(
+      <DataTable
+        label="Items"
+        columns={columns}
+        rows={items(10)}
+        rowKey={(row) => row.id}
+        storage={null}
+        {...props}
+      />
+    );
+  });
+  return root;
+}
+
+describe('the table model', () => {
+  it('moves the active row with j and k and stops at the ends', () => {
+    expect(moveActive(null, 5, 'j')).toBe(0);
+    expect(moveActive(0, 5, 'j')).toBe(1);
+    expect(moveActive(4, 5, 'j')).toBe(4);
+    expect(moveActive(0, 5, 'k')).toBe(0);
+    expect(moveActive(3, 5, 'ArrowUp')).toBe(2);
+    expect(moveActive(2, 5, 'End')).toBe(4);
+    expect(moveActive(2, 5, 'x')).toBeNull();
+    expect(moveActive(null, 0, 'j')).toBeNull();
+  });
+
+  it('selects a range in table order from the anchor, in either direction', () => {
+    const order = ['a', 'b', 'c', 'd', 'e'];
+    const first = selectRow({ keys: [], anchor: null }, order, 'b', 'single');
+    expect(selectRow(first, order, 'd', 'range').keys).toEqual(['b', 'c', 'd']);
+    expect(selectRow(first, order, 'a', 'range').keys).toEqual(['a', 'b']);
+    expect(selectRow(first, order, 'd', 'range').anchor).toBe('b');
+  });
+
+  it('toggles a row and treats a range with no anchor as the row alone', () => {
+    const order = ['a', 'b', 'c'];
+    const two = selectRow(
+      selectRow({ keys: [], anchor: null }, order, 'a', 'single'),
+      order,
+      'c',
+      'toggle'
+    );
+    expect(two.keys).toEqual(['a', 'c']);
+    expect(selectRow(two, order, 'a', 'toggle').keys).toEqual(['c']);
+    expect(selectRow({ keys: [], anchor: null }, order, 'b', 'range').keys).toEqual(['b']);
+  });
+
+  it('drops selected rows that a filter removed', () => {
+    const held = { keys: ['a', 'b', 'c'], anchor: 'a' };
+    expect(keepPresent(held, ['b', 'c'])).toEqual({ keys: ['b', 'c'], anchor: null });
+    expect(keepPresent(held, ['a', 'b', 'c'])).toBe(held);
+  });
+
+  it('reads modifier keys as a click mode', () => {
+    const plain = { shiftKey: false, ctrlKey: false, metaKey: false };
+    expect(clickMode(plain)).toBe('single');
+    expect(clickMode({ ...plain, shiftKey: true })).toBe('range');
+    expect(clickMode({ ...plain, metaKey: true })).toBe('toggle');
+  });
+
+  it('mounts every row up to the cap and a window past it', () => {
+    expect(visibleWindow(200, 0)).toEqual({ start: 0, end: 200 });
+    const top = visibleWindow(5000, 0);
+    expect(top.start).toBe(0);
+    expect(top.end).toBeLessThan(100);
+    const middle = visibleWindow(5000, 32 * 2500, 640);
+    expect(middle.start).toBeGreaterThan(2400);
+    expect(middle.end - middle.start).toBeLessThan(100);
+    expect(visibleWindow(5000, 10 ** 9, 640).end).toBe(5000);
+  });
+
+  it('keeps hidden columns, ignores a corrupt store and never hides the last column', () => {
+    const storage = memory();
+    writeHidden(storage, 'feed', ['metres']);
+    expect(readHidden(storage, 'feed')).toEqual(['metres']);
+    expect(readHidden(storage, 'other')).toEqual([]);
+    storage.data.set('veloq-connect-columns:bad', '{not json');
+    expect(readHidden(storage, 'bad')).toEqual([]);
+    expect(readHidden(null, 'feed')).toEqual([]);
+    expect(toggleColumn(['metres'], ['name', 'metres'], 'name')).toEqual(['metres']);
+    expect(toggleColumn([], ['name', 'metres'], 'name')).toEqual(['name']);
+  });
+});
+
+describe('the data table', () => {
+  it('moves the active row with j and k and opens it with Enter', () => {
+    const opened: string[] = [];
+    const root = mount({ onOpen: (row) => opened.push(row.id) });
+    const press = (name: string) => act(() => scroller(root).props.onKeyDown(key(name)));
+    press('j');
+    press('j');
+    press('k');
+    press('j');
+    press('Enter');
+    expect(opened).toEqual(['r1']);
+    expect(
+      dataRows(root)
+        .filter((row) => row.props['data-active'])
+        .map((row) => row.props['data-row'])
+    ).toEqual(['r1']);
+  });
+
+  it('selects a range on shift-click and shows the bulk bar with its actions', () => {
+    const run = jest.fn();
+    const root = mount({
+      selectable: true,
+      labels,
+      bulkActions: [{ key: 'export', label: 'Export', run }],
+    });
+    const click = (id: string, extra: object = {}) =>
+      act(() =>
+        dataRows(root)
+          .find((row) => row.props['data-row'] === id)
+          ?.props.onClick({ shiftKey: false, ctrlKey: false, metaKey: false, ...extra })
+      );
+    click('r2');
+    click('r5', { shiftKey: true });
+    const bar = root.root.findByProps({ role: 'toolbar' });
+    expect(bar.props['aria-label']).toBe('4 selected');
+    expect(dataRows(root).filter((row) => row.props['aria-selected']).length).toBe(4);
+    const button = root.root.findAll(
+      (node) => node.type === 'button' && node.children.includes('Export')
+    )[0];
+    act(() => button.props.onClick());
+    expect(run.mock.calls[0][0].map((row: Item) => row.id)).toEqual(['r2', 'r3', 'r4', 'r5']);
+    act(() => scroller(root).props.onKeyDown(key('Escape')));
+    expect(root.root.findAllByProps({ role: 'toolbar' })).toHaveLength(0);
+  });
+
+  it('toggles the active row with Space', () => {
+    const root = mount({ selectable: true, labels });
+    act(() => scroller(root).props.onKeyDown(key('j')));
+    act(() => scroller(root).props.onKeyDown(key(' ')));
+    expect(root.root.findByProps({ role: 'toolbar' }).props['aria-label']).toBe('1 selected');
+  });
+
+  it('mounts under 100 rows for a table of 5,000 and counts them all', () => {
+    const root = mount({ rows: items(5000), labels });
+    expect(dataRows(root).length).toBeLessThan(100);
+    expect(dataRows(root).length).toBeGreaterThan(0);
+    expect(root.root.findByProps({ className: 'ui-table-count' }).children).toEqual(['5000 rows']);
+  });
+
+  it('mounts every row of a table at or under the cap', () => {
+    expect(dataRows(mount({ rows: items(200) })).length).toBe(200);
+  });
+
+  it('hides a column through the chooser and keeps it on the next mount', () => {
+    const storage = memory();
+    const root = mount({ tableId: 'feed', labels, storage });
+    act(() =>
+      root.root
+        .findAll((node) => node.type === 'button' && node.props['aria-expanded'] !== undefined)[0]
+        .props.onClick()
+    );
+    const boxes = root.root.findAll((node) => node.type === 'input');
+    act(() => boxes[1].props.onChange());
+    const headers = (tree: ReactTestRenderer) =>
+      tree.root.findAll((node) => node.type === 'th').length;
+    expect(headers(root)).toBe(1);
+    expect(storage.data.get('veloq-connect-columns:feed')).toBe('["metres"]');
+    expect(headers(mount({ tableId: 'feed', labels, storage }))).toBe(1);
+  });
+
+  it('makes the first column a link when the page gives an address', () => {
+    const root = mount({ href: (row) => `#/activity/${row.id}` });
+    const links = root.root.findAll((node) => node.type === 'a');
+    expect(links).toHaveLength(10);
+    expect(links[0].props.href).toBe('#/activity/r0');
+  });
+});
+
+describe('the data table cells', () => {
+  const headers = (tree: ReactTestRenderer) =>
+    tree.root.findAll((node) => node.type === 'th').length;
+  const cells = (tree: ReactTestRenderer) => tree.root.findAll((node) => node.type === 'td');
+
+  it('titles a clipped text cell with its full text and sizes a numeric column to its widest value', () => {
+    const shaped: Column<Item>[] = [
+      { key: 'name', header: 'Name', clip: true, cell: (row) => row.name },
+      { key: 'metres', header: 'Metres', numeric: true, cell: (row) => row.metres },
+    ];
+    const root = mount({
+      columns: shaped,
+      rows: [
+        { id: 'a', name: 'Lakeside Loop Clockwise', metres: 1234 },
+        { id: 'b', name: 'Hill', metres: 98 },
+      ],
+    });
+    const [name, metres] = cells(root).slice(0, 2);
+    expect(name.props['data-clip']).toBe(true);
+    expect(name.props.title).toBe('Lakeside Loop Clockwise');
+    expect(metres.props.title).toBeUndefined();
+    expect(metres.props.style).toEqual({ minWidth: '4ch' });
+    expect(
+      cells(mount({ columns: shaped, rows: [{ id: 'a', name: 'Hill', metres: 98 }] }))[0].props
+        .title
+    ).toBe('Hill');
+  });
+
+  it('leaves a column the page hides by default out until the browser keeps a choice', () => {
+    const sized: Column<Item>[] = [
+      { key: 'name', header: 'Name', cell: (row) => row.name },
+      {
+        key: 'metres',
+        header: 'Metres',
+        numeric: true,
+        defaultHidden: true,
+        cell: (row) => row.metres,
+      },
+    ];
+    const storage = memory();
+    expect(headers(mount({ columns: sized, tableId: 'laps', labels, storage }))).toBe(1);
+    writeHidden(storage, 'laps', []);
+    expect(headers(mount({ columns: sized, tableId: 'laps', labels, storage }))).toBe(2);
+  });
+
+  it('tells a stored empty choice from no choice at all', () => {
+    const storage = memory();
+    expect(storedHidden(storage, 'laps')).toBeNull();
+    writeHidden(storage, 'laps', []);
+    expect(storedHidden(storage, 'laps')).toEqual([]);
+    expect(storedHidden(null, 'laps')).toBeNull();
+  });
+});

@@ -3,6 +3,7 @@
   "FfiActivityRecord": "The domain struct is the intervals.icu wire body, every field optional and under the API's names; the copy is the typed screen row built from it.",
   "FfiBulkExportProgress": "The domain struct is the atomic counters the writing thread moves; the copy is a snapshot of them with the run id, read on a timer.",
   "FfiClimbBest": "The domain struct holds the climb's stream indices and raw rates; the copy adds the label and the activity it came from, and drops the indices no screen reads.",
+  "FfiFocusState": "The domain state holds the rest times as whole epoch seconds the engine does arithmetic on; the copy carries them as the floating seconds every other screen read crosses in.",
   "FfiIndexActivitySummary": "The domain summary carries whether the indexer recomputed indicators, which only the engine acts on.",
   "FfiNamedCorridor": "The domain struct holds the footprint as points; it crosses delta and varint encoded as bytes.",
   "FfiRankedSection": "The domain struct is the ranking's private working state, its enrichment and rank features; the copy is the scored row the feed shows.",

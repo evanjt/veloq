@@ -404,6 +404,7 @@ module.exports = [
     files: [
       'src/features/home/components/SupportCard.tsx',
       'src/features/maps/components/timeline/TimelineSlider.tsx',
+      'src/features/recording/components/StrengthExerciseCard.tsx',
       'src/features/recording/components/TrimSlider.tsx',
       'src/features/routes/components/SectionTrimOverlay.tsx',
       'src/features/settings/components/whatsNew/WhatsNewModal.tsx',

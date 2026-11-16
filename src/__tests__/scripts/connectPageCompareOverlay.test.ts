@@ -11,7 +11,13 @@
 
 import { compareOverlay, type Track } from '../../../web/connect/compare';
 import { fitLines } from '../../../web/connect/fit';
-import { fromRoute, opening, toRoute } from '../../../web/connect/routesList';
+import {
+  fromRoute,
+  opening,
+  pageOpening,
+  toRoute,
+  type PageState,
+} from '../../../web/connect/routesList';
 import { parse, write } from '../../../web/connect/router';
 
 const BOX = { width: 1000, height: 1000, margin: 40 };
@@ -88,17 +94,22 @@ describe('compareOverlay', () => {
   });
 });
 
+const onSection = (ids: string[]): PageState => ({
+  ...pageOpening(),
+  focus: 'sections',
+  sections: { ...opening('sections', 's1'), ids },
+});
+
 describe('the section selection in the address', () => {
   it('round-trips the compared ids through the hash', () => {
-    const state = { ...opening('sections', 's1'), ids: ['p2', 'x,y', 'p9'] };
-    const hash = write(toRoute(state));
+    const hash = write(toRoute(onSection(['p2', 'x,y', 'p9'])));
     expect(hash).toContain('ids=');
-    expect(fromRoute(parse(hash))?.ids).toEqual(['p2', 'x,y', 'p9']);
+    expect(fromRoute(parse(hash))?.sections.ids).toEqual(['p2', 'x,y', 'p9']);
   });
 
   it('names no comparison for a single pass, and writes no ids for it', () => {
-    const hash = write(toRoute({ ...opening('sections', 's1'), ids: ['p2'] }));
+    const hash = write(toRoute(onSection(['p2'])));
     expect(hash).not.toContain('ids=');
-    expect(fromRoute(parse(hash))?.ids).toEqual([]);
+    expect(fromRoute(parse(hash))?.sections.ids).toEqual([]);
   });
 });

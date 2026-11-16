@@ -4,9 +4,9 @@
 
 import type { ParseKeys } from 'i18next';
 
-import type { Route } from './router';
+import { queryValue, type Route } from './router';
 import { readIds, writeIds } from './compare';
-import type { Card } from './session';
+import type { Card } from './feedReads';
 import type { SportFamily } from './link';
 
 export type Row = Card;
@@ -47,6 +47,19 @@ export const COLUMNS: {
   { key: 'hr', label: 'connectPage.columns.hr', numeric: true, value: (r) => r.avgHr },
   { key: 'power', label: 'connectPage.columns.power', numeric: true, value: (r) => r.avgPower },
 ];
+
+const NARROW_COLUMNS: readonly ColumnKey[] = ['date', 'name', 'sport', 'distance', 'time', 'load'];
+
+/**
+ * The columns a window of this width shows by default: six below 1280 px,
+ * climb added from 1280 px, every column from 1600 px.
+ */
+export function columnsForWidth(width: number): ColumnKey[] {
+  if (width >= 1600) return COLUMNS.map((c) => c.key);
+  if (width >= 1280)
+    return COLUMNS.map((c) => c.key).filter((k) => NARROW_COLUMNS.includes(k) || k === 'climb');
+  return [...NARROW_COLUMNS];
+}
 
 export type Sort = { column: ColumnKey; dir: 'asc' | 'desc' };
 
@@ -146,7 +159,7 @@ export function feedQuery(state: FeedQuery): [string, string][] {
 
 /** The feed's state in a route's query; anything unknown reads as the default. */
 export function readFeedQuery(route: Route): FeedQuery {
-  const get = (key: string) => route.query.find(([name]) => name === key)?.[1] ?? null;
+  const get = (key: string) => queryValue(route, key);
   const range = get('range');
   const [column, dir] = (get('sort') ?? '').split(':');
   const known = COLUMNS.some((c) => c.key === column);

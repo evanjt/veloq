@@ -36,6 +36,7 @@ const ACRONYMS = new Map([
   ['BPM', 'beats per minute'],
   ['GPX', 'a file format name'],
   ['FIT', 'a file format name'],
+  ['ZIP', 'a file format name'],
   ['SUP', 'stand-up paddling'],
   ['REC', 'the recording indicator, written in capitals on recorders in every language'],
   ['API', 'application programming interface, beside the data service key'],

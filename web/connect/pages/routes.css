@@ -1,0 +1,216 @@
+/* The map page: the list beside a map that stays in view while the page scrolls, and the
+   selected row's detail to its right. The map is bound to the window, not to the tallest sibling. */
+#routes-page {
+  --routes-list-width: clamp(var(--web-layout-list-pane), 30vw, 460px);
+  --routes-detail-width: clamp(420px, 34vw, 640px);
+  display: grid;
+  grid-template-columns: var(--routes-list-width) minmax(0, 1fr);
+  gap: var(--space-md);
+  align-items: start;
+  margin-top: 0;
+}
+
+#routes-page[data-open] {
+  grid-template-columns: var(--routes-list-width) minmax(0, 1fr) var(--routes-detail-width);
+}
+
+#routes-list,
+#routes-detail {
+  min-width: 0;
+}
+
+/* The page rule that spaces a section from the one above does not apply to the cards in a pane. */
+#routes-page .ui-card {
+  margin-top: 0;
+}
+
+#map-slot {
+  position: sticky;
+  top: 0;
+  height: calc(100vh - var(--topbar-height) - 2 * var(--page-gutter));
+  min-height: 360px;
+  overflow: hidden;
+  background: var(--card);
+  border: var(--stroke-1) solid var(--border);
+  border-radius: var(--web-radius-lg);
+}
+
+#map-slot .map-pane {
+  height: 100%;
+}
+
+/* Below this width the list gives way to the detail of an open route, which has a way back. */
+@media (max-width: 1800px) {
+  #routes-page[data-kind='routes'][data-open] {
+    grid-template-columns: minmax(0, 1fr) var(--routes-detail-width);
+  }
+
+  #routes-page[data-kind='routes'][data-open] #routes-list {
+    display: none;
+  }
+
+  /* A section's detail sits under its map in the right column, since the three would not fit. */
+  #routes-page[data-kind='sections'] {
+    grid-template-columns: var(--routes-list-width) minmax(0, 1fr);
+    grid-template-areas:
+      'list map'
+      'list detail';
+  }
+
+  #routes-page[data-kind='sections'] #routes-list {
+    grid-area: list;
+  }
+
+  #routes-page[data-kind='sections'] #map-slot {
+    grid-area: map;
+    position: relative;
+    height: 45vh;
+  }
+
+  #routes-page[data-kind='sections'] #routes-detail {
+    grid-area: detail;
+  }
+}
+
+#routes-page .chip[aria-pressed='true'] {
+  border-color: var(--primary);
+}
+
+#routes-page button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#routes-page .filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+#routes-list .filter-bar .ui-search {
+  flex: 1 1 140px;
+}
+
+#routes-list .row-thumb {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  color: var(--sport-other);
+}
+
+#routes-list .row-thumb[data-sport='ride'] {
+  color: var(--sport-ride);
+}
+
+#routes-list .row-thumb[data-sport='run'] {
+  color: var(--sport-run);
+}
+
+#routes-list .row-thumb[data-sport='swim'] {
+  color: var(--sport-swim);
+}
+
+#routes-list .row-thumb[data-sport='walk'] {
+  color: var(--sport-walk);
+}
+
+#routes-list .thumb-line {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#routes-detail .back {
+  margin: 0 0 var(--space-sm);
+}
+
+#routes-detail .rename {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+#routes-detail .rename .ui-field {
+  flex: 1;
+  min-width: 0;
+}
+
+#routes-detail .facts {
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  gap: var(--space-xs) var(--space-lg);
+  margin: 0 0 var(--space-md);
+}
+
+#routes-detail .facts dt {
+  grid-row: 1;
+  color: var(--text-muted);
+  font-size: var(--web-type-micro-size);
+  line-height: var(--web-type-micro-line);
+}
+
+#routes-detail .facts dd {
+  grid-row: 2;
+  margin: 0;
+}
+
+#routes-detail .reference {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: var(--space-sm) 0;
+}
+
+#routes-detail .ui-tabs {
+  margin-bottom: var(--space-md);
+}
+
+#routes-detail tr[data-pr='true'] {
+  font-weight: 600;
+}
+
+#routes-detail .excluded {
+  margin-top: var(--space-md);
+}
+
+#passes {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#passes tr[data-pr='true'] {
+  font-weight: 600;
+}
+
+#passes tr[data-hovered] {
+  background: var(--colour-state-hover);
+}
+
+.performance-chart {
+  width: 100%;
+  height: auto;
+}
+
+.performance-chart circle {
+  fill: var(--text-muted);
+}
+
+.performance-chart circle[data-best='true'] {
+  fill: var(--primary);
+}
+
+.history {
+  margin: 0;
+  padding-left: calc(var(--space-md) + var(--space-xs));
+}
+
+.history li[data-pinned='true'] {
+  font-weight: 600;
+}

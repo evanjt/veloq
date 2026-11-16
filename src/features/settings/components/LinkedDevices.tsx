@@ -38,7 +38,7 @@ function whenChanged(at: number): string {
 }
 
 /** The browsers linked to this library, with remove, and the way to link one more. */
-export function LinkedDevices() {
+export function LinkedDevices({ inviteCode }: { inviteCode?: string | undefined }) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const palette = isDark ? darkColors : colors;
@@ -49,7 +49,7 @@ export function LinkedDevices() {
     setBrowsers(readBrowsers());
     remoteLink.refresh();
   }, []);
-  const pairing = useDevicePairing(reload);
+  const pairing = useDevicePairing(reload, inviteCode);
 
   useEffect(() => {
     if (!engine) return undefined;

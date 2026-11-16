@@ -34,7 +34,7 @@ import {
 } from '@/shared/native/backupFolder';
 import { backupFileName, backupNameTimestamp } from './backupName';
 import { BackupTransferError } from './errors';
-import type { BackupBackend, BackupEntry } from './types';
+import type { BackupBackend, BackupEntry, BackupObject } from './types';
 
 export { forgetBackupFolder, isSharedBackupFolder, stopBackupFolder };
 
@@ -113,6 +113,30 @@ export function getBackupFolderName(): string | null {
   return heldBackupFolderName();
 }
 
+/** The folder's regular files by name and size, on whichever platform holds it. */
+async function folderFiles(operation: string): Promise<{ name: string; size: number }[]> {
+  if (Platform.OS === 'ios') return await onIos(operation, listBookmarkedFolder);
+  if (isSharedBackupFolder()) return await listSharedFolder();
+  return treeFiles(operation).map((file) => ({ name: file.name, size: file.size ?? 0 }));
+}
+
+/** Copy the file `name` out of the folder to `destPath`. */
+async function readFolderFile(operation: string, name: string, destPath: string): Promise<void> {
+  if (Platform.OS === 'ios') {
+    await onIos(operation, () => readFromBookmarkedFolder(name, destPath));
+    return;
+  }
+  if (isSharedBackupFolder()) {
+    await readFromSharedFolder(name, destPath);
+    return;
+  }
+  const source = treeFiles(operation).find((file) => file.name === name);
+  if (!source) throw new Error(`Backup not found: ${name}`);
+  await source.copy(new File(destPath), { overwrite: true });
+}
+
+const OBJECT_MIME_TYPE = 'application/octet-stream';
+
 export const folderBackend: BackupBackend = {
   id: 'folder',
   name: 'Folder',
@@ -126,12 +150,7 @@ export const folderBackend: BackupBackend = {
 
   async listBackups(): Promise<BackupEntry[]> {
     const operation = 'List backups';
-    const files =
-      Platform.OS === 'ios'
-        ? await onIos(operation, listBookmarkedFolder)
-        : isSharedBackupFolder()
-          ? await listSharedFolder()
-          : treeFiles(operation).map((file) => ({ name: file.name, size: file.size ?? 0 }));
+    const files = await folderFiles(operation);
     const entries: BackupEntry[] = [];
     for (const { name, size } of files) {
       const timestamp = backupNameTimestamp(name);
@@ -169,21 +188,58 @@ export const folderBackend: BackupBackend = {
   },
 
   async download(backupId: string, destPath: string): Promise<void> {
-    const operation = 'Restore backup';
-    if (Platform.OS === 'ios') {
-      await onIos(operation, () => readFromBookmarkedFolder(backupId, destPath));
-      return;
-    }
-    if (isSharedBackupFolder()) {
-      await readFromSharedFolder(backupId, destPath);
-      return;
-    }
-    const source = treeFiles(operation).find((file) => file.name === backupId);
-    if (!source) throw new Error(`Backup not found: ${backupId}`);
-    await source.copy(new File(destPath), { overwrite: true });
+    await readFolderFile('Restore backup', backupId, destPath);
   },
 
   async delete(): Promise<void> {
     throw new Error('Veloq deletes nothing in a backup folder the athlete chose');
+  },
+
+  /**
+   * An object of the same name is replaced: on a storage-access folder it is
+   * deleted before the new one is written, and the iOS folder and the shared
+   * Documents/Veloq take a replace option on their native write. A second file
+   * under a taken name would otherwise be refused or kept under a numbered one.
+   * The object is rewritten from the staged pack on the next run if the write
+   * fails after the delete.
+   */
+  async putObject(name: string, localPath: string): Promise<void> {
+    const operation = 'Copy backup object';
+    if (Platform.OS === 'ios') {
+      await onIos(operation, () => writeToBookmarkedFolder(localPath, name, true));
+      return;
+    }
+    if (isSharedBackupFolder()) {
+      await writeToSharedFolder(localPath, name, OBJECT_MIME_TYPE, true);
+      return;
+    }
+    const dir = reachableTree(operation);
+    // Read first, so a file that cannot be read replaces nothing.
+    const bytes = await new File(localPath).bytes();
+    for (const file of treeFiles(operation)) {
+      if (file.name === name) file.delete();
+    }
+    const target = dir.createFile(name, OBJECT_MIME_TYPE);
+    try {
+      target.write(bytes);
+    } catch (e) {
+      try {
+        target.delete();
+      } catch {
+        // A folder that refused the write may refuse the delete as well.
+      }
+      throw e;
+    }
+  },
+
+  async listObjects(prefix: string): Promise<BackupObject[]> {
+    const files = await folderFiles('List backup objects');
+    return files
+      .filter((file) => file.name.startsWith(prefix))
+      .map((file) => ({ name: file.name, sizeBytes: file.size }));
+  },
+
+  async fetchObject(name: string, destPath: string): Promise<void> {
+    await readFolderFile('Restore backup object', name, destPath);
   },
 };

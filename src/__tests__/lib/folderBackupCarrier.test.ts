@@ -232,11 +232,18 @@ function installIosNative(): void {
       code: 'ERR_FOLDER_UNAVAILABLE',
     });
   mockNative.bookmarkFolder = jest.fn((_uri: string) => 'Ym9va21hcmstMQ==');
-  mockNative.writeToBookmarkedFolder = jest.fn((_bookmark: string, from: string, name: string) => {
-    if (!mockFolder.reachable) throw unavailable();
-    mockFolder.files.set(name, mockFiles.get(`file://${from}`)!);
-    return { bookmark: 'Ym9va21hcmstMg==' };
-  });
+  mockNative.writeToBookmarkedFolder = jest.fn(
+    (_bookmark: string, from: string, name: string, replace: boolean) => {
+      if (!mockFolder.reachable) throw unavailable();
+      if (mockFolder.files.has(name) && !replace) {
+        throw Object.assign(new Error('The file already exists'), {
+          code: 'NSFileWriteFileExistsError',
+        });
+      }
+      mockFolder.files.set(name, mockFiles.get(`file://${from}`)!);
+      return { bookmark: 'Ym9va21hcmstMg==' };
+    }
+  );
   mockNative.listBookmarkedFolder = jest.fn((_bookmark: string) => {
     if (!mockFolder.reachable) throw unavailable();
     return {
@@ -386,6 +393,41 @@ describe('on Android, a storage-access folder', () => {
     ]);
   });
 
+  describe('sealed pack objects beside the record', () => {
+    const PACK = 'veloq-pack-abcd-2024-05.sealed';
+    const PACK_BYTES = new Uint8Array([9, 8, 7, 6, 5]);
+
+    beforeEach(() => {
+      mockFiles.set('file:///cache/pack', PACK_BYTES);
+    });
+
+    it('puts an object by name, lists it by prefix with its size and fetches the same bytes', async () => {
+      await folderBackend.putObject(PACK, 'file:///cache/pack');
+
+      expect(mockFolder.files.get(PACK)).toEqual(PACK_BYTES);
+      await expect(folderBackend.listObjects('veloq-pack-abcd-')).resolves.toEqual([
+        { name: PACK, sizeBytes: PACK_BYTES.length },
+      ]);
+      await expect(folderBackend.listObjects('veloq-pack-zzzz-')).resolves.toEqual([]);
+      await folderBackend.fetchObject(PACK, 'file:///cache/out');
+      expect(mockFiles.get('file:///cache/out')).toEqual(PACK_BYTES);
+    });
+
+    it('keeps the object out of the record listing', async () => {
+      await folderBackend.putObject(PACK, 'file:///cache/pack');
+      await expect(folderBackend.listBackups()).resolves.toEqual([]);
+    });
+
+    it('replaces an object of the same name rather than keeping two', async () => {
+      await folderBackend.putObject(PACK, 'file:///cache/pack');
+      mockFiles.set('file:///cache/pack', new Uint8Array([1, 2]));
+      await folderBackend.putObject(PACK, 'file:///cache/pack');
+
+      expect([...mockFolder.files.keys()]).toEqual([PACK]);
+      expect(mockFolder.files.get(PACK)).toEqual(new Uint8Array([1, 2]));
+    });
+  });
+
   it('copies a listed zip out for restore', async () => {
     mockFolder.files.set('veloq-2026-01-02T08-00-00-000Z.zip', MOCK_ZIP_BYTES);
 
@@ -427,11 +469,17 @@ describe('on Android, a storage-access folder', () => {
 /** The native side's media store writes to `Documents/Veloq`, on Android 10 and later. */
 function installSharedDocumentsNative(supported = true): void {
   mockNative.sharedDocumentsSupported = jest.fn(() => supported);
-  mockNative.writeSharedDocument = jest.fn(async (from: string, name: string, _mime: string) => {
-    if (mockShared.refuses) throw new Error('The media store refused the file');
-    mockShared.files.set(name, mockFiles.get(`file://${from}`)!);
-    return name;
-  });
+  mockNative.writeSharedDocument = jest.fn(
+    async (from: string, name: string, _mime: string, replace: boolean) => {
+      if (mockShared.refuses) throw new Error('The media store refused the file');
+      if (replace) mockShared.files.delete(name);
+      // A taken name is kept under a numbered one, as the media store does.
+      let stored = name;
+      for (let n = 1; mockShared.files.has(stored); n += 1) stored = `${name} (${n})`;
+      mockShared.files.set(stored, mockFiles.get(`file://${from}`)!);
+      return stored;
+    }
+  );
   mockNative.listSharedDocuments = jest.fn(async () =>
     [...mockShared.files].map(([name, bytes]) => ({ name, size: bytes.length }))
   );
@@ -463,9 +511,21 @@ describe('on Android with no folder chosen, the shared Documents/Veloq', () => {
     expect(mockNative.writeSharedDocument).toHaveBeenCalledWith(
       '/docs/veloq-decisions.zip',
       RUN_NAME,
-      'application/zip'
+      'application/zip',
+      false
     );
     expect([...mockFiles.keys()].filter((uri) => uri.startsWith('file:///cache/'))).toEqual([]);
+  });
+
+  it('replaces a pack object of the same name rather than keeping a numbered second', async () => {
+    const pack = 'veloq-pack-abcd-2024-05.sealed';
+    mockFiles.set('file:///cache/pack', new Uint8Array([9, 8, 7]));
+    await folderBackend.putObject(pack, 'file:///cache/pack');
+    mockFiles.set('file:///cache/pack', new Uint8Array([1, 2]));
+    await folderBackend.putObject(pack, 'file:///cache/pack');
+
+    expect([...mockShared.files.keys()]).toEqual([pack]);
+    expect(mockShared.files.get(pack)).toEqual(new Uint8Array([1, 2]));
   });
 
   it('owes the zip and shows the failure when the media store refuses it', async () => {
@@ -568,7 +628,8 @@ describe('on iOS, a Files folder held by bookmark', () => {
     expect(mockNative.writeToBookmarkedFolder).toHaveBeenCalledWith(
       'Ym9va21hcmstMQ==',
       '/docs/veloq-decisions.zip',
-      RUN_NAME
+      RUN_NAME,
+      false
     );
     expect(mockFolder.files.get(RUN_NAME)).toEqual(MOCK_AUTOMATIC_ZIP_BYTES);
     expect(mockNative.readFromBookmarkedFolder).toHaveBeenCalledWith(
@@ -577,6 +638,17 @@ describe('on iOS, a Files folder held by bookmark', () => {
       `/cache/read-backs/folder-${RUN_NAME}`
     );
     expect(mockSettings.get('__backup_folder')).toBe('Ym9va21hcmstMg==');
+  });
+
+  it('replaces a pack object of the same name on a second put', async () => {
+    const pack = 'veloq-pack-abcd-2024-05.sealed';
+    mockFiles.set('file:///cache/pack', new Uint8Array([9, 8, 7]));
+    await folderBackend.putObject(pack, 'file:///cache/pack');
+    mockFiles.set('file:///cache/pack', new Uint8Array([1, 2]));
+    await folderBackend.putObject(pack, 'file:///cache/pack');
+
+    expect([...mockFolder.files.keys()]).toEqual([pack]);
+    expect(mockFolder.files.get(pack)).toEqual(new Uint8Array([1, 2]));
   });
 
   it('records a stale bookmark that will not resolve as out of reach, and WebDAV still uploads', async () => {

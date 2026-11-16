@@ -4,6 +4,8 @@
 export type SelectOption = { value: string; label: string };
 
 export function Select(props: {
+  id?: string;
+  hideLabel?: boolean;
   label: string;
   value: string;
   options: readonly SelectOption[];
@@ -12,8 +14,10 @@ export function Select(props: {
 }) {
   return (
     <label className="ui-field">
-      <span className="ui-field-label">{props.label}</span>
+      {props.hideLabel ? null : <span className="ui-field-label">{props.label}</span>}
       <select
+        id={props.id}
+        aria-label={props.hideLabel ? props.label : undefined}
         className="ui-select"
         value={props.value}
         disabled={props.disabled}

@@ -10,6 +10,7 @@
 
 import {
   COLUMNS,
+  columnsForWidth,
   feedQuery,
   readFeedQuery,
   rangeBounds,
@@ -81,12 +82,12 @@ describe('the hash query', () => {
       id: 'i 42',
       ids: [] as string[],
     };
-    const hash = write({ screen: 'feed', id: null, query: feedQuery(state) });
+    const hash = write({ screen: 'activities', id: null, query: feedQuery(state) });
     expect(readFeedQuery(parse(hash))).toEqual(state);
   });
 
   vaultIt('reads an empty query as no range, no sport, no sort and nothing selected', () => {
-    expect(readFeedQuery(parse('#/feed'))).toEqual({
+    expect(readFeedQuery(parse('#/activities'))).toEqual({
       range: null,
       families: [],
       sort: null,
@@ -96,9 +97,9 @@ describe('the hash query', () => {
   });
 
   vaultIt('ignores a range, a sport or a sort it does not know', () => {
-    const got = readFeedQuery(parse('#/feed?range=never&sport=ride,quad&sort=nope:asc'));
+    const got = readFeedQuery(parse('#/activities?range=never&sport=ride,quad&sort=nope:asc'));
     expect(got).toEqual({ range: null, families: ['ride'], sort: null, id: null, ids: [] });
-    expect(readFeedQuery(parse('#/feed?sort=name:sideways')).sort).toBeNull();
+    expect(readFeedQuery(parse('#/activities?sort=name:sideways')).sort).toBeNull();
   });
 
   vaultIt('writes nothing for the defaults', () => {
@@ -154,5 +155,23 @@ describe('selectionAfter', () => {
 
   vaultIt('selects nothing in an empty list', () => {
     expect(selectionAfter([], null, 'next')).toBeNull();
+  });
+});
+
+describe('columnsForWidth', () => {
+  it('shows six columns on a narrow window, adds climb from 1280 and every column from 1600', () => {
+    expect(columnsForWidth(1024)).toEqual(['date', 'name', 'sport', 'distance', 'time', 'load']);
+    expect(columnsForWidth(1280)).toEqual([
+      'date',
+      'name',
+      'sport',
+      'distance',
+      'time',
+      'climb',
+      'load',
+    ]);
+    expect(columnsForWidth(1599)).toHaveLength(7);
+    expect(columnsForWidth(1600)).toEqual(COLUMNS.map((c) => c.key));
+    expect(columnsForWidth(2560)).toEqual(COLUMNS.map((c) => c.key));
   });
 });

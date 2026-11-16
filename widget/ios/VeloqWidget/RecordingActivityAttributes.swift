@@ -32,11 +32,48 @@ struct VeloqRecordingAttributes: ActivityAttributes {
     /// on, so only a process that has stopped pushing, one the system killed mid-ride,
     /// lets the card reach it.
     let staleAt: Double?
+    /// "strength" on a strength session's card, nil on a recording's. The strength card carries
+    /// none of the recording fields above, so each of them decodes to its empty value.
+    let kind: String?
+    /// "set" or "rest", on a strength card.
+    let phase: String?
+    /// The exercise in hand, or the one just finished while resting.
+    let exercise: String?
+    /// The set after this one. Nil on the last line.
+    let nextSet: String?
+    /// Milliseconds since the epoch a rest ends at. Nil on a set and on a rest with no length.
+    let restEndsAt: Double?
+
+    init(from decoder: Decoder) throws {
+      let c = try decoder.container(keyedBy: CodingKeys.self)
+      status = try c.decodeIfPresent(String.self, forKey: .status) ?? "recording"
+      timerFrom = try c.decodeIfPresent(Double.self, forKey: .timerFrom) ?? 0
+      frozenElapsedS = try c.decodeIfPresent(Double.self, forKey: .frozenElapsedS)
+      distanceLabel = try c.decodeIfPresent(String.self, forKey: .distanceLabel) ?? ""
+      speedLabel = try c.decodeIfPresent(String.self, forKey: .speedLabel) ?? ""
+      trace = try c.decodeIfPresent(Trace.self, forKey: .trace)
+      guidance = try c.decodeIfPresent(String.self, forKey: .guidance)
+      endedLabel = try c.decodeIfPresent(String.self, forKey: .endedLabel)
+      staleAt = try c.decodeIfPresent(Double.self, forKey: .staleAt)
+      kind = try c.decodeIfPresent(String.self, forKey: .kind)
+      phase = try c.decodeIfPresent(String.self, forKey: .phase)
+      exercise = try c.decodeIfPresent(String.self, forKey: .exercise)
+      nextSet = try c.decodeIfPresent(String.self, forKey: .nextSet)
+      restEndsAt = try c.decodeIfPresent(Double.self, forKey: .restEndsAt)
+    }
 
     struct Trace: Codable, Hashable {
       /// Normalised 0..1 pairs, y growing downward like screen pixels.
       let points: [[Double]]
       let aspect: Double
+    }
+
+    var isStrength: Bool { kind == "strength" }
+
+    /// The rest countdown's end, nil when the card is on a set or the rest has no length.
+    var restEnd: Date? {
+      guard isStrength, phase == "rest", let end = restEndsAt else { return nil }
+      return Date(timeIntervalSince1970: end / 1000)
     }
 
     var isPaused: Bool { status == "paused" }

@@ -237,13 +237,6 @@ jest.mock('@/features/activity/hooks/useSectionOverlays', () => ({
     ),
 }));
 
-jest.mock('@/features/routes/hooks/useActivityRematch', () => ({
-  useActivityRematch: () => ({
-    matches: [],
-    scan: jest.fn(),
-    rematch: jest.fn(),
-  }),
-}));
 jest.mock('@/features/wellness', () => ({ useWellnessForDate: () => ({ data: undefined }) }));
 jest.mock('@/features/settings/hooks/exportIndex', () => ({
   useGpxExport: () => ({ exportGpx: jest.fn(), exporting: false }),

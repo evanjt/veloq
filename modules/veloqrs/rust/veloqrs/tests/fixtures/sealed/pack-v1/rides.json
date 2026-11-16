@@ -1,0 +1,4 @@
+[
+  {"key": "ride-alpha", "source": "device", "start": "2026-03-04T06:30:00Z", "kinds": ["original.fit", "streams.bin"]},
+  {"key": "ride-beta", "source": "import", "start": "2026-03-19T17:05:30Z", "kinds": ["original.fit"]}
+]

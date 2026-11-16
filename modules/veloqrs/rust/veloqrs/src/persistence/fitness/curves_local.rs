@@ -23,7 +23,6 @@ use serde_json::{Value, json};
 
 use crate::net::offline_prefetch::{ALL_TIME_CURVE_DAYS, CURVE_DAYS, CURVE_KEYS};
 use crate::net::types::StreamDto;
-use crate::persistence::settings::settings_keys;
 use crate::persistence::{bodies::CurveKind, codec};
 
 /// The `source` of a body worked out here.
@@ -496,25 +495,10 @@ pub(crate) fn pace_body(rides: &[&RideCurve], window: Window) -> Option<String> 
 /// out: its ride figures, its wellness series and its curves.
 ///
 /// It is when the library holds nothing from intervals.icu: no activity under
-/// an intervals.icu id, and none a Garmin original was linked to one. It is
-/// also when the library is named for the Garmin account it was recorded as
-/// leaving to an intervals.icu sign-in, because the athlete came back by that
-/// account: the intervals.icu rows stay as stored and keep their numbers, and
-/// what they did not serve is worked out here. A library named for a Garmin
-/// account that was never recorded as left holds intervals.icu's rows only
-/// because a sign-in is still adopting it, and shows none of Veloq's figures.
+/// an intervals.icu id, none a Garmin original was linked to one, and no
+/// wellness day intervals.icu wrote. The rows alone answer it, whatever name
+/// the library carries, so one library never mixes the two calculators.
 pub(crate) fn is_garmin_only(conn: &Connection) -> SqlResult<bool> {
-    let named = |key: &str| -> SqlResult<Option<String>> {
-        conn.query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
-            row.get(0)
-        })
-        .optional()
-    };
-    if let Some(held) = named(settings_keys::GARMIN_LIBRARY_ID)?
-        && named(settings_keys::ATHLETE_ID)?.as_deref() == Some(held.as_str())
-    {
-        return Ok(true);
-    }
     let holds: bool = conn.query_row(
         "SELECT EXISTS (SELECT 1 FROM activities
                          WHERE intervals_id IS NOT NULL
@@ -527,6 +511,22 @@ pub(crate) fn is_garmin_only(conn: &Connection) -> SqlResult<bool> {
         return Ok(false);
     }
     Ok(!holds_server_wellness(conn)?)
+}
+
+/// The imported rides the server's figures leave out: zero when the library is
+/// Garmin-only, since the local fold then counts every row, else the rows
+/// under `src-` that no intervals.icu ride is linked to. A recording under
+/// `local-` is a pending upload and a `demo-` row is sample data, so neither
+/// is an import.
+pub(crate) fn imports_outside_server_figures(conn: &Connection) -> SqlResult<u32> {
+    if is_garmin_only(conn)? {
+        return Ok(0);
+    }
+    conn.query_row(
+        "SELECT COUNT(*) FROM activities WHERE id LIKE 'src-%' AND intervals_id IS NULL",
+        [],
+        |row| row.get(0),
+    )
 }
 
 /// Whether a wellness day came from intervals.icu: a figure in a column, or a

@@ -92,6 +92,8 @@ fn recorded(key: &str) -> StrengthSession {
         current_exercise: None,
         current_set: None,
         rest_started_at: None,
+        heart_rate: Vec::new(),
+        notes: Vec::new(),
     }
 }
 
@@ -331,5 +333,213 @@ fn a_saved_workout_writes_nothing_to_the_library() {
     assert_eq!(
         engine.get_strength_session("session-1").unwrap(),
         Some(workout)
+    );
+}
+
+fn live_with_one_done_set(engine: &PersistentEngine) {
+    use veloqrs::persistence::strength_live::{LiveEdit, StartFrom};
+    engine
+        .start_live_strength_session(
+            &StartFrom::Plan(vec!["Goblet squat 16kg 3x10".to_string()]),
+            5_000,
+        )
+        .unwrap();
+    engine
+        .edit_live_strength_session(&LiveEdit::Begin, 5_001)
+        .unwrap();
+    engine
+        .edit_live_strength_session(
+            &LiveEdit::CompleteSet {
+                exercise: 0,
+                set: 0,
+            },
+            5_060,
+        )
+        .unwrap();
+}
+
+fn finish_input<'a>(
+    files_root: &'a std::path::Path,
+) -> veloqrs::strength::recording::FinishRecording<'a> {
+    veloqrs::strength::recording::FinishRecording {
+        recording_id: "r-1",
+        name: "Strength",
+        athlete_id: Some("i42"),
+        now: 5_600,
+        rpe: None,
+        keep_on_device: false,
+        files_root,
+    }
+}
+
+#[test]
+fn finishing_a_live_session_writes_its_fit_and_a_fit_row() {
+    use veloqrs::strength::recording::StrengthFinish;
+    let dir = TempDir::new().unwrap();
+    let engine = open(&dir);
+    live_with_one_done_set(&engine);
+
+    let StrengthFinish::Finished(entry) = engine
+        .finish_strength_recording(&finish_input(dir.path()))
+        .unwrap()
+    else {
+        panic!("a session with a done set finishes");
+    };
+
+    assert_eq!(entry.kind, "fit");
+    assert_eq!(entry.activity_type, "WeightTraining");
+    assert_eq!(entry.fit_path, "recordings/r-1.fit");
+    assert_eq!(entry.athlete_id.as_deref(), Some("i42"));
+    assert_eq!(
+        entry.engine_activity_id.as_deref(),
+        Some("local-recording-r-1")
+    );
+    assert_eq!(engine.get_recording("r-1").unwrap().unwrap().kind, "fit");
+    let file = std::fs::read(dir.path().join("recordings/r-1.fit")).unwrap();
+    let sets = veloqrs::fit::parse_fit_strength_sets(&file).unwrap();
+    assert_eq!(sets.len(), 1);
+    assert_eq!(sets[0].repetitions, Some(10));
+    assert!(engine.live_strength_session().unwrap().is_none());
+    let finished = engine
+        .finished_strength_session_for("local-recording-r-1")
+        .unwrap()
+        .unwrap();
+    assert_eq!(finished.kind, SessionKind::Finished);
+}
+
+#[test]
+fn a_pound_athletes_finished_session_is_written_in_pounds_for_the_upload() {
+    use veloqrs::strength::recording::StrengthFinish;
+    use veloqrs::strength::weight::WeightUnit;
+    let dir = TempDir::new().unwrap();
+    let engine = open(&dir);
+    engine
+        .set_setting("veloq-resolved-unit-system", "imperial")
+        .unwrap();
+    live_with_one_done_set(&engine);
+
+    let StrengthFinish::Finished(entry) = engine
+        .finish_strength_recording(&finish_input(dir.path()))
+        .unwrap()
+    else {
+        panic!("a session with a done set finishes");
+    };
+
+    let file = std::fs::read(dir.path().join(&entry.fit_path)).unwrap();
+    assert_eq!(
+        veloqrs::fit::strength_weight_unit(&file).unwrap(),
+        Some(WeightUnit::Pound)
+    );
+}
+
+#[test]
+fn finishing_a_live_session_keeps_the_effort_for_the_upload() {
+    use veloqrs::strength::recording::{FinishRecording, StrengthFinish};
+    let dir = TempDir::new().unwrap();
+    let engine = open(&dir);
+    live_with_one_done_set(&engine);
+
+    let StrengthFinish::Finished(entry) = engine
+        .finish_strength_recording(&FinishRecording {
+            rpe: Some(7),
+            ..finish_input(dir.path())
+        })
+        .unwrap()
+    else {
+        panic!("a session with a done set finishes");
+    };
+
+    assert_eq!(entry.rpe, Some(7));
+    assert!(!entry.rpe_sent);
+    assert_eq!(engine.get_recording("r-1").unwrap().unwrap().rpe, Some(7));
+}
+
+#[test]
+fn finishing_a_live_session_kept_on_the_device_is_not_queued_for_upload() {
+    use veloqrs::strength::recording::{FinishRecording, StrengthFinish};
+    let dir = TempDir::new().unwrap();
+    let engine = open(&dir);
+    live_with_one_done_set(&engine);
+
+    let StrengthFinish::Finished(entry) = engine
+        .finish_strength_recording(&FinishRecording {
+            keep_on_device: true,
+            ..finish_input(dir.path())
+        })
+        .unwrap()
+    else {
+        panic!("a session with a done set finishes");
+    };
+
+    assert_eq!(entry.upload_status, "localOnly");
+    assert_eq!(
+        engine.get_recording("r-1").unwrap().unwrap().upload_status,
+        "localOnly"
+    );
+}
+
+#[test]
+fn finishing_a_live_session_with_no_done_set_changes_nothing() {
+    use veloqrs::persistence::strength_live::{LiveEdit, StartFrom};
+    use veloqrs::strength::recording::StrengthFinish;
+    let dir = TempDir::new().unwrap();
+    let engine = open(&dir);
+    engine
+        .start_live_strength_session(
+            &StartFrom::Plan(vec!["Goblet squat 16kg 3x10".to_string()]),
+            5_000,
+        )
+        .unwrap();
+    engine
+        .edit_live_strength_session(&LiveEdit::Begin, 5_001)
+        .unwrap();
+    let before = engine.live_strength_session().unwrap();
+
+    let answer = engine
+        .finish_strength_recording(&finish_input(dir.path()))
+        .unwrap();
+
+    assert!(matches!(answer, StrengthFinish::NoSets));
+    assert_eq!(engine.live_strength_session().unwrap(), before);
+    assert!(engine.get_recording("r-1").unwrap().is_none());
+    assert!(!dir.path().join("recordings/r-1.fit").exists());
+}
+
+#[test]
+fn finishing_without_a_live_session_is_refused() {
+    let dir = TempDir::new().unwrap();
+    let engine = open(&dir);
+    assert!(
+        engine
+            .finish_strength_recording(&finish_input(dir.path()))
+            .is_err()
+    );
+}
+
+#[test]
+fn finishing_under_a_taken_recording_id_keeps_the_session_live_and_leaves_no_file() {
+    use veloqrs::strength::recording::StrengthFinish;
+    let dir = TempDir::new().unwrap();
+    let engine = open(&dir);
+    live_with_one_done_set(&engine);
+    let StrengthFinish::Finished(_) = engine
+        .finish_strength_recording(&finish_input(dir.path()))
+        .unwrap()
+    else {
+        panic!("first finish succeeds");
+    };
+    let first = std::fs::read(dir.path().join("recordings/r-1.fit")).unwrap();
+    live_with_one_done_set(&engine);
+
+    assert!(
+        engine
+            .finish_strength_recording(&finish_input(dir.path()))
+            .is_err()
+    );
+
+    assert!(engine.live_strength_session().unwrap().is_some());
+    assert_eq!(
+        std::fs::read(dir.path().join("recordings/r-1.fit")).unwrap(),
+        first
     );
 }

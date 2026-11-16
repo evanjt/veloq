@@ -20,6 +20,10 @@ mod restored_number_tests;
 #[path = "tests/restored_route_names.rs"]
 mod restored_route_name_tests;
 
+#[cfg(test)]
+#[path = "tests/restored_recordings.rs"]
+mod restored_recording_tests;
+
 /// Restored records still waiting for their activity or ground.
 pub(crate) const PENDING_KEY: &str = "__record_restore_pending";
 /// Activities a restored record names that this library has not fetched yet.
@@ -750,6 +754,7 @@ impl PersistentEngine {
             table if super::strength_sessions::SESSION_TABLES.contains(&table) => {
                 self.place_strength_session_row(row)
             }
+            "recordings" => self.place_recording_words(row),
             "section_forced_matches" => self.place_forced_match(row),
             "section_history" => self.place_history(row),
             super::record_backup::LEGACY_SECTION_NAME
@@ -764,6 +769,83 @@ impl PersistentEngine {
             "activity_matches" => self.place_route_exclusion(row),
             _ => Ok(false),
         }
+    }
+
+    /// Put a recording's name, notes, effort and paired workout back.
+    ///
+    /// A recording this library holds takes the four on its row. One it does
+    /// not hold is placed once the ride it names is stored, matched by the
+    /// recording's own id, the key a recording is written under, or the id
+    /// intervals.icu knows it by. The row that places has no file, so it
+    /// is marked uploaded when intervals.icu has the ride and local only
+    /// otherwise, and neither state is offered to the upload queue.
+    fn place_recording_words(&self, row: &RecordRow) -> Result<bool, String> {
+        let Some(id) = string(&row.values, "id") else {
+            return Ok(false);
+        };
+        let words = params![
+            string(&row.values, "name").unwrap_or_default(),
+            string(&row.values, "notes"),
+            integer(&row.values, "rpe"),
+            integer(&row.values, "paired_event_id"),
+            id,
+        ];
+        let updated = self
+            .db
+            .execute(
+                "UPDATE recordings SET name = ?1, notes = ?2, rpe = ?3, paired_event_id = ?4
+                 WHERE id = ?5",
+                words,
+            )
+            .map_err(|e| e.to_string())?;
+        if updated > 0 {
+            return Ok(true);
+        }
+        let upstream = string(&row.values, "intervals_activity_id");
+        let ride: Option<String> = self
+            .db
+            .query_row(
+                "SELECT id FROM activities
+                 WHERE id = ?1 OR id = 'local-' || ?1
+                    OR (?2 IS NOT NULL AND (id = ?2 OR intervals_id = ?2))
+                 LIMIT 1",
+                params![id, upstream],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?;
+        let Some(ride) = ride else {
+            return Ok(false);
+        };
+        let start = integer(&row.values, "start_time").unwrap_or_default();
+        self.db
+            .execute(
+                "INSERT INTO recordings (id, kind, fit_path, activity_type, name, start_time,
+                     duration_seconds, distance_meters, paired_event_id, created_at,
+                     upload_status, intervals_activity_id, engine_activity_id, engine_reconciled,
+                     athlete_id, notes, rpe, rpe_sent)
+                 VALUES (?1, ?2, '', ?3, ?4, ?5, 0, 0, ?6, ?5, ?7, ?8, ?9, 1, ?10, ?11, ?12, 1)",
+                params![
+                    id,
+                    string(&row.values, "kind").unwrap_or("fit"),
+                    string(&row.values, "activity_type").unwrap_or("Ride"),
+                    string(&row.values, "name").unwrap_or_default(),
+                    start,
+                    integer(&row.values, "paired_event_id"),
+                    if upstream.is_some() {
+                        "uploaded"
+                    } else {
+                        "localOnly"
+                    },
+                    upstream,
+                    ride,
+                    string(&row.values, "athlete_id"),
+                    string(&row.values, "notes"),
+                    integer(&row.values, "rpe"),
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(true)
     }
 
     fn place_section(&mut self, row: &RecordRow) -> Result<bool, String> {

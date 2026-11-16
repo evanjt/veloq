@@ -4,17 +4,19 @@
 # lands unless a build landed in between changed what it touches.
 #
 # It judges the tree, not behaviour: the type check, the lint, formatting, the
-# correctness guards and the Rust test tree. A job runs the suites its change
-# reaches and CI runs every suite and the style guards, so none of those run
-# here. A full suite on every landing held each one for about fifteen minutes,
-# and landings queue behind each other. Warm, a TypeScript batch gates in about
-# fifteen seconds and a Rust batch in under a minute, most of it the compiler.
+# land set of guards and the Rust test tree. A guard that names paths runs only
+# when the landing touches one of them, so a landing outside those paths does not
+# wait for it. A job runs the suites its change reaches and CI runs every suite,
+# so no suite runs here. A full suite on every landing held each one for about
+# fifteen minutes, and landings queue behind each other.
 #
 # The generated link files and bindings follow from the merged tree, so at a
 # landing they are regenerated and committed over the batch, and the commit
 # lands with it. Refusing them sent a correct build back for a whole new job.
 #
 # Usage: scripts/land-gate.sh
+#        scripts/land-gate.sh --list-guards [BASE]
+# `--list-guards` prints the guards a landing on BASE runs and exits, before anything is built.
 # DOCKET_LAND_BASE: the head the batch merged onto, set by `docket land`.
 # Unset, the gate runs as a job's: against the merge base with main, over the
 # working tree, and committing nothing. Its guards judge the working tree too:
@@ -27,6 +29,12 @@ cd "$(git rev-parse --show-toplevel)"
 landing=${DOCKET_LAND_BASE:+yes}
 base=${DOCKET_LAND_BASE:-$(git merge-base HEAD main 2>/dev/null || true)}
 export VELOQ_MERGE_BASE="$base"
+
+if [ "${1:-}" = --list-guards ]; then
+  VELOQ_MERGE_BASE="${2:-$base}"
+  export VELOQ_MERGE_BASE
+  exec node scripts/run-guards.mjs --set land --planned
+fi
 
 if [ -n "$base" ]; then
   changed=$( (git diff --name-only "$base"; git ls-files --others --exclude-standard) | sort -u)
@@ -54,6 +62,12 @@ if touches '^(modules/veloqrs/|web/connect/|Cargo\.lock)'; then
   fi
 fi
 
+# At a landing the batch's files are formatted and committed over it before the
+# lanes read the tree, so a layout-only difference lands rather than refusing it.
+if [ -n "$landing" ]; then
+  scripts/format-landing.sh "$base"
+fi
+
 logs=$(mktemp -d)
 trap 'rm -rf "$logs"' EXIT
 
@@ -71,9 +85,9 @@ types() { npx tsc -b && npm run --silent lint; }
 # that work for its guard run and restores the index after. A landing's work is already committed.
 guards() {
   if [ -n "$landing" ]; then
-    GUARD_WORKERS=${GUARD_WORKERS:-12} node scripts/run-guards.mjs --set commit
+    GUARD_WORKERS=${GUARD_WORKERS:-12} node scripts/run-guards.mjs --set land
   else
-    GUARD_WORKERS=${GUARD_WORKERS:-12} scripts/stage-job-work.sh node scripts/run-guards.mjs --set commit
+    GUARD_WORKERS=${GUARD_WORKERS:-12} scripts/stage-job-work.sh node scripts/run-guards.mjs --set land
   fi
 }
 format() {

@@ -115,3 +115,4 @@ export { RemoteLinkHeaderItem } from './components/RemoteLinkHeaderItem';
 export { RemoteLinkSheet } from './components/RemoteLinkSheet';
 export { remoteLink } from './lib/remoteLinkSession';
 export { AthleteThresholds } from './components/AthleteThresholds';
+export { ImportCollection } from './components/ImportCollection';

@@ -47,6 +47,8 @@ export function useEngineSync(): void {
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const authMethod = useAuthStore((s) => s.authMethod);
   const garminOnly = sourceFor({ authMethod })?.id === 'garmin';
+  // A library filled from files has no connector to sync from.
+  const filesOnly = sourceFor({ authMethod })?.id === 'files';
   const state = useSyncState();
   const { hasReading } = useNetwork();
   const engineReadyNonce = useEngineStatus((s) => s.readyNonce);
@@ -60,7 +62,16 @@ export function useEngineSync(): void {
     // The engine holds no network reading until the provider's first one has
     // been pushed, and a sync started before it would run believing it is
     // online. The reading's arrival brings the effect back.
-    if (!isAuthenticated || isDemoMode || garminOnly || startedRef.current || !hasReading) return;
+    if (
+      !isAuthenticated ||
+      isDemoMode ||
+      garminOnly ||
+      filesOnly ||
+      startedRef.current ||
+      !hasReading
+    ) {
+      return;
+    }
     const engine = getEngine();
     if (!engine) return;
     // This hook mounts before the root layout has opened the engine, so the
@@ -70,7 +81,15 @@ export function useEngineSync(): void {
     // The profile is left to the engine's age gate, and a pull to refresh is
     // what forces it.
     startedRef.current = hasStarted(engine.syncNow(false));
-  }, [isAuthenticated, isDemoMode, garminOnly, hasReading, engineReadyNonce, resetNonce]);
+  }, [
+    isAuthenticated,
+    isDemoMode,
+    garminOnly,
+    filesOnly,
+    hasReading,
+    engineReadyNonce,
+    resetNonce,
+  ]);
 
   // Re-arm on logout so the next session syncs again. A pull-to-refresh held
   // for the settle that never came goes with it: the next athlete did not ask

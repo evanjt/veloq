@@ -3,7 +3,6 @@ import {
   accountChangeAction,
   confirmAccountChange,
   getCachedAthleteId,
-  getGarminLibraryId,
   settleBeforeNamingLibrary,
 } from './accountChange';
 import { resolveStoredActivityCount } from './storedActivityCount';
@@ -54,12 +53,7 @@ function askAboutUnnamedLibrary(): Promise<UnnamedLibraryChoice> {
  */
 export async function resolveLoginLibrary(incomingId: string): Promise<LoginLibraryOutcome> {
   const cachedId = await getCachedAthleteId();
-  const action = accountChangeAction(
-    cachedId,
-    incomingId,
-    await resolveStoredActivityCount(),
-    await getGarminLibraryId()
-  );
+  const action = accountChangeAction(cachedId, incomingId, await resolveStoredActivityCount());
   if (action === 'wipe') return 'wipe';
   if (action === 'confirm-then-wipe') {
     if (cachedId) {

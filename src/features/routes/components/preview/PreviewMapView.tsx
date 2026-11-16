@@ -25,7 +25,6 @@ import {
   spacing,
   typography,
   stroke,
-  sectionPalette,
   sectionPaletteIndex,
 } from '@/theme';
 import { useTheme } from '@/shared/app';
@@ -75,7 +74,7 @@ function lineFeature(section: PreviewSection, coords: LngLat[]): GeoJSON.Feature
     properties: {
       id: section.id,
       status: section.status,
-      color: sectionPalette[sectionPaletteIndex(section.id)],
+      colorIndex: sectionPaletteIndex(section.id),
     },
     geometry: { type: 'LineString', coordinates: coords },
   };

@@ -508,13 +508,6 @@ describe('route page below the chart', () => {
     expect(peek.queryByTestId('section-calendar')).toBeNull();
   });
 
-  it('shows the summary with the oldest attempt in the read as First', async () => {
-    const screen = await render(<RouteDetailScreen />);
-
-    expect(screen.getByTestId('section-first')).toHaveTextContent(/2024/);
-    expect(screen.getByTestId('section-last')).toHaveTextContent(/2026/);
-  });
-
   vaultIt('shows the calendar with both years and the wellness card', async () => {
     // The wellness card is experimental, drawn only with the developer switch on.
     useDebugStore.setState({
@@ -537,6 +530,7 @@ describe('route page below the chart', () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const screen = await render(<RouteDetailScreen />);
 
+    await fireEvent.press(screen.getByRole('button', { name: 'stats.year 2026' }));
     await fireEvent.press(screen.getAllByTestId('calendar-reference-button')[0]);
     const confirm = alert.mock.calls[0][2]?.find(
       (button) => button.text === 'routes.setAsReference'

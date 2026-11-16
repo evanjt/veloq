@@ -53,6 +53,10 @@ const DEFAULT_TIERS = SWEPT_TIERS.join(',');
  * shard log, which times the flow and not the retry pass. A flow whose first
  * pass failed in both runs, or was not reached, has no entry and counts as
  * UNMEASURED_SECONDS, since a failed first pass times the assertion it waits on.
+ *
+ * The two chart scrubbing halves had no scheduled run to read, so their figures
+ * are the larger JUnit testcase time of two passing runs each, on the iOS
+ * simulator at 1015b35f1 with the Mac at load 3 to 5.
  */
 const IOS_SECONDS: Record<string, number> = {
   'about-links': 82,
@@ -125,7 +129,8 @@ const IOS_SECONDS: Record<string, number> = {
   'storage-display': 65,
   'strength-inline-panel': 84,
   'stress-activity-sections': 148,
-  'stress-chart-scrubbing': 1107,
+  'stress-chart-scrubbing-1': 175,
+  'stress-chart-scrubbing-2': 169,
   'stress-navigation-rapid': 783,
   'stress-map-toggles': 228,
   'training-wellness-dashboard': 111,
@@ -158,6 +163,9 @@ const RETRY_SHARE = 0.5;
 
 /** A shard that fits inside this never meets the hosted runner's cancellation. */
 const SHARD_CEILING_MINUTES = 60;
+
+/** One handset command is capped at this, so a flow longer than it cannot run there. */
+const HANDSET_COMMAND_SECONDS = 580;
 
 type Sweep = {
   job: string;
@@ -391,6 +399,23 @@ describe.each(SWEEPS.map((sweep) => [sweep.job, sweep] as const))(
     });
   }
 );
+
+describe('the chart scrubbing stress flows', () => {
+  it('are split so each half fits one handset command', () => {
+    const halves = sweptFlows.filter((flow) => flow.name.startsWith('stress-chart-scrubbing'));
+    expect(halves.length).toBeGreaterThan(1);
+    const tooLong = halves
+      .map((flow) => ({ name: flow.name, seconds: IOS_SECONDS[flow.name] ?? UNMEASURED_SECONDS }))
+      .filter((flow) => flow.seconds > HANDSET_COMMAND_SECONDS);
+    expect(tooLong).toEqual([]);
+  });
+
+  it('each have a measured iOS time, not the unmeasured charge', () => {
+    const halves = sweptFlows.filter((flow) => flow.name.startsWith('stress-chart-scrubbing'));
+    const unmeasured = halves.map((flow) => flow.name).filter((name) => !(name in IOS_SECONDS));
+    expect(unmeasured).toEqual([]);
+  });
+});
 
 describe('the scheduled iOS sweep', () => {
   it('boots the simulator through the action that tells run-suite.sh how to revive it', () => {

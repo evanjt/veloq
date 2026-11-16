@@ -8,6 +8,7 @@ import {
   opacity,
   recording,
   routePalette,
+  sectionNumberInk,
   sectionPalette,
 } from './colors';
 import { colourTokens } from './colourTokens.generated';
@@ -70,6 +71,8 @@ function layerColours(base: MapBase) {
     ...mapLayerColors,
     /** Section lines and markers, indexed by the section's palette index. */
     sections: sectionPalette as readonly string[],
+    /** The ink of a section's number on its slot's hue, one per slot of `sections`. */
+    sectionInk: sectionPalette.map((_, slot) => sectionNumberInk(slot)) as readonly string[],
     /** Route lines, indexed by the engine's hash of the route id. */
     routes: routePalette as readonly string[],
     /** The sections the catalogue holds now, under a preview of a regroup. */

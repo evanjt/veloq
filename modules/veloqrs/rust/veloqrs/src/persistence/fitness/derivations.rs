@@ -2838,10 +2838,12 @@ pub(crate) mod highlights {
                 } else {
                     None
                 };
+                let route_name = route_names.get(gid).cloned().unwrap_or_default();
                 results.push(crate::FfiActivityRouteHighlight {
                     activity_id: aid.to_string(),
                     route_id: gid.to_string(),
-                    route_name: route_names.get(gid).cloned().unwrap_or_default(),
+                    label: crate::route_chip_label(&route_name, is_pr),
+                    route_name,
                     is_pr,
                     trend,
                     time_delta_seconds,

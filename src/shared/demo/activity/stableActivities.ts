@@ -397,7 +397,7 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
       ],
       _routeId: 'route-valais-ride-2',
     },
-    // demo-test-8: 9 days ago, three laps of the rio loop other runs cover.
+    // demo-test-8: 9 days ago, three laps of the rio loop most runs ride.
     // Its sections are crossed once per lap, so the section screen lists its
     // laps and one can be excluded.
     {
@@ -411,7 +411,7 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
       type: 'Run',
       name: 'Rio Loop Laps',
       description: 'Three laps of the beach loop.',
-      distance: 8600,
+      distance: 8800,
       moving_time: 3300,
       elapsed_time: 3420,
       total_elevation_gain: 45,
@@ -445,7 +445,7 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
         'velocity_smooth',
         'grade_smooth',
       ],
-      _routeId: 'route-rio-run-3-laps',
+      _routeId: 'route-rio-run-1-laps',
     },
     // demo-test-9: 10 days ago, a pool swim with no track. The engine settles
     // its lengths from the demo corpus when its detail screen asks for its FIT

@@ -154,10 +154,10 @@ class VeloqBackupExclusionModule : Module() {
       SharedDocuments.isSupported()
     }
 
-    AsyncFunction("writeSharedDocument") Coroutine { from: String, name: String, mimeType: String ->
+    AsyncFunction("writeSharedDocument") Coroutine { from: String, name: String, mimeType: String, replace: Boolean ->
       requireSharedDocuments()
       withContext(Dispatchers.IO) {
-        SharedDocuments.write(context.contentResolver, from, name, mimeType)
+        SharedDocuments.write(context.contentResolver, from, name, mimeType, replace)
       }
     }
 

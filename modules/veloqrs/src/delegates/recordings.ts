@@ -6,7 +6,12 @@
  * The FIT file and a manual entry's body stay the caller's to write and delete.
  */
 
-import { FfiUploadOutcome, UploadRefusal, UploadTransition } from '../generated/veloqrs';
+import {
+  FfiStrengthFinish_Tags,
+  FfiUploadOutcome,
+  UploadRefusal,
+  UploadTransition,
+} from '../generated/veloqrs';
 import type { FfiRecordingEntry, FfiUploadResult } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 import { present } from './optional';
@@ -330,6 +335,49 @@ export function uploadRecording(
     return Promise.resolve({ outcome: FfiUploadOutcome.NotStarted });
   }
   return host.engine.recordings().uploadRecording(id, manual, filesRoot);
+}
+
+/** How finishing the live strength session ended. */
+export type StrengthFinishResult = { kind: 'finished'; entry: RecordingEntry } | { kind: 'noSets' };
+
+/**
+ * Finish the live strength session as the recording `recordingId`. The engine
+ * writes the FIT of the done sets in the athlete's own weight unit under
+ * `filesRoot`, finishes the session under the recording's key and adds the
+ * row, which the upload then sends and relinks. A session with no done set
+ * answers `noSets` and stays live. `nowSeconds` is Unix seconds, `rpe` the
+ * effort from 1 to 10.
+ */
+export function finishStrengthRecording(
+  host: DelegateHost,
+  input: {
+    recordingId: string;
+    name: string;
+    athleteId: string | undefined;
+    nowSeconds: number;
+    rpe: number | undefined;
+    /** The row waits on the device instead of joining the upload queue. */
+    keepOnDevice: boolean;
+    filesRoot: string;
+  }
+): StrengthFinishResult {
+  if (!host.ready) throw new Error('Engine not initialised');
+  const answer = host.timed('finishStrengthRecording', () =>
+    host.engine
+      .recordings()
+      .finishStrengthRecording(
+        input.recordingId,
+        input.name,
+        input.athleteId,
+        input.nowSeconds,
+        input.rpe,
+        input.keepOnDevice,
+        input.filesRoot
+      )
+  );
+  return answer.tag === FfiStrengthFinish_Tags.Finished
+    ? { kind: 'finished', entry: toEntry(answer.inner.entry) }
+    : { kind: 'noSets' };
 }
 
 /**

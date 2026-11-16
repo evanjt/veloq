@@ -104,6 +104,7 @@ impl<'a> UnderPointKey<'a> {
 fn under_point_traces(key: &str) -> Result<Vec<u8>, u16> {
     use crate::persistence::under_point::{TracesError, traces_under_point};
     let key = UnderPointKey::parse(key).ok_or(BAD_PATH)?;
+    let started = std::time::Instant::now();
     let traces =
         traces_under_point(key.latitude, key.longitude, key.zoom, key.group).map_err(|error| {
             match error {
@@ -144,6 +145,13 @@ fn under_point_traces(key: &str) -> Result<Vec<u8>, u16> {
         out.push('}');
     }
     out.push_str("]}");
+    log::info!(
+        "veloqrs: [UnderPoint] zoom {}, {} traces, {} bytes, {} ms",
+        key.zoom,
+        traces.len(),
+        out.len(),
+        started.elapsed().as_millis()
+    );
     Ok(out.into_bytes())
 }
 
@@ -430,6 +438,33 @@ pub(crate) fn route_latest_feature(conn: &Connection, group_id: &str) -> String 
         )
 }
 
+/// Every member of a route group as one `LineString` of its stored track,
+/// each carrying its `activityId`, in the group's member order. A member with
+/// no usable track is left out; an unknown group is the empty collection.
+pub(crate) fn route_attempts_collection(conn: &Connection, group_id: &str) -> String {
+    use crate::persistence::activities::pooled as activities;
+    let Some(group) = crate::persistence::routes::pooled::group_by_id(conn, group_id) else {
+        return EMPTY_COLLECTION.to_string();
+    };
+    let mut features = String::new();
+    for id in &group.activity_ids {
+        let Some(points) = activities::gps_track(conn, id).filter(|points| has_line(points)) else {
+            continue;
+        };
+        if !features.is_empty() {
+            features.push(',');
+        }
+        let activity = serde_json::to_string(id).unwrap_or_else(|_| "null".to_string());
+        let _ = write!(
+            features,
+            r#"{{"type":"Feature","properties":{{"activityId":{activity}}},"geometry":{{"type":"LineString","coordinates":["#,
+        );
+        push_positions(&mut features, &points);
+        features.push_str("]}}");
+    }
+    format!(r#"{{"type":"FeatureCollection","features":[{features}]}}"#)
+}
+
 /// One section's line as a one-feature collection carrying `id`, `name` or
 /// null and `palette`, the empty collection for an unknown section.
 pub(crate) fn section_feature(conn: &Connection, section_id: &str) -> String {
@@ -453,6 +488,28 @@ pub(crate) fn section_feature(conn: &Connection, section_id: &str) -> String {
         out,
         r#"{{"type":"Feature","id":{id},"properties":{{"id":{id},"name":{name},"palette":{}}},"geometry":{{"type":"LineString","coordinates":["#,
         route_palette_key(&section.id),
+    );
+    push_positions(&mut out, &points);
+    out.push_str("]}}]}");
+    out
+}
+
+/// One stored geometry version of a section as a one-feature collection carrying `id` and
+/// `version`, the empty collection for a section or version that is not stored.
+pub(crate) fn section_version_feature(conn: &Connection, section_id: &str, version: i64) -> String {
+    let Some((points, _)) = crate::persistence::sections::history::pooled::section_geometry_version(
+        conn, section_id, version,
+    ) else {
+        return EMPTY_COLLECTION.to_string();
+    };
+    if !has_line(&points) {
+        return EMPTY_COLLECTION.to_string();
+    }
+    let id = serde_json::to_string(section_id).unwrap_or_else(|_| "null".to_string());
+    let mut out = String::from(r#"{"type":"FeatureCollection","features":["#);
+    let _ = write!(
+        out,
+        r#"{{"type":"Feature","id":{id},"properties":{{"id":{id},"version":{version}}},"geometry":{{"type":"LineString","coordinates":["#,
     );
     push_positions(&mut out, &points);
     out.push_str("]}}]}");

@@ -17,6 +17,7 @@ use super::PersistentEngine;
 use super::climb_bests::in_write_txn;
 use super::strength::{FitOutcome, write_fit_outcome};
 use crate::fit::FitExerciseSet;
+use crate::strength::weight::WeightUnit;
 
 /// The tables a session lives in, parent first, as a record backup carries them.
 pub(crate) const SESSION_TABLES: &[&str] = &[
@@ -25,7 +26,11 @@ pub(crate) const SESSION_TABLES: &[&str] = &[
     "strength_session_sets",
     "strength_session_groups",
     "strength_session_rests",
+    "strength_session_heart_rate",
 ];
+
+/// The table of heart rate readings, which a save of a session never rewrites.
+pub(crate) const HEART_RATE_TABLE: &str = "strength_session_heart_rate";
 
 /// What a session row stands for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -100,6 +105,18 @@ pub struct SessionRest {
     pub duration_secs: Option<f64>,
 }
 
+/// One heart rate reading taken while the session was live.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SessionHeartRate {
+    /// Unix seconds.
+    pub at: i64,
+    pub bpm: u8,
+}
+
+/// The lowest and highest reading a sensor can report as a heart rate. A
+/// strap that has lost contact reports 0, which is no reading.
+pub const HEART_RATE_RANGE: std::ops::RangeInclusive<u32> = 20..=250;
+
 /// A session with everything it holds. Exercises and sets are stored in the
 /// order they sit in these vectors.
 #[derive(Debug, Clone, PartialEq)]
@@ -125,6 +142,93 @@ pub struct StrengthSession {
     pub current_set: Option<u32>,
     /// When the rest in progress began, if one is.
     pub rest_started_at: Option<i64>,
+    /// The heart rate readings, oldest first, read from their own table:
+    /// they are appended one at a time through
+    /// [`PersistentEngine::record_live_heart_rate`] and a save of the session
+    /// leaves them as they are.
+    pub heart_rate: Vec<SessionHeartRate>,
+    /// The lines of the plan this session was started from that are not
+    /// exercises, as the plan wrote them.
+    pub notes: Vec<String>,
+}
+
+impl StrengthSession {
+    /// The mean of the readings, rounded to a whole beat; empty with none.
+    pub fn average_heart_rate(&self) -> Option<u8> {
+        if self.heart_rate.is_empty() {
+            return None;
+        }
+        let sum: u64 = self.heart_rate.iter().map(|r| u64::from(r.bpm)).sum();
+        let mean = sum as f64 / self.heart_rate.len() as f64;
+        Some(mean.round() as u8)
+    }
+
+    pub fn max_heart_rate(&self) -> Option<u8> {
+        self.heart_rate.iter().map(|r| r.bpm).max()
+    }
+
+    /// The readings as the FIT writer takes them, by seconds after the
+    /// session's start. Empty before the session has a start.
+    pub fn fit_heart_rate(&self) -> Vec<crate::fit_strength::HeartRateSample> {
+        let Some(start) = self.started_at else {
+            return Vec::new();
+        };
+        self.heart_rate
+            .iter()
+            .map(|r| crate::fit_strength::HeartRateSample {
+                offset_secs: u32::try_from((r.at - start).max(0)).unwrap_or(u32::MAX),
+                bpm: r.bpm,
+            })
+            .collect()
+    }
+
+    /// The session as the FIT writer takes it: done sets and the rests between them in the
+    /// order they happened, the readings, and the unit the athlete reads weights in.
+    pub fn fit_session(&self, unit: WeightUnit) -> crate::fit_strength::StrengthSession {
+        use crate::fit_strength::{SetKind, WrittenSet};
+        let start = self.started_at.unwrap_or(self.created_at);
+        let offset = |at: i64| u32::try_from((at - start).max(0)).unwrap_or(u32::MAX);
+        let mut sets: Vec<WrittenSet> = Vec::new();
+        for exercise in &self.exercises {
+            for set in exercise.sets.iter().filter(|s| s.done) {
+                let duration = set.duration_secs.unwrap_or(0.0);
+                let end = set.done_at.map_or(0, offset);
+                sets.push(WrittenSet {
+                    kind: if set.warm_up {
+                        SetKind::WarmUp
+                    } else {
+                        SetKind::Active
+                    },
+                    category: Some(exercise.exercise_category),
+                    name: exercise.exercise_name,
+                    repetitions: set.reps.and_then(|r| u16::try_from(r).ok()),
+                    weight_kg: set.weight_kg,
+                    start_offset_secs: end.saturating_sub(duration.round() as u32),
+                    duration_secs: duration,
+                });
+            }
+        }
+        for rest in &self.rests {
+            if let (Some(at), Some(duration)) = (rest.started_at, rest.duration_secs) {
+                sets.push(WrittenSet {
+                    kind: SetKind::Rest,
+                    category: None,
+                    name: None,
+                    repetitions: None,
+                    weight_kg: None,
+                    start_offset_secs: offset(at),
+                    duration_secs: duration,
+                });
+            }
+        }
+        sets.sort_by_key(|s| s.start_offset_secs);
+        crate::fit_strength::StrengthSession {
+            start_unix: start,
+            sets,
+            heart_rate: self.fit_heart_rate(),
+            weight_unit: unit,
+        }
+    }
 }
 
 /// The sets a finished session puts in the library: the done working sets, in
@@ -165,14 +269,17 @@ pub(super) fn claims(conn: &Connection, key: &str) -> SqlResult<bool> {
 
 fn write_session(conn: &Connection, session: &StrengthSession) -> SqlResult<()> {
     let id = session.id.as_str();
-    for table in &SESSION_TABLES[1..] {
+    for table in SESSION_TABLES[1..]
+        .iter()
+        .filter(|table| **table != HEART_RATE_TABLE)
+    {
         conn.execute(&format!("DELETE FROM {table} WHERE session_id = ?1"), [id])?;
     }
     conn.execute(
         "INSERT OR REPLACE INTO strength_sessions
          (id, kind, name, activity_key, intervals_id, started_at, ended_at,
-          last_used_at, created_at, current_exercise, current_set, rest_started_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          last_used_at, created_at, current_exercise, current_set, rest_started_at, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
             id,
             session.kind.as_str(),
@@ -186,6 +293,7 @@ fn write_session(conn: &Connection, session: &StrengthSession) -> SqlResult<()> 
             session.current_exercise,
             session.current_set,
             session.rest_started_at,
+            (!session.notes.is_empty()).then(|| session.notes.join("\n")),
         ],
     )?;
     let mut exercise_stmt = conn.prepare(
@@ -243,12 +351,12 @@ fn write_session(conn: &Connection, session: &StrengthSession) -> SqlResult<()> 
     Ok(())
 }
 
-fn read_session(conn: &Connection, id: &str) -> SqlResult<Option<StrengthSession>> {
+pub(crate) fn read_session(conn: &Connection, id: &str) -> SqlResult<Option<StrengthSession>> {
     let head = conn
         .query_row(
             "SELECT kind, name, activity_key, intervals_id, started_at, ended_at,
                     last_used_at, created_at, current_exercise, current_set,
-                    rest_started_at
+                    rest_started_at, notes
              FROM strength_sessions WHERE id = ?1",
             [id],
             |row| {
@@ -264,6 +372,7 @@ fn read_session(conn: &Connection, id: &str) -> SqlResult<Option<StrengthSession
                     row.get::<_, Option<u32>>(8)?,
                     row.get::<_, Option<u32>>(9)?,
                     row.get::<_, Option<i64>>(10)?,
+                    row.get::<_, Option<String>>(11)?,
                 ))
             },
         )
@@ -280,6 +389,7 @@ fn read_session(conn: &Connection, id: &str) -> SqlResult<Option<StrengthSession
         current_exercise,
         current_set,
         rest_started_at,
+        notes,
     )) = head
     else {
         return Ok(None);
@@ -361,6 +471,19 @@ fn read_session(conn: &Connection, id: &str) -> SqlResult<Option<StrengthSession
         })?
         .collect::<SqlResult<_>>()?;
 
+    let heart_rate = conn
+        .prepare(
+            "SELECT at, bpm FROM strength_session_heart_rate
+             WHERE session_id = ?1 ORDER BY at",
+        )?
+        .query_map([id], |row| {
+            Ok(SessionHeartRate {
+                at: row.get(0)?,
+                bpm: row.get(1)?,
+            })
+        })?
+        .collect::<SqlResult<_>>()?;
+
     Ok(Some(StrengthSession {
         id: id.to_string(),
         kind,
@@ -377,6 +500,10 @@ fn read_session(conn: &Connection, id: &str) -> SqlResult<Option<StrengthSession
         current_exercise,
         current_set,
         rest_started_at,
+        heart_rate,
+        notes: notes
+            .map(|text| text.lines().map(str::to_string).collect())
+            .unwrap_or_default(),
     }))
 }
 
@@ -390,6 +517,26 @@ fn project(engine: &PersistentEngine, key: &str, session: &StrengthSession) -> S
     }
     engine.write_exercise_sets(key, &sets)?;
     write_fit_outcome(&engine.db, key, FitOutcome::Parsed)
+}
+
+/// The unit the athlete reads and enters weight in, read on any connection.
+pub(crate) fn athlete_weight_unit_on(
+    conn: &Connection,
+) -> SqlResult<crate::strength::weight::WeightUnit> {
+    let system = super::settings::setting_from(conn, "veloq-resolved-unit-system")?;
+    Ok(crate::strength::weight::WeightUnit::for_system(
+        system.as_deref(),
+    ))
+}
+
+/// The FIT file of the session stored under `id`, weights in the athlete's unit, read on any
+/// connection.
+pub(crate) fn strength_session_fit_on(conn: &Connection, id: &str) -> SqlResult<Option<Vec<u8>>> {
+    let Some(session) = read_session(conn, id)? else {
+        return Ok(None);
+    };
+    let unit = athlete_weight_unit_on(conn)?;
+    Ok(Some(session.fit_session(unit).to_fit()))
 }
 
 impl PersistentEngine {
@@ -419,9 +566,44 @@ impl PersistentEngine {
         })
     }
 
+    /// The finished session that recorded the ride stored under `key`, or
+    /// `None` when none did.
+    pub fn finished_strength_session_for(&self, key: &str) -> SqlResult<Option<StrengthSession>> {
+        let id: Option<String> = self
+            .db
+            .query_row(
+                "SELECT id FROM strength_sessions
+                 WHERE kind = 'finished' AND activity_key = ?1",
+                [key],
+                |row| row.get(0),
+            )
+            .optional()?;
+        id.map_or(Ok(None), |id| read_session(&self.db, &id))
+    }
+
     /// A session with everything it holds, or `None` for an id nothing holds.
     pub fn get_strength_session(&self, id: &str) -> SqlResult<Option<StrengthSession>> {
         read_session(&self.db, id)
+    }
+
+    /// The session's FIT file, weights displayed in the athlete's resolved unit system, or
+    /// `None` for an id nothing holds.
+    pub fn strength_session_fit(&self, id: &str) -> SqlResult<Option<Vec<u8>>> {
+        strength_session_fit_on(&self.db, id)
+    }
+
+    /// The unit the athlete reads and enters weight in, from their resolved unit system.
+    pub fn athlete_weight_unit(&self) -> SqlResult<crate::strength::weight::WeightUnit> {
+        athlete_weight_unit_on(&self.db)
+    }
+
+    /// What the live session shows now, weights in the athlete's unit, or `None` when no session
+    /// is live.
+    pub fn live_focus_state(&self) -> SqlResult<Option<super::strength_focus::FocusState>> {
+        let Some(session) = self.live_strength_session()? else {
+            return Ok(None);
+        };
+        Ok(Some(session.focus_state(self.athlete_weight_unit()?)))
     }
 
     /// A recorded ride's upload landed as `intervals_id`: the session that
@@ -607,6 +789,8 @@ mod tests {
             current_exercise: None,
             current_set: None,
             rest_started_at: None,
+            heart_rate: Vec::new(),
+            notes: Vec::new(),
         }
     }
 

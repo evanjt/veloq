@@ -2,8 +2,9 @@
  * What the signed-in source is and what it can do, read from the auth state
  * the caller already selects. The scheme is the credential owner's fact, kept
  * in the keychain and handed to the engine one way, so the engine has nothing
- * to read it from. This stays a pure function: a store, a hook or a cached copy
- * would give the fact a second reader.
+ * to read it from. The files source is a library filled from activity files
+ * alone, with no account, no credential and no connector. This stays a pure
+ * function: a store, a hook or a cached copy would give the fact a second reader.
  */
 
 import { INTERVALS_URLS } from '@/shared/app/constants';
@@ -11,7 +12,7 @@ import { INTERVALS_URLS } from '@/shared/app/constants';
 /** The athlete id demo mode signs in as. */
 export const DEMO_ATHLETE_ID = 'demo';
 
-export type AuthMethod = 'oauth' | 'apiKey' | 'garmin' | 'demo' | null;
+export type AuthMethod = 'oauth' | 'apiKey' | 'garmin' | 'demo' | 'files' | null;
 
 export interface SourceCapabilities {
   /** Registers a push token. The server proves the athlete with an OAuth token alone. */
@@ -24,10 +25,15 @@ export interface SourceCapabilities {
    * offers no upload for it.
    */
   uploads: boolean;
+  /**
+   * The recording screen is open. A ride needs somewhere to go, and a library
+   * filled from files alone has no connector to send it to.
+   */
+  records: boolean;
 }
 
 export interface Source {
-  id: 'intervals' | 'garmin' | 'demo';
+  id: 'intervals' | 'garmin' | 'demo' | 'files';
   scheme: Exclude<AuthMethod, null>;
   /** The source's own pages, or null when it has none to send an athlete to. */
   links: typeof INTERVALS_URLS | null;
@@ -44,25 +50,31 @@ const SOURCES = Object.freeze({
     id: 'intervals',
     scheme: 'oauth',
     links: INTERVALS_URLS,
-    can: { push: true, scoped: true, uploads: true },
+    can: { push: true, scoped: true, uploads: true, records: true },
   }),
   apiKey: source({
     id: 'intervals',
     scheme: 'apiKey',
     links: INTERVALS_URLS,
-    can: { push: false, scoped: false, uploads: true },
+    can: { push: false, scoped: false, uploads: true, records: true },
   }),
   garmin: source({
     id: 'garmin',
     scheme: 'garmin',
     links: null,
-    can: { push: false, scoped: false, uploads: false },
+    can: { push: false, scoped: false, uploads: false, records: true },
   }),
   demo: source({
     id: 'demo',
     scheme: 'demo',
     links: null,
-    can: { push: false, scoped: false, uploads: false },
+    can: { push: false, scoped: false, uploads: false, records: true },
+  }),
+  files: source({
+    id: 'files',
+    scheme: 'files',
+    links: null,
+    can: { push: false, scoped: false, uploads: false, records: false },
   }),
 });
 
@@ -75,6 +87,7 @@ export const SCHEME_LABEL_KEY = Object.freeze({
   apiKey: 'settings.authApiKey',
   garmin: 'settings.authGarmin',
   demo: 'settings.authDemo',
+  files: 'filesSource.authLabel',
 } as const);
 
 export interface AuthInputs {
@@ -97,5 +110,6 @@ export function sourceFor({
   if (authMethod === 'oauth') return SOURCES.oauth;
   if (authMethod === 'apiKey') return SOURCES.apiKey;
   if (authMethod === 'garmin') return SOURCES.garmin;
+  if (authMethod === 'files') return SOURCES.files;
   return null;
 }

@@ -2,18 +2,13 @@
  * Scenario: the routes and sections pages draw a selected row's performance
  * chart, attempts table and history from the phone's reads.
  *
- * Expected behaviour: each read has its own slot, so opening another row
- * withdraws the first row's outstanding reads and nothing else; chart points
- * sit by date and speed inside the plot and mark the best; attempts sort by
- * the column pressed and reverse on a second press; history rows name the
+ * Expected behaviour: chart points sit by date and speed inside the plot and
+ * mark the best; attempts sort by the column pressed and reverse on a second press; history rows name the
  * activities their chips draw, oldest first.
  */
 
-import { createClient, type Channel } from '../../../web/connect/client';
-import { isSuperseded } from '../../../web/connect/link';
 import {
   ATTEMPT_COLUMNS,
-  ROUTE_SLOTS,
   attemptsOf,
   chartPointsOf,
   historyRowsOf,
@@ -128,7 +123,7 @@ describe('the attempts table', () => {
     expect(pressedAttempts(start, 'date')).toEqual({ column: 'date', descending: false });
     expect(pressedAttempts(start, 'time')).toEqual({ column: 'time', descending: false });
     expect(pressedAttempts(start, 'speed')).toEqual({ column: 'speed', descending: true });
-    expect(ATTEMPT_COLUMNS).toEqual(['date', 'time', 'speed']);
+    expect(ATTEMPT_COLUMNS).toEqual(['date', 'time', 'gap', 'rank', 'speed']);
   });
 });
 
@@ -156,38 +151,4 @@ describe('the history rows', () => {
     expect(rows[0]?.activities).toEqual(['Morning loop', 'gone']);
     expect(rows[1]).toMatchObject({ version: 2, pinned: true, activities: [] });
   });
-});
-
-describe('the read slots', () => {
-  vaultIt('gives each read of a detail pane its own slot', () => {
-    const slots = Object.values(ROUTE_SLOTS);
-    expect(new Set(slots).size).toBe(slots.length);
-  });
-
-  vaultIt(
-    'withdraws a row’s reads in a slot when another row asks there, and no other',
-    async () => {
-      const sent: { method: string }[] = [];
-      const channel: Channel = {
-        readyState: 'open',
-        binaryType: 'blob',
-        send: (text) => sent.push(JSON.parse(text)),
-        onmessage: null,
-      };
-      const client = createClient(channel);
-      const first = client
-        .ask('section.detail', { id: 's1' }, ROUTE_SLOTS.sectionDetail)
-        .catch((error: unknown) => error);
-      const history = client.ask('section.history', { id: 's1' }, ROUTE_SLOTS.sectionHistory);
-      void client.ask('section.detail', { id: 's2' }, ROUTE_SLOTS.sectionDetail);
-      expect(sent.map((message) => message.method)).toEqual([
-        'section.detail',
-        'section.history',
-        'cancel',
-        'section.detail',
-      ]);
-      expect(isSuperseded(await first)).toBe(true);
-      void history.catch(() => undefined);
-    }
-  );
 });

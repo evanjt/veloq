@@ -66,10 +66,22 @@ pub(crate) fn buffer_metres(latitude: f64, zoom: u8) -> f64 {
 }
 
 /// The most traces one group draws under a tap.
-pub(crate) const MAX_TRACES: usize = 25;
+///
+/// Timed on an Android test phone in the demo library, at its densest cell (104
+/// activities within reach at zoom 12, 64 at zoom 14): a cap of 25, 50 and 100
+/// each answered the export in 1 to 9 ms in the engine and under 45 ms across
+/// the bridge, and the group draw janked one to five frames a tap at
+/// every cap (the sheet's own selection included). The demo's largest group
+/// holds 62 traces at zoom 14 and 71 at zoom 12, so 100 is the largest value
+/// measured, not one the demo reaches.
+pub(crate) const MAX_TRACES: usize = 100;
 
 /// The radius, in pixels at the tap's zoom, of the circle a trace is drawn
 /// inside.
+///
+/// On the same phone and demo cell at a cap of 100, 600 px janked 7 to 19 frames a
+/// tap at zoom 14 and 9 to 14 at zoom 12 against 1 to 5 at 300 px, so 300
+/// stays.
 pub(crate) const CLIP_RADIUS_PX: f64 = 300.0;
 
 /// A trace is simplified until no dropped vertex is further than this many
@@ -386,8 +398,16 @@ pub(crate) fn activities_under_point(
         return Ok(FfiActivitiesUnderPoint::default());
     };
     let tap = GpsPoint::new(latitude, longitude);
-    with_track_reader(&source.db_path, |conn| answer(&source, conn, tap, zoom))
-        .ok_or(VeloqError::NotInitialized)
+    let started = std::time::Instant::now();
+    let found = with_track_reader(&source.db_path, |conn| answer(&source, conn, tap, zoom))
+        .ok_or(VeloqError::NotInitialized)?;
+    log::info!(
+        "veloqrs: [UnderPoint] zoom {zoom}, {} hits, {} groups, {} ms",
+        found.total,
+        found.groups.len(),
+        started.elapsed().as_millis()
+    );
+    Ok(found)
 }
 
 /// One activity's line near a tap: a run of positions for each stretch of the

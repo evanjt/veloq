@@ -1,7 +1,7 @@
 appId: ${APP_ID}
 name: Debug regenerate notification
 tags:
-  - tier4
+  - tier5
 # Debug mode reposts an activity's notification from the engine's own text, so the
 # tray shows what a real push would. Run through scripts/with-maestro.sh with
 # ACTIVITY_ID (a demo activity) and NOTIFICATION_TEXT (the engine's body for it).
@@ -24,6 +24,15 @@ tags:
     commands:
       - tapOn:
           id: "settings-version-text"
+# The switch mounts under the version line, below the fold the scroll above left.
+- scrollUntilVisible:
+    element:
+      id: "settings-debug-switch"
+    direction: DOWN
+- swipe:
+    start: 50%, 75%
+    end: 50%, 25%
+    duration: 300
 - tapOn:
     id: "settings-debug-switch"
 

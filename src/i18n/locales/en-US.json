@@ -133,9 +133,12 @@
     }
   },
   "exerciseLabels": {
-    "t_stabilization": "T Stabilization",
-    "weighted_t_stabilization": "Weighted T Stabilization",
-    "three_way_ankle_mobilization": "Three Way Ankle Mobilization",
-    "scapular_stabilization": "Scapular Stabilization"
+    "t_stabilization": "T stabilization",
+    "weighted_t_stabilization": "Weighted T stabilization",
+    "three_way_ankle_mobilization": "Three way ankle mobilization",
+    "scapular_stabilization": "Scapular stabilization"
+  },
+  "importCollection": {
+    "cancelledTitle": "Import canceled. What was stored stays."
   }
 }

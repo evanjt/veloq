@@ -26,7 +26,8 @@ Flows are organized into tiers via tags. CI runs different tiers based on the ev
 | **tier1** | `tier1` | Every push | Critical path, auth, navigation |
 | **tier2** | `tier2` | PRs to main | Feature coverage, all screens |
 | **tier3** | `tier3` | Nightly / manual | Stress tests, rapid interactions |
-| **tier4** | `tier4` | Manual only | Marketing screenshots |
+| **tier4** | `tier4` | Manual only | Tag sweep for screenshot flows that need no input |
+| **tier5** | `tier5` | Run by path | Flows that need inputs or device setup, run through their own script |
 
 ## Running Tests
 
@@ -46,7 +47,7 @@ Flows are organized into tiers via tags. CI runs different tiers based on the ev
 | `npm run maestro:gate` | tier0+tier1 | Smoke + critical path |
 | `npm run maestro:test` | tier0+tier1+tier2 | Full regression suite |
 | `npm run maestro:stress` | tier3 | Stress tests only |
-| `npm run maestro:screenshots` | tier4 | Marketing screenshots |
+| `npm run maestro:screenshots` | tier4 | Screenshot sweep (no flow is tier4 today) |
 | `npm run maestro:full` | tier0-tier3 | Everything except screenshots |
 
 ### Run Individual Flows

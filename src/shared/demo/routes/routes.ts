@@ -74,7 +74,7 @@ function buildLaps(sourceId: string, id: string, name: string, laps: number): De
   };
 }
 
-const laps = buildLaps('route-rio-run-3', 'route-rio-run-3-laps', 'Rio Run (3 laps)', 3);
+const laps = buildLaps('route-rio-run-1', 'route-rio-run-1-laps', 'Rio Run (3 laps)', 3);
 
 /**
  * Real routes from OpenStreetMap, plus synthetic demo derivations.

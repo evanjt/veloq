@@ -82,6 +82,9 @@ function carrier(id: string, upload: BackupBackend['upload']): BackupBackend {
     upload,
     download: async () => {},
     delete: async () => {},
+    putObject: async () => {},
+    listObjects: async () => [],
+    fetchObject: async () => {},
   };
 }
 

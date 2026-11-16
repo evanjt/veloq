@@ -123,6 +123,15 @@ function workoutSyntaxDuration(seconds: number): string {
   return s === 0 ? `${m}m` : `${m}m${s}s`;
 }
 
+/**
+ * A plan line as the engine reads it: the text with its duration in seconds after it, since the
+ * duration is held apart from the text and the engine reads one string a line.
+ */
+export function engineLineText(line: PlanLine): string {
+  if (line.durationSeconds == null) return line.text;
+  return `${line.text || 'Rest'} ${Math.round(line.durationSeconds)} sec`;
+}
+
 /** The description the uploaded activity carries: one line per plan line. */
 export function planText(lines: readonly PlanLine[]): string {
   return lines

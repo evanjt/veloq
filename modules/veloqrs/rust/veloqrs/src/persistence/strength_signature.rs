@@ -59,7 +59,7 @@ pub(crate) fn signature_of(sequence: &[ExerciseKey]) -> Option<String> {
 }
 
 /// The exercises a signature names, in its order.
-fn exercises_of(signature: &str) -> impl Iterator<Item = (u16, Option<u16>)> + '_ {
+pub(crate) fn exercises_of(signature: &str) -> impl Iterator<Item = (u16, Option<u16>)> + '_ {
     signature.split(',').filter_map(|part| {
         let (category, name) = part.split_once('.')?;
         let category = category.parse::<u16>().ok()?;

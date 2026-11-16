@@ -22,7 +22,7 @@ export { GrantAccessButton } from './GrantAccessButton';
 export { UploadPermissionNotice } from './UploadPermissionNotice';
 export { TimerHeader } from './TimerHeader';
 export { TrimSlider } from './TrimSlider';
-export { StrengthSession } from './StrengthFollow';
+export { StrengthRecorder } from './StrengthRecorder';
 export { WorkoutGuide } from './WorkoutGuide';
 export { BatteryOptimisationNudge } from './BatteryOptimisationNudge';
 export { OutsideAppNotice } from './OutsideAppNotice';

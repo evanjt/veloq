@@ -173,12 +173,10 @@ function chipMark(screen: Screen): unknown {
     .backgroundColor;
 }
 
-function summaryArrowColour(screen: Screen): unknown {
-  const cell = screen
-    .getAllByTestId(/^section-summary-cell-/)
-    .find((candidate) => within(candidate).queryByTestId('section-best-forward'));
-  if (!cell) throw new Error('the forward best sits in no summary cell');
-  const [arrow] = within(cell).UNSAFE_getAllByType(MaterialCommunityIcons);
+function averagesArrowColour(screen: Screen): unknown {
+  const [arrow] = within(screen.getByTestId('section-avg-forward-cue')).UNSAFE_getAllByType(
+    MaterialCommunityIcons
+  );
   return arrow.props.color;
 }
 
@@ -191,13 +189,13 @@ describe('route page forward colour', () => {
     ['light', directionPair.light.forward],
     ['dark', directionPair.dark.forward],
   ] as const)(
-    'paints Forward in the %s direction colour on the chart and the Summary',
+    'paints Forward in the %s direction colour on the chart and the hero averages',
     async (scheme, forward) => {
       act(() => useThemePreferenceStore.setState({ preference: scheme }));
       const screen = await render(<RouteDetailScreen />);
 
       expect(chipMark(screen)).toBe(forward);
-      expect(summaryArrowColour(screen)).toBe(forward);
+      expect(averagesArrowColour(screen)).toBe(forward);
       expect(forward).not.toBe(getActivityColor('Ride'));
     }
   );

@@ -25,6 +25,30 @@ pub fn sha256(parts: &[&[u8]]) -> [u8; 32] {
     imp::sha256(parts)
 }
 
+/// SHA-256 of a message that arrives in pieces, for a file too large to hold
+/// whole. The digest is that of the pieces fed in order, joined.
+pub struct Sha256Stream(imp::Stream);
+
+impl Sha256Stream {
+    pub fn new() -> Self {
+        Self(imp::Stream::new())
+    }
+
+    pub fn update(&mut self, bytes: &[u8]) {
+        self.0.update(bytes);
+    }
+
+    pub fn finish(self) -> [u8; 32] {
+        self.0.finish()
+    }
+}
+
+impl Default for Sha256Stream {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// HMAC-SHA256 under `key` over the parts, fed in order as one message.
 pub fn hmac_sha256(key: &[u8], parts: &[&[u8]]) -> [u8; 32] {
     imp::hmac_sha256(key, parts)

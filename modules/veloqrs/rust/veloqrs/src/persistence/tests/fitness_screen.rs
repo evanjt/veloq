@@ -586,3 +586,86 @@ fn the_read_carries_one_load_dot_per_activity_in_the_longest_span() {
     assert_eq!(pool.load, 0.0);
     assert_eq!(dots[2].load, 60.0);
 }
+
+fn timed<'a>(id: &'a str, sport: &'static str, date: i64, minutes: i64) -> Session<'a> {
+    Session {
+        sport,
+        ..ride(id, date, minutes, 1.0.into())
+    }
+}
+
+fn weekly(engine: &PersistentEngine) -> Vec<(String, Vec<(String, f64)>)> {
+    fitness_screen_data(engine.cold_connection(), TODAY, &[], &windows())
+        .unwrap()
+        .weekly_hours
+        .into_iter()
+        .map(|week| {
+            (
+                week.week_start,
+                week.hours
+                    .into_iter()
+                    .map(|h| (h.family, h.hours))
+                    .collect(),
+            )
+        })
+        .collect()
+}
+
+/// Scenario: the fitness tab stacks moving hours per week by sport family. A
+/// ride and a swim share a week, a run sits two weeks earlier, and the week
+/// between holds nothing.
+///
+/// Expected behaviour: the read answers the Monday of each week from the
+/// twelve-week window ending at the latest week with an activity, oldest first, the gap weeks
+/// as no hours, and each sport under the engine's family for it, whatever
+/// the spans the read was asked for.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_read_carries_moving_hours_per_week_by_family_with_the_gap_weeks() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    store_session(&engine, &timed("run", "TrailRun", AUG_20_0700, 30));
+    store_session(&engine, &timed("ride", "Ride", SEP_01_0700, 90));
+    store_session(&engine, &timed("pool", "Swim", SEP_04_0700, 45));
+    store_session(&engine, &timed("ride-again", "GravelRide", SEP_04_0700, 30));
+
+    let weeks = weekly(&engine);
+
+    assert_eq!(weeks.len(), 12);
+    assert_eq!(weeks[11].0, "2026-08-31");
+    assert_eq!(weeks[10].0, "2026-08-24");
+    assert_eq!(weeks[9].0, "2026-08-17");
+    let hours_in = |week: usize| {
+        let mut h = weeks[week].1.clone();
+        h.sort_by(|a, b| a.0.cmp(&b.0));
+        h
+    };
+    assert_eq!(
+        hours_in(11),
+        vec![("ride".to_string(), 2.0), ("water".to_string(), 0.75)]
+    );
+    assert_eq!(hours_in(10), vec![]);
+    assert_eq!(hours_in(9), vec![("run".to_string(), 0.5)]);
+}
+
+/// Scenario: a library older than twelve weeks, and one with no activity.
+///
+/// Expected behaviour: the series ends at the latest week holding an
+/// activity and spans twelve weeks back from it, so older activity is
+/// dropped, and an empty library answers no weeks.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_weekly_hours_cover_twelve_weeks_to_the_latest_active_one() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    assert!(weekly(&engine).is_empty());
+
+    store_session(&engine, &timed("old", "Ride", SEP_05_2025_0000, 60));
+    store_session(&engine, &timed("new", "Run", AUG_20_0700, 60));
+
+    let weeks = weekly(&engine);
+
+    assert_eq!(weeks.len(), 12);
+    assert_eq!(weeks[0].0, "2026-06-01");
+    assert_eq!(weeks[11].0, "2026-08-17");
+    assert!(weeks[..11].iter().all(|(_, h)| h.is_empty()));
+    assert_eq!(weeks[11].1, vec![("run".to_string(), 1.0)]);
+}

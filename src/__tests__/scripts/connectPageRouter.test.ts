@@ -18,11 +18,10 @@ import {
   tabOf,
   write,
 } from '../../../web/connect/router';
-import { createStore } from '../../../web/connect/store';
 
 const HASHES = [
-  '#/feed',
-  '#/feed?range=thisYear&sport=ride&id=i42',
+  '#/activities',
+  '#/activities?range=thisYear&sport=ride&id=i42',
   '#/activity/demo-test-0',
   '#/map',
   '#/routes',
@@ -38,7 +37,7 @@ const HASHES = [
   '#/exercise/7',
   '#/recordings',
   '#/recording/rec%2F1',
-  '#/feed?q=a%20b%26c',
+  '#/activities?q=a%20b%26c',
 ];
 
 describe('router paths', () => {
@@ -46,9 +45,19 @@ describe('router paths', () => {
     expect(write(parse(hash))).toBe(hash);
   });
 
+  vaultIt.each(['#/feed', '#/feed?range=thisYear&sport=ride'])(
+    'the retired address %s opens the activities page and writes its new address',
+    (hash) => {
+      const route = parse(hash);
+      expect(route.screen).toBe('activities');
+      expect(write(route)).toBe(hash.replace('#/feed', '#/activities'));
+      expect(tabOf(route)).toBe('feed');
+    }
+  );
+
   vaultIt('reads the screen, id and query', () => {
-    expect(parse('#/feed?range=thisYear&sport=ride')).toEqual({
-      screen: 'feed',
+    expect(parse('#/activities?range=thisYear&sport=ride')).toEqual({
+      screen: 'activities',
       id: null,
       query: [
         ['range', 'thisYear'],
@@ -57,7 +66,7 @@ describe('router paths', () => {
     });
     const route = parse('#/activity/abc');
     expect(route).toMatchObject({ screen: 'activity', id: 'abc' });
-    expect(queryValue(parse('#/feed?sport=run'), 'sport')).toBe('run');
+    expect(queryValue(parse('#/activities?sport=run'), 'sport')).toBe('run');
     expect(queryValue(route, 'sport')).toBeNull();
   });
 
@@ -68,12 +77,12 @@ describe('router paths', () => {
     '#/nowhere',
     '#/activity',
     '#/map/extra',
-    '#/feed/x/y',
+    '#/activities/x/y',
     '#/route/%E0%A4%A',
     '#nope',
-    '#/feed?=x',
+    '#/activities?=x',
   ])('opens the feed for %j', (hash) => {
-    expect(write(parse(hash))).toBe('#/feed');
+    expect(write(parse(hash))).toBe('#/activities');
   });
 
   vaultIt('files each screen under the phone tab that holds it', () => {
@@ -113,7 +122,7 @@ describe('router and the link', () => {
 
   vaultIt('restores from the address bar on a fresh load', () => {
     expect(restore(null, '#/map')).toBe('#/map');
-    expect(restore(null, '')).toBe('#/feed');
+    expect(restore(null, '')).toBe('#/activities');
   });
 });
 
@@ -149,18 +158,5 @@ describe('router keys', () => {
   vaultIt('does nothing in an editable region or with a modifier held', () => {
     expect(keyAction({ key: '1', target: { tagName: 'DIV', isContentEditable: true } })).toBeNull();
     expect(keyAction({ key: '1', ctrlKey: true, target: { tagName: 'BODY' } })).toBeNull();
-  });
-});
-
-describe('screen store', () => {
-  it('forgets every screen on a drop and refuses data from the old connection', () => {
-    const store = createStore();
-    store.clear(1);
-    expect(store.put('feed', 1, [{ id: 'i1' }])).toBe(true);
-    expect(store.get('feed', 1)).toEqual([{ id: 'i1' }]);
-    store.clear(2);
-    expect(store.get('feed', 2)).toBeUndefined();
-    expect(store.put('feed', 1, [{ id: 'late' }])).toBe(false);
-    expect(store.get('feed', 1)).toBeUndefined();
   });
 });

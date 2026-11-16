@@ -86,12 +86,11 @@ import * as settingsDelegates from './delegates/settings';
 import * as strengthDelegates from './delegates/strength';
 import * as syncDelegates from './delegates/sync';
 import type { SyncAuthMethod, SyncStatus } from './delegates/sync';
-import type { FfiSectionMatch, HeatmapDay } from './delegates/shared-types';
+import type { HeatmapDay } from './delegates/shared-types';
 
 // Declarations live in ./delegates/shared-types.ts; re-exported here so
-// existing consumers (e.g. `import { FfiSectionMatch } from '...'`) keep working.
+// existing consumers (e.g. `import { FfiMergeCandidate } from '...'`) keep working.
 export type {
-  FfiSectionMatch,
   FfiActivityRouteHighlight,
   FfiActivityIndicator,
   FfiMergeCandidate,
@@ -1343,12 +1342,6 @@ class EngineClient implements DelegateHost {
   // ========================================================================
   // Section Matching, Nearby, Merge, Re-detect
   // ========================================================================
-
-  matchActivityToSections = (activityId: string): FfiSectionMatch[] =>
-    sectionDelegates.matchActivityToSections(this, activityId);
-
-  rematchActivityToSection = (activityId: string, sectionId: string): boolean =>
-    sectionDelegates.rematchActivityToSection(this, activityId, sectionId);
 
   indexNewActivity = (activityId: string): FfiIndexActivitySummary | null =>
     sectionDelegates.indexNewActivity(this, activityId);

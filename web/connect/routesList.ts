@@ -4,7 +4,7 @@
 // the list; this only says which question to ask it.
 
 import { readIds, writeIds } from './compare';
-import type { Route } from './router';
+import { queryValue, type Route } from './router';
 import type { Methods } from './schema';
 
 /** The ask: every field the engine's query has, bar the place `nearby` needs, which the page has none of. */
@@ -51,29 +51,42 @@ export function opening(kind: Kind, selected: string | null = null): ListState {
 const isSort = (kind: Kind, sort: string) =>
   (kind === 'routes' ? (ROUTE_SORTS as readonly string[]) : SECTION_SORTS).includes(sort);
 
+/** Both lists as the page draws them, and the one the detail pane follows. */
+export type PageState = {
+  routes: ListState;
+  sections: ListState;
+  focus: Kind;
+  /** The detail pane's pass table order as its query value, or null for the default. */
+  order: string | null;
+};
+
+/** The page as it opens: both lists at their opening state, the routes list in focus. */
+export function pageOpening(): PageState {
+  return { routes: opening('routes'), sections: opening('sections'), focus: 'routes', order: null };
+}
+
 /**
- * The ask for the lists screen read. Both lists come in one read, so the
- * other list's order stays at its default. `nearby` needs a place, which the
- * page does not have, so it is asked of the engine without one.
+ * The ask for the lists screen read. Both lists come in one read, so each
+ * list's own sort, search and chips go in it. `nearby` needs a place, which
+ * the page does not have, so it is asked of the engine without one.
  */
-export function queryFor(state: ListState): Query {
-  const sections = state.kind === 'sections';
+export function queryFor(page: PageState): Query {
+  const { routes, sections } = page;
   return {
     groupLimit: PAGE_SIZE,
     groupOffset: 0,
     sectionLimit: PAGE_SIZE,
     sectionOffset: 0,
     minGroupActivityCount: 0,
-    groupSort: !sections && isSort('routes', state.sort) ? (state.sort as RouteSort) : 'activities',
-    groupSearch: sections ? '' : state.search,
-    sectionSort:
-      sections && isSort('sections', state.sort) ? (state.sort as SectionSort) : 'visits',
-    sectionSearch: sections ? state.search : '',
+    groupSort: routes.sort as RouteSort,
+    groupSearch: routes.search,
+    sectionSort: sections.sort as SectionSort,
+    sectionSearch: sections.search,
     sectionFilters: {
       hideCustom: false,
-      hideAuto: sections && state.chips.includes('custom'),
-      hideDisabled: !(sections && state.chips.includes('removed')),
-      hideUnaccepted: sections && state.chips.includes('accepted'),
+      hideAuto: sections.chips.includes('custom'),
+      hideDisabled: !sections.chips.includes('removed'),
+      hideUnaccepted: sections.chips.includes('accepted'),
     },
     groupSportType: null,
     sectionSportType: null,
@@ -89,47 +102,70 @@ export function toggled(state: ListState, chip: Chip): ListState {
 }
 
 /**
- * The address for a list: `#/routes` or `#/sections` with the sort, the
- * search and the chips in the query, or `#/route/<id>` and `#/section/<id>`
- * when a row is selected. A value at its default is left out.
+ * The address for the page: `#/routes` or `#/sections` with each list's sort,
+ * search and chips in the query. The list in focus names its selected row in
+ * the path (`#/route/<id>`, `#/section/<id>`); the other list's selection is
+ * the `route` or `section` query value. A value at its default is left out.
  */
-export function toRoute(state: ListState): Route {
+export function toRoute(page: PageState): Route {
+  const { routes, sections, focus } = page;
   const query: [string, string][] = [];
-  if (state.sort !== defaultSort(state.kind)) query.push(['sort', state.sort]);
-  if (state.search !== '') query.push(['q', state.search]);
-  if (state.kind === 'sections' && state.chips.length > 0) {
-    query.push(['chips', CHIPS.filter((chip) => state.chips.includes(chip)).join(',')]);
+  if (routes.sort !== defaultSort('routes')) query.push(['rsort', routes.sort]);
+  if (routes.search !== '') query.push(['rq', routes.search]);
+  if (sections.sort !== defaultSort('sections')) query.push(['ssort', sections.sort]);
+  if (sections.search !== '') query.push(['sq', sections.search]);
+  if (sections.chips.length > 0) {
+    query.push(['chips', CHIPS.filter((chip) => sections.chips.includes(chip)).join(',')]);
   }
-  const ids = writeIds(state.ids);
+  if (page.order) query.push(['psort', page.order]);
+  const focused = page[focus];
+  const ids = writeIds(focused.ids);
   if (ids) query.push(['ids', ids]);
-  if (state.selected) {
-    return { screen: state.kind === 'routes' ? 'route' : 'section', id: state.selected, query };
+  const other = focus === 'routes' ? sections : routes;
+  if (other.selected) query.push([other.kind === 'routes' ? 'route' : 'section', other.selected]);
+  if (focused.selected) {
+    return { screen: focus === 'routes' ? 'route' : 'section', id: focused.selected, query };
   }
-  return { screen: state.kind, id: null, query };
+  return { screen: focus, id: null, query };
 }
 
-/** The list an address names, or null when it names neither list. */
-export function fromRoute(route: Route): ListState | null {
-  const kind: Kind | null =
+/** The page an address names, or null when it names neither list. */
+export function fromRoute(route: Route): PageState | null {
+  const focus: Kind | null =
     route.screen === 'routes' || route.screen === 'route'
       ? 'routes'
       : route.screen === 'sections' || route.screen === 'section'
         ? 'sections'
         : null;
-  if (!kind) return null;
-  const value = (key: string) => route.query.find(([name]) => name === key)?.[1] ?? null;
-  const sort = value('sort');
+  if (!focus) return null;
+  const value = (key: string) => queryValue(route, key);
+  const sortOf = (kind: Kind, key: string) => {
+    const sort = value(key);
+    return sort !== null && isSort(kind, sort) ? sort : defaultSort(kind);
+  };
   const named = (value('chips') ?? '').split(',');
+  const ids = readIds(value('ids'));
+  const selected = (kind: Kind) =>
+    kind === focus ? route.id : value(kind === 'routes' ? 'route' : 'section');
   return {
-    kind,
-    sort: sort !== null && isSort(kind, sort) ? sort : defaultSort(kind),
-    search: value('q') ?? '',
-    chips: kind === 'sections' ? CHIPS.filter((chip) => named.includes(chip)) : [],
-    selected: route.id,
-    ids: (() => {
-      const ids = readIds(value('ids'));
-      return ids.length >= 2 ? ids : [];
-    })(),
+    focus,
+    order: value('psort'),
+    routes: {
+      kind: 'routes',
+      sort: sortOf('routes', 'rsort'),
+      search: value('rq') ?? '',
+      chips: [],
+      selected: selected('routes'),
+      ids: focus === 'routes' && ids.length >= 2 ? ids : [],
+    },
+    sections: {
+      kind: 'sections',
+      sort: sortOf('sections', 'ssort'),
+      search: value('sq') ?? '',
+      chips: CHIPS.filter((chip) => named.includes(chip)),
+      selected: selected('sections'),
+      ids: focus === 'sections' && ids.length >= 2 ? ids : [],
+    },
   };
 }
 

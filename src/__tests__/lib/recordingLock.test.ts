@@ -49,6 +49,17 @@ describe('useRecordingLock', () => {
     expect(result.current.isLocked).toBe(true);
   });
 
+  it('locks a new recording that starts from a reset session', async () => {
+    const { result, rerender } = await lockFor('stopped');
+    await rerender({ status: 'recording' });
+    await act(() => result.current.unlock());
+    await rerender({ status: 'idle' });
+
+    await rerender({ status: 'recording' });
+
+    expect(result.current.isLocked).toBe(true);
+  });
+
   vaultIt('still locks on demand', async () => {
     const { result, rerender } = await lockFor('stopped');
     await rerender({ status: 'recording' });

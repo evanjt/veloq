@@ -928,3 +928,50 @@ fn a_last_year_the_device_holds_part_of_has_no_year_change() {
     let february = data.season_months[1].count.as_ref().expect("whole");
     assert_eq!(february.change, -50.0);
 }
+
+fn insert_row(engine: &PersistentEngine, id: &str, intervals_id: Option<&str>) {
+    engine
+        .db
+        .execute(
+            "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng, intervals_id)
+             VALUES (?1, 'Ride', 0, 0, 0, 0, ?2)",
+            rusqlite::params![id, intervals_id],
+        )
+        .unwrap();
+}
+
+fn uncounted(engine: &PersistentEngine) -> u32 {
+    read(&engine.db, &windows()).unwrap().uncounted_imports
+}
+
+#[test]
+fn imports_the_server_figures_leave_out_are_counted() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    assert_eq!(uncounted(&engine), 0, "an empty library");
+
+    insert_row(&engine, "src-file-a", None);
+    insert_row(&engine, "src-file-b", None);
+    assert_eq!(uncounted(&engine), 0, "imports alone are folded locally");
+
+    insert_row(&engine, "i100", Some("i100"));
+    assert_eq!(
+        uncounted(&engine),
+        2,
+        "a server ride makes the imports left out"
+    );
+
+    insert_row(&engine, "src-garmin-c", Some("i101"));
+    assert_eq!(
+        uncounted(&engine),
+        2,
+        "a linked original takes the server's figures"
+    );
+
+    insert_row(&engine, "local-d", None);
+    insert_row(&engine, "demo-e", None);
+    assert_eq!(
+        uncounted(&engine),
+        2,
+        "recordings and demo rows are not imports"
+    );
+}

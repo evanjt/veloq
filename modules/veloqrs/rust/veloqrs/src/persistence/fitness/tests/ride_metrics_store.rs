@@ -74,7 +74,7 @@ fn thresholds() -> Thresholds {
 }
 
 fn store(engine: &mut PersistentEngine, ride: &Activity) -> String {
-    ingest_into(engine, None, &listed(GARMIN_ID), &ride.to_fit()).expect("stored");
+    ingest_into(engine, false, &listed(GARMIN_ID), &ride.to_fit()).expect("stored");
     garmin_source_key(GARMIN_ID)
 }
 
@@ -321,7 +321,7 @@ fn a_run_with_speed_only_is_scored_once_the_athlete_sets_a_threshold_pace() {
     }
     let mut listing = listed(GARMIN_ID);
     listing.activity_type = serde_json::from_value(json!({"typeKey": "running"})).unwrap();
-    ingest_into(&mut engine, None, &listing, &run.to_fit()).expect("stored");
+    ingest_into(&mut engine, false, &listing, &run.to_fit()).expect("stored");
     let key = garmin_source_key(GARMIN_ID);
     assert_eq!(row(&engine, &key).0, None, "no threshold pace is known yet");
 

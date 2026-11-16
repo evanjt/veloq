@@ -90,7 +90,6 @@ export {
   useSectionRescan,
   useSectionUIState,
 } from './hooks';
-export { useActivityRematch } from './hooks/useActivityRematch';
 export { useCutoverSummary, type CutoverSummary } from './hooks/useCutoverSummary';
 export { useElevationBackfill } from './hooks/useElevationBackfill';
 export { useGroupSummaries, useRepresentativeRoute, useSectionSummaries } from './hooks/useEngine';

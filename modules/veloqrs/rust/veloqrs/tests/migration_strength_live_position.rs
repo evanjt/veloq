@@ -21,13 +21,16 @@ fn reopen(path: &Path) -> PersistentEngine {
     engine
 }
 
+/// The schema the migration that adds the live position follows.
+const SCHEMA_BEFORE_POSITION: u32 = 93;
+
 #[test]
 fn an_upgrade_keeps_a_recorded_session_and_a_live_one_resumes_at_its_set() {
     let _serial = super::serial_state();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("library.db");
     {
-        let conn = seed_at_version(&path, latest_version() - 1);
+        let conn = seed_at_version(&path, SCHEMA_BEFORE_POSITION);
         assert!(!columns_of(&conn, "strength_sessions").contains(&"current_set".to_string()));
         conn.execute_batch(
             "INSERT INTO strength_sessions (id, kind, activity_key, started_at, ended_at, created_at)

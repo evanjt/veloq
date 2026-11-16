@@ -34,7 +34,7 @@
 
 appId: ${APP_ID}
 tags:
-  - tier4
+  - tier5
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml

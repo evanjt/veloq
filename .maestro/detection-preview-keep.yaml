@@ -113,6 +113,8 @@ tags:
       id: "detection-preview-screen"
     timeout: 30000
 - runFlow:
+    file: helpers/expand-preview-sheet.yaml
+- runFlow:
     file: helpers/scroll-preview-param-row.yaml
     env:
       KEY: minActivities

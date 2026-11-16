@@ -191,6 +191,18 @@ export const localBackend: BackupBackend = {
     await FileSystem.copyAsync({ from: sourcePath, to: destPath });
   },
 
+  async putObject(): Promise<void> {
+    throw new Error('The old backup directory is read-only');
+  },
+
+  async listObjects(): Promise<[]> {
+    return [];
+  },
+
+  async fetchObject(): Promise<void> {
+    throw new Error('The old backup directory holds no objects');
+  },
+
   async delete(backupId: string): Promise<void> {
     const dir = getBackupDir();
     const filePath = `${dir}${backupId}`;

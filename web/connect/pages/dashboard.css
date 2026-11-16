@@ -1,0 +1,481 @@
+#fitness-page .toolbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  margin-top: var(--space-lg);
+}
+
+#fitness-page .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-md);
+}
+
+#fitness-page .panel {
+  background: var(--card);
+  border: var(--stroke-1) solid var(--border);
+  border-radius: var(--web-radius-lg);
+  padding: var(--space-sm-plus) var(--space-md);
+}
+
+#fitness-page .panel.wide {
+  grid-column: 1 / -1;
+}
+
+#fitness-page h3 {
+  margin: 0 0 var(--space-sm);
+}
+
+#fitness-page figure {
+  margin: 0;
+}
+
+#fitness-page svg {
+  width: 100%;
+  height: auto;
+  touch-action: none;
+}
+
+#fitness-page .line-a,
+#fitness-page .line-b {
+  stroke-width: 2;
+}
+
+#fitness-page .line-a {
+  stroke: var(--chart-a);
+}
+
+#fitness-page .line-b {
+  stroke: var(--chart-b);
+}
+
+#fitness-page .readout,
+#fitness-page .empty {
+  color: var(--text-muted);
+  min-height: 1.4em;
+  margin: var(--space-xs) 0 0;
+}
+
+#fitness-page .bars,
+#fitness-page .zones {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#fitness-page .bars {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--stroke-1);
+  height: 140px;
+}
+
+#fitness-page .bars li {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+#fitness-page .bars span {
+  display: block;
+  width: 100%;
+  background: var(--chart-a);
+}
+
+#fitness-page .zones li {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) 110px;
+  gap: var(--space-sm);
+  align-items: center;
+  margin: var(--space-xs) 0;
+}
+
+#fitness-page .zones span:nth-child(2) {
+  display: block;
+  height: 12px;
+  background: var(--chart-a);
+}
+
+#fitness-page [role='group'] button {
+  background: var(--card);
+  color: var(--text);
+  border: var(--stroke-1) solid var(--border);
+  border-radius: var(--web-radius-md);
+  padding: var(--space-xs) var(--space-sm-plus);
+}
+
+#fitness-page [role='group'] button[aria-pressed='true'] {
+  border-color: var(--primary);
+}
+
+#fitness-page table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#fitness-page th,
+#fitness-page td {
+  text-align: left;
+  padding: var(--space-xs) var(--space-sm);
+  border-bottom: var(--stroke-1) solid var(--border);
+}
+
+#fitness-page .columns,
+#insights-page .columns {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-md);
+  align-items: start;
+}
+
+#fitness-page .column,
+#insights-page .column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  #fitness-page .columns,
+  #insights-page .columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+#fitness-page .dot,
+#insights-page .dot {
+  fill: var(--chart-a);
+  cursor: pointer;
+}
+
+#fitness-page .dot.open {
+  stroke: var(--primary);
+  stroke-width: 2;
+}
+
+#fitness-page .year h4 {
+  margin: var(--space-sm) 0 var(--space-xs);
+}
+
+#fitness-page .weeks {
+  display: flex;
+  gap: var(--space-xxs);
+  overflow-x: auto;
+}
+
+#fitness-page .week {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxs);
+}
+
+#fitness-page .day {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--web-radius-sm);
+  background: var(--border);
+}
+
+#fitness-page .day.none {
+  background: transparent;
+}
+
+#fitness-page .day.level-1 {
+  opacity: 0.45;
+  background: var(--chart-a);
+}
+
+#fitness-page .day.level-2 {
+  opacity: 0.65;
+  background: var(--chart-a);
+}
+
+#fitness-page .day.level-3 {
+  opacity: 0.85;
+  background: var(--chart-a);
+}
+
+#fitness-page .day.level-4 {
+  background: var(--chart-a);
+}
+
+#fitness-page th button {
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+#insights-page .panel {
+  background: var(--card);
+  border: var(--stroke-1) solid var(--border);
+  border-radius: var(--web-radius-lg);
+  padding: var(--space-sm-plus) var(--space-md);
+}
+
+#insights-page figure {
+  margin: 0;
+}
+
+#insights-page svg {
+  width: 100%;
+  height: auto;
+}
+
+#insights-page .line-a {
+  stroke: var(--chart-a);
+  stroke-width: 2;
+}
+
+#insights-page .readout,
+#insights-page .empty {
+  color: var(--text-muted);
+  margin: var(--space-xs) 0 0;
+}
+
+#insights-page table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#insights-page th,
+#insights-page td {
+  text-align: left;
+  padding: var(--space-xs) var(--space-sm);
+  border-bottom: var(--stroke-1) solid var(--border);
+}
+
+#insights-page tbody tr {
+  cursor: pointer;
+}
+
+#insights-page tr[aria-selected='true'] {
+  background: var(--card);
+  outline: var(--stroke-1) solid var(--primary);
+}
+
+.insight-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.insight-cards article {
+  padding: var(--space-sm-plus) var(--space-md);
+  border: var(--stroke-1) solid var(--border);
+  border-radius: var(--web-radius-lg);
+}
+
+.insight-cards h3 {
+  margin: 0 0 var(--space-xs);
+}
+
+.insight-cards .subtitle {
+  margin: 0 0 var(--space-sm);
+  color: var(--text-muted);
+}
+
+.insight-cards details {
+  margin-top: var(--space-sm);
+}
+
+/* The fitness dashboard: a four-tile strip, then cards on the 12-column grid. */
+
+#fitness-page .tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-md);
+  margin: var(--space-md) 0;
+  padding: 0;
+  list-style: none;
+}
+
+#fitness-page .tiles li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxs);
+  padding: var(--space-sm-plus) var(--space-md);
+  background: var(--card);
+  border: var(--stroke-1) solid var(--border);
+  border-radius: var(--web-radius-lg);
+}
+
+#fitness-page .tile-label {
+  color: var(--text-muted);
+}
+
+#fitness-page .tile-value {
+  font-size: var(--web-type-title-size);
+  font-weight: var(--web-type-title-weight);
+  font-variant-numeric: tabular-nums;
+}
+
+#fitness-page .dashboard {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--space-md);
+  align-items: start;
+}
+
+#fitness-page .dashboard .cell {
+  grid-column: span 12;
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  #fitness-page .dashboard .cell {
+    grid-column: span 6;
+  }
+
+  #fitness-page .dashboard .cell.wide {
+    grid-column: span 12;
+  }
+}
+
+@media (min-width: 1600px) {
+  #fitness-page .dashboard .cell {
+    grid-column: span 4;
+  }
+
+  #fitness-page .dashboard .cell.wide {
+    grid-column: span 8;
+  }
+}
+
+#fitness-page .ui-card-header h2 {
+  margin: 0;
+}
+
+#insights-cards-anchor {
+  scroll-margin-top: var(--space-lg);
+}
+
+/* The insights page: today beside the planned events, a card grid, and a drawer. */
+
+#insights-page .today-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--space-md);
+  align-items: start;
+  margin-bottom: var(--space-md);
+}
+
+#insights-page .cards-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
+  align-items: start;
+  margin-bottom: var(--space-md);
+}
+
+#insights-page .cards-row.with-drawer {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 28rem);
+}
+
+#insights-page .insight-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-md);
+  align-items: start;
+  min-width: 0;
+}
+
+/* Each category is a column of the grid: its heading, then its cards one under another. */
+#insights-page .insight-cards > section {
+  min-width: 0;
+}
+
+#insights-page .insight-cards > section > h3 {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--web-type-heading-size);
+  line-height: var(--web-type-heading-line);
+}
+
+#insights-page .insight-cards ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm-plus);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#insights-page .insight-cards article {
+  border-radius: var(--web-radius-md);
+  font-size: var(--web-type-body-size);
+  line-height: var(--web-type-body-line);
+}
+
+#insights-page .insight-cards article[data-open] {
+  outline: var(--stroke-1) solid var(--primary);
+}
+
+#insights-page .insight-cards article .line {
+  margin: 0 0 var(--space-sm);
+}
+
+#insights-page #insight-drawer {
+  position: sticky;
+  top: var(--space-md);
+  min-width: 0;
+  padding: var(--space-sm-plus) var(--space-md);
+  background: var(--card);
+  border: var(--stroke-1) solid var(--border);
+  border-radius: var(--web-radius-md);
+}
+
+#insights-page #insight-drawer header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: var(--space-sm);
+}
+
+#insights-page #insight-drawer h3,
+#insights-page #insight-drawer h4 {
+  margin: 0 0 var(--space-xs);
+}
+
+#insights-page .figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+#insights-page .figures dt {
+  color: var(--text-muted);
+  font-size: var(--web-type-caption-size);
+  line-height: var(--web-type-caption-line);
+}
+
+#insights-page .figures dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+#insights-page .tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: var(--space-md);
+  align-items: start;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  #insights-page .today-row,
+  #insights-page .cards-row.with-drawer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -21,6 +21,9 @@ mod basemap_tile_store;
 #[path = "../census_fetch_marks_survive.rs"]
 mod census_fetch_marks_survive;
 
+#[path = "../sealed_released_archives.rs"]
+mod sealed_released_archives;
+
 #[path = "../track_refusal.rs"]
 mod track_refusal;
 

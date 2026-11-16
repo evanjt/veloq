@@ -101,6 +101,26 @@ describe('the Maestro flow guard', () => {
     expect(result.output).not.toContain('.maestro/android.yaml');
   });
 
+  it('names a flow the screenshot sweep selects that reads an env var the sweep does not pass', () => {
+    const flow = (tag: string, body: string[]) =>
+      ['appId: ${APP_ID}', 'tags:', `  - ${tag}`, '---', ...body, ''].join('\n');
+    const reads = ['- assertVisible:', '    id: "language-${STORE_LANGUAGE}"'];
+    const sweep = flow('tier4', reads);
+    const byPath = flow('tier5', reads);
+    const appOnly = flow('tier4', ['- assertVisible:', '    id: "${APP_ID}-screen"']);
+    const result = runOver({
+      'sweep.yaml': sweep,
+      'by-path.yaml': byPath,
+      'app-only.yaml': appOnly,
+    });
+    expect(result.status).toBe(1);
+    expect(result.output).toContain(
+      '.maestro/sweep.yaml: reads STORE_LANGUAGE, which the screenshot sweep does not pass'
+    );
+    expect(result.output).not.toContain('.maestro/by-path.yaml');
+    expect(result.output).not.toContain('.maestro/app-only.yaml');
+  });
+
   it('fails when there is nothing to check', () => {
     const result = runOver({});
     expect(result.status).toBe(1);

@@ -58,6 +58,19 @@ fn seed_section_from_source() -> String {
     .expect("engine")
 }
 
+/// The scan as a reader sees it: the pooled finder over a read connection.
+fn scan(activity_id: &str) -> Vec<crate::persistence::sections::queries::SectionMatch> {
+    with_reader(|conn| {
+        let config = crate::persistence::settings::section_config_from(conn).expect("config");
+        crate::persistence::sections::queries::pooled::activity_section_matches(
+            conn,
+            activity_id,
+            &config,
+        )
+    })
+    .expect("reader")
+}
+
 fn seed_ride(id: &str, track: Vec<GpsPoint>) {
     crate::with_persistent_engine(|engine| {
         engine
@@ -75,12 +88,7 @@ fn test_match_activity_to_sections_writer_held() {
     let section_id = seed_section_from_source();
     seed_ride("twice", out_and_back());
 
-    let sections = SectionManager::new();
-    let offered = read_while_writer_holds(|| {
-        sections
-            .match_activity_to_sections("twice".into())
-            .expect("the scan reads while a writer holds the engine")
-    });
+    let offered = read_while_writer_holds(|| scan("twice"));
 
     assert!(offered.iter().any(|m| m.section_id == section_id));
 }
@@ -110,9 +118,7 @@ fn test_scan_offers_a_forward_and_a_reverse_pass_like_the_engine() {
     let section_id = seed_section_from_source();
     seed_ride("twice", out_and_back());
 
-    let offered = SectionManager::new()
-        .match_activity_to_sections("twice".into())
-        .unwrap();
+    let offered = scan("twice");
     let engine_offered =
         crate::with_persistent_engine(|e| e.match_activity_to_sections("twice")).expect("engine");
 
@@ -141,30 +147,14 @@ fn test_scan_offers_a_forward_and_a_reverse_pass_like_the_engine() {
 fn test_scan_answers_nothing_for_a_short_track_an_empty_catalogue_or_no_track() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("section_scan_empty.db");
-    let sections = SectionManager::new();
 
     seed_ride("no_sections", out_and_back());
-    assert!(
-        sections
-            .match_activity_to_sections("no_sections".into())
-            .unwrap()
-            .is_empty()
-    );
+    assert!(scan("no_sections").is_empty());
 
     seed_section_from_source();
     seed_ride("short", leg(0, 1));
-    assert!(
-        sections
-            .match_activity_to_sections("short".into())
-            .unwrap()
-            .is_empty()
-    );
-    assert!(
-        sections
-            .match_activity_to_sections("absent".into())
-            .unwrap()
-            .is_empty()
-    );
+    assert!(scan("short").is_empty());
+    assert!(scan("absent").is_empty());
 }
 
 #[test]

@@ -31,6 +31,7 @@ declare namespace maplibregl {
     style: object;
     center?: LngLat;
     zoom?: number;
+    pitch?: number;
     minZoom?: number;
     maxZoom?: number;
     attributionControl?: false;
@@ -73,11 +74,27 @@ declare namespace maplibregl {
     lngLat: { lng: number; lat: number };
   }
 
+  interface MarkerOptions {
+    element?: HTMLElement;
+    draggable?: boolean;
+  }
+
+  /** A DOM element held at a position of the map, which a pointer can drag when `draggable`. */
+  class Marker {
+    constructor(options?: MarkerOptions);
+    setLngLat(position: LngLat): this;
+    getLngLat(): { lng: number; lat: number };
+    addTo(map: Map): this;
+    remove(): this;
+    on(event: 'dragstart' | 'drag' | 'dragend', listener: () => void): this;
+  }
+
   class Map {
     constructor(options: MapOptions);
     remove(): void;
     resize(): void;
     isStyleLoaded(): boolean;
+    on(event: 'error', listener: (event: { error?: unknown }) => void): this;
     on(event: string, listener: (event: PointerEvent) => void): this;
     off(event: string, listener: (event: PointerEvent) => void): this;
     once(event: string, listener: () => void): this;
@@ -107,7 +124,12 @@ declare namespace maplibregl {
     ): this;
     jumpTo(options: { center?: LngLat; zoom?: number }): this;
     getZoom(): number;
+    getTerrain(): object | null;
+    setTerrain(terrain: object | null): this;
+    getPitch(): number;
+    easeTo(options: { pitch?: number; duration?: number }): this;
     getBounds(): { toArray(): [[number, number], [number, number]] };
+    getCenter(): { lng: number; lat: number };
     unproject(point: [number, number]): { lng: number; lat: number };
     boxZoom: { disable(): void };
   }

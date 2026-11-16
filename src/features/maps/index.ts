@@ -88,6 +88,8 @@ export { useSurfaceAttribution } from './hooks/useSurfaceAttribution';
 export { useMapFullscreen } from './hooks/useMapFullscreen';
 export { useLocateUser } from './hooks/useLocateUser';
 export { useTerrainFallback } from './hooks/useTerrainFallback';
+export { useSharedTerrain3D } from './hooks/useHostTerrain3D';
+export { buildSubjectTerrain } from './lib/terrainSpec';
 export {
   calculateFlatCamera,
   calculateTerrainCamera,

@@ -78,13 +78,18 @@ pub fn cache_screen_data(
     Ok(crate::FfiCacheScreenData {
         stream_retention_days: stream_retention_days as f64,
         stream_store_bytes: stream_store_bytes as f64,
+        original_store_bytes: crate::persistence::originals::originals_bytes(conn).map_err(
+            |error| crate::objects::error::VeloqError::Database {
+                msg: error.to_string(),
+            },
+        )? as f64,
         activity_year_counts: activity_year_counts(conn)?,
     })
 }
 
 /// The sport families the thresholds screen offers, by the sport type that
 /// keys their figures.
-const THRESHOLD_SPORTS: [&str; 2] = ["Ride", "Run"];
+pub(crate) const THRESHOLD_SPORTS: [&str; 2] = ["Ride", "Run"];
 
 /// The thresholds screen's read: each offered sport's figures as they stand now.
 pub fn thresholds_screen_data(conn: &rusqlite::Connection) -> crate::FfiThresholdsScreenData {
@@ -110,11 +115,19 @@ pub(crate) fn thresholds_screen_at(
         ),
         (crate::FfiThresholdField::WeightKg, ThresholdField::WeightKg),
     ];
+    let settings = SportSettings::read(conn);
     let sports = THRESHOLD_SPORTS
         .iter()
         .map(|sport| {
             let found = thresholds_for(conn, sport, at);
+            let entry = settings.entry_for(sport);
+            let power_zones = entry
+                .filter(|e| usable_zone_bounds(&e.power_zones))
+                .map(|e| e.power_zones.clone())
+                .unwrap_or_default();
             crate::FfiSportThresholds {
+                hr_zones: sport_hr_zone_bounds(entry),
+                power_zones,
                 sport: (*sport).to_string(),
                 figures: fields
                     .iter()
@@ -132,11 +145,36 @@ pub(crate) fn thresholds_screen_at(
         .collect();
     crate::FfiThresholdsScreenData {
         sports,
-        hr_zone_default_percents: DEFAULT_HR_ZONE_UPPER_FRACTIONS
-            .iter()
-            .map(|f| (f * 100.0).round())
-            .collect(),
+        hr_zone_default_percents: default_hr_zone_percents(),
     }
+}
+
+/// [`DEFAULT_HR_ZONE_UPPER_FRACTIONS`] as percents of maximum heart rate.
+fn default_hr_zone_percents() -> Vec<f64> {
+    DEFAULT_HR_ZONE_UPPER_FRACTIONS
+        .iter()
+        .map(|f| (f * 100.0).round())
+        .collect()
+}
+
+/// The sport's own heart rate zone edges in bpm, or the default percents when
+/// its entry lists none that [`hr_zone_bounds`] would use.
+fn sport_hr_zone_bounds(entry: Option<&SportSettingsEntry>) -> crate::FfiZoneBounds {
+    match entry.filter(|e| usable_zone_bounds(&e.hr_zones)) {
+        Some(e) => crate::FfiZoneBounds {
+            upper: e.hr_zones.clone(),
+            source: crate::FfiZoneSource::SportSettings,
+        },
+        None => crate::FfiZoneBounds {
+            upper: default_hr_zone_percents(),
+            source: crate::FfiZoneSource::Default,
+        },
+    }
+}
+
+/// Whether a list of zone edges is one to use: it has edges and every one is positive.
+fn usable_zone_bounds(bounds: &[f64]) -> bool {
+    !bounds.is_empty() && bounds.iter().all(|b| *b > 0.0)
 }
 
 /// Most sections each feature's walk reads in full, busiest first. A full
@@ -887,12 +925,11 @@ fn hr_zone_bounds(
     sport_entry: Option<&SportSettingsEntry>,
     max_hr: f64,
 ) -> Vec<f64> {
-    let usable = |bounds: &[f64]| !bounds.is_empty() && bounds.iter().all(|b| *b > 0.0);
-    if usable(own_zones) {
+    if usable_zone_bounds(own_zones) {
         return own_zones.to_vec();
     }
     let sport_zones = sport_entry.map_or(&[][..], |e| e.hr_zones.as_slice());
-    if usable(sport_zones) {
+    if usable_zone_bounds(sport_zones) {
         return sport_zones.to_vec();
     }
     DEFAULT_HR_ZONE_UPPER_FRACTIONS
@@ -2409,6 +2446,7 @@ pub mod pooled {
             running_lthr: sport_settings::running_lthr(&settings),
             decoupling_sources: decoupling_sources(conn, today_date, span_days),
             load_dots: load_dots(conn, today_date, span_days),
+            weekly_hours: weekly_hours(conn),
             heatmap: activity_heatmap(conn, &calendar_first_day, &windows.heatmap_last_day)?,
             calendar_first_day,
             calendar_older_owed,
@@ -2432,6 +2470,8 @@ pub mod pooled {
                 six_months: six_months?,
                 year: year?,
             },
+            uncounted_imports:
+                crate::persistence::fitness::curves_local::imports_outside_server_figures(conn)?,
         })
     }
 
@@ -2570,6 +2610,71 @@ pub mod pooled {
         })
         .map_err(|e| log::warn!("veloqrs: [fitness] load dots read failed: {e}"))
         .unwrap_or_default()
+    }
+
+    /// The weeks the weekly hours chart draws.
+    pub const WEEKLY_HOURS_WEEKS: i64 = 12;
+
+    /// Moving hours per week and sport family over the `WEEKLY_HOURS_WEEKS`
+    /// weeks ending at the latest week that holds an activity, oldest first.
+    /// Weeks run Monday to Sunday over the wall-clock day an activity is
+    /// stored under, and a week between two with activity is kept with no
+    /// hours. The family is the engine's own for the sport. A read that fails
+    /// answers no weeks.
+    fn weekly_hours(conn: &Connection) -> Vec<crate::FfiWeeklyHours> {
+        const DAY: i64 = 86_400;
+        // Day zero of the epoch was a Thursday, so the Monday-first week
+        // number of a day is (day + 3) / 7.
+        let rows = conn
+            .prepare_cached(
+                "WITH latest(week) AS (SELECT MAX((date / 86400 + 3) / 7) FROM activity_metrics)
+                 SELECT (date / 86400 + 3) / 7, sport_type, SUM(moving_time)
+                 FROM activity_metrics, latest
+                 WHERE date >= (latest.week - ?1 + 1) * 7 * 86400 - 3 * 86400
+                 GROUP BY 1, 2",
+            )
+            .and_then(|mut stmt| {
+                stmt.query_map([WEEKLY_HOURS_WEEKS], |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, i64>(2)?,
+                    ))
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()
+            })
+            .map_err(|e| log::warn!("veloqrs: [fitness] weekly hours read failed: {e}"))
+            .unwrap_or_default();
+        let Some(latest) = rows.iter().map(|(week, _, _)| *week).max() else {
+            return Vec::new();
+        };
+        (latest - WEEKLY_HOURS_WEEKS + 1..=latest)
+            .map(|week| {
+                let hours = crate::sport::FAMILIES
+                    .iter()
+                    .filter_map(|(family, _)| {
+                        let seconds: i64 = rows
+                            .iter()
+                            .filter(|(w, sport, _)| {
+                                *w == week && crate::sport::sport_family(sport) == *family
+                            })
+                            .map(|(_, _, seconds)| seconds)
+                            .sum();
+                        (seconds > 0).then(|| crate::FfiFamilyHours {
+                            family: family.to_lowercase(),
+                            hours: seconds as f64 / 3600.0,
+                        })
+                    })
+                    .collect();
+                let monday = chrono::DateTime::from_timestamp(week * 7 * DAY - 3 * DAY, 0)
+                    .map(|t| t.format("%Y-%m-%d").to_string())
+                    .unwrap_or_default();
+                crate::FfiWeeklyHours {
+                    week_start: monday,
+                    hours,
+                }
+            })
+            .collect()
     }
 
     /// The activities the sport mix counts, the most recent first. A fixed
@@ -4430,6 +4535,10 @@ pub mod pooled {
         Ok(window)
     }
 }
+
+#[cfg(test)]
+#[path = "tests/cache_screen_originals.rs"]
+mod cache_screen_originals;
 
 #[cfg(test)]
 #[path = "tests/screens_performance_cache.rs"]
@@ -9083,11 +9192,13 @@ mod tests {
             direction: "same".into(),
             lap_time: 120.0,
             trend: 0,
+            label: "Climb".into(),
         };
         let highlight = |is_pr: bool| crate::FfiActivityRouteHighlight {
             activity_id: "a1".into(),
             route_id: "r1".into(),
             route_name: "Loop".into(),
+            label: "Loop".into(),
             is_pr,
             trend: 0,
             time_delta_seconds: None,

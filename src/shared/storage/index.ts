@@ -6,9 +6,6 @@ export {
   rememberCachedAthleteId,
   forgetCachedAthleteId,
   readCachedAthleteIdMirror,
-  rememberLinkedGarminId,
-  forgetLinkedGarminId,
-  readLinkedGarminIdMirror,
   rememberStoredActivityCount,
   forgetStoredActivityCount,
   readStoredActivityCountMirror,
@@ -18,6 +15,7 @@ export {
   wipeLines,
   wipeLineText,
   wipeConfirmMessage,
+  wipeListText,
   type WipeFate,
   type WipeLine,
 } from './wipeInventory';

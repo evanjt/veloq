@@ -3,8 +3,9 @@
  * layers, so every colour the map draws is named beside it.
  *
  * Some colours need no row of their own. The activity's own line is the
- * subject of the page. The casing, the badge ink and the location ring outline
- * or letter a mark that is already named. The endpoint discs carry their own
+ * subject of the page. The casing, the edge, the badge ink and the location ring
+ * outline or letter a mark that is already named. A section's hue is its own,
+ * named by its numbered badge and the list disc, so no row repeats it. The endpoint discs carry their own
  * glyphs, the location dot is the athlete's position, the scrub point follows
  * the chart's cursor, and section creation draws under its own instructions.
  */
@@ -48,6 +49,9 @@ export function unkeyedColours(palette: MapPalette): string[] {
   return [
     palette.route,
     palette.casing,
+    palette.edge,
+    ...palette.layer.sections,
+    ...palette.layer.sectionInk,
     palette.badgeInk,
     palette.locationRing,
     palette.layer.boundaryCasing,

@@ -2,10 +2,12 @@
  * Expected behaviour: the connect page loads only its own files. The guard
  * passes a page whose scripts, styles and imports are all relative and whose
  * policy allows only them, and fails one that pulls in anything from another
- * origin or drops the policy. The policy may name the page itself, the relay
- * and the basemap host in `connect-src`, `blob:` for workers and `data:` and `blob:` for
- * images, and nothing else; a map tile host added by hand fails. It reads the
- * index, not the disk.
+ * origin or drops the policy. The policy may name the page itself, the relay,
+ * the basemap host, the satellite imagery host and the elevation bucket path in
+ * `connect-src`, `blob:` for workers and `data:` and `blob:` for images, and
+ * nothing else; a map tile host added by hand, a regional imagery provider, the
+ * whole storage host and another bucket on it fail. It reads the index, not the
+ * disk.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -18,7 +20,7 @@ import { gitFreeEnv, runGit } from '../__shared__/gitFixture';
 const GUARD = join(resolve(__dirname, '../../..'), 'scripts/check-connect-page-local.mjs');
 
 const POLICY =
-  "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'self'; style-src 'self'; connect-src wss://auth.veloq.fit\" />";
+  "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src wss://auth.veloq.fit\" />";
 
 /** The policy the page is deployed with, read off the template. */
 const DEPLOYED = readFileSync(
@@ -88,7 +90,7 @@ describe('connect page local guard', () => {
 
   it('passes the policy the page is deployed with', () => {
     expect(DEPLOYED).toContain(
-      "connect-src 'self' wss://auth.veloq.fit https://tiles.openfreemap.org"
+      "connect-src 'self' wss://auth.veloq.fit https://tiles.openfreemap.org https://tiles.maps.eox.at https://s3.amazonaws.com/elevation-tiles-prod/;"
     );
     expect(guard(fixture({ 'web/connect/index.html': withPolicy(DEPLOYED) }))).toMatchObject({
       status: 0,
@@ -107,6 +109,21 @@ describe('connect page local guard', () => {
       'a second host in connect-src',
       DEPLOYED.replace('connect-src', 'connect-src https://tiles.example.com'),
       'connect-src allows https://tiles.example.com',
+    ],
+    [
+      'a regional imagery provider',
+      DEPLOYED.replace('connect-src', 'connect-src https://wmts.regional.example.com'),
+      'connect-src allows https://wmts.regional.example.com',
+    ],
+    [
+      'the whole storage host instead of the elevation bucket path',
+      DEPLOYED.replace('connect-src', 'connect-src https://s3.amazonaws.com'),
+      'connect-src allows https://s3.amazonaws.com',
+    ],
+    [
+      'another bucket on the storage host',
+      DEPLOYED.replace('connect-src', 'connect-src https://s3.amazonaws.com/other-bucket/'),
+      'connect-src allows https://s3.amazonaws.com/other-bucket/',
     ],
     [
       'a tile host in img-src',

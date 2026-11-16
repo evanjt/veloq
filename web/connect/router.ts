@@ -9,15 +9,18 @@ export type Tab = (typeof TABS)[number];
 
 /** Paths that take no identifier, and the tab each belongs to. */
 const PLAIN: Record<string, Tab> = {
-  feed: 'feed',
+  activities: 'feed',
   map: 'map',
   routes: 'map',
   sections: 'map',
   fitness: 'fitness',
   insights: 'insights',
+  strength: 'insights',
   'best-efforts': 'insights',
   settings: 'settings',
   recordings: 'feed',
+  workouts: 'insights',
+  live: 'insights',
 };
 
 /** Paths that name one thing, and the tab each belongs to. */
@@ -27,11 +30,15 @@ const WITH_ID: Record<string, Tab> = {
   route: 'map',
   section: 'map',
   exercise: 'insights',
+  workout: 'insights',
 };
 
 export type Route = { screen: string; id: string | null; query: [string, string][] };
 
-export const FEED: Readonly<Route> = Object.freeze({ screen: 'feed', id: null, query: [] });
+/** The address the activities page was first given; it opens the same page. */
+const RETIRED_ACTIVITIES = 'feed';
+
+export const FEED: Readonly<Route> = Object.freeze({ screen: 'activities', id: null, query: [] });
 
 const decode = (text: string): string | null => {
   try {
@@ -49,7 +56,8 @@ export function parse(hash: string): Route {
   const [path, search] = splitOnce(text, '?');
   const parts = path.split('/');
   if (parts[0] !== '' || parts.length < 2) return feed();
-  const screen = parts[1] ?? '';
+  const named = parts[1] ?? '';
+  const screen = named === RETIRED_ACTIVITIES ? 'activities' : named;
   const rest = parts.slice(2).map(decode);
   if (rest.includes(null) || rest.length > 1) return feed();
   const id = rest[0] || null;
@@ -93,9 +101,54 @@ export function tabOf(route: Route): Tab {
   return WITH_ID[route.screen] ?? PLAIN[route.screen] ?? 'feed';
 }
 
+export type Ordering<C extends string> = { column: C; descending: boolean };
+
+/** A table's order as read from a query value `column:asc|desc`; anything else is the fallback. */
+export function parseOrder<C extends string>(
+  text: string | null,
+  columns: readonly C[],
+  fallback: Ordering<C>
+): Ordering<C> {
+  const [column, direction] = (text ?? '').split(':');
+  const known = columns.find((candidate) => candidate === column);
+  if (known === undefined || (direction !== 'asc' && direction !== 'desc')) return fallback;
+  return { column: known, descending: direction === 'desc' };
+}
+
+/** A table's order as a query value; null for the default, which is not written. */
+export function formatOrder<C extends string>(
+  order: Ordering<C>,
+  fallback: Ordering<C>
+): string | null {
+  if (order.column === fallback.column && order.descending === fallback.descending) return null;
+  return `${order.column}:${order.descending ? 'desc' : 'asc'}`;
+}
+
 /** A route's query value, or null. */
 export function queryValue(route: Route, key: string): string | null {
   return route.query.find(([name]) => name === key)?.[1] ?? null;
+}
+
+/**
+ * The route with each key in `changes` set, or removed when its value is
+ * null. A key already in the query keeps its place; a new one goes last. Every
+ * page keeps its filter and selection in the hash through this and `go`.
+ */
+export function withQuery(route: Route, changes: Record<string, string | null>): Route {
+  const query: [string, string][] = [];
+  for (const [key, value] of route.query) {
+    if (!(key in changes)) query.push([key, value]);
+    else if (changes[key] !== null) query.push([key, changes[key] as string]);
+  }
+  for (const [key, value] of Object.entries(changes)) {
+    if (value !== null && !route.query.some(([name]) => name === key)) query.push([key, value]);
+  }
+  return { ...route, query };
+}
+
+/** Point the address at a route; the hash change redraws. */
+export function go(route: Route): void {
+  location.hash = write(route);
 }
 
 /**
@@ -134,21 +187,18 @@ export type KeyAction =
   | { do: 'step'; step: 'next' | 'previous' }
   | { do: 'open' };
 
+/** True when the target takes typed text, so a bare key belongs to it and not to a shortcut. */
+export function inField(target: Press['target']): boolean {
+  const tag = target?.tagName?.toUpperCase();
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!target?.isContentEditable;
+}
+
 /**
  * What a key does. Nothing at all while a text field has focus, or with a
  * modifier held, so the browser's own shortcuts and typing are left alone.
  */
 export function keyAction(press: Press): KeyAction | null {
-  if (press.ctrlKey || press.metaKey || press.altKey) return null;
-  const tag = press.target?.tagName?.toUpperCase();
-  if (
-    tag === 'INPUT' ||
-    tag === 'TEXTAREA' ||
-    tag === 'SELECT' ||
-    press.target?.isContentEditable
-  ) {
-    return null;
-  }
+  if (press.ctrlKey || press.metaKey || press.altKey || inField(press.target)) return null;
   const tab = /^[1-5]$/.test(press.key) ? TABS[Number(press.key) - 1] : undefined;
   if (tab) return { do: 'tab', tab };
   if (press.key === '/') return { do: 'search' };

@@ -3209,6 +3209,10 @@ export type FfiActivityIndicator = {
    * -1=declining, 0=stable, 1=improving
    */
   trend: number;
+  /**
+   * The chip text a feed row shows for this indicator, worded here once.
+   */
+  label: string;
 };
 
 /**
@@ -3241,6 +3245,7 @@ const FfiConverterTypeFfiActivityIndicator = (() => {
         direction: FfiConverterString.readFromCursor(c),
         lapTime: FfiConverterFloat64.readFromCursor(c),
         trend: FfiConverterInt8.readFromCursor(c),
+        label: FfiConverterString.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -3251,6 +3256,7 @@ const FfiConverterTypeFfiActivityIndicator = (() => {
       FfiConverterString.writeIntoCursor(value.direction, c);
       FfiConverterFloat64.writeIntoCursor(value.lapTime, c);
       FfiConverterInt8.writeIntoCursor(value.trend, c);
+      FfiConverterString.writeIntoCursor(value.label, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -3260,7 +3266,8 @@ const FfiConverterTypeFfiActivityIndicator = (() => {
         FfiConverterString.allocationSize(value.targetName) +
         FfiConverterString.allocationSize(value.direction) +
         FfiConverterFloat64.allocationSize(value.lapTime) +
-        FfiConverterInt8.allocationSize(value.trend)
+        FfiConverterInt8.allocationSize(value.trend) +
+        FfiConverterString.allocationSize(value.label)
       );
     }
   }
@@ -3293,6 +3300,10 @@ export type FfiActivityRouteHighlight = {
    * this is the only timed attempt, when times tie, or when not a PR.
    */
   prImprovementSeconds?: number;
+  /**
+   * The chip text a feed row shows for this highlight, worded here once.
+   */
+  label: string;
 };
 
 /**
@@ -3326,6 +3337,7 @@ const FfiConverterTypeFfiActivityRouteHighlight = (() => {
         trend: FfiConverterInt8.readFromCursor(c),
         timeDeltaSeconds: FfiConverterOptionalInt32.readFromCursor(c),
         prImprovementSeconds: FfiConverterOptionalUInt32.readFromCursor(c),
+        label: FfiConverterString.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -3336,6 +3348,7 @@ const FfiConverterTypeFfiActivityRouteHighlight = (() => {
       FfiConverterInt8.writeIntoCursor(value.trend, c);
       FfiConverterOptionalInt32.writeIntoCursor(value.timeDeltaSeconds, c);
       FfiConverterOptionalUInt32.writeIntoCursor(value.prImprovementSeconds, c);
+      FfiConverterString.writeIntoCursor(value.label, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -3345,7 +3358,8 @@ const FfiConverterTypeFfiActivityRouteHighlight = (() => {
         FfiConverterBool.allocationSize(value.isPr) +
         FfiConverterInt8.allocationSize(value.trend) +
         FfiConverterOptionalInt32.allocationSize(value.timeDeltaSeconds) +
-        FfiConverterOptionalUInt32.allocationSize(value.prImprovementSeconds)
+        FfiConverterOptionalUInt32.allocationSize(value.prImprovementSeconds) +
+        FfiConverterString.allocationSize(value.label)
       );
     }
   }
@@ -7622,6 +7636,10 @@ const FfiConverterTypeFfiYearCount = (() => {
 export type FfiCacheScreenData = {
   streamRetentionDays: number;
   streamStoreBytes: number;
+  /**
+   * Bytes the kept originals take, deflated, as the originals owner counts them.
+   */
+  originalStoreBytes: number;
   activityYearCounts: Array<FfiYearCount>;
 };
 
@@ -7649,6 +7667,7 @@ const FfiConverterTypeFfiCacheScreenData = (() => {
       return {
         streamRetentionDays: FfiConverterFloat64.readFromCursor(c),
         streamStoreBytes: FfiConverterFloat64.readFromCursor(c),
+        originalStoreBytes: FfiConverterFloat64.readFromCursor(c),
         activityYearCounts:
           FfiConverterSequenceTypeFfiYearCount.readFromCursor(c),
       };
@@ -7656,6 +7675,7 @@ const FfiConverterTypeFfiCacheScreenData = (() => {
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterFloat64.writeIntoCursor(value.streamRetentionDays, c);
       FfiConverterFloat64.writeIntoCursor(value.streamStoreBytes, c);
+      FfiConverterFloat64.writeIntoCursor(value.originalStoreBytes, c);
       FfiConverterSequenceTypeFfiYearCount.writeIntoCursor(
         value.activityYearCounts,
         c,
@@ -7665,6 +7685,7 @@ const FfiConverterTypeFfiCacheScreenData = (() => {
       return (
         FfiConverterFloat64.allocationSize(value.streamRetentionDays) +
         FfiConverterFloat64.allocationSize(value.streamStoreBytes) +
+        FfiConverterFloat64.allocationSize(value.originalStoreBytes) +
         FfiConverterSequenceTypeFfiYearCount.allocationSize(
           value.activityYearCounts,
         )
@@ -10965,6 +10986,58 @@ const FfiConverterTypeFfiExperimentalExamples = (() => {
 })();
 
 /**
+ * Moving hours in one sport family.
+ */
+export type FfiFamilyHours = {
+  /**
+   * The family's lower-case name: `ride`, `winter`, `run`, `water`, `foot`,
+   * `strength` or `other`.
+   */
+  family: string;
+  hours: number;
+};
+
+/**
+ * Generated factory for {@link FfiFamilyHours} record objects.
+ */
+export const FfiFamilyHours = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiFamilyHours, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiFamilyHours>,
+  });
+})();
+
+const FfiConverterTypeFfiFamilyHours = (() => {
+  type TypeName = FfiFamilyHours;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        family: FfiConverterString.readFromCursor(c),
+        hours: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.family, c);
+      FfiConverterFloat64.writeIntoCursor(value.hours, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.family) +
+        FfiConverterFloat64.allocationSize(value.hours)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * What a feed card says about a stub, an activity intervals.icu holds but
  * does not serve. The one judge for the card, beside [`state`] for the page.
  */
@@ -11893,6 +11966,61 @@ const FfiConverterTypeFfiLoadDot = (() => {
 })();
 
 /**
+ * One week's moving hours, by the sport families that have any.
+ */
+export type FfiWeeklyHours = {
+  /**
+   * The week's Monday, `YYYY-MM-DD`.
+   */
+  weekStart: string;
+  /**
+   * The families with moving time that week, in the order a stack of them
+   * is drawn; empty for a week with no activity.
+   */
+  hours: Array<FfiFamilyHours>;
+};
+
+/**
+ * Generated factory for {@link FfiWeeklyHours} record objects.
+ */
+export const FfiWeeklyHours = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiWeeklyHours, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiWeeklyHours>,
+  });
+})();
+
+const FfiConverterTypeFfiWeeklyHours = (() => {
+  type TypeName = FfiWeeklyHours;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        weekStart: FfiConverterString.readFromCursor(c),
+        hours: FfiConverterSequenceTypeFfiFamilyHours.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.weekStart, c);
+      FfiConverterSequenceTypeFfiFamilyHours.writeIntoCursor(value.hours, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.weekStart) +
+        FfiConverterSequenceTypeFfiFamilyHours.allocationSize(value.hours)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Pre-computed daily activity intensity for the activity heatmap.
  */
 export type FfiHeatmapDay = {
@@ -12424,6 +12552,13 @@ export type FfiFitnessScreenData = {
    */
   loadDots: Array<FfiLoadDot>;
   /**
+   * Moving hours per week and sport family over the twelve weeks ending at
+   * the latest week that holds an activity, oldest first. A week with
+   * nothing in it stays in the series with no hours. It does not follow the
+   * spans the read was asked for.
+   */
+  weeklyHours: Array<FfiWeeklyHours>;
+  /**
    * Days with activities from `calendar_first_day` to the window's last
    * day, oldest first.
    */
@@ -12457,6 +12592,11 @@ export type FfiFitnessScreenData = {
    * The weekly card's periods to now, each against the same span before.
    */
   comparisons: FfiSummaryComparisons;
+  /**
+   * The imported rides the server's figures leave out: shown as rides, and
+   * in no curve, best effort or fitness day. Zero for a Garmin-only library.
+   */
+  uncountedImports: number;
 };
 
 /**
@@ -12494,6 +12634,7 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
         decouplingSources:
           FfiConverterSequenceTypeFfiSpanDecoupling.readFromCursor(c),
         loadDots: FfiConverterSequenceTypeFfiLoadDot.readFromCursor(c),
+        weeklyHours: FfiConverterSequenceTypeFfiWeeklyHours.readFromCursor(c),
         heatmap: FfiConverterSequenceTypeFfiHeatmapDay.readFromCursor(c),
         calendarFirstDay: FfiConverterString.readFromCursor(c),
         calendarOlderOwed: FfiConverterUInt32.readFromCursor(c),
@@ -12502,6 +12643,7 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
         seasonMonths:
           FfiConverterSequenceTypeFfiSummaryComparison.readFromCursor(c),
         comparisons: FfiConverterTypeFfiSummaryComparisons.readFromCursor(c),
+        uncountedImports: FfiConverterUInt32.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -12519,6 +12661,10 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
         c,
       );
       FfiConverterSequenceTypeFfiLoadDot.writeIntoCursor(value.loadDots, c);
+      FfiConverterSequenceTypeFfiWeeklyHours.writeIntoCursor(
+        value.weeklyHours,
+        c,
+      );
       FfiConverterSequenceTypeFfiHeatmapDay.writeIntoCursor(value.heatmap, c);
       FfiConverterString.writeIntoCursor(value.calendarFirstDay, c);
       FfiConverterUInt32.writeIntoCursor(value.calendarOlderOwed, c);
@@ -12532,6 +12678,7 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
         value.comparisons,
         c,
       );
+      FfiConverterUInt32.writeIntoCursor(value.uncountedImports, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -12548,6 +12695,9 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
           value.decouplingSources,
         ) +
         FfiConverterSequenceTypeFfiLoadDot.allocationSize(value.loadDots) +
+        FfiConverterSequenceTypeFfiWeeklyHours.allocationSize(
+          value.weeklyHours,
+        ) +
         FfiConverterSequenceTypeFfiHeatmapDay.allocationSize(value.heatmap) +
         FfiConverterString.allocationSize(value.calendarFirstDay) +
         FfiConverterUInt32.allocationSize(value.calendarOlderOwed) +
@@ -12556,7 +12706,10 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
         FfiConverterSequenceTypeFfiSummaryComparison.allocationSize(
           value.seasonMonths,
         ) +
-        FfiConverterTypeFfiSummaryComparisons.allocationSize(value.comparisons)
+        FfiConverterTypeFfiSummaryComparisons.allocationSize(
+          value.comparisons,
+        ) +
+        FfiConverterUInt32.allocationSize(value.uncountedImports)
       );
     }
   }
@@ -12657,6 +12810,62 @@ const FfiConverterTypeFfiFitnessScreenWindows = (() => {
 })();
 
 /**
+ * A neighbouring exercise, shown small beside the current one.
+ */
+export type FfiFocusNeighbour = {
+  exerciseCategory: number;
+  exerciseName?: number;
+  setsDone: number;
+  setCount: number;
+};
+
+/**
+ * Generated factory for {@link FfiFocusNeighbour} record objects.
+ */
+export const FfiFocusNeighbour = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiFocusNeighbour, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiFocusNeighbour>,
+  });
+})();
+
+const FfiConverterTypeFfiFocusNeighbour = (() => {
+  type TypeName = FfiFocusNeighbour;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        exerciseCategory: FfiConverterUInt16.readFromCursor(c),
+        exerciseName: FfiConverterOptionalUInt16.readFromCursor(c),
+        setsDone: FfiConverterUInt32.readFromCursor(c),
+        setCount: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt16.writeIntoCursor(value.exerciseCategory, c);
+      FfiConverterOptionalUInt16.writeIntoCursor(value.exerciseName, c);
+      FfiConverterUInt32.writeIntoCursor(value.setsDone, c);
+      FfiConverterUInt32.writeIntoCursor(value.setCount, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt16.allocationSize(value.exerciseCategory) +
+        FfiConverterOptionalUInt16.allocationSize(value.exerciseName) +
+        FfiConverterUInt32.allocationSize(value.setsDone) +
+        FfiConverterUInt32.allocationSize(value.setCount)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * The range a direction's scatter axis draws, in the axis's own unit: metres
  * per second on a section, seconds on a route.
  */
@@ -12713,6 +12922,275 @@ const FfiConverterTypeFfiFocusRange = (() => {
         FfiConverterFloat64.allocationSize(value.high) +
         FfiConverterUInt32.allocationSize(value.slowCount) +
         FfiConverterUInt32.allocationSize(value.fastCount)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The unit an athlete reads and enters strength weight in.
+ */
+export enum FfiWeightUnit {
+  Kilogram,
+  Pound,
+}
+
+const FfiConverterTypeFfiWeightUnit = (() => {
+  type TypeName = FfiWeightUnit;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiWeightUnit.Kilogram;
+        case 2:
+          return FfiWeightUnit.Pound;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiWeightUnit.Kilogram:
+          return c.writeI32(1);
+        case FfiWeightUnit.Pound:
+          return c.writeI32(2);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The set to do, with its place in its exercise.
+ */
+export type FfiFocusSet = {
+  exerciseCategory: number;
+  exerciseName?: number;
+  /**
+   * One-based, so a screen can say "set 2 of 3".
+   */
+  setNumber: number;
+  setCount: number;
+  reps?: number;
+  weightKg?: number;
+  /**
+   * The weight as the athlete reads it, in `weight_unit`, to one decimal.
+   */
+  displayWeight?: number;
+  weightUnit: FfiWeightUnit;
+  /**
+   * One tap of the weight stepper, in `weight_unit`.
+   */
+  weightStep: number;
+  /**
+   * The stored kilograms after one tap down and one tap up; an unset weight steps from zero.
+   */
+  weightDownKg: number;
+  weightUpKg: number;
+  durationSecs?: number;
+  warmUp: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiFocusSet} record objects.
+ */
+export const FfiFocusSet = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiFocusSet, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiFocusSet>,
+  });
+})();
+
+const FfiConverterTypeFfiFocusSet = (() => {
+  type TypeName = FfiFocusSet;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        exerciseCategory: FfiConverterUInt16.readFromCursor(c),
+        exerciseName: FfiConverterOptionalUInt16.readFromCursor(c),
+        setNumber: FfiConverterUInt32.readFromCursor(c),
+        setCount: FfiConverterUInt32.readFromCursor(c),
+        reps: FfiConverterOptionalUInt32.readFromCursor(c),
+        weightKg: FfiConverterOptionalFloat64.readFromCursor(c),
+        displayWeight: FfiConverterOptionalFloat64.readFromCursor(c),
+        weightUnit: FfiConverterTypeFfiWeightUnit.readFromCursor(c),
+        weightStep: FfiConverterFloat64.readFromCursor(c),
+        weightDownKg: FfiConverterFloat64.readFromCursor(c),
+        weightUpKg: FfiConverterFloat64.readFromCursor(c),
+        durationSecs: FfiConverterOptionalFloat64.readFromCursor(c),
+        warmUp: FfiConverterBool.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt16.writeIntoCursor(value.exerciseCategory, c);
+      FfiConverterOptionalUInt16.writeIntoCursor(value.exerciseName, c);
+      FfiConverterUInt32.writeIntoCursor(value.setNumber, c);
+      FfiConverterUInt32.writeIntoCursor(value.setCount, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.reps, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.weightKg, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.displayWeight, c);
+      FfiConverterTypeFfiWeightUnit.writeIntoCursor(value.weightUnit, c);
+      FfiConverterFloat64.writeIntoCursor(value.weightStep, c);
+      FfiConverterFloat64.writeIntoCursor(value.weightDownKg, c);
+      FfiConverterFloat64.writeIntoCursor(value.weightUpKg, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.durationSecs, c);
+      FfiConverterBool.writeIntoCursor(value.warmUp, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt16.allocationSize(value.exerciseCategory) +
+        FfiConverterOptionalUInt16.allocationSize(value.exerciseName) +
+        FfiConverterUInt32.allocationSize(value.setNumber) +
+        FfiConverterUInt32.allocationSize(value.setCount) +
+        FfiConverterOptionalUInt32.allocationSize(value.reps) +
+        FfiConverterOptionalFloat64.allocationSize(value.weightKg) +
+        FfiConverterOptionalFloat64.allocationSize(value.displayWeight) +
+        FfiConverterTypeFfiWeightUnit.allocationSize(value.weightUnit) +
+        FfiConverterFloat64.allocationSize(value.weightStep) +
+        FfiConverterFloat64.allocationSize(value.weightDownKg) +
+        FfiConverterFloat64.allocationSize(value.weightUpKg) +
+        FfiConverterOptionalFloat64.allocationSize(value.durationSecs) +
+        FfiConverterBool.allocationSize(value.warmUp)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Where the session is, as the athlete would say it.
+ */
+export enum FfiFocusPhase {
+  /**
+   * A set is to be done now.
+   */
+  Set,
+  /**
+   * A rest is running; `current` is the set it leads to.
+   */
+  Rest,
+  /**
+   * No set is left to do.
+   */
+  Finished,
+}
+
+const FfiConverterTypeFfiFocusPhase = (() => {
+  type TypeName = FfiFocusPhase;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiFocusPhase.Set;
+        case 2:
+          return FfiFocusPhase.Rest;
+        case 3:
+          return FfiFocusPhase.Finished;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiFocusPhase.Set:
+          return c.writeI32(1);
+        case FfiFocusPhase.Rest:
+          return c.writeI32(2);
+        case FfiFocusPhase.Finished:
+          return c.writeI32(3);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What the focus view and the lock screen show of the live session.
+ */
+export type FfiFocusState = {
+  phase: FfiFocusPhase;
+  current?: FfiFocusSet;
+  previous?: FfiFocusNeighbour;
+  next?: FfiFocusNeighbour;
+  /**
+   * Epoch seconds the running rest began.
+   */
+  restStartedAt?: number;
+  restSecs?: number;
+  /**
+   * Epoch seconds the running rest ends.
+   */
+  restEndsAt?: number;
+};
+
+/**
+ * Generated factory for {@link FfiFocusState} record objects.
+ */
+export const FfiFocusState = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiFocusState, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiFocusState>,
+  });
+})();
+
+const FfiConverterTypeFfiFocusState = (() => {
+  type TypeName = FfiFocusState;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        phase: FfiConverterTypeFfiFocusPhase.readFromCursor(c),
+        current: FfiConverterOptionalTypeFfiFocusSet.readFromCursor(c),
+        previous: FfiConverterOptionalTypeFfiFocusNeighbour.readFromCursor(c),
+        next: FfiConverterOptionalTypeFfiFocusNeighbour.readFromCursor(c),
+        restStartedAt: FfiConverterOptionalFloat64.readFromCursor(c),
+        restSecs: FfiConverterOptionalUInt32.readFromCursor(c),
+        restEndsAt: FfiConverterOptionalFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiFocusPhase.writeIntoCursor(value.phase, c);
+      FfiConverterOptionalTypeFfiFocusSet.writeIntoCursor(value.current, c);
+      FfiConverterOptionalTypeFfiFocusNeighbour.writeIntoCursor(
+        value.previous,
+        c,
+      );
+      FfiConverterOptionalTypeFfiFocusNeighbour.writeIntoCursor(value.next, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.restStartedAt, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.restSecs, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.restEndsAt, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiFocusPhase.allocationSize(value.phase) +
+        FfiConverterOptionalTypeFfiFocusSet.allocationSize(value.current) +
+        FfiConverterOptionalTypeFfiFocusNeighbour.allocationSize(
+          value.previous,
+        ) +
+        FfiConverterOptionalTypeFfiFocusNeighbour.allocationSize(value.next) +
+        FfiConverterOptionalFloat64.allocationSize(value.restStartedAt) +
+        FfiConverterOptionalUInt32.allocationSize(value.restSecs) +
+        FfiConverterOptionalFloat64.allocationSize(value.restEndsAt)
       );
     }
   }
@@ -13167,6 +13645,11 @@ export type FfiGroupWithPolyline = {
    * All sport types present in this group's activities
    */
   sportTypes: Array<string>;
+  /**
+   * Moving time in seconds of the fastest attempt not excluded from the
+   * route, `None` when no attempt has a time.
+   */
+  bestTime?: number;
 };
 
 /**
@@ -13200,6 +13683,7 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
         distanceMeters: FfiConverterFloat64.readFromCursor(c),
         encodedPolyline: FfiConverterArrayBuffer.readFromCursor(c),
         sportTypes: FfiConverterSequenceString.readFromCursor(c),
+        bestTime: FfiConverterOptionalFloat64.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -13211,6 +13695,7 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
       FfiConverterFloat64.writeIntoCursor(value.distanceMeters, c);
       FfiConverterArrayBuffer.writeIntoCursor(value.encodedPolyline, c);
       FfiConverterSequenceString.writeIntoCursor(value.sportTypes, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.bestTime, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -13221,7 +13706,8 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
         FfiConverterArrayBuffer.allocationSize(value.encodedPolyline) +
-        FfiConverterSequenceString.allocationSize(value.sportTypes)
+        FfiConverterSequenceString.allocationSize(value.sportTypes) +
+        FfiConverterOptionalFloat64.allocationSize(value.bestTime)
       );
     }
   }
@@ -13428,6 +13914,389 @@ const FfiConverterTypeFfiHrvTrend = (() => {
         FfiConverterSequenceTypeFfiSeriesPoint.allocationSize(value.sparkline) +
         FfiConverterOptionalFloat64.allocationSize(value.windowSplit) +
         FfiConverterOptionalFloat64.allocationSize(value.signalDelta)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A file that did not become a ride.
+ */
+export type FfiImportFailure = {
+  /**
+   * The file, as the collection names it.
+   */
+  name: string;
+  /**
+   * The key it was recorded against; absent when its bytes could not be read.
+   */
+  key?: string;
+  reason: string;
+};
+
+/**
+ * Generated factory for {@link FfiImportFailure} record objects.
+ */
+export const FfiImportFailure = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiImportFailure, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiImportFailure>,
+  });
+})();
+
+const FfiConverterTypeFfiImportFailure = (() => {
+  type TypeName = FfiImportFailure;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        name: FfiConverterString.readFromCursor(c),
+        key: FfiConverterOptionalString.readFromCursor(c),
+        reason: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterOptionalString.writeIntoCursor(value.key, c);
+      FfiConverterString.writeIntoCursor(value.reason, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterOptionalString.allocationSize(value.key) +
+        FfiConverterString.allocationSize(value.reason)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Where a collection import stands.
+ */
+export enum FfiImportPhase {
+  /**
+   * No import has run in this process.
+   */
+  Idle,
+  Running,
+  /**
+   * Every entry of the collection was walked.
+   */
+  Done,
+  /**
+   * The athlete stopped it. What is stored stays.
+   */
+  Cancelled,
+  /**
+   * The job ended on `halt` before the collection did.
+   */
+  Stopped,
+}
+
+const FfiConverterTypeFfiImportPhase = (() => {
+  type TypeName = FfiImportPhase;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiImportPhase.Idle;
+        case 2:
+          return FfiImportPhase.Running;
+        case 3:
+          return FfiImportPhase.Done;
+        case 4:
+          return FfiImportPhase.Cancelled;
+        case 5:
+          return FfiImportPhase.Stopped;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiImportPhase.Idle:
+          return c.writeI32(1);
+        case FfiImportPhase.Running:
+          return c.writeI32(2);
+        case FfiImportPhase.Done:
+          return c.writeI32(3);
+        case FfiImportPhase.Cancelled:
+          return c.writeI32(4);
+        case FfiImportPhase.Stopped:
+          return c.writeI32(5);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+// Enum: FfiImportHalt
+export enum FfiImportHalt_Tags {
+  Cancelled = "Cancelled",
+  Unreadable = "Unreadable",
+  Unstorable = "Unstorable",
+}
+/**
+ * Why an import ended before the collection did.
+ */
+export const FfiImportHalt = (() => {
+  type Cancelled__interface = {
+    tag: FfiImportHalt_Tags.Cancelled;
+  };
+  class Cancelled_ extends UniffiEnum implements Cancelled__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiImportHalt";
+    readonly tag = FfiImportHalt_Tags.Cancelled;
+    constructor() {
+      super("FfiImportHalt", "Cancelled");
+    }
+
+    static new(): Cancelled_ {
+      return new Cancelled_();
+    }
+
+    static instanceOf(obj: any): obj is Cancelled_ {
+      return obj.tag === FfiImportHalt_Tags.Cancelled;
+    }
+  }
+
+  type Unreadable__interface = {
+    tag: FfiImportHalt_Tags.Unreadable;
+    inner: Readonly<{ reason: string }>;
+  };
+  /**
+   * The collection could not be read, with the reason.
+   */
+  class Unreadable_ extends UniffiEnum implements Unreadable__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiImportHalt";
+    readonly tag = FfiImportHalt_Tags.Unreadable;
+    readonly inner: Readonly<{ reason: string }>;
+    constructor(inner: { reason: string }) {
+      super("FfiImportHalt", "Unreadable");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { reason: string }): Unreadable_ {
+      return new Unreadable_(inner);
+    }
+
+    static instanceOf(obj: any): obj is Unreadable_ {
+      return obj.tag === FfiImportHalt_Tags.Unreadable;
+    }
+  }
+
+  type Unstorable__interface = {
+    tag: FfiImportHalt_Tags.Unstorable;
+  };
+  /**
+   * The library the job writes into is gone or not yet known.
+   */
+  class Unstorable_ extends UniffiEnum implements Unstorable__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiImportHalt";
+    readonly tag = FfiImportHalt_Tags.Unstorable;
+    constructor() {
+      super("FfiImportHalt", "Unstorable");
+    }
+
+    static new(): Unstorable_ {
+      return new Unstorable_();
+    }
+
+    static instanceOf(obj: any): obj is Unstorable_ {
+      return obj.tag === FfiImportHalt_Tags.Unstorable;
+    }
+  }
+
+  function instanceOf(obj: any): obj is FfiImportHalt {
+    return obj[uniffiTypeNameSymbol] === "FfiImportHalt";
+  }
+
+  return Object.freeze({
+    instanceOf,
+    Cancelled: Cancelled_,
+    Unreadable: Unreadable_,
+    Unstorable: Unstorable_,
+  });
+})();
+/**
+ * Why an import ended before the collection did.
+ */
+export type FfiImportHalt = InstanceType<
+  (typeof FfiImportHalt)["Cancelled" | "Unreadable" | "Unstorable"]
+>;
+
+// FfiConverter for enum FfiImportHalt
+const FfiConverterTypeFfiImportHalt = (() => {
+  type TypeName = FfiImportHalt;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return new FfiImportHalt.Cancelled();
+        case 2:
+          return new FfiImportHalt.Unreadable({
+            reason: FfiConverterString.readFromCursor(c),
+          });
+        case 3:
+          return new FfiImportHalt.Unstorable();
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value.tag) {
+        case FfiImportHalt_Tags.Cancelled: {
+          c.writeI32(1);
+          return;
+        }
+        case FfiImportHalt_Tags.Unreadable: {
+          c.writeI32(2);
+          const inner = value.inner;
+          FfiConverterString.writeIntoCursor(inner.reason, c);
+          return;
+        }
+        case FfiImportHalt_Tags.Unstorable: {
+          c.writeI32(3);
+          return;
+        }
+        default:
+          // Throwing from here means that FfiImportHalt_Tags hasn't matched an ordinal.
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    allocationSize(value: TypeName): number {
+      switch (value.tag) {
+        case FfiImportHalt_Tags.Cancelled: {
+          return 4;
+        }
+        case FfiImportHalt_Tags.Unreadable: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterString.allocationSize(inner.reason);
+          return size;
+        }
+        case FfiImportHalt_Tags.Unstorable: {
+          return 4;
+        }
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A collection import's state and what it has walked.
+ */
+export type FfiImportProgress = {
+  phase: FfiImportPhase;
+  /**
+   * Set when `phase` is `Cancelled` or `Stopped`.
+   */
+  halt?: FfiImportHalt;
+  seen: number;
+  stored: number;
+  alreadyStored: number;
+  failed: number;
+  /**
+   * GPX and TCX files, which a later step decodes.
+   */
+  otherFormat: number;
+  skipped: number;
+  /**
+   * The entry being worked on, or the last one.
+   */
+  current?: string;
+  /**
+   * The first failures by name; `failed` is the exact count.
+   */
+  failures: Array<FfiImportFailure>;
+};
+
+/**
+ * Generated factory for {@link FfiImportProgress} record objects.
+ */
+export const FfiImportProgress = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiImportProgress, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiImportProgress>,
+  });
+})();
+
+const FfiConverterTypeFfiImportProgress = (() => {
+  type TypeName = FfiImportProgress;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        phase: FfiConverterTypeFfiImportPhase.readFromCursor(c),
+        halt: FfiConverterOptionalTypeFfiImportHalt.readFromCursor(c),
+        seen: FfiConverterUInt32.readFromCursor(c),
+        stored: FfiConverterUInt32.readFromCursor(c),
+        alreadyStored: FfiConverterUInt32.readFromCursor(c),
+        failed: FfiConverterUInt32.readFromCursor(c),
+        otherFormat: FfiConverterUInt32.readFromCursor(c),
+        skipped: FfiConverterUInt32.readFromCursor(c),
+        current: FfiConverterOptionalString.readFromCursor(c),
+        failures: FfiConverterSequenceTypeFfiImportFailure.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiImportPhase.writeIntoCursor(value.phase, c);
+      FfiConverterOptionalTypeFfiImportHalt.writeIntoCursor(value.halt, c);
+      FfiConverterUInt32.writeIntoCursor(value.seen, c);
+      FfiConverterUInt32.writeIntoCursor(value.stored, c);
+      FfiConverterUInt32.writeIntoCursor(value.alreadyStored, c);
+      FfiConverterUInt32.writeIntoCursor(value.failed, c);
+      FfiConverterUInt32.writeIntoCursor(value.otherFormat, c);
+      FfiConverterUInt32.writeIntoCursor(value.skipped, c);
+      FfiConverterOptionalString.writeIntoCursor(value.current, c);
+      FfiConverterSequenceTypeFfiImportFailure.writeIntoCursor(
+        value.failures,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiImportPhase.allocationSize(value.phase) +
+        FfiConverterOptionalTypeFfiImportHalt.allocationSize(value.halt) +
+        FfiConverterUInt32.allocationSize(value.seen) +
+        FfiConverterUInt32.allocationSize(value.stored) +
+        FfiConverterUInt32.allocationSize(value.alreadyStored) +
+        FfiConverterUInt32.allocationSize(value.failed) +
+        FfiConverterUInt32.allocationSize(value.otherFormat) +
+        FfiConverterUInt32.allocationSize(value.skipped) +
+        FfiConverterOptionalString.allocationSize(value.current) +
+        FfiConverterSequenceTypeFfiImportFailure.allocationSize(value.failures)
       );
     }
   }
@@ -15997,6 +16866,177 @@ const FfiConverterTypeFfiLinkDevicesAnswer = (() => {
 })();
 
 /**
+ * One set of a workout as the builder holds it: what the athlete means to
+ * do, with the optional side and warm-up behind the set's "more".
+ */
+export type FfiLinkDraftSet = {
+  reps?: number;
+  weightKg?: number;
+  durationSecs?: number;
+  side?: string;
+  warmUp: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiLinkDraftSet} record objects.
+ */
+export const FfiLinkDraftSet = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkDraftSet, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkDraftSet>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkDraftSet = (() => {
+  type TypeName = FfiLinkDraftSet;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        reps: FfiConverterOptionalUInt32.readFromCursor(c),
+        weightKg: FfiConverterOptionalFloat64.readFromCursor(c),
+        durationSecs: FfiConverterOptionalFloat64.readFromCursor(c),
+        side: FfiConverterOptionalString.readFromCursor(c),
+        warmUp: FfiConverterBool.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalUInt32.writeIntoCursor(value.reps, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.weightKg, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.durationSecs, c);
+      FfiConverterOptionalString.writeIntoCursor(value.side, c);
+      FfiConverterBool.writeIntoCursor(value.warmUp, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalUInt32.allocationSize(value.reps) +
+        FfiConverterOptionalFloat64.allocationSize(value.weightKg) +
+        FfiConverterOptionalFloat64.allocationSize(value.durationSecs) +
+        FfiConverterOptionalString.allocationSize(value.side) +
+        FfiConverterBool.allocationSize(value.warmUp)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One exercise of a workout: the FIT category and name pair, the group it is
+ * done with, the rest after it and its sets.
+ */
+export type FfiLinkDraftExercise = {
+  category: number;
+  name?: number;
+  groupNo?: number;
+  restSecs?: number;
+  sets: Array<FfiLinkDraftSet>;
+};
+
+/**
+ * Generated factory for {@link FfiLinkDraftExercise} record objects.
+ */
+export const FfiLinkDraftExercise = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkDraftExercise,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkDraftExercise>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkDraftExercise = (() => {
+  type TypeName = FfiLinkDraftExercise;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        category: FfiConverterUInt16.readFromCursor(c),
+        name: FfiConverterOptionalUInt16.readFromCursor(c),
+        groupNo: FfiConverterOptionalUInt32.readFromCursor(c),
+        restSecs: FfiConverterOptionalUInt32.readFromCursor(c),
+        sets: FfiConverterSequenceTypeFfiLinkDraftSet.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt16.writeIntoCursor(value.category, c);
+      FfiConverterOptionalUInt16.writeIntoCursor(value.name, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.groupNo, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.restSecs, c);
+      FfiConverterSequenceTypeFfiLinkDraftSet.writeIntoCursor(value.sets, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt16.allocationSize(value.category) +
+        FfiConverterOptionalUInt16.allocationSize(value.name) +
+        FfiConverterOptionalUInt32.allocationSize(value.groupNo) +
+        FfiConverterOptionalUInt32.allocationSize(value.restSecs) +
+        FfiConverterSequenceTypeFfiLinkDraftSet.allocationSize(value.sets)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The rest planned after a group of exercises.
+ */
+export type FfiLinkDraftGroup = {
+  groupNo: number;
+  restSecs?: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkDraftGroup} record objects.
+ */
+export const FfiLinkDraftGroup = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkDraftGroup, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkDraftGroup>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkDraftGroup = (() => {
+  type TypeName = FfiLinkDraftGroup;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        groupNo: FfiConverterUInt32.readFromCursor(c),
+        restSecs: FfiConverterOptionalUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.groupNo, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.restSecs, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.groupNo) +
+        FfiConverterOptionalUInt32.allocationSize(value.restSecs)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * What the exclude and include methods are asked: the section or route and
  * the activity.
  */
@@ -16088,6 +17128,54 @@ const FfiConverterTypeFfiLinkExerciseAsk = (() => {
 })();
 
 /**
+ * One sport family and how many stored activities fall in it.
+ */
+export type FfiLinkFamilyCount = {
+  family: FfiSportFamily;
+  count: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkFamilyCount} record objects.
+ */
+export const FfiLinkFamilyCount = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkFamilyCount, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkFamilyCount>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkFamilyCount = (() => {
+  type TypeName = FfiLinkFamilyCount;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        family: FfiConverterTypeFfiSportFamily.readFromCursor(c),
+        count: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiSportFamily.writeIntoCursor(value.family, c);
+      FfiConverterUInt32.writeIntoCursor(value.count, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiSportFamily.allocationSize(value.family) +
+        FfiConverterUInt32.allocationSize(value.count)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * GPS track for a single activity (for feed map previews).
  */
 export type FfiPreviewTrack = {
@@ -16157,6 +17245,12 @@ export type FfiLinkFeedPage = {
    * One per card with GPS and a stored track; a card with none is absent.
    */
   previews: Array<FfiPreviewTrack>;
+  /**
+   * Stored activities per sport family under the ask's search and window,
+   * whatever families it names, so a chip counts what it would add. A
+   * family with none is absent.
+   */
+  familyCounts: Array<FfiLinkFamilyCount>;
 };
 
 /**
@@ -16185,6 +17279,8 @@ const FfiConverterTypeFfiLinkFeedPage = (() => {
         matchedCount: FfiConverterUInt32.readFromCursor(c),
         hasMore: FfiConverterBool.readFromCursor(c),
         previews: FfiConverterSequenceTypeFfiPreviewTrack.readFromCursor(c),
+        familyCounts:
+          FfiConverterSequenceTypeFfiLinkFamilyCount.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -16195,13 +17291,20 @@ const FfiConverterTypeFfiLinkFeedPage = (() => {
         value.previews,
         c,
       );
+      FfiConverterSequenceTypeFfiLinkFamilyCount.writeIntoCursor(
+        value.familyCounts,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterSequenceTypeFfiFeedCard.allocationSize(value.cards) +
         FfiConverterUInt32.allocationSize(value.matchedCount) +
         FfiConverterBool.allocationSize(value.hasMore) +
-        FfiConverterSequenceTypeFfiPreviewTrack.allocationSize(value.previews)
+        FfiConverterSequenceTypeFfiPreviewTrack.allocationSize(value.previews) +
+        FfiConverterSequenceTypeFfiLinkFamilyCount.allocationSize(
+          value.familyCounts,
+        )
       );
     }
   }
@@ -16344,7 +17447,7 @@ const FfiConverterTypeFfiLinkFitnessScreenAsk = (() => {
 })();
 
 /**
- * What `geo.route` and `geo.routeLatest` are asked: one route group.
+ * What `geo.route`, `geo.routeLatest` and `geo.routeAttempts` are asked: one route group.
  */
 export type FfiLinkGeoGroupAsk = {
   groupId: string;
@@ -16429,6 +17532,59 @@ const FfiConverterTypeFfiLinkGeoSectionAsk = (() => {
 })();
 
 /**
+ * What `geo.sectionVersion` is asked: one stored geometry version of one section.
+ */
+export type FfiLinkGeoSectionVersionAsk = {
+  sectionId: string;
+  /**
+   * A version number from `section.history`'s geometry versions.
+   */
+  version: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkGeoSectionVersionAsk} record objects.
+ */
+export const FfiLinkGeoSectionVersionAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkGeoSectionVersionAsk,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLinkGeoSectionVersionAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkGeoSectionVersionAsk = (() => {
+  type TypeName = FfiLinkGeoSectionVersionAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        sectionId: FfiConverterString.readFromCursor(c),
+        version: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.sectionId, c);
+      FfiConverterFloat64.writeIntoCursor(value.version, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.sectionId) +
+        FfiConverterFloat64.allocationSize(value.version)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * A GeoJSON `FeatureCollection` as its text.
  */
 export type FfiLinkGeoText = {
@@ -16465,6 +17621,48 @@ const FfiConverterTypeFfiLinkGeoText = (() => {
     }
     allocationSize(value: TypeName): number {
       return FfiConverterString.allocationSize(value.text);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `strength.groups` is asked: the phone's wall clock in seconds.
+ */
+export type FfiLinkGroupsAsk = {
+  nowWallSeconds: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkGroupsAsk} record objects.
+ */
+export const FfiLinkGroupsAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkGroupsAsk, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkGroupsAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkGroupsAsk = (() => {
+  type TypeName = FfiLinkGroupsAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        nowWallSeconds: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterFloat64.writeIntoCursor(value.nowWallSeconds, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterFloat64.allocationSize(value.nowWallSeconds);
     }
   }
   return new FFIConverter();
@@ -16840,6 +18038,348 @@ const FfiConverterTypeFfiLinkHighlightsAsk = (() => {
 })();
 
 /**
+ * What `import.begin` is asked: the archive the page will send, by name,
+ * size and the SHA-256 of its bytes in lowercase hex.
+ */
+export type FfiLinkImportBeginAsk = {
+  name: string;
+  /**
+   * Bytes, a whole number below 2^53.
+   */
+  size: number;
+  sha256: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkImportBeginAsk} record objects.
+ */
+export const FfiLinkImportBeginAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkImportBeginAsk,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkImportBeginAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkImportBeginAsk = (() => {
+  type TypeName = FfiLinkImportBeginAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        name: FfiConverterString.readFromCursor(c),
+        size: FfiConverterFloat64.readFromCursor(c),
+        sha256: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterFloat64.writeIntoCursor(value.size, c);
+      FfiConverterString.writeIntoCursor(value.sha256, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterFloat64.allocationSize(value.size) +
+        FfiConverterString.allocationSize(value.sha256)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `import.begin` answers: the id the binary frames carry, and how many
+ * bytes of this archive the phone already holds, so a page whose link dropped
+ * sends only the rest.
+ */
+export type FfiLinkImportBegun = {
+  importId: number;
+  /**
+   * Bytes, a whole number below 2^53.
+   */
+  offset: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkImportBegun} record objects.
+ */
+export const FfiLinkImportBegun = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkImportBegun, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkImportBegun>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkImportBegun = (() => {
+  type TypeName = FfiLinkImportBegun;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        importId: FfiConverterUInt32.readFromCursor(c),
+        offset: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.importId, c);
+      FfiConverterFloat64.writeIntoCursor(value.offset, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.importId) +
+        FfiConverterFloat64.allocationSize(value.offset)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `import.commit` answers once the import job has the archive. There is
+ * one importer at a time, so the job is named by the import that started it.
+ */
+export type FfiLinkImportCommitted = {
+  jobId: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkImportCommitted} record objects.
+ */
+export const FfiLinkImportCommitted = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkImportCommitted,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLinkImportCommitted>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkImportCommitted = (() => {
+  type TypeName = FfiLinkImportCommitted;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        jobId: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.jobId, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterUInt32.allocationSize(value.jobId);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A file the import job could not make a ride of.
+ */
+export type FfiLinkImportFailure = {
+  name: string;
+  key?: string;
+  reason: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkImportFailure} record objects.
+ */
+export const FfiLinkImportFailure = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkImportFailure,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkImportFailure>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkImportFailure = (() => {
+  type TypeName = FfiLinkImportFailure;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        name: FfiConverterString.readFromCursor(c),
+        key: FfiConverterOptionalString.readFromCursor(c),
+        reason: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterOptionalString.writeIntoCursor(value.key, c);
+      FfiConverterString.writeIntoCursor(value.reason, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterOptionalString.allocationSize(value.key) +
+        FfiConverterString.allocationSize(value.reason)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `import.commit` and `import.cancel` are asked: which import.
+ */
+export type FfiLinkImportRef = {
+  importId: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkImportRef} record objects.
+ */
+export const FfiLinkImportRef = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkImportRef, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkImportRef>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkImportRef = (() => {
+  type TypeName = FfiLinkImportRef;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        importId: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.importId, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterUInt32.allocationSize(value.importId);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `import.status` answers: where the import job stands and what it has
+ * walked. `state` is `idle`, `running`, `done` or `stopped`, and a stopped
+ * job says why in `stopped`: `cancelled`, `unreadable` or `unstorable`.
+ */
+export type FfiLinkImportStatus = {
+  state: string;
+  stopped?: string;
+  detail?: string;
+  seen: number;
+  stored: number;
+  alreadyStored: number;
+  failed: number;
+  otherFormat: number;
+  skipped: number;
+  current?: string;
+  failures: Array<FfiLinkImportFailure>;
+};
+
+/**
+ * Generated factory for {@link FfiLinkImportStatus} record objects.
+ */
+export const FfiLinkImportStatus = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkImportStatus, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkImportStatus>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkImportStatus = (() => {
+  type TypeName = FfiLinkImportStatus;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        state: FfiConverterString.readFromCursor(c),
+        stopped: FfiConverterOptionalString.readFromCursor(c),
+        detail: FfiConverterOptionalString.readFromCursor(c),
+        seen: FfiConverterUInt32.readFromCursor(c),
+        stored: FfiConverterUInt32.readFromCursor(c),
+        alreadyStored: FfiConverterUInt32.readFromCursor(c),
+        failed: FfiConverterUInt32.readFromCursor(c),
+        otherFormat: FfiConverterUInt32.readFromCursor(c),
+        skipped: FfiConverterUInt32.readFromCursor(c),
+        current: FfiConverterOptionalString.readFromCursor(c),
+        failures:
+          FfiConverterSequenceTypeFfiLinkImportFailure.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.state, c);
+      FfiConverterOptionalString.writeIntoCursor(value.stopped, c);
+      FfiConverterOptionalString.writeIntoCursor(value.detail, c);
+      FfiConverterUInt32.writeIntoCursor(value.seen, c);
+      FfiConverterUInt32.writeIntoCursor(value.stored, c);
+      FfiConverterUInt32.writeIntoCursor(value.alreadyStored, c);
+      FfiConverterUInt32.writeIntoCursor(value.failed, c);
+      FfiConverterUInt32.writeIntoCursor(value.otherFormat, c);
+      FfiConverterUInt32.writeIntoCursor(value.skipped, c);
+      FfiConverterOptionalString.writeIntoCursor(value.current, c);
+      FfiConverterSequenceTypeFfiLinkImportFailure.writeIntoCursor(
+        value.failures,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.state) +
+        FfiConverterOptionalString.allocationSize(value.stopped) +
+        FfiConverterOptionalString.allocationSize(value.detail) +
+        FfiConverterUInt32.allocationSize(value.seen) +
+        FfiConverterUInt32.allocationSize(value.stored) +
+        FfiConverterUInt32.allocationSize(value.alreadyStored) +
+        FfiConverterUInt32.allocationSize(value.failed) +
+        FfiConverterUInt32.allocationSize(value.otherFormat) +
+        FfiConverterUInt32.allocationSize(value.skipped) +
+        FfiConverterOptionalString.allocationSize(value.current) +
+        FfiConverterSequenceTypeFfiLinkImportFailure.allocationSize(
+          value.failures,
+        )
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * What `section.excludeLap` and `section.includeLap` are asked: the
  * traversal, addressed by the activity and its start index.
  */
@@ -16887,6 +18427,810 @@ const FfiConverterTypeFfiLinkLapAsk = (() => {
         FfiConverterString.allocationSize(value.activityId) +
         FfiConverterUInt32.allocationSize(value.startIndex)
       );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * An exercise as the latest session that did it left it.
+ */
+export type FfiLinkLastTime = {
+  /**
+   * Whole days from that session to now.
+   */
+  daysAgo: number;
+  sets: Array<FfiLinkDraftSet>;
+};
+
+/**
+ * Generated factory for {@link FfiLinkLastTime} record objects.
+ */
+export const FfiLinkLastTime = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkLastTime, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkLastTime>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkLastTime = (() => {
+  type TypeName = FfiLinkLastTime;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        daysAgo: FfiConverterUInt32.readFromCursor(c),
+        sets: FfiConverterSequenceTypeFfiLinkDraftSet.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.daysAgo, c);
+      FfiConverterSequenceTypeFfiLinkDraftSet.writeIntoCursor(value.sets, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.daysAgo) +
+        FfiConverterSequenceTypeFfiLinkDraftSet.allocationSize(value.sets)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `strength.lastTime` answers: `None` for an exercise never done.
+ */
+export type FfiLinkLastTimeAnswer = {
+  lastTime?: FfiLinkLastTime;
+};
+
+/**
+ * Generated factory for {@link FfiLinkLastTimeAnswer} record objects.
+ */
+export const FfiLinkLastTimeAnswer = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkLastTimeAnswer,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkLastTimeAnswer>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkLastTimeAnswer = (() => {
+  type TypeName = FfiLinkLastTimeAnswer;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        lastTime: FfiConverterOptionalTypeFfiLinkLastTime.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalTypeFfiLinkLastTime.writeIntoCursor(
+        value.lastTime,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterOptionalTypeFfiLinkLastTime.allocationSize(
+        value.lastTime,
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `strength.lastTime` is asked: one exercise and the phone's wall clock
+ * in seconds.
+ */
+export type FfiLinkLastTimeAsk = {
+  category: number;
+  name?: number;
+  nowWallSeconds: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkLastTimeAsk} record objects.
+ */
+export const FfiLinkLastTimeAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkLastTimeAsk, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkLastTimeAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkLastTimeAsk = (() => {
+  type TypeName = FfiLinkLastTimeAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        category: FfiConverterUInt16.readFromCursor(c),
+        name: FfiConverterOptionalUInt16.readFromCursor(c),
+        nowWallSeconds: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt16.writeIntoCursor(value.category, c);
+      FfiConverterOptionalUInt16.writeIntoCursor(value.name, c);
+      FfiConverterFloat64.writeIntoCursor(value.nowWallSeconds, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt16.allocationSize(value.category) +
+        FfiConverterOptionalUInt16.allocationSize(value.name) +
+        FfiConverterFloat64.allocationSize(value.nowWallSeconds)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One set of an exercise in the live strength session.
+ */
+export type FfiLiveStrengthSet = {
+  reps?: number;
+  weightKg?: number;
+  /**
+   * The weight as the athlete reads it, in the session's `weight_unit`, to one decimal.
+   */
+  displayWeight?: number;
+  durationSecs?: number;
+  /**
+   * Which side of a one-sided exercise, when the athlete said.
+   */
+  side?: string;
+  warmUp: boolean;
+  done: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiLiveStrengthSet} record objects.
+ */
+export const FfiLiveStrengthSet = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLiveStrengthSet, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLiveStrengthSet>,
+  });
+})();
+
+const FfiConverterTypeFfiLiveStrengthSet = (() => {
+  type TypeName = FfiLiveStrengthSet;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        reps: FfiConverterOptionalUInt32.readFromCursor(c),
+        weightKg: FfiConverterOptionalFloat64.readFromCursor(c),
+        displayWeight: FfiConverterOptionalFloat64.readFromCursor(c),
+        durationSecs: FfiConverterOptionalFloat64.readFromCursor(c),
+        side: FfiConverterOptionalString.readFromCursor(c),
+        warmUp: FfiConverterBool.readFromCursor(c),
+        done: FfiConverterBool.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalUInt32.writeIntoCursor(value.reps, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.weightKg, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.displayWeight, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.durationSecs, c);
+      FfiConverterOptionalString.writeIntoCursor(value.side, c);
+      FfiConverterBool.writeIntoCursor(value.warmUp, c);
+      FfiConverterBool.writeIntoCursor(value.done, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalUInt32.allocationSize(value.reps) +
+        FfiConverterOptionalFloat64.allocationSize(value.weightKg) +
+        FfiConverterOptionalFloat64.allocationSize(value.displayWeight) +
+        FfiConverterOptionalFloat64.allocationSize(value.durationSecs) +
+        FfiConverterOptionalString.allocationSize(value.side) +
+        FfiConverterBool.allocationSize(value.warmUp) +
+        FfiConverterBool.allocationSize(value.done)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One exercise of the live strength session, named and classed by the catalogue.
+ */
+export type FfiLiveStrengthExercise = {
+  category: number;
+  name?: number;
+  /**
+   * The catalogue's key for the exercise; empty for a pair the catalogue does not name.
+   */
+  labelKey: string;
+  displayName: string;
+  equipment: string;
+  oneSided: boolean;
+  /**
+   * The group the exercise is done with, by number.
+   */
+  groupNo?: number;
+  /**
+   * The rest planned after the exercise on its own, in seconds.
+   */
+  restSecs?: number;
+  sets: Array<FfiLiveStrengthSet>;
+};
+
+/**
+ * Generated factory for {@link FfiLiveStrengthExercise} record objects.
+ */
+export const FfiLiveStrengthExercise = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLiveStrengthExercise,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLiveStrengthExercise>,
+  });
+})();
+
+const FfiConverterTypeFfiLiveStrengthExercise = (() => {
+  type TypeName = FfiLiveStrengthExercise;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        category: FfiConverterUInt16.readFromCursor(c),
+        name: FfiConverterOptionalUInt16.readFromCursor(c),
+        labelKey: FfiConverterString.readFromCursor(c),
+        displayName: FfiConverterString.readFromCursor(c),
+        equipment: FfiConverterString.readFromCursor(c),
+        oneSided: FfiConverterBool.readFromCursor(c),
+        groupNo: FfiConverterOptionalUInt32.readFromCursor(c),
+        restSecs: FfiConverterOptionalUInt32.readFromCursor(c),
+        sets: FfiConverterSequenceTypeFfiLiveStrengthSet.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt16.writeIntoCursor(value.category, c);
+      FfiConverterOptionalUInt16.writeIntoCursor(value.name, c);
+      FfiConverterString.writeIntoCursor(value.labelKey, c);
+      FfiConverterString.writeIntoCursor(value.displayName, c);
+      FfiConverterString.writeIntoCursor(value.equipment, c);
+      FfiConverterBool.writeIntoCursor(value.oneSided, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.groupNo, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.restSecs, c);
+      FfiConverterSequenceTypeFfiLiveStrengthSet.writeIntoCursor(value.sets, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt16.allocationSize(value.category) +
+        FfiConverterOptionalUInt16.allocationSize(value.name) +
+        FfiConverterString.allocationSize(value.labelKey) +
+        FfiConverterString.allocationSize(value.displayName) +
+        FfiConverterString.allocationSize(value.equipment) +
+        FfiConverterBool.allocationSize(value.oneSided) +
+        FfiConverterOptionalUInt32.allocationSize(value.groupNo) +
+        FfiConverterOptionalUInt32.allocationSize(value.restSecs) +
+        FfiConverterSequenceTypeFfiLiveStrengthSet.allocationSize(value.sets)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The rest planned after a group of exercises.
+ */
+export type FfiLiveStrengthGroup = {
+  groupNo: number;
+  restSecs?: number;
+};
+
+/**
+ * Generated factory for {@link FfiLiveStrengthGroup} record objects.
+ */
+export const FfiLiveStrengthGroup = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLiveStrengthGroup,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLiveStrengthGroup>,
+  });
+})();
+
+const FfiConverterTypeFfiLiveStrengthGroup = (() => {
+  type TypeName = FfiLiveStrengthGroup;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        groupNo: FfiConverterUInt32.readFromCursor(c),
+        restSecs: FfiConverterOptionalUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.groupNo, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.restSecs, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.groupNo) +
+        FfiConverterOptionalUInt32.allocationSize(value.restSecs)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The strength session being recorded: the one read the recorder draws.
+ */
+export type FfiLiveStrengthSession = {
+  id: string;
+  /**
+   * The unit the athlete reads and enters weight in.
+   */
+  weightUnit: FfiWeightUnit;
+  /**
+   * The session has begun; before that it is being prepared.
+   */
+  begun: boolean;
+  startedAt?: number;
+  exercises: Array<FfiLiveStrengthExercise>;
+  groups: Array<FfiLiveStrengthGroup>;
+  /**
+   * The set the session is at, by exercise and set index.
+   */
+  currentExercise?: number;
+  currentSet?: number;
+  /**
+   * When the rest in progress began, if one is.
+   */
+  restStartedAt?: number;
+  /**
+   * The lines of the plan this session was started from that are not
+   * exercises, as the plan wrote them.
+   */
+  notes: Array<string>;
+};
+
+/**
+ * Generated factory for {@link FfiLiveStrengthSession} record objects.
+ */
+export const FfiLiveStrengthSession = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLiveStrengthSession,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLiveStrengthSession>,
+  });
+})();
+
+const FfiConverterTypeFfiLiveStrengthSession = (() => {
+  type TypeName = FfiLiveStrengthSession;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        weightUnit: FfiConverterTypeFfiWeightUnit.readFromCursor(c),
+        begun: FfiConverterBool.readFromCursor(c),
+        startedAt: FfiConverterOptionalFloat64.readFromCursor(c),
+        exercises:
+          FfiConverterSequenceTypeFfiLiveStrengthExercise.readFromCursor(c),
+        groups: FfiConverterSequenceTypeFfiLiveStrengthGroup.readFromCursor(c),
+        currentExercise: FfiConverterOptionalUInt32.readFromCursor(c),
+        currentSet: FfiConverterOptionalUInt32.readFromCursor(c),
+        restStartedAt: FfiConverterOptionalFloat64.readFromCursor(c),
+        notes: FfiConverterSequenceString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterTypeFfiWeightUnit.writeIntoCursor(value.weightUnit, c);
+      FfiConverterBool.writeIntoCursor(value.begun, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.startedAt, c);
+      FfiConverterSequenceTypeFfiLiveStrengthExercise.writeIntoCursor(
+        value.exercises,
+        c,
+      );
+      FfiConverterSequenceTypeFfiLiveStrengthGroup.writeIntoCursor(
+        value.groups,
+        c,
+      );
+      FfiConverterOptionalUInt32.writeIntoCursor(value.currentExercise, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.currentSet, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.restStartedAt, c);
+      FfiConverterSequenceString.writeIntoCursor(value.notes, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterTypeFfiWeightUnit.allocationSize(value.weightUnit) +
+        FfiConverterBool.allocationSize(value.begun) +
+        FfiConverterOptionalFloat64.allocationSize(value.startedAt) +
+        FfiConverterSequenceTypeFfiLiveStrengthExercise.allocationSize(
+          value.exercises,
+        ) +
+        FfiConverterSequenceTypeFfiLiveStrengthGroup.allocationSize(
+          value.groups,
+        ) +
+        FfiConverterOptionalUInt32.allocationSize(value.currentExercise) +
+        FfiConverterOptionalUInt32.allocationSize(value.currentSet) +
+        FfiConverterOptionalFloat64.allocationSize(value.restStartedAt) +
+        FfiConverterSequenceString.allocationSize(value.notes)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `strength.live` answers: the session being recorded and what the focus
+ * view shows of it, both `None` when no session is live.
+ */
+export type FfiLinkLiveAnswer = {
+  session?: FfiLiveStrengthSession;
+  focus?: FfiFocusState;
+};
+
+/**
+ * Generated factory for {@link FfiLinkLiveAnswer} record objects.
+ */
+export const FfiLinkLiveAnswer = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkLiveAnswer, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkLiveAnswer>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkLiveAnswer = (() => {
+  type TypeName = FfiLinkLiveAnswer;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        session:
+          FfiConverterOptionalTypeFfiLiveStrengthSession.readFromCursor(c),
+        focus: FfiConverterOptionalTypeFfiFocusState.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalTypeFfiLiveStrengthSession.writeIntoCursor(
+        value.session,
+        c,
+      );
+      FfiConverterOptionalTypeFfiFocusState.writeIntoCursor(value.focus, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalTypeFfiLiveStrengthSession.allocationSize(
+          value.session,
+        ) + FfiConverterOptionalTypeFfiFocusState.allocationSize(value.focus)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What a change to the live session is.
+ */
+export enum FfiLiveEditKind {
+  Begin,
+  AddExercise,
+  RemoveExercise,
+  MoveExercise,
+  Group,
+  Ungroup,
+  ExerciseRest,
+  GroupRest,
+  AddSet,
+  RemoveSet,
+  StepReps,
+  StepWeight,
+  StepDuration,
+  SetReps,
+  SetWeight,
+  /**
+   * Set the weight to `value` in the athlete's unit; the engine converts it to kilograms.
+   */
+  SetWeightEntered,
+  SetDuration,
+  SetSide,
+  SetWarmUp,
+  SelectSet,
+  CompleteSet,
+  ReopenSet,
+  StartRest,
+  EndRest,
+}
+
+const FfiConverterTypeFfiLiveEditKind = (() => {
+  type TypeName = FfiLiveEditKind;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiLiveEditKind.Begin;
+        case 2:
+          return FfiLiveEditKind.AddExercise;
+        case 3:
+          return FfiLiveEditKind.RemoveExercise;
+        case 4:
+          return FfiLiveEditKind.MoveExercise;
+        case 5:
+          return FfiLiveEditKind.Group;
+        case 6:
+          return FfiLiveEditKind.Ungroup;
+        case 7:
+          return FfiLiveEditKind.ExerciseRest;
+        case 8:
+          return FfiLiveEditKind.GroupRest;
+        case 9:
+          return FfiLiveEditKind.AddSet;
+        case 10:
+          return FfiLiveEditKind.RemoveSet;
+        case 11:
+          return FfiLiveEditKind.StepReps;
+        case 12:
+          return FfiLiveEditKind.StepWeight;
+        case 13:
+          return FfiLiveEditKind.StepDuration;
+        case 14:
+          return FfiLiveEditKind.SetReps;
+        case 15:
+          return FfiLiveEditKind.SetWeight;
+        case 16:
+          return FfiLiveEditKind.SetWeightEntered;
+        case 17:
+          return FfiLiveEditKind.SetDuration;
+        case 18:
+          return FfiLiveEditKind.SetSide;
+        case 19:
+          return FfiLiveEditKind.SetWarmUp;
+        case 20:
+          return FfiLiveEditKind.SelectSet;
+        case 21:
+          return FfiLiveEditKind.CompleteSet;
+        case 22:
+          return FfiLiveEditKind.ReopenSet;
+        case 23:
+          return FfiLiveEditKind.StartRest;
+        case 24:
+          return FfiLiveEditKind.EndRest;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiLiveEditKind.Begin:
+          return c.writeI32(1);
+        case FfiLiveEditKind.AddExercise:
+          return c.writeI32(2);
+        case FfiLiveEditKind.RemoveExercise:
+          return c.writeI32(3);
+        case FfiLiveEditKind.MoveExercise:
+          return c.writeI32(4);
+        case FfiLiveEditKind.Group:
+          return c.writeI32(5);
+        case FfiLiveEditKind.Ungroup:
+          return c.writeI32(6);
+        case FfiLiveEditKind.ExerciseRest:
+          return c.writeI32(7);
+        case FfiLiveEditKind.GroupRest:
+          return c.writeI32(8);
+        case FfiLiveEditKind.AddSet:
+          return c.writeI32(9);
+        case FfiLiveEditKind.RemoveSet:
+          return c.writeI32(10);
+        case FfiLiveEditKind.StepReps:
+          return c.writeI32(11);
+        case FfiLiveEditKind.StepWeight:
+          return c.writeI32(12);
+        case FfiLiveEditKind.StepDuration:
+          return c.writeI32(13);
+        case FfiLiveEditKind.SetReps:
+          return c.writeI32(14);
+        case FfiLiveEditKind.SetWeight:
+          return c.writeI32(15);
+        case FfiLiveEditKind.SetWeightEntered:
+          return c.writeI32(16);
+        case FfiLiveEditKind.SetDuration:
+          return c.writeI32(17);
+        case FfiLiveEditKind.SetSide:
+          return c.writeI32(18);
+        case FfiLiveEditKind.SetWarmUp:
+          return c.writeI32(19);
+        case FfiLiveEditKind.SelectSet:
+          return c.writeI32(20);
+        case FfiLiveEditKind.CompleteSet:
+          return c.writeI32(21);
+        case FfiLiveEditKind.ReopenSet:
+          return c.writeI32(22);
+        case FfiLiveEditKind.StartRest:
+          return c.writeI32(23);
+        case FfiLiveEditKind.EndRest:
+          return c.writeI32(24);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One change to the live session: its kind and the fields that kind reads.
+ *
+ * `exercise` and `set` index the exercise and its set. `to` is the place a
+ * moved exercise goes to or the exercise a grouped one joins. `group_no`
+ * names a group for its rest. `category` and `name` pick the exercise to add.
+ * `value` is the new reps, weight or duration, the rest in seconds, or the
+ * direction of a stepper tap (1 up, -1 down); empty clears a value that may
+ * be empty. `text` is a side and `flag` a warm-up.
+ */
+export type FfiLiveEdit = {
+  kind: FfiLiveEditKind;
+  exercise?: number;
+  set?: number;
+  to?: number;
+  groupNo?: number;
+  category?: number;
+  name?: number;
+  value?: number;
+  text?: string;
+  flag?: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiLiveEdit} record objects.
+ */
+export const FfiLiveEdit = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLiveEdit, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLiveEdit>,
+  });
+})();
+
+const FfiConverterTypeFfiLiveEdit = (() => {
+  type TypeName = FfiLiveEdit;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        kind: FfiConverterTypeFfiLiveEditKind.readFromCursor(c),
+        exercise: FfiConverterOptionalUInt32.readFromCursor(c),
+        set: FfiConverterOptionalUInt32.readFromCursor(c),
+        to: FfiConverterOptionalUInt32.readFromCursor(c),
+        groupNo: FfiConverterOptionalUInt32.readFromCursor(c),
+        category: FfiConverterOptionalUInt32.readFromCursor(c),
+        name: FfiConverterOptionalUInt32.readFromCursor(c),
+        value: FfiConverterOptionalFloat64.readFromCursor(c),
+        text: FfiConverterOptionalString.readFromCursor(c),
+        flag: FfiConverterOptionalBoolean.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiLiveEditKind.writeIntoCursor(value.kind, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.exercise, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.set, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.to, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.groupNo, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.category, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.name, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.value, c);
+      FfiConverterOptionalString.writeIntoCursor(value.text, c);
+      FfiConverterOptionalBoolean.writeIntoCursor(value.flag, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiLiveEditKind.allocationSize(value.kind) +
+        FfiConverterOptionalUInt32.allocationSize(value.exercise) +
+        FfiConverterOptionalUInt32.allocationSize(value.set) +
+        FfiConverterOptionalUInt32.allocationSize(value.to) +
+        FfiConverterOptionalUInt32.allocationSize(value.groupNo) +
+        FfiConverterOptionalUInt32.allocationSize(value.category) +
+        FfiConverterOptionalUInt32.allocationSize(value.name) +
+        FfiConverterOptionalFloat64.allocationSize(value.value) +
+        FfiConverterOptionalString.allocationSize(value.text) +
+        FfiConverterOptionalBoolean.allocationSize(value.flag)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `strength.liveEdit` is asked: the one change the phone's own recorder
+ * makes, in the athlete's unit.
+ */
+export type FfiLinkLiveEditAsk = {
+  edit: FfiLiveEdit;
+};
+
+/**
+ * Generated factory for {@link FfiLinkLiveEditAsk} record objects.
+ */
+export const FfiLinkLiveEditAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkLiveEditAsk, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkLiveEditAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkLiveEditAsk = (() => {
+  type TypeName = FfiLinkLiveEditAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        edit: FfiConverterTypeFfiLiveEdit.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiLiveEdit.writeIntoCursor(value.edit, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterTypeFfiLiveEdit.allocationSize(value.edit);
     }
   }
   return new FFIConverter();
@@ -18017,6 +20361,156 @@ const FfiConverterTypeFfiLinkMapScreen = (() => {
 })();
 
 /**
+ * What `section.mergePreview` and `section.merge` are asked: the section kept
+ * and the one merged into it.
+ */
+export type FfiLinkMergeAsk = {
+  primaryId: string;
+  secondaryId: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkMergeAsk} record objects.
+ */
+export const FfiLinkMergeAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkMergeAsk, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkMergeAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkMergeAsk = (() => {
+  type TypeName = FfiLinkMergeAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        primaryId: FfiConverterString.readFromCursor(c),
+        secondaryId: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.primaryId, c);
+      FfiConverterString.writeIntoCursor(value.secondaryId, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.primaryId) +
+        FfiConverterString.allocationSize(value.secondaryId)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A ride a merge would take out of the section it is merged into. The ride
+ * stays in the library.
+ */
+export type FfiMergeDropped = {
+  activityId: string;
+  name: string;
+  /**
+   * Unix seconds
+   */
+  startDate: number;
+};
+
+/**
+ * Generated factory for {@link FfiMergeDropped} record objects.
+ */
+export const FfiMergeDropped = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiMergeDropped, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMergeDropped>,
+  });
+})();
+
+const FfiConverterTypeFfiMergeDropped = (() => {
+  type TypeName = FfiMergeDropped;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        activityId: FfiConverterString.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        startDate: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.activityId, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterFloat64.writeIntoCursor(value.startDate, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterFloat64.allocationSize(value.startDate)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `section.mergePreview` answers: the rides a merge would leave out of
+ * the kept section.
+ */
+export type FfiLinkMergePreview = {
+  dropped: Array<FfiMergeDropped>;
+};
+
+/**
+ * Generated factory for {@link FfiLinkMergePreview} record objects.
+ */
+export const FfiLinkMergePreview = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkMergePreview, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkMergePreview>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkMergePreview = (() => {
+  type TypeName = FfiLinkMergePreview;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        dropped: FfiConverterSequenceTypeFfiMergeDropped.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceTypeFfiMergeDropped.writeIntoCursor(value.dropped, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterSequenceTypeFfiMergeDropped.allocationSize(
+        value.dropped,
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * What `strength.muscle` is asked: one activity and the muscle the diagram
  * was tapped on.
  */
@@ -18376,6 +20870,76 @@ const FfiConverterTypeFfiLinkPerformanceAsk = (() => {
         FfiConverterUInt32.allocationSize(value.timeRangeDays) +
         FfiConverterOptionalString.allocationSize(value.sportFilter) +
         FfiConverterOptionalString.allocationSize(value.highlightActivityId)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `strength.picker` is asked: the picker's filters and typed query, the
+ * exercise just done whose usual followers lead, and the phone's wall clock in
+ * seconds, as the phone's exercise picker asks.
+ */
+export type FfiLinkPickerAsk = {
+  equipment: Array<string>;
+  region?: string;
+  muscle?: string;
+  query: string;
+  afterCategory?: number;
+  afterName?: number;
+  nowWallSeconds: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkPickerAsk} record objects.
+ */
+export const FfiLinkPickerAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkPickerAsk, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkPickerAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkPickerAsk = (() => {
+  type TypeName = FfiLinkPickerAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        equipment: FfiConverterSequenceString.readFromCursor(c),
+        region: FfiConverterOptionalString.readFromCursor(c),
+        muscle: FfiConverterOptionalString.readFromCursor(c),
+        query: FfiConverterString.readFromCursor(c),
+        afterCategory: FfiConverterOptionalUInt16.readFromCursor(c),
+        afterName: FfiConverterOptionalUInt16.readFromCursor(c),
+        nowWallSeconds: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceString.writeIntoCursor(value.equipment, c);
+      FfiConverterOptionalString.writeIntoCursor(value.region, c);
+      FfiConverterOptionalString.writeIntoCursor(value.muscle, c);
+      FfiConverterString.writeIntoCursor(value.query, c);
+      FfiConverterOptionalUInt16.writeIntoCursor(value.afterCategory, c);
+      FfiConverterOptionalUInt16.writeIntoCursor(value.afterName, c);
+      FfiConverterFloat64.writeIntoCursor(value.nowWallSeconds, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterSequenceString.allocationSize(value.equipment) +
+        FfiConverterOptionalString.allocationSize(value.region) +
+        FfiConverterOptionalString.allocationSize(value.muscle) +
+        FfiConverterString.allocationSize(value.query) +
+        FfiConverterOptionalUInt16.allocationSize(value.afterCategory) +
+        FfiConverterOptionalUInt16.allocationSize(value.afterName) +
+        FfiConverterFloat64.allocationSize(value.nowWallSeconds)
       );
     }
   }
@@ -19597,6 +22161,124 @@ const FfiConverterTypeFfiLinkRecordingsAsk = (() => {
 })();
 
 /**
+ * What `strength.restoreWorkout` is asked: a deleted workout as it was read
+ * before the delete, to be put back under its id with its times.
+ */
+export type FfiLinkRestoreWorkoutAsk = {
+  id: string;
+  name: string;
+  exercises: Array<FfiLinkDraftExercise>;
+  groups: Array<FfiLinkDraftGroup>;
+  createdAt: number;
+  lastUsedAt?: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkRestoreWorkoutAsk} record objects.
+ */
+export const FfiLinkRestoreWorkoutAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkRestoreWorkoutAsk,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLinkRestoreWorkoutAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkRestoreWorkoutAsk = (() => {
+  type TypeName = FfiLinkRestoreWorkoutAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        exercises:
+          FfiConverterSequenceTypeFfiLinkDraftExercise.readFromCursor(c),
+        groups: FfiConverterSequenceTypeFfiLinkDraftGroup.readFromCursor(c),
+        createdAt: FfiConverterFloat64.readFromCursor(c),
+        lastUsedAt: FfiConverterOptionalFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterSequenceTypeFfiLinkDraftExercise.writeIntoCursor(
+        value.exercises,
+        c,
+      );
+      FfiConverterSequenceTypeFfiLinkDraftGroup.writeIntoCursor(
+        value.groups,
+        c,
+      );
+      FfiConverterFloat64.writeIntoCursor(value.createdAt, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.lastUsedAt, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterSequenceTypeFfiLinkDraftExercise.allocationSize(
+          value.exercises,
+        ) +
+        FfiConverterSequenceTypeFfiLinkDraftGroup.allocationSize(value.groups) +
+        FfiConverterFloat64.allocationSize(value.createdAt) +
+        FfiConverterOptionalFloat64.allocationSize(value.lastUsedAt)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `route.resetReference` is asked: the route.
+ */
+export type FfiLinkRouteAsk = {
+  id: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkRouteAsk} record objects.
+ */
+export const FfiLinkRouteAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkRouteAsk, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkRouteAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkRouteAsk = (() => {
+  type TypeName = FfiLinkRouteAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterString.allocationSize(value.id);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * What `route.detail` and `route.attempts` are asked about, and what
  * `route.attempts` narrows by: the route, the activity being viewed and a sport.
  */
@@ -19702,6 +22384,73 @@ const FfiConverterTypeFfiLinkRouteRenameAsk = (() => {
 })();
 
 /**
+ * What `strength.saveWorkout` is asked: the workout the builder holds. With an
+ * `id` it replaces that saved workout.
+ */
+export type FfiLinkSaveWorkoutAsk = {
+  id?: string;
+  name: string;
+  exercises: Array<FfiLinkDraftExercise>;
+  groups: Array<FfiLinkDraftGroup>;
+};
+
+/**
+ * Generated factory for {@link FfiLinkSaveWorkoutAsk} record objects.
+ */
+export const FfiLinkSaveWorkoutAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkSaveWorkoutAsk,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkSaveWorkoutAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkSaveWorkoutAsk = (() => {
+  type TypeName = FfiLinkSaveWorkoutAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterOptionalString.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        exercises:
+          FfiConverterSequenceTypeFfiLinkDraftExercise.readFromCursor(c),
+        groups: FfiConverterSequenceTypeFfiLinkDraftGroup.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalString.writeIntoCursor(value.id, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterSequenceTypeFfiLinkDraftExercise.writeIntoCursor(
+        value.exercises,
+        c,
+      );
+      FfiConverterSequenceTypeFfiLinkDraftGroup.writeIntoCursor(
+        value.groups,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalString.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterSequenceTypeFfiLinkDraftExercise.allocationSize(
+          value.exercises,
+        ) +
+        FfiConverterSequenceTypeFfiLinkDraftGroup.allocationSize(value.groups)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * What a method that edits one section is asked.
  */
 export type FfiLinkSectionAsk = {
@@ -19738,6 +22487,309 @@ const FfiConverterTypeFfiLinkSectionAsk = (() => {
     }
     allocationSize(value: TypeName): number {
       return FfiConverterString.allocationSize(value.id);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The edits `section.editBounds` makes to a section's line.
+ */
+export enum FfiLinkBoundsEdit {
+  /**
+   * Cut the line to `startIndex..=endIndex` of itself.
+   */
+  Trim,
+  /**
+   * Put back the line the section had before its first edit.
+   */
+  Reset,
+  /**
+   * Take `startIndex..=endIndex` of an activity's track as the line.
+   */
+  Expand,
+  /**
+   * Take the stretch of an activity's track that runs the line as the line.
+   */
+  SetReference,
+  /**
+   * Put back the line the section had before its reference was set.
+   */
+  ResetReference,
+  /**
+   * Put a stored geometry version back as the line.
+   */
+  Revert,
+}
+
+const FfiConverterTypeFfiLinkBoundsEdit = (() => {
+  type TypeName = FfiLinkBoundsEdit;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiLinkBoundsEdit.Trim;
+        case 2:
+          return FfiLinkBoundsEdit.Reset;
+        case 3:
+          return FfiLinkBoundsEdit.Expand;
+        case 4:
+          return FfiLinkBoundsEdit.SetReference;
+        case 5:
+          return FfiLinkBoundsEdit.ResetReference;
+        case 6:
+          return FfiLinkBoundsEdit.Revert;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiLinkBoundsEdit.Trim:
+          return c.writeI32(1);
+        case FfiLinkBoundsEdit.Reset:
+          return c.writeI32(2);
+        case FfiLinkBoundsEdit.Expand:
+          return c.writeI32(3);
+        case FfiLinkBoundsEdit.SetReference:
+          return c.writeI32(4);
+        case FfiLinkBoundsEdit.ResetReference:
+          return c.writeI32(5);
+        case FfiLinkBoundsEdit.Revert:
+          return c.writeI32(6);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `section.editBounds` is asked: the section, the edit and the
+ * parameters that edit reads. `trim` reads both indices, `expand` reads the
+ * activity and both indices, `setReference` the activity and `revert` the
+ * version. Any other parameter is ignored, and one the edit needs and the
+ * ask lacks is refused.
+ */
+export type FfiLinkSectionBoundsAsk = {
+  id: string;
+  edit: FfiLinkBoundsEdit;
+  activityId?: string;
+  startIndex?: number;
+  endIndex?: number;
+  version?: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkSectionBoundsAsk} record objects.
+ */
+export const FfiLinkSectionBoundsAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkSectionBoundsAsk,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLinkSectionBoundsAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkSectionBoundsAsk = (() => {
+  type TypeName = FfiLinkSectionBoundsAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        edit: FfiConverterTypeFfiLinkBoundsEdit.readFromCursor(c),
+        activityId: FfiConverterOptionalString.readFromCursor(c),
+        startIndex: FfiConverterOptionalUInt32.readFromCursor(c),
+        endIndex: FfiConverterOptionalUInt32.readFromCursor(c),
+        version: FfiConverterOptionalFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterTypeFfiLinkBoundsEdit.writeIntoCursor(value.edit, c);
+      FfiConverterOptionalString.writeIntoCursor(value.activityId, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.startIndex, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.endIndex, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.version, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterTypeFfiLinkBoundsEdit.allocationSize(value.edit) +
+        FfiConverterOptionalString.allocationSize(value.activityId) +
+        FfiConverterOptionalUInt32.allocationSize(value.startIndex) +
+        FfiConverterOptionalUInt32.allocationSize(value.endIndex) +
+        FfiConverterOptionalFloat64.allocationSize(value.version)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `section.create` is asked: the stored activity whose track is cut,
+ * the inclusive index range and the sport, with an optional name.
+ */
+export type FfiLinkSectionCreateAsk = {
+  activityId: string;
+  startIndex: number;
+  endIndex: number;
+  sport: string;
+  name?: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkSectionCreateAsk} record objects.
+ */
+export const FfiLinkSectionCreateAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkSectionCreateAsk,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLinkSectionCreateAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkSectionCreateAsk = (() => {
+  type TypeName = FfiLinkSectionCreateAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        activityId: FfiConverterString.readFromCursor(c),
+        startIndex: FfiConverterUInt32.readFromCursor(c),
+        endIndex: FfiConverterUInt32.readFromCursor(c),
+        sport: FfiConverterString.readFromCursor(c),
+        name: FfiConverterOptionalString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.activityId, c);
+      FfiConverterUInt32.writeIntoCursor(value.startIndex, c);
+      FfiConverterUInt32.writeIntoCursor(value.endIndex, c);
+      FfiConverterString.writeIntoCursor(value.sport, c);
+      FfiConverterOptionalString.writeIntoCursor(value.name, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterUInt32.allocationSize(value.startIndex) +
+        FfiConverterUInt32.allocationSize(value.endIndex) +
+        FfiConverterString.allocationSize(value.sport) +
+        FfiConverterOptionalString.allocationSize(value.name)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `section.create` answers: the section it made.
+ */
+export type FfiLinkSectionCreated = {
+  sectionId: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkSectionCreated} record objects.
+ */
+export const FfiLinkSectionCreated = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkSectionCreated,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkSectionCreated>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkSectionCreated = (() => {
+  type TypeName = FfiLinkSectionCreated;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        sectionId: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.sectionId, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterString.allocationSize(value.sectionId);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What a section edit that can take rides out of the section answers: it was
+ * made, and the rides it left out. The rides stay in the library.
+ */
+export type FfiLinkSectionEdited = {
+  ok: boolean;
+  departed: Array<FfiDepartedRide>;
+};
+
+/**
+ * Generated factory for {@link FfiLinkSectionEdited} record objects.
+ */
+export const FfiLinkSectionEdited = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkSectionEdited,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkSectionEdited>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkSectionEdited = (() => {
+  type TypeName = FfiLinkSectionEdited;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        ok: FfiConverterBool.readFromCursor(c),
+        departed: FfiConverterSequenceTypeFfiDepartedRide.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterBool.writeIntoCursor(value.ok, c);
+      FfiConverterSequenceTypeFfiDepartedRide.writeIntoCursor(
+        value.departed,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterBool.allocationSize(value.ok) +
+        FfiConverterSequenceTypeFfiDepartedRide.allocationSize(value.departed)
+      );
     }
   }
   return new FFIConverter();
@@ -19783,6 +22835,65 @@ const FfiConverterTypeFfiLinkSectionExcluded = (() => {
     }
     allocationSize(value: TypeName): number {
       return FfiConverterSequenceString.allocationSize(value.activityIds);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `section.extensionTrack` answers: the activity the section is cut from, that
+ * activity's whole stored track, and the inclusive indices where the section's line runs on it.
+ */
+export type FfiLinkSectionExtension = {
+  activityId: string;
+  encodedTrack: ArrayBuffer;
+  sectionStartIdx: number;
+  sectionEndIdx: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkSectionExtension} record objects.
+ */
+export const FfiLinkSectionExtension = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkSectionExtension,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLinkSectionExtension>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkSectionExtension = (() => {
+  type TypeName = FfiLinkSectionExtension;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        activityId: FfiConverterString.readFromCursor(c),
+        encodedTrack: FfiConverterArrayBuffer.readFromCursor(c),
+        sectionStartIdx: FfiConverterUInt32.readFromCursor(c),
+        sectionEndIdx: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.activityId, c);
+      FfiConverterArrayBuffer.writeIntoCursor(value.encodedTrack, c);
+      FfiConverterUInt32.writeIntoCursor(value.sectionStartIdx, c);
+      FfiConverterUInt32.writeIntoCursor(value.sectionEndIdx, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedTrack) +
+        FfiConverterUInt32.allocationSize(value.sectionStartIdx) +
+        FfiConverterUInt32.allocationSize(value.sectionEndIdx)
+      );
     }
   }
   return new FFIConverter();
@@ -20223,6 +23334,49 @@ const FfiConverterTypeFfiLinkSectionHistory = (() => {
 })();
 
 /**
+ * What `section.unaccept` is asked: the sections to hand back to detection.
+ */
+export type FfiLinkSectionIdsAsk = {
+  ids: Array<string>;
+};
+
+/**
+ * Generated factory for {@link FfiLinkSectionIdsAsk} record objects.
+ */
+export const FfiLinkSectionIdsAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkSectionIdsAsk,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkSectionIdsAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkSectionIdsAsk = (() => {
+  type TypeName = FfiLinkSectionIdsAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        ids: FfiConverterSequenceString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceString.writeIntoCursor(value.ids, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterSequenceString.allocationSize(value.ids);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * What `section.setLift` is asked: the section and whether it is a lift.
  */
 export type FfiLinkSectionLiftAsk = {
@@ -20316,6 +23470,107 @@ const FfiConverterTypeFfiLinkSectionRenameAsk = (() => {
       return (
         FfiConverterString.allocationSize(value.id) +
         FfiConverterString.allocationSize(value.name)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `section.acceptAll` answers: the sections the call accepted, which are
+ * the ones `section.unaccept` takes back.
+ */
+export type FfiLinkSectionsAccepted = {
+  ok: boolean;
+  ids: Array<string>;
+};
+
+/**
+ * Generated factory for {@link FfiLinkSectionsAccepted} record objects.
+ */
+export const FfiLinkSectionsAccepted = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkSectionsAccepted,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLinkSectionsAccepted>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkSectionsAccepted = (() => {
+  type TypeName = FfiLinkSectionsAccepted;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        ok: FfiConverterBool.readFromCursor(c),
+        ids: FfiConverterSequenceString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterBool.writeIntoCursor(value.ok, c);
+      FfiConverterSequenceString.writeIntoCursor(value.ids, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterBool.allocationSize(value.ok) +
+        FfiConverterSequenceString.allocationSize(value.ids)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `settings.set` is asked: a setting from [`WRITABLE_SETTINGS`] and one
+ * of the values it offers.
+ */
+export type FfiLinkSettingSetAsk = {
+  key: string;
+  value: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkSettingSetAsk} record objects.
+ */
+export const FfiLinkSettingSetAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkSettingSetAsk,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkSettingSetAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkSettingSetAsk = (() => {
+  type TypeName = FfiLinkSettingSetAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        key: FfiConverterString.readFromCursor(c),
+        value: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.key, c);
+      FfiConverterString.writeIntoCursor(value.value, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.key) +
+        FfiConverterString.allocationSize(value.value)
       );
     }
   }
@@ -20608,6 +23863,133 @@ const FfiConverterTypeFfiLinkStrengthAsk = (() => {
 })();
 
 /**
+ * Sessions that did the same exercises, with the sets a new session of them
+ * starts from.
+ */
+export type FfiLinkStrengthGroup = {
+  signature: string;
+  times: number;
+  /**
+   * The day of the latest session of the group, in wall-clock seconds.
+   */
+  lastDone: number;
+  latestActivityId: string;
+  muscles: Array<FfiMuscleGroup>;
+  equipment: Array<string>;
+  exercises: Array<FfiLinkDraftExercise>;
+};
+
+/**
+ * Generated factory for {@link FfiLinkStrengthGroup} record objects.
+ */
+export const FfiLinkStrengthGroup = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkStrengthGroup,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkStrengthGroup>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkStrengthGroup = (() => {
+  type TypeName = FfiLinkStrengthGroup;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        signature: FfiConverterString.readFromCursor(c),
+        times: FfiConverterUInt32.readFromCursor(c),
+        lastDone: FfiConverterFloat64.readFromCursor(c),
+        latestActivityId: FfiConverterString.readFromCursor(c),
+        muscles: FfiConverterSequenceTypeFfiMuscleGroup.readFromCursor(c),
+        equipment: FfiConverterSequenceString.readFromCursor(c),
+        exercises:
+          FfiConverterSequenceTypeFfiLinkDraftExercise.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.signature, c);
+      FfiConverterUInt32.writeIntoCursor(value.times, c);
+      FfiConverterFloat64.writeIntoCursor(value.lastDone, c);
+      FfiConverterString.writeIntoCursor(value.latestActivityId, c);
+      FfiConverterSequenceTypeFfiMuscleGroup.writeIntoCursor(value.muscles, c);
+      FfiConverterSequenceString.writeIntoCursor(value.equipment, c);
+      FfiConverterSequenceTypeFfiLinkDraftExercise.writeIntoCursor(
+        value.exercises,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.signature) +
+        FfiConverterUInt32.allocationSize(value.times) +
+        FfiConverterFloat64.allocationSize(value.lastDone) +
+        FfiConverterString.allocationSize(value.latestActivityId) +
+        FfiConverterSequenceTypeFfiMuscleGroup.allocationSize(value.muscles) +
+        FfiConverterSequenceString.allocationSize(value.equipment) +
+        FfiConverterSequenceTypeFfiLinkDraftExercise.allocationSize(
+          value.exercises,
+        )
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `strength.groups` answers: the recent groups, newest first.
+ */
+export type FfiLinkStrengthGroups = {
+  groups: Array<FfiLinkStrengthGroup>;
+};
+
+/**
+ * Generated factory for {@link FfiLinkStrengthGroups} record objects.
+ */
+export const FfiLinkStrengthGroups = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkStrengthGroups,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkStrengthGroups>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkStrengthGroups = (() => {
+  type TypeName = FfiLinkStrengthGroups;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        groups: FfiConverterSequenceTypeFfiLinkStrengthGroup.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceTypeFfiLinkStrengthGroup.writeIntoCursor(
+        value.groups,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterSequenceTypeFfiLinkStrengthGroup.allocationSize(
+        value.groups,
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * What `feed.summary` is asked: the phone's wall-clock time in seconds, from
  * which the engine resolves this week and the one before.
  */
@@ -20645,6 +24027,111 @@ const FfiConverterTypeFfiLinkSummaryAsk = (() => {
     }
     allocationSize(value: TypeName): number {
       return FfiConverterFloat64.allocationSize(value.nowWallSeconds);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One of the figures the thresholds screen lets the athlete set.
+ */
+export enum FfiThresholdField {
+  Ftp,
+  ThresholdHr,
+  MaxHr,
+  RestingHr,
+  WeightKg,
+}
+
+const FfiConverterTypeFfiThresholdField = (() => {
+  type TypeName = FfiThresholdField;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiThresholdField.Ftp;
+        case 2:
+          return FfiThresholdField.ThresholdHr;
+        case 3:
+          return FfiThresholdField.MaxHr;
+        case 4:
+          return FfiThresholdField.RestingHr;
+        case 5:
+          return FfiThresholdField.WeightKg;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiThresholdField.Ftp:
+          return c.writeI32(1);
+        case FfiThresholdField.ThresholdHr:
+          return c.writeI32(2);
+        case FfiThresholdField.MaxHr:
+          return c.writeI32(3);
+        case FfiThresholdField.RestingHr:
+          return c.writeI32(4);
+        case FfiThresholdField.WeightKg:
+          return c.writeI32(5);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `settings.setThreshold` is asked: the sport the figure belongs to,
+ * the figure, and its value, or `null` to clear the athlete's own figure so
+ * the activity files answer again. `value` has to be present.
+ */
+export type FfiLinkThresholdAsk = {
+  sport: string;
+  field: FfiThresholdField;
+  value?: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkThresholdAsk} record objects.
+ */
+export const FfiLinkThresholdAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkThresholdAsk, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkThresholdAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkThresholdAsk = (() => {
+  type TypeName = FfiLinkThresholdAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        sport: FfiConverterString.readFromCursor(c),
+        field: FfiConverterTypeFfiThresholdField.readFromCursor(c),
+        value: FfiConverterOptionalFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.sport, c);
+      FfiConverterTypeFfiThresholdField.writeIntoCursor(value.field, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.value, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.sport) +
+        FfiConverterTypeFfiThresholdField.allocationSize(value.field) +
+        FfiConverterOptionalFloat64.allocationSize(value.value)
+      );
     }
   }
   return new FFIConverter();
@@ -20693,6 +24180,314 @@ const FfiConverterTypeFfiLinkWellnessAsk = (() => {
         FfiConverterString.allocationSize(value.oldest) +
         FfiConverterString.allocationSize(value.newest)
       );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A saved workout in full.
+ */
+export type FfiLinkWorkout = {
+  id: string;
+  name: string;
+  exercises: Array<FfiLinkDraftExercise>;
+  groups: Array<FfiLinkDraftGroup>;
+};
+
+/**
+ * Generated factory for {@link FfiLinkWorkout} record objects.
+ */
+export const FfiLinkWorkout = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkWorkout, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkWorkout>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkWorkout = (() => {
+  type TypeName = FfiLinkWorkout;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        exercises:
+          FfiConverterSequenceTypeFfiLinkDraftExercise.readFromCursor(c),
+        groups: FfiConverterSequenceTypeFfiLinkDraftGroup.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterSequenceTypeFfiLinkDraftExercise.writeIntoCursor(
+        value.exercises,
+        c,
+      );
+      FfiConverterSequenceTypeFfiLinkDraftGroup.writeIntoCursor(
+        value.groups,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterSequenceTypeFfiLinkDraftExercise.allocationSize(
+          value.exercises,
+        ) +
+        FfiConverterSequenceTypeFfiLinkDraftGroup.allocationSize(value.groups)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `strength.workout` answers: `None` when no saved workout has the id.
+ */
+export type FfiLinkWorkoutAnswer = {
+  workout?: FfiLinkWorkout;
+};
+
+/**
+ * Generated factory for {@link FfiLinkWorkoutAnswer} record objects.
+ */
+export const FfiLinkWorkoutAnswer = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkWorkoutAnswer,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkWorkoutAnswer>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkWorkoutAnswer = (() => {
+  type TypeName = FfiLinkWorkoutAnswer;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        workout: FfiConverterOptionalTypeFfiLinkWorkout.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalTypeFfiLinkWorkout.writeIntoCursor(value.workout, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterOptionalTypeFfiLinkWorkout.allocationSize(
+        value.workout,
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `strength.workout` and the workout writes that name one are asked.
+ */
+export type FfiLinkWorkoutAsk = {
+  id: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkWorkoutAsk} record objects.
+ */
+export const FfiLinkWorkoutAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkWorkoutAsk, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkWorkoutAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkWorkoutAsk = (() => {
+  type TypeName = FfiLinkWorkoutAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterString.allocationSize(value.id);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `strength.renameWorkout` is asked: the workout and its new name.
+ */
+export type FfiLinkWorkoutRenameAsk = {
+  id: string;
+  name: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkWorkoutRenameAsk} record objects.
+ */
+export const FfiLinkWorkoutRenameAsk = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLinkWorkoutRenameAsk,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLinkWorkoutRenameAsk>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkWorkoutRenameAsk = (() => {
+  type TypeName = FfiLinkWorkoutRenameAsk;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.name)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A saved workout as the list shows it.
+ */
+export type FfiLinkWorkoutRow = {
+  id: string;
+  name: string;
+  exerciseCount: number;
+  setCount: number;
+  lastUsedAt?: number;
+  createdAt: number;
+};
+
+/**
+ * Generated factory for {@link FfiLinkWorkoutRow} record objects.
+ */
+export const FfiLinkWorkoutRow = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkWorkoutRow, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkWorkoutRow>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkWorkoutRow = (() => {
+  type TypeName = FfiLinkWorkoutRow;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        exerciseCount: FfiConverterUInt32.readFromCursor(c),
+        setCount: FfiConverterUInt32.readFromCursor(c),
+        lastUsedAt: FfiConverterOptionalFloat64.readFromCursor(c),
+        createdAt: FfiConverterFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterUInt32.writeIntoCursor(value.exerciseCount, c);
+      FfiConverterUInt32.writeIntoCursor(value.setCount, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.lastUsedAt, c);
+      FfiConverterFloat64.writeIntoCursor(value.createdAt, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterUInt32.allocationSize(value.exerciseCount) +
+        FfiConverterUInt32.allocationSize(value.setCount) +
+        FfiConverterOptionalFloat64.allocationSize(value.lastUsedAt) +
+        FfiConverterFloat64.allocationSize(value.createdAt)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `strength.saveWorkout` answers: the workout's id.
+ */
+export type FfiLinkWorkoutSaved = {
+  id: string;
+};
+
+/**
+ * Generated factory for {@link FfiLinkWorkoutSaved} record objects.
+ */
+export const FfiLinkWorkoutSaved = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkWorkoutSaved, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkWorkoutSaved>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkWorkoutSaved = (() => {
+  type TypeName = FfiLinkWorkoutSaved;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterString.allocationSize(value.id);
     }
   }
   return new FFIConverter();
@@ -20883,6 +24678,53 @@ const FfiConverterTypeFfiLinkWorkoutSectionsAsk = (() => {
 })();
 
 /**
+ * What `strength.workouts` answers: the saved workouts, last started first.
+ */
+export type FfiLinkWorkouts = {
+  workouts: Array<FfiLinkWorkoutRow>;
+};
+
+/**
+ * Generated factory for {@link FfiLinkWorkouts} record objects.
+ */
+export const FfiLinkWorkouts = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiLinkWorkouts, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiLinkWorkouts>,
+  });
+})();
+
+const FfiConverterTypeFfiLinkWorkouts = (() => {
+  type TypeName = FfiLinkWorkouts;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        workouts: FfiConverterSequenceTypeFfiLinkWorkoutRow.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceTypeFfiLinkWorkoutRow.writeIntoCursor(
+        value.workouts,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterSequenceTypeFfiLinkWorkoutRow.allocationSize(
+        value.workouts,
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * What a write answers once it is made.
  */
 export type FfiLinkWriteDone = {
@@ -20975,6 +24817,59 @@ const FfiConverterTypeFfiLinkZonesAsk = (() => {
         FfiConverterString.allocationSize(value.zoneType) +
         FfiConverterFloat64.allocationSize(value.startTs) +
         FfiConverterFloat64.allocationSize(value.endTs)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The live session after an edit.
+ */
+export type FfiLiveStrengthOutcome = {
+  session: FfiLiveStrengthSession;
+  /**
+   * For an exercise added with sets from an earlier session, the whole days since it.
+   */
+  prefilledDaysAgo?: number;
+};
+
+/**
+ * Generated factory for {@link FfiLiveStrengthOutcome} record objects.
+ */
+export const FfiLiveStrengthOutcome = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiLiveStrengthOutcome,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiLiveStrengthOutcome>,
+  });
+})();
+
+const FfiConverterTypeFfiLiveStrengthOutcome = (() => {
+  type TypeName = FfiLiveStrengthOutcome;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        session: FfiConverterTypeFfiLiveStrengthSession.readFromCursor(c),
+        prefilledDaysAgo: FfiConverterOptionalUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiLiveStrengthSession.writeIntoCursor(value.session, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.prefilledDaysAgo, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiLiveStrengthSession.allocationSize(value.session) +
+        FfiConverterOptionalUInt32.allocationSize(value.prefilledDaysAgo)
       );
     }
   }
@@ -21228,62 +25123,6 @@ const FfiConverterTypeFfiMergeCandidate = (() => {
         FfiConverterFloat64.allocationSize(value.overlapPct) +
         FfiConverterFloat64.allocationSize(value.centerDistanceMeters) +
         FfiConverterArrayBuffer.allocationSize(value.encodedPolyline)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * A ride a merge would take out of the section it is merged into. The ride
- * stays in the library.
- */
-export type FfiMergeDropped = {
-  activityId: string;
-  name: string;
-  /**
-   * Unix seconds
-   */
-  startDate: number;
-};
-
-/**
- * Generated factory for {@link FfiMergeDropped} record objects.
- */
-export const FfiMergeDropped = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiMergeDropped, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiMergeDropped>,
-  });
-})();
-
-const FfiConverterTypeFfiMergeDropped = (() => {
-  type TypeName = FfiMergeDropped;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        activityId: FfiConverterString.readFromCursor(c),
-        name: FfiConverterString.readFromCursor(c),
-        startDate: FfiConverterFloat64.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterString.writeIntoCursor(value.activityId, c);
-      FfiConverterString.writeIntoCursor(value.name, c);
-      FfiConverterFloat64.writeIntoCursor(value.startDate, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.activityId) +
-        FfiConverterString.allocationSize(value.name) +
-        FfiConverterFloat64.allocationSize(value.startDate)
       );
     }
   }
@@ -27024,86 +30863,6 @@ const FfiConverterTypeFfiSectionLapCurves = (() => {
 })();
 
 /**
- * Result of matching an activity's GPS track against existing sections.
- */
-export type FfiSectionMatch = {
-  sectionId: string;
-  sectionName?: string;
-  /**
-   * Stream index, as `u32` like every other record's, so a caller comparing
-   * this against a portion's index needs no BigInt cast to do it.
-   */
-  startIndex: number;
-  endIndex: number;
-  matchQuality: number;
-  sameDirection: boolean;
-  distanceMeters: number;
-  /**
-   * Distance ridden from the activity's first point to the pass's first
-   * point, in metres, so the athlete can place the pass along the ride.
-   */
-  startDistanceMeters: number;
-};
-
-/**
- * Generated factory for {@link FfiSectionMatch} record objects.
- */
-export const FfiSectionMatch = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiSectionMatch, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionMatch>,
-  });
-})();
-
-const FfiConverterTypeFfiSectionMatch = (() => {
-  type TypeName = FfiSectionMatch;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        sectionId: FfiConverterString.readFromCursor(c),
-        sectionName: FfiConverterOptionalString.readFromCursor(c),
-        startIndex: FfiConverterUInt32.readFromCursor(c),
-        endIndex: FfiConverterUInt32.readFromCursor(c),
-        matchQuality: FfiConverterFloat64.readFromCursor(c),
-        sameDirection: FfiConverterBool.readFromCursor(c),
-        distanceMeters: FfiConverterFloat64.readFromCursor(c),
-        startDistanceMeters: FfiConverterFloat64.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterString.writeIntoCursor(value.sectionId, c);
-      FfiConverterOptionalString.writeIntoCursor(value.sectionName, c);
-      FfiConverterUInt32.writeIntoCursor(value.startIndex, c);
-      FfiConverterUInt32.writeIntoCursor(value.endIndex, c);
-      FfiConverterFloat64.writeIntoCursor(value.matchQuality, c);
-      FfiConverterBool.writeIntoCursor(value.sameDirection, c);
-      FfiConverterFloat64.writeIntoCursor(value.distanceMeters, c);
-      FfiConverterFloat64.writeIntoCursor(value.startDistanceMeters, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.sectionId) +
-        FfiConverterOptionalString.allocationSize(value.sectionName) +
-        FfiConverterUInt32.allocationSize(value.startIndex) +
-        FfiConverterUInt32.allocationSize(value.endIndex) +
-        FfiConverterFloat64.allocationSize(value.matchQuality) +
-        FfiConverterBool.allocationSize(value.sameDirection) +
-        FfiConverterFloat64.allocationSize(value.distanceMeters) +
-        FfiConverterFloat64.allocationSize(value.startDistanceMeters)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * How many traversals of a section one sport made over the chosen range.
  */
 export type FfiSectionSportCount = {
@@ -28026,57 +31785,6 @@ const FfiConverterTypeFfiSportLoad = (() => {
 })();
 
 /**
- * One of the figures the thresholds screen lets the athlete set.
- */
-export enum FfiThresholdField {
-  Ftp,
-  ThresholdHr,
-  MaxHr,
-  RestingHr,
-  WeightKg,
-}
-
-const FfiConverterTypeFfiThresholdField = (() => {
-  type TypeName = FfiThresholdField;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      switch (c.readI32()) {
-        case 1:
-          return FfiThresholdField.Ftp;
-        case 2:
-          return FfiThresholdField.ThresholdHr;
-        case 3:
-          return FfiThresholdField.MaxHr;
-        case 4:
-          return FfiThresholdField.RestingHr;
-        case 5:
-          return FfiThresholdField.WeightKg;
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      switch (value) {
-        case FfiThresholdField.Ftp:
-          return c.writeI32(1);
-        case FfiThresholdField.ThresholdHr:
-          return c.writeI32(2);
-        case FfiThresholdField.MaxHr:
-          return c.writeI32(3);
-        case FfiThresholdField.RestingHr:
-          return c.writeI32(4);
-        case FfiThresholdField.WeightKg:
-          return c.writeI32(5);
-      }
-    }
-    allocationSize(value: TypeName): number {
-      return 4;
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * Where a threshold figure shown on the thresholds screen came from.
  */
 export enum FfiThresholdSource {
@@ -28182,6 +31890,97 @@ const FfiConverterTypeFfiThresholdFigure = (() => {
 })();
 
 /**
+ * Where a list of zone edges came from.
+ */
+export enum FfiZoneSource {
+  /**
+   * The sport's entry in the sport settings body.
+   */
+  SportSettings,
+  /**
+   * The fixed bands of maximum heart rate used when no zones are listed.
+   */
+  Default,
+}
+
+const FfiConverterTypeFfiZoneSource = (() => {
+  type TypeName = FfiZoneSource;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiZoneSource.SportSettings;
+        case 2:
+          return FfiZoneSource.Default;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiZoneSource.SportSettings:
+          return c.writeI32(1);
+        case FfiZoneSource.Default:
+          return c.writeI32(2);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The upper edge of each zone. From sport settings the edges are bpm; by
+ * default they are percents of maximum heart rate.
+ */
+export type FfiZoneBounds = {
+  upper: Array<number>;
+  source: FfiZoneSource;
+};
+
+/**
+ * Generated factory for {@link FfiZoneBounds} record objects.
+ */
+export const FfiZoneBounds = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiZoneBounds, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiZoneBounds>,
+  });
+})();
+
+const FfiConverterTypeFfiZoneBounds = (() => {
+  type TypeName = FfiZoneBounds;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        upper: FfiConverterSequenceFloat64.readFromCursor(c),
+        source: FfiConverterTypeFfiZoneSource.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceFloat64.writeIntoCursor(value.upper, c);
+      FfiConverterTypeFfiZoneSource.writeIntoCursor(value.source, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterSequenceFloat64.allocationSize(value.upper) +
+        FfiConverterTypeFfiZoneSource.allocationSize(value.source)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * The figures of one sport family.
  */
 export type FfiSportThresholds = {
@@ -28190,6 +31989,15 @@ export type FfiSportThresholds = {
    */
   sport: string;
   figures: Array<FfiThresholdFigure>;
+  /**
+   * The sport's heart rate zone edges and where they came from.
+   */
+  hrZones: FfiZoneBounds;
+  /**
+   * The upper edge of each power zone as a percent of FTP, empty when the
+   * sport settings list none.
+   */
+  powerZones: Array<number>;
 };
 
 /**
@@ -28216,6 +32024,8 @@ const FfiConverterTypeFfiSportThresholds = (() => {
       return {
         sport: FfiConverterString.readFromCursor(c),
         figures: FfiConverterSequenceTypeFfiThresholdFigure.readFromCursor(c),
+        hrZones: FfiConverterTypeFfiZoneBounds.readFromCursor(c),
+        powerZones: FfiConverterSequenceFloat64.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -28224,11 +32034,17 @@ const FfiConverterTypeFfiSportThresholds = (() => {
         value.figures,
         c,
       );
+      FfiConverterTypeFfiZoneBounds.writeIntoCursor(value.hrZones, c);
+      FfiConverterSequenceFloat64.writeIntoCursor(value.powerZones, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.sport) +
-        FfiConverterSequenceTypeFfiThresholdFigure.allocationSize(value.figures)
+        FfiConverterSequenceTypeFfiThresholdFigure.allocationSize(
+          value.figures,
+        ) +
+        FfiConverterTypeFfiZoneBounds.allocationSize(value.hrZones) +
+        FfiConverterSequenceFloat64.allocationSize(value.powerZones)
       );
     }
   }
@@ -28825,6 +32641,64 @@ const FfiConverterTypeFfiStoredCurve = (() => {
 })();
 
 /**
+ * A saved workout as the start screen lists it.
+ */
+export type FfiStrengthSavedWorkout = {
+  id: string;
+  name: string;
+  exerciseCount: number;
+  setCount: number;
+};
+
+/**
+ * Generated factory for {@link FfiStrengthSavedWorkout} record objects.
+ */
+export const FfiStrengthSavedWorkout = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiStrengthSavedWorkout,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiStrengthSavedWorkout>,
+  });
+})();
+
+const FfiConverterTypeFfiStrengthSavedWorkout = (() => {
+  type TypeName = FfiStrengthSavedWorkout;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        id: FfiConverterString.readFromCursor(c),
+        name: FfiConverterString.readFromCursor(c),
+        exerciseCount: FfiConverterUInt32.readFromCursor(c),
+        setCount: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.id, c);
+      FfiConverterString.writeIntoCursor(value.name, c);
+      FfiConverterUInt32.writeIntoCursor(value.exerciseCount, c);
+      FfiConverterUInt32.writeIntoCursor(value.setCount, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterUInt32.allocationSize(value.exerciseCount) +
+        FfiConverterUInt32.allocationSize(value.setCount)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Everything the strength tab paints with. All four are aggregates of the
  * same sets over the same windows, so they are one read rather than four: a
  * scrub across the diagram then costs no engine call at all.
@@ -28913,6 +32787,160 @@ const FfiConverterTypeFfiStrengthScreenData = (() => {
           value.exercises,
         ) +
         FfiConverterUInt32.allocationSize(value.owedCount)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A session the athlete has done the same way before, as the start screen offers it.
+ */
+export type FfiStrengthStartGroup = {
+  signature: string;
+  /**
+   * How many sessions did exactly these exercises.
+   */
+  times: number;
+  /**
+   * Whole days since the latest of them.
+   */
+  lastDoneDays: number;
+  /**
+   * The latest session's activity id, which a tap starts from.
+   */
+  latestActivityId: string;
+  /**
+   * The muscles the latest session worked, shaded as its feed card shades them.
+   */
+  muscles: Array<FfiMuscleGroup>;
+  /**
+   * The equipment of the exercises, each kind once.
+   */
+  equipment: Array<string>;
+  /**
+   * The exercises by name, in catalogue order.
+   */
+  exerciseNames: Array<string>;
+};
+
+/**
+ * Generated factory for {@link FfiStrengthStartGroup} record objects.
+ */
+export const FfiStrengthStartGroup = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiStrengthStartGroup,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiStrengthStartGroup>,
+  });
+})();
+
+const FfiConverterTypeFfiStrengthStartGroup = (() => {
+  type TypeName = FfiStrengthStartGroup;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        signature: FfiConverterString.readFromCursor(c),
+        times: FfiConverterUInt32.readFromCursor(c),
+        lastDoneDays: FfiConverterUInt32.readFromCursor(c),
+        latestActivityId: FfiConverterString.readFromCursor(c),
+        muscles: FfiConverterSequenceTypeFfiMuscleGroup.readFromCursor(c),
+        equipment: FfiConverterSequenceString.readFromCursor(c),
+        exerciseNames: FfiConverterSequenceString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.signature, c);
+      FfiConverterUInt32.writeIntoCursor(value.times, c);
+      FfiConverterUInt32.writeIntoCursor(value.lastDoneDays, c);
+      FfiConverterString.writeIntoCursor(value.latestActivityId, c);
+      FfiConverterSequenceTypeFfiMuscleGroup.writeIntoCursor(value.muscles, c);
+      FfiConverterSequenceString.writeIntoCursor(value.equipment, c);
+      FfiConverterSequenceString.writeIntoCursor(value.exerciseNames, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.signature) +
+        FfiConverterUInt32.allocationSize(value.times) +
+        FfiConverterUInt32.allocationSize(value.lastDoneDays) +
+        FfiConverterString.allocationSize(value.latestActivityId) +
+        FfiConverterSequenceTypeFfiMuscleGroup.allocationSize(value.muscles) +
+        FfiConverterSequenceString.allocationSize(value.equipment) +
+        FfiConverterSequenceString.allocationSize(value.exerciseNames)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What the strength start screen shows.
+ */
+export type FfiStrengthStartData = {
+  /**
+   * A session is already live, and the screen resumes it instead of offering a start.
+   */
+  live: boolean;
+  groups: Array<FfiStrengthStartGroup>;
+  workouts: Array<FfiStrengthSavedWorkout>;
+};
+
+/**
+ * Generated factory for {@link FfiStrengthStartData} record objects.
+ */
+export const FfiStrengthStartData = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiStrengthStartData,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiStrengthStartData>,
+  });
+})();
+
+const FfiConverterTypeFfiStrengthStartData = (() => {
+  type TypeName = FfiStrengthStartData;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        live: FfiConverterBool.readFromCursor(c),
+        groups: FfiConverterSequenceTypeFfiStrengthStartGroup.readFromCursor(c),
+        workouts:
+          FfiConverterSequenceTypeFfiStrengthSavedWorkout.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterBool.writeIntoCursor(value.live, c);
+      FfiConverterSequenceTypeFfiStrengthStartGroup.writeIntoCursor(
+        value.groups,
+        c,
+      );
+      FfiConverterSequenceTypeFfiStrengthSavedWorkout.writeIntoCursor(
+        value.workouts,
+        c,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterBool.allocationSize(value.live) +
+        FfiConverterSequenceTypeFfiStrengthStartGroup.allocationSize(
+          value.groups,
+        ) +
+        FfiConverterSequenceTypeFfiStrengthSavedWorkout.allocationSize(
+          value.workouts,
+        )
       );
     }
   }
@@ -32584,6 +36612,194 @@ const FfiConverterTypeFfiSectionBoundsEdit = (() => {
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
+    }
+  }
+  return new FFIConverter();
+})();
+
+// Enum: FfiStrengthFinish
+export enum FfiStrengthFinish_Tags {
+  Finished = "Finished",
+  NoSets = "NoSets",
+}
+/**
+ * How finishing a live strength session ended.
+ */
+export const FfiStrengthFinish = (() => {
+  type Finished__interface = {
+    tag: FfiStrengthFinish_Tags.Finished;
+    inner: Readonly<{ entry: FfiRecordingEntry }>;
+  };
+  /**
+   * The session is finished and this recording holds its FIT.
+   */
+  class Finished_ extends UniffiEnum implements Finished__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiStrengthFinish";
+    readonly tag = FfiStrengthFinish_Tags.Finished;
+    readonly inner: Readonly<{ entry: FfiRecordingEntry }>;
+    constructor(inner: { entry: FfiRecordingEntry }) {
+      super("FfiStrengthFinish", "Finished");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { entry: FfiRecordingEntry }): Finished_ {
+      return new Finished_(inner);
+    }
+
+    static instanceOf(obj: any): obj is Finished_ {
+      return obj.tag === FfiStrengthFinish_Tags.Finished;
+    }
+  }
+
+  type NoSets__interface = {
+    tag: FfiStrengthFinish_Tags.NoSets;
+  };
+  /**
+   * No set was done: nothing was written and the session is still live.
+   */
+  class NoSets_ extends UniffiEnum implements NoSets__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiStrengthFinish";
+    readonly tag = FfiStrengthFinish_Tags.NoSets;
+    constructor() {
+      super("FfiStrengthFinish", "NoSets");
+    }
+
+    static new(): NoSets_ {
+      return new NoSets_();
+    }
+
+    static instanceOf(obj: any): obj is NoSets_ {
+      return obj.tag === FfiStrengthFinish_Tags.NoSets;
+    }
+  }
+
+  function instanceOf(obj: any): obj is FfiStrengthFinish {
+    return obj[uniffiTypeNameSymbol] === "FfiStrengthFinish";
+  }
+
+  return Object.freeze({
+    instanceOf,
+    Finished: Finished_,
+    NoSets: NoSets_,
+  });
+})();
+/**
+ * How finishing a live strength session ended.
+ */
+export type FfiStrengthFinish = InstanceType<
+  (typeof FfiStrengthFinish)["Finished" | "NoSets"]
+>;
+
+// FfiConverter for enum FfiStrengthFinish
+const FfiConverterTypeFfiStrengthFinish = (() => {
+  type TypeName = FfiStrengthFinish;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return new FfiStrengthFinish.Finished({
+            entry: FfiConverterTypeFfiRecordingEntry.readFromCursor(c),
+          });
+        case 2:
+          return new FfiStrengthFinish.NoSets();
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value.tag) {
+        case FfiStrengthFinish_Tags.Finished: {
+          c.writeI32(1);
+          const inner = value.inner;
+          FfiConverterTypeFfiRecordingEntry.writeIntoCursor(inner.entry, c);
+          return;
+        }
+        case FfiStrengthFinish_Tags.NoSets: {
+          c.writeI32(2);
+          return;
+        }
+        default:
+          // Throwing from here means that FfiStrengthFinish_Tags hasn't matched an ordinal.
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    allocationSize(value: TypeName): number {
+      switch (value.tag) {
+        case FfiStrengthFinish_Tags.Finished: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterTypeFfiRecordingEntry.allocationSize(inner.entry);
+          return size;
+        }
+        case FfiStrengthFinish_Tags.NoSets: {
+          return 4;
+        }
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Where a new live strength session takes its exercises from.
+ */
+export enum FfiStrengthStartKind {
+  Blank,
+  /**
+   * A finished or saved session, by its id.
+   */
+  Session,
+  /**
+   * A strength activity in the library, by its id.
+   */
+  Activity,
+  /**
+   * A saved workout, by its id; the workout is marked used.
+   */
+  Workout,
+}
+
+const FfiConverterTypeFfiStrengthStartKind = (() => {
+  type TypeName = FfiStrengthStartKind;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiStrengthStartKind.Blank;
+        case 2:
+          return FfiStrengthStartKind.Session;
+        case 3:
+          return FfiStrengthStartKind.Activity;
+        case 4:
+          return FfiStrengthStartKind.Workout;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiStrengthStartKind.Blank:
+          return c.writeI32(1);
+        case FfiStrengthStartKind.Session:
+          return c.writeI32(2);
+        case FfiStrengthStartKind.Activity:
+          return c.writeI32(3);
+        case FfiStrengthStartKind.Workout:
+          return c.writeI32(4);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
     }
   }
   return new FFIConverter();
@@ -38732,6 +42948,22 @@ export interface RecordingManagerLike {
     id: string,
     athleteId: string | undefined,
   ) /*throws*/ : FfiRecordingEntry | undefined;
+  /**
+   * Finish the live strength session as the recording `recording_id`: write
+   * the FIT of its done sets under `files_root`, finish the session under
+   * the recording's key and add the row, or answer `NoSets` and change
+   * nothing. `now` is Unix seconds and `rpe` the athlete's effort, 1 to 10, and
+   * `keep_on_device` leaves the row out of the upload queue.
+   */
+  finishStrengthRecording(
+    recordingId: string,
+    name: string,
+    athleteId: string | undefined,
+    now: number,
+    rpe: number | undefined,
+    keepOnDevice: boolean,
+    filesRoot: string,
+  ) /*throws*/ : FfiStrengthFinish;
   getRecording(id: string) /*throws*/ : FfiRecordingEntry | undefined;
   /**
    * One recording, `None` when it is stamped with another athlete.
@@ -38946,6 +43178,57 @@ export class RecordingManager
     );
     try {
       return FfiConverterOptionalTypeFfiRecordingEntry.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * Finish the live strength session as the recording `recording_id`: write
+   * the FIT of its done sets under `files_root`, finish the session under
+   * the recording's key and add the row, or answer `NoSets` and change
+   * nothing. `now` is Unix seconds and `rpe` the athlete's effort, 1 to 10, and
+   * `keep_on_device` leaves the row out of the upload queue.
+   */
+  finishStrengthRecording(
+    recordingId: string,
+    name: string,
+    athleteId: string | undefined,
+    now: number,
+    rpe: number | undefined,
+    keepOnDevice: boolean,
+    filesRoot: string,
+  ): FfiStrengthFinish /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_finish_strength_recording(
+          uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(
+            recordingId,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterString.lower(name, nativeModule().rustbuffer_alloc),
+          FfiConverterOptionalString.lower(
+            athleteId,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterFloat64.lower(now, nativeModule().rustbuffer_alloc),
+          FfiConverterOptionalUInt32.lower(
+            rpe,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterBool.lower(keepOnDevice, nativeModule().rustbuffer_alloc),
+          FfiConverterString.lower(filesRoot, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterTypeFfiStrengthFinish.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -40976,13 +45259,6 @@ export interface SectionManagerLike {
     asyncOpts_?: { signal: AbortSignal },
   ) /*throws*/ : Promise<FfiSectionPerformanceData>;
   /**
-   * Match an activity's GPS track against all existing sections.
-   * Returns all matches found (may be empty if activity doesn't traverse any section).
-   */
-  matchActivityToSections(
-    activityId: string,
-  ) /*throws*/ : Array<FfiSectionMatch>;
-  /**
    * The donor rides a merge into `primary_id` would leave out of the section:
    * those with no pass over its line. Writes nothing.
    */
@@ -41001,14 +45277,6 @@ export interface SectionManagerLike {
     other: string,
     asyncOpts_?: { signal: AbortSignal },
   ) /*throws*/ : Promise<void>;
-  /**
-   * Force-match a single activity to a specific section with relaxed thresholds.
-   * Returns true if a match was found and the section_activities row was inserted.
-   */
-  rematchActivityToSection(
-    activityId: string,
-    sectionId: string,
-  ) /*throws*/ : boolean;
   removeNamedCorridor(intentId: string) /*throws*/ : void;
   /**
    * Trim, reset or expand a section's bounds, set or reset its reference,
@@ -41784,33 +46052,6 @@ export class SectionManager
   }
 
   /**
-   * Match an activity's GPS track against all existing sections.
-   * Returns all matches found (may be empty if activity doesn't traverse any section).
-   */
-  matchActivityToSections(
-    activityId: string,
-  ): Array<FfiSectionMatch> /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_match_activity_to_sections(
-          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(activityId, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterSequenceTypeFfiSectionMatch.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  /**
    * The donor rides a merge into `primary_id` would leave out of the section:
    * those with no pass over its line. Writes nothing.
    */
@@ -41882,38 +46123,6 @@ export class SectionManager
       }
       throw __error;
     }
-  }
-
-  /**
-   * Force-match a single activity to a specific section with relaxed thresholds.
-   * Returns true if a match was found and the section_activities row was inserted.
-   */
-  rematchActivityToSection(
-    activityId: string,
-    sectionId: string,
-  ): boolean /*throws*/ {
-    return FfiConverterBool.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_rematch_activity_to_section(
-            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(
-              activityId,
-              nativeModule().rustbuffer_alloc,
-            ),
-            FfiConverterString.lower(
-              sectionId,
-              nativeModule().rustbuffer_alloc,
-            ),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-      ),
-    );
   }
 
   removeNamedCorridor(intentId: string): void /*throws*/ {
@@ -43398,6 +47607,18 @@ export interface StrengthManagerLike {
     sets: Array<FfiExerciseSet>,
   ) /*throws*/ : void;
   /**
+   * Drop the live session and everything in it; the library is unchanged.
+   */
+  discardLiveStrengthSession() /*throws*/ : void;
+  /**
+   * Make one change to the live session and answer it as it now stands. A
+   * refused change leaves the session as it was.
+   */
+  editLiveStrengthSession(
+    edit: FfiLiveEdit,
+    now: number,
+  ) /*throws*/ : FfiLiveStrengthOutcome;
+  /**
    * Start a FIT download for one activity, parse what its sport reads from
    * it, its exercise sets or its lengths, and store that. Returns the start
    * verdict and any backoff deadline.
@@ -43434,6 +47655,16 @@ export interface StrengthManagerLike {
    */
   getExerciseSets(activityId: string) /*throws*/ : FfiExerciseSession;
   /**
+   * What the focus view and the lock screen show of the live session, weights in the
+   * athlete's unit, or none when no session is live.
+   */
+  getLiveFocusState() /*throws*/ : FfiFocusState | undefined;
+  /**
+   * The session being recorded, or none. A restarted app calls this to pick
+   * up where it was.
+   */
+  getLiveStrengthSession() /*throws*/ : FfiLiveStrengthSession | undefined;
+  /**
    * Per-activity muscle detail: groups exercise sets by display name,
    * classifies primary/secondary role, returns totals + sorted exercise
    * list. Replaces the group-by/reduce loop in `useMuscleDetail.ts`.
@@ -43466,6 +47697,17 @@ export interface StrengthManagerLike {
     weekRanges: Array<FfiTimestampRange>,
   ) /*throws*/ : FfiStrengthScreenData;
   /**
+   * The finished session's FIT file, weights displayed in the athlete's unit, or none for an
+   * id nothing holds.
+   */
+  getStrengthSessionFit(id: string) /*throws*/ : ArrayBuffer | undefined;
+  /**
+   * What the strength start screen shows: whether a session is live, the
+   * sessions done the same way before with their muscles and equipment, and
+   * the saved workouts. `now` is epoch seconds.
+   */
+  getStrengthStartData(now: number) /*throws*/ : FfiStrengthStartData;
+  /**
    * Every strength activity owed a FIT download: a `WeightTraining` activity
    * with no recorded outcome, newest first.
    */
@@ -43489,6 +47731,25 @@ export interface StrengthManagerLike {
    * exercises are shown under from then on.
    */
   setExerciseLabels(labels: Map<string, string>): void;
+  /**
+   * Start the live session from nothing, a session, a library activity or a
+   * saved workout, prepared with nothing done. Refused while one is live.
+   */
+  startLiveStrengthSession(
+    kind: FfiStrengthStartKind,
+    id: string | undefined,
+    now: number,
+  ) /*throws*/ : FfiLiveStrengthSession;
+  /**
+   * Start the live session from the lines of a planned workout: each line
+   * that reads as an exercise becomes one with its planned sets, a rest line
+   * sets the rest after the exercise before it, and any other line is kept
+   * as a session note. Refused while one is live.
+   */
+  startLiveStrengthSessionFromPlan(
+    lines: Array<string>,
+    now: number,
+  ) /*throws*/ : FfiLiveStrengthSession;
 }
 /**
  * @deprecated Use `StrengthManagerLike` instead.
@@ -43572,6 +47833,56 @@ export class StrengthManager
       },
       /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
+  }
+
+  /**
+   * Drop the live session and everything in it; the library is unchanged.
+   */
+  discardLiveStrengthSession(): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_discard_live_strength_session(
+          uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+  }
+
+  /**
+   * Make one change to the live session and answer it as it now stands. A
+   * refused change leaves the session as it was.
+   */
+  editLiveStrengthSession(
+    edit: FfiLiveEdit,
+    now: number,
+  ): FfiLiveStrengthOutcome /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_edit_live_strength_session(
+          uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+          FfiConverterTypeFfiLiveEdit.lower(
+            edit,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterFloat64.lower(now, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterTypeFfiLiveStrengthOutcome.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
   }
 
   /**
@@ -43712,6 +48023,54 @@ export class StrengthManager
   }
 
   /**
+   * What the focus view and the lock screen show of the live session, weights in the
+   * athlete's unit, or none when no session is live.
+   */
+  getLiveFocusState(): FfiFocusState | undefined /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_live_focus_state(
+          uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterOptionalTypeFfiFocusState.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * The session being recorded, or none. A restarted app calls this to pick
+   * up where it was.
+   */
+  getLiveStrengthSession(): FfiLiveStrengthSession | undefined /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_live_strength_session(
+          uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterOptionalTypeFfiLiveStrengthSession.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
    * Per-activity muscle detail: groups exercise sets by display name,
    * classifies primary/secondary role, returns totals + sorted exercise
    * list. Replaces the group-by/reduce loop in `useMuscleDetail.ts`.
@@ -43804,6 +48163,57 @@ export class StrengthManager
     );
     try {
       return FfiConverterTypeFfiStrengthScreenData.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * The finished session's FIT file, weights displayed in the athlete's unit, or none for an
+   * id nothing holds.
+   */
+  getStrengthSessionFit(id: string): ArrayBuffer | undefined /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_strength_session_fit(
+          uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(id, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterOptionalBytes.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * What the strength start screen shows: whether a session is live, the
+   * sessions done the same way before with their muscles and equipment, and
+   * the saved workouts. `now` is epoch seconds.
+   */
+  getStrengthStartData(now: number): FfiStrengthStartData /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_strength_start_data(
+          uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+          FfiConverterFloat64.lower(now, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterTypeFfiStrengthStartData.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -43927,6 +48337,74 @@ export class StrengthManager
     );
   }
 
+  /**
+   * Start the live session from nothing, a session, a library activity or a
+   * saved workout, prepared with nothing done. Refused while one is live.
+   */
+  startLiveStrengthSession(
+    kind: FfiStrengthStartKind,
+    id: string | undefined,
+    now: number,
+  ): FfiLiveStrengthSession /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_start_live_strength_session(
+          uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+          FfiConverterTypeFfiStrengthStartKind.lower(
+            kind,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterOptionalString.lower(id, nativeModule().rustbuffer_alloc),
+          FfiConverterFloat64.lower(now, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterTypeFfiLiveStrengthSession.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * Start the live session from the lines of a planned workout: each line
+   * that reads as an exercise becomes one with its planned sets, a rest line
+   * sets the rest after the exercise before it, and any other line is kept
+   * as a session note. Refused while one is live.
+   */
+  startLiveStrengthSessionFromPlan(
+    lines: Array<string>,
+    now: number,
+  ): FfiLiveStrengthSession /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_start_live_strength_session_from_plan(
+          uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+          FfiConverterSequenceString.lower(
+            lines,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterFloat64.lower(now, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterTypeFfiLiveStrengthSession.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
   uniffiDestroy(): void {
     const ptr = (this as any)[destructorGuardSymbol];
     if (ptr !== undefined) {
@@ -44027,6 +48505,10 @@ export interface SyncManagerLike {
    */
   cancel(): void;
   /**
+   * Stop the import at its next file. What is stored stays.
+   */
+  cancelImport(): void;
+  /**
    * Forget the intervals.icu credential (logout). The Garmin key is a
    * separate credential for a separate source and stays held: a Garmin-only
    * session has no intervals.icu credential at all, and `clear_garmin_key`
@@ -44105,6 +48587,10 @@ export interface SyncManagerLike {
    */
   holdGarminKey(key: string): void;
   /**
+   * The import's state, counts and failures, in this process.
+   */
+  importProgress(): FfiImportProgress;
+  /**
    * How much of the signed-in athlete's library is on the device: the
    * activity pages and the GPS tracks, each as stored against upstream.
    *
@@ -44163,6 +48649,12 @@ export interface SyncManagerLike {
     secret: string,
     athleteId: string,
   ) /*throws*/ : void;
+  /**
+   * Import the FIT files at `path`: a file, a directory, a zip or a zip of
+   * zips the app can read. Runs on a thread of its own. Returns whether a
+   * job started; it does not while another import or the Garmin pass runs.
+   */
+  startImport(path: string): boolean;
   /**
    * Fetch and store one date window of activities. Returns instantly,
    * naming whether the job started and, if not, whether asking again later
@@ -44288,6 +48780,21 @@ export class SyncManager
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_cancel(
+          uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+  }
+
+  /**
+   * Stop the import at its next file. What is stored stays.
+   */
+  cancelImport(): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_cancel_import(
           uniffiTypeSyncManagerObjectFactory.clonePointer(this),
           callStatus,
         );
@@ -44747,6 +49254,26 @@ export class SyncManager
   }
 
   /**
+   * The import's state, counts and failures, in this process.
+   */
+  importProgress(): FfiImportProgress {
+    const __rb: Uint8Array = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_import_progress(
+          uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterTypeFfiImportProgress.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
    * How much of the signed-in athlete's library is on the device: the
    * activity pages and the GPS tracks, each as stored against upstream.
    *
@@ -44918,6 +49445,26 @@ export class SyncManager
         );
       },
       /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+  }
+
+  /**
+   * Import the FIT files at `path`: a file, a directory, a zip or a zip of
+   * zips the app can read. Runs on a thread of its own. Returns whether a
+   * job started; it does not while another import or the Garmin pass runs.
+   */
+  startImport(path: string): boolean {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_start_import(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(path, nativeModule().rustbuffer_alloc),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      ),
     );
   }
 
@@ -47092,6 +51639,16 @@ const FfiConverterSequenceTypeFfiLoadDot = new FfiConverterArray(
   FfiConverterTypeFfiLoadDot,
 );
 
+// FfiConverter for Array<FfiFamilyHours>
+const FfiConverterSequenceTypeFfiFamilyHours = new FfiConverterArray(
+  FfiConverterTypeFfiFamilyHours,
+);
+
+// FfiConverter for Array<FfiWeeklyHours>
+const FfiConverterSequenceTypeFfiWeeklyHours = new FfiConverterArray(
+  FfiConverterTypeFfiWeeklyHours,
+);
+
 // FfiConverter for Array<FfiHeatmapDay>
 const FfiConverterSequenceTypeFfiHeatmapDay = new FfiConverterArray(
   FfiConverterTypeFfiHeatmapDay,
@@ -47112,9 +51669,29 @@ const FfiConverterSequenceTypeFfiSummaryComparison = new FfiConverterArray(
   FfiConverterTypeFfiSummaryComparison,
 );
 
+// FfiConverter for FfiFocusSet | undefined
+const FfiConverterOptionalTypeFfiFocusSet = new FfiConverterOptional(
+  FfiConverterTypeFfiFocusSet,
+);
+
+// FfiConverter for FfiFocusNeighbour | undefined
+const FfiConverterOptionalTypeFfiFocusNeighbour = new FfiConverterOptional(
+  FfiConverterTypeFfiFocusNeighbour,
+);
+
 // FfiConverter for Array<GroupSummary>
 const FfiConverterSequenceTypeGroupSummary = new FfiConverterArray(
   FfiConverterTypeGroupSummary,
+);
+
+// FfiConverter for FfiImportHalt | undefined
+const FfiConverterOptionalTypeFfiImportHalt = new FfiConverterOptional(
+  FfiConverterTypeFfiImportHalt,
+);
+
+// FfiConverter for Array<FfiImportFailure>
+const FfiConverterSequenceTypeFfiImportFailure = new FfiConverterArray(
+  FfiConverterTypeFfiImportFailure,
 );
 
 // FfiConverter for Array<FfiWeeklyTotal>
@@ -47226,14 +51803,59 @@ const FfiConverterSequenceTypeFfiLinkedDevice = new FfiConverterArray(
   FfiConverterTypeFfiLinkedDevice,
 );
 
+// FfiConverter for Array<FfiLinkDraftSet>
+const FfiConverterSequenceTypeFfiLinkDraftSet = new FfiConverterArray(
+  FfiConverterTypeFfiLinkDraftSet,
+);
+
 // FfiConverter for Array<FfiPreviewTrack>
 const FfiConverterSequenceTypeFfiPreviewTrack = new FfiConverterArray(
   FfiConverterTypeFfiPreviewTrack,
 );
 
+// FfiConverter for Array<FfiLinkFamilyCount>
+const FfiConverterSequenceTypeFfiLinkFamilyCount = new FfiConverterArray(
+  FfiConverterTypeFfiLinkFamilyCount,
+);
+
 // FfiConverter for ArrayBuffer | undefined
 const FfiConverterOptionalBytes = new FfiConverterOptional(
   FfiConverterArrayBuffer,
+);
+
+// FfiConverter for Array<FfiLinkImportFailure>
+const FfiConverterSequenceTypeFfiLinkImportFailure = new FfiConverterArray(
+  FfiConverterTypeFfiLinkImportFailure,
+);
+
+// FfiConverter for FfiLinkLastTime | undefined
+const FfiConverterOptionalTypeFfiLinkLastTime = new FfiConverterOptional(
+  FfiConverterTypeFfiLinkLastTime,
+);
+
+// FfiConverter for Array<FfiLiveStrengthSet>
+const FfiConverterSequenceTypeFfiLiveStrengthSet = new FfiConverterArray(
+  FfiConverterTypeFfiLiveStrengthSet,
+);
+
+// FfiConverter for Array<FfiLiveStrengthExercise>
+const FfiConverterSequenceTypeFfiLiveStrengthExercise = new FfiConverterArray(
+  FfiConverterTypeFfiLiveStrengthExercise,
+);
+
+// FfiConverter for Array<FfiLiveStrengthGroup>
+const FfiConverterSequenceTypeFfiLiveStrengthGroup = new FfiConverterArray(
+  FfiConverterTypeFfiLiveStrengthGroup,
+);
+
+// FfiConverter for FfiLiveStrengthSession | undefined
+const FfiConverterOptionalTypeFfiLiveStrengthSession = new FfiConverterOptional(
+  FfiConverterTypeFfiLiveStrengthSession,
+);
+
+// FfiConverter for FfiFocusState | undefined
+const FfiConverterOptionalTypeFfiFocusState = new FfiConverterOptional(
+  FfiConverterTypeFfiFocusState,
 );
 
 // FfiConverter for Array<FfiMapCategoryCount>
@@ -47279,6 +51901,11 @@ const FfiConverterOptionalTypeFfiMapSectionLayer = new FfiConverterOptional(
 // FfiConverter for FfiMapEmptyReason | undefined
 const FfiConverterOptionalTypeFfiMapEmptyReason = new FfiConverterOptional(
   FfiConverterTypeFfiMapEmptyReason,
+);
+
+// FfiConverter for Array<FfiMergeDropped>
+const FfiConverterSequenceTypeFfiMergeDropped = new FfiConverterArray(
+  FfiConverterTypeFfiMergeDropped,
 );
 
 // FfiConverter for Map<string, FfiCurveActivity>
@@ -47342,6 +51969,21 @@ const FfiConverterSequenceTypeFfiRecordingEntry = new FfiConverterArray(
   FfiConverterTypeFfiRecordingEntry,
 );
 
+// FfiConverter for Array<FfiLinkDraftExercise>
+const FfiConverterSequenceTypeFfiLinkDraftExercise = new FfiConverterArray(
+  FfiConverterTypeFfiLinkDraftExercise,
+);
+
+// FfiConverter for Array<FfiLinkDraftGroup>
+const FfiConverterSequenceTypeFfiLinkDraftGroup = new FfiConverterArray(
+  FfiConverterTypeFfiLinkDraftGroup,
+);
+
+// FfiConverter for Array<FfiDepartedRide>
+const FfiConverterSequenceTypeFfiDepartedRide = new FfiConverterArray(
+  FfiConverterTypeFfiDepartedRide,
+);
+
 // FfiConverter for Array<FfiSectionEraRecord>
 const FfiConverterSequenceTypeFfiSectionEraRecord = new FfiConverterArray(
   FfiConverterTypeFfiSectionEraRecord,
@@ -47382,14 +52024,24 @@ const FfiConverterSequenceTypeFfiLinkSettingValue = new FfiConverterArray(
   FfiConverterTypeFfiLinkSettingValue,
 );
 
+// FfiConverter for Array<FfiLinkStrengthGroup>
+const FfiConverterSequenceTypeFfiLinkStrengthGroup = new FfiConverterArray(
+  FfiConverterTypeFfiLinkStrengthGroup,
+);
+
+// FfiConverter for FfiLinkWorkout | undefined
+const FfiConverterOptionalTypeFfiLinkWorkout = new FfiConverterOptional(
+  FfiConverterTypeFfiLinkWorkout,
+);
+
 // FfiConverter for Array<FfiWorkoutSection>
 const FfiConverterSequenceTypeFfiWorkoutSection = new FfiConverterArray(
   FfiConverterTypeFfiWorkoutSection,
 );
 
-// FfiConverter for Array<FfiDepartedRide>
-const FfiConverterSequenceTypeFfiDepartedRide = new FfiConverterArray(
-  FfiConverterTypeFfiDepartedRide,
+// FfiConverter for Array<FfiLinkWorkoutRow>
+const FfiConverterSequenceTypeFfiLinkWorkoutRow = new FfiConverterArray(
+  FfiConverterTypeFfiLinkWorkoutRow,
 );
 
 // FfiConverter for Array<FfiExerciseSummary>
@@ -47619,6 +52271,16 @@ const FfiConverterSequenceTypeFfiMuscleExercises = new FfiConverterArray(
   FfiConverterTypeFfiMuscleExercises,
 );
 
+// FfiConverter for Array<FfiStrengthStartGroup>
+const FfiConverterSequenceTypeFfiStrengthStartGroup = new FfiConverterArray(
+  FfiConverterTypeFfiStrengthStartGroup,
+);
+
+// FfiConverter for Array<FfiStrengthSavedWorkout>
+const FfiConverterSequenceTypeFfiStrengthSavedWorkout = new FfiConverterArray(
+  FfiConverterTypeFfiStrengthSavedWorkout,
+);
+
 // FfiConverter for FfiSyncStep | undefined
 const FfiConverterOptionalTypeFfiSyncStep = new FfiConverterOptional(
   FfiConverterTypeFfiSyncStep,
@@ -47775,16 +52437,6 @@ const FfiConverterSequenceTypeFfiNamedCorridor = new FfiConverterArray(
 // FfiConverter for Array<FfiRetiredSection>
 const FfiConverterSequenceTypeFfiRetiredSection = new FfiConverterArray(
   FfiConverterTypeFfiRetiredSection,
-);
-
-// FfiConverter for Array<FfiSectionMatch>
-const FfiConverterSequenceTypeFfiSectionMatch = new FfiConverterArray(
-  FfiConverterTypeFfiSectionMatch,
-);
-
-// FfiConverter for Array<FfiMergeDropped>
-const FfiConverterSequenceTypeFfiMergeDropped = new FfiConverterArray(
-  FfiConverterTypeFfiMergeDropped,
 );
 
 // FfiConverter for Array<FfiPreviewCentre>
@@ -49022,6 +53674,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_finish_strength_recording() !==
+    60717
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_finish_strength_recording",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_get_recording() !==
     10161
   ) {
@@ -49590,14 +54250,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_match_activity_to_sections() !==
-    26456
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_match_activity_to_sections",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_merge_preview() !==
     12760
   ) {
@@ -49611,14 +54263,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_prefer_section",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section() !==
-    1531
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section",
     );
   }
   if (
@@ -49942,6 +54586,22 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_discard_live_strength_session() !==
+    18179
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_discard_live_strength_session",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_edit_live_strength_session() !==
+    40205
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_edit_live_strength_session",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets() !==
     14754
   ) {
@@ -49974,6 +54634,22 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_live_focus_state() !==
+    530
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_get_live_focus_state",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_live_strength_session() !==
+    39633
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_get_live_strength_session",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_detail() !==
     62779
   ) {
@@ -49995,6 +54671,22 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_get_screen_data",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_strength_session_fit() !==
+    13090
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_get_strength_session_fit",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_strength_start_data() !==
+    30524
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_get_strength_start_data",
     );
   }
   if (
@@ -50038,6 +54730,22 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_start_live_strength_session() !==
+    38124
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_start_live_strength_session",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_start_live_strength_session_from_plan() !==
+    17797
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_start_live_strength_session_from_plan",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_syncmanager_new() !==
     27433
   ) {
@@ -50059,6 +54767,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_cancel",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_cancel_import() !==
+    29891
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_cancel_import",
     );
   }
   if (
@@ -50150,6 +54866,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_import_progress() !==
+    22925
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_import_progress",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_library_coverage() !==
     13
   ) {
@@ -50195,6 +54919,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_set_credentials",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_start_import() !==
+    23866
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_start_import",
     );
   }
   if (
@@ -50694,13 +55426,18 @@ export default Object.freeze({
     FfiConverterTypeFfiExerciseSet,
     FfiConverterTypeFfiExerciseSummary,
     FfiConverterTypeFfiExperimentalExamples,
+    FfiConverterTypeFfiFamilyHours,
     FfiConverterTypeFfiFeedCard,
     FfiConverterTypeFfiFeedCardsPage,
     FfiConverterTypeFfiFitFile,
     FfiConverterTypeFfiFitnessScreenData,
     FfiConverterTypeFfiFitnessScreenWindows,
     FfiConverterTypeFfiFloat32Array,
+    FfiConverterTypeFfiFocusNeighbour,
+    FfiConverterTypeFfiFocusPhase,
     FfiConverterTypeFfiFocusRange,
+    FfiConverterTypeFfiFocusSet,
+    FfiConverterTypeFfiFocusState,
     FfiConverterTypeFfiFollowDirection,
     FfiConverterTypeFfiFollowStatus,
     FfiConverterTypeFfiFtpTrend,
@@ -50719,6 +55456,10 @@ export default Object.freeze({
     FfiConverterTypeFfiHistoryRangeEstimate,
     FfiConverterTypeFfiHrZoneBand,
     FfiConverterTypeFfiHrvTrend,
+    FfiConverterTypeFfiImportFailure,
+    FfiConverterTypeFfiImportHalt,
+    FfiConverterTypeFfiImportPhase,
+    FfiConverterTypeFfiImportProgress,
     FfiConverterTypeFfiImprovementBasis,
     FfiConverterTypeFfiIndexActivitySummary,
     FfiConverterTypeFfiInitOutcome,
@@ -50735,18 +55476,25 @@ export default Object.freeze({
     FfiConverterTypeFfiLinkActivityRecord,
     FfiConverterTypeFfiLinkActivitySections,
     FfiConverterTypeFfiLinkBestEffortsAsk,
+    FfiConverterTypeFfiLinkBoundsEdit,
     FfiConverterTypeFfiLinkDayLoads,
     FfiConverterTypeFfiLinkDetectionEnabledAsk,
     FfiConverterTypeFfiLinkDetectionSettings,
     FfiConverterTypeFfiLinkDevicesAnswer,
+    FfiConverterTypeFfiLinkDraftExercise,
+    FfiConverterTypeFfiLinkDraftGroup,
+    FfiConverterTypeFfiLinkDraftSet,
     FfiConverterTypeFfiLinkExcludeAsk,
     FfiConverterTypeFfiLinkExerciseAsk,
+    FfiConverterTypeFfiLinkFamilyCount,
     FfiConverterTypeFfiLinkFeedPage,
     FfiConverterTypeFfiLinkFeedPageAsk,
     FfiConverterTypeFfiLinkFitnessScreenAsk,
     FfiConverterTypeFfiLinkGeoGroupAsk,
     FfiConverterTypeFfiLinkGeoSectionAsk,
+    FfiConverterTypeFfiLinkGeoSectionVersionAsk,
     FfiConverterTypeFfiLinkGeoText,
+    FfiConverterTypeFfiLinkGroupsAsk,
     FfiConverterTypeFfiLinkHeatmapHiddenAsk,
     FfiConverterTypeFfiLinkHeatmapProgress,
     FfiConverterTypeFfiLinkHeatmapTile,
@@ -50754,15 +55502,29 @@ export default Object.freeze({
     FfiConverterTypeFfiLinkHello,
     FfiConverterTypeFfiLinkHelloAnswer,
     FfiConverterTypeFfiLinkHighlightsAsk,
+    FfiConverterTypeFfiLinkImportBeginAsk,
+    FfiConverterTypeFfiLinkImportBegun,
+    FfiConverterTypeFfiLinkImportCommitted,
+    FfiConverterTypeFfiLinkImportFailure,
+    FfiConverterTypeFfiLinkImportRef,
+    FfiConverterTypeFfiLinkImportStatus,
     FfiConverterTypeFfiLinkLapAsk,
+    FfiConverterTypeFfiLinkLastTime,
+    FfiConverterTypeFfiLinkLastTimeAnswer,
+    FfiConverterTypeFfiLinkLastTimeAsk,
+    FfiConverterTypeFfiLinkLiveAnswer,
+    FfiConverterTypeFfiLinkLiveEditAsk,
     FfiConverterTypeFfiLinkLoadsAsk,
     FfiConverterTypeFfiLinkMapAsk,
     FfiConverterTypeFfiLinkMapScreen,
+    FfiConverterTypeFfiLinkMergeAsk,
+    FfiConverterTypeFfiLinkMergePreview,
     FfiConverterTypeFfiLinkMuscleAsk,
     FfiConverterTypeFfiLinkNoAsk,
     FfiConverterTypeFfiLinkPaceCurve,
     FfiConverterTypeFfiLinkPaceCurveAsk,
     FfiConverterTypeFfiLinkPerformanceAsk,
+    FfiConverterTypeFfiLinkPickerAsk,
     FfiConverterTypeFfiLinkPlannedEvents,
     FfiConverterTypeFfiLinkPlannedEventsAsk,
     FfiConverterTypeFfiLinkPowerCurve,
@@ -50771,27 +55533,55 @@ export default Object.freeze({
     FfiConverterTypeFfiLinkRecordingAsk,
     FfiConverterTypeFfiLinkRecordingsAnswer,
     FfiConverterTypeFfiLinkRecordingsAsk,
+    FfiConverterTypeFfiLinkRestoreWorkoutAsk,
+    FfiConverterTypeFfiLinkRouteAsk,
     FfiConverterTypeFfiLinkRouteAttemptsAsk,
     FfiConverterTypeFfiLinkRouteRenameAsk,
+    FfiConverterTypeFfiLinkSaveWorkoutAsk,
     FfiConverterTypeFfiLinkSectionAsk,
+    FfiConverterTypeFfiLinkSectionBoundsAsk,
+    FfiConverterTypeFfiLinkSectionCreateAsk,
+    FfiConverterTypeFfiLinkSectionCreated,
+    FfiConverterTypeFfiLinkSectionEdited,
     FfiConverterTypeFfiLinkSectionExcluded,
+    FfiConverterTypeFfiLinkSectionExtension,
     FfiConverterTypeFfiLinkSectionHistory,
+    FfiConverterTypeFfiLinkSectionIdsAsk,
     FfiConverterTypeFfiLinkSectionLiftAsk,
     FfiConverterTypeFfiLinkSectionRenameAsk,
+    FfiConverterTypeFfiLinkSectionsAccepted,
+    FfiConverterTypeFfiLinkSettingSetAsk,
     FfiConverterTypeFfiLinkSettingValue,
     FfiConverterTypeFfiLinkSettingsAnswer,
     FfiConverterTypeFfiLinkSettingsAsk,
     FfiConverterTypeFfiLinkSparklinesAsk,
     FfiConverterTypeFfiLinkStreamsAsk,
     FfiConverterTypeFfiLinkStrengthAsk,
+    FfiConverterTypeFfiLinkStrengthGroup,
+    FfiConverterTypeFfiLinkStrengthGroups,
     FfiConverterTypeFfiLinkStrictness,
     FfiConverterTypeFfiLinkSummaryAsk,
+    FfiConverterTypeFfiLinkThresholdAsk,
     FfiConverterTypeFfiLinkWellnessAsk,
+    FfiConverterTypeFfiLinkWorkout,
+    FfiConverterTypeFfiLinkWorkoutAnswer,
+    FfiConverterTypeFfiLinkWorkoutAsk,
+    FfiConverterTypeFfiLinkWorkoutRenameAsk,
+    FfiConverterTypeFfiLinkWorkoutRow,
+    FfiConverterTypeFfiLinkWorkoutSaved,
     FfiConverterTypeFfiLinkWorkoutSections,
     FfiConverterTypeFfiLinkWorkoutSectionsAsk,
+    FfiConverterTypeFfiLinkWorkouts,
     FfiConverterTypeFfiLinkWriteDone,
     FfiConverterTypeFfiLinkZonesAsk,
     FfiConverterTypeFfiLinkedDevice,
+    FfiConverterTypeFfiLiveEdit,
+    FfiConverterTypeFfiLiveEditKind,
+    FfiConverterTypeFfiLiveStrengthExercise,
+    FfiConverterTypeFfiLiveStrengthGroup,
+    FfiConverterTypeFfiLiveStrengthOutcome,
+    FfiConverterTypeFfiLiveStrengthSession,
+    FfiConverterTypeFfiLiveStrengthSet,
     FfiConverterTypeFfiLoadDot,
     FfiConverterTypeFfiLoadMetric,
     FfiConverterTypeFfiMapCategoryCount,
@@ -50903,7 +55693,6 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionLap,
     FfiConverterTypeFfiSectionLapCurves,
     FfiConverterTypeFfiSectionLink,
-    FfiConverterTypeFfiSectionMatch,
     FfiConverterTypeFfiSectionPerformanceData,
     FfiConverterTypeFfiSectionPerformanceRecord,
     FfiConverterTypeFfiSectionPerformanceResult,
@@ -50935,9 +55724,14 @@ export default Object.freeze({
     FfiConverterTypeFfiStoredCurve,
     FfiConverterTypeFfiStrengthBalancePair,
     FfiConverterTypeFfiStrengthCardSummary,
+    FfiConverterTypeFfiStrengthFinish,
     FfiConverterTypeFfiStrengthInsightSeries,
     FfiConverterTypeFfiStrengthProgression,
+    FfiConverterTypeFfiStrengthSavedWorkout,
     FfiConverterTypeFfiStrengthScreenData,
+    FfiConverterTypeFfiStrengthStartData,
+    FfiConverterTypeFfiStrengthStartGroup,
+    FfiConverterTypeFfiStrengthStartKind,
     FfiConverterTypeFfiStrengthSummary,
     FfiConverterTypeFfiStubVerdict,
     FfiConverterTypeFfiSummaryCardData,
@@ -50964,8 +55758,10 @@ export default Object.freeze({
     FfiConverterTypeFfiUploadOutcome,
     FfiConverterTypeFfiUploadResult,
     FfiConverterTypeFfiUploadTransitionAnswer,
+    FfiConverterTypeFfiWeeklyHours,
     FfiConverterTypeFfiWeeklySummary,
     FfiConverterTypeFfiWeeklyTotal,
+    FfiConverterTypeFfiWeightUnit,
     FfiConverterTypeFfiWellnessDay,
     FfiConverterTypeFfiWellnessDays,
     FfiConverterTypeFfiWellnessRow,
@@ -50974,7 +55770,9 @@ export default Object.freeze({
     FfiConverterTypeFfiWidgetContext,
     FfiConverterTypeFfiWorkoutSection,
     FfiConverterTypeFfiYearCount,
+    FfiConverterTypeFfiZoneBounds,
     FfiConverterTypeFfiZoneDistribution,
+    FfiConverterTypeFfiZoneSource,
     FfiConverterTypeFitnessManager,
     FfiConverterTypeGarminAccount,
     FfiConverterTypeGarminKeyCheck,

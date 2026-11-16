@@ -117,7 +117,6 @@ const ROUTES_NAMES = [
   'TodayBanner',
   'toPerformanceRecord',
   'toPerformanceView',
-  'useActivityRematch',
   'useCustomSections',
   'useCutoverHeld',
   'useCutoverSummary',

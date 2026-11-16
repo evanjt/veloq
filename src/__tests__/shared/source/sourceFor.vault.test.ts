@@ -40,13 +40,16 @@ describe('sourceFor', () => {
     const demo = sourceFor({ authMethod: 'demo' })!;
     expect([oauth.id, oauth.can]).toEqual([
       'intervals',
-      { push: true, scoped: true, uploads: true },
+      { push: true, scoped: true, uploads: true, records: true },
     ]);
     expect([apiKey.id, apiKey.can]).toEqual([
       'intervals',
-      { push: false, scoped: false, uploads: true },
+      { push: false, scoped: false, uploads: true, records: true },
     ]);
-    expect([demo.id, demo.can]).toEqual(['demo', { push: false, scoped: false, uploads: false }]);
+    expect([demo.id, demo.can]).toEqual([
+      'demo',
+      { push: false, scoped: false, uploads: false, records: true },
+    ]);
   });
 
   it('links a real account to intervals.icu and a demo account nowhere', () => {

@@ -11,6 +11,8 @@ pub(crate) const BASE_STRING: u8 = 0x07;
 pub(crate) const BASE_SINT32: u8 = 0x85;
 pub(crate) const BASE_UINT16: u8 = 0x84;
 pub(crate) const BASE_UINT32: u8 = 0x86;
+#[cfg(test)]
+pub(crate) const BASE_UINT32Z: u8 = 0x8C;
 
 pub(crate) const INVALID_UINT8: u8 = 0xFF;
 pub(crate) const INVALID_UINT16: u16 = 0xFFFF;

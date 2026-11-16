@@ -25,6 +25,8 @@ struct TestGate {
     answered: AtomicUsize,
     /// The stamp `changed` reports.
     stamp: AtomicU64,
+    /// Binary messages the peer passed on, with the fingerprint each came from.
+    frames: Mutex<Vec<(String, Vec<u8>)>>,
 }
 
 impl TestGate {
@@ -36,6 +38,7 @@ impl TestGate {
             disconnected: AtomicUsize::new(0),
             answered: AtomicUsize::new(0),
             stamp: AtomicU64::new(1),
+            frames: Mutex::new(Vec::new()),
         })
     }
 }
@@ -64,6 +67,12 @@ impl Gate for TestGate {
     }
     fn changed(&self) -> Option<u64> {
         Some(self.stamp.load(Ordering::SeqCst))
+    }
+    fn frame(&self, presented: &str, bytes: &[u8]) {
+        self.frames
+            .lock()
+            .unwrap()
+            .push((presented.to_owned(), bytes.to_vec()));
     }
 }
 
@@ -127,6 +136,8 @@ struct Browser {
     fingerprint: String,
     /// Replies that arrived as text messages, in the order they arrived.
     texts: Vec<String>,
+    /// Binary messages sent once the channel opens, before any ask.
+    uploads: Vec<Vec<u8>>,
 }
 
 impl Browser {
@@ -151,6 +162,7 @@ impl Browser {
                 pending: Some(pending),
                 fingerprint,
                 texts: Vec::new(),
+                uploads: Vec::new(),
             },
             offer,
         )
@@ -201,6 +213,9 @@ impl Browser {
                 Output::Event(Event::ChannelOpen(id, _)) => {
                     opened = true;
                     open_at = Some((id, Instant::now()));
+                    for upload in &self.uploads {
+                        self.rtc.channel(id).unwrap().write(true, upload).unwrap();
+                    }
                     for ask in asks {
                         self.rtc
                             .channel(id)
@@ -267,6 +282,35 @@ impl Browser {
 
 fn loopback() -> IpAddr {
     "127.0.0.1".parse().unwrap()
+}
+
+/// Scenario: a pinned browser sends two binary messages and then a text ask.
+/// Expected behaviour: the gate is handed both messages whole, in order, under
+/// the browser's fingerprint, and the text ask is answered as before.
+#[test]
+fn binary_data_from_a_pinned_browser_reaches_the_gate_whole_and_in_order() {
+    let (mut browser, offer) = Browser::new();
+    let gate = TestGate::pinning(Some(&browser.fingerprint));
+    let (answer, peer) =
+        accept(&offer, certificate(), loopback(), gate.clone(), None).expect("accepted");
+    browser.take_answer(&answer);
+    let first = vec![1u8; 16 * 1024 + 10];
+    let second = vec![2u8; 700];
+    browser.uploads = vec![first.clone(), second.clone()];
+
+    let (opened, replies) = browser.run(ASK, Duration::from_secs(10));
+
+    assert!(opened);
+    assert_eq!(joined(&replies)[&0], format!("answered {ASK}"));
+    let held = gate.frames.lock().unwrap().clone();
+    assert_eq!(
+        held,
+        vec![
+            (browser.fingerprint.clone(), first),
+            (browser.fingerprint.clone(), second)
+        ]
+    );
+    peer.stop(DisconnectReason::Disconnected);
 }
 
 #[test]
@@ -497,6 +541,7 @@ fn a_device_removed_while_it_connects_gets_no_byte() {
         disconnected: AtomicUsize::new(0),
         answered: AtomicUsize::new(0),
         stamp: AtomicU64::new(1),
+        frames: Mutex::new(Vec::new()),
     });
     let (answer, peer) =
         accept(&offer, certificate(), loopback(), gate.clone(), None).expect("accepted");

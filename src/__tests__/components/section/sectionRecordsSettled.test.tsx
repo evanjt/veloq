@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Circle } from '@shopify/react-native-skia';
 
@@ -66,7 +66,7 @@ function trophies(tree: Awaited<ReturnType<typeof render>>) {
 }
 
 function renderCalendar(recordsSettled: boolean) {
-  return render(
+  const screen = render(
     <SectionStatsCards
       calendarSummary={summary}
       isDark={false}
@@ -74,6 +74,8 @@ function renderCalendar(recordsSettled: boolean) {
       recordsSettled={recordsSettled}
     />
   );
+  fireEvent.press(screen.getByLabelText('Year 2026'));
+  return screen;
 }
 
 describe('the calendar card while time streams are outstanding', () => {

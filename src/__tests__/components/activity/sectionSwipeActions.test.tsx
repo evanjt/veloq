@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, StyleSheet } from 'react-native';
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { SectionEncounter } from 'veloqrs';
 
@@ -60,10 +60,6 @@ async function plotProps(sectionId: string, sectionType: string, removeSection: 
       onHighlightedSectionIdChange={jest.fn()}
       onSectionCreationModeChange={jest.fn()}
       removeSection={removeSection}
-      scanMatches={[]}
-      hasScanned={false}
-      onScan={jest.fn()}
-      onRematch={jest.fn()}
     />
   );
 
@@ -147,45 +143,6 @@ describe('activity section swipe actions', () => {
       if (kind === 'remove') expect(mockDisableSection).toHaveBeenCalledWith('s1');
     }
   );
-
-  it('exposes the scan action and blocks a second press while scanning', async () => {
-    let finishScan: (() => void) | undefined;
-    const onScan = jest.fn(
-      () =>
-        new Promise<void>((resolve) => {
-          finishScan = resolve;
-        })
-    );
-    const screen = await render(
-      <ActivitySectionsSection
-        activityId="a1"
-        sportType="Ride"
-        encounters={[]}
-        coordinates={[]}
-        isDark={false}
-        isMetric
-        sectionCreationMode={false}
-        cacheDays={30}
-        highlightedSectionId={null}
-        onHighlightedSectionIdChange={jest.fn()}
-        onSectionCreationModeChange={jest.fn()}
-        removeSection={jest.fn()}
-        scanMatches={[]}
-        hasScanned={false}
-        onScan={onScan}
-        onRematch={jest.fn()}
-      />
-    );
-
-    const scanButton = () => screen.getByRole('button', { name: 'sections.scanForMatches' });
-    await fireEvent.press(scanButton());
-    await waitFor(() => expect(onScan).toHaveBeenCalledTimes(1));
-    expect(scanButton().props.accessibilityState).toMatchObject({ busy: true });
-    await fireEvent.press(scanButton());
-    expect(onScan).toHaveBeenCalledTimes(1);
-    await act(async () => finishScan?.());
-    expect(scanButton().props.accessibilityState).toMatchObject({ busy: false });
-  });
 
   it('deletes a custom section after confirmation even with a nonstandard id', async () => {
     const removeSection = jest.fn().mockResolvedValue(undefined);

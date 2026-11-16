@@ -88,10 +88,9 @@ jest.mock('react-native-cloud-storage', () => ({
       return { size: bytes.length, isFile: () => true, isDirectory: () => false };
     },
     uploadFile: async (remote: string, local: string, options: { mimeType: string }) => {
-      expect(options.mimeType).toBe('application/zip');
+      expect(['application/zip', 'application/octet-stream']).toContain(options.mimeType);
       const bytes = mockFiles.get(`file://${local}`);
       if (!bytes) throw mockCloudError(`missing ${local}`, 'ERR_FILE_NOT_FOUND');
-      if (mockCloud.files.has(remote)) throw mockCloudError(remote, 'ERR_FILE_EXISTS');
       mockCloud.dirs.add(mockParent(remote));
       mockCloud.files.set(remote, mockCloud.truncates ? bytes.slice(0, bytes.length - 2) : bytes);
       mockCloud.onDevice.add(remote);
@@ -308,6 +307,52 @@ describe('on iPhone', () => {
     await icloudBackend.download(name, 'file:///cache/restore.zip');
     expect(mockCloud.calls).toContain(`triggerSync /Veloq/${name}`);
     expect(mockFiles.get('file:///cache/restore.zip')).toEqual(MOCK_ZIP_BYTES);
+  });
+
+  describe('sealed pack objects beside the record', () => {
+    const PACK_BYTES = new Uint8Array([9, 8, 7, 6, 5]);
+    const PACK = 'veloq-pack-abcd-2024-05.sealed';
+
+    beforeEach(() => {
+      mockFiles.set('file:///cache/pack', PACK_BYTES);
+    });
+
+    it('puts an object by name, lists it by prefix with its size and fetches the same bytes', async () => {
+      await icloudBackend.putObject(PACK, 'file:///cache/pack');
+
+      expect(mockCloud.files.get(`/Veloq/${PACK}`)).toEqual(PACK_BYTES);
+      await expect(icloudBackend.listObjects('veloq-pack-abcd-')).resolves.toEqual([
+        { name: PACK, sizeBytes: PACK_BYTES.length },
+      ]);
+      await expect(icloudBackend.listObjects('veloq-pack-zzzz-')).resolves.toEqual([]);
+      await icloudBackend.fetchObject(PACK, 'file:///cache/out');
+      expect(mockFiles.get('file:///cache/out')).toEqual(PACK_BYTES);
+    });
+
+    it('leaves the record listing without the object, and the record without the pack', async () => {
+      await performBackup(true);
+      await icloudBackend.putObject(PACK, 'file:///cache/pack');
+
+      const listed = await icloudBackend.listBackups();
+      expect(listed).toHaveLength(1);
+      expect(listed[0].id).toMatch(BACKUP_NAME);
+      await expect(icloudBackend.listObjects('veloq-pack-')).resolves.toEqual([
+        { name: PACK, sizeBytes: PACK_BYTES.length },
+      ]);
+    });
+
+    it('replaces an object of the same name with the new bytes', async () => {
+      await icloudBackend.putObject(PACK, 'file:///cache/pack');
+      mockFiles.set('file:///cache/pack', new Uint8Array([1, 2]));
+      await icloudBackend.putObject(PACK, 'file:///cache/pack');
+
+      expect(containerFiles()).toEqual([`/Veloq/${PACK}`]);
+      expect(mockCloud.files.get(`/Veloq/${PACK}`)).toEqual(new Uint8Array([1, 2]));
+    });
+
+    it('lists nothing from a container with no folder yet', async () => {
+      await expect(icloudBackend.listObjects('veloq-pack-')).resolves.toEqual([]);
+    });
   });
 
   it('lists nothing from a container no run has written to', async () => {

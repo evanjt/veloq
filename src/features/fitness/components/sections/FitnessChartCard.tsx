@@ -22,6 +22,8 @@ interface FitnessChartCardProps {
   wellnessCoverage: RangeCoverage;
   /** Every activity of the longest span, oldest first. */
   loadDots: DayActivity[];
+  /** The imported rides the server's figures leave out of fitness and the curves. */
+  uncountedImports?: number;
   dailyLoads: DayLoad[];
   /** The activities that moved the accepted eFTP, marked on the fitness plot. */
   eftpChanges: EftpChange[];
@@ -43,6 +45,7 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
   wellness,
   wellnessCoverage,
   loadDots,
+  uncountedImports = 0,
   dailyLoads,
   eftpChanges,
   selectedDate,
@@ -85,6 +88,11 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
         {fromGarmin ? (
           <Text testID="fitness-provenance" style={provenanceStyle}>
             {t('fitnessScreen.provenanceGarmin')}
+          </Text>
+        ) : null}
+        {uncountedImports > 0 ? (
+          <Text testID="fitness-imports-uncounted" style={provenanceStyle}>
+            {t('fitnessScreen.importsNotCounted', { count: uncountedImports })}
           </Text>
         ) : null}
         <FitnessChart

@@ -209,10 +209,6 @@ it('the sections scrub fires one light impact when it lands on a row', async () 
       onHighlightedSectionIdChange={onHighlight}
       onSectionCreationModeChange={jest.fn()}
       removeSection={jest.fn()}
-      scanMatches={[]}
-      hasScanned={false}
-      onScan={jest.fn()}
-      onRematch={jest.fn()}
     />
   );
   const row = mockSectionInlinePlot.mock.calls[0]?.[0] as {

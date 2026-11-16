@@ -4,8 +4,8 @@
 //! invented and the positions sit on an arbitrary meridian line.
 
 use crate::fit_write::{
-    BASE_ENUM, BASE_SINT32, BASE_UINT8, BASE_UINT16, BASE_UINT32, FIT_EPOCH_UNIX, INVALID_SINT32,
-    INVALID_UINT8, INVALID_UINT16, INVALID_UINT32, definition, wrap,
+    BASE_ENUM, BASE_SINT32, BASE_UINT8, BASE_UINT16, BASE_UINT32, BASE_UINT32Z, FIT_EPOCH_UNIX,
+    INVALID_SINT32, INVALID_UINT8, INVALID_UINT16, INVALID_UINT32, definition, wrap,
 };
 
 /// One `record` message. A field left `None` is written as the FIT invalid
@@ -74,6 +74,11 @@ pub(crate) struct Activity {
     /// The recording device as a `file_id` message holds it, the profile's
     /// manufacturer and product numbers. `None` writes no `file_id`.
     pub device: Option<(u16, u16)>,
+    /// The recording device's serial number and the time the file was created,
+    /// in Unix seconds, as the `file_id` message holds them. `None` writes
+    /// neither.
+    pub serial: Option<u32>,
+    pub time_created: Option<i64>,
     /// Further session messages written after the first, which is how a
     /// multisport recording holds its later legs.
     pub legs: Vec<Leg>,
@@ -119,19 +124,27 @@ impl Activity {
     }
 
     fn write_file_id(&self, out: &mut Vec<u8>) {
-        let Some((manufacturer, product)) = self.device else {
+        if self.device.is_none() && self.serial.is_none() && self.time_created.is_none() {
             return;
-        };
-        definition(
-            out,
-            3,
-            0,
-            &[(0, 1, BASE_ENUM), (1, 2, BASE_UINT16), (2, 2, BASE_UINT16)],
-        );
+        }
+        let mut fields = vec![(0, 1, BASE_ENUM)];
+        let mut values = vec![4u8];
+        if let Some((manufacturer, product)) = self.device {
+            fields.extend([(1, 2, BASE_UINT16), (2, 2, BASE_UINT16)]);
+            values.extend_from_slice(&manufacturer.to_le_bytes());
+            values.extend_from_slice(&product.to_le_bytes());
+        }
+        if let Some(serial) = self.serial {
+            fields.push((3, 4, BASE_UINT32Z));
+            values.extend_from_slice(&serial.to_le_bytes());
+        }
+        if let Some(created) = self.time_created {
+            fields.push((4, 4, BASE_UINT32));
+            values.extend_from_slice(&((created - FIT_EPOCH_UNIX) as u32).to_le_bytes());
+        }
+        definition(out, 3, 0, &fields);
         out.push(3);
-        out.push(4);
-        out.extend_from_slice(&manufacturer.to_le_bytes());
-        out.extend_from_slice(&product.to_le_bytes());
+        out.extend(values);
     }
 
     fn write_thresholds(&self, out: &mut Vec<u8>) {
@@ -374,6 +387,8 @@ pub(crate) fn outdoor_ride() -> Activity {
         sub_sport: SUB_SPORT_GENERIC,
         samples,
         device: None,
+        serial: None,
+        time_created: None,
         legs: Vec::new(),
         thresholds: None,
         laps: Vec::new(),

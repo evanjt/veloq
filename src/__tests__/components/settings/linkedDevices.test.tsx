@@ -186,6 +186,41 @@ describe('linked devices', () => {
   });
 });
 
+describe('an invitation carried by the opening link', () => {
+  it('begins pairing once, and a re-render does not read it again', async () => {
+    const tree = await render(<LinkedDevices inviteCode={GOOD_CODE} />);
+    expect(mockRemote.beginPairing).toHaveBeenCalledTimes(1);
+    expect(mockRemote.beginPairing).toHaveBeenCalledWith(GOOD_CODE);
+    expect(mockLink.join).toHaveBeenCalledWith(ROOM);
+    expect(tree.getByTestId('remote-link-waiting')).toBeTruthy();
+
+    await tree.rerender(<LinkedDevices inviteCode={GOOD_CODE} />);
+    expect(mockRemote.beginPairing).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks the athlete before pinning the browser', async () => {
+    mockRemote.pairingRequest.mockReturnValue('Firefox on Linux');
+    await render(<LinkedDevices inviteCode={GOOD_CODE} />);
+    await act(async () => jest.advanceTimersByTime(600));
+    expect(mockConfirmAction).toHaveBeenCalledTimes(1);
+    expect(mockRemote.confirmPairing).not.toHaveBeenCalled();
+  });
+
+  it('reads nothing without a code', async () => {
+    await render(<LinkedDevices />);
+    await render(<LinkedDevices inviteCode="" />);
+    expect(mockRemote.beginPairing).not.toHaveBeenCalled();
+  });
+
+  it('leaves the screen idle for a code the engine refuses', async () => {
+    const tree = await render(<LinkedDevices inviteCode="not an invitation" />);
+    expect(mockRemote.beginPairing).toHaveBeenCalledTimes(1);
+    expect(mockLink.join).not.toHaveBeenCalled();
+    expect(tree.queryByTestId('remote-link-waiting')).toBeNull();
+    expect(tree.getByTestId('remote-link-link')).toBeTruthy();
+  });
+});
+
 describe('recent changes', () => {
   beforeEach(() => {
     mockRemote.listLinkedDevices.mockReturnValue([LAPTOP, TABLET]);

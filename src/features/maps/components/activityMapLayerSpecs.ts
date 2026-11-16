@@ -10,7 +10,7 @@
  * native renderer could not be trusted with a boolean filter. GL JS filters
  * work, so numbered and PR markers now come out of one source split by filter.
  */
-import type { MapPalette } from '@/theme';
+import { colourIndexExpression, type MapPalette } from '@/theme';
 import type {
   MapGeoJSONData,
   MapImageSpec,
@@ -151,11 +151,17 @@ export function activityMapSpecs(input: {
 }
 
 /**
- * A section portion's colour: the record colour for a personal record, else the
- * subject line's own colour. Its number badge is what tells sections apart.
+ * A section's colour is its own, the slot its `colorIndex` names, for a record
+ * portion as much as any other; the number is the second cue. A record is marked
+ * by its trophy, not by a different line colour.
  */
-function sectionPortionColour(palette: MapPalette): unknown[] {
-  return ['case', ['==', ['get', 'isPR'], true], palette.record, palette.route];
+function sectionHue(palette: MapPalette): unknown {
+  return colourIndexExpression(palette.layer.sections, ['get', 'colorIndex']);
+}
+
+/** The ink of a section badge's number, the slot's own so it clears the hue. */
+function sectionBadgeInk(palette: MapPalette): unknown {
+  return colourIndexExpression(palette.layer.sectionInk, ['get', 'colorIndex']);
 }
 
 export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
@@ -181,7 +187,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
   // drawn in the muted colour at full opacity, which holds its contrast on
   // every base where a fainter subject colour would not.
   const routeColour = highlighted ? palette.muted : palette.route;
-  const portionColor = sectionPortionColour(palette);
+  const portionColor = sectionHue(palette);
 
   return [
     ...overlayLayers('', overlayHasData, palette, scale),
@@ -228,7 +234,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       source: 'portions',
       layout: roundLine,
       paint: {
-        'line-color': palette.casing,
+        'line-color': palette.edge,
         'line-width': highlighted ? ['case', isHighlightedSection, size(7), size(5)] : size(6),
         // A portion outside the highlight is context, which carries no casing.
         'line-opacity': hasSectionOverlays
@@ -299,7 +305,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       type: 'circle',
       source: 'section-markers',
       filter: ['!=', ['get', 'isPR'], true],
-      paint: { 'circle-radius': size(14), 'circle-color': palette.casing },
+      paint: { 'circle-radius': size(14), 'circle-color': palette.edge },
     },
     {
       id: 'section-marker-circle',
@@ -308,9 +314,9 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
       filter: ['!=', ['get', 'isPR'], true],
       paint: {
         'circle-radius': size(12),
-        'circle-color': palette.route,
+        'circle-color': sectionHue(palette),
         'circle-stroke-width': size(2),
-        'circle-stroke-color': palette.casing,
+        'circle-stroke-color': palette.edge,
       },
     },
     {
@@ -326,7 +332,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
         'text-allow-overlap': true,
         'text-ignore-placement': true,
       },
-      paint: { 'text-color': palette.badgeInk },
+      paint: { 'text-color': sectionBadgeInk(palette) },
     },
     {
       id: 'section-marker-pr-icon',
@@ -426,7 +432,7 @@ export function buildFullscreenSectionLayers(
       source: 'portions',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': palette.casing,
+        'line-color': palette.edge,
         'line-width': 6,
         'line-opacity': hasSectionOverlays ? 1 : 0,
       },
@@ -437,7 +443,7 @@ export function buildFullscreenSectionLayers(
       source: 'portions',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': sectionPortionColour(palette),
+        'line-color': sectionHue(palette),
         'line-width': 4,
         'line-opacity': hasSectionOverlays ? 1 : 0,
       },

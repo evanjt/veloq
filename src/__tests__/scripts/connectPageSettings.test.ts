@@ -10,6 +10,7 @@
  */
 
 import {
+  DISPLAY_NOTE,
   ON_THE_PHONE,
   PANE_NOTE,
   SETTINGS_GROUPS,
@@ -25,9 +26,18 @@ describe('settings pane', () => {
     expect(pane('display-settings')).toEqual({
       kind: 'readable',
       title: 'connectPage.settings.rows.display',
-      note: PANE_NOTE,
+      note: DISPLAY_NOTE,
     });
   });
+
+  vaultIt(
+    'opens a pane that writes everything it shows with no note, and a read-only one with the note',
+    () => {
+      expect(pane('thresholds-settings')).toMatchObject({ kind: 'readable', note: null });
+      expect(pane('detection-settings')).toMatchObject({ kind: 'readable', note: null });
+      expect(pane('map-settings')).toMatchObject({ kind: 'readable', note: PANE_NOTE });
+    }
+  );
 
   vaultIt('answers a screen the phone keeps to itself with the reason and no controls', () => {
     const result = pane('sensor-settings');
@@ -73,28 +83,28 @@ describe('settings pane controls', () => {
     refused: [],
   });
 
-  vaultIt('draws a readable pane from the read as disabled controls with the value shown', () => {
+  vaultIt('draws a readable pane from the read as controls with the value shown', () => {
     const controls = paneControls(
       'display-settings',
       read({ 'veloq-theme-preference': 'dark', 'veloq-wellness-smoothing': null })
     );
 
     const theme = controls.find((control) => control.key === 'veloq-theme-preference');
-    expect(theme).toMatchObject({ kind: 'choice', value: 'dark', disabled: true });
+    expect(theme).toMatchObject({ kind: 'choice', value: 'dark' });
     expect(theme?.kind === 'choice' && theme.options.map((option) => option.value)).toEqual([
       'system',
       'light',
       'dark',
     ]);
     expect(controls.length).toBeGreaterThan(0);
-    expect(controls.every((control) => control.disabled)).toBe(true);
+    const smoothing = controls.find((control) => control.key === 'veloq-wellness-smoothing');
+    expect(smoothing?.kind).toBe('text');
   });
 
   vaultIt('shows a setting the phone has not set as unset, not as a made-up value', () => {
     const [control] = paneControls('map-settings', read({ 'veloq-map-preferences': null }));
 
     expect(control.value).toBeNull();
-    expect(control.disabled).toBe(true);
   });
 
   vaultIt('has no controls for a screen the page does not draw from settings', () => {

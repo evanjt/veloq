@@ -23,9 +23,6 @@ jest.mock('react-native-iap', () => ({
 jest.mock('@/features/routes/components/section/SectionPerformanceSection', () => ({
   SectionPerformanceSection: () => null,
 }));
-jest.mock('@/features/routes/components/section/SectionInfoCard', () => ({
-  SectionInfoCard: () => null,
-}));
 jest.mock('@/features/routes/components/section/SectionEfficiencyCard', () => ({
   SectionEfficiencyCard: () => null,
 }));

@@ -39,7 +39,6 @@ import { noHeroHeaderOptions, overMapHeaderOptions } from '@/shared/app/screenHe
 import { waitEnded } from '@/shared/native/engineBodies';
 import { toActivityType } from '@/types';
 import {
-  useActivityRematch,
   useCustomSections,
   useRouteMatch,
   useRouteSettings,
@@ -202,18 +201,6 @@ export function ActivityDetailCard({
     [detail]
   );
   const { count: engineSectionCount } = useSectionMatches(id, preComputedMatches);
-
-  const {
-    matches: scanMatches,
-    hasScanned,
-    scan: scanForSections,
-    rematch: rematchSection,
-  } = useActivityRematch();
-  const handleScan = useCallback(() => scanForSections(id), [scanForSections, id]);
-  const handleRematch = useCallback(
-    (sectionId: string) => rematchSection(id, sectionId),
-    [rematchSection, id]
-  );
 
   // The engine returns encounters ordered by where each starts along this
   // activity's track, so the numbered rows follow it from start to finish.
@@ -544,10 +531,6 @@ export function ActivityDetailCard({
             onHighlightedSectionIdChange={setHighlightedSectionId}
             onSectionCreationModeChange={handleSectionCreationModeChange}
             removeSection={removeSection}
-            scanMatches={scanMatches}
-            hasScanned={hasScanned}
-            onScan={handleScan}
-            onRematch={handleRematch}
             focusSectionId={focusSectionId}
             onFocusHandled={handleSectionFocusHandled}
           />

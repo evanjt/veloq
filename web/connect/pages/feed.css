@@ -1,0 +1,247 @@
+#library {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--space-lg);
+  row-gap: var(--space-md);
+  align-items: start;
+}
+
+#library > #summary,
+#library > #filters,
+#library > .notice {
+  grid-column: 1 / -1;
+}
+
+#library > #list-pane {
+  grid-column: 1 / span 8;
+}
+
+#library > #detail-pane {
+  grid-column: 9 / -1;
+  position: sticky;
+  top: 0;
+}
+
+#feed-scroll {
+  min-width: 0;
+}
+
+.feed-table .ui-table td {
+  vertical-align: middle;
+}
+
+.feed-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.feed-title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.feed-title .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.feed-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.feed-table .thumb {
+  flex: none;
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  color: var(--sport-other);
+}
+
+.feed-table .thumb[data-sport='ride'],
+.feed-table .sport-glyph[data-sport='ride'] {
+  color: var(--sport-ride);
+}
+
+.feed-table .thumb[data-sport='run'],
+.feed-table .sport-glyph[data-sport='run'] {
+  color: var(--sport-run);
+}
+
+.feed-table .thumb[data-sport='swim'],
+.feed-table .sport-glyph[data-sport='swim'] {
+  color: var(--sport-swim);
+}
+
+.feed-table .thumb[data-sport='walk'],
+.feed-table .sport-glyph[data-sport='walk'] {
+  color: var(--sport-walk);
+}
+
+.feed-table .thumb-sport {
+  align-items: center;
+  justify-content: center;
+  border: var(--stroke-1) solid currentcolor;
+  border-radius: var(--web-radius-md);
+  font-weight: 600;
+}
+
+.feed-table .thumb-line {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.feed-table .thumb-start,
+.feed-table .thumb-end {
+  fill: var(--card);
+  stroke: currentcolor;
+  stroke-width: 1.5;
+}
+
+.feed-table .thumb-end {
+  fill: currentcolor;
+}
+
+#sort-note {
+  color: var(--text-muted);
+  font-size: var(--web-type-body-size);
+}
+
+#summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-lg);
+}
+
+#summary .tile-label,
+#summary .tile-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--web-type-caption-size);
+}
+
+#summary .tile-value {
+  margin: var(--space-xs) 0;
+  font-size: var(--web-type-display-size);
+  font-weight: var(--web-type-display-weight);
+}
+
+#summary-spark {
+  width: 100%;
+  height: 32px;
+  color: var(--primary);
+}
+
+#filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+#filters .ui-search {
+  margin-left: auto;
+}
+
+#feed-more {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-md) 0;
+}
+
+.open-activity {
+  display: inline-block;
+  margin-top: var(--space-md);
+}
+
+#compare-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#compare-table td:first-child {
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
+#compare-table td[data-best='true'] {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+#compare-table th.compare-line-0 {
+  border-bottom: var(--stroke-3) solid var(--line-0);
+}
+
+#compare-table th.compare-line-1 {
+  border-bottom: var(--stroke-3) solid var(--line-1);
+}
+
+#compare-table th.compare-line-2 {
+  border-bottom: var(--stroke-3) solid var(--line-2);
+}
+
+#compare-table th.compare-line-3 {
+  border-bottom: var(--stroke-3) solid var(--line-3);
+}
+
+#list-pane,
+#detail-pane {
+  min-width: 0;
+}
+
+#detail-pane {
+  overflow-x: auto;
+}
+
+/* clip, not auto: auto would make this pane the scroll container the table's sticky
+   header binds to, and it never scrolls vertically. */
+#list-pane {
+  overflow-x: clip;
+}
+
+@media (min-width: 1600px) {
+  #library > #list-pane {
+    grid-column: 1 / span 9;
+  }
+
+  #library > #detail-pane {
+    grid-column: 10 / -1;
+  }
+}
+
+#detail {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-sm) var(--space-md);
+  margin: 0;
+}
+
+#detail dt {
+  color: var(--text-muted);
+}
+
+#detail dd {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  #library > #list-pane,
+  #library > #detail-pane {
+    grid-column: 1 / -1;
+    position: static;
+  }
+
+  #summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -16,7 +16,6 @@ import { darkColors, layout } from '@/theme';
 import { SectionCorrelationCard } from '@/features/routes/components/section/SectionCorrelationCard';
 import { SectionEfficiencyCard } from '@/features/routes/components/section/SectionEfficiencyCard';
 import { SectionHistoryPanel } from '@/features/routes/components/section/SectionHistoryPanel';
-import { SectionInfoCard } from '@/features/routes/components/section/SectionInfoCard';
 import { SectionLapList } from '@/features/routes/components/section/SectionLapList';
 import { SectionStatsCards } from '@/features/routes/components/section/SectionStatsCards';
 
@@ -120,23 +119,6 @@ const lapRecord = {
 describe('the containers below the section chart', () => {
   beforeAll(async () => {
     await initialiseI18n('en-AU');
-  });
-
-  it('draws the summary card as the flat dark card', async () => {
-    expectFlatDarkCard(
-      await outermost(
-        <SectionInfoCard
-          firstActivityDate={new Date(2026, 0, 1)}
-          lastActivityDate={new Date(2026, 2, 1)}
-          bestForwardRecord={{ bestTime: 550, bestPace: 3, sectionDistance: 2000 } as never}
-          forwardStats={{ avgTime: 600, count: 10 } as never}
-          bestReverseRecord={null}
-          reverseStats={null}
-          basis="pace"
-          isDark
-        />
-      )
-    );
   });
 
   it('draws the efficiency card as the flat dark card, borderless', async () => {

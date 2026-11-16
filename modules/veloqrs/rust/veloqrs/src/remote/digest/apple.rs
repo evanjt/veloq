@@ -73,3 +73,36 @@ pub(super) fn hmac_sha256(key: &[u8], parts: &[&[u8]]) -> [u8; 32] {
     }
     mac
 }
+
+pub(super) struct Stream(Sha256Context);
+
+impl Stream {
+    pub(super) fn new() -> Self {
+        let mut context = Sha256Context([0; SHA256_CTX_WORDS]);
+        // SAFETY: `context` is a zeroed `CC_SHA256_CTX`-sized buffer, which
+        // Init sets up before any Update.
+        unsafe {
+            CC_SHA256_Init(&mut context);
+        }
+        Self(context)
+    }
+
+    pub(super) fn update(&mut self, bytes: &[u8]) {
+        for piece in bytes.chunks(LONGEST_UPDATE) {
+            // SAFETY: the context was set up by Init, and Update reads only
+            // the slice it is given.
+            unsafe {
+                CC_SHA256_Update(&mut self.0, piece.as_ptr().cast(), piece.len() as u32);
+            }
+        }
+    }
+
+    pub(super) fn finish(mut self) -> [u8; 32] {
+        let mut digest = [0u8; 32];
+        // SAFETY: Final writes the 32-byte digest into `digest`.
+        unsafe {
+            CC_SHA256_Final(digest.as_mut_ptr(), &mut self.0);
+        }
+        digest
+    }
+}

@@ -482,8 +482,6 @@
     "control-boundary": "the edge of an unchecked control, read when switchTrackOff and inputBoundary fold into it",
     "achievement-bg": "the record tint, read when the record chips fold into it",
     "achievement-on-bg": "the ink on the record tint, read with achievement-bg",
-    "section-badge": "the section number disc in lists, read when sectionPalette folds into it",
-    "section-badge-ink": "the ink on section-badge, read with it",
     "record": "the record button and Live Activity red, read when recording folds into it",
     "chart-crosshair": "the chart scrub line, read by useChartColors",
     "chart-grid": "the dotted gridline, read by useChartColors",

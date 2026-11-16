@@ -111,7 +111,7 @@ function sectionContextLayers({ omitId, palette, terrain }: ContextLineInput): M
       source: CONTEXT_SECTIONS_SOURCE_ID,
       layout: { 'line-cap': 'butt', 'line-join': 'round' },
       paint: {
-        'line-color': ['get', 'color'],
+        'line-color': colourIndexExpression(palette.layer.sections, ['get', 'colorIndex']),
         'line-width': lineWidthRamp(SECTION_LINE_WIDTHS, 0, scale),
         'line-dasharray': [...SECTION_LINE_DASH],
         'line-opacity': 0.95,

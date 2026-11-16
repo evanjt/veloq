@@ -13,7 +13,6 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { useDiscardGuard } from '@/shared/app/useDiscardGuard';
 import { ManualEntryForm } from '@/features/recording/components/ManualEntryForm';
-import { StrengthSession } from '@/features/recording/components/StrengthFollow';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { StackActions } from 'expo-router/react-navigation';
 import { stackRouteNames, testStack } from '../__shared__/testStack';
@@ -25,16 +24,6 @@ jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn(), goBack: jes
 jest.mock('@/features/recording/hooks/useRecordingKeepAwake', () => ({
   useRecordingKeepAwake: () => undefined,
 }));
-jest.mock('@/features/recording/lib/plannedWorkout', () => ({
-  readPlannedWorkout: () => ({
-    name: 'Kettlebell circuit',
-    lines: [
-      { kind: 'work', text: 'Swings x20', durationSeconds: null },
-      { kind: 'work', text: 'Goblet squats x12', durationSeconds: null },
-    ],
-  }),
-}));
-
 let alertSpy: jest.SpyInstance;
 
 beforeEach(() => {
@@ -268,38 +257,5 @@ describe('the manual entry form', () => {
 
     expect(routeName(ref)).toBe('form');
     expect(alertSpy).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('the guided strength session', () => {
-  function Session() {
-    return <StrengthSession activityType="WeightTraining" pairedEventId={41} />;
-  }
-
-  it('asks before back ends a session under way, and keeps its progress on Keep editing', async () => {
-    const { view, ref } = await mountAndOpen(Session);
-    await fireEvent.press(view.getByTestId('strength-tick'));
-    expect(view.getByTestId('strength-current-line')).toHaveTextContent('Goblet squats x12');
-
-    await act(() => ref.current?.goBack());
-
-    expect(routeName(ref)).toBe('form');
-    expect(alertSpy).toHaveBeenCalledTimes(1);
-    await press('common.keepEditing');
-    expect(view.getByTestId('strength-current-line')).toHaveTextContent('Goblet squats x12');
-  });
-
-  it('asks before back drops a finished session that is not yet saved', async () => {
-    const { view, ref } = await mountAndOpen(Session);
-    await fireEvent.press(view.getByTestId('strength-tick'));
-    await fireEvent.press(view.getByTestId('strength-tick'));
-    expect(view.getByTestId('manual-entry-continue')).toBeTruthy();
-
-    await act(() => ref.current?.goBack());
-
-    expect(routeName(ref)).toBe('form');
-    expect(alertSpy).toHaveBeenCalledTimes(1);
-    await press('common.discard');
-    expect(routeName(ref)).toBe('root');
   });
 });

@@ -1009,8 +1009,9 @@ if (require.main === module) {
   let versionCode: number | undefined;
 
   const versionCodeIdx = args.indexOf('--version-code');
-  if (versionCodeIdx !== -1 && args[versionCodeIdx + 1]) {
-    versionCode = parseInt(args[versionCodeIdx + 1], 10);
+  const versionCodeArg = args[versionCodeIdx + 1];
+  if (versionCodeIdx !== -1 && versionCodeArg) {
+    versionCode = parseInt(versionCodeArg, 10);
   }
   const requireScreenshots = args.includes('--require-screenshots');
 

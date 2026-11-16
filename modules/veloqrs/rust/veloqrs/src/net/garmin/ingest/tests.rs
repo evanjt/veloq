@@ -1,7 +1,9 @@
 use super::*;
 use crate::fit_synthetic::{indoor_ride, outdoor_ride};
 use crate::persistence::origin::{ActivityOrigin, origin_of};
+use crate::persistence::originals::{original_of, originals_bytes};
 use serde_json::json;
+use std::path::PathBuf;
 use tempfile::TempDir;
 
 const GARMIN_ID: i64 = 18_342_901_776;
@@ -51,14 +53,14 @@ fn an_outdoor_original_becomes_a_complete_activity() {
     let (dir, mut engine) = engine();
     let fit = outdoor_ride().to_fit();
     let key = garmin_source_key(GARMIN_ID);
-    let path = kept_at(&dir, &key);
 
-    let ingested = ingest_into(&mut engine, Some(&path), &listed(GARMIN_ID), &fit).expect("stored");
+    let ingested = ingest_into(&mut engine, true, &listed(GARMIN_ID), &fit).expect("stored");
 
     assert_eq!(ingested, Ingested::Stored { tracked: true });
     assert_eq!(key, "src-garmin-18342901776");
     assert_eq!(origin_of(&key), ActivityOrigin::Source);
-    assert_eq!(std::fs::read(&path).unwrap(), fit);
+    assert_eq!(original_of(&engine.db, &key).unwrap(), Some(fit));
+    assert!(!kept_at(&dir, &key).exists(), "no file is written");
 
     let track = engine.get_gps_track(&key).expect("a stored track");
     assert_eq!(track.len(), 30);
@@ -110,9 +112,11 @@ fn a_stored_original_is_not_kept_on_the_phone_by_default() {
     let fit = outdoor_ride().to_fit();
     let key = garmin_source_key(GARMIN_ID);
 
-    ingest_into(&mut engine, None, &listed(GARMIN_ID), &fit).expect("stored");
+    ingest_into(&mut engine, false, &listed(GARMIN_ID), &fit).expect("stored");
 
-    assert!(!kept_at(&dir, &key).exists(), "no original is kept");
+    assert!(!kept_at(&dir, &key).exists(), "no file is kept");
+    assert_eq!(original_of(&engine.db, &key).unwrap(), None);
+    assert_eq!(originals_bytes(&engine.db).unwrap(), 0);
     assert!(engine.has_stored_activity(&key));
     assert_eq!(
         engine.get_gps_track(&key).expect("a stored track").len(),
@@ -128,17 +132,11 @@ fn a_stored_original_is_not_kept_on_the_phone_by_default() {
 /// their `time`, and the activity has no track.
 #[test]
 fn an_indoor_original_keeps_its_streams_and_has_no_track() {
-    let (dir, mut engine) = engine();
+    let (_dir, mut engine) = engine();
     let fit = indoor_ride().to_fit();
     let key = garmin_source_key(GARMIN_ID);
 
-    let ingested = ingest_into(
-        &mut engine,
-        Some(&kept_at(&dir, &key)),
-        &listed(GARMIN_ID),
-        &fit,
-    )
-    .expect("stored");
+    let ingested = ingest_into(&mut engine, true, &listed(GARMIN_ID), &fit).expect("stored");
 
     assert_eq!(ingested, Ingested::Stored { tracked: false });
     assert!(engine.get_gps_track(&key).is_none());
@@ -168,13 +166,12 @@ fn an_indoor_original_keeps_its_streams_and_has_no_track() {
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_garmin_original_is_named_by_no_upstream_queue() {
-    let (dir, mut engine) = engine();
+    let (_dir, mut engine) = engine();
     for (id, fit) in [
         (GARMIN_ID, outdoor_ride().to_fit()),
         (GARMIN_ID + 1, indoor_ride().to_fit()),
     ] {
-        let key = garmin_source_key(id);
-        ingest_into(&mut engine, Some(&kept_at(&dir, &key)), &listed(id), &fit).expect("stored");
+        ingest_into(&mut engine, true, &listed(id), &fit).expect("stored");
     }
 
     let keys = [
@@ -208,22 +205,21 @@ fn a_garmin_original_is_named_by_no_upstream_queue() {
 /// good download clears it. A pull that finds the key absent asks again.
 #[test]
 fn a_corrupt_original_stores_nothing_and_is_recorded_as_failed() {
-    let (dir, mut engine) = engine();
+    let (_dir, mut engine) = engine();
     let good = outdoor_ride().to_fit();
     let key = garmin_source_key(GARMIN_ID);
-    let path = kept_at(&dir, &key);
     let mut corrupt = good.clone();
     let last = corrupt.len() - 1;
     corrupt[last] ^= 0xFF;
 
     for bad in [corrupt, good[..good.len() / 2].to_vec(), Vec::new()] {
-        let error = ingest_into(&mut engine, Some(&path), &listed(GARMIN_ID), &bad).unwrap_err();
+        let error = ingest_into(&mut engine, true, &listed(GARMIN_ID), &bad).unwrap_err();
         assert!(matches!(error, IngestError::Fit(_)), "{error}");
         assert!(!engine.has_stored_activity(&key));
         assert!(engine.get_activity_body(&key).is_none());
         assert!(engine.get_gps_track(&key).is_none());
         assert!(engine.load_activity_streams(&key).unwrap().is_empty());
-        assert!(!path.exists());
+        assert_eq!(original_of(&engine.db, &key).unwrap(), None);
         let failure = crate::persistence::activity_sync_failures::of(&engine.db, &key)
             .unwrap()
             .expect("the failure is recorded under the Garmin key");
@@ -234,7 +230,7 @@ fn a_corrupt_original_stores_nothing_and_is_recorded_as_failed() {
         );
     }
 
-    ingest_into(&mut engine, Some(&path), &listed(GARMIN_ID), &good).expect("the retry stores it");
+    ingest_into(&mut engine, true, &listed(GARMIN_ID), &good).expect("the retry stores it");
     assert!(engine.has_stored_activity(&key));
     assert!(
         crate::persistence::activity_sync_failures::of(&engine.db, &key)
@@ -246,52 +242,49 @@ fn a_corrupt_original_stores_nothing_and_is_recorded_as_failed() {
 
 /// Scenario: a pull meets an activity it has already stored.
 ///
-/// Expected behaviour: nothing is written a second time, the kept file is not
+/// Expected behaviour: nothing is written a second time, the kept original is not
 /// replaced, and the answer says so.
 #[test]
 fn storing_an_original_twice_changes_nothing() {
-    let (dir, mut engine) = engine();
+    let (_dir, mut engine) = engine();
     let fit = outdoor_ride().to_fit();
     let key = garmin_source_key(GARMIN_ID);
-    let path = kept_at(&dir, &key);
-    ingest_into(&mut engine, Some(&path), &listed(GARMIN_ID), &fit).expect("stored");
+    ingest_into(&mut engine, true, &listed(GARMIN_ID), &fit).expect("stored");
     let stored = engine.get_activity_body(&key);
 
     let mut other = outdoor_ride();
     other.totals.timer_secs = Some(5.0);
-    let again = ingest_into(
-        &mut engine,
-        Some(&path),
-        &listed(GARMIN_ID),
-        &other.to_fit(),
-    )
-    .unwrap();
+    let again = ingest_into(&mut engine, true, &listed(GARMIN_ID), &other.to_fit()).unwrap();
 
     assert_eq!(again, Ingested::AlreadyStored);
     assert_eq!(engine.get_activity_body(&key), stored);
-    assert_eq!(std::fs::read(&path).unwrap(), fit);
+    assert_eq!(original_of(&engine.db, &key).unwrap(), Some(fit));
 }
 
 /// Scenario: the row cannot be stored after the original was written.
 ///
-/// Expected behaviour: the file is taken back out, so a failed ingest keeps
-/// neither half.
+/// Expected behaviour: the original is taken back out, so a failed ingest
+/// keeps neither half.
 #[test]
-fn a_row_that_fails_to_store_takes_its_file_back_out() {
-    let (dir, mut engine) = engine();
+fn a_row_that_fails_to_store_takes_its_original_back_out() {
+    let (_dir, mut engine) = engine();
     let fit = outdoor_ride().to_fit();
     let key = garmin_source_key(GARMIN_ID);
-    let path = kept_at(&dir, &key);
     let mut prepared = prepare(&listed(GARMIN_ID), &fit).unwrap();
     prepared.body.activity_id = "another-key".to_string();
 
-    let outcome = store(&mut engine, &prepared, &fit, Some(&path));
+    let outcome = store(
+        &mut engine,
+        &prepared,
+        &fit,
+        Kept::Table { source: "garmin" },
+    );
 
     assert!(
         matches!(outcome, Err(IngestError::Storage(_))),
         "{outcome:?}"
     );
-    assert!(!path.exists());
+    assert_eq!(original_of(&engine.db, &prepared.key).unwrap(), None);
     assert!(!engine.has_stored_activity(&key));
 }
 
@@ -422,17 +415,12 @@ fn neither_the_key_nor_the_token_reaches_a_file_or_a_failure_text() {
         crate::runtime::block_on(client.list_activities("2026-03-01", "2026-03-31", dispatch))
             .unwrap();
     assert_eq!(listed.len(), 3);
-    let original = crate::runtime::block_on(client.download_original(GARMIN_ID, dispatch)).unwrap();
+    let original = crate::runtime::block_on(client.download_original(GARMIN_ID, dispatch))
+        .unwrap()
+        .expect("the fixture archive holds a FIT");
 
     let (dir, mut engine) = engine();
-    let key = garmin_source_key(GARMIN_ID);
-    ingest_into(
-        &mut engine,
-        Some(&kept_at(&dir, &key)),
-        &listed[0],
-        &original,
-    )
-    .expect("stored");
+    ingest_into(&mut engine, true, &listed[0], &original).expect("stored");
 
     let mut files = Vec::new();
     every_file_under(dir.path(), &mut files);
@@ -497,15 +485,11 @@ fn the_list_entry_dates_a_file_that_states_no_offset() {
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn each_refusal_to_store_an_original_says_why() {
     let reasons = [
-        IngestError::NoFilesRoot.to_string(),
-        IngestError::File(std::io::Error::other("disk full")).to_string(),
         IngestError::Storage("locked".to_string()).to_string(),
         IngestError::EngineClosed.to_string(),
     ];
-    assert!(reasons[0].contains("documents directory"));
-    assert!(reasons[1].contains("disk full"));
-    assert!(reasons[2].contains("locked"));
-    assert_eq!(reasons[3], "the engine closed");
+    assert!(reasons[0].contains("locked"));
+    assert_eq!(reasons[1], "the engine closed");
 }
 
 /// Scenario: a Garmin-only library ingests a ride whose file carries the
@@ -523,7 +507,7 @@ fn an_ingested_originals_thresholds_are_answered_for_its_sport_and_date() {
         threshold_hr: Some(177),
         ..Default::default()
     });
-    ingest_into(&mut engine, None, &listed(GARMIN_ID), &ride.to_fit()).expect("stored");
+    ingest_into(&mut engine, false, &listed(GARMIN_ID), &ride.to_fit()).expect("stored");
 
     let after = ride.start_unix + 3_600;
     let found =
@@ -532,7 +516,7 @@ fn an_ingested_originals_thresholds_are_answered_for_its_sport_and_date() {
     assert_eq!(found.threshold_hr.map(|t| t.value), Some(177.0));
 
     let plain = outdoor_ride();
-    ingest_into(&mut engine, None, &listed(GARMIN_ID + 1), &plain.to_fit()).expect("stored");
+    ingest_into(&mut engine, false, &listed(GARMIN_ID + 1), &plain.to_fit()).expect("stored");
     let still =
         crate::persistence::fitness::sport_settings::thresholds_for(&engine.db, "Ride", after);
     assert_eq!(still.ftp.map(|t| t.value), Some(251.0));
@@ -552,7 +536,7 @@ fn an_ingested_ride_with_power_draws_the_librarys_power_curve() {
 
     ingest_into(
         &mut engine,
-        None,
+        false,
         &listed(GARMIN_ID),
         &outdoor_ride().to_fit(),
     )
@@ -596,10 +580,10 @@ fn a_ride_with_laps_stores_them_as_its_interval_body() {
             ..Default::default()
         })
         .collect();
-    ingest_into(&mut engine, None, &listed(GARMIN_ID), &ride.to_fit()).expect("stored");
+    ingest_into(&mut engine, false, &listed(GARMIN_ID), &ride.to_fit()).expect("stored");
     ingest_into(
         &mut engine,
-        None,
+        false,
         &listed(GARMIN_ID + 1),
         &outdoor_ride().to_fit(),
     )
@@ -619,4 +603,91 @@ fn a_ride_with_laps_stores_them_as_its_interval_body() {
         .unwrap(),
         None
     );
+}
+
+fn device_ride(serial: u32) -> crate::fit_synthetic::Activity {
+    let mut ride = outdoor_ride();
+    ride.device = Some((1, 3_990));
+    ride.serial = Some(serial);
+    ride.time_created = Some(1_773_470_000 + i64::from(serial));
+    ride
+}
+
+/// Scenario: a ride was imported from a file, and Garmin then serves its
+/// original, written by the device with another serial number and the same
+/// session start.
+///
+/// Expected behaviour: no `src-garmin-` row is stored, the call reports the
+/// file's row, and the file's row keeps its decoded rows and takes the Garmin
+/// original as its own when that one holds a message the file's lacks.
+#[test]
+fn a_garmin_original_of_an_imported_ride_links_to_the_file_row() {
+    let (_dir, mut engine) = engine();
+    let imported = outdoor_ride().to_fit();
+    let file_key = crate::persistence::origin::file_source_key(&imported);
+    settle(
+        &mut engine,
+        &file_key,
+        Kept::Table { source: "file" },
+        &imported,
+        prepare_file(&file_key, &imported),
+    )
+    .expect("imported");
+    let mut from_garmin = device_ride(5);
+    from_garmin.laps = vec![crate::fit_synthetic::Lap {
+        start: 0,
+        elapsed_secs: 30.0,
+        ..Default::default()
+    }];
+    let from_garmin = from_garmin.to_fit();
+
+    let ingested =
+        ingest_into(&mut engine, false, &listed(GARMIN_ID), &from_garmin).expect("linked");
+
+    assert_eq!(
+        ingested,
+        Ingested::Linked {
+            to: file_key.clone()
+        }
+    );
+    assert!(
+        engine
+            .get_activity_body(&garmin_source_key(GARMIN_ID))
+            .is_none(),
+        "no second row"
+    );
+    assert!(engine.get_activity_body(&file_key).is_some());
+    assert_eq!(
+        original_of(&engine.db, &file_key).unwrap(),
+        Some(from_garmin),
+        "the fuller file is the row's original"
+    );
+}
+
+/// Scenario: intervals.icu has already synced the ride, and Garmin serves its
+/// original with the same start.
+///
+/// Expected behaviour: the original is stored as a `src-garmin-` row as it was,
+/// since a row of intervals.icu's is joined to it by Garmin's id and by nothing
+/// else.
+#[test]
+fn a_garmin_original_of_a_synced_ride_is_still_stored() {
+    let (_dir, mut engine) = engine();
+    engine
+        .db
+        .execute(
+            "INSERT INTO activity_bodies (activity_id, date, raw) VALUES ('i9', ?1, '{\"type\":\"Ride\"}')",
+            [outdoor_ride().start_unix + 7_200],
+        )
+        .unwrap();
+
+    let ingested = ingest_into(
+        &mut engine,
+        false,
+        &listed(GARMIN_ID),
+        &device_ride(5).to_fit(),
+    )
+    .expect("stored");
+
+    assert_eq!(ingested, Ingested::Stored { tracked: true });
 }

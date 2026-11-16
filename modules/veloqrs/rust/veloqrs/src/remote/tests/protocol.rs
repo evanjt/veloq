@@ -57,6 +57,7 @@ fn the_feed_page_is_the_feed_read_itself() {
     assert_eq!(got["id"], 7);
     let mut read = got["result"].clone();
     read.as_object_mut().unwrap().remove("previews");
+    read.as_object_mut().unwrap().remove("familyCounts");
     assert_eq!(read, serde_json::to_value(&page).unwrap());
     assert_eq!(got["result"]["matchedCount"], 2);
     assert_eq!(got["result"]["hasMore"], true);
@@ -409,19 +410,36 @@ fn the_write_table_is_exactly_these_methods() {
             "section.setLift",
             "section.accept",
             "section.acceptAll",
+            "section.unaccept",
             "section.enable",
             "section.disable",
             "section.excludeActivity",
             "section.includeActivity",
             "section.excludeLap",
             "section.includeLap",
+            "section.editBounds",
+            "section.create",
+            "section.merge",
+            "section.restore",
             "route.rename",
             "route.excludeActivity",
             "route.includeActivity",
+            "route.setReference",
+            "route.resetReference",
             "heatmap.setHidden",
             "detection.setEnabled",
             "detection.setStrictness",
             "detection.setSectionConfig",
+            "settings.set",
+            "settings.setThreshold",
+            "strength.saveWorkout",
+            "strength.renameWorkout",
+            "strength.deleteWorkout",
+            "strength.restoreWorkout",
+            "strength.liveEdit",
+            "import.begin",
+            "import.commit",
+            "import.cancel",
         ]
     );
     for name in writes {
@@ -451,7 +469,10 @@ fn sample_params(method: &str) -> &'static str {
         "insights.plannedEvents" => r#"{"oldestTs":0,"newestTs":86400}"#,
         "insights.workoutSections" => r#"{"sportType":"Ride","limit":5}"#,
         "settings.get" => r#"{"keys":["veloq-unit-preference"]}"#,
+        "settings.set" => r#"{"key":"veloq-theme-preference","value":"dark"}"#,
+        "settings.setThreshold" => r#"{"sport":"Ride","field":"ftp","value":250.0}"#,
         "settings.profile"
+        | "settings.thresholds"
         | "status.backgroundJobs"
         | "status.cache"
         | "status.backup"
@@ -462,11 +483,20 @@ fn sample_params(method: &str) -> &'static str {
         "section.setLift" => r#"{"id":"s1","isLift":true}"#,
         "section.accept" | "section.enable" | "section.disable" => r#"{"id":"s1"}"#,
         "section.acceptAll" => "{}",
+        "section.unaccept" => r#"{"ids":["s1"]}"#,
         "section.excludeActivity" | "section.includeActivity" => r#"{"id":"s1","activityId":"r1"}"#,
         "section.excludeLap" | "section.includeLap" => {
             r#"{"id":"s1","activityId":"r1","startIndex":0}"#
         }
+        "section.editBounds" => {
+            r#"{"id":"s1","edit":"expand","activityId":"r1","startIndex":0,"endIndex":10}"#
+        }
+        "section.create" => r#"{"activityId":"r1","startIndex":5,"endIndex":20,"sport":"Ride"}"#,
+        "section.mergePreview" | "section.merge" => r#"{"primaryId":"s1","secondaryId":"s2"}"#,
+        "section.restore" => r#"{"id":"s1"}"#,
         "route.rename" => r#"{"id":"g1","name":"Valley loop"}"#,
+        "route.setReference" => r#"{"id":"g1","activityId":"r2"}"#,
+        "route.resetReference" => r#"{"id":"g1"}"#,
         "route.excludeActivity" | "route.includeActivity" => r#"{"id":"g1","activityId":"r1"}"#,
         "heatmap.setHidden" => r#"{"activityId":"r1","hidden":true}"#,
         "detection.settings" => "{}",
@@ -478,10 +508,11 @@ fn sample_params(method: &str) -> &'static str {
         "map.screen" => {
             r#"{"startDate":0,"endDate":2000000000,"sportTypes":["Ride"],"distanceBand":"all"}"#
         }
-        "geo.routeLines" | "geo.sections" | "heatmap.progress" => "{}",
+        "geo.routeLines" | "geo.sections" | "heatmap.progress" | "import.status" => "{}",
         "geo.track" | "geo.activityOverlay" => r#"{"id":"i1"}"#,
-        "geo.route" | "geo.routeLatest" => r#"{"groupId":"g1"}"#,
+        "geo.route" | "geo.routeLatest" | "geo.routeAttempts" => r#"{"groupId":"g1"}"#,
         "geo.section" | "geo.sectionPasses" => r#"{"sectionId":"s1"}"#,
+        "geo.sectionVersion" => r#"{"sectionId":"s1","version":1}"#,
         "heatmap.tile" => r#"{"z":3,"x":1,"y":2,"base":"dark"}"#,
         "fitness.screen" => {
             r#"{"spanDays":[42],"windows":{"heatmapFirstDay":"2025-01-01","heatmapLastDay":"2025-12-31","months":{"startTs":0,"endTs":86400},"yearCurrent":{"startTs":0,"endTs":86400},"yearPrevious":{"startTs":0,"endTs":86400},"monthCurrent":{"startTs":0,"endTs":86400},"monthPrevious":{"startTs":0,"endTs":86400},"nowWallSeconds":86400}}"#
@@ -495,6 +526,19 @@ fn sample_params(method: &str) -> &'static str {
         "strength.screen" => r#"{"nowWallSeconds":1737050000,"periodDays":30}"#,
         "strength.exercise" => r#"{"exerciseCategory":7}"#,
         "strength.muscle" => r#"{"activityId":"s1","muscleSlug":"chest"}"#,
+        "strength.picker" => r#"{"query":"press","nowWallSeconds":1737050000}"#,
+        "strength.lastTime" => r#"{"category":7,"nowWallSeconds":1737050000}"#,
+        "strength.groups" => r#"{"nowWallSeconds":1737050000}"#,
+        "strength.workouts" => "{}",
+        "strength.workout" => r#"{"id":"saved-1"}"#,
+        "strength.saveWorkout" => {
+            r#"{"name":"Push","exercises":[{"category":7,"sets":[{"reps":8,"weightKg":20.0}]}],"groups":[]}"#
+        }
+        "strength.renameWorkout" => r#"{"id":"saved-1","name":"Pull"}"#,
+        "strength.deleteWorkout" => r#"{"id":"saved-1"}"#,
+        "strength.restoreWorkout" => r#"{"id":"saved-1","name":"Push","createdAt":1737050000.0}"#,
+        "strength.live" => "{}",
+        "strength.liveEdit" => r#"{"edit":{"kind":"begin"}}"#,
         "recordings.list" => "{}",
         "recordings.get" => r#"{"id":"b1"}"#,
         "routes.screen" | "sections.retired" => "{}",
@@ -635,16 +679,37 @@ fn the_current_version_gets_binary_frames() {
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn every_listed_method_answers_a_well_formed_ask() {
-    let engine = engine_with_a_route_and_a_section();
+    let mut engine = engine_with_a_route_and_a_section();
+    let cut = create_a_section(&mut engine, 5, 30);
     let mut sections = engine_with_a_route_and_a_section();
+    add_a_second_section(&engine);
+    add_a_second_section(&sections);
+    sections.reload_groups_from_db();
+    let retired = retire_a_section(&mut sections);
     crate::persistence::linked_devices::add(&sections.db, "Laptop", BROWSER, 1_700_000_000)
         .expect("link the browser");
+    sections
+        .save_strength_draft(None, "Seed", Vec::new(), Vec::new(), 1)
+        .expect("a saved workout for the rename and delete asks");
+    sections
+        .start_live_strength_session(
+            &crate::persistence::strength_live::StartFrom::Blank,
+            1_700_000_000,
+        )
+        .expect("a live session for the live edit ask");
     for method in METHODS {
-        let request = format!(
-            r#"{{"id":5,"method":"{}","params":{}}}"#,
-            method.name,
-            sample_params(method.name)
-        );
+        if is_spool(method.name) {
+            // Answered without the engine; `service.rs` drives them through the gate.
+            continue;
+        }
+        let params = if method.name == "section.restore" {
+            format!(r#"{{"id":"{retired}"}}"#)
+        } else if method.name == "section.extensionTrack" {
+            format!(r#"{{"id":"{cut}"}}"#)
+        } else {
+            sample_params(method.name).to_owned()
+        };
+        let request = format!(r#"{{"id":5,"method":"{}","params":{params}}}"#, method.name);
         let got = if method.is_write() {
             written(&mut sections, &request)
         } else {
@@ -842,6 +907,36 @@ fn the_feed_page_narrows_by_sport_family_and_window() {
     let cards = got["result"]["cards"].as_array().unwrap();
     assert_eq!(cards.len(), 1);
     assert_eq!(cards[0]["id"], "i2");
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_feed_page_counts_each_family_under_the_search_and_window_but_not_the_family_chips() {
+    let engine = engine_with_rides();
+    let counts = |params: &str| {
+        let got = reply(
+            &engine,
+            &format!(r#"{{"id":20,"method":"feed.page","params":{params}}}"#),
+        );
+        got["result"]["familyCounts"].clone()
+    };
+    assert_eq!(
+        counts("{}"),
+        json!([{"family": "ride", "count": 1}, {"family": "run", "count": 1}])
+    );
+    assert_eq!(
+        counts(r#"{"sportFamilies":["run"]}"#),
+        json!([{"family": "ride", "count": 1}, {"family": "run", "count": 1}])
+    );
+    assert_eq!(
+        counts(r#"{"needle":"track"}"#),
+        json!([{"family": "run", "count": 1}])
+    );
+    assert_eq!(
+        counts(r#"{"oldestTs":1737000000,"newestTs":1737100000}"#),
+        json!([{"family": "run", "count": 1}])
+    );
+    assert_eq!(counts(r#"{"needle":"nothing matches this"}"#), json!([]));
 }
 
 #[test]
@@ -2652,6 +2747,55 @@ fn the_latest_ride_is_the_newest_member_of_the_group() {
     );
 }
 
+/// Scenario: a route group of two attempts, one of which holds no track.
+///
+/// Expected behaviour: one `LineString` per member with a stored track, each
+/// the stored track written as the track read writes it and carrying the
+/// activity id; a member with no track is left out; an unknown group is the
+/// empty collection.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_route_attempts_are_every_members_stored_track() {
+    let engine = engine_with_a_route_and_a_section();
+    let layer: Value = serde_json::from_str(&geo_text(
+        &engine,
+        "geo.routeAttempts",
+        r#"{"groupId":"g1"}"#,
+    ))
+    .expect("GeoJSON");
+    let features = layer["features"].as_array().unwrap();
+    let mut ids: Vec<&str> = features
+        .iter()
+        .map(|f| f["properties"]["activityId"].as_str().unwrap())
+        .collect();
+    ids.sort_unstable();
+    assert_eq!(ids, ["r1", "r2"]);
+    for feature in features {
+        let id = feature["properties"]["activityId"].as_str().unwrap();
+        let track = engine.get_gps_track(id).unwrap();
+        let want: Value = serde_json::from_str(&crate::basemap::line_feature(&track)).unwrap();
+        assert_eq!(feature["geometry"], want["geometry"]);
+    }
+
+    engine
+        .db
+        .execute("DELETE FROM gps_tracks WHERE activity_id = 'r2'", [])
+        .expect("an attempt with no track");
+    let layer: Value = serde_json::from_str(&geo_text(
+        &engine,
+        "geo.routeAttempts",
+        r#"{"groupId":"g1"}"#,
+    ))
+    .unwrap();
+    assert_eq!(layer["features"].as_array().unwrap().len(), 1);
+
+    let empty = r#"{"type":"FeatureCollection","features":[]}"#;
+    assert_eq!(
+        geo_text(&engine, "geo.routeAttempts", r#"{"groupId":"nope"}"#),
+        empty
+    );
+}
+
 /// Scenario: a section with passes by two activities, and one by an activity
 /// that holds no track.
 ///
@@ -2730,6 +2874,142 @@ fn the_section_line_carries_its_identity() {
             serde_json::from_str(&geo_text(&engine, method, r#"{"sectionId":"nope"}"#)).unwrap();
         assert_eq!(got["features"], empty["features"], "{method}");
     }
+}
+
+/// Scenario: the page draws one stored geometry version of a section under the section.
+///
+/// Expected behaviour: a version's line is that version's stored points as one line feature
+/// carrying the section id and the version, not the section's current line; an unknown version
+/// or section is the empty collection; a version that is not a whole number is refused.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_stored_version_is_drawn_as_its_own_line() {
+    let mut engine = engine_with_a_route_and_a_section();
+    let id = create_a_section(&mut engine, 5, 30);
+    written(
+        &mut engine,
+        &format!(
+            r#"{{"id":3,"method":"section.editBounds","params":{{"id":"{id}","edit":"trim","startIndex":0,"endIndex":10}}}}"#
+        ),
+    );
+    let first = engine.section_geometry_versions(&id)[0].version;
+    let ask = format!(r#"{{"sectionId":"{id}","version":{first}}}"#);
+    let layer: Value =
+        serde_json::from_str(&geo_text(&engine, "geo.sectionVersion", &ask)).unwrap();
+    let features = layer["features"].as_array().unwrap();
+    assert_eq!(features.len(), 1);
+    assert_eq!(features[0]["properties"]["id"], id.as_str());
+    assert_eq!(features[0]["properties"]["version"], first);
+    let stored = engine
+        .section_geometry_polyline(&id, first as i64)
+        .expect("the stored version");
+    assert_eq!(
+        features[0]["geometry"]["coordinates"]
+            .as_array()
+            .unwrap()
+            .len(),
+        stored.len()
+    );
+    assert_ne!(
+        features[0]["geometry"]["coordinates"]
+            .as_array()
+            .unwrap()
+            .len(),
+        polyline_of(&engine, &id).len() / 2,
+        "the line is the stored version, not the current one"
+    );
+
+    let empty = json!([]);
+    for ask in [
+        format!(r#"{{"sectionId":"{id}","version":99}}"#),
+        r#"{"sectionId":"nope","version":1}"#.to_owned(),
+    ] {
+        let got: Value =
+            serde_json::from_str(&geo_text(&engine, "geo.sectionVersion", &ask)).unwrap();
+        assert_eq!(got["features"], empty, "{ask}");
+    }
+    let got = reply(
+        &engine,
+        &format!(
+            r#"{{"id":1,"method":"geo.sectionVersion","params":{{"sectionId":"{id}","version":1.5}}}}"#
+        ),
+    );
+    assert!(got.get("error").is_some(), "{got}");
+}
+
+/// Scenario: the page undoes a bounds edit by reverting to the version that was live before it:
+/// the pinned one, else the newest, else the first, which the first edit stores for the line it
+/// replaces.
+///
+/// Expected behaviour: after a trim, and after an expand made on the line a revert put back, a
+/// revert to the version read before the edit puts back the line the edit replaced.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn reverting_to_the_version_live_before_an_edit_puts_the_line_back() {
+    let mut engine = engine_with_a_route_and_a_section();
+    let id = create_a_section(&mut engine, 5, 30);
+    for edit in [
+        r#""edit":"trim","startIndex":2,"endIndex":12"#,
+        r#""edit":"expand","activityId":"r1","startIndex":0,"endIndex":40"#,
+    ] {
+        let history = result_of(&engine, "section.history", &format!(r#"{{"id":"{id}"}}"#));
+        let newest = history["geometryVersions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|version| version["version"].as_i64())
+            .max();
+        let live = history["pinnedVersion"].as_i64().or(newest).unwrap_or(1);
+        let before = polyline_of(&engine, &id);
+        written(
+            &mut engine,
+            &format!(r#"{{"id":3,"method":"section.editBounds","params":{{"id":"{id}",{edit}}}}}"#),
+        );
+        assert_ne!(polyline_of(&engine, &id), before, "{edit}");
+        written(
+            &mut engine,
+            &format!(
+                r#"{{"id":4,"method":"section.editBounds","params":{{"id":"{id}","edit":"revert","version":{live}}}}}"#
+            ),
+        );
+        assert_eq!(polyline_of(&engine, &id), before, "{edit}");
+    }
+}
+
+/// Scenario: the page lets the athlete drag a section's ends beyond its line, along the
+/// track of the activity the section was cut from.
+///
+/// Expected behaviour: the extension track answers the reference activity, its whole stored
+/// track and the inclusive indices where the section's line runs on it; a section that does not
+/// exist is refused.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_extension_track_is_the_references_track_with_the_lines_range_on_it() {
+    let mut engine = engine_with_a_route_and_a_section();
+    let id = create_a_section(&mut engine, 5, 30);
+    let got = result_of(
+        &engine,
+        "section.extensionTrack",
+        &format!(r#"{{"id":"{id}"}}"#),
+    );
+    assert_eq!(got["activityId"], "r1");
+    let track = crate::persistence::activities::pooled::gps_track(&engine.db, "r1")
+        .expect("the stored track");
+    let sent = {
+        use base64::Engine as _;
+        base64::engine::general_purpose::STANDARD
+            .decode(got["encodedTrack"].as_str().expect("base64"))
+            .expect("base64 bytes")
+    };
+    assert_eq!(sent, crate::persistence::codec::encode_polyline(&track));
+    assert_eq!(got["sectionStartIdx"], 5);
+    assert_eq!(got["sectionEndIdx"], 30);
+
+    let refused = reply(
+        &engine,
+        r#"{"id":1,"method":"section.extensionTrack","params":{"id":"ghost"}}"#,
+    );
+    assert!(refused.get("error").is_some(), "{refused}");
 }
 
 /// The route-and-section engine with a browser linked, a second section and a
@@ -2815,8 +3095,55 @@ fn accepting_a_section_pins_it_and_accepting_all_pins_the_rest() {
     assert!(section_of(&engine, "s1").is_user_defined);
     assert!(!section_of(&engine, "s2").is_user_defined);
     let got = send(&mut engine, "section.acceptAll", "{}");
-    assert_eq!(got["result"], json!({ "ok": true }));
+    assert_eq!(got["result"], json!({ "ok": true, "ids": ["s2"] }));
     assert!(section_of(&engine, "s2").is_user_defined);
+}
+
+#[test]
+fn unaccepting_returns_exactly_the_sections_that_accepting_all_changed() {
+    let mut engine = engine_for_edits();
+    send(&mut engine, "section.accept", r#"{"id":"s1"}"#);
+    let accepted = send(&mut engine, "section.acceptAll", "{}");
+    let ids = accepted["result"]["ids"].clone();
+    assert_eq!(ids, json!(["s2"]));
+    let got = send(
+        &mut engine,
+        "section.unaccept",
+        &json!({ "ids": ids }).to_string(),
+    );
+    assert_eq!(got["result"], json!({ "ok": true }));
+    assert!(!section_of(&engine, "s2").is_user_defined);
+    assert!(
+        section_of(&engine, "s1").is_user_defined,
+        "a section accepted before the batch stays accepted"
+    );
+}
+
+#[test]
+fn unaccepting_a_section_hands_it_back_to_detection_and_can_be_accepted_again() {
+    let mut engine = engine_for_edits();
+    send(&mut engine, "section.accept", r#"{"id":"s1"}"#);
+    let got = send(&mut engine, "section.unaccept", r#"{"ids":["s1"]}"#);
+    assert_eq!(got["result"], json!({ "ok": true }));
+    assert!(!section_of(&engine, "s1").is_user_defined);
+    send(&mut engine, "section.accept", r#"{"id":"s1"}"#);
+    assert!(section_of(&engine, "s1").is_user_defined);
+}
+
+#[test]
+fn unaccepting_a_section_that_is_not_there_is_refused_and_changes_nothing() {
+    let mut engine = engine_for_edits();
+    send(&mut engine, "section.accept", r#"{"id":"s1"}"#);
+    let got = send(&mut engine, "section.unaccept", r#"{"ids":["s1","nope"]}"#);
+    assert_eq!(got["error"], "Section not found: nope");
+    assert!(section_of(&engine, "s1").is_user_defined);
+}
+
+#[test]
+fn unaccepting_nothing_is_a_no_op() {
+    let mut engine = engine_for_edits();
+    let got = send(&mut engine, "section.unaccept", r#"{"ids":[]}"#);
+    assert_eq!(got["result"], json!({ "ok": true }));
 }
 
 #[test]
@@ -3201,4 +3528,916 @@ fn a_detection_write_announces_the_settings_channel() {
     let events = recorder.events();
     set_observer(None);
     assert_eq!(events, ["remote_wrote:settings"]);
+}
+
+fn linked_strength_engine() -> PersistentEngine {
+    let engine = engine_with_strength();
+    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, 1_700_000_000)
+        .expect("link the browser");
+    engine
+}
+
+fn a_fifty_kg_set() -> Value {
+    json!({"reps":8,"weightKg":50.0,"durationSecs":null,"side":null,"warmUp":false})
+}
+
+const PUSH_WORKOUT: &str = r#"{"name":"  Push  ","exercises":[
+    {"category":7,"groupNo":1,"restSecs":90,"sets":[{"reps":8,"weightKg":40.0},{"reps":6,"weightKg":45.0}]},
+    {"category":0,"name":1,"groupNo":1,"sets":[{"durationSecs":30.0}]}],
+    "groups":[{"groupNo":1,"restSecs":120}]}"#;
+
+fn saved_id(engine: &mut PersistentEngine, ask: &str) -> String {
+    let got = written(engine, &write_request("strength.saveWorkout", ask));
+    assert!(got.get("error").is_none(), "{got}");
+    got["result"]["id"]
+        .as_str()
+        .expect("the new id")
+        .to_string()
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_picker_is_the_exercise_picker_read_in_its_own_order() {
+    let engine = linked_strength_engine();
+    engine
+        .db
+        .execute(
+            "INSERT INTO activity_metrics (activity_id, name, date, distance, moving_time,
+                 elapsed_time, elevation_gain, sport_type)
+             VALUES ('s3', 'Bench day', ?1, 0, 0, 0, 0, 'WeightTraining')",
+            [WEIGHT_TRAINING_BASE + DAY],
+        )
+        .expect("an activity");
+    let named = crate::fit::FitExerciseSet {
+        exercise_category: 0,
+        exercise_name: Some(1),
+        ..a_set(0, 60.0)
+    };
+    engine.store_exercise_sets("s3", &[named]).expect("sets");
+    let got = result_of(
+        &engine,
+        "strength.picker",
+        &format!(r#"{{"query":"","nowWallSeconds":{NOW_WALL}}}"#),
+    );
+    let read = crate::persistence::screens::exercise_picker_data(
+        &engine.db,
+        &[],
+        None,
+        None,
+        "",
+        None,
+        NOW_WALL,
+    )
+    .expect("the picker read");
+    assert_eq!(got["rows"], wire(&read.rows));
+    assert_eq!(got["equipment"], wire(&read.equipment));
+    assert_eq!(got["rows"][0]["category"], 0);
+    assert_eq!(got["rows"][0]["name"], 1);
+    assert_eq!(got["rows"][0]["lastDoneDays"], 1);
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn an_unknown_filter_word_matches_nothing_as_it_does_on_the_phone() {
+    let engine = linked_strength_engine();
+    let got = result_of(
+        &engine,
+        "strength.picker",
+        &format!(r#"{{"equipment":["no-such-kit"],"nowWallSeconds":{NOW_WALL}}}"#),
+    );
+    assert_eq!(got["rows"], json!([]));
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn last_time_is_the_latest_sessions_working_sets_and_null_for_an_exercise_never_done() {
+    let engine = linked_strength_engine();
+    let got = result_of(
+        &engine,
+        "strength.lastTime",
+        &format!(r#"{{"category":{CATEGORY},"nowWallSeconds":{NOW_WALL}}}"#),
+    );
+    assert_eq!(got["lastTime"]["daysAgo"], 1);
+    assert_eq!(got["lastTime"]["sets"], json!([a_fifty_kg_set()]));
+    let never = result_of(
+        &engine,
+        "strength.lastTime",
+        &format!(r#"{{"category":28,"name":3,"nowWallSeconds":{NOW_WALL}}}"#),
+    );
+    assert_eq!(never["lastTime"], Value::Null);
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_groups_are_the_recent_groups_each_with_the_sets_it_starts_from() {
+    let engine = linked_strength_engine();
+    let got = result_of(
+        &engine,
+        "strength.groups",
+        &format!(r#"{{"nowWallSeconds":{NOW_WALL}}}"#),
+    );
+    let groups = got["groups"].as_array().expect("groups");
+    let read = engine.recent_strength_groups().expect("the groups read");
+    assert_eq!(groups.len(), read.len());
+    assert_eq!(groups[0]["signature"], read[0].signature);
+    assert_eq!(groups[0]["times"], read[0].times);
+    assert_eq!(groups[0]["exercises"][0]["category"], CATEGORY);
+    assert_eq!(groups[0]["exercises"][0]["sets"], json!([a_fifty_kg_set()]));
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_saved_workout_is_listed_and_read_back_as_it_was_built() {
+    let mut engine = linked_strength_engine();
+    assert_eq!(
+        result_of(&engine, "strength.workouts", "{}")["workouts"],
+        json!([])
+    );
+    let id = saved_id(&mut engine, PUSH_WORKOUT);
+
+    let listed = result_of(&engine, "strength.workouts", "{}");
+    assert_eq!(listed["workouts"][0]["id"], id);
+    assert_eq!(listed["workouts"][0]["name"], "Push");
+    assert_eq!(listed["workouts"][0]["exerciseCount"], 2);
+    assert_eq!(listed["workouts"][0]["setCount"], 3);
+
+    let read = result_of(&engine, "strength.workout", &format!(r#"{{"id":"{id}"}}"#));
+    let workout = &read["workout"];
+    assert_eq!(workout["name"], "Push");
+    assert_eq!(workout["exercises"][0]["restSecs"], 90);
+    assert_eq!(workout["exercises"][0]["sets"][1]["weightKg"], 45.0);
+    assert_eq!(workout["exercises"][1]["name"], 1);
+    assert_eq!(workout["exercises"][1]["sets"][0]["durationSecs"], 30.0);
+    assert_eq!(workout["groups"], json!([{"groupNo":1,"restSecs":120}]));
+
+    let stored = engine
+        .get_strength_session(&id)
+        .expect("read")
+        .expect("stored");
+    assert_eq!(
+        stored.kind,
+        crate::persistence::strength_sessions::SessionKind::Saved
+    );
+    assert!(stored.exercises[0].sets.iter().all(|set| !set.done));
+    assert_eq!(stored.exercises[0].sets[0].planned_reps, Some(8));
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn saving_with_an_id_replaces_that_workout_and_keeps_one_row() {
+    let mut engine = linked_strength_engine();
+    let id = saved_id(&mut engine, PUSH_WORKOUT);
+    let again = format!(
+        r#"{{"id":"{id}","name":"Push B","exercises":[{{"category":7,"sets":[{{"reps":5,"weightKg":60.0}}]}}],"groups":[]}}"#
+    );
+    assert_eq!(saved_id(&mut engine, &again), id);
+    let listed = result_of(&engine, "strength.workouts", "{}");
+    assert_eq!(listed["workouts"].as_array().unwrap().len(), 1);
+    assert_eq!(listed["workouts"][0]["name"], "Push B");
+    assert_eq!(listed["workouts"][0]["setCount"], 1);
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_save_is_refused_for_an_empty_name_or_an_id_that_is_not_a_saved_workout() {
+    let mut engine = linked_strength_engine();
+    let empty = written(
+        &mut engine,
+        &write_request(
+            "strength.saveWorkout",
+            r#"{"name":"  ","exercises":[],"groups":[]}"#,
+        ),
+    );
+    assert!(empty.get("error").is_some(), "{empty}");
+    let missing = written(
+        &mut engine,
+        &write_request(
+            "strength.saveWorkout",
+            r#"{"id":"s1","name":"Over a ride","exercises":[],"groups":[]}"#,
+        ),
+    );
+    assert!(missing.get("error").is_some(), "{missing}");
+    assert_eq!(
+        result_of(&engine, "strength.workouts", "{}")["workouts"],
+        json!([])
+    );
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_saved_workout_is_renamed_and_deleted_without_touching_the_library() {
+    let mut engine = linked_strength_engine();
+    let id = saved_id(&mut engine, PUSH_WORKOUT);
+    let renamed = written(
+        &mut engine,
+        &write_request(
+            "strength.renameWorkout",
+            &format!(r#"{{"id":"{id}","name":"Upper"}}"#),
+        ),
+    );
+    assert!(renamed.get("error").is_none(), "{renamed}");
+    assert_eq!(
+        result_of(&engine, "strength.workouts", "{}")["workouts"][0]["name"],
+        "Upper"
+    );
+    let deleted = written(
+        &mut engine,
+        &write_request("strength.deleteWorkout", &format!(r#"{{"id":"{id}"}}"#)),
+    );
+    assert!(deleted.get("error").is_none(), "{deleted}");
+    assert_eq!(
+        result_of(&engine, "strength.workouts", "{}")["workouts"],
+        json!([])
+    );
+    let gone = written(
+        &mut engine,
+        &write_request("strength.deleteWorkout", &format!(r#"{{"id":"{id}"}}"#)),
+    );
+    assert!(gone.get("error").is_some(), "{gone}");
+    assert_eq!(
+        result_of(
+            &engine,
+            "strength.lastTime",
+            &format!(r#"{{"category":{CATEGORY},"nowWallSeconds":{NOW_WALL}}}"#)
+        )["lastTime"]["sets"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_deleted_workout_comes_back_through_restore_with_its_place_in_the_list() {
+    let mut engine = linked_strength_engine();
+    let id = saved_id(&mut engine, PUSH_WORKOUT);
+    let row = result_of(&engine, "strength.workouts", "{}")["workouts"][0].clone();
+    let workout =
+        result_of(&engine, "strength.workout", &format!(r#"{{"id":"{id}"}}"#))["workout"].clone();
+    let deleted = written(
+        &mut engine,
+        &write_request("strength.deleteWorkout", &format!(r#"{{"id":"{id}"}}"#)),
+    );
+    assert!(deleted.get("error").is_none(), "{deleted}");
+
+    let ask = json!({
+        "id": workout["id"],
+        "name": workout["name"],
+        "exercises": workout["exercises"],
+        "groups": workout["groups"],
+        "createdAt": row["createdAt"],
+        "lastUsedAt": row["lastUsedAt"],
+    });
+    let restored = written(
+        &mut engine,
+        &write_request("strength.restoreWorkout", &ask.to_string()),
+    );
+    assert!(restored.get("error").is_none(), "{restored}");
+    assert_eq!(
+        result_of(&engine, "strength.workouts", "{}")["workouts"][0],
+        row
+    );
+    assert_eq!(
+        result_of(&engine, "strength.workout", &format!(r#"{{"id":"{id}"}}"#))["workout"],
+        workout
+    );
+    let again = written(
+        &mut engine,
+        &write_request("strength.restoreWorkout", &ask.to_string()),
+    );
+    assert!(again.get("error").is_some(), "{again}");
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_workout_saves_while_a_session_is_live_and_the_live_session_is_untouched() {
+    use crate::persistence::strength_live::StartFrom;
+    let mut engine = linked_strength_engine();
+    let live = engine
+        .start_live_strength_session(&StartFrom::Blank, NOW_WALL)
+        .expect("a live session");
+    saved_id(&mut engine, PUSH_WORKOUT);
+    assert_eq!(engine.live_strength_session().expect("read"), Some(live));
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_workout_read_for_an_id_that_is_not_a_saved_workout_is_null() {
+    let engine = linked_strength_engine();
+    let got = result_of(&engine, "strength.workout", r#"{"id":"s1"}"#);
+    assert_eq!(got["workout"], Value::Null);
+}
+
+fn live_with_a_pressing_exercise(engine: &mut PersistentEngine) {
+    use crate::persistence::strength_live::{LiveEdit, StartFrom};
+    engine
+        .start_live_strength_session(&StartFrom::Blank, NOW_WALL)
+        .expect("a live session");
+    for edit in [
+        LiveEdit::AddExercise {
+            category: 7,
+            name: None,
+        },
+        LiveEdit::Begin,
+    ] {
+        engine
+            .edit_live_strength_session(&edit, NOW_WALL)
+            .expect("an edit");
+    }
+    let mut session = engine.live_strength_session().unwrap().unwrap();
+    session.exercises[0].sets = ["40.0", "40.0", "40.0"]
+        .iter()
+        .map(|kg| crate::persistence::strength_sessions::SessionSet {
+            reps: Some(8),
+            weight_kg: kg.parse().ok(),
+            ..Default::default()
+        })
+        .collect();
+    engine.save_strength_session(&session).expect("sets");
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_live_read_is_null_with_no_session_and_the_session_with_its_focus_when_one_is_live() {
+    let mut engine = linked_strength_engine();
+    let none = result_of(&engine, "strength.live", "{}");
+    assert_eq!(none["session"], Value::Null);
+    assert_eq!(none["focus"], Value::Null);
+
+    live_with_a_pressing_exercise(&mut engine);
+    let live = result_of(&engine, "strength.live", "{}");
+    assert_eq!(
+        live["session"]["exercises"][0]["sets"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+    assert_eq!(live["session"]["begun"], true);
+    assert_eq!(live["focus"]["phase"], "set");
+    assert_eq!(live["focus"]["current"]["setNumber"], 1);
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_tick_through_the_link_completes_the_set_in_the_engine_and_the_answer_carries_it() {
+    let mut engine = linked_strength_engine();
+    live_with_a_pressing_exercise(&mut engine);
+    let got = written(
+        &mut engine,
+        &write_request(
+            "strength.liveEdit",
+            r#"{"edit":{"kind":"completeSet","exercise":0,"set":0}}"#,
+        ),
+    );
+    assert!(got.get("error").is_none(), "{got}");
+    assert_eq!(
+        got["result"]["session"]["exercises"][0]["sets"][0]["done"],
+        true
+    );
+    let held = engine.live_strength_session().unwrap().unwrap();
+    assert!(held.exercises[0].sets[0].done);
+    assert!(!held.exercises[0].sets[1].done);
+    let read = result_of(&engine, "strength.live", "{}");
+    assert_eq!(read["session"], got["result"]["session"]);
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_weight_change_through_the_link_flows_down_the_sets_that_held_the_value() {
+    let mut engine = linked_strength_engine();
+    live_with_a_pressing_exercise(&mut engine);
+    written(
+        &mut engine,
+        &write_request(
+            "strength.liveEdit",
+            r#"{"edit":{"kind":"completeSet","exercise":0,"set":0}}"#,
+        ),
+    );
+    let got = written(
+        &mut engine,
+        &write_request(
+            "strength.liveEdit",
+            r#"{"edit":{"kind":"setWeightEntered","exercise":0,"set":1,"value":45.0}}"#,
+        ),
+    );
+    assert!(got.get("error").is_none(), "{got}");
+    let sets = &got["result"]["session"]["exercises"][0]["sets"];
+    assert_eq!(sets[0]["weightKg"], 40.0);
+    assert_eq!(sets[1]["weightKg"], 45.0);
+    assert_eq!(sets[2]["weightKg"], 45.0);
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_live_write_with_no_session_is_refused_with_a_reason() {
+    let mut engine = linked_strength_engine();
+    let got = written(
+        &mut engine,
+        &write_request("strength.liveEdit", r#"{"edit":{"kind":"startRest"}}"#),
+    );
+    let error = got["error"].as_str().expect("a refusal");
+    assert!(error.contains("no strength session is live"), "{error}");
+    assert!(engine.live_strength_session().unwrap().is_none());
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_refused_live_edit_leaves_the_session_and_logs_nothing() {
+    let mut engine = linked_strength_engine();
+    live_with_a_pressing_exercise(&mut engine);
+    let before = engine.live_strength_session().unwrap();
+    let got = written(
+        &mut engine,
+        &write_request(
+            "strength.liveEdit",
+            r#"{"edit":{"kind":"completeSet","exercise":0,"set":9}}"#,
+        ),
+    );
+    assert!(got.get("error").is_some(), "{got}");
+    assert_eq!(engine.live_strength_session().unwrap(), before);
+}
+
+fn add_a_second_section(engine: &PersistentEngine) {
+    engine
+        .db
+        .execute(
+            "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                distance_meters, disabled, version, source_activity_id)
+             VALUES ('s2', 'auto', 'Lake descent', 'Ride', '[[46.0,7.0],[46.0005,7.0]]', 400.0, 0, 1, NULL)",
+            [],
+        )
+        .expect("section");
+}
+
+fn polyline_of(engine: &PersistentEngine, id: &str) -> Vec<f64> {
+    crate::persistence::sections::pooled::section_polyline(&engine.db, id)
+}
+
+fn exists(engine: &PersistentEngine, id: &str) -> bool {
+    engine
+        .db
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM sections WHERE id = ?1",
+            [id],
+            |row| row.get(0),
+        )
+        .expect("count")
+}
+
+fn create_a_section(engine: &mut PersistentEngine, start: u32, end: u32) -> String {
+    let got = written(
+        engine,
+        &format!(
+            r#"{{"id":1,"method":"section.create","params":{{"activityId":"r1","startIndex":{start},"endIndex":{end},"sport":"Ride"}}}}"#
+        ),
+    );
+    got["result"]["sectionId"]
+        .as_str()
+        .unwrap_or_else(|| panic!("section.create answered {got}"))
+        .to_owned()
+}
+
+/// A custom section the athlete gave up for the auto section on its ground:
+/// it sits on the retired list with a version to restore.
+fn retire_a_section(engine: &mut PersistentEngine) -> String {
+    let custom = create_a_section(engine, 0, 1);
+    engine.prefer_section("s1", &custom).expect("prefer");
+    assert!(!exists(engine, &custom));
+    custom
+}
+
+/// Scenario: the page cuts a custom section from a range of a ride's track.
+///
+/// Expected behaviour: the section holds the points of that inclusive range,
+/// as the phone's own cut does, and the write is logged under the browser.
+#[test]
+fn a_custom_section_is_cut_from_the_range_of_a_ride() {
+    let mut engine = engine_with_a_route_and_a_section();
+    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, 1_700_000_000)
+        .expect("link the browser");
+    let id = create_a_section(&mut engine, 5, 20);
+    let line = polyline_of(&engine, &id);
+    assert_eq!(line.len(), 16 * 2);
+    assert!((line[0] - 46.005).abs() < 1e-6);
+    assert!((line[line.len() - 2] - 46.020).abs() < 1e-6);
+    let rows = logged(&engine);
+    assert_eq!(rows[0].method, "section.create");
+    assert_eq!(rows[0].target_id, id);
+}
+
+#[test]
+fn a_range_the_track_does_not_hold_cuts_nothing() {
+    let mut engine = engine_with_a_route_and_a_section();
+    let before = row_counts(&engine);
+    for params in [
+        r#"{"activityId":"r1","startIndex":20,"endIndex":5,"sport":"Ride"}"#,
+        r#"{"activityId":"r1","startIndex":5,"endIndex":60,"sport":"Ride"}"#,
+        r#"{"activityId":"nobody","startIndex":1,"endIndex":5,"sport":"Ride"}"#,
+        r#"{"activityId":"r1","startIndex":1,"sport":"Ride"}"#,
+    ] {
+        let got = written(
+            &mut engine,
+            &format!(r#"{{"id":1,"method":"section.create","params":{params}}}"#),
+        );
+        assert!(got.get("error").is_some(), "{params} answered {got}");
+    }
+    assert_eq!(row_counts(&engine), before);
+}
+
+/// Scenario: the page trims a section, expands it, then resets it.
+///
+/// Expected behaviour: each edit leaves the line the phone's edit leaves.
+#[test]
+fn a_bounds_edit_changes_the_line_as_the_phones_edit_does() {
+    let mut engine = engine_with_a_route_and_a_section();
+    let id = create_a_section(&mut engine, 5, 30);
+    let edit = |engine: &mut PersistentEngine, params: &str| {
+        written(
+            engine,
+            &format!(r#"{{"id":3,"method":"section.editBounds","params":{params}}}"#),
+        )
+    };
+
+    let got = edit(
+        &mut engine,
+        &format!(r#"{{"id":"{id}","edit":"trim","startIndex":0,"endIndex":10}}"#),
+    );
+    assert_eq!(got["result"]["ok"], true, "{got}");
+    assert_eq!(got["result"]["departed"], json!([]));
+    assert_eq!(polyline_of(&engine, &id).len(), 11 * 2);
+
+    let got = edit(&mut engine, &format!(r#"{{"id":"{id}","edit":"reset"}}"#));
+    assert_eq!(got["result"]["ok"], true, "{got}");
+    assert_eq!(polyline_of(&engine, &id).len(), 26 * 2);
+
+    let got = edit(
+        &mut engine,
+        &format!(
+            r#"{{"id":"{id}","edit":"expand","activityId":"r1","startIndex":0,"endIndex":40}}"#
+        ),
+    );
+    assert_eq!(got["result"]["ok"], true, "{got}");
+    assert_eq!(polyline_of(&engine, &id).len(), 41 * 2);
+}
+
+#[test]
+fn a_reference_edit_marks_the_section_user_defined_and_resets() {
+    let mut engine = engine_with_a_route_and_a_section();
+    let id = create_a_section(&mut engine, 5, 30);
+    engine
+        .db
+        .execute(
+            "UPDATE sections SET is_user_defined = 0 WHERE id = ?1",
+            [&id],
+        )
+        .expect("clear");
+    let user_defined = |engine: &PersistentEngine| -> bool {
+        engine
+            .db
+            .query_row(
+                "SELECT is_user_defined FROM sections WHERE id = ?1",
+                [&id],
+                |row| row.get(0),
+            )
+            .expect("flag")
+    };
+    let got = written(
+        &mut engine,
+        &format!(
+            r#"{{"id":3,"method":"section.editBounds","params":{{"id":"{id}","edit":"setReference","activityId":"r2"}}}}"#
+        ),
+    );
+    assert_eq!(got["result"]["ok"], true, "{got}");
+    assert!(user_defined(&engine));
+    let got = written(
+        &mut engine,
+        &format!(
+            r#"{{"id":4,"method":"section.editBounds","params":{{"id":"{id}","edit":"resetReference"}}}}"#
+        ),
+    );
+    assert_eq!(got["result"]["ok"], true, "{got}");
+}
+
+/// Expected behaviour: an edit missing what it needs, or naming one the
+/// protocol does not carry, is refused and the line is unchanged.
+#[test]
+fn a_bounds_edit_missing_its_parameters_is_refused_and_changes_nothing() {
+    let mut engine = engine_with_a_route_and_a_section();
+    let id = create_a_section(&mut engine, 5, 30);
+    let before = polyline_of(&engine, &id);
+    for params in [
+        format!(r#"{{"id":"{id}","edit":"trim","startIndex":0}}"#),
+        format!(r#"{{"id":"{id}","edit":"expand","startIndex":0,"endIndex":4}}"#),
+        format!(r#"{{"id":"{id}","edit":"setReference"}}"#),
+        format!(r#"{{"id":"{id}","edit":"revert"}}"#),
+        format!(r#"{{"id":"{id}","edit":"delete"}}"#),
+        format!(r#"{{"id":"{id}","edit":"trim","startIndex":9,"endIndex":3}}"#),
+        r#"{"id":"missing","edit":"reset"}"#.to_owned(),
+    ] {
+        let got = written(
+            &mut engine,
+            &format!(r#"{{"id":3,"method":"section.editBounds","params":{params}}}"#),
+        );
+        assert!(got.get("error").is_some(), "{params} answered {got}");
+    }
+    assert_eq!(polyline_of(&engine, &id), before);
+}
+
+#[test]
+fn a_revert_puts_a_stored_version_back() {
+    let mut engine = engine_with_a_route_and_a_section();
+    let id = create_a_section(&mut engine, 5, 30);
+    written(
+        &mut engine,
+        &format!(
+            r#"{{"id":3,"method":"section.editBounds","params":{{"id":"{id}","edit":"trim","startIndex":0,"endIndex":10}}}}"#
+        ),
+    );
+    let versions = engine.section_geometry_versions(&id);
+    assert!(versions.len() >= 2, "{versions:?}");
+    let first = versions[0].version;
+    let got = written(
+        &mut engine,
+        &format!(
+            r#"{{"id":4,"method":"section.editBounds","params":{{"id":"{id}","edit":"revert","version":{first}}}}}"#
+        ),
+    );
+    assert_eq!(got["result"]["ok"], true, "{got}");
+    assert_eq!(polyline_of(&engine, &id).len(), 26 * 2);
+}
+
+/// Scenario: the page previews a merge of two sections, then merges them.
+///
+/// Expected behaviour: the preview writes nothing and names the rides the
+/// merge would leave out; the merge keeps the primary, deletes the secondary
+/// and names the rides that left.
+#[test]
+fn a_merge_keeps_the_primary_and_a_preview_writes_nothing() {
+    let mut engine = engine_with_a_route_and_a_section();
+    let primary = create_a_section(&mut engine, 0, 40);
+    let secondary = create_a_section(&mut engine, 5, 20);
+    let ask = format!(r#"{{"primaryId":"{primary}","secondaryId":"{secondary}"}}"#);
+    let before = row_counts(&engine);
+
+    let got = reply(
+        &engine,
+        &format!(r#"{{"id":1,"method":"section.mergePreview","params":{ask}}}"#),
+    );
+    assert_eq!(got["result"]["dropped"], json!([]), "{got}");
+    assert_eq!(row_counts(&engine), before);
+    assert!(is_write("section.merge") && !is_write("section.mergePreview"));
+
+    let got = written(
+        &mut engine,
+        &format!(r#"{{"id":2,"method":"section.merge","params":{ask}}}"#),
+    );
+    assert_eq!(got["result"]["sectionId"], primary.as_str(), "{got}");
+    assert_eq!(got["result"]["departed"], json!([]));
+    assert!(exists(&engine, &primary));
+    assert!(!exists(&engine, &secondary));
+
+    let got = written(
+        &mut engine,
+        &format!(
+            r#"{{"id":3,"method":"section.merge","params":{{"primaryId":"{primary}","secondaryId":"{primary}"}}}}"#
+        ),
+    );
+    assert!(got.get("error").is_some(), "{got}");
+}
+
+/// Scenario: a custom section the athlete gave up sits on the retired list;
+/// the page restores it.
+#[test]
+fn a_retired_section_is_restored_and_a_live_one_is_refused() {
+    let mut engine = engine_with_a_route_and_a_section();
+    let id = retire_a_section(&mut engine);
+    let live = create_a_section(&mut engine, 5, 30);
+    let got = written(
+        &mut engine,
+        &format!(r#"{{"id":3,"method":"section.restore","params":{{"id":"{live}"}}}}"#),
+    );
+    assert!(
+        got.get("error").is_some(),
+        "a live section is not retired: {got}"
+    );
+
+    let got = written(
+        &mut engine,
+        &format!(r#"{{"id":4,"method":"section.restore","params":{{"id":"{id}"}}}}"#),
+    );
+    assert_eq!(got["result"]["ok"], true, "{got}");
+    assert!(exists(&engine, &id));
+    let got = written(
+        &mut engine,
+        r#"{"id":5,"method":"section.restore","params":{"id":"never-existed"}}"#,
+    );
+    assert!(got.get("error").is_some(), "{got}");
+}
+
+fn representative_of(engine: &PersistentEngine, route: &str) -> String {
+    engine
+        .db
+        .query_row(
+            "SELECT representative_id FROM route_groups WHERE id = ?1",
+            [route],
+            |row| row.get(0),
+        )
+        .expect("route")
+}
+
+/// Scenario: the page names a route's reference ride, then hands the choice
+/// back to the grouping.
+#[test]
+fn a_route_reference_is_set_and_reset_as_the_phone_does() {
+    let mut engine = engine_with_a_route_and_a_section();
+    engine.reload_groups_from_db();
+    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, 1_700_000_000)
+        .expect("link the browser");
+    let got = written(
+        &mut engine,
+        r#"{"id":1,"method":"route.setReference","params":{"id":"g1","activityId":"r2"}}"#,
+    );
+    assert_eq!(got["result"]["ok"], true, "{got}");
+    assert_eq!(representative_of(&engine, "g1"), "r2");
+    let got = written(
+        &mut engine,
+        r#"{"id":2,"method":"route.resetReference","params":{"id":"g1"}}"#,
+    );
+    assert_eq!(got["result"]["ok"], true, "{got}");
+    let rows = logged(&engine);
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0].method, "route.resetReference");
+
+    let got = written(
+        &mut engine,
+        r#"{"id":3,"method":"route.setReference","params":{"id":"g1","activityId":"nobody"}}"#,
+    );
+    assert!(got.get("error").is_some(), "{got}");
+    assert_eq!(logged(&engine).len(), 2, "a refusal leaves no row");
+}
+
+/// Expected behaviour: a delete-shaped method is unknown on both channels,
+/// whatever its name.
+#[test]
+fn a_delete_shaped_method_is_still_refused() {
+    let mut engine = engine_with_a_route_and_a_section();
+    let before = row_counts(&engine);
+    for method in [
+        "section.delete",
+        "section.remove",
+        "section.deleteCustom",
+        "route.delete",
+        "route.remove",
+    ] {
+        let request = format!(r#"{{"id":5,"method":"{method}","params":{{"id":"s1"}}}}"#);
+        assert!(!is_write(method));
+        let got = written(&mut engine, &request);
+        assert_eq!(got["error"], format!("unknown method: {method}"));
+        let got = reply(&engine, &request);
+        assert_eq!(got["error"], format!("unknown method: {method}"));
+    }
+    assert_eq!(row_counts(&engine), before);
+}
+
+fn threshold_figure(thresholds: &Value, sport: &str, field: &str) -> Value {
+    thresholds["sports"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["sport"] == sport)
+        .unwrap()["figures"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|figure| figure["field"] == field)
+        .unwrap()
+        .clone()
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_threshold_written_over_the_link_is_the_athletes_figure_until_cleared() {
+    let mut engine = engine_with_no_catalogue();
+    let before = result_of(&engine, "settings.thresholds", "{}");
+    assert_eq!(
+        threshold_figure(&before, "Ride", "ftp")["source"],
+        Value::Null
+    );
+    assert_eq!(
+        before["hrZoneDefaultPercents"].as_array().unwrap().len(),
+        crate::persistence::screens::thresholds_screen_data(&engine.db)
+            .hr_zone_default_percents
+            .len()
+    );
+
+    let got = written(
+        &mut engine,
+        &write_request(
+            "settings.setThreshold",
+            r#"{"sport":"Ride","field":"ftp","value":262.0}"#,
+        ),
+    );
+    assert_eq!(got["result"]["ok"], true);
+    let set = result_of(&engine, "settings.thresholds", "{}");
+    let ftp = threshold_figure(&set, "Ride", "ftp");
+    assert_eq!(ftp["value"], 262.0);
+    assert_eq!(ftp["source"], "athlete");
+    assert_eq!(threshold_figure(&set, "Run", "ftp")["source"], Value::Null);
+    let row = &logged(&engine)[0];
+    assert_eq!(row.method, "settings.setThreshold");
+    assert!(row.summary.contains("262"), "{}", row.summary);
+
+    written(
+        &mut engine,
+        &write_request(
+            "settings.setThreshold",
+            r#"{"sport":"Ride","field":"ftp","value":null}"#,
+        ),
+    );
+    let cleared = result_of(&engine, "settings.thresholds", "{}");
+    assert_eq!(
+        threshold_figure(&cleared, "Ride", "ftp")["source"],
+        Value::Null
+    );
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_threshold_the_engine_refuses_is_refused_and_changes_nothing() {
+    let mut engine = engine_with_no_catalogue();
+    for params in [
+        r#"{"sport":"Ride","field":"ftp","value":0.0}"#,
+        r#"{"sport":"Ride","field":"ftp","value":-5.0}"#,
+        r#"{"sport":"Swim","field":"ftp","value":200.0}"#,
+        r#"{"sport":"Ride","field":"cadence","value":90.0}"#,
+        r#"{"sport":"Ride","field":"ftp"}"#,
+    ] {
+        let got = written(&mut engine, &write_request("settings.setThreshold", params));
+        assert!(got.get("error").is_some(), "{params} answered {got}");
+    }
+    let after = result_of(&engine, "settings.thresholds", "{}");
+    assert_eq!(
+        threshold_figure(&after, "Ride", "ftp")["source"],
+        Value::Null
+    );
+    assert!(logged(&engine).is_empty());
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_display_setting_written_over_the_link_is_the_one_the_phone_reads_back() {
+    let mut engine = engine_with_no_catalogue();
+    let got = written(
+        &mut engine,
+        &write_request(
+            "settings.set",
+            r#"{"key":"veloq-theme-preference","value":"dark"}"#,
+        ),
+    );
+    assert_eq!(got["result"]["ok"], true);
+    assert_eq!(
+        crate::persistence::settings::setting_from(&engine.db, "veloq-theme-preference")
+            .unwrap()
+            .as_deref(),
+        Some("dark")
+    );
+    let read = result_of(
+        &engine,
+        "settings.get",
+        r#"{"keys":["veloq-theme-preference"]}"#,
+    );
+    assert_eq!(read["values"][0]["value"], "dark");
+    assert_eq!(logged(&engine)[0].method, "settings.set");
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_setting_the_link_may_not_write_or_a_value_it_does_not_take_changes_nothing() {
+    let mut engine = engine_with_no_catalogue();
+    for params in [
+        r#"{"key":"intervals-api-key","value":"x"}"#,
+        r#"{"key":"__athlete_id","value":"i1"}"#,
+        r#"{"key":"veloq-map-preferences","value":"{}"}"#,
+        r#"{"key":"veloq-theme-preference","value":"neon"}"#,
+        r#"{"key":"veloq-unit-preference","value":"furlongs"}"#,
+        r#"{"key":"veloq-primary-sport","value":"Curling"}"#,
+        r#"{"key":"veloq-theme-preference"}"#,
+    ] {
+        let got = written(&mut engine, &write_request("settings.set", params));
+        assert!(got.get("error").is_some(), "{params} answered {got}");
+    }
+    assert_eq!(
+        crate::persistence::settings::setting_from(&engine.db, "veloq-theme-preference").unwrap(),
+        None
+    );
+    assert!(logged(&engine).is_empty());
+}
+
+#[test]
+fn every_writable_setting_is_a_readable_one() {
+    for key in WRITABLE_SETTINGS.iter().map(|setting| setting.key) {
+        assert!(SETTING_KEYS.contains(&key), "{key}");
+    }
 }

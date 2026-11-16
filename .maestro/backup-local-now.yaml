@@ -1,7 +1,7 @@
 # Local Backup. Backup Now
 # US-X2: "Backup Now" succeeds with local backend (writes .veloqdb, updates
 #        "Last backup" timestamp, shows success message)
-# US-X3: "not encrypted" warning is always reachable from the export row
+# US-X3: the export row's info sheet says what an export holds, home included
 #
 # Companion script: scripts/verify-backup-export.sh pulls the file from the
 # emulator and asserts it's a valid SQLite DB with the expected tables.
@@ -64,8 +64,8 @@ tags:
     direction: DOWN
     timeout: 20000
 
-# US-X3: the warning is held behind the export row's info button rather than
-# drawn inline, so open it there and read it on the explainer sheet.
+# US-X3: what an export holds is held behind the export row's info button
+# rather than drawn inline, so open it there and read it on the explainer sheet.
 - swipe:
     start: 50%, 75%
     end: 50%, 45%
@@ -77,8 +77,8 @@ tags:
       id: "explainer-sheet"
     timeout: 10000
 - assertVisible:
-    text: "Backups are not encrypted.*"
-- takeScreenshot: "screenshots/backup-not-encrypted-warning"
+    text: "Export saves everything, including your home location.*"
+- takeScreenshot: "screenshots/backup-export-info"
 # The close button is iOS's. An Android sheet draws none, system back closes it.
 - runFlow:
     when:

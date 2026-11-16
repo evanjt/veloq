@@ -11,7 +11,6 @@
 import zlib from 'zlib';
 
 import {
-  AskCache,
   INVITATION_TTL_SECS,
   PAGE_MIN_PROTOCOL,
   PAGE_PROTOCOL,
@@ -24,13 +23,11 @@ import {
   cancelMessage,
   isSuperseded,
   FEED_PAGE_SIZE,
-  FEED_SPARKLINE_DAYS,
   SETTING_LABELS,
   deviceLines,
   settingRows,
-  settingsOpening,
-  feedOpening,
   feedPageAsk,
+  feedChips,
   feedRows,
   floatsOf,
   invitation,
@@ -49,7 +46,11 @@ import {
   writeNotice,
   type State,
 } from '../../../web/connect/link';
-import { bestEffortsAsk, createSlots, rangeAsks, screenAsk } from '../../../web/connect/fitness';
+import { bestEffortsAsk, rangeAsks, screenAsk } from '../../../web/connect/fitness';
+import { settingsAsks } from '../../../web/connect/settingsReads';
+import { canRetry, isLinking } from '../../../web/connect/connection';
+import { QueryClient, type Transport } from '../../../web/connect/query';
+import { createSession, type Environment } from '../../../web/connect/session';
 
 const BROWSER = 'sha-256 AA:AA';
 const PHONE = 'sha-256 BB:BB';
@@ -141,11 +142,55 @@ describe('the connect page state machine', () => {
     expect(doing(next)).toEqual(['offer']);
   });
 
-  vaultIt('forgets every fetched row on a drop while connected and goes back to waiting', () => {
+  vaultIt('keeps every fetched row on a drop while connected and goes back to waiting', () => {
     const next = step(connected(), { type: 'drop' });
     expect(next.state).toEqual({ name: 'waiting', phone: PHONE, attempt: 1 });
     expect(JSON.stringify(next.state)).not.toContain('i1');
     expect(doing(next)).toEqual(['hangUp', 'retry']);
+  });
+
+  it('tries the phone at once when the athlete asks, from waiting, connecting and update', () => {
+    const waiting: State = { name: 'waiting', phone: PHONE, attempt: 3 };
+    const again = step(waiting, { type: 'retry' });
+    expect(again.state).toEqual(waiting);
+    expect(again.effects).toEqual([{ do: 'hangUp' }, { do: 'retry', delay: 0 }]);
+
+    const connecting: State = { name: 'connecting', phone: PHONE, attempt: 2 };
+    const reconnecting = step(connecting, { type: 'retry' });
+    expect(reconnecting.state).toEqual({ name: 'waiting', phone: PHONE, attempt: 2 });
+    expect(reconnecting.effects).toEqual([{ do: 'hangUp' }, { do: 'retry', delay: 0 }]);
+
+    const updating: State = { name: 'update', phone: PHONE };
+    const joined = step(updating, { type: 'retry' });
+    expect(joined.state).toEqual({ name: 'waiting', phone: PHONE, attempt: 0 });
+    expect(joined.effects).toEqual([{ do: 'joinLinked', phone: PHONE }]);
+  });
+
+  it('keeps the shell under a banner while the link is trying, and offers retry when it is down', () => {
+    const waiting: State = { name: 'waiting', phone: PHONE, attempt: 1 };
+    const connecting: State = { name: 'connecting', phone: PHONE, attempt: 0 };
+    const live = connected();
+    const updating: State = { name: 'update', phone: PHONE };
+    const unpaired: State = { name: 'unpaired' };
+
+    expect(isLinking(waiting)).toBe(true);
+    expect(isLinking(connecting)).toBe(true);
+    expect(isLinking(live)).toBe(false);
+    expect(isLinking(updating)).toBe(false);
+    expect(isLinking(unpaired)).toBe(false);
+
+    expect(canRetry(waiting)).toBe(true);
+    expect(canRetry(connecting)).toBe(true);
+    expect(canRetry(updating)).toBe(true);
+    expect(canRetry(live)).toBe(false);
+    expect(canRetry(unpaired)).toBe(false);
+  });
+
+  it('leaves a connected link alone when asked to retry', () => {
+    const live = connected();
+    const next = step(live, { type: 'retry' });
+    expect(next.state).toEqual(live);
+    expect(next.effects).toEqual([]);
   });
 
   vaultIt(
@@ -189,7 +234,7 @@ describe('the connect page state machine', () => {
     const proving: State = { name: 'proving', invitation: code, phone: PHONE };
     const next = step(proving, { type: 'drop', cause: 'unreachable' });
     expect(next.state).toEqual({ name: 'unpaired', notice: 'unreachable' });
-    expect(doing(next)).toEqual(['hangUp', 'invite']);
+    expect(doing(next)).toEqual(['hangUp', 'signOut', 'invite']);
     expect(step(proving, { type: 'drop' }).state).toEqual({ name: 'unpaired' });
   });
 
@@ -203,7 +248,7 @@ describe('the connect page state machine', () => {
     const connecting: State = { name: 'connecting', phone: PHONE, attempt: 0 };
     const next = step(connecting, { type: 'answered', fingerprint: 'sha-256 EE:EE' });
     expect(next.state).toEqual({ name: 'unpaired', notice: 'refused' });
-    expect(doing(next)).toEqual(['hangUp', 'forget', 'invite']);
+    expect(doing(next)).toEqual(['hangUp', 'signOut', 'forget', 'invite']);
   });
 
   it('carries on with the phone it paired with', () => {
@@ -264,7 +309,7 @@ describe('the connect page state machine', () => {
     };
     const declined = step(confirming, { type: 'status', value: 'declined' });
     expect(declined.state).toEqual({ name: 'unpaired', notice: 'declined' });
-    expect(doing(declined)).toEqual(['hangUp', 'invite']);
+    expect(doing(declined)).toEqual(['hangUp', 'signOut', 'invite']);
 
     const proving: State = { ...confirming, name: 'proving' };
     const failed = step(proving, { type: 'proved', ok: false });
@@ -360,7 +405,7 @@ describe('the connect page state machine', () => {
     };
     const fromInviting = step(inviting, { type: 'bye' });
     expect(fromInviting.state).toEqual({ name: 'unpaired' });
-    expect(doing(fromInviting)).toEqual(['hangUp', 'invite']);
+    expect(doing(fromInviting)).toEqual(['hangUp', 'signOut', 'invite']);
 
     const fromWaiting = step({ name: 'waiting', phone: PHONE, attempt: 1 }, { type: 'bye' });
     expect(fromWaiting.state).toEqual({ name: 'waiting', phone: PHONE, attempt: 2 });
@@ -412,7 +457,7 @@ describe('the connect page state machine', () => {
     };
     const next = step(inviting, { type: 'expired' });
     expect(next.state).toEqual({ name: 'unpaired' });
-    expect(doing(next)).toEqual(['hangUp', 'invite']);
+    expect(doing(next)).toEqual(['hangUp', 'signOut', 'invite']);
   });
 });
 
@@ -438,7 +483,7 @@ describe('the page learns what the phone speaks before it asks for anything', ()
   vaultIt('keeps the method list the phone names and reads the feed from it', () => {
     const next = step(opened(), { type: 'hello', protocol: PAGE_PROTOCOL, methods: listed });
     expect(next.state).toMatchObject({ name: 'connected', methods: listed });
-    expect(next.effects).toEqual([{ do: 'speak', version: PAGE_PROTOCOL }, { do: 'fetchFeed' }]);
+    expect(next.effects).toEqual([{ do: 'speak', version: PAGE_PROTOCOL }]);
   });
 
   vaultIt('keeps the name the phone gives itself, and none when it gives a blank one', () => {
@@ -461,30 +506,20 @@ describe('the page learns what the phone speaks before it asks for anything', ()
     }
   });
 
-  vaultIt('asks for a method the phone listed', () => {
-    const state = step(opened(), { type: 'hello', protocol: PAGE_PROTOCOL, methods: listed }).state;
-    const next = step(state, { type: 'screen', method: 'activity.summary', params: { id: 'i1' } });
-    expect(next.state).toBe(state);
-    expect(next.effects).toEqual([{ do: 'ask', method: 'activity.summary', params: { id: 'i1' } }]);
+  vaultIt('connects with the methods the phone listed and asks nothing itself', () => {
+    const next = step(opened(), { type: 'hello', protocol: PAGE_PROTOCOL, methods: listed });
+    expect(next.state).toMatchObject({ name: 'connected', methods: listed });
+    expect(doing(next)).toEqual(['speak']);
   });
 
-  vaultIt(
-    'shows the update state, and sends no ask, when the screen needs a method the phone did not list',
-    () => {
-      const state = step(opened(), {
-        type: 'hello',
-        protocol: PAGE_PROTOCOL,
-        methods: listed,
-      }).state;
-      const next = step(state, {
-        type: 'screen',
-        method: 'activity.streams',
-        params: { id: 'i1' },
-      });
-      expect(next.state).toEqual({ name: 'update', phone: PHONE });
-      expect(doing(next)).not.toContain('ask');
-    }
-  );
+  vaultIt('tells a phone without the feed to update', () => {
+    const next = step(opened(), {
+      type: 'hello',
+      protocol: PAGE_PROTOCOL,
+      methods: ['link.hello', 'activity.summary'],
+    });
+    expect(next.state).toEqual({ name: 'update', phone: PHONE });
+  });
 
   vaultIt('shows the update state at once when the phone speaks another protocol', () => {
     const next = step(opened(), {
@@ -499,10 +534,7 @@ describe('the page learns what the phone speaks before it asks for anything', ()
   vaultIt('speaks the previous version to a phone that names only the previous version', () => {
     const next = step(opened(), { type: 'hello', protocol: PAGE_MIN_PROTOCOL, methods: listed });
     expect(next.state).toMatchObject({ name: 'connected', version: PAGE_MIN_PROTOCOL });
-    expect(next.effects).toEqual([
-      { do: 'speak', version: PAGE_MIN_PROTOCOL },
-      { do: 'fetchFeed' },
-    ]);
+    expect(next.effects).toEqual([{ do: 'speak', version: PAGE_MIN_PROTOCOL }]);
   });
 
   it('speaks the highest version both hold when the phone names a range', () => {
@@ -572,12 +604,6 @@ describe('the page learns what the phone speaks before it asks for anything', ()
       expect(step(proving, { type: 'mismatch' }).state).toEqual({ name: 'update', phone: PHONE });
     }
   );
-
-  vaultIt('asks nothing of a phone whose list it has not yet read', () => {
-    const next = step(opened(), { type: 'screen', method: 'feed.page' });
-    expect(next.state).toEqual({ name: 'update', phone: PHONE });
-    expect(doing(next)).not.toContain('ask');
-  });
 
   vaultIt('leaves the update state only by unlinking', () => {
     const update: State = { name: 'update', phone: PHONE };
@@ -903,17 +929,10 @@ describe('an ask a newer one in its slot supersedes is withdrawn', () => {
   });
 });
 
-describe('the feed screen reads the phone summary, sparklines and a filtered page', () => {
-  const listed = ['link.hello', 'feed.page', 'feed.summary', 'feed.sparklines', 'feed.highlights'];
+describe('the feed screen asks the phone for a filtered page', () => {
   const none = { families: [], needle: '' };
 
-  vaultIt('fetches the summary card, the sparklines and the first page when connected', () => {
-    const asks = feedOpening(listed, none, 1_737_050_000);
-    expect(asks).toEqual([
-      { method: 'feed.summary', params: { nowWallSeconds: 1_737_050_000 } },
-      { method: 'feed.sparklines', params: { days: FEED_SPARKLINE_DAYS } },
-      { method: 'feed.page', params: feedPageAsk(none, 0) },
-    ]);
+  vaultIt('asks the first page of the feed with the page size and no filter', () => {
     expect(feedPageAsk(none, 0)).toEqual({
       offset: 0,
       limit: FEED_PAGE_SIZE,
@@ -922,11 +941,6 @@ describe('the feed screen reads the phone summary, sparklines and a filtered pag
       oldestTs: null,
       newestTs: null,
     });
-  });
-
-  vaultIt('skips a read the phone did not list and still opens the page', () => {
-    const asks = feedOpening(['link.hello', 'feed.page'], none, 5);
-    expect(asks.map((ask) => ask.method)).toEqual(['feed.page']);
   });
 
   vaultIt('asks the page again with the chosen family and search, from the top', () => {
@@ -951,6 +965,19 @@ describe('the feed screen reads the phone summary, sparklines and a filtered pag
       { id: 'a' },
       { id: 'b' },
     ]);
+  });
+});
+
+describe('the feed chips are the labels the phone read holds', () => {
+  vaultIt('shows each label as the engine worded it, route chips before indicators', () => {
+    const chips = feedChips({ old: ['Kept'] }, ['a', 'b'], {
+      routeHighlights: [{ activityId: 'a', label: 'Lake loop PR' }],
+      indicators: [
+        { activityId: 'a', label: 'Hill ↑' },
+        { activityId: 'ghost', label: 'Dropped' },
+      ],
+    });
+    expect(chips).toEqual({ old: ['Kept'], a: ['Lake loop PR', 'Hill ↑'], b: [] });
   });
 });
 
@@ -1034,70 +1061,83 @@ describe('the page reads the previous version, whose replies are one text messag
 describe('the page keeps what the phone answered until the phone says the library changed', () => {
   const setup = () => {
     const sent: string[] = [];
-    const cache = new AskCache((method, params) => {
-      sent.push(`${method} ${JSON.stringify(params)}`);
-      return Promise.resolve({ method });
-    });
-    return { sent, cache };
+    const transport: Transport = {
+      methods: () => [
+        'feed.page',
+        'feed.summary',
+        'activity.summary',
+        'activity.streams',
+        'activity.track',
+      ],
+      ask: (method, params) => {
+        sent.push(`${method} ${JSON.stringify(params)}`);
+        return Promise.resolve({ method });
+      },
+    };
+    return { sent, cache: new QueryClient(transport) };
   };
 
   vaultIt('does not send a second ask for the same method and params', async () => {
     const { sent, cache } = setup();
-    await cache.ask('feed.page', { offset: 0, limit: 50 });
-    await cache.ask('feed.page', { limit: 50, offset: 0 });
+    await cache.fetch('feed.page', { offset: 0, limit: 50 } as never);
+    await cache.fetch('feed.page', { limit: 50, offset: 0 } as never);
     expect(sent).toHaveLength(1);
-    await cache.ask('feed.page', { offset: 50, limit: 50 });
+    await cache.fetch('feed.page', { offset: 50, limit: 50 } as never);
     expect(sent).toHaveLength(2);
   });
 
   vaultIt('shares one ask between two callers while it is in flight', async () => {
     const { sent, cache } = setup();
-    await Promise.all([cache.ask('feed.summary', {}), cache.ask('feed.summary', {})]);
+    await Promise.all([
+      cache.fetch('feed.summary', {} as never),
+      cache.fetch('feed.summary', {} as never),
+    ]);
     expect(sent).toHaveLength(1);
   });
 
   vaultIt('asks again after a failed ask', async () => {
     let calls = 0;
-    const cache = new AskCache(() =>
-      ++calls === 1 ? Promise.reject(new Error('no reply')) : Promise.resolve({})
-    );
-    await cache.ask('feed.page', {}).catch(() => undefined);
-    await cache.ask('feed.page', {});
+    const cache = new QueryClient({
+      methods: () => ['feed.page'],
+      ask: () => (++calls === 1 ? Promise.reject(new Error('no reply')) : Promise.resolve({})),
+    });
+    await cache.fetch('feed.page', {} as never).catch(() => undefined);
+    await cache.fetch('feed.page', {} as never);
     expect(calls).toBe(2);
   });
 
   vaultIt('asks lists and details again after a change, and streams and track not', async () => {
     const { sent, cache } = setup();
-    await cache.ask('feed.page', { offset: 0 });
-    await cache.ask('activity.summary', { id: 'a1' });
-    await cache.ask('activity.streams', { id: 'a1' });
-    await cache.ask('activity.track', { id: 'a1' });
+    await cache.fetch('feed.page', { offset: 0 } as never);
+    await cache.fetch('activity.summary', { id: 'a1' });
+    await cache.fetch('activity.streams', { id: 'a1' } as never);
+    await cache.fetch('activity.track' as never, { id: 'a1' } as never);
     sent.length = 0;
     cache.changed();
-    await cache.ask('feed.page', { offset: 0 });
-    await cache.ask('activity.summary', { id: 'a1' });
-    await cache.ask('activity.streams', { id: 'a1' });
-    await cache.ask('activity.track', { id: 'a1' });
+    await cache.fetch('feed.page', { offset: 0 } as never);
+    await cache.fetch('activity.summary', { id: 'a1' });
+    await cache.fetch('activity.streams', { id: 'a1' } as never);
+    await cache.fetch('activity.track' as never, { id: 'a1' } as never);
     expect(sent.map((line) => line.split(' ')[0])).toEqual(['feed.page', 'activity.summary']);
   });
 
   vaultIt('drops the streams of an activity once no list carries it', async () => {
     const { sent, cache } = setup();
-    await cache.ask('activity.streams', { id: 'a1' });
-    await cache.ask('activity.streams', { id: 'a2' });
+    await cache.fetch('activity.streams', { id: 'a1' } as never);
+    await cache.fetch('activity.streams', { id: 'a2' } as never);
     cache.keepOnly(['a2']);
     sent.length = 0;
-    await cache.ask('activity.streams', { id: 'a2' });
+    await cache.fetch('activity.streams', { id: 'a2' } as never);
     expect(sent).toHaveLength(0);
-    await cache.ask('activity.streams', { id: 'a1' });
+    await cache.fetch('activity.streams', { id: 'a1' } as never);
     expect(sent).toHaveLength(1);
   });
 
-  vaultIt('forgets everything on clear', async () => {
+  vaultIt('forgets everything on a reset', async () => {
     const { sent, cache } = setup();
-    await cache.ask('activity.streams', { id: 'a1' });
-    cache.clear();
-    await cache.ask('activity.streams', { id: 'a1' });
+    await cache.fetch('activity.streams', { id: 'a1' } as never);
+    cache.reset();
+    await cache.fetch('activity.streams', { id: 'a1' } as never);
     expect(sent).toHaveLength(2);
   });
 
@@ -1114,7 +1154,7 @@ describe('the page keeps what the phone answered until the phone says the librar
   });
 });
 
-describe('the fitness page asks one slot per panel', () => {
+describe('the fitness page asks one read per panel', () => {
   const now = new Date(2026, 2, 15, 9, 30, 0);
 
   vaultIt(
@@ -1170,31 +1210,22 @@ describe('the fitness page asks one slot per panel', () => {
       },
     });
   });
-
-  vaultIt('lets a later ask of a slot supersede the earlier one and no other slot', () => {
-    const slots = createSlots();
-    const first = slots.begin('wellness');
-    const loads = slots.begin('loads');
-    const second = slots.begin('wellness');
-    expect(slots.isCurrent('wellness', first)).toBe(false);
-    expect(slots.isCurrent('wellness', second)).toBe(true);
-    expect(slots.isCurrent('loads', loads)).toBe(true);
-  });
 });
 
 describe('the settings screen reads the phone settings and statuses, read-only', () => {
-  const listed = ['settings.get', 'settings.profile', 'status.sync', 'status.linkedDevices'];
-
-  vaultIt('asks only for the reads the phone listed, the settings among them by key', () => {
-    const asks = settingsOpening(listed);
+  vaultIt('asks the settings by key, with the profile and each status', () => {
+    const asks = settingsAsks();
     expect(asks.map((ask) => ask.method)).toEqual([
       'settings.get',
       'settings.profile',
+      'status.backgroundJobs',
+      'status.cache',
+      'status.backup',
       'status.linkedDevices',
+      'status.coverage',
       'status.sync',
     ]);
-    expect(asks[0].params).toEqual({ keys: SETTING_LABELS.map(([key]) => key) });
-    expect(settingsOpening(['link.hello'])).toEqual([]);
+    expect(asks[0]?.args).toEqual({ keys: SETTING_LABELS.map(([key]) => key) });
   });
 
   vaultIt('shows each value the phone holds and no control is enabled', () => {
@@ -1273,10 +1304,23 @@ describe('the page acts on the phone saying why it is leaving', () => {
   vaultIt(
     'goes to waiting at once with the reason, hanging up and retrying, when the phone leaves',
     () => {
-      for (const reason of ['background', 'switchedOff', 'disconnected'] as const) {
+      const background = step(connected(), { type: 'farewell', reason: 'background' });
+      expect(background.state).toEqual({
+        name: 'waiting',
+        phone: PHONE,
+        attempt: 1,
+        reason: 'background',
+      });
+      expect(background.effects).toEqual([{ do: 'hangUp' }, { do: 'retry', delay: retryDelay(0) }]);
+
+      for (const reason of ['switchedOff', 'disconnected'] as const) {
         const next = step(connected(), { type: 'farewell', reason });
         expect(next.state).toEqual({ name: 'waiting', phone: PHONE, attempt: 1, reason });
-        expect(next.effects).toEqual([{ do: 'hangUp' }, { do: 'retry', delay: retryDelay(0) }]);
+        expect(next.effects).toEqual([
+          { do: 'hangUp' },
+          { do: 'signOut' },
+          { do: 'retry', delay: retryDelay(0) },
+        ]);
       }
     }
   );
@@ -1284,7 +1328,7 @@ describe('the page acts on the phone saying why it is leaving', () => {
   it('forgets the phone and pairs afresh when it was removed on the phone', () => {
     const next = step(connected(), { type: 'farewell', reason: 'removed' });
     expect(next.state).toEqual({ name: 'unpaired', notice: 'removed' });
-    expect(doing(next)).toEqual(['hangUp', 'forget', 'invite']);
+    expect(doing(next)).toEqual(['hangUp', 'signOut', 'forget', 'invite']);
   });
 
   vaultIt('treats a declined pairing as the phone declining', () => {
@@ -1295,7 +1339,7 @@ describe('the page acts on the phone saying why it is leaving', () => {
     };
     const next = step(confirming, { type: 'farewell', reason: 'declined' });
     expect(next.state).toEqual({ name: 'unpaired', notice: 'declined' });
-    expect(doing(next)).toEqual(['hangUp', 'invite']);
+    expect(doing(next)).toEqual(['hangUp', 'signOut', 'invite']);
   });
 
   vaultIt('changes nothing for a farewell that arrives while already waiting', () => {
@@ -1358,5 +1402,148 @@ describe('the page tells the athlete how long the phone has been waited for', ()
     const state: State = { name: 'update', phone: PHONE };
     expect(step(state, { type: 'stillWaiting' }).state).toEqual(state);
     expect(step(connected(), { type: 'stillWaiting' }).state.name).toBe('connected');
+  });
+});
+
+/**
+ * A session with every browser API stood in for. The kept certificate and the
+ * phone are read from `kept`; the relay socket records what is sent to it; the
+ * peer connection's data channel is open from the start, so each state is
+ * reached by the event that moves it.
+ */
+function standInSession(phone: string) {
+  const kept = new Map<string, unknown>([
+    [
+      'certificate',
+      { expires: 1e12, getFingerprints: () => [{ algorithm: 'sha-256', value: 'AA:AA' }] },
+    ],
+    ['phone', phone],
+  ]);
+  const sockets: { sent: string[]; onopen: (() => void) | null }[] = [];
+
+  class StandInSocket {
+    onopen: (() => void) | null = null;
+    onclose: (() => void) | null = null;
+    onmessage: unknown = null;
+    sent: string[] = [];
+    constructor(readonly url: string) {
+      sockets.push(this);
+    }
+    send(data: string) {
+      this.sent.push(data);
+    }
+    close() {}
+  }
+
+  class StandInPeer {
+    connectionState = 'new';
+    iceGatheringState = 'complete';
+    localDescription: { type: string; sdp: string } | null = null;
+    remoteDescription = null;
+    onconnectionstatechange: (() => void) | null = null;
+    createDataChannel() {
+      return {
+        readyState: 'open',
+        bufferedAmount: 0,
+        binaryType: '',
+        onopen: null,
+        onclose: null,
+        onmessage: null,
+        send() {},
+        close() {},
+        addEventListener() {},
+        removeEventListener() {},
+      };
+    }
+    async createOffer() {
+      return { type: 'offer', sdp: 'v=0\r\n' };
+    }
+    async setLocalDescription(description: { type: string; sdp: string }) {
+      this.localDescription = description;
+    }
+    addEventListener() {}
+    close() {}
+  }
+
+  const env: Environment = {
+    WebSocket: StandInSocket as unknown as typeof WebSocket,
+    RTCPeerConnection: StandInPeer as unknown as typeof RTCPeerConnection,
+    generateCertificate: () => Promise.reject(new Error('the kept certificate is read')),
+    now: () => 1_000,
+    timezoneOffset: () => 0,
+    setTimeout: () => 0,
+    clearTimeout: () => {},
+    keys: {
+      read: async <T>(key: string) => kept.get(key) as T | undefined,
+      write: async (key: string, value: unknown) => {
+        kept.set(key, value);
+      },
+      drop: async (key: string) => {
+        kept.delete(key);
+      },
+    },
+    builds: async () => [],
+    navigate: () => {},
+    userAgent: 'Mozilla/5.0 (X11; Linux x86_64) Firefox/120.0',
+    debug: false,
+  };
+
+  return { session: createSession(env), sockets };
+}
+
+/** Waits for the browser's own asynchronous steps to finish, up to a bound. */
+async function settle(condition: () => boolean) {
+  for (let at = 0; at < 100 && !condition(); at += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+}
+
+/** A session that has reached connected through the relay, the offer and the open channel. */
+async function linkedSession() {
+  const stand = standInSession(PHONE);
+  await stand.session.start();
+  await settle(() => stand.sockets.length === 1);
+  const [relay] = stand.sockets;
+  relay.onopen?.();
+  stand.session.dispatch({ type: 'peer' });
+  await settle(() => relay.sent.length === 1);
+  stand.session.dispatch({ type: 'open' });
+  return stand;
+}
+
+describe('the session holds the page once the link has connected', () => {
+  it('is not holding before the link connects', async () => {
+    const { session, sockets } = standInSession(PHONE);
+    await session.start();
+    await settle(() => sockets.length === 1);
+    expect(session.get().state.name).toBe('waiting');
+    expect(session.get().held).toBe(false);
+  });
+
+  it('holds from connected, through a drop and its retry, and releases on forget', async () => {
+    const { session } = await linkedSession();
+    expect(session.get().state.name).toBe('connected');
+    expect(session.get().held).toBe(true);
+
+    session.dispatch({ type: 'drop' });
+    expect(session.get().state.name).toBe('waiting');
+    expect(session.get().held).toBe(true);
+
+    session.dispatch({ type: 'forget' });
+    expect(session.get().state.name).toBe('inviting');
+    expect(session.get().held).toBe(false);
+  });
+
+  it('keeps holding through an update, and a retry from it goes back to waiting held', async () => {
+    const { session, sockets } = await linkedSession();
+    session.dispatch({ type: 'mismatch' });
+    expect(session.get().state.name).toBe('update');
+    expect(session.get().held).toBe(true);
+
+    session.dispatch({ type: 'retry' });
+    expect(session.get().state.name).toBe('waiting');
+    expect(session.get().held).toBe(true);
+    await settle(() => sockets.length === 2);
+    expect(sockets.length).toBe(2);
   });
 });

@@ -6,7 +6,9 @@
  * second connector on that account. A Garmin key is a session of its own only
  * when it is held with the library identity a Garmin-only sign-in wrote and no
  * intervals.icu credential exists. A key alone is what an intervals.icu
- * sign-out leaves behind, and it signs nobody in.
+ * sign-out leaves behind, and it signs nobody in. A library filled from files
+ * alone has no credential at all: the athlete's choice to keep one is the
+ * session, and any credential beside it takes its place.
  */
 
 import { DEMO_ATHLETE_ID, type AuthMethod } from '@/shared/app/source';
@@ -42,27 +44,6 @@ export function adoptsGarminLibrary(cachedAthleteId: string, incomingAthleteId: 
   );
 }
 
-/**
- * Whether a Garmin sign-in meets the library an intervals.icu sign-in adopted
- * from that same Garmin account. `garminLibraryId` is the Garmin identity the
- * engine recorded when the library's name left it. The library stays: the
- * sign-in names it for the account again and the rows intervals.icu served
- * keep their numbers. Another Garmin account, demo mode, or a library that
- * never held a Garmin name is not that.
- */
-export function returnsToGarminLibrary(
-  cachedAthleteId: string,
-  incomingAthleteId: string,
-  garminLibraryId: string | null | undefined
-): boolean {
-  return (
-    isGarminAthleteId(incomingAthleteId) &&
-    !isGarminAthleteId(cachedAthleteId) &&
-    cachedAthleteId !== DEMO_ATHLETE_ID &&
-    garminLibraryId === incomingAthleteId
-  );
-}
-
 function present(value: string | null | undefined): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
@@ -72,6 +53,8 @@ export interface StoredCredentials {
   accessToken: string | null;
   athleteId: string | null;
   garminKey: string | null;
+  /** The athlete chose a library filled from files, with no connector. */
+  filesSource?: boolean;
 }
 
 export interface StoredSession {
@@ -79,7 +62,7 @@ export interface StoredSession {
   isAuthenticated: boolean;
 }
 
-/** OAuth first, then an API key, then a Garmin key alone. */
+/** OAuth first, then an API key, then a Garmin key alone, then a files library. */
 export function resolveStoredSession(stored: StoredCredentials): StoredSession {
   if (present(stored.athleteId)) {
     if (present(stored.accessToken)) return { authMethod: 'oauth', isAuthenticated: true };
@@ -88,5 +71,6 @@ export function resolveStoredSession(stored: StoredCredentials): StoredSession {
       return { authMethod: 'garmin', isAuthenticated: true };
     }
   }
+  if (stored.filesSource === true) return { authMethod: 'files', isAuthenticated: true };
   return { authMethod: null, isAuthenticated: false };
 }

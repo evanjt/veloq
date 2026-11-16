@@ -296,12 +296,13 @@ impl GarminClient {
         }
     }
 
-    /// The original FIT of one activity.
+    /// The original FIT of one activity, or `None` when Garmin holds none in
+    /// that form: the answer is a fact about the ride, not a failed download.
     pub async fn download_original(
         &self,
         activity_id: i64,
         dispatch: impl Into<Dispatch>,
-    ) -> Result<Vec<u8>, GarminError> {
+    ) -> Result<Option<Vec<u8>>, GarminError> {
         let dispatch = dispatch.into();
         self.with_token(dispatch, |t| async move {
             endpoints::fetch_original_fit(&t, activity_id, dispatch).await

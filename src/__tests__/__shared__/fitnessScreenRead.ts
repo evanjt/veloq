@@ -179,6 +179,8 @@ export const NO_FITNESS_PARTS = {
   fatigueDays: 7,
   decouplingSources: [],
   loadDots: [],
+  weeklyHours: [],
+  uncountedImports: 0,
 };
 
 export function fitnessScreenRead(parts: Parts) {

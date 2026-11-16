@@ -14,6 +14,7 @@ type CanRecordResult = {
  *   scope one. The two need different gates and used to share a reason.
  * - API key users: always allowed (personal API keys have all permissions)
  * - Demo users: always allowed
+ * - A files-only library: refused as `not_signed_in`, since it has no connector
  * - OAuth users: `ok` only if their token includes ACTIVITY:WRITE scope. A scope
  *   known to be missing answers `no_permission`, which the screens read as a
  *   warning rather than a refusal: the ride goes ahead and stays on the device,
@@ -27,10 +28,11 @@ export function useCanRecord(): CanRecordResult {
   const hasWritePermission = useUploadPermissionStore((s) => s.hasWritePermission);
   const isLoaded = useUploadPermissionStore((s) => s.isLoaded);
 
-  // Nobody is signed in, so the ride has nowhere to go. Every one-tap surface
-  // reaches the recording screen directly, so this is the case that matters.
+  // Nobody is signed in, or the library is filled from files alone, so the
+  // ride has nowhere to go. Every one-tap surface reaches the recording screen
+  // directly, so this is the case that matters.
   const source = sourceFor({ authMethod });
-  if (source == null) {
+  if (source == null || !source.can.records) {
     return { canRecord: false, reason: 'not_signed_in' };
   }
 

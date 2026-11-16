@@ -21,13 +21,14 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { safeGetTime } from '@/shared/format/format';
 import { backupFileName, backupNameTimestamp } from './backupName';
 import { BackupTransferError } from './errors';
-import type { BackupBackend, BackupEntry } from './types';
+import type { BackupBackend, BackupEntry, BackupObject } from './types';
 
 /** The container the config plugin entitles the app to. */
 export const ICLOUD_CONTAINER = 'iCloud.com.veloq.app';
 
 const REMOTE_DIR = '/Veloq';
 const ZIP_MIME_TYPE = 'application/zip';
+const OBJECT_MIME_TYPE = 'application/octet-stream';
 
 /**
  * How long a listing waits for iCloud to answer. Straight after a launch, and
@@ -115,6 +116,22 @@ export function isIcloudSupported(): boolean {
   return Platform.OS === 'ios';
 }
 
+/**
+ * Copy a file out of the container. After a reinstall a file is listed before
+ * it is on the phone, so it is fetched first.
+ */
+async function copyOut(operation: string, name: string, destPath: string): Promise<void> {
+  const api = cloudStorage();
+  if (!api) throw new Error('iCloud is not available on this device');
+  const { cs, scope } = api;
+  const from = remotePath(name);
+  await attempt(operation, () => cs.triggerSync(from));
+  // The copy refuses to overwrite, so clear what a failed restore left behind.
+  await FileSystem.deleteAsync(destPath, { idempotent: true });
+  // The scope is passed so the call copies the file rather than only fetching it.
+  await attempt(operation, () => cs.downloadFile(from, plainPath(destPath), scope));
+}
+
 export const icloudBackend: BackupBackend = {
   id: 'icloud',
   name: 'iCloud Drive',
@@ -178,24 +195,51 @@ export const icloudBackend: BackupBackend = {
     return name;
   },
 
-  /**
-   * Copy a backup out of the container. After a reinstall a file is listed
-   * before it is on the phone, so it is fetched first.
-   */
   async download(backupId: string, destPath: string): Promise<void> {
-    const api = cloudStorage();
-    if (!api) throw new Error('iCloud is not available on this device');
-    const { cs, scope } = api;
-    const operation = 'Download backup';
-    const from = remotePath(backupId);
-    await attempt(operation, () => cs.triggerSync(from));
-    // The copy refuses to overwrite, so clear what a failed restore left behind.
-    await FileSystem.deleteAsync(destPath, { idempotent: true });
-    // The scope is passed so the call copies the file rather than only fetching it.
-    await attempt(operation, () => cs.downloadFile(from, plainPath(destPath), scope));
+    await copyOut('Download backup', backupId, destPath);
   },
 
   async delete(): Promise<void> {
     throw new Error("Veloq deletes nothing in the athlete's iCloud Drive");
+  },
+
+  /** The native upload replaces a file of the same name. */
+  async putObject(name: string, localPath: string): Promise<void> {
+    const api = cloudStorage();
+    if (!api) throw new Error('iCloud is not available on this device');
+    const { cs } = api;
+    const operation = 'Upload backup object';
+    if (!(await attempt(operation, () => cs.exists(REMOTE_DIR)))) {
+      await attempt(operation, () => cs.mkdir(REMOTE_DIR));
+    }
+    await attempt(operation, () =>
+      cs.uploadFile(remotePath(name), plainPath(localPath), { mimeType: OBJECT_MIME_TYPE })
+    );
+  },
+
+  async listObjects(prefix: string): Promise<BackupObject[]> {
+    const api = cloudStorage();
+    if (!api) return [];
+    const { cs } = api;
+    const operation = 'List backup objects';
+    if (!(await waitForCloud())) {
+      throw new BackupTransferError(
+        operation,
+        'icloud_unavailable',
+        `${operation} failed: iCloud is not available on this iPhone`
+      );
+    }
+    if (!(await attempt(operation, () => cs.exists(REMOTE_DIR)))) return [];
+    const names = await attempt(operation, () => cs.readdir(REMOTE_DIR));
+    const objects: BackupObject[] = [];
+    for (const name of names.filter((n) => n.startsWith(prefix))) {
+      const { size } = await attempt(operation, () => cs.stat(remotePath(name)));
+      objects.push({ name, sizeBytes: size });
+    }
+    return objects;
+  },
+
+  async fetchObject(name: string, destPath: string): Promise<void> {
+    await copyOut('Download backup object', name, destPath);
   },
 };

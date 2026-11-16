@@ -303,6 +303,30 @@ const LICENSE_DATA: LicenseSection[] = [
         repository: 'https://github.com/RustCrypto/hashes',
       },
       {
+        name: 'argon2',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/RustCrypto/password-hashes',
+        description: 'Argon2id key derivation for sealed backups.',
+      },
+      {
+        name: 'aes-gcm',
+        license: 'Apache-2.0 OR MIT',
+        repository: 'https://github.com/RustCrypto/AEADs',
+        description: 'AES-256-GCM encryption for sealed backups.',
+      },
+      {
+        name: 'getrandom',
+        license: 'MIT OR Apache-2.0',
+        repository: 'https://github.com/rust-random/getrandom',
+        description: 'Operating system random bytes for backup keys.',
+      },
+      {
+        name: 'zeroize',
+        license: 'Apache-2.0 OR MIT',
+        repository: 'https://github.com/RustCrypto/utils',
+        description: 'Clears backup keys from memory.',
+      },
+      {
         name: 'chrono',
         license: 'MIT OR Apache-2.0',
         repository: 'https://github.com/chronotope/chrono',
@@ -361,6 +385,7 @@ const LICENSE_DATA: LicenseSection[] = [
         license: 'MIT OR Apache-2.0',
         repository: 'https://github.com/rust-lang/flate2-rs',
       },
+      { name: 'quick-xml', license: 'MIT', repository: 'https://github.com/tafia/quick-xml' },
       { name: 'log', license: 'MIT OR Apache-2.0', repository: 'https://github.com/rust-lang/log' },
       {
         name: 'libc',

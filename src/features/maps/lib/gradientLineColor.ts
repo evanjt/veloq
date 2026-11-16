@@ -90,8 +90,28 @@ export function buildGradientLineStops(
       maxStops
     );
   }
-  if (!gradient || gradient.length < 2) return null;
-  const n = gradient.length;
+  return buildBandedLineStops(
+    gradient,
+    distance,
+    (grade) => gradeStepColour(grade, style),
+    maxStops
+  );
+}
+
+/**
+ * The colour stops of a line banded by any one stream: `colourOf` names the
+ * colour of a sample's value, and each stop is placed by its share of the
+ * distance stream, as {@link buildGradientLineStops} places the grade's.
+ * Null with fewer than two samples.
+ */
+export function buildBandedLineStops(
+  values: ArrayLike<number> | undefined,
+  distance: ArrayLike<number> | undefined,
+  colourOf: (value: number) => string,
+  maxStops = 100
+): (string | number)[] | null {
+  if (!values || values.length < 2) return null;
+  const n = values.length;
   const last = n - 1;
   const progressAt = usableDistance(distance, n)
     ? (i: number) => (distance[i] - distance[0]) / (distance[last] - distance[0])
@@ -102,16 +122,16 @@ export function buildGradientLineStops(
   // A stop with the recorder running holds distance still for many samples.
   // Interpolate refuses stops that do not strictly increase, so those collapse
   // into the first sample at that distance.
-  const push = (progress: number, grade: number) => {
+  const push = (progress: number, value: number) => {
     if (pairs.length > 0 && progress <= (pairs[pairs.length - 2] as number)) return;
-    pairs.push(progress, gradeStepColour(grade, style));
+    pairs.push(progress, colourOf(value));
   };
 
   for (let i = 0; i < n; i += stride) {
-    push(progressAt(i), gradient[i]);
+    push(progressAt(i), values[i]);
   }
-  // Always include the final point so the gradient reaches progress=1
-  push(1, gradient[last]);
+  // Always include the final point so the line reaches progress=1
+  push(1, values[last]);
 
   return pairs;
 }

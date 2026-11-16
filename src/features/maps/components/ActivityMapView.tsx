@@ -43,6 +43,7 @@ import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
 import { BaseMapView } from './BaseMapView';
 import { type MapCameraState, type MapPressEvent } from './MapSurface';
 import { SlottedMapSurface, useInMapSurfaceSlot, useMapSurfaceSlotLive } from './MapSurfaceSlot';
+import { buildSubjectTerrain } from '@/features/maps/lib/terrainSpec';
 import type { MapCameraSpec, MapTerrainSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import {
   SectionCreationOverlay,
@@ -565,12 +566,11 @@ export const ActivityMapView = memo(function ActivityMapView({
   const terrainPinned = !!initial3DCamera && initial3DCameraPinned === true;
   const terrain = useMemo((): MapTerrainSpec | null => {
     if (!terrainOn) return null;
-    return {
-      exaggeration: TERRAIN_3D_CONFIG.defaultExaggeration,
-      pitch: terrainPitch,
+    return buildSubjectTerrain({
       subjectSource: 'route',
-      cameraPinned: terrainPinned,
-    };
+      pitch: terrainPitch,
+      pinned: terrainPinned,
+    });
   }, [terrainOn, terrainPitch, terrainPinned]);
   const is3DLoading = terrainOn && !surfaceReady;
   const detailLayers = useDetailLayers('activity', mapStyle, isDark, { terrain: terrainOn });

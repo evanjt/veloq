@@ -80,6 +80,7 @@ pub(crate) mod empty_reason;
 pub(crate) mod export;
 pub(crate) mod file_lock;
 pub mod garmin_link;
+pub mod originals;
 pub use export::{
     BulkExportFormat, BulkExportResult, ExportPrivacyPreview, GeoJsonFeature, SuggestedHome,
     write_geojson_feature,
@@ -101,6 +102,8 @@ pub(crate) mod record_backup;
 pub(crate) mod record_restore;
 pub mod recordings;
 pub(crate) mod records;
+pub mod ride_identity;
+pub mod seal;
 pub(crate) mod under_point;
 pub use recordings::{FfiRecordingEntry, MAX_AUTO_RETRIES};
 #[doc(hidden)]
@@ -134,7 +137,9 @@ pub mod curves;
 pub mod exercise_usage;
 pub mod intervals;
 pub(crate) mod strength;
+pub mod strength_focus;
 pub mod strength_live;
+pub mod strength_saved;
 pub mod strength_sessions;
 pub mod strength_signature;
 pub use strength::{FitIntake, FitOutcome};
@@ -2688,7 +2693,6 @@ fn pooled_group_rows(
                 .cloned()
                 .unwrap_or_default();
             crate::FfiGroupWithPolyline {
-                group_id: g.group_id,
                 representative_id: g.representative_id,
                 activity_count: g.activity_count,
                 custom_name: g.custom_name,
@@ -2696,6 +2700,15 @@ fn pooled_group_rows(
                 distance_meters: g.distance_meters,
                 encoded_polyline,
                 sport_types: g.sport_types,
+                best_time: fitness::performances::route_performances_of(
+                    conn,
+                    &g.group_id,
+                    None,
+                    None,
+                )
+                .best
+                .map(|p| p.moving_time as f64),
+                group_id: g.group_id,
             }
         })
         .collect();
@@ -4367,6 +4380,10 @@ mod route_row_preview;
 #[cfg(test)]
 #[path = "tests/preview_elevation.rs"]
 mod preview_elevation;
+
+#[cfg(test)]
+#[path = "tests/routes_screen_best_time.rs"]
+mod routes_screen_best_time;
 
 #[cfg(test)]
 #[path = "tests/nearby_routes.rs"]

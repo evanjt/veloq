@@ -38,12 +38,8 @@ fn listed(id: i64) -> ListedActivity {
     .unwrap()
 }
 
-fn store(dir: &TempDir, engine: &mut PersistentEngine, id: i64) {
-    let path = dir
-        .path()
-        .join("recordings")
-        .join(format!("{}.fit", garmin_source_key(id)));
-    ingest_into(engine, Some(&path), &listed(id), &outdoor_ride().to_fit()).expect("stored");
+fn store(_dir: &TempDir, engine: &mut PersistentEngine, id: i64) {
+    ingest_into(engine, true, &listed(id), &outdoor_ride().to_fit()).expect("stored");
 }
 
 fn library_of_three() -> (TempDir, PersistentEngine) {

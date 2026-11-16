@@ -76,6 +76,7 @@ class VeloqRecordingNotificationModule : Module() {
         armInterruptedRide(payload)
         post(payload, 0)
         if (payload.optBoolean("vibrate")) vibrateOnce()
+        scheduleRestEndVibration(payload)
       }
     }
 
@@ -86,6 +87,7 @@ class VeloqRecordingNotificationModule : Module() {
       LiveRide.reported = false
       onWorker {
         cancelRetry()
+        cancelRestEndVibration()
         cancelNotification()
         InterruptedRideNotifier.of(context).disarmed()
       }
@@ -202,6 +204,24 @@ class VeloqRecordingNotificationModule : Module() {
     )
   }
 
+  // The one pulse at the end of a rest. The worker is a scheduled executor and the process is held
+  // by the session's foreground service, so it fires with the screen off. Each update replaces the
+  // earlier one, so a skipped or lengthened rest leaves no stale pulse behind.
+  private var pendingRestEnd: java.util.concurrent.ScheduledFuture<*>? = null
+
+  private fun cancelRestEndVibration() {
+    pendingRestEnd?.cancel(false)
+    pendingRestEnd = null
+  }
+
+  private fun scheduleRestEndVibration(payload: JSONObject) {
+    cancelRestEndVibration()
+    if (payload.isNull("vibrateAt")) return
+    val delay = payload.optLong("vibrateAt") - System.currentTimeMillis()
+    if (delay <= 0) return
+    pendingRestEnd = worker.schedule({ vibrateOnce() }, delay, TimeUnit.MILLISECONDS)
+  }
+
   private fun post(payload: JSONObject, attempt: Int) {
     cancelRetry()
     val manager = context.getSystemService(NotificationManager::class.java) ?: return
@@ -237,6 +257,8 @@ class VeloqRecordingNotificationModule : Module() {
     // chronometer would count time the ride did not spend moving.
     if (payload.optBoolean("running")) {
       builder.setUsesChronometer(true).setWhen(payload.optLong("chronometerBase"))
+      // A rest counts down to its end; `chronometerBase` is that moment rather than a start.
+      if (payload.optBoolean("countdown")) builder.setChronometerCountDown(true)
     } else {
       builder.setUsesChronometer(false).setShowWhen(false)
       builder.setSubText(payload.optString("elapsedText"))

@@ -13,16 +13,20 @@ import { buildActivityLayers } from '@/features/maps/components/activityMapLayer
 
 import {
   activityMapSpec,
+  NO_OVERLAY,
   boundsOf,
   crosshairData,
   layerInput,
   nearestIndex,
   overlaySectionIds,
   positionAt,
+  rangeData,
+  rangeLine,
   splitOverlay,
   trackPositions,
   trackUrl,
   type ActivityMapInput,
+  type LngLat,
 } from '../../../web/connect/map/activityLayers';
 
 const track = JSON.stringify({
@@ -78,6 +82,41 @@ describe('the crosshair on the track', () => {
       [8, 47.0],
     ]);
     expect(boundsOf([])).toBeNull();
+  });
+});
+
+describe('a brushed range on the track', () => {
+  const positions = trackPositions(track);
+
+  it('writes the line through the positions of the range, both ends included', () => {
+    expect(rangeData(positions, { from: 1, to: 2 })?.geometry.coordinates).toEqual([
+      [7.31, 46.21],
+      [7.32, 46.22],
+    ]);
+  });
+
+  it('clamps to the track and has no line for no range, an empty track or one position', () => {
+    expect(rangeData(positions, { from: -5, to: 99 })?.geometry.coordinates).toHaveLength(3);
+    expect(rangeData(positions, null)).toBeNull();
+    expect(rangeData([], { from: 0, to: 4 })).toBeNull();
+    expect(rangeData(positions, { from: 1, to: 1 })).toBeNull();
+  });
+
+  it('is drawn by a layer of its own when the spec is given a range, and by none otherwise', () => {
+    const base = { activityId: 'a', revision: 1, overlay: NO_OVERLAY } as never;
+    const input = {
+      ...(base as object),
+      base: 'light',
+      crosshair: null,
+      highlightedSectionId: null,
+      compare: [],
+    };
+    const without = activityMapSpec(input as never);
+    expect(without.layers.some((layer) => layer.id === 'brush-range')).toBe(false);
+    const range = rangeLine(positions, { from: 0, to: 2 });
+    const spec = activityMapSpec({ ...input, range } as never);
+    expect(spec.layers.some((layer) => layer.id === 'brush-range')).toBe(true);
+    expect(spec.sources['brush-range']).toEqual({ kind: 'geojson', data: range });
   });
 });
 
@@ -145,7 +184,12 @@ describe('the spec', () => {
   it('draws the layers the phone builds for the same input', () => {
     const given = input({ highlightedSectionId: 's_a' });
     const spec = activityMapSpec(given);
-    expect(spec.layers).toEqual(buildActivityLayers(layerInput(given)));
+    const phone = buildActivityLayers(layerInput(given));
+    expect(spec.layers.slice(0, phone.length)).toEqual(phone);
+    expect(spec.layers.slice(phone.length).map((l) => l.id)).toEqual([
+      'section-number',
+      'range-line',
+    ]);
   });
 
   it('names the stored track by url with its revision', () => {
@@ -176,5 +220,44 @@ describe('the spec', () => {
     const at = crosshairData([[7.3, 46.2]], 0);
     const spec = activityMapSpec(input({ crosshair: at }));
     expect(spec.sources.highlight).toMatchObject({ data: at });
+  });
+});
+
+describe('the brushed range on the track', () => {
+  const long: LngLat[] = Array.from({ length: 400 }, (_, i) => [7 + i / 1000, 46 + i / 2000]);
+
+  it('draws the stretch of the track from the first to the last sample as one line', () => {
+    const line = rangeLine(long, { from: 120, to: 340 });
+    const coordinates = (line.features[0]?.geometry as GeoJSON.LineString).coordinates;
+    expect(coordinates[0]).toEqual(long[120]);
+    expect(coordinates[coordinates.length - 1]).toEqual(long[340]);
+    expect(coordinates).toHaveLength(221);
+  });
+
+  it('is empty for no range, an empty track, or a range that is not on the track', () => {
+    expect(rangeLine(long, null).features).toEqual([]);
+    expect(rangeLine([], { from: 0, to: 5 }).features).toEqual([]);
+    expect(rangeLine(long, { from: 500, to: 600 }).features).toEqual([]);
+  });
+
+  it('clamps a range past the end and a single sample draws nothing', () => {
+    const line = rangeLine(long, { from: 390, to: 900 });
+    expect((line.features[0]?.geometry as GeoJSON.LineString).coordinates).toHaveLength(10);
+    expect(rangeLine(long, { from: 7, to: 7 }).features).toEqual([]);
+  });
+
+  it('adds a source and a layer to the spec that read the range', () => {
+    const spec = activityMapSpec({
+      base: 'light',
+      activityId: 'a',
+      revision: 1,
+      overlay: splitOverlay('{}'),
+      crosshair: null,
+      highlightedSectionId: null,
+      compare: [],
+      range: rangeLine(long, { from: 1, to: 9 }),
+    });
+    expect(spec.sources['range']).toBeDefined();
+    expect(spec.layers.some((layer) => layer.id === 'range-line')).toBe(true);
   });
 });

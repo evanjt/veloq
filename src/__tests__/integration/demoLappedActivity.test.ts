@@ -3,8 +3,8 @@
  * the section more than once, and a flow that excludes a lap needs one in the
  * demo library to act on.
  *
- * Expected behaviour: one stable run repeats a closed loop that other demo
- * runs cover, in the same order each time, so the engine matches it to every
+ * Expected behaviour: one stable run repeats the closed loop that most demo
+ * runs ride, in the same order each time, so the engine matches it to every
  * section on the loop once per lap and per direction.
  */
 
@@ -38,12 +38,17 @@ function visitOrder(track: [number, number][], marks: [number, number][]): strin
 }
 
 describe('the demo lapped activity', () => {
-  vaultIt('is a tracked run sharing its loop with other demo runs', () => {
+  it('laps the loop that most demo runs ride, so a section covers all of it', () => {
     expect(lapped?.type).toBe('Run');
     const loop = lapped!._routeId!.replace(/-laps$/, '');
     expect(loop).not.toBe(lapped!._routeId);
-    const rivals = activities.filter((a) => a.id !== LAPPED_ID && a._routeId === loop);
-    expect(rivals.length).toBeGreaterThan(3);
+    const runsByRoute = new Map<string, number>();
+    for (const a of activities) {
+      if (a.type !== 'Run' || !a._routeId) continue;
+      runsByRoute.set(a._routeId, (runsByRoute.get(a._routeId) ?? 0) + 1);
+    }
+    const busiest = [...runsByRoute.entries()].sort((x, y) => y[1] - x[1])[0][0];
+    expect(loop).toBe(busiest);
   });
 
   it('runs the loop the same way round on every lap', () => {

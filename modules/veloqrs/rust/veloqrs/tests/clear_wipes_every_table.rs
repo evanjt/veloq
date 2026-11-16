@@ -332,3 +332,34 @@ fn clear_forgets_the_section_health_check_stamp() {
         "the previous library's health check stamp outlived it"
     );
 }
+
+/// Scenario: a linked browser was sending a collection when the athlete wiped
+/// the library.
+///
+/// Expected behaviour: the spool beside the database is gone, with every file
+/// in it, and the next begin of that archive starts at byte 0.
+#[test]
+fn clear_deletes_every_spool_of_a_collection_on_its_way_in() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("clear.db");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
+    let spool = dir.path().join("imports");
+    std::fs::create_dir_all(&spool).expect("spool dir");
+    std::fs::write(
+        spool.join(format!("{}.part", "a".repeat(64))),
+        b"half a zip",
+    )
+    .expect("part");
+    std::fs::write(
+        spool.join(format!("{}.zip", "b".repeat(64))),
+        b"a whole zip",
+    )
+    .expect("zip");
+
+    engine.clear().expect("clear");
+
+    assert!(
+        !spool.exists(),
+        "clear() left the spool of the deleted library"
+    );
+}

@@ -35,14 +35,24 @@ interface BookmarkedResult {
 
 interface VeloqBackupFolderModule {
   bookmarkFolder(uri: string): string;
-  writeToBookmarkedFolder(bookmark: string, from: string, name: string): Promise<BookmarkedResult>;
+  writeToBookmarkedFolder(
+    bookmark: string,
+    from: string,
+    name: string,
+    replace: boolean
+  ): Promise<BookmarkedResult>;
   listBookmarkedFolder(
     bookmark: string
   ): Promise<BookmarkedResult & { files: { name: string; size: number }[] }>;
   readFromBookmarkedFolder(bookmark: string, name: string, to: string): Promise<BookmarkedResult>;
   releaseFolderGrant(uri: string): void;
   sharedDocumentsSupported?(): boolean;
-  writeSharedDocument(from: string, name: string, mimeType: string): Promise<string>;
+  writeSharedDocument(
+    from: string,
+    name: string,
+    mimeType: string,
+    replace: boolean
+  ): Promise<string>;
   listSharedDocuments(): Promise<{ name: string; size: number }[]>;
   readSharedDocument(name: string, to: string): Promise<void>;
   saveDocument(
@@ -152,13 +162,18 @@ export function stopBackupFolder(): void {
   getEngine()?.setSetting(SETTING_FOLDER_OFF, '1');
 }
 
-/** Copy a file into the shared `Documents/Veloq`, answering the name it was given. */
+/**
+ * Copy a file into the shared `Documents/Veloq`, answering the name it was given.
+ * A taken name gets a numbered second file, unless `replace` is set, which first
+ * removes this install's own file of that name.
+ */
 export async function writeToSharedFolder(
   from: string,
   name: string,
-  mimeType: string
+  mimeType: string,
+  replace = false
 ): Promise<string> {
-  return await nativeModule().writeSharedDocument(plainPath(from), name, mimeType);
+  return await nativeModule().writeSharedDocument(plainPath(from), name, mimeType, replace);
 }
 
 /**
@@ -192,11 +207,18 @@ async function throughBookmark<T extends BookmarkedResult>(
   return result;
 }
 
-/** Copy a file into the held iOS folder under `name`. */
-export async function writeToBookmarkedFolder(from: string, name: string): Promise<void> {
+/**
+ * Copy a file into the held iOS folder under `name`. A taken name fails the
+ * copy, unless `replace` is set, which swaps the file under it for this one.
+ */
+export async function writeToBookmarkedFolder(
+  from: string,
+  name: string,
+  replace = false
+): Promise<void> {
   await throughBookmark(
     async (bookmark) =>
-      await nativeModule().writeToBookmarkedFolder(bookmark, plainPath(from), name)
+      await nativeModule().writeToBookmarkedFolder(bookmark, plainPath(from), name, replace)
   );
 }
 

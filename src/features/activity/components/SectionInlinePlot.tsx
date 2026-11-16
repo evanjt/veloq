@@ -98,7 +98,7 @@ interface SectionInlinePlotProps {
   swipeableRefs: React.MutableRefObject<Map<string, SwipeableMethods | null>>;
 }
 
-/** Pace for foot and water sports, elapsed time otherwise, as SectionInfoCard. */
+/** Pace for foot and water sports, elapsed time otherwise, as the section charts do. */
 function formatLap(
   lapPace: number,
   lapTime: number,
@@ -346,7 +346,13 @@ export const SectionInlinePlot = memo(
             ]}
           >
             <View style={styles.header}>
-              <View style={[styles.numberDisc, { backgroundColor: sectionPalette[numberSlot] }]}>
+              <View
+                style={[
+                  styles.numberDisc,
+                  isDark && styles.numberDiscDark,
+                  { backgroundColor: sectionPalette[numberSlot] },
+                ]}
+              >
                 <Text style={[styles.numberLabel, { color: sectionNumberInk(numberSlot) }]}>
                   {index + 1}
                 </Text>
@@ -576,6 +582,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.sm,
   },
+  // Four of the five palette hues are under 3:1 on the light card, so the disc's edge is what
+  // tells it from the card. The edge takes the control boundary tone for each theme.
   numberDisc: {
     width: NUMBER_DISC,
     height: NUMBER_DISC,
@@ -583,6 +591,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.sm,
+    borderWidth: stroke.one,
+    borderColor: colors.controlBoundary,
+  },
+  numberDiscDark: {
+    borderColor: darkColors.controlBoundary,
   },
   numberLabel: {
     ...typography.metricValue,

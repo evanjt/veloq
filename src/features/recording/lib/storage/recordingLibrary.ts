@@ -180,6 +180,45 @@ export interface SaveRecordingParams {
   athleteId: string;
 }
 
+function newRecordingId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export interface FinishStrengthParams {
+  name: string;
+  /** The effort from 1 to 10, absent when the slider was never moved. */
+  rpe?: number | undefined;
+  /** Whose session this is, taken when Save was tapped. */
+  athleteId: string;
+  /** The row waits on the device instead of joining the upload queue. */
+  keepOnDevice: boolean;
+}
+
+/**
+ * Finish the live strength session as a recording. The engine writes the FIT of
+ * its done sets and the row in one transaction, so the library holds both or
+ * neither. Null when no set was done: nothing was written and the session is
+ * still live. Throws when the engine refuses or is not open.
+ */
+export function finishStrengthRecording(
+  params: FinishStrengthParams
+): RecordingLibraryEntry | null {
+  const signedIn = getStoredCredentials().athleteId;
+  const othersSignedIn = !!signedIn && signedIn !== params.athleteId;
+  const answer = store(true).finishStrengthRecording({
+    recordingId: newRecordingId(),
+    name: params.name,
+    athleteId: params.athleteId,
+    nowSeconds: Date.now() / 1000,
+    rpe: params.rpe,
+    keepOnDevice: params.keepOnDevice || othersSignedIn,
+    filesRoot: DOCUMENTS_ROOT,
+  });
+  if (answer.kind === 'noSets') return null;
+  log.log(`Finished strength session as recording ${answer.entry.id} (${params.name})`);
+  return toLibraryEntry(answer.entry);
+}
+
 // Keep the FIT and the index until confirmation reads the activity back. The
 // track lives in the FIT and the engine's row, so no streams copy is written.
 export async function saveRecording(
@@ -188,7 +227,7 @@ export async function saveRecording(
   try {
     library(true);
     await ensureRecordingsDir();
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const id = newRecordingId();
     const manual = params.manualBody !== undefined;
 
     // A manual entry names no file. The column cannot hold a null, so the empty

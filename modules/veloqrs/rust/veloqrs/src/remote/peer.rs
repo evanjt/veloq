@@ -123,6 +123,9 @@ pub trait Gate: Send + Sync + 'static {
     /// A stamp that differs from the last one when the library has changed,
     /// or nothing when it cannot be read.
     fn changed(&self) -> Option<u64>;
+    /// One binary message from a pinned peer, which carries part of a
+    /// collection on its way in. The default takes none.
+    fn frame(&self, _presented: &str, _bytes: &[u8]) {}
 }
 
 /// Why an offer was not answered.
@@ -531,6 +534,7 @@ fn on_event(
                 return true;
             };
             if data.binary {
+                gate.frame(&admitted.fingerprint, &data.data);
                 return true;
             }
             let Ok(request) = std::str::from_utf8(&data.data) else {

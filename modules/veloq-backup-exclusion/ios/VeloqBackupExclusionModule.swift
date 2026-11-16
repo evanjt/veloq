@@ -56,9 +56,9 @@ public final class VeloqBackupExclusionModule: Module {
     }
 
     AsyncFunction("writeToBookmarkedFolder") {
-      (bookmark: String, from: String, name: String) throws -> [String: Any] in
+      (bookmark: String, from: String, name: String, replace: Bool) throws -> [String: Any] in
       let (_, refreshed) = try Self.inFolder(bookmark) {
-        try copyIntoFolder($0, from: from, name: name)
+        try copyIntoFolder($0, from: from, name: name, replace: replace)
       }
       return Self.answer(refreshed)
     }
