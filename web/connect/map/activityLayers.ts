@@ -45,6 +45,17 @@ const finite = (value: unknown): value is number =>
  * a track reads as no positions.
  */
 export function trackPositions(text: string): LngLat[] {
+  return trackSamples(text).filter((sample): sample is LngLat => sample !== null);
+}
+
+/** A track's sample at a stream index: its position, or null where the fix was lost. */
+export type Sample = LngLat | null;
+
+/**
+ * Every sample of a track in stream order, a lost fix being a null in its place,
+ * so index i is still the stream's i-th point after a gap.
+ */
+export function trackSamples(text: string): Sample[] {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -56,10 +67,10 @@ export function trackPositions(text: string): LngLat[] {
   const geometry = (features[0] as { geometry?: { type?: unknown; coordinates?: unknown } })
     ?.geometry;
   if (geometry?.type !== 'LineString' || !Array.isArray(geometry.coordinates)) return [];
-  return geometry.coordinates.flatMap((position: unknown) =>
+  return geometry.coordinates.map((position: unknown) =>
     Array.isArray(position) && finite(position[0]) && finite(position[1])
-      ? [[position[0], position[1]] as LngLat]
-      : []
+      ? ([position[0], position[1]] as LngLat)
+      : null
   );
 }
 
@@ -73,19 +84,24 @@ export async function geoText(
   return typeof answer?.text === 'string' ? answer.text : '';
 }
 
+const present = (samples: readonly Sample[]): LngLat[] =>
+  samples.filter((sample): sample is LngLat => sample !== null);
+
 /** The position at a stream index, which clamps at both ends; null on an empty track. */
-export function positionAt(positions: readonly LngLat[], index: number): LngLat | null {
+export function positionAt(positions: readonly Sample[], index: number): LngLat | null {
   if (positions.length === 0 || Number.isNaN(index)) return null;
   const at = Math.min(positions.length - 1, Math.max(0, Math.floor(index)));
   return positions[at] ?? null;
 }
 
 /** The index of the position nearest a point, for a pointer over the line; null on an empty track. */
-export function nearestIndex(positions: readonly LngLat[], point: LngLat): number | null {
+export function nearestIndex(positions: readonly Sample[], point: LngLat): number | null {
   let best: number | null = null;
   let bestDistance = Infinity;
   const scale = Math.cos((point[1] * Math.PI) / 180);
-  positions.forEach(([lng, lat], at) => {
+  positions.forEach((sample, at) => {
+    if (!sample) return;
+    const [lng, lat] = sample;
     const distance = ((lng - point[0]) * scale) ** 2 + (lat - point[1]) ** 2;
     if (distance < bestDistance) {
       bestDistance = distance;
@@ -101,7 +117,7 @@ export function nearestIndex(positions: readonly LngLat[], point: LngLat): numbe
  * single sample. A range past the end is clamped to it.
  */
 export function rangeLine(
-  positions: readonly LngLat[],
+  positions: readonly Sample[],
   range: { from: number; to: number } | null
 ): GeoJSON.FeatureCollection {
   if (!range || positions.length === 0) return NO_FEATURES;
@@ -114,7 +130,7 @@ export function rangeLine(
       {
         type: 'Feature',
         properties: {},
-        geometry: { type: 'LineString', coordinates: positions.slice(from, to + 1) as LngLat[] },
+        geometry: { type: 'LineString', coordinates: present(positions.slice(from, to + 1)) },
       },
     ],
   };
@@ -122,7 +138,7 @@ export function rangeLine(
 
 /** The marker source's data: a point at the stream index, none when the crosshair is off. */
 export function crosshairData(
-  positions: readonly LngLat[],
+  positions: readonly Sample[],
   index: number | null
 ): GeoJSON.Feature<GeoJSON.Point> | null {
   const at = index === null ? null : positionAt(positions, index);
@@ -137,7 +153,7 @@ export function crosshairData(
  * positions in it.
  */
 export function rangeData(
-  positions: readonly LngLat[],
+  positions: readonly Sample[],
   range: { from: number; to: number } | null
 ): GeoJSON.Feature<GeoJSON.LineString> | null {
   if (!range || positions.length === 0) return null;
@@ -147,7 +163,7 @@ export function rangeData(
   return {
     type: 'Feature',
     properties: {},
-    geometry: { type: 'LineString', coordinates: positions.slice(from, to + 1) as LngLat[] },
+    geometry: { type: 'LineString', coordinates: present(positions.slice(from, to + 1)) },
   };
 }
 

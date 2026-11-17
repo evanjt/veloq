@@ -32,8 +32,43 @@ export const X_TITLE_ROW = TICK_ROW + DESCENT_PX + BOX_GAP + ASCENT_PX;
  * value label, which hangs about 9 px above its tick.
  */
 export const Y_TITLE_RISE = 16;
-/** The height of a lane's plot in a stack. */
-export const LANE_HEIGHT = 96;
+/** A single chart's plot is never wider than this many times its height. */
+const CHART_MAX_RATIO = 6;
+/** A lane's plot is never wider than this many times its height. */
+const LANE_MAX_RATIO = 10;
+const CHART_HEIGHTS = { min: 240, max: 320, aspect: 4 };
+const LANE_HEIGHTS = { min: 72, max: 140, aspect: 8 };
+
+function derivedHeight(
+  width: number,
+  limits: { min: number; max: number; aspect: number },
+  maxRatio: number
+): number {
+  const target = Math.min(limits.max, Math.max(limits.min, width / limits.aspect));
+  // The ratio bound is the contract: on a very wide plot it lifts the height past `max`.
+  return Math.ceil(Math.max(target, width / maxRatio));
+}
+
+/** The plot height of a single chart `width` pixels wide: 240 to 320 px, and at most 6:1. */
+export function plotHeight(width: number): number {
+  return derivedHeight(width, CHART_HEIGHTS, CHART_MAX_RATIO);
+}
+
+/** The plot height of one lane `width` pixels wide: 72 to 140 px, and at most 10:1. */
+export function laneHeight(width: number): number {
+  return derivedHeight(width, LANE_HEIGHTS, LANE_MAX_RATIO);
+}
+
+/**
+ * The drawing height of a single chart: the given fixed height, or the derived
+ * plot height of the width left between the margins plus the margins above and below.
+ */
+export function drawingHeight(width: number, margins: Margins, fixed?: number): number {
+  if (fixed !== undefined) return fixed;
+  return (
+    plotHeight(Math.max(1, width - margins.left - margins.right)) + margins.top + margins.bottom
+  );
+}
 /** Below a lane's plot, before the next lane's title. */
 const LANE_PAD = 8;
 

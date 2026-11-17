@@ -2901,7 +2901,7 @@ fn a_stored_version_is_drawn_as_its_own_line() {
     assert_eq!(features[0]["properties"]["id"], id.as_str());
     assert_eq!(features[0]["properties"]["version"], first);
     let stored = engine
-        .section_geometry_polyline(&id, first as i64)
+        .section_geometry_polyline(&id, first)
         .expect("the stored version");
     assert_eq!(
         features[0]["geometry"]["coordinates"]

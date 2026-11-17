@@ -2,8 +2,10 @@
 
 use super::catalogue::{Equipment, Region};
 
+type Row = (u16, u16, &'static str, Equipment, bool, Option<Region>);
+
 /// (category, name, label key, equipment, one-sided, region), sorted by category then name.
-pub(super) const TABLE: &[(u16, u16, &str, Equipment, bool, Option<Region>)] = &[
+pub(super) const TABLE: &[Row] = &[
     (
         0,
         0,

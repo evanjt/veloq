@@ -17,6 +17,9 @@ import {
   calendarLayout,
   categoryTicks,
   chartMargins,
+  drawingHeight,
+  laneHeight,
+  plotHeight,
   durationTicks,
   estimateWidth,
   fitText,
@@ -368,5 +371,39 @@ describe('a ride-time axis', () => {
     expect(ticks.length).toBeGreaterThan(1);
     expect(overlaps(ticks, 4)).toBe(false);
     for (const t of ticks) expect(t.left + t.width).toBeLessThanOrEqual(width);
+  });
+});
+
+describe('plot heights derived from width', () => {
+  const plotWidths = [800, 1400, 2400, 2560];
+
+  it('keeps a single chart no flatter than 6:1 and within 240 to 320 px while the ratio allows', () => {
+    for (const width of plotWidths) {
+      const h = plotHeight(width);
+      expect(width / h).toBeLessThanOrEqual(6);
+      expect(h).toBeGreaterThanOrEqual(240);
+      if (width <= 1920) expect(h).toBeLessThanOrEqual(320);
+    }
+  });
+
+  it('keeps a lane no flatter than 10:1 and within 72 to 140 px while the ratio allows', () => {
+    for (const width of plotWidths) {
+      const h = laneHeight(width);
+      expect(width / h).toBeLessThanOrEqual(10);
+      expect(h).toBeGreaterThanOrEqual(72);
+      if (width <= 1400) expect(h).toBeLessThanOrEqual(140);
+    }
+  });
+
+  it('floors both at their minimum on a narrow card', () => {
+    expect(plotHeight(200)).toBe(240);
+    expect(laneHeight(200)).toBe(72);
+  });
+
+  it('adds the margins to a derived plot and takes an explicit height as the drawing height', () => {
+    const margins = { left: 40, right: 12, top: 8, bottom: 22 };
+    const derived = drawingHeight(1400, margins);
+    expect(derived).toBe(plotHeight(1400 - 52) + 30);
+    expect(drawingHeight(1400, margins, 180)).toBe(180);
   });
 });

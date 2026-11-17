@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '../ui';
 import { ValueGrid, XAxisRow } from './Axes';
 import {
-  LANE_HEIGHT,
+  laneHeight,
   TEXT_PX,
   chartMargins,
   indexRange,
@@ -144,7 +144,7 @@ export function Lanes(props: LanesProps) {
     xTitle: true,
     yTitle: true,
   });
-  const stack = stackLayout({ width, lanes: lanes.length, laneHeight: LANE_HEIGHT, margins });
+  const stack = stackLayout({ width, lanes: lanes.length, laneHeight: laneHeight(width - margins.left - margins.right), margins });
   const edge: Box | undefined = stack.lanes[0]?.box;
   const xScale = linearX(domain, edge?.left ?? 0, edge?.right ?? width);
   const brush = useBrush(xScale, xs.length > 1, (next) => {

@@ -18,7 +18,7 @@
   "modules/veloqrs/rust/veloqrs/src/objects/preview.rs": 3,
   "modules/veloqrs/rust/veloqrs/src/objects/recordings.rs": 9,
   "modules/veloqrs/rust/veloqrs/src/objects/routes.rs": 3,
-  "modules/veloqrs/rust/veloqrs/src/objects/sections.rs": 16,
+  "modules/veloqrs/rust/veloqrs/src/objects/sections.rs": 15,
   "modules/veloqrs/rust/veloqrs/src/objects/settings.rs": 4,
   "modules/veloqrs/rust/veloqrs/src/objects/strength.rs": 3,
   "modules/veloqrs/rust/veloqrs/src/objects/strength_live.rs": 4,

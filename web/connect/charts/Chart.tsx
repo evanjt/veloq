@@ -20,6 +20,7 @@ import {
   indexRange,
   linearX,
   nearestIndex,
+  drawingHeight,
   plotBox,
   tooltipLeft,
   trendBand,
@@ -113,7 +114,6 @@ export type ChartProps = {
   width?: number;
 };
 
-const DEFAULT_HEIGHT = 220;
 /** The tooltip's padding on each side, matching its stylesheet. */
 const TOOLTIP_PAD = 8;
 
@@ -181,8 +181,6 @@ export function Chart(props: ChartProps) {
     ...axisValues(kind, series, visible),
     ...curvePoints.flatMap((p) => [p.lower, p.upper]),
   ];
-  const height = props.height ?? DEFAULT_HEIGHT;
-
   const axis = valueAxis(values, kind !== 'line' && kind !== 'scatter');
   const margins = chartMargins({
     yLabels: axis.ticks.map(format),
@@ -190,6 +188,7 @@ export function Chart(props: ChartProps) {
     xTitle: Boolean(props.xTitle),
     yTitle: Boolean(props.yTitle),
   });
+  const height = drawingHeight(width, margins, props.height);
   const box = plotBox(width, height, margins);
   const xScale = linearX(domain, box.left, box.right);
   const x = (i: number) => (band ? xOfIndex(i, count, true, box) : xScale.position(xs[i] ?? NaN));

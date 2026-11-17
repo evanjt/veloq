@@ -10,6 +10,7 @@ import {
   chartMargins,
   histogramBins,
   linearX,
+  drawingHeight,
   plotBox,
   valueAxis,
   xAxisTicks,
@@ -36,7 +37,6 @@ export type HistogramProps = {
 };
 
 const DEFAULT_BINS = 12;
-const DEFAULT_HEIGHT = 200;
 
 export function Histogram(props: HistogramProps) {
   const ref = useRef<HTMLElement>(null);
@@ -58,7 +58,7 @@ export function Histogram(props: HistogramProps) {
     xTitle: true,
     yTitle: true,
   });
-  const height = props.height ?? DEFAULT_HEIGHT;
+  const height = drawingHeight(width, margins, props.height);
   const box = plotBox(width, height, margins);
   const domain: [number, number] = [lowest, highest];
   const x = linearX(domain, box.left, box.right);

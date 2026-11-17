@@ -30,6 +30,8 @@ const BAND: Band = Band {
     time_floor_ms: 5_000,
     bytes_factor: 1.2,
     bytes_floor: 0,
+    work_factor: 1.10,
+    work_floor: 1_000,
 };
 
 #[test]

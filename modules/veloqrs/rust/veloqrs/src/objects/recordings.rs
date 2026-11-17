@@ -16,6 +16,8 @@ fn db(err: rusqlite::Error) -> VeloqError {
 
 /// How finishing a live strength session ended.
 #[derive(serde::Serialize, uniffi::Enum)]
+// An exported enum cannot box its payload: uniffi has no `Box` converter.
+#[allow(clippy::large_enum_variant)]
 #[serde(rename_all = "camelCase")]
 pub enum FfiStrengthFinish {
     /// The session is finished and this recording holds its FIT.
@@ -206,6 +208,8 @@ impl RecordingManager {
     /// the recording's key and add the row, or answer `NoSets` and change
     /// nothing. `now` is Unix seconds and `rpe` the athlete's effort, 1 to 10, and
     /// `keep_on_device` leaves the row out of the upload queue.
+    // The FFI signature, which takes each field as its own argument.
+    #[allow(clippy::too_many_arguments)]
     fn finish_strength_recording(
         &self,
         recording_id: String,
@@ -230,7 +234,9 @@ impl RecordingManager {
             })
         })?;
         match answer {
-            Ok(StrengthFinish::Finished(entry)) => Ok(FfiStrengthFinish::Finished { entry }),
+            Ok(StrengthFinish::Finished(entry)) => {
+                Ok(FfiStrengthFinish::Finished { entry: *entry })
+            }
             Ok(StrengthFinish::NoSets) => Ok(FfiStrengthFinish::NoSets),
             Err(error @ FinishError::NoLiveSession) => Err(VeloqError::NotFound {
                 msg: error.to_string(),

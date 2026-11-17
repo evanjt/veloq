@@ -19,6 +19,8 @@ import {
   splitOverlay,
   trackLine,
   trackPositions,
+  trackSamples,
+  type Sample,
   type LngLat,
   type Overlay,
   type TrackColour,
@@ -56,13 +58,18 @@ export function ActivityMap(props: {
   const [base] = useState<PageBase>(() => baseForScheme(isDarkScheme()));
   // What was read, with the ride and revision it was read for: another ride's
   // line is never drawn while this one's is on its way.
-  const [loaded, setLoaded] = useState<{ key: string; positions?: LngLat[]; overlay?: Overlay }>({
+  const [loaded, setLoaded] = useState<{ key: string; samples?: Sample[]; overlay?: Overlay }>({
     key: '',
   });
   const key = `${id}|${revision}`;
-  const positions = useMemo(
-    () => (loaded.key === key ? (loaded.positions ?? []) : []),
+  // Stream order, a lost fix a null: the chart's index is this array's index.
+  const samples = useMemo<Sample[]>(
+    () => (loaded.key === key ? (loaded.samples ?? []) : []),
     [loaded, key]
+  );
+  const positions = useMemo(
+    () => samples.filter((sample): sample is LngLat => sample !== null),
+    [samples]
   );
   const overlay = loaded.key === key ? (loaded.overlay ?? NO_OVERLAY) : NO_OVERLAY;
   const [others, setOthers] = useState<Record<string, LngLat[]>>({});
@@ -71,10 +78,10 @@ export function ActivityMap(props: {
 
   useEffect(() => {
     let current = true;
-    const keep = (part: { positions?: LngLat[]; overlay?: Overlay }) =>
+    const keep = (part: { samples?: Sample[]; overlay?: Overlay }) =>
       current && setLoaded((held) => ({ ...(held.key === key ? held : { key }), key, ...part }));
     geoText(queries, 'geo.track', id).then(
-      (text) => keep({ positions: trackPositions(text) }),
+      (text) => keep({ samples: trackSamples(text) }),
       () => undefined
     );
     geoText(queries, 'geo.activityOverlay', id).then(
@@ -119,18 +126,15 @@ export function ActivityMap(props: {
     []
   );
 
-  const crosshair = useMemo(() => crosshairData(positions, marked), [positions, marked]);
+  const crosshair = useMemo(() => crosshairData(samples, marked), [samples, marked]);
   const range = props.range ?? null;
   const endpoints = useMemo(() => endpointsData(positions), [positions]);
   const colour = props.colour ?? null;
-  const gradient = useMemo(
-    () => (colour ? trackLine(colour, base) : null),
-    [colour, base]
-  );
+  const gradient = useMemo(() => (colour ? trackLine(colour, base) : null), [colour, base]);
   const rangeData = useMemo(
-    () => rangeLine(positions, range),
+    () => rangeLine(samples, range),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [positions, range?.from, range?.to]
+    [samples, range?.from, range?.to]
   );
   const spec = useMemo(
     () =>
@@ -176,13 +180,13 @@ export function ActivityMap(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [positions, others, comparedKey, rangeData, cutting]);
 
-  const whole = { start: 0, end: Math.max(0, positions.length - 1) };
+  const whole = { start: 0, end: Math.max(0, samples.length - 1) };
   const span = props.range
     ? { start: props.range.from, end: Math.min(props.range.to, whole.end) }
     : whole;
   const handles: MapHandle[] = creating
     ? (['start', 'end'] as const).flatMap((handle) => {
-        const at = positions[span[handle]];
+        const at = samples[span[handle]];
         return at ? [{ id: handle, at, label: creating.labels[handle] }] : [];
       })
     : [];
@@ -195,7 +199,7 @@ export function ActivityMap(props: {
   const onMove = (found: PickedFeature | null, at: [number, number]) => {
     const onLine = found?.layerId === 'route-line';
     if (onLine) {
-      const nearest = nearestIndex(positions, at);
+      const nearest = nearestIndex(samples, at);
       if (nearest !== null) props.onPosition({ index: nearest, time: 0, distance: 0 });
     }
     const section =
@@ -212,7 +216,7 @@ export function ActivityMap(props: {
       camera={bounds}
       queries={queries}
       handles={handles}
-      onHandleMove={(handle, at) => place(handle as Handle, snapIndex(positions, at, whole))}
+      onHandleMove={(handle, at) => place(handle as Handle, snapIndex(samples, at, whole))}
       onHandleStep={(handle, delta) => place(handle as Handle, span[handle as Handle] + delta)}
       onMove={onMove}
       onClick={(feature) => {

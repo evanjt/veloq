@@ -539,3 +539,46 @@ describe('the connection', () => {
     });
   });
 });
+
+describe('a fetch before the phone lists its methods', () => {
+  it('waits for the list and then resolves with the answer, rather than failing as not connected', async () => {
+    let listed: string[] | null = null;
+    const sent: Sent[] = [];
+    const client = new QueryClient({
+      methods: () => listed,
+      ask: (method, params, options) =>
+        new Promise((resolve, reject) => {
+          sent.push({
+            method,
+            params,
+            signal: options.signal,
+            slot: options.slot,
+            resolve,
+            reject,
+          });
+        }),
+    });
+    const settled = jest.fn();
+    const answer = client.fetch('geo.track', { id: 'a1' }).then(settled, settled);
+    await flush();
+    expect(sent).toHaveLength(0);
+    expect(settled).not.toHaveBeenCalled();
+
+    listed = ['geo.track'];
+    client.connected();
+    await flush();
+    expect(sent.map((one) => one.method)).toEqual(['geo.track']);
+    sent[0]!.resolve({ text: 'line' });
+    await answer;
+    expect(settled).toHaveBeenCalledWith({ text: 'line' });
+  });
+
+  it('is typed unsupported when the list arrives without the method', async () => {
+    let listed: string[] | null = null;
+    const client = new QueryClient({ methods: () => listed, ask: () => new Promise(() => {}) });
+    const answer = client.fetch('geo.track', { id: 'a1' });
+    listed = ['feed.summary'];
+    client.connected();
+    await expect(answer).rejects.toMatchObject({ kind: 'unsupported' });
+  });
+});

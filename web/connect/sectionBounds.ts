@@ -44,7 +44,7 @@ export function pathMetres(path: readonly LngLat[], span: Span): number {
 }
 
 /** The vertex of `path` nearest `at`, looking only inside `within`; null when none lies there. */
-export function snapIndex(path: readonly LngLat[], at: LngLat, within: Span): number | null {
+export function snapIndex(path: readonly (LngLat | null)[], at: LngLat, within: Span): number | null {
   const from = Math.max(0, within.start);
   const to = Math.min(path.length - 1, within.end);
   if (from > to) return null;

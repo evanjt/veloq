@@ -163,6 +163,8 @@ export type Observation<T> = {
 export class QueryClient {
   private entries = new Map<string, Entry>();
   private writeListeners = new Set<(event: WriteEvent) => void>();
+  /** Fetches issued before the phone listed its methods, released by `connected`. */
+  private listWaiters = new Set<() => void>();
 
   constructor(private readonly transport: Transport) {}
 
@@ -244,6 +246,10 @@ export class QueryClient {
   ): Promise<Methods[M]['result']>;
   fetch(method: string, args: object, options?: { slot?: string }): Promise<unknown>;
   async fetch(method: string, args: object, options: { slot?: string } = {}): Promise<unknown> {
+    // Until the phone lists its methods nothing can be asked, as for a watched read: wait.
+    while (this.transport.methods() === null) {
+      await new Promise<void>((resolve) => this.listWaiters.add(resolve));
+    }
     const entry = this.entry(method, args);
     if (options.slot !== undefined) entry.slot = options.slot;
     if (entry.error?.kind === 'unsupported') throw entry.error;
@@ -309,6 +315,9 @@ export class QueryClient {
 
   /** The phone listed its methods: asks that waited for the list go out. */
   connected() {
+    const waiting = [...this.listWaiters];
+    this.listWaiters.clear();
+    for (const release of waiting) release();
     for (const entry of [...this.entries.values()]) {
       if (entry.observers > 0 || entry.waiters > 0) this.start(entry);
       else this.resolveSupport(entry);

@@ -14,6 +14,7 @@ import {
   chartMargins,
   logFraction,
   logTicks,
+  drawingHeight,
   plotBox,
   valueAxis,
   yOf,
@@ -39,7 +40,6 @@ export type CurveProps = {
   height?: number;
 };
 
-const DEFAULT_HEIGHT = 220;
 
 export function Curve(props: CurveProps) {
   const ref = useRef<HTMLElement>(null);
@@ -62,7 +62,7 @@ export function Curve(props: CurveProps) {
     xTitle: true,
     yTitle: true,
   });
-  const height = props.height ?? DEFAULT_HEIGHT;
+  const height = drawingHeight(width, margins, props.height);
   const box = plotBox(width, height, margins);
   const px = (x: number) => box.left + logFraction(x, low, high) * (box.right - box.left);
   const tickValues = logTicks([low, high], props.xTicks);

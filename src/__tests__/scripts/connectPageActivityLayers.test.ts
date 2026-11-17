@@ -24,6 +24,7 @@ import {
   rangeLine,
   splitOverlay,
   trackPositions,
+  trackSamples,
   trackUrl,
   type ActivityMapInput,
   type LngLat,
@@ -259,5 +260,60 @@ describe('the brushed range on the track', () => {
     });
     expect(spec.sources['range']).toBeDefined();
     expect(spec.layers.some((layer) => layer.id === 'range-line')).toBe(true);
+  });
+});
+
+describe('a track with a GPS gap', () => {
+  const gapped = JSON.stringify({
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [7.3, 46.2],
+            [null, null],
+            [7.32, 46.22],
+            [7.33, 46.23],
+          ],
+        },
+      },
+    ],
+  });
+
+  it('keeps every stream index, a gap being a null sample', () => {
+    const samples = trackSamples(gapped);
+    expect(samples).toHaveLength(4);
+    expect(samples[1]).toBeNull();
+    expect(trackPositions(gapped)).toEqual([
+      [7.3, 46.2],
+      [7.32, 46.22],
+      [7.33, 46.23],
+    ]);
+  });
+
+  it('puts the marker for stream index i on sample i, and none inside the gap', () => {
+    const samples = trackSamples(gapped);
+    expect(positionAt(samples, 2)).toEqual([7.32, 46.22]);
+    expect(crosshairData(samples, 3)?.geometry.coordinates).toEqual([7.33, 46.23]);
+    expect(crosshairData(samples, 1)).toBeNull();
+  });
+
+  it('finds the nearest index among real samples only', () => {
+    expect(nearestIndex(trackSamples(gapped), [7.3199, 46.2199])).toBe(2);
+  });
+
+  it('cuts a range without the gap in its line', () => {
+    const line = rangeLine(trackSamples(gapped), { from: 0, to: 3 });
+    expect(line.features[0]?.geometry).toEqual({
+      type: 'LineString',
+      coordinates: [
+        [7.3, 46.2],
+        [7.32, 46.22],
+        [7.33, 46.23],
+      ],
+    });
   });
 });

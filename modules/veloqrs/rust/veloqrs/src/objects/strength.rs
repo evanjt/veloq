@@ -386,6 +386,8 @@ impl StrengthManager {
     /// The exercise picker's list, narrowed by equipment, region, muscle and a typed query
     /// and ordered by what the athlete does. `after_category` and `after_name` name the
     /// exercise just done, whose usual followers lead; unknown filter words match nothing.
+    // The FFI signature, which takes each field as its own argument.
+    #[allow(clippy::too_many_arguments)]
     fn get_exercise_picker_data(
         &self,
         equipment: Vec<String>,

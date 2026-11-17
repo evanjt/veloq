@@ -33,7 +33,7 @@ pub struct FinishRecording<'a> {
 #[derive(Debug, Clone)]
 pub enum StrengthFinish {
     /// The session is finished and this row holds its FIT.
-    Finished(FfiRecordingEntry),
+    Finished(Box<FfiRecordingEntry>),
     /// No set was done. Nothing was written and the session is still live.
     NoSets,
 }
@@ -149,7 +149,7 @@ impl PersistentEngine {
             };
             self.save_strength_session(&session)?;
             self.insert_recording(&entry)?;
-            Ok(Ok(StrengthFinish::Finished(entry)))
+            Ok(Ok(StrengthFinish::Finished(Box::new(entry))))
         })?
     }
 }
