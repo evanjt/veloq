@@ -14,6 +14,7 @@ import {
   shareCopyAs,
   shareExistingFile,
   shareFile,
+  shareFileBytes,
   shareText,
   type ShareAnchor,
   type ShareKind,
@@ -94,6 +95,30 @@ vaultIt('writes text content under the kind extension', async () => {
     expect.any(Object)
   );
   expect(sharedOptions().dialogTitle).toBe('veloq-crash-log.txt');
+});
+
+it('writes bytes as base64 under the kind extension, and shares them as that kind', async () => {
+  const bytes = new Uint8Array([0x0e, 0x10, 0xff, 0x00, 0x41]).buffer;
+  await shareFileBytes({ bytes, name: 'Lake loop', kind: 'fit' });
+  expect(FileSystem.writeAsStringAsync).toHaveBeenCalledWith(
+    'file:///cache/exports/Lake loop.fit',
+    'DhD/AEE=',
+    { encoding: FileSystem.EncodingType.Base64 }
+  );
+  expect(Sharing.shareAsync).toHaveBeenCalledWith(
+    'file:///cache/exports/Lake loop.fit',
+    expect.any(Object)
+  );
+  expect(sharedOptions().mimeType).toBe('application/vnd.ant.fit');
+  expect(sharedOptions().dialogTitle).toBe('Lake loop.fit');
+});
+
+it('encodes bytes past one chunk without losing or repeating any', async () => {
+  const bytes = new Uint8Array(70_000).map((_, i) => (i * 37) & 0xff);
+  await shareFileBytes({ bytes: bytes.buffer, name: 'Long ride', kind: 'fit' });
+  expect(jest.mocked(FileSystem.writeAsStringAsync).mock.calls[0][1]).toBe(
+    Buffer.from(bytes).toString('base64')
+  );
 });
 
 vaultIt('keeps an extension the name already carries', async () => {

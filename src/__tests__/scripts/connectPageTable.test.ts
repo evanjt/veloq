@@ -3,7 +3,7 @@
  * live in the hash query and whose rows are stepped with the keyboard.
  *
  * Expected behaviour: a sort keeps rows with no value last in either
- * direction; the hash query round-trips range, sport, sort and selection;
+ * direction; the hash query round-trips range, sport, sort, filter text and selection;
  * a range preset names the same days the phone's does; the arrow keys move the
  * selection within the loaded rows and stop at the ends.
  */
@@ -73,6 +73,19 @@ describe('sortRows', () => {
   });
 });
 
+const empty = {
+  range: null,
+  families: [],
+  sort: null,
+  id: null,
+  ids: [],
+  search: '',
+  minDistance: null,
+  maxDistance: null,
+  minMovingTime: null,
+  maxMovingTime: null,
+};
+
 describe('the hash query', () => {
   vaultIt('round-trips range, sport, sort and selection', () => {
     const state = {
@@ -81,6 +94,11 @@ describe('the hash query', () => {
       sort: { column: 'load' as const, dir: 'desc' as const },
       id: 'i 42',
       ids: [] as string[],
+      search: 'hill & climb',
+      minDistance: 5000,
+      maxDistance: 42195.5,
+      minMovingTime: 1800,
+      maxMovingTime: 7200,
     };
     const hash = write({ screen: 'activities', id: null, query: feedQuery(state) });
     expect(readFeedQuery(parse(hash))).toEqual(state);
@@ -93,17 +111,51 @@ describe('the hash query', () => {
       sort: null,
       id: null,
       ids: [],
+      search: '',
+      minDistance: null,
+      maxDistance: null,
+      minMovingTime: null,
+      maxMovingTime: null,
     });
   });
 
   vaultIt('ignores a range, a sport or a sort it does not know', () => {
     const got = readFeedQuery(parse('#/activities?range=never&sport=ride,quad&sort=nope:asc'));
-    expect(got).toEqual({ range: null, families: ['ride'], sort: null, id: null, ids: [] });
+    expect(got).toEqual({
+      range: null,
+      families: ['ride'],
+      sort: null,
+      id: null,
+      ids: [],
+      search: '',
+      minDistance: null,
+      maxDistance: null,
+      minMovingTime: null,
+      maxMovingTime: null,
+    });
     expect(readFeedQuery(parse('#/activities?sort=name:sideways')).sort).toBeNull();
   });
 
+  vaultIt('ignores a bound that is not a positive number', () => {
+    const got = readFeedQuery(
+      parse('#/activities?minDistance=abc&maxDistance=-5&minMovingTime=0&maxMovingTime=')
+    );
+    expect(got.minDistance).toBeNull();
+    expect(got.maxDistance).toBeNull();
+    expect(got.minMovingTime).toBeNull();
+    expect(got.maxMovingTime).toBeNull();
+  });
+
+  vaultIt('writes only the bounds that are set', () => {
+    expect(feedQuery({ ...empty, minDistance: 1000, maxMovingTime: 60 })).toEqual([
+      ['minDistance', '1000'],
+      ['maxMovingTime', '60'],
+    ]);
+  });
+
   vaultIt('writes nothing for the defaults', () => {
-    expect(feedQuery({ range: null, families: [], sort: null, id: null, ids: [] })).toEqual([]);
+    expect(feedQuery({ ...empty, search: '' })).toEqual([]);
+    expect(feedQuery({ ...empty, search: '  ' })).toEqual([]);
   });
 });
 

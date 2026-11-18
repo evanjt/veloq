@@ -112,7 +112,7 @@ function makeRankedSections(sportType: string) {
 
 function buildFfiData(): InsightsData {
   return {
-    form: { date: '2026-04-19', ctl: 67.8, atl: 61.5 },
+    form: { date: '2026-04-19', ctl: 67.8, atl: 61.5, form: 6, formAsPercent: false },
     currentWeek: makePeriod(5, 4 * 3600, 80_000, 320),
     previousWeek: makePeriod(3, 2.5 * 3600, 50_000, 220),
     chronicPeriod: makePeriod(20, 18 * 3600, 320_000, 1280),
@@ -127,6 +127,7 @@ function buildFfiData(): InsightsData {
       sampleCount: 24,
       history: [],
       changes: [],
+      historyDays: [],
     },
     runPaceTrend: {
       latestPace: 4.55,

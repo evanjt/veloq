@@ -7,6 +7,7 @@ import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 import { resolveLoginLibrary } from '@/features/auth/lib/loginLibrary';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { formatClockOrDate } from '@/shared/format/format';
 import { useNetwork } from '@/shared/app/NetworkContext';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
 import {
@@ -56,6 +57,16 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
         // engine-object form answered "unavailable", which this screen rendered
         // as a connection failure for a perfectly good key.
         const check = await validateCredentials('api_key', apiKey.trim());
+        if (check.kind === CallKind.RateLimited) {
+          // The service is refusing for quota, which says nothing about the key.
+          // The key stays held, as it does for any refusal that is not a 401.
+          setError(
+            check.retryAtMs == null
+              ? t('login.intervalsBusyShortly')
+              : t('login.intervalsBusy', { time: formatClockOrDate(check.retryAtMs) })
+          );
+          return 'unreachable';
+        }
         if (check.kind !== CallKind.Ok || !check.id) {
           const rejected = check.status === 401;
           setError(rejected ? t('login.invalidApiKey') : t('login.connectionFailed'));

@@ -645,7 +645,7 @@
       "title_few": "Nie pobrano {{count}} trasy",
       "title_many": "Nie pobrano {{count}} tras",
       "title_other": "Nie pobrano {{count}} tras",
-      "detail": "Brakuje ich na mapie i nie są dopasowane do żadnego odcinka. Następne odświeżenie spróbuje ponownie."
+      "detail": "Pobieranie próbowano kilka razy i się nie udało. Ponów prosi o nie jeszcze raz."
     },
     "startupError": {
       "title": "Niektóre części aplikacji się nie wczytały",
@@ -850,7 +850,9 @@
     "bulkExporting": "Generowanie {{format}}…",
     "bulkSharing": "Otwieranie udostępniania…",
     "error": "Nie udało się wyeksportować pliku GPX.",
+    "fitError": "Nie udało się wyeksportować pliku FIT.",
     "exporting": "Eksportowanie…",
+    "fit": "Eksportuj FIT",
     "gpx": "Eksportuj GPX",
     "gpxTrimmedAway": "Brak danych do eksportu. Przycięcie w pobliżu domu zostawiło zbyt mało śladu.",
     "failedTitle": "Eksport nie powiódł się",
@@ -861,6 +863,16 @@
     "shareUnavailable": "To urządzenie nie może udostępniać plików."
   },
   "feed": {
+    "remote": {
+      "offer": "Szukaj w intervals.icu",
+      "searching": "Wyszukiwanie w intervals.icu",
+      "heading": "W intervals.icu, nie na tym urządzeniu",
+      "notOnDevice": "Nie ma na tym urządzeniu",
+      "none": "Nic więcej w intervals.icu",
+      "failed": "Nie udało się przeszukać intervals.icu",
+      "capped": "intervals.icu osiągnęło limit wyszukiwania po nazwie, więc wyników może być więcej. Zawęź nazwę, aby je zobaczyć.",
+      "rowLabel": "{{name}}, {{facts}}, nie ma na tym urządzeniu"
+    },
     "activitiesCount_one": "{{count}} aktywność",
     "activitiesCount_few": "{{count}} aktywności",
     "activitiesCount_many": "{{count}} aktywności",
@@ -872,6 +884,20 @@
       "last90Days": "Ostatnie 90 dni",
       "thisYear": "Ten rok",
       "lastYear": "Zeszły rok"
+    },
+    "filter": {
+      "show": "Pokaż filtry",
+      "hide": "Ukryj filtry",
+      "clear": "Wyczyść: {{filter}}",
+      "date": "Data",
+      "dateFrom": "Data początkowa",
+      "dateTo": "Data końcowa",
+      "distance": "Dystans",
+      "distanceFrom": "Minimalny dystans",
+      "distanceTo": "Maksymalny dystans",
+      "duration": "Czas trwania",
+      "durationFrom": "Minimalny czas trwania",
+      "durationTo": "Maksymalny czas trwania"
     },
     "emptyLibrary": {
       "pausedTitle": "Synchronizacja jest wstrzymana",
@@ -1391,6 +1417,8 @@
     "oauthInterrupted": "Logowanie zostało przerwane. Spróbuj ponownie.",
     "oauthNeedsNetwork": "Logowanie przez intervals.icu wymaga połączenia z siecią. Połącz się i spróbuj ponownie albo użyj klucza API, który może zalogować Cię później.",
     "oauthProxyRefused": "Usługa logowania nie przyjęła żądania. Spróbuj ponownie za chwilę.",
+    "intervalsBusy": "intervals.icu jest teraz zajęte. Spróbuj ponownie po {{time}}.",
+    "intervalsBusyShortly": "intervals.icu jest teraz zajęte. Spróbuj ponownie za chwilę.",
     "oauthUnreachable": "Nie udało się połączyć z usługą logowania. Sprawdź połączenie i spróbuj ponownie.",
     "oauthInvalidCallback": "Nieprawidłowy adres zwrotny OAuth",
     "oauthNotConfigured": "OAuth nie jest skonfigurowany. Użyj logowania kluczem API.",
@@ -1455,7 +1483,6 @@
     "emptyNoGpsHint": "Treningi w pomieszczeniu, na trenażerze i na basenie nie mają trasy do narysowania.",
     "loadingHeatmap": "Ładowanie mapy cieplnej…",
     "panelFold": "Zwiń panel",
-    "panelOpen": "Otwórz panel aktywności",
     "panelBack": "Wróć do listy",
     "timelineFrom": "Od",
     "timelineTo": "Do"
@@ -1528,7 +1555,11 @@
     },
     "underPointRoute": "Trasa {{number}}",
     "underPointNoRoute": "Poza trasą",
-    "underPointDrawn": "Narysowano {{drawn}} z {{total}}"
+    "underPointDrawn": "Narysowano {{drawn}} z {{total}}",
+    "underPointCount": "{{count}} pod dotknięciem",
+    "underPointFilterAll": "Wszystkie",
+    "underPointOpenRoute": "Otwórz trasę {{name}}",
+    "underPointOpenSection": "Otwórz odcinek {{name}}"
   },
   "metrics": {
     "activityCount": "Aktywności",
@@ -2103,6 +2134,7 @@
     "setAsReferenceConfirm": "Użyć tej aktywności jako odniesienia? Linia będzie podążać za tą aktywnością, a widok Przed lub za będzie mierzyć czas względem niej. Dopasowania do wszystkich Twoich aktywności są przeliczane, co może dodać lub usunąć niektóre.",
     "setReferenceError": "Nie udało się ustawić odniesienia. Sekcja lub aktywność mogła się zmienić. Spróbuj ponownie.",
     "editBounds": "Edytuj granice",
+    "sendToWatch": "Wyślij na zegarek",
     "showOnMap": "Pokaż na mapie",
     "pointsCount_one": "{{count}} punkt",
     "pointsCount_few": "{{count}} punkty",
@@ -2402,6 +2434,8 @@
     "storageOther": "Inne",
     "mapCache": "Pamięć podręczna map",
     "sizeAtLeast": "Co najmniej {{size}}",
+    "watchLink": "Przewodnik po zegarku",
+    "watchLinkDescription": "Pozwala temu telefonowi wysyłać odcinki na zegarek. Zegarek wyświetla wskazówki jako powiadomienia.",
     "permissions": "Uprawnienia",
     "heatmapGeneration": "Mapa ciepła",
     "heatmapDescription": "Mapa cieplna jest przechowywana na tym urządzeniu i zajmuje na nie miejsce. Wyłącz ją, aby zwolnić to miejsce.",
@@ -3107,6 +3141,8 @@
       "startEmpty": "Rozpocznij pustą sesję",
       "previousSessions": "Poprzednie sesje",
       "savedWorkouts": "Zapisane treningi",
+      "removedWorkouts": "Usunięte treningi",
+      "restoreWorkout": "Przywróć",
       "noHistory": "Tutaj pojawią się sesje, które nagrasz lub zsynchronizujesz, jako punkt wyjścia.",
       "workoutSummary": "Ćwiczenia: {{exercises}}, serie: {{sets}}",
       "startFrom": "Zacznij od: {{name}}",
@@ -3411,6 +3447,7 @@
     "retryNow": "Spróbuj teraz",
     "heldByUpstream": "intervals.icu poprosiło o oczekiwanie do {{time}}",
     "heldByBudget": "Osiągnięto limit żądań, oczekiwanie do {{time}}",
+    "heldForPool": "Nadrabianie wstrzymane, żeby synchronizacja wszystkich trwała, wznowienie o {{time}}",
     "pacedOnCaps_one": "Co najmniej {{count}} dzień do końca, z powodu dziennego limitu intervals.icu",
     "pacedOnCaps_few": "Co najmniej {{count}} dni do końca, z powodu dziennego limitu intervals.icu",
     "pacedOnCaps_many": "Co najmniej {{count}} dni do końca, z powodu dziennego limitu intervals.icu",
@@ -3760,16 +3797,46 @@
     "notConnected": "Niepołączona",
     "noChanges": "Brak zmian",
     "wrote": "{{browser}}: {{summary}}",
-    "manage": "Zarządzaj połączonymi urządzeniami"
+    "manage": "Zarządzaj połączonymi urządzeniami",
+    "howTitle": "Jak działa Connect",
+    "howLinked": "Zeskanowanie kodu łączy przeglądarkę raz. Zachowuje własny klucz i sama łączy się ponownie, dopóki Veloq jest otwarty.",
+    "howPrivate": "Twoje dane trafiają prosto z tego telefonu do przeglądarki, od końca do końca. Żaden serwer ich nie przechowuje.",
+    "howRelay": "Przekaźnik przekazuje tylko nawiązanie połączenia. Nigdy nie niesie Twoich danych.",
+    "refusedToday_one": "Dzisiaj odrzucono {{count}} prośbę o połączenie z niepowiązanej przeglądarki.",
+    "refusedToday_few": "Dzisiaj odrzucono {{count}} prośby o połączenie z niepowiązanych przeglądarek.",
+    "refusedToday_many": "Dzisiaj odrzucono {{count}} próśb o połączenie z niepowiązanych przeglądarek.",
+    "refusedToday_other": "Dzisiaj odrzucono {{count}} prośby o połączenie z niepowiązanych przeglądarek.",
+    "howAccess": "Powiązanie trwa, dopóki go nie usuniesz. Powiązana przeglądarka może czytać Twoją bibliotekę i wprowadzać zmiany wymienione na jej stronie.",
+    "linkedOn": "Powiązano {{date}}",
+    "connectedNow": "Połączono teraz",
+    "scope": "Może czytać Twoją bibliotekę i wprowadzać zmiany wymienione poniżej.",
+    "connectionsTitle": "Połączenia",
+    "noConnections": "Brak połączeń",
+    "thisNetwork": "Ta sieć",
+    "internet": "Internet",
+    "changesTitle": "Zmiany",
+    "kindTool": "Narzędzie komputerowe",
+    "clientOn": "{{browser}} na {{os}}",
+    "endReason": {
+      "closed": "Zamknięte",
+      "backgrounded": "Veloq przeszedł w tło",
+      "switched_off": "Wyłączone",
+      "removed": "Usunięto",
+      "disconnected": "Rozłączono z telefonu",
+      "refused": "Odrzucone"
+    },
+    "rename": "Zmień nazwę",
+    "renameLabel": "Nazwa"
   },
   "connectPage": {
     "undo": {
       "hidden": "Ukryto na mapie cieplnej",
       "shown": "Pokazano na mapie cieplnej",
+      "sectionsHidden": "Odcinki ukryte",
+      "sectionsShown": "Odcinki pokazane",
       "excluded": "Aktywność wykluczona",
       "included": "Aktywność znów uwzględniona",
-      "renamed": "Zmieniono nazwę",
-      "workoutDeleted": "Trening usunięty"
+      "renamed": "Zmieniono nazwę"
     },
     "title": "Veloq Connect",
     "language": "Język",
@@ -3790,7 +3857,8 @@
       "declined": "Połączenie zostało odrzucone na telefonie.",
       "removed": "Ta przeglądarka została usunięta na telefonie. Zeskanuj nowy kod, aby połączyć ją ponownie.",
       "unreachable": "Nie można połączyć się stąd z telefonem. Połącz oba urządzenia z tą samą siecią Wi-Fi i zeskanuj nowy kod.",
-      "phoneLocked": "Odblokuj telefon i otwórz Veloq, aby wprowadzić zmiany"
+      "phoneLocked": "Odblokuj telefon i otwórz Veloq, aby wprowadzić zmiany",
+      "badId": "Telefon nie przyjął tego żądania. Spróbuj ponownie."
     },
     "screens": {
       "fitness": "Kondycja",
@@ -3807,7 +3875,8 @@
       "expand": "Rozwiń panel boczny",
       "breadcrumb": "Ścieżka nawigacji",
       "search": "Szukaj",
-      "account": "Konto"
+      "account": "Konto",
+      "skipToContent": "Przejdź do treści"
     },
     "yourPhone": "Twój telefon",
     "laterScreen": "Ten ekran nie jest jeszcze dostępny w przeglądarce. Otwórz go na telefonie.",
@@ -3833,23 +3902,20 @@
     },
     "update": {
       "heading": "Zaktualizuj Veloq na telefonie",
-      "body": "Ta strona i Veloq na telefonie używają różnych wersji połączenia. Zaktualizuj Veloq na telefonie, a potem otwórz tę stronę ponownie.",
-      "screen": "Zaktualizuj Veloq na telefonie, aby to zobaczyć"
+      "body": "Ta strona i Veloq na telefonie używają różnych wersji połączenia. Zaktualizuj Veloq na telefonie, a potem otwórz tę stronę ponownie."
     },
     "keys": {
-      "heading": "Klawisze",
-      "tabs": "Aktywność, Kondycja, Wnioski, Mapa, Ustawienia",
-      "search": "Szukaj w aktywnościach",
+      "heading": "Skróty klawiszowe",
+      "search": "Otwórz wyszukiwanie",
       "close": "Zamknij aktywność",
       "list": "Ta lista",
-      "range": "1 do 5",
       "control": "Ctrl",
       "shell": "Wszędzie",
       "page": "Na tej stronie",
       "palette": "Otwórz paletę poleceń",
-      "chord": "Przejdź do strony: feed, mapa, trasy, odcinki, forma, wnioski, siła, treningi, nagrania, ustawienia",
       "step": "Poprzednia i następna aktywność",
-      "open": "Otwórz wybraną aktywność"
+      "open": "Otwórz wybraną aktywność",
+      "pages": "Przejdź do strony"
     },
     "library": {
       "activities": "Aktywności",
@@ -3858,6 +3924,12 @@
       "pick": "Wybierz aktywność",
       "loadMore": "Wczytaj więcej",
       "sportLabel": "Sport",
+      "distance": "Dystans ({{unit}})",
+      "distanceMin": "Najkrótszy dystans ({{unit}})",
+      "distanceMax": "Najdłuższy dystans ({{unit}})",
+      "duration": "Czas trwania",
+      "durationMin": "Najkrótszy czas trwania (minuty)",
+      "durationMax": "Najdłuższy czas trwania (minuty)",
       "summary": "Podsumowanie",
       "fitnessTrend": "Kondycja z ostatnich 30 dni",
       "range": "Zakres",
@@ -3933,11 +4005,14 @@
       "sections": "Sekcje",
       "routes": "Trasy",
       "intervals": "Interwały",
-      "hideFromHeatmap": "Ukryj na mapie cieplnej",
       "showOnHeatmap": "Pokaż na mapie cieplnej",
       "actions": "Działania dla aktywności",
       "exportGpx": "Eksportuj GPX",
       "openOnIntervals": "Otwórz w intervals.icu",
+      "more": "Więcej",
+      "manage": "Zarządzaj",
+      "manageHeatmap": "Mapa cieplna",
+      "manageHint": "Wyłącz trasę lub odcinek, aby wykluczyć z niego tę aktywność. Cofnij przywraca ją.",
       "noTrack": "Ta aktywność nie ma śladu GPS.",
       "colourBy": "Koloruj ślad według",
       "colourNone": "Jednolity",
@@ -3977,7 +4052,16 @@
         "energy": "Energia",
         "conditions": "Warunki",
         "newGround": "Nowy teren"
-      }
+      },
+      "createSection": "Utwórz odcinek",
+      "createHint": "Zaznacz zakres na wykresach, przeciągnij oba końce wzdłuż trasy na mapie albo wpisz odległości. Escape anuluje.",
+      "createStart": "Początek ({{unit}})",
+      "createEnd": "Koniec ({{unit}})",
+      "createStartHandle": "Początek nowego odcinka",
+      "createEndHandle": "Koniec nowego odcinka",
+      "createSave": "Utwórz",
+      "created": "Utworzono odcinek",
+      "createdNamed": "Utworzono odcinek {{name}}"
     },
     "chart": {
       "elevation": "Wysokość",
@@ -3991,7 +4075,8 @@
       "gap": "Tempo skorygowane o nachylenie",
       "time": "Czas",
       "axis": "Oś pozioma",
-      "reset": "Resetuj zoom"
+      "reset": "Resetuj zoom",
+      "pace": "Tempo"
     },
     "fitness": {
       "range": "Zakres",
@@ -4217,7 +4302,8 @@
         "notifications": "Powiadomienia",
         "recording": "Nagrywanie",
         "experimental": "Funkcje eksperymentalne",
-        "summaryCard": "Karta podsumowania"
+        "summaryCard": "Karta podsumowania",
+        "singleKeys": "Skróty jednoklawiszowe"
       },
       "options": {
         "system": "Systemowy",
@@ -4246,8 +4332,7 @@
       },
       "toast": {
         "saved": "Zapisano",
-        "undo": "Cofnij",
-        "dismiss": "Zamknij"
+        "undo": "Cofnij"
       },
       "displayNote": "Motyw, jednostki i główny sport są zapisywane w telefonie. Język i wygładzanie samopoczucia zmienia się w telefonie.",
       "thresholds": {
@@ -4278,8 +4363,8 @@
           "zone": "Strefa",
           "upper": "Górna granica",
           "bpm": "{{value}} bpm",
-          "percentOfMaxHr": "{{value}} % maksymalnego tętna",
-          "percentOfFtp": "{{value}} % FTP",
+          "percentOfMaxHr": "{{percent}} maksymalnego tętna",
+          "percentOfFtp": "{{percent}} FTP",
           "openTop": "Brak górnej granicy",
           "name": "Strefa {{n}}",
           "note": "Sport, którego ustawienia w intervals.icu nie mają stref, pokazuje domyślne granice."
@@ -4295,6 +4380,15 @@
       "deltaToBest": "Różnica względem najlepszego",
       "passTable": "Wybierz do {{max}} do porównania",
       "fact": "Miara"
+    },
+    "filter": {
+      "activities": "Filtruj aktywności",
+      "routes": "Filtruj trasy",
+      "sections": "Filtruj odcinki",
+      "exercises": "Filtruj ćwiczenia",
+      "recordings": "Filtruj nagrania",
+      "count": "{{shown}} z {{total}}",
+      "clear": "Wyczyść filtr"
     },
     "table": {
       "count_one": "{{count}} wiersz",
@@ -4329,9 +4423,6 @@
       "unnamedRoute": "Trasa bez nazwy",
       "sections": "Odcinki",
       "routes": "Trasy",
-      "searchHint": "Szukaj (/)",
-      "searchSections": "Szukaj odcinków",
-      "searchRoutes": "Szukaj tras",
       "sort": "Sortuj",
       "show": "Pokaż",
       "listFailed": "Telefon nie odpowiedział na tę listę.",
@@ -4362,7 +4453,7 @@
       "attemptsExcluded_other": "Wykluczono {{count}} próby",
       "attemptsIncluded_other": "Ponownie uwzględniono {{count}} próby",
       "name": "Nazwa",
-      "lift": "Lift",
+      "lift": "Wyciąg",
       "enabled": "Włączona",
       "accepted": "Zaakceptowana",
       "actionInclude": "Uwzględnij ponownie",
@@ -4410,7 +4501,8 @@
       "viewSpread": "Rozrzut",
       "viewTime": "W czasie",
       "views": "Widoki wyników",
-      "axisBin": "Czas, od początku każdego przedziału"
+      "axisBin": "Czas, od początku każdego przedziału",
+      "attemptsMenu": "Działania dla prób"
     },
     "columns": {
       "date": "Data",
@@ -4486,6 +4578,18 @@
       "alreadyStored": "Już w bibliotece",
       "failedCount": "Niepowodzenia"
     },
+    "export": {
+      "title": "Eksportuj bibliotekę",
+      "note": "Zapisz wszystkie aktywności z biblioteki w jednym pliku ZIP. Trzymaj telefon otwarty na pierwszym planie, dopóki plik jest zapisywany i wysyłany.",
+      "since": "Aktywności od",
+      "originals": "Dołącz oryginalne pliki",
+      "start": "Eksportuj wszystko",
+      "building": "Telefon zapisuje archiwum: {{done}} z {{rides}} aktywności",
+      "reading": "Zapisano {{done}} z {{size}} MB",
+      "waiting": "Połączenie wznowione, kontynuacja od {{done}} z {{size}} MB",
+      "finished": "Eksport zapisany",
+      "failed": "Eksport nie powiódł się"
+    },
     "read": {
       "loading": "Odczyt z telefonu",
       "timeout": "Telefon nie odpowiedział",
@@ -4493,19 +4597,26 @@
       "retry": "Spróbuj ponownie"
     },
     "palette": {
-      "open": "Przejdź do",
-      "title": "Przejdź do",
-      "label": "Szukaj stron, aktywności, tras i odcinków",
+      "title": "Szukaj",
+      "label": "Szukaj stron, ustawień, aktywności, tras, odcinków, ćwiczeń, treningów i nagrań",
       "placeholder": "Wpisz nazwę",
       "none": "Brak pasujących wyników",
-      "page": "Strona",
-      "action": "Działanie",
-      "activity": "Aktywność",
-      "route": "Trasa",
-      "section": "Odcinek",
       "toggleSidebar": "Zwiń lub rozwiń pasek boczny",
       "toggleTheme": "Przełącz motyw",
-      "showKeys": "Pokaż skróty klawiszowe"
+      "showKeys": "Pokaż skróty klawiszowe",
+      "showAll": "Pokaż wszystkie ({{total}})",
+      "groups": {
+        "recent": "Ostatnie",
+        "page": "Strony",
+        "action": "Działania",
+        "setting": "Ustawienia",
+        "activity": "Aktywności",
+        "route": "Trasy",
+        "section": "Odcinki",
+        "exercise": "Ćwiczenia",
+        "workout": "Treningi",
+        "recording": "Nagrania"
+      }
     },
     "sections": {
       "acceptAll": "Zaakceptuj wszystkie",
@@ -4523,12 +4634,10 @@
       "best": "Najlepszy",
       "cancel": "Anuluj",
       "changed": "Zmieniono",
-      "clearSearch": "Wyczyść wyszukiwanie",
       "close": "Zamknij",
       "curvesPending": "Telefon wciąż oblicza te krzywe.",
       "deltaChart": "Sekundy przed lub za wzorcem wzdłuż odcinka, jedna linia dla każdego ostatniego okrążenia",
       "direction": "Kierunek",
-      "dismiss": "Zamknij",
       "excludeActivities": "Wyklucz aktywności",
       "excludeLaps": "Wyklucz okrążenia",
       "faster": "Szybciej",
@@ -4588,7 +4697,7 @@
       "stats": "Okrążenia, najlepszy, średni i ostatni czas dla każdego kierunku",
       "status": "Stan",
       "statusCustom": "Własny",
-      "statusLift": "Lift",
+      "statusLift": "Wyciąg",
       "statusRecord": "Rekord",
       "statusRemoved": "Usunięty",
       "tookGround": "Zajął swój teren",
@@ -4601,18 +4710,46 @@
       "unflagLift": "Usunąć znacznik liftu?",
       "unflagLiftBody": "Detektor oznaczył to jako teren liftu. Usunięcia znacznika nie można cofnąć.",
       "view": "Pokaż",
-      "views": "Widoki tego odcinka"
+      "views": "Widoki tego odcinka",
+      "hideFromMap": "Ukryj na mapie",
+      "showOnMap": "Pokaż na mapie",
+      "boundsBeyond": "Poza końcami",
+      "boundsEnd": "Koniec odcinka",
+      "boundsHint": "Przeciągnij oba końce wzdłuż linii albo zaznacz koniec i użyj klawiszy strzałek. Escape anuluje.",
+      "boundsLine": "Linia odcinka",
+      "boundsNoTrack": "Przejazd, z którego wycięto ten odcinek, nie jest zapisany, więc końce można przesuwać tylko wzdłuż linii.",
+      "boundsReset": "Zresetuj granice",
+      "boundsResetDone": "Zresetowano granice odcinka {{name}}",
+      "boundsSave": "Zapisz",
+      "boundsSaved": "Zapisano granice odcinka {{name}}: {{length}}",
+      "boundsShow": "Końce biegną wzdłuż",
+      "boundsStart": "Początek odcinka",
+      "boundsTooShort": "Odcinek zachowuje co najmniej pięć punktów.",
+      "editBounds": "Edytuj granice",
+      "lapMenu": "Działania dla okrążeń",
+      "referenceReset": "Wzorzec oddany detekcji",
+      "referenceSet": "Wzorzec ustawiony na {{name}}",
+      "resetReference": "Oddaj wzorzec detekcji",
+      "useAsReference": "Użyj tego przejazdu jako wzorca",
+      "mergeDone": "Scalono {{name}} z tym odcinkiem",
+      "mergeKept": "Zachowano: {{name}}, {{length}}, przejazdy: {{count}}",
+      "boundsDiscard": "Odrzuć zmiany",
+      "boundsDiscardBody": "Przesunięte końce nie zostały zapisane.",
+      "boundsDiscardTitle": "Odrzucić nowe końce?",
+      "boundsKeepEditing": "Edytuj dalej",
+      "boundsLaps": "Okrążenia zmierzone ponownie po zapisie: {{count}}.",
+      "mergeLaps": "Okrążenia zmierzone na zachowanej linii: {{count}}."
     },
     "workouts": {
       "open": "Ułóż trening",
       "heading": "Treningi",
-      "start": "Zacznij od",
       "blank": "Pusty trening",
       "saved": "Zapisane treningi",
       "noneSaved": "Brak zapisanych treningów",
       "failed": "Telefon nie odpowiedział",
-      "counts": "Ćwiczenia: {{exercises}}, serie: {{sets}}",
       "delete": "Usuń",
+      "deleted": "Usunięte treningi: {{count}}",
+      "undo": "Cofnij",
       "recent": "Ostatnie sesje",
       "times": "Zrobiono ×{{times}}",
       "building": "Układanie",
@@ -4631,8 +4768,6 @@
       "removeExercise": "Usuń ćwiczenie",
       "save": "Zapisz trening",
       "picker": "Ćwiczenia",
-      "search": "Szukaj ćwiczeń",
-      "clearSearch": "Wyczyść wyszukiwanie",
       "equipment": "Sprzęt",
       "daysAgo": "{{days}} dni temu",
       "confirmDelete": "Usunąć {{name}}?",

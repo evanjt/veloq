@@ -3,7 +3,9 @@
  * floating stack, so it shows on every route.
  *
  * A routine check stays quiet. The pill shows once a sync has run past the
- * grace period or a step reports how many items it is fetching.
+ * grace period or a step reports how many items it is fetching. Once the
+ * metadata sync has settled, the GPS download the engine carries on with shows
+ * here too, counted, on the same grace period.
  *
  * It is the status pill like any other, on the raised surface, and its one
  * blue is the ring's turning arc in the on colour over the track. The ring
@@ -30,7 +32,8 @@ import { useTheme } from '@/shared/app';
 import { useReduceMotion } from './reduceMotion';
 import { FloatingPill } from './FloatingPill';
 import { formatSyncProgressParts } from '@/shared/format/syncProgress';
-import { useSyncStatus } from '@/shared/native/useSyncStatus';
+import { formatTrackProgressParts } from '@/features/maps/lib/syncProgressFormat';
+import { useSyncStatus, useTrackStage } from '@/shared/native/useSyncStatus';
 import { useSyncPillYielded } from './syncPillYield';
 import { SYNC_PILL_GRACE_MS, syncPillVisible } from './syncPillVisible';
 import { colors, darkColors, duration, easing, iconSize, stroke } from '@/theme';
@@ -106,32 +109,44 @@ function SyncMark() {
 }
 
 /**
- * Whether the running sync has earned its pill. One timer starts with the sync
- * and wakes the pill at the end of the grace period, so a sync that ends sooner
- * never raises it.
+ * Whether a stretch of work has run past the grace period. One timer starts
+ * with `active` and wakes at the end of the grace period, so a stretch that
+ * ends sooner never raises the pill.
  */
-function useSyncPillShown(status: SyncStatus | null): boolean {
-  const syncing = status?.state === SyncState.Syncing;
+function useGraceElapsed(active: boolean): boolean {
   const [graced, setGraced] = useState(false);
 
   useEffect(() => {
-    if (!syncing) return undefined;
+    if (!active) return undefined;
     const timer = setTimeout(() => setGraced(true), SYNC_PILL_GRACE_MS);
     return () => {
       clearTimeout(timer);
       setGraced(false);
     };
-  }, [syncing]);
+  }, [active]);
 
+  return graced;
+}
+
+/** Whether the running sync has earned its pill. */
+function useSyncPillShown(status: SyncStatus | null): boolean {
+  const syncing = status?.state === SyncState.Syncing;
+  const graced = useGraceElapsed(syncing);
   return syncPillVisible(status, graced ? SYNC_PILL_GRACE_MS : 0);
 }
 
 export function SyncPill() {
   const { t } = useTranslation();
   const status = useSyncStatus();
+  const stage = useTrackStage();
 
   const shown = useSyncPillShown(status);
-  const line = useHeldLine(shown ? formatSyncProgressParts(status, t) : null);
+  // The GPS download carries on after the metadata sync settles, so its line
+  // takes the pill then. While a metadata step runs, that step keeps the pill.
+  const trackParts = formatTrackProgressParts(stage, t);
+  const trackGraced = useGraceElapsed(trackParts !== null);
+  const trackLine = trackGraced && status?.state !== SyncState.Syncing ? trackParts : null;
+  const line = useHeldLine(shown ? formatSyncProgressParts(status, t) : trackLine);
   const yielded = useSyncPillYielded();
 
   if (!line || yielded) return null;

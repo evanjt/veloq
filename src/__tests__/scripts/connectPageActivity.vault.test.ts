@@ -73,8 +73,22 @@ describe('the activity page data', () => {
     const laps = {
       intervals: {
         intervals: [
-          { kind: 'work', movingTime: 300, distance: 2760, label: 'Lantern climb' },
-          { kind: 'recovery', movingTime: 120, distance: null, label: null },
+          {
+            kind: 'work',
+            movingTime: 300,
+            distance: 2760,
+            label: 'Lantern climb',
+            startIndex: 0,
+            endIndex: 99,
+          },
+          {
+            kind: 'recovery',
+            movingTime: 120,
+            distance: null,
+            label: null,
+            startIndex: 100,
+            endIndex: 150,
+          },
         ],
       },
     } as unknown as Laps;
@@ -87,8 +101,13 @@ describe('the activity page data', () => {
     } as unknown as DetailData;
     const facts = factsOfDetail(laps, detail);
     expect(facts.intervals).toEqual([
-      { name: 'Lantern climb', time: '5 min', distance: expect.stringContaining('2') },
-      { name: 'Recovery', time: '2 min', distance: '' },
+      {
+        name: 'Lantern climb',
+        time: '5 min',
+        distance: expect.stringContaining('2'),
+        portion: { from: 0, to: 99 },
+      },
+      { name: 'Recovery', time: '2 min', distance: '', portion: { from: 100, to: 150 } },
     ]);
     expect(facts.sections?.map((row) => row.id)).toEqual(['s1', 'c1']);
     expect(facts.sections?.[1]?.name).toBe('c1');
@@ -96,6 +115,7 @@ describe('the activity page data', () => {
       sections: [],
       passes: [],
       standing: [],
+      memberships: [],
       routes: [],
       intervals: [],
       zones: [],
@@ -227,6 +247,19 @@ describe('the activity page data', () => {
     ]);
     expect(facts.standing).toEqual([
       expect.objectContaining({ id: 'g1', best: '58:20', average: '1:01:40', gap: '+1:00' }),
+    ]);
+  });
+
+  it('passes each route and section the activity matched through, with whether it is left out of that one', () => {
+    const detail = {
+      memberships: [
+        { kind: 'route', id: 'loop', name: 'Lake loop', excluded: false },
+        { kind: 'section', id: 'hill', name: null, excluded: true },
+      ],
+    } as unknown as DetailData;
+    expect(factsOfDetail(undefined, detail, 'a1').memberships).toEqual([
+      { kind: 'route', id: 'loop', name: 'Lake loop', excluded: false },
+      { kind: 'section', id: 'hill', name: 'hill', excluded: true },
     ]);
   });
 

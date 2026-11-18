@@ -72,6 +72,35 @@
   }
 }
 
+/* In a narrow pane the list, the map and the detail share one column, in that order, and the
+   map scrolls with them. */
+@container content (max-width: 1100px) {
+  #routes-page,
+  #routes-page[data-open],
+  #routes-page[data-kind='routes'][data-open],
+  #routes-page[data-kind='sections'] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'list'
+      'map'
+      'detail';
+  }
+
+  #routes-page #routes-list {
+    grid-area: list;
+  }
+
+  #routes-page #map-slot {
+    grid-area: map;
+    position: relative;
+    height: 45vh;
+  }
+
+  #routes-page #routes-detail {
+    grid-area: detail;
+  }
+}
+
 #routes-page .chip[aria-pressed='true'] {
   border-color: var(--primary);
 }
@@ -87,10 +116,6 @@
   align-items: flex-end;
   gap: var(--space-sm);
   margin-bottom: var(--space-sm);
-}
-
-#routes-list .filter-bar .ui-search {
-  flex: 1 1 140px;
 }
 
 #routes-list .row-thumb {

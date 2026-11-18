@@ -39,7 +39,13 @@ const EMPTY_PERIOD_STATS: FfiPeriodStats = {
   totalTss: 0,
 };
 
-const EMPTY_FTP_TREND: FfiFtpTrend = { lookbackDays: 0, sampleCount: 0, history: [], changes: [] };
+const EMPTY_FTP_TREND: FfiFtpTrend = {
+  lookbackDays: 0,
+  sampleCount: 0,
+  history: [],
+  historyDays: [],
+  changes: [],
+};
 
 const EMPTY_PACE_TREND: FfiPaceTrend = { sampleCount: 0, history: [] };
 

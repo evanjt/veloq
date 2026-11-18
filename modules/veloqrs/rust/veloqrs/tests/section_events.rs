@@ -754,6 +754,9 @@ fn a_promotion_mutation_drops_the_pin() {
         "a reference change drops the pin"
     );
 
+    // A trim and a reference change take the section over, so it is reset to
+    // an auto section before an accept has something left to promote.
+    engine.reset_section_bounds(&id).expect("back to auto");
     pin(&mut engine);
     engine.accept_section(&id).expect("accept");
     assert_eq!(

@@ -66,9 +66,6 @@
         "rateLimited": "intervals.icu pidio bajar el ritmo, la sincronizacion esta esperando",
         "notConfigured": "No hay ningun acceso de intervals.icu guardado en este dispositivo"
       }
-    },
-    "tracksMissing": {
-      "detail": "Faltan en el mapa y no se compararon con ningún tramo. La próxima actualización lo intentará de nuevo."
     }
   },
   "engine": {
@@ -228,5 +225,131 @@
   "systemSurfaces": {},
   "support": {
     "tipNote": "Una propina es un donativo. No desbloquea nada: Veloq es gratis para todos."
+  },
+  "connectPage": {
+    "notice": {
+      "refused": "El teléfono rechazó este navegador. Vuelve a vincularlo con un código nuevo."
+    },
+    "screens": {
+      "fitness": "Condición física",
+      "settings": "Configuración"
+    },
+    "pair": {
+      "step2": "Ve a Configuración, luego Dispositivos vinculados y después Vincular un dispositivo."
+    },
+    "waiting": {
+      "switchedOff": "Dispositivos vinculados está desactivado en el teléfono. Actívalo en Configuración, Dispositivos vinculados."
+    },
+    "palette": {
+      "label": "Buscar páginas, configuración, actividades, rutas, secciones, ejercicios, entrenamientos y grabaciones",
+      "groups": {
+        "setting": "Configuración"
+      }
+    },
+    "library": {
+      "fitnessTrend": "Condición física de los últimos 30 días"
+    },
+    "facts": {
+      "fitness": "Condición física",
+      "form": "Forma",
+      "averageSpeed": "Velocidad promedio",
+      "climbing": "Ascenso",
+      "averageHr": "Frecuencia cardiaca promedio",
+      "averagePower": "Potencia promedio"
+    },
+    "activity": {
+      "average": "Promedio",
+      "maxHr": "Frecuencia cardiaca máxima {{bpm}} lpm, de {{source}}",
+      "maxHrSource": {
+        "sportSettings": "la configuración del deporte"
+      }
+    },
+    "fitness": {
+      "fitnessFatigue": "Condición física y fatiga",
+      "noDecoupling": "No hay ninguna salida de media hora o más con potencia y frecuencia cardiaca en estos periodos."
+    },
+    "settings": {
+      "notOnBrowserBody": "Esta configuración aún no está en el navegador. Ábrela en tu teléfono.",
+      "pick": "Elige una configuración",
+      "tracksOnPhone": "Trazados GPS en el teléfono",
+      "backup": "Respaldo",
+      "backupSetUp": "Configurado en el teléfono",
+      "columns": {
+        "setting": "Configuración"
+      },
+      "detection": {
+        "maxLength": "Sección más larga (m)",
+        "enabledNote": "Al activar la coincidencia de rutas, se empieza a agregar la elevación a los trazados de las actividades y después se detectan secciones."
+      },
+      "groups": {
+        "libraryBackup": "Biblioteca y respaldo"
+      },
+      "rows": {
+        "backup": "Respaldo"
+      },
+      "phoneOnly": {
+        "backupRestore": {
+          "title": "Respaldo y restauración",
+          "why": "Una restauración reemplaza la biblioteca del teléfono, y los archivos del respaldo se guardan allí."
+        }
+      },
+      "options": {
+        "imperial": "Imperial"
+      },
+      "thresholds": {
+        "note": "Un valor que ingresas se guarda en el teléfono y se usa antes que el de intervals.icu o el de tus archivos de actividad.",
+        "invalid": "Ingresa un número mayor que cero, o deja la celda en blanco para usar los archivos de actividad.",
+        "sports": {
+          "Run": "Carrera"
+        },
+        "fields": {
+          "thresholdHr": "Frecuencia cardiaca de umbral (lpm)",
+          "maxHr": "Frecuencia cardiaca máxima (lpm)",
+          "restingHr": "Frecuencia cardiaca en reposo (lpm)"
+        },
+        "source": {
+          "athlete": "Ingresado aquí",
+          "sportSettings": "Configuración de deporte de intervals.icu"
+        },
+        "zones": {
+          "bpm": "{{value}} lpm",
+          "note": "Un deporte cuya configuración de intervals.icu no tiene zonas muestra los límites por defecto."
+        }
+      }
+    },
+    "table": {
+      "selected_one": "{{count}} seleccionada"
+    },
+    "routes": {
+      "historyFailed": "El teléfono no respondió al historial de esta sección.",
+      "allRoutes": "Todas las rutas"
+    },
+    "columns": {
+      "climb": "Ascenso"
+    },
+    "sections": {
+      "average": "Promedio",
+      "how": "Resultado",
+      "ledger": "Cambios",
+      "liftChanged": "Se cambió la marca de terreno de remonte",
+      "liftGround": "Terreno de remonte",
+      "liftHint": "El detector marca el terreno de remonte; esto activa o quita la marca",
+      "stats": "Vueltas, mejor, promedio y última para cada sentido",
+      "unflagLift": "¿Quitar la marca de remonte?",
+      "unflagLiftBody": "El detector marcó esto como terreno de remonte. Quitar la marca no se puede deshacer."
+    },
+    "insights": {
+      "colVisits": "Visitas",
+      "colDaysAgo": "Días atrás",
+      "fitnessCtl": "Condición física (CTL)",
+      "formTsb": "Forma (TSB)",
+      "category": {
+        "fitness_milestone": "Condición física"
+      }
+    },
+    "workouts": {
+      "empty": "Agrega un ejercicio de la lista",
+      "addSet": "Agregar serie"
+    }
   }
 }

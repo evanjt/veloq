@@ -2216,14 +2216,20 @@ fn startup_matches_the_calls_it_replaces() {
         summary_card,
         preview_tracks,
         sparklines,
+        remote_search,
     } = s.engine.startup_data(
         p.current_start as i64,
         p.current_end as i64,
         p.prev_start as i64,
         p.prev_end as i64,
         &ids,
+        false,
     );
 
+    assert!(
+        !remote_search,
+        "the bundle carries the answer it was asked with"
+    );
     assert_eq!(
         sparklines.map(|s| s.fitness),
         s.engine
@@ -2296,6 +2302,7 @@ fn startup_judges_the_week_against_the_week_before() {
         p.prev_start as i64,
         p.prev_end as i64,
         &[],
+        false,
     );
 
     assert_eq!(bundle.summary_card.current_week.count, 2);
@@ -2318,6 +2325,7 @@ fn startup_skips_ids_with_no_signature() {
         p.prev_start as i64,
         p.prev_end as i64,
         &ids,
+        false,
     );
 
     let bundled: Vec<&str> = bundle
@@ -2341,6 +2349,7 @@ fn startup_still_answers_with_no_preview_ids() {
         p.prev_start as i64,
         p.prev_end as i64,
         &[],
+        false,
     );
 
     assert!(bundle.preview_tracks.is_empty());
@@ -3091,6 +3100,7 @@ fn one_preview_track_matches_the_one_the_startup_bundle_carries() {
         p.prev_start as i64,
         p.prev_end as i64,
         &ids,
+        false,
     );
     let bundled = bundle.preview_tracks.first().expect("a1 has a signature");
 

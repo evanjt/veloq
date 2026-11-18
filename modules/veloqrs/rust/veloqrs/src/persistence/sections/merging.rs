@@ -295,10 +295,32 @@ pub(crate) mod pooled {
         primary_id: &str,
         secondary_id: &str,
     ) -> SqlResult<Vec<crate::FfiMergeDropped>> {
+        merge_preview_counted_with(conn, config, primary_id, secondary_id)
+            .map(|(dropped, _)| dropped)
+    }
+
+    /// [`merge_preview_with`] and the laps the merge measures on the kept line
+    /// for the donor's rides, from the one match the merge itself makes.
+    pub(crate) fn merge_preview_counted(
+        conn: &Connection,
+        primary_id: &str,
+        secondary_id: &str,
+    ) -> SqlResult<(Vec<crate::FfiMergeDropped>, u32)> {
+        let config = crate::persistence::settings::section_config_from(conn)?;
+        merge_preview_counted_with(conn, &config, primary_id, secondary_id)
+    }
+
+    fn merge_preview_counted_with(
+        conn: &Connection,
+        config: &tracematch::SectionConfig,
+        primary_id: &str,
+        secondary_id: &str,
+    ) -> SqlResult<(Vec<crate::FfiMergeDropped>, u32)> {
         let donor_rides = section_ride_ids(conn, secondary_id);
         let line = merge_target_line(conn, config, primary_id, &donor_rides)?;
-        let (_, unmatched) = match_rides_to_line(conn, config, &line, &donor_rides);
-        Ok(unmatched
+        let (portions, unmatched) = match_rides_to_line(conn, config, &line, &donor_rides);
+        let laps = u32::try_from(portions.len()).unwrap_or(u32::MAX);
+        let dropped = unmatched
             .into_iter()
             .map(|activity_id| {
                 let (name, start_date) = conn
@@ -314,7 +336,8 @@ pub(crate) mod pooled {
                     start_date,
                 }
             })
-            .collect())
+            .collect();
+        Ok((dropped, laps))
     }
 
     /// The line the merged section's rides are matched against. A primary

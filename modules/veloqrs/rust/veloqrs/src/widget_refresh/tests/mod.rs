@@ -463,3 +463,11 @@ fn a_refresh_with_a_stored_method_frees_the_leases_a_killed_process_left() {
 
     assert_eq!(claim, Claim::Taken);
 }
+
+#[test]
+fn a_watch_ask_with_no_engine_answers_nothing() {
+    assert_eq!(
+        crate::widget_refresh::watch_nearby_native("/nonexistent/dir/routes.db", 46.0, 7.0, "Ride"),
+        None
+    );
+}

@@ -1,612 +1,805 @@
 {
   "methods": [
     {
+      "doc": "Negotiates the protocol version: the page names the newest and oldest it speaks and the phone answers with the highest both hold, its app version, its device name and the methods it answers. A page sends it first.",
       "name": "link.hello",
       "params": "FfiLinkHello",
       "result": "FfiLinkHelloAnswer",
       "write": false
     },
     {
+      "doc": "One page of the activity feed, narrowed by a search, sport families and a span of start times.",
       "name": "feed.page",
       "params": "FfiLinkFeedPageAsk",
       "result": "FfiLinkFeedPage",
       "write": false
     },
     {
+      "doc": "The feed's summary card for a span of dates.",
       "name": "feed.summary",
       "params": "FfiLinkSummaryAsk",
       "result": "FfiSummaryCardData",
       "write": false
     },
     {
+      "doc": "The wellness sparklines the feed shows above its list.",
       "name": "feed.sparklines",
       "params": "FfiLinkSparklinesAsk",
       "result": "FfiWellnessSparklines",
       "write": false
     },
     {
+      "doc": "The highlights bundle the feed shows for a span of dates.",
       "name": "feed.highlights",
       "params": "FfiLinkHighlightsAsk",
       "result": "FfiActivityHighlightsBundle",
       "write": false
     },
     {
+      "doc": "The span of dates, distances and durations the library holds, which the feed filter bars draw.",
+      "name": "feed.filterBounds",
+      "params": "FfiLinkNoAsk",
+      "result": "FfiFeedFilterBounds",
+      "write": false
+    },
+    {
+      "doc": "One activity's summary fields.",
       "name": "activity.summary",
       "params": "FfiLinkActivityAsk",
       "result": "FfiActivitySummary",
       "write": false
     },
     {
+      "doc": "The activity detail screen's data for one activity.",
       "name": "activity.detail",
       "params": "FfiLinkActivityAsk",
       "result": "FfiActivityDetailData",
       "write": false
     },
     {
+      "doc": "One activity's stored body typed as the detail screen reads it, or none when nothing is stored.",
       "name": "activity.record",
       "params": "FfiLinkActivityAsk",
       "result": "FfiLinkActivityRecord",
       "write": false
     },
     {
+      "doc": "The chart series of one activity as little-endian 64-bit float runs, a gap being NaN, with the track in the engine's own encoding.",
       "name": "activity.streams",
       "params": "FfiLinkStreamsAsk",
       "result": "FfiActivityStreams",
       "write": false
     },
     {
+      "doc": "The laps of one activity, or none when its body was never fetched or will not parse.",
       "name": "activity.intervals",
       "params": "FfiLinkActivityAsk",
       "result": "FfiLinkActivityIntervals",
       "write": false
     },
     {
+      "doc": "The visible custom sections that name one activity.",
       "name": "activity.sections",
       "params": "FfiLinkActivityAsk",
       "result": "FfiLinkActivitySections",
       "write": false
     },
     {
+      "doc": "The exercise sets of one strength activity, grouped by exercise.",
       "name": "activity.exerciseSets",
       "params": "FfiLinkActivityAsk",
       "result": "FfiExerciseSession",
       "write": false
     },
     {
+      "doc": "The insights screen's data for the period and sports asked.",
       "name": "insights.data",
       "params": "FfiInsightsParams",
       "result": "FfiInsightsData",
       "write": false
     },
     {
+      "doc": "The calendar events in an inclusive window of wall-clock seconds, oldest first.",
       "name": "insights.plannedEvents",
       "params": "FfiLinkPlannedEventsAsk",
       "result": "FfiLinkPlannedEvents",
       "write": false
     },
     {
+      "doc": "The ranked sections for a sport, at most the count asked.",
       "name": "insights.workoutSections",
       "params": "FfiLinkWorkoutSectionsAsk",
       "result": "FfiLinkWorkoutSections",
       "write": false
     },
     {
+      "doc": "The routes screen's data: the route groups and sections the phone has found, narrowed by the query.",
       "name": "routes.screen",
       "params": "FfiRoutesScreenQuery",
       "result": "FfiRoutesScreenData",
       "write": false
     },
     {
+      "doc": "One route group's detail screen data.",
       "name": "route.detail",
       "params": "FfiLinkActivityAsk",
       "result": "FfiRouteDetailData",
       "write": false
     },
     {
+      "doc": "The lap reads of one route over a range of days for one sport, as the section detail reads them.",
       "name": "route.performance",
       "params": "FfiLinkPerformanceAsk",
       "result": "FfiSectionPerformanceData",
       "write": false
     },
     {
+      "doc": "The attempts at one route, narrowed by the activity being viewed and a sport, with the route's performance.",
       "name": "route.attempts",
       "params": "FfiLinkRouteAttemptsAsk",
       "result": "FfiRoutePerformanceResult",
       "write": false
     },
     {
+      "doc": "One section's detail screen data.",
       "name": "section.detail",
       "params": "FfiLinkActivityAsk",
       "result": "FfiSectionDetailData",
       "write": false
     },
     {
+      "doc": "The lap reads of one section over a range of days for one sport.",
       "name": "section.performance",
       "params": "FfiLinkPerformanceAsk",
       "result": "FfiSectionPerformanceData",
       "write": false
     },
     {
+      "doc": "Where one section stands: its trend and a page of recent attempts over a range of days, in a few kilobytes.",
+      "name": "section.standing",
+      "params": "FfiLinkSectionStandingAsk",
+      "result": "FfiLinkSectionStanding",
+      "write": false
+    },
+    {
+      "doc": "One section's change ledger oldest first, its stored geometry versions with the pinned one flagged, and the names of the activities the ledger names.",
       "name": "section.history",
       "params": "FfiLinkActivityAsk",
       "result": "FfiLinkSectionHistory",
       "write": false
     },
     {
+      "doc": "The activity a section is cut from, its whole stored track and the inclusive indices where the section's line runs on it.",
       "name": "section.extensionTrack",
       "params": "FfiLinkActivityAsk",
       "result": "FfiLinkSectionExtension",
       "write": false
     },
     {
+      "doc": "The activities whose every traversal of one section is excluded.",
       "name": "section.excluded",
       "params": "FfiLinkActivityAsk",
       "result": "FfiLinkSectionExcluded",
       "write": false
     },
     {
+      "doc": "The sections the athlete retired, which the phone lists and can restore.",
       "name": "sections.retired",
       "params": "FfiLinkNoAsk",
       "result": "FfiRetiredMapData",
       "write": false
     },
     {
+      "doc": "The fitness screen's data: fitness, fatigue and form over the span asked.",
       "name": "fitness.screen",
       "params": "FfiLinkFitnessScreenAsk",
       "result": "FfiFitnessScreenData",
       "write": false
     },
     {
+      "doc": "The daily wellness rows over a span of dates.",
       "name": "fitness.wellness",
       "params": "FfiLinkWellnessAsk",
       "result": "FfiWellnessDays",
       "write": false
     },
     {
+      "doc": "The training load of each day over a span of dates.",
       "name": "fitness.loads",
       "params": "FfiLinkLoadsAsk",
       "result": "FfiLinkDayLoads",
       "write": false
     },
     {
+      "doc": "The time spent in each zone over a span of dates.",
       "name": "fitness.zones",
       "params": "FfiLinkZonesAsk",
       "result": "FfiZoneDistribution",
       "write": false
     },
     {
+      "doc": "The best power at each duration over a span of dates.",
       "name": "fitness.powerCurve",
       "params": "FfiLinkPowerCurveAsk",
       "result": "FfiLinkPowerCurve",
       "write": false
     },
     {
+      "doc": "The best pace at each distance over a span of dates.",
       "name": "fitness.paceCurve",
       "params": "FfiLinkPaceCurveAsk",
       "result": "FfiLinkPaceCurve",
       "write": false
     },
     {
+      "doc": "The best efforts screen's data over a window of days, where 0 is all time.",
       "name": "fitness.bestEfforts",
       "params": "FfiLinkBestEffortsAsk",
       "result": "FfiBestEffortsData",
       "write": false
     },
     {
+      "doc": "The strength screen's data over the weeks asked.",
       "name": "strength.screen",
       "params": "FfiLinkStrengthAsk",
       "result": "FfiStrengthScreenData",
       "write": false
     },
     {
+      "doc": "The detail of one exercise: its history and records.",
       "name": "strength.exercise",
       "params": "FfiLinkExerciseAsk",
       "result": "FfiExerciseDetailData",
       "write": false
     },
     {
+      "doc": "The sets of one muscle group in one activity, grouped by exercise, primary and secondary work classed apart.",
       "name": "strength.muscle",
       "params": "FfiLinkMuscleAsk",
       "result": "FfiMuscleGroupDetail",
       "write": false
     },
     {
+      "doc": "The exercise picker's narrowed list and the vocabulary its filters use, for the filters and query asked.",
       "name": "strength.picker",
       "params": "FfiLinkPickerAsk",
       "result": "FfiExercisePickerData",
       "write": false
     },
     {
+      "doc": "What the athlete did last time for one exercise, or none for an exercise never done.",
       "name": "strength.lastTime",
       "params": "FfiLinkLastTimeAsk",
       "result": "FfiLinkLastTimeAnswer",
       "write": false
     },
     {
+      "doc": "The recent strength groups, newest first.",
       "name": "strength.groups",
       "params": "FfiLinkGroupsAsk",
       "result": "FfiLinkStrengthGroups",
       "write": false
     },
     {
+      "doc": "The saved strength workouts.",
       "name": "strength.workouts",
       "params": "FfiLinkNoAsk",
       "result": "FfiLinkWorkouts",
       "write": false
     },
     {
+      "doc": "One saved strength workout.",
       "name": "strength.workout",
       "params": "FfiLinkWorkoutAsk",
       "result": "FfiLinkWorkoutAnswer",
       "write": false
     },
     {
+      "doc": "The strength session being recorded and what the focus view shows of it, both none when no session is live.",
       "name": "strength.live",
       "params": "FfiLinkNoAsk",
       "result": "FfiLinkLiveAnswer",
       "write": false
     },
     {
+      "doc": "The recordings the signed-in athlete may see, newest first.",
       "name": "recordings.list",
       "params": "FfiLinkRecordingsAsk",
       "result": "FfiLinkRecordingsAnswer",
       "write": false
     },
     {
+      "doc": "One recording by id, or none when it is absent or held by another athlete.",
       "name": "recordings.get",
       "params": "FfiLinkRecordingAsk",
       "result": "FfiLinkRecordingAnswer",
       "write": false
     },
     {
+      "doc": "The map screen's data without its line layers, for the date window in epoch seconds, sports and filters asked, with the revisions of the layers the page fetches by URL.",
       "name": "map.screen",
       "params": "FfiLinkMapAsk",
       "result": "FfiLinkMapScreen",
       "write": false
     },
     {
+      "doc": "The route lines of every route group, as GeoJSON text.",
       "name": "geo.routeLines",
       "params": "FfiLinkNoAsk",
       "result": "FfiLinkGeoText",
       "write": false
     },
     {
+      "doc": "One activity's track, as GeoJSON text.",
       "name": "geo.track",
       "params": "FfiLinkActivityAsk",
       "result": "FfiLinkGeoText",
       "write": false
     },
     {
+      "doc": "The overlay drawn over one activity, as GeoJSON text.",
       "name": "geo.activityOverlay",
       "params": "FfiLinkActivityAsk",
       "result": "FfiLinkGeoText",
       "write": false
     },
     {
+      "doc": "Every section's line, as GeoJSON text.",
       "name": "geo.sections",
       "params": "FfiLinkNoAsk",
       "result": "FfiLinkGeoText",
       "write": false
     },
     {
+      "doc": "One route group's reference line, as GeoJSON text.",
       "name": "geo.route",
       "params": "FfiLinkGeoGroupAsk",
       "result": "FfiLinkGeoText",
       "write": false
     },
     {
+      "doc": "The latest attempt at one route group, as GeoJSON text.",
       "name": "geo.routeLatest",
       "params": "FfiLinkGeoGroupAsk",
       "result": "FfiLinkGeoText",
       "write": false
     },
     {
+      "doc": "Every attempt at one route group, as GeoJSON text.",
       "name": "geo.routeAttempts",
       "params": "FfiLinkGeoGroupAsk",
       "result": "FfiLinkGeoText",
       "write": false
     },
     {
+      "doc": "One section's line, as GeoJSON text, or packed and capped when asked.",
       "name": "geo.section",
-      "params": "FfiLinkGeoSectionAsk",
+      "params": "FfiLinkGeoSectionLineAsk",
       "result": "FfiLinkGeoText",
       "write": false
     },
     {
+      "doc": "One earlier version of a section's line, as GeoJSON text.",
       "name": "geo.sectionVersion",
       "params": "FfiLinkGeoSectionVersionAsk",
       "result": "FfiLinkGeoText",
       "write": false
     },
     {
+      "doc": "The passes made of one section, as GeoJSON text.",
       "name": "geo.sectionPasses",
       "params": "FfiLinkGeoSectionAsk",
       "result": "FfiLinkGeoText",
       "write": false
     },
     {
+      "doc": "Routes and sections near a point, nearest first, each line packed and capped when asked.",
+      "name": "nearby.places",
+      "params": "FfiLinkNearbyAsk",
+      "result": "FfiLinkNearbyPlaces",
+      "write": false
+    },
+    {
+      "doc": "One heatmap tile as a PNG for the base map asked, or none for a tile with no heat or one not yet drawn.",
       "name": "heatmap.tile",
       "params": "FfiLinkHeatmapTileAsk",
       "result": "FfiLinkHeatmapTile",
       "write": false
     },
     {
+      "doc": "How far the heatmap has been built.",
       "name": "heatmap.progress",
       "params": "FfiLinkNoAsk",
       "result": "FfiLinkHeatmapProgress",
       "write": false
     },
     {
+      "doc": "The activities whose tracks pass under a point on the heatmap at a whole zoom, grouped by route and by section, newest first, with the figures the phone's sheet shows. A heatmap that is off answers none.",
+      "name": "heatmap.underPoint",
+      "params": "FfiLinkHeatmapUnderPointAsk",
+      "result": "FfiActivitiesUnderPoint",
+      "write": false
+    },
+    {
+      "doc": "The values of the listed settings. A key outside the allowed list is refused by name.",
       "name": "settings.get",
       "params": "FfiLinkSettingsAsk",
       "result": "FfiLinkSettingsAnswer",
       "write": false
     },
     {
+      "doc": "The signed-in athlete's profile.",
       "name": "settings.profile",
       "params": "FfiLinkNoAsk",
       "result": "AthleteProfile",
       "write": false
     },
     {
+      "doc": "The thresholds settings screen's data.",
       "name": "settings.thresholds",
       "params": "FfiLinkNoAsk",
       "result": "FfiThresholdsScreenData",
       "write": false
     },
     {
+      "doc": "The background jobs the phone is running and their progress.",
       "name": "status.backgroundJobs",
       "params": "FfiLinkNoAsk",
       "result": "FfiBackgroundJobsData",
       "write": false
     },
     {
+      "doc": "The cache screen's data.",
       "name": "status.cache",
       "params": "FfiLinkNoAsk",
       "result": "FfiCacheScreenData",
       "write": false
     },
     {
+      "doc": "The backup screen's data.",
       "name": "status.backup",
       "params": "FfiLinkNoAsk",
       "result": "FfiBackupScreenData",
       "write": false
     },
     {
+      "doc": "Every linked device and the id of the one that asked.",
       "name": "status.linkedDevices",
       "params": "FfiLinkNoAsk",
       "result": "FfiLinkDevicesAnswer",
       "write": false
     },
     {
+      "doc": "The counts of activities and tracks the library holds against those the sync has seen.",
       "name": "status.coverage",
       "params": "FfiLinkNoAsk",
       "result": "LibraryCoverage",
       "write": false
     },
     {
+      "doc": "The state of the phone's sync with intervals.icu.",
       "name": "status.sync",
       "params": "FfiLinkNoAsk",
       "result": "FfiSyncStatus",
       "write": false
     },
     {
+      "doc": "Renames a section.",
       "name": "section.rename",
       "params": "FfiLinkSectionRenameAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Sets whether a section is a lift.",
       "name": "section.setLift",
       "params": "FfiLinkSectionLiftAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Accepts a suggested section.",
       "name": "section.accept",
       "params": "FfiLinkSectionAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Accepts several suggested sections.",
+      "name": "section.acceptMany",
+      "params": "FfiLinkSectionIdsAsk",
+      "result": "FfiLinkSectionsAccepted",
+      "write": true
+    },
+    {
+      "doc": "Accepts every suggested section.",
       "name": "section.acceptAll",
       "params": "FfiLinkNoAsk",
       "result": "FfiLinkSectionsAccepted",
       "write": true
     },
     {
+      "doc": "Returns accepted sections to suggested.",
       "name": "section.unaccept",
       "params": "FfiLinkSectionIdsAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Turns a section on.",
       "name": "section.enable",
       "params": "FfiLinkSectionAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Turns a section off.",
       "name": "section.disable",
       "params": "FfiLinkSectionAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Turns several sections on or off.",
+      "name": "section.setEnabledMany",
+      "params": "FfiLinkSectionIdsEnabledAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "doc": "Retires a section. The phone lists it and can restore it.",
+      "name": "section.delete",
+      "params": "FfiLinkSectionAsk",
+      "result": "FfiLinkSectionEdited",
+      "write": true
+    },
+    {
+      "doc": "Leaves one activity out of a section.",
       "name": "section.excludeActivity",
       "params": "FfiLinkExcludeAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Counts one activity in a section again.",
       "name": "section.includeActivity",
       "params": "FfiLinkExcludeAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Leaves one traversal of a section out, addressed by the activity and its start index.",
       "name": "section.excludeLap",
       "params": "FfiLinkLapAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Counts one traversal of a section again, addressed by the activity and its start index.",
       "name": "section.includeLap",
       "params": "FfiLinkLapAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Edits a section's bounds: trim, expand, set the reference activity or revert to a version. It answers the rides the edit left out, which stay in the library.",
       "name": "section.editBounds",
       "params": "FfiLinkSectionBoundsAsk",
       "result": "FfiLinkSectionEdited",
       "write": true
     },
     {
+      "doc": "What a section would hold if its bounds were moved, without writing it.",
+      "name": "section.boundsPreview",
+      "params": "FfiLinkSectionBoundsAsk",
+      "result": "FfiLinkBoundsPreview",
+      "write": false
+    },
+    {
+      "doc": "Creates a section from an inclusive index range of one stored activity's track, for a sport, with an optional name.",
       "name": "section.create",
       "params": "FfiLinkSectionCreateAsk",
       "result": "FfiLinkSectionCreated",
       "write": true
     },
     {
+      "doc": "What merging sections would produce, without writing it.",
       "name": "section.mergePreview",
       "params": "FfiLinkMergeAsk",
       "result": "FfiLinkMergePreview",
       "write": false
     },
     {
+      "doc": "Merges sections into one.",
       "name": "section.merge",
       "params": "FfiLinkMergeAsk",
       "result": "FfiMergeOutcome",
       "write": true
     },
     {
+      "doc": "Restores a retired section.",
       "name": "section.restore",
       "params": "FfiLinkSectionAsk",
       "result": "FfiLinkSectionEdited",
       "write": true
     },
     {
+      "doc": "Renames a route group.",
       "name": "route.rename",
       "params": "FfiLinkRouteRenameAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Leaves one activity out of a route group.",
       "name": "route.excludeActivity",
       "params": "FfiLinkExcludeAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Counts one activity in a route group again.",
       "name": "route.includeActivity",
       "params": "FfiLinkExcludeAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Makes one activity the route group's reference.",
       "name": "route.setReference",
       "params": "FfiLinkExcludeAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Returns a route group's reference to the one the phone chose.",
       "name": "route.resetReference",
       "params": "FfiLinkRouteAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Hides or shows one activity on the heatmap.",
       "name": "heatmap.setHidden",
       "params": "FfiLinkHeatmapHiddenAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Hides or shows several activities on the heatmap.",
+      "name": "heatmap.setHiddenMany",
+      "params": "FfiLinkHeatmapHiddenManyAsk",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "doc": "The section and route detection settings.",
       "name": "detection.settings",
       "params": "FfiLinkNoAsk",
       "result": "FfiLinkDetectionSettings",
       "write": false
     },
     {
+      "doc": "Turns detection on or off.",
       "name": "detection.setEnabled",
       "params": "FfiLinkDetectionEnabledAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Sets how much of a route has to match, in percent, and how far apart the two ends may be, in metres.",
       "name": "detection.setStrictness",
       "params": "FfiLinkStrictness",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Sets the section detection configuration.",
       "name": "detection.setSectionConfig",
       "params": "FfiSectionConfig",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Writes one setting. Only a setting the phone's own control offers is accepted, with a value that control offers.",
       "name": "settings.set",
       "params": "FfiLinkSettingSetAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Sets one sport's threshold.",
       "name": "settings.setThreshold",
       "params": "FfiLinkThresholdAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Saves a strength workout.",
       "name": "strength.saveWorkout",
       "params": "FfiLinkSaveWorkoutAsk",
       "result": "FfiLinkWorkoutSaved",
       "write": true
     },
     {
+      "doc": "Renames a saved strength workout.",
       "name": "strength.renameWorkout",
       "params": "FfiLinkWorkoutRenameAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Marks a saved strength workout removed. The phone lists it and can restore it.",
       "name": "strength.deleteWorkout",
       "params": "FfiLinkWorkoutAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Restores a removed strength workout.",
       "name": "strength.restoreWorkout",
       "params": "FfiLinkRestoreWorkoutAsk",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Edits the strength session in progress on the phone.",
       "name": "strength.liveEdit",
       "params": "FfiLinkLiveEditAsk",
       "result": "FfiLiveStrengthOutcome",
       "write": true
     },
     {
+      "doc": "Starts an import of an archive the page will send, named by name, size and the SHA-256 of its bytes. It answers the id the binary frames carry and how many bytes the phone already holds, so a dropped link sends only the rest.",
       "name": "import.begin",
       "params": "FfiLinkImportBeginAsk",
       "result": "FfiLinkImportBegun",
       "write": true
     },
     {
+      "doc": "Commits a begun import into the library.",
       "name": "import.commit",
       "params": "FfiLinkImportRef",
       "result": "FfiLinkImportCommitted",
       "write": true
     },
     {
+      "doc": "Discards a begun import.",
       "name": "import.cancel",
       "params": "FfiLinkImportRef",
       "result": "FfiLinkWriteDone",
       "write": true
     },
     {
+      "doc": "Starts writing the library export to a spool on the phone and answers its export id at once. One export builds per device at a time, and a second begin while one builds is refused as busy.",
+      "name": "export.begin",
+      "params": "FfiLinkExportBeginAsk",
+      "result": "FfiLinkExportBegun",
+      "write": true
+    },
+    {
+      "doc": "How far an export has got: building, ready or failed, its length and rides, and the SHA-256 of the archive once it is ready.",
+      "name": "export.status",
+      "params": "FfiLinkExportRef",
+      "result": "FfiLinkExportStatus",
+      "write": true
+    },
+    {
+      "doc": "Reads up to 1 MiB of a ready export from a byte offset. The answer is binary frames carrying the bytes under the raw flag, not JSON; a failure is a text reply with an error. A read past the end, or on an export still building, is an error.",
+      "name": "export.read",
+      "params": "FfiLinkExportReadAsk",
+      "result": "FfiLinkExportBytes",
+      "write": true
+    },
+    {
+      "doc": "Deletes an export's spool.",
+      "name": "export.done",
+      "params": "FfiLinkExportRef",
+      "result": "FfiLinkWriteDone",
+      "write": true
+    },
+    {
+      "doc": "Where the import job stands and what it has walked: idle, running, done or stopped, with the reason a stopped job gives.",
       "name": "import.status",
       "params": "FfiLinkNoAsk",
       "result": "FfiLinkImportStatus",

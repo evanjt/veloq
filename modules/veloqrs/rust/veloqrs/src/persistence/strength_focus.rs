@@ -29,21 +29,32 @@ pub enum FocusPhase {
 #[serde(rename_all = "camelCase")]
 #[uniffi(name = "FfiFocusSet")]
 pub struct FocusSet {
+    /// Unit: identifier.
     pub exercise_category: u16,
+    /// Unit: identifier.
     pub exercise_name: Option<u16>,
     /// One-based, so a screen can say "set 2 of 3".
+    /// Unit: index.
     pub set_number: u32,
+    /// Unit: count.
     pub set_count: u32,
+    /// Unit: count.
     pub reps: Option<u32>,
+    /// Unit: kilogram.
     pub weight_kg: Option<f64>,
     /// The weight as the athlete reads it, in `weight_unit`, to one decimal.
+    /// Unit: varies.
     pub display_weight: Option<f64>,
     pub weight_unit: WeightUnit,
     /// One tap of the weight stepper, in `weight_unit`.
+    /// Unit: varies.
     pub weight_step: f64,
     /// The stored kilograms after one tap down and one tap up; an unset weight steps from zero.
+    /// Unit: kilogram.
     pub weight_down_kg: f64,
+    /// Unit: kilogram.
     pub weight_up_kg: f64,
+    /// Unit: second.
     pub duration_secs: Option<f64>,
     pub warm_up: bool,
 }
@@ -53,9 +64,13 @@ pub struct FocusSet {
 #[serde(rename_all = "camelCase")]
 #[uniffi(name = "FfiFocusNeighbour")]
 pub struct FocusNeighbour {
+    /// Unit: identifier.
     pub exercise_category: u16,
+    /// Unit: identifier.
     pub exercise_name: Option<u16>,
+    /// Unit: count.
     pub sets_done: u32,
+    /// Unit: count.
     pub set_count: u32,
 }
 

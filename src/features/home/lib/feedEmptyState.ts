@@ -21,6 +21,8 @@ interface FeedEmptyInput {
   syncState: SyncState | undefined;
   /** Why the engine's last sync failed, or null when it settled clean. */
   lastErrorReason: SyncErrorReason | null;
+  /** When the engine's cooldown ends, or null when none holds. */
+  retryAtMs: number | null;
   isError: boolean;
   /** Whether the activities query has yet to answer. */
   isLoading: boolean;
@@ -57,6 +59,7 @@ export function feedEmptyState({
   storedCount,
   syncState,
   lastErrorReason,
+  retryAtMs,
   isError,
   isLoading,
   hasFilter,
@@ -72,7 +75,11 @@ export function feedEmptyState({
   if (syncState === SyncState.AuthExpired || lastErrorReason === SyncErrorReason.Unauthorized) {
     return 'authExpired';
   }
-  if (syncState === SyncState.Paused || lastErrorReason === SyncErrorReason.RateLimited) {
+  if (
+    syncState === SyncState.Paused ||
+    retryAtMs !== null ||
+    lastErrorReason === SyncErrorReason.RateLimited
+  ) {
     return 'paused';
   }
   if (lastErrorReason !== null) return 'failed';

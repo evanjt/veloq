@@ -39,7 +39,7 @@ pub const MANIFEST_FORMAT_VERSION: u16 = 1;
 const INDEX_LIMIT: u64 = 16 * 1024 * 1024;
 /// The largest inflated ride entry a reader accepts, far above any real ride,
 /// so a small pack cannot inflate until the allocator aborts.
-const ENTRY_LIMIT: u64 = 512 * 1024 * 1024;
+pub(super) const ENTRY_LIMIT: u64 = 512 * 1024 * 1024;
 /// The largest manifest listing a reader accepts.
 const MANIFEST_LIMIT: u64 = 64 * 1024 * 1024;
 /// The longest ride key a pack names, in bytes.

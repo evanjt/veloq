@@ -166,7 +166,6 @@ function downloading(completed: number, total: number): TrackStage {
     completed,
     total,
     percent: Math.round((completed / total) * 100),
-    heldByUpstream: false,
   };
 }
 

@@ -62,10 +62,24 @@ export enum Gear {
   HighRatio = 2,
 }
 
+/**
+ * Why the phone ends a connection.
+ */
+export enum DisconnectReason {
+  /**
+   * The app left the foreground.
+   */
+  Background,
+  /**
+   * The athlete ended the connection.
+   */
+  Disconnected,
+}
+
 export type Count = number;
 `;
 
-function tree(table: unknown, bindings: string, schema?: string) {
+function tree(table: unknown, bindings: string, schema?: string, json?: string) {
   const root = mkdtempSync(join(tmpdir(), 'link-schema-'));
   roots.push(root);
   mkdirSync(join(root, 'web/connect'), { recursive: true });
@@ -73,6 +87,7 @@ function tree(table: unknown, bindings: string, schema?: string) {
   writeFileSync(join(root, 'web/connect/methods.json'), JSON.stringify(table));
   writeFileSync(join(root, 'modules/veloqrs/src/generated/veloqrs.ts'), bindings);
   if (schema !== undefined) writeFileSync(join(root, 'web/connect/schema.d.ts'), schema);
+  if (json !== undefined) writeFileSync(join(root, 'web/connect/schema.json'), json);
   return root;
 }
 
@@ -105,6 +120,16 @@ function generated(table: unknown = TABLE, bindings: string = BINDINGS): string 
   const root = tree(table, bindings);
   expect(run(root).status).toBe(0);
   return readFileSync(join(root, 'web/connect/schema.d.ts'), 'utf8');
+}
+
+/** The generator's two files, for a tree that should pass the guard. */
+function generatedPair(table: unknown = TABLE, bindings: string = BINDINGS) {
+  const root = tree(table, bindings);
+  expect(run(root).status).toBe(0);
+  return {
+    schema: readFileSync(join(root, 'web/connect/schema.d.ts'), 'utf8'),
+    json: readFileSync(join(root, 'web/connect/schema.json'), 'utf8'),
+  };
 }
 
 it('writes the shapes serde writes', () => {
@@ -173,8 +198,17 @@ export type Word = {
 });
 
 it('passes a schema the generator wrote, with the index not a checkout', () => {
-  const root = tree(TABLE, BINDINGS, generated());
+  const { schema, json } = generatedPair();
+  const root = tree(TABLE, BINDINGS, schema, json);
   expect(run(root, '--check').status).toBe(0);
+});
+
+it('fails a JSON Schema older than the records, though the types are current', () => {
+  const { schema } = generatedPair();
+  const { json } = generatedPair(TABLE, BINDINGS.replace('secs: number;', 'secs: string;'));
+  const { status, output } = run(tree(TABLE, BINDINGS, schema, json), '--check');
+  expect(status).toBe(1);
+  expect(output).toContain('schema.json is older');
 });
 
 it('fails a schema older than the method table', () => {

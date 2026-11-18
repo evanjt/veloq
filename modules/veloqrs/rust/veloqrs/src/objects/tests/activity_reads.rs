@@ -34,6 +34,11 @@ fn window(oldest_ts: i64, newest_ts: i64) -> crate::FfiFeedCardsPage {
             sport_families: vec![],
             offset: 0,
             limit: None,
+            min_distance: None,
+            max_distance: None,
+            min_moving_time: None,
+            max_moving_time: None,
+            sort: None,
         })
         .unwrap()
 }
@@ -376,6 +381,11 @@ fn search(
             sport_families: family.into_iter().collect(),
             offset,
             limit: Some(limit),
+            min_distance: None,
+            max_distance: None,
+            min_moving_time: None,
+            max_moving_time: None,
+            sort: None,
         })
         .unwrap()
 }
@@ -428,6 +438,11 @@ fn test_feed_search_reaches_activities_past_the_loaded_windows() {
             sport_families: vec![crate::FfiSportFamily::Ride, crate::FfiSportFamily::Foot],
             offset: 0,
             limit: Some(30),
+            min_distance: None,
+            max_distance: None,
+            min_moving_time: None,
+            max_moving_time: None,
+            sort: None,
         })
         .unwrap();
     assert_eq!(
@@ -507,6 +522,11 @@ fn test_feed_window_read_is_bounded_and_unpaged() {
             sport_families: vec![],
             offset: 0,
             limit: None,
+            min_distance: None,
+            max_distance: None,
+            min_moving_time: None,
+            max_moving_time: None,
+            sort: None,
         })
         .unwrap();
     assert_eq!(ids(&year_of_clubs), vec!["club-a", "club-b"]);

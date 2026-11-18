@@ -5,7 +5,7 @@
 // a drawer beside the grid with its history, supporting data and method; a
 // table row opens its section or route in a pane without leaving the page.
 
-import { Button } from '../ui';
+import { Button, PageGrid } from '../ui';
 import type { ReadError } from '../query';
 import { ReadNotice } from '../shell/StatePanes';
 import { DataTable } from '../ui/DataTable';
@@ -107,7 +107,7 @@ function Cards({
 }) {
   const { t } = useTranslation();
   return (
-    <div id="insight-cards" className="insight-cards">
+    <PageGrid id="insight-cards" className="insight-cards">
       {groupByCategory(insights).map((group) => (
         <section key={group.category} data-group={group.category}>
           <h3>{t(`connectPage.insights.category.${group.category}` as never)}</h3>
@@ -123,7 +123,7 @@ function Cards({
           </ul>
         </section>
       ))}
-    </div>
+    </PageGrid>
   );
 }
 
@@ -195,7 +195,7 @@ function Drawer({ insight, onClose }: { insight: Insight; onClose: () => void })
 }
 
 /** Today's form and the workouts planned for the day. */
-function TodayStrip({
+export function TodayStrip({
   form,
   planned,
   today,
@@ -223,7 +223,9 @@ function TodayStrip({
             </div>
             <div>
               <dt>{t('connectPage.insights.formTsb')}</dt>
-              <dd>{round(form.ctl - form.atl)}</dd>
+              <dd>
+                {form.form === null ? '–' : `${round(form.form)}${form.formAsPercent ? '%' : ''}`}
+              </dd>
             </div>
           </>
         ) : null}

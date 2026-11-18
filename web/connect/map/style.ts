@@ -76,7 +76,11 @@ function satelliteStyle(): object {
       },
     },
     layers: [
-      { id: 'background', type: 'background', paint: { 'background-color': '#0a1628' } },
+      {
+        id: 'background',
+        type: 'background',
+        paint: { 'background-color': mapPalette('dark').land },
+      },
       { id: 'satellite-layer-global', type: 'raster', source: 'satellite-global' },
     ],
   };

@@ -76,8 +76,13 @@ impl PersistentEngine {
 
 /// Clear the fitness series Veloq folded and the eFTP entries it wrote into
 /// the wellness days, leaving every other column and key of a day as it is. A
-/// day left holding nothing is removed.
+/// day this left holding nothing is removed; a day intervals.icu served empty
+/// was never Veloq's and stays.
 fn drop_wellness_figures(conn: &Connection) -> SqlResult<()> {
+    let mut touched: Vec<String> = conn
+        .prepare("SELECT date FROM wellness WHERE source = ?1")?
+        .query_map(params![SERIES_MARK], |row| row.get(0))?
+        .collect::<SqlResult<_>>()?;
     conn.execute(
         "UPDATE wellness SET ctl = NULL, atl = NULL, ramp_rate = NULL, source = NULL
           WHERE source = ?1",
@@ -90,6 +95,7 @@ fn drop_wellness_figures(conn: &Connection) -> SqlResult<()> {
             |row| Ok((row.get(0)?, row.get(1)?)),
         )?
         .collect::<SqlResult<_>>()?;
+    touched.extend(marked.iter().map(|(date, _)| date.clone()));
     for (date, raw) in marked {
         let Ok(mut body) = serde_json::from_str::<Value>(&raw) else {
             continue;
@@ -107,14 +113,17 @@ fn drop_wellness_figures(conn: &Connection) -> SqlResult<()> {
             params![date, (!emptied).then(|| body.to_string())],
         )?;
     }
-    conn.execute(
+    let mut remove = conn.prepare(
         "DELETE FROM wellness
-          WHERE raw IS NULL AND ctl IS NULL AND atl IS NULL AND ramp_rate IS NULL
+          WHERE date = ?1
+            AND raw IS NULL AND ctl IS NULL AND atl IS NULL AND ramp_rate IS NULL
             AND hrv IS NULL AND resting_hr IS NULL AND weight IS NULL
             AND sleep_secs IS NULL AND sleep_score IS NULL AND soreness IS NULL
             AND fatigue IS NULL AND stress IS NULL AND mood IS NULL AND motivation IS NULL",
-        [],
     )?;
+    for date in &touched {
+        remove.execute(params![date])?;
+    }
     Ok(())
 }
 

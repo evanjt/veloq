@@ -39,7 +39,7 @@ fn a_download_is_reported_whatever_else_runs_beside_it() {
             total: 12,
             percent: 25,
             resumes_at_ms: None,
-            held_by_upstream: false,
+            held_cause: None,
         })
     );
 }
@@ -61,7 +61,7 @@ fn detection_is_reported_once_the_download_ends_with_its_own_weighted_percent() 
             total: 9,
             percent: 62,
             resumes_at_ms: None,
-            held_by_upstream: false,
+            held_cause: None,
         })
     );
 }
@@ -97,7 +97,7 @@ fn the_heatmap_is_reported_when_nothing_before_it_runs() {
             total: 40,
             percent: 75,
             resumes_at_ms: None,
-            held_by_upstream: false,
+            held_cause: None,
         })
     );
 }
@@ -135,10 +135,10 @@ fn a_count_past_its_total_is_held_at_the_total() {
     assert_eq!((stage.completed, stage.percent), (12, 100));
 }
 
-fn held(until_ms: i64, by_upstream: bool) -> Option<HeldDownload> {
+fn held(until_ms: i64, cause: HoldCause) -> Option<HeldDownload> {
     Some(HeldDownload {
         until_ms,
-        by_upstream,
+        cause: Some(cause),
     })
 }
 
@@ -156,7 +156,7 @@ fn a_held_download_is_reported_ahead_of_the_detection_beside_it() {
         download: None,
         detection: Some(detection("analyzing", 98)),
         heatmap: Some((5, 10)),
-        held: held(1_793_078_100_000, false),
+        held: held(1_793_078_100_000, HoldCause::Budget),
     });
     assert_eq!(
         stage,
@@ -166,7 +166,7 @@ fn a_held_download_is_reported_ahead_of_the_detection_beside_it() {
             total: 0,
             percent: 0,
             resumes_at_ms: Some(1_793_078_100_000.0),
-            held_by_upstream: false,
+            held_cause: Some(FfiHoldCause::Budget),
         })
     );
 }
@@ -178,17 +178,33 @@ fn a_held_download_is_reported_ahead_of_the_detection_beside_it() {
 fn a_running_download_outranks_the_hold_and_a_refusal_names_itself() {
     let running = stage_of(&TrackWork {
         download: Some((3, 12)),
-        held: held(1_793_078_100_000, true),
+        held: held(1_793_078_100_000, HoldCause::Upstream),
         ..TrackWork::default()
     })
     .unwrap();
     assert_eq!(running.step, FfiTrackStep::Downloading);
 
     let refused = stage_of(&TrackWork {
-        held: held(1_793_078_100_000, true),
+        held: held(1_793_078_100_000, HoldCause::Upstream),
         ..TrackWork::default()
     })
     .unwrap();
     assert_eq!(refused.step, FfiTrackStep::Held);
-    assert!(refused.held_by_upstream);
+    assert_eq!(refused.held_cause, Some(FfiHoldCause::Upstream));
+}
+
+/// Scenario: the shared pool holds the GPS pass back and nothing else runs.
+///
+/// Expected behaviour: the held stage names the pool, not intervals.icu and
+/// not this install's own budget, since the pool is what asked for the wait.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_pool_hold_is_named_for_the_pool() {
+    let refused = stage_of(&TrackWork {
+        held: held(1_793_078_100_000, HoldCause::Pool),
+        ..TrackWork::default()
+    })
+    .unwrap();
+    assert_eq!(refused.step, FfiTrackStep::Held);
+    assert_eq!(refused.held_cause, Some(FfiHoldCause::Pool));
 }

@@ -21,11 +21,13 @@ import { factsOfDetail } from '../../../web/connect/activity';
 import { Histogram } from '../../../web/connect/charts/Histogram';
 import { ValueGrid } from '../../../web/connect/charts/Axes';
 import { Lanes } from '../../../web/connect/charts/Lanes';
+import { Sparkline } from '../../../web/connect/charts/Sparkline';
 import {
   TEXT_PX,
   chartMargins,
   estimateWidth,
   plotBox,
+  sparkPoints,
   tooltipLeft,
 } from '../../../web/connect/charts/scale';
 import type { ChartData } from '../../../web/connect/chart';
@@ -118,6 +120,72 @@ describe.each([320, 1600])('the activity page lanes at %i px', (width) => {
       expect({ text, inside: left >= 0 && right <= width }).toEqual({ text, inside: true });
       expect({ text, below: y >= 0 && y <= height }).toEqual({ text, below: true });
     }
+  });
+});
+
+describe('lanes without a controlled crosshair', () => {
+  it('keeps its own crosshair when the page passes no position', async () => {
+    const root = await mount(
+      <Lanes
+        xs={[0, 1, 2, 3]}
+        xKind="number"
+        xFormat={(i) => `day ${i}`}
+        xTitle="Day"
+        lanes={[
+          {
+            key: 'hrv',
+            name: 'HRV',
+            unit: 'ms',
+            colour: 'var(--chart-a)',
+            values: [50, 52, 48, 55],
+          },
+        ]}
+        label="Wellness"
+        none="–"
+        width={640}
+      />
+    );
+    const [svg] = hosts(root, 'svg').filter((s) => s.props.role === 'group');
+    await act(async () => {
+      svg!.props.onPointerMove({
+        clientX: 300,
+        currentTarget: { getBoundingClientRect: () => ({ left: 0 }) },
+      });
+    });
+    expect(hosts(root, 'line').filter((l) => l.props.className === 'crosshair')).toHaveLength(1);
+  });
+});
+
+describe('lanes without a controlled crosshair', () => {
+  it('keeps its own crosshair when the page passes no position', async () => {
+    const root = await mount(
+      <Lanes
+        xs={[0, 1, 2, 3]}
+        xKind="number"
+        xFormat={(i) => `day ${i}`}
+        xTitle="Day"
+        lanes={[
+          {
+            key: 'hrv',
+            name: 'HRV',
+            unit: 'ms',
+            colour: 'var(--chart-a)',
+            values: [50, 52, 48, 55],
+          },
+        ]}
+        label="Wellness"
+        none="–"
+        width={640}
+      />
+    );
+    const [svg] = hosts(root, 'svg').filter((s) => s.props.role === 'group');
+    await act(async () => {
+      svg!.props.onPointerMove({
+        clientX: 300,
+        currentTarget: { getBoundingClientRect: () => ({ left: 0 }) },
+      });
+    });
+    expect(hosts(root, 'line').filter((l) => l.props.className === 'crosshair')).toHaveLength(1);
   });
 });
 
@@ -218,6 +286,9 @@ describe('the activity page lanes', () => {
   });
 });
 
+/** A line over a date axis in milliseconds, as the engine's read gives it. */
+const LOAD_TREND = { slope: 1e-9, intercept: -1_700_000_000_000 * 1e-9 + 60, spread: 5 };
+
 describe('a scatter by date', () => {
   const DAYS = ['2026-01-01', '2026-01-02', '2026-03-01', '2026-03-02'];
   const element = (width: number) => (
@@ -232,7 +303,7 @@ describe('a scatter by date', () => {
       label="Activities by load"
       empty="none"
       none="–"
-      trend
+      trend={LOAD_TREND}
       width={width}
     />
   );
@@ -358,7 +429,7 @@ describe('the other kinds', () => {
         binText={(a, b, n) => `${a}–${b}: ${n}`}
         xTitle="Load"
         yTitle="Activities"
-        colour="var(--chart-a)"
+        colour="var(--colour-chart-series)"
         label="Distribution"
         empty="none"
         width={400}
@@ -382,7 +453,13 @@ describe('the other kinds', () => {
     const empty = await mount(
       <Calendar days={[]} dayText={(d) => d} label="Calendar" empty="No days" width={500} />
     );
-    expect(textOf(hosts(empty, 'p')[0]!)).toBe('No days');
+    expect(
+      textOf(
+        empty.root.findAll(
+          (node) => typeof node.type === 'string' && node.props.className === 'ui-state'
+        )[0]!
+      )
+    ).toBe('No days');
   });
 });
 
@@ -569,6 +646,33 @@ describe('the laps follow a brush on the lanes', () => {
   });
 });
 
+describe('a lane title', () => {
+  it('is written inside its plot at the top left, and takes no row above the plot', async () => {
+    const root = await mount(page());
+    const titles = hosts(root, 'text').filter((n) => n.props.className === 'title');
+    const plots = hosts(root, 'rect').filter((r) => r.props.className === 'plot');
+    const lanes = plots.filter((_, i) => i < LANE_KEYS.length);
+    expect(lanes).toHaveLength(LANE_KEYS.length);
+    const inside = titles
+      .filter((t) => t.props.textAnchor === 'start')
+      .map((t) =>
+        LANE_KEYS.some((_, i) => {
+          const box = lanes[i]!.props;
+          return (
+            num(t.props.x) >= num(box.x) &&
+            num(t.props.x) <= num(box.x) + 12 &&
+            num(t.props.y) > num(box.y) &&
+            num(t.props.y) < num(box.y) + 24
+          );
+        })
+      );
+    expect(inside).toHaveLength(LANE_KEYS.length);
+    expect(inside.every(Boolean)).toBe(true);
+    // The first plot starts just under the drawing's top edge rather than below a title row.
+    expect(num(lanes[0]!.props.y)).toBeLessThanOrEqual(12);
+  });
+});
+
 describe('the lanes tooltip', () => {
   it('appears beside the shared crosshair with the readout and is gone when the pointer leaves', async () => {
     const root = await mount(page());
@@ -696,7 +800,7 @@ describe('the axis titles', () => {
         label="Activities by load"
         empty="none"
         none="–"
-        trend
+        trend={LOAD_TREND}
         width={640}
       />,
     ],
@@ -729,7 +833,7 @@ describe('the axis titles', () => {
         binText={(a, b, n) => `${a}–${b}: ${n}`}
         xTitle="Load"
         yTitle="Activities"
-        colour="var(--chart-a)"
+        colour="var(--colour-chart-series)"
         label="Distribution"
         empty="none"
         width={640}
@@ -849,5 +953,276 @@ describe('a curve with a band through its points', () => {
     const root = await mount(element());
     expect(hosts(root, 'path').some((p) => p.props.className === 'curve-line')).toBe(false);
     expect(hosts(root, 'path').some((p) => p.props.className === 'curve-band')).toBe(false);
+  });
+});
+
+const pointerEvent = (clientX: number) => ({
+  clientX,
+  button: 0,
+  pointerId: 1,
+  currentTarget: {
+    getBoundingClientRect: () => ({ left: 0 }),
+    setPointerCapture: () => undefined,
+  },
+});
+const plotOf = (root: ReactTestRenderer) =>
+  hosts(root, 'svg').find((s) => s.props.role === 'group' && s.props['aria-label'])!;
+const tipOf = (root: ReactTestRenderer) =>
+  hosts(root, 'div').find((d) => d.props.className === 'chart-tooltip');
+const resetOf = (root: ReactTestRenderer) =>
+  hosts(root, 'button').find((b) => textOf(b) === 'connectPage.chart.reset');
+
+describe('the curve tooltip and brush', () => {
+  const curve = () => (
+    <Curve
+      xs={[1, 5, 30, 60, 300, 1200, 3600]}
+      ys={[1200, 900, 600, 480, 330, 270, 230]}
+      xTicks={[1, 5, 15, 30, 60, 300, 1200, 3600]}
+      xFormat={(s) => `${s} s`}
+      yFormat={(w) => String(w)}
+      xTitle="Duration"
+      yTitle="Power (W)"
+      colour="var(--colour-stream-power)"
+      label="Power curve"
+      empty="none"
+      readout={(x, y) => `${x} s ${y} W`}
+      width={600}
+    />
+  );
+  const lineOf = (root: ReactTestRenderer) =>
+    hosts(root, 'path').find((p) => p.props.className === 'mark-line')!.props.d;
+
+  it('shows the sample under the pointer in a tooltip beside the crosshair, gone on leave', async () => {
+    const root = await mount(curve());
+    expect(tipOf(root)).toBeUndefined();
+    await act(async () => plotOf(root).props.onPointerMove(pointerEvent(590)));
+    expect(textOf(tipOf(root)!)).toBe('3600 s 230 W');
+    await act(async () => plotOf(root).props.onPointerLeave());
+    expect(tipOf(root)).toBeUndefined();
+  });
+
+  it('zooms to the samples a brush covers and restores every sample on reset', async () => {
+    const root = await mount(curve());
+    const before = lineOf(root);
+    await act(async () => plotOf(root).props.onPointerDown(pointerEvent(60)));
+    await act(async () => plotOf(root).props.onPointerMove(pointerEvent(330)));
+    await act(async () => plotOf(root).props.onPointerUp(pointerEvent(330)));
+    expect(resetOf(root)).toBeDefined();
+    expect(lineOf(root)).not.toBe(before);
+    await act(async () => plotOf(root).props.onPointerMove(pointerEvent(590)));
+    expect(textOf(tipOf(root)!)).not.toBe('3600 s 230 W');
+    await act(async () => resetOf(root)!.props.onClick());
+    expect(resetOf(root)).toBeUndefined();
+    expect(lineOf(root)).toBe(before);
+  });
+
+  it('treats a click without a drag as no brush', async () => {
+    const root = await mount(curve());
+    await act(async () => plotOf(root).props.onPointerDown(pointerEvent(250)));
+    await act(async () => plotOf(root).props.onPointerUp(pointerEvent(251)));
+    expect(resetOf(root)).toBeUndefined();
+  });
+});
+
+describe('the histogram tooltip and brush', () => {
+  const histogram = () => (
+    <Histogram
+      values={[1, 2, 2, 3, 3, 3, 8, 9, 10, 10]}
+      bins={4}
+      format={String}
+      count={String}
+      binText={(a, b, n) => `${a}–${b}: ${n}`}
+      xTitle="Load"
+      yTitle="Activities"
+      colour="var(--chart-a)"
+      label="Distribution"
+      empty="none"
+      width={400}
+    />
+  );
+
+  it('shows the bin under the pointer in a tooltip, gone on leave', async () => {
+    const root = await mount(histogram());
+    expect(tipOf(root)).toBeUndefined();
+    await act(async () => plotOf(root).props.onPointerMove(pointerEvent(60)));
+    expect(textOf(tipOf(root)!)).toBe('1–3.25: 6');
+    await act(async () => plotOf(root).props.onPointerLeave());
+    expect(tipOf(root)).toBeUndefined();
+  });
+
+  it('bins again over the brushed range and restores the full range on reset', async () => {
+    const root = await mount(histogram());
+    await act(async () => plotOf(root).props.onPointerDown(pointerEvent(60)));
+    await act(async () => plotOf(root).props.onPointerMove(pointerEvent(200)));
+    await act(async () => plotOf(root).props.onPointerUp(pointerEvent(200)));
+    expect(resetOf(root)).toBeDefined();
+    const bars = hosts(root, 'rect').filter((r) => r.props.className === 'mark-bar');
+    expect(bars).toHaveLength(4);
+    await act(async () => plotOf(root).props.onPointerMove(pointerEvent(60)));
+    expect(textOf(tipOf(root)!)).not.toBe('1–3.25: 6');
+    await act(async () => resetOf(root)!.props.onClick());
+    await act(async () => plotOf(root).props.onPointerMove(pointerEvent(60)));
+    expect(textOf(tipOf(root)!)).toBe('1–3.25: 6');
+  });
+});
+
+describe('a histogram of bins the caller already has', () => {
+  const given = [
+    { low: 600, high: 630, count: 2 },
+    { low: 630, high: 660, count: 0 },
+    { low: 660, high: 690, count: 5 },
+  ];
+  const drawn = () => (
+    <Histogram
+      binned={given}
+      format={String}
+      count={String}
+      binText={(a, b, n) => `${a}–${b}: ${n}`}
+      xTitle="Time"
+      yTitle="Laps"
+      colour="var(--chart-a)"
+      label="Spread"
+      empty="none"
+      width={400}
+    />
+  );
+  const barsOf = (root: ReactTestRenderer) =>
+    hosts(root, 'rect').filter((r) => r.props.className === 'mark-bar');
+
+  it('draws one bar per bin it was given, including an empty one', async () => {
+    const root = await mount(drawn());
+    expect(barsOf(root)).toHaveLength(3);
+  });
+
+  it('writes the bin under the pointer with the bin text', async () => {
+    const root = await mount(drawn());
+    await act(async () => plotOf(root).props.onPointerMove(pointerEvent(60)));
+    expect(textOf(tipOf(root)!)).toBe('600–630: 2');
+    await act(async () => plotOf(root).props.onPointerMove(pointerEvent(390)));
+    expect(textOf(tipOf(root)!)).toBe('660–690: 5');
+  });
+
+  it('keeps its bins when a range is dragged across it, with nothing to zoom', async () => {
+    const root = await mount(drawn());
+    await act(async () => plotOf(root).props.onPointerDown(pointerEvent(60)));
+    await act(async () => plotOf(root).props.onPointerMove(pointerEvent(200)));
+    await act(async () => plotOf(root).props.onPointerUp(pointerEvent(200)));
+    expect(resetOf(root)).toBeUndefined();
+    expect(barsOf(root)).toHaveLength(3);
+    await act(async () => plotOf(root).props.onPointerMove(pointerEvent(60)));
+    expect(textOf(tipOf(root)!)).toBe('600–630: 2');
+  });
+
+  it('says so when it was given no bins', async () => {
+    const root = await mount(
+      <Histogram
+        binned={[]}
+        format={String}
+        count={String}
+        binText={() => ''}
+        xTitle="Time"
+        yTitle="Laps"
+        colour="var(--chart-a)"
+        label="Spread"
+        empty="No laps"
+        width={400}
+      />
+    );
+    expect(barsOf(root)).toHaveLength(0);
+    expect(
+      textOf(
+        root.root.findAll(
+          (node) => typeof node.type === 'string' && node.props.className === 'ui-state'
+        )[0]!
+      )
+    ).toBe('No laps');
+  });
+});
+
+describe('sparkPoints', () => {
+  it('puts the low at the bottom and the high at the top, inside the inset', () => {
+    expect(sparkPoints([0, 5, 10], 100, 20, { low: 0, high: 10 }, 2)).toEqual([
+      { x: 2, y: 18 },
+      { x: 50, y: 10 },
+      { x: 98, y: 2 },
+    ]);
+  });
+
+  it('draws one value mid-width and a flat range mid-height rather than dividing by zero', () => {
+    expect(sparkPoints([7], 100, 20, { low: 7, high: 7 }, 2)).toEqual([{ x: 50, y: 10 }]);
+    expect(sparkPoints([3, 3], 100, 20, { low: 3, high: 3 }, 2).map((p) => p.y)).toEqual([10, 10]);
+  });
+});
+
+describe('the sparkline', () => {
+  const spark = (width: number) => (
+    <Sparkline
+      className="trend"
+      lines={[
+        { values: [0, 4, 8], className: 'received' },
+        { values: [0, 1, 2], className: 'sent' },
+      ]}
+      range="zero"
+      height={24}
+      width={width}
+      label="Traffic"
+    />
+  );
+
+  it.each([96, 240, 1600])(
+    'is drawn at its measured width of %i px, never stretched',
+    async (width) => {
+      const root = await mount(spark(width));
+      const [svg] = hosts(root, 'svg');
+      expect(num(svg!.props.width)).toBe(width);
+      expect(svg!.props.viewBox).toBe(`0 0 ${width} 24`);
+      expect(svg!.props.preserveAspectRatio).toBeUndefined();
+      const points = hosts(root, 'polyline').map((p) => p.props.points as string);
+      expect(points).toHaveLength(2);
+      expect(
+        points[0]!
+          .split(' ')
+          .at(-1)!
+          .startsWith(`${width - 2}`)
+      ).toBe(true);
+    }
+  );
+
+  it('draws the lines on one scale so they compare', async () => {
+    const root = await mount(spark(240));
+    const [received, sent] = hosts(root, 'polyline').map((p) =>
+      (p.props.points as string).split(' ').map((pair) => Number(pair.split(',')[1]))
+    );
+    expect(received![2]).toBe(2);
+    expect(sent![2]).toBeGreaterThan(received![2]!);
+  });
+
+  it('marks one point of a line', async () => {
+    const root = await mount(
+      <Sparkline
+        lines={[{ values: [3, 9, 5] }]}
+        range="fit"
+        height={20}
+        width={100}
+        marker={{ line: 0, index: 2 }}
+      />
+    );
+    const [dot] = hosts(root, 'circle');
+    expect(num(dot!.props.cx)).toBe(98);
+    expect(num(dot!.props.cy)).toBeGreaterThan(2);
+  });
+
+  it('keeps a line that is zero throughout flat at the bottom', async () => {
+    const root = await mount(
+      <Sparkline lines={[{ values: [0, 0, 0] }]} range="zero" height={48} width={100} />
+    );
+    expect(hosts(root, 'polyline')[0]!.props.points).toBe('2.0,46.0 50.0,46.0 98.0,46.0');
+  });
+
+  it('draws nothing for a line of fewer than two values', async () => {
+    const root = await mount(
+      <Sparkline lines={[{ values: [4] }]} range="fit" height={20} width={100} />
+    );
+    expect(hosts(root, 'polyline')[0]!.props.points).toBe('');
   });
 });

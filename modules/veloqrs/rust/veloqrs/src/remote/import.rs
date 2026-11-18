@@ -49,6 +49,10 @@ pub const MAX_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 /// How long a spool may go unwritten before [`sweep`] deletes it.
 pub const STALE_AFTER: Duration = Duration::from_secs(24 * 60 * 60);
 
+/// The free space left untouched after a spool is accounted for, so the
+/// database can still write while an import is in flight.
+pub const FREE_SPACE_MARGIN: u64 = 256 * 1024 * 1024;
+
 /// The longest name a begin carries.
 const MAX_NAME_BYTES: usize = 255;
 
@@ -102,7 +106,7 @@ pub struct Spools {
     dropped: u64,
 }
 
-fn hex(bytes: &[u8]) -> String {
+pub(super) fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
@@ -121,11 +125,49 @@ fn extension_of(name: &str) -> Option<&'static str> {
         .find_map(|(extension, suffix)| lower.ends_with(suffix).then_some(extension))
 }
 
+/// The bytes free to this process on the volume holding `root`, `None` where
+/// that cannot be read.
+#[cfg(unix)]
+pub(super) fn free_space(root: &Path) -> Option<u64> {
+    use std::os::unix::ffi::OsStrExt;
+    let mut probe = root;
+    while !probe.exists() {
+        probe = probe.parent()?;
+    }
+    let path = std::ffi::CString::new(probe.as_os_str().as_bytes()).ok()?;
+    let mut stat = std::mem::MaybeUninit::<libc::statvfs>::zeroed();
+    // SAFETY: `path` is a valid NUL-terminated string and `stat` is a writable
+    // `statvfs` the call fills on success.
+    if unsafe { libc::statvfs(path.as_ptr(), stat.as_mut_ptr()) } != 0 {
+        return None;
+    }
+    // SAFETY: statvfs returned 0, so the struct is initialised.
+    let stat = unsafe { stat.assume_init() };
+    // The fields are `u64` on 64-bit targets and `u32` on 32-bit ones, so the
+    // conversion is a no-op on some targets and widening on the rest.
+    #[allow(clippy::useless_conversion)]
+    let (blocks, block_bytes) = (u64::from(stat.f_bavail), u64::from(stat.f_frsize));
+    Some(blocks.saturating_mul(block_bytes))
+}
+
+#[cfg(not(unix))]
+fn free_space(_root: &Path) -> Option<u64> {
+    None
+}
+
 fn spool_dir(root: &Path) -> PathBuf {
     root.join(IMPORTS)
 }
 
 impl Spools {
+    const fn new() -> Self {
+        Self {
+            last_id: 0,
+            imports: Vec::new(),
+            dropped: 0,
+        }
+    }
+
     /// Frames dropped since this registry began.
     pub fn dropped(&self) -> u64 {
         self.dropped
@@ -134,8 +176,24 @@ impl Spools {
     /// Begin, or resume, the import of the archive `ask` names for `browser`.
     /// The answer's offset is the length of a spool of that digest already
     /// under `root`, 0 for a new one. Any import of the same digest begun
-    /// before is replaced, so only the newest id takes frames.
+    /// before is replaced, so only the newest id takes frames. A browser has
+    /// one import in flight: a begin for another digest is refused until that
+    /// one is committed or cancelled. A begin whose bytes still to come do not
+    /// fit in the free space less [`FREE_SPACE_MARGIN`] is refused.
     pub fn begin(&mut self, root: &Path, browser: &str, ask: &Begin) -> Result<Begun, String> {
+        let free = free_space(root);
+        self.begin_with_free(root, browser, ask, free)
+    }
+
+    /// [`Spools::begin`] with the free space on the volume given, `None` when
+    /// it cannot be read, which skips that check.
+    pub(crate) fn begin_with_free(
+        &mut self,
+        root: &Path,
+        browser: &str,
+        ask: &Begin,
+        free: Option<u64>,
+    ) -> Result<Begun, String> {
         if !is_digest(&ask.sha256) {
             return Err("sha256 is not 64 lowercase hex digits".into());
         }
@@ -148,10 +206,25 @@ impl Spools {
         let extension =
             extension_of(&ask.name).ok_or("only a zip, a FIT or a gzipped FIT can be imported")?;
 
-        self.imports.retain(|held| held.sha256 != ask.sha256);
+        if self
+            .imports
+            .iter()
+            .any(|held| held.browser == browser && held.sha256 != ask.sha256)
+        {
+            return Err("another import from this browser is in progress".into());
+        }
         let dir = spool_dir(root);
-        std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
         let part = dir.join(format!("{}.part", ask.sha256));
+        let on_disk = std::fs::metadata(&part)
+            .map(|meta| meta.len())
+            .ok()
+            .filter(|len| *len <= ask.size)
+            .unwrap_or(0);
+        if free.is_some_and(|free| free.saturating_sub(FREE_SPACE_MARGIN) < ask.size - on_disk) {
+            return Err("not enough free space on the phone for this archive".into());
+        }
+        self.imports.retain(|held| held.sha256 != ask.sha256);
+        std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
         let held = std::fs::metadata(&part).map_or(0, |meta| meta.len());
         if held > ask.size {
             std::fs::remove_file(&part).map_err(|error| error.to_string())?;
@@ -228,6 +301,28 @@ impl Spools {
             .ok_or_else(|| "no such import".to_owned())
     }
 
+    /// Take import `id` out of the registry for a commit, so the hash and the
+    /// hand-over run without the registry held. An import not yet whole stays.
+    fn take(&mut self, browser: &str, id: u32) -> Result<Import, String> {
+        let at = self.position(browser, id)?;
+        let import = &self.imports[at];
+        if import.received != import.size {
+            return Err(format!(
+                "incomplete: {} of {} bytes",
+                import.received, import.size
+            ));
+        }
+        Ok(self.imports.remove(at))
+    }
+
+    /// Put back an import a commit took and did not finish. One whose spool is
+    /// gone, or whose digest has since been begun again, is not put back.
+    fn restore(&mut self, import: Import) {
+        if import.part.exists() && self.imports.iter().all(|held| held.sha256 != import.sha256) {
+            self.imports.push(import);
+        }
+    }
+
     /// Check the spool of import `id` against its digest and give the file to
     /// `hand_over`, under a name that says what it is. A spool that does not
     /// match is deleted. A spool not yet whole, or one `hand_over` refuses, is
@@ -238,29 +333,28 @@ impl Spools {
         id: u32,
         hand_over: impl FnOnce(&Path) -> Result<(), String>,
     ) -> Result<PathBuf, String> {
-        let at = self.position(browser, id)?;
-        let import = &self.imports[at];
-        if import.received != import.size {
-            return Err(format!(
-                "incomplete: {} of {} bytes",
-                import.received, import.size
-            ));
+        let import = self.take(browser, id)?;
+        match finish(import, digest_of, hand_over) {
+            Ok(ready) => Ok(ready),
+            Err((kept, error)) => {
+                if let Some(import) = kept {
+                    self.restore(import);
+                }
+                Err(error)
+            }
         }
-        let digest = digest_of(&import.part).map_err(|error| error.to_string())?;
-        if hex(&digest) != import.sha256 {
-            let import = self.imports.remove(at);
+    }
+
+    /// Forget the imports `browser` began, deleting their spools. Imports of
+    /// other browsers stay.
+    pub fn forget(&mut self, browser: &str) {
+        let (gone, kept): (Vec<Import>, Vec<Import>) = std::mem::take(&mut self.imports)
+            .into_iter()
+            .partition(|import| import.browser == browser);
+        self.imports = kept;
+        for import in gone {
             let _ = std::fs::remove_file(&import.part);
-            return Err("checksum mismatch: the archive was not received intact".into());
         }
-        let ready = import.part.with_extension(import.extension);
-        std::fs::rename(&import.part, &ready).map_err(|error| error.to_string())?;
-        if let Err(error) = hand_over(&ready) {
-            let import = &self.imports[at];
-            std::fs::rename(&ready, &import.part).map_err(|e| e.to_string())?;
-            return Err(error);
-        }
-        self.imports.remove(at);
-        Ok(ready)
     }
 
     /// Delete the spool of import `id`.
@@ -271,7 +365,59 @@ impl Spools {
     }
 }
 
-fn digest_of(path: &Path) -> std::io::Result<[u8; 32]> {
+/// The commit of an import already taken out of the registry: hash its spool,
+/// compare, rename and hand it over. On failure the import comes back with the
+/// error when its spool is still whole enough to commit again.
+fn finish(
+    import: Import,
+    digest: impl FnOnce(&Path) -> std::io::Result<[u8; 32]>,
+    hand_over: impl FnOnce(&Path) -> Result<(), String>,
+) -> Result<PathBuf, (Option<Import>, String)> {
+    let digest = match digest(&import.part) {
+        Ok(digest) => digest,
+        Err(error) => return Err((Some(import), error.to_string())),
+    };
+    if hex(&digest) != import.sha256 {
+        let _ = std::fs::remove_file(&import.part);
+        return Err((
+            None,
+            "checksum mismatch: the archive was not received intact".into(),
+        ));
+    }
+    let ready = import.part.with_extension(import.extension);
+    if let Err(error) = std::fs::rename(&import.part, &ready) {
+        return Err((Some(import), error.to_string()));
+    }
+    if let Err(error) = hand_over(&ready) {
+        return match std::fs::rename(&ready, &import.part) {
+            Ok(()) => Err((Some(import), error)),
+            Err(rename_error) => Err((None, rename_error.to_string())),
+        };
+    }
+    Ok(ready)
+}
+
+/// [`Spools::commit`] on a shared registry, holding its lock only to take the
+/// import out and to put it back: the hash of up to [`MAX_BYTES`] runs outside
+/// it, so frames for every other import keep arriving meanwhile.
+fn commit_shared(
+    registry: &Mutex<Spools>,
+    browser: &str,
+    id: u32,
+    digest: impl FnOnce(&Path) -> std::io::Result<[u8; 32]>,
+    hand_over: impl FnOnce(&Path) -> Result<(), String>,
+) -> Result<PathBuf, String> {
+    let lock = || registry.lock().unwrap_or_else(|e| e.into_inner());
+    let import = lock().take(browser, id)?;
+    finish(import, digest, hand_over).map_err(|(kept, error)| {
+        if let Some(import) = kept {
+            lock().restore(import);
+        }
+        error
+    })
+}
+
+pub(super) fn digest_of(path: &Path) -> std::io::Result<[u8; 32]> {
     let mut file = File::open(path)?;
     let mut stream = Sha256Stream::new();
     let mut buffer = vec![0u8; 256 * 1024];
@@ -287,7 +433,13 @@ fn digest_of(path: &Path) -> std::io::Result<[u8; 32]> {
 /// Delete every file under `root`'s spool directory that has not been written
 /// to for [`STALE_AFTER`] before `now`. Returns how many were deleted.
 pub fn sweep(root: &Path, now: SystemTime) -> usize {
-    let Ok(entries) = std::fs::read_dir(spool_dir(root)) else {
+    sweep_dir(&spool_dir(root), now)
+}
+
+/// Delete every file in `dir` that has not been written to for [`STALE_AFTER`]
+/// before `now`. Returns how many were deleted.
+pub(super) fn sweep_dir(dir: &Path, now: SystemTime) -> usize {
+    let Ok(entries) = std::fs::read_dir(dir) else {
         return 0;
     };
     entries
@@ -304,11 +456,11 @@ pub fn sweep(root: &Path, now: SystemTime) -> usize {
 }
 
 /// The imports in progress in this process.
-static SPOOLS: Mutex<Option<Spools>> = Mutex::new(None);
+static SPOOLS: Mutex<Spools> = Mutex::new(Spools::new());
 
 fn with_spools<R>(work: impl FnOnce(&mut Spools) -> R) -> R {
     let mut held = SPOOLS.lock().unwrap_or_else(|e| e.into_inner());
-    work(held.get_or_insert_with(Spools::default))
+    work(&mut held)
 }
 
 /// Forget every import in progress and delete every spool beside the database
@@ -323,6 +475,13 @@ pub fn forget_all_beside(db_path: &str) {
         return;
     };
     let _ = std::fs::remove_dir_all(spool_dir(dir));
+}
+
+/// Forget every import in progress without touching any file, so a test
+/// starts with the registry empty.
+#[cfg(test)]
+pub(crate) fn reset_for_test() {
+    with_spools(|spools| spools.imports.clear());
 }
 
 /// The directory the library's files live in: the one holding its database.
@@ -352,17 +511,19 @@ pub fn frame(browser: &str, bytes: &[u8]) -> Frame {
 /// `import.commit` for `browser`: the archive goes to the import job.
 pub fn commit(browser: &str, id: u32) -> Result<(), String> {
     let install = crate::persistence::engine_install();
-    with_spools(|spools| {
-        spools
-            .commit(browser, id, |path| {
-                if crate::net::import::start(install, path.to_path_buf()) {
-                    Ok(())
-                } else {
-                    Err("an import or a Garmin pull is already running".to_owned())
-                }
-            })
-            .map(drop)
+    commit_shared(&SPOOLS, browser, id, digest_of, |path| {
+        if crate::net::import::start(install, path.to_path_buf()) {
+            Ok(())
+        } else {
+            Err("an import or a Garmin pull is already running".to_owned())
+        }
     })
+    .map(drop)
+}
+
+/// Forget every import in progress that `browser` began, as an unlink does.
+pub fn forget_browser(browser: &str) {
+    with_spools(|spools| spools.forget(browser));
 }
 
 /// `import.cancel` for `browser`.

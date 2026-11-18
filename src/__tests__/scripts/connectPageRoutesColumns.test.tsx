@@ -63,7 +63,9 @@ const rowsIn = (root: ReactTestRenderer, pane: string) =>
     )
     .map((row) => row.props['data-row']);
 
-const ADDRESS = '#/routes?rsort=name&rq=loop&ssort=distance&sq=col&chips=custom';
+const ADDRESS = '#/routes?rsort=name&q=loop&ssort=distance&sq=col&chips=custom';
+// The same two lists with the sections page in focus, so the sections' text is the page's `q`.
+const SECTIONS_ADDRESS = '#/sections?rsort=name&rq=loop&ssort=distance&q=col&chips=custom';
 
 describe('the routes and sections pages', () => {
   it('draws the list of the page it is on from one read carrying both queries', async () => {
@@ -88,9 +90,7 @@ describe('the routes and sections pages', () => {
 
     let sectionsRoot!: ReactTestRenderer;
     await act(async () => {
-      sectionsRoot = create(
-        session.wrap(<RoutesPage route={parse(ADDRESS.replace('#/routes', '#/sections'))} />)
-      );
+      sectionsRoot = create(session.wrap(<RoutesPage route={parse(SECTIONS_ADDRESS)} />));
     });
     await settle();
     expect(rowsIn(sectionsRoot, 'sections-list')).toEqual(['s1']);
@@ -145,7 +145,7 @@ describe('the address with both lists', () => {
   });
 
   it('leaves the other list at its opening state', () => {
-    const page = fromRoute(parse('#/sections?sq=col'))!;
+    const page = fromRoute(parse('#/sections?q=col'))!;
     expect(page.routes).toEqual(opening('routes'));
     expect(queryFor(page)).toMatchObject({
       groupSort: 'activities',

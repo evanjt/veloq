@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Upgrade a simulator install whose routes.db sits in Documents to a build that
-# moves it into the App Group container, and report where the library ends up.
+# Upgrade a simulator install to a newer build and read the library back. The library may
+# start in Documents (a build before the move) or in the App Group; it must end in the App
+# Group with every activity and no quarantine file, and a second launch must find it there.
 #
 #   scripts/ios-route-db-upgrade-probe.sh OLD.app NEW.app [ACTIVITIES]
 #
@@ -9,13 +10,18 @@
 #
 # A signed-out build opens no database, so once the old build is up the probe
 # waits while someone enters demo mode on the simulator it names (the
-# `login-demo-button` on the sign-in screen), which writes the demo library to
+# `login-demo-button` on the sign-in screen), or runs DEMO_CMD with UDID exported
+# when that is set, which writes the demo library to
 # Documents/routes.db. The probe then adds
 # ACTIVITIES synthetic activities to it, the second half of them committed to
 # the write-ahead log only, so the count after the move proves the journal
 # travelled with the main file. It installs the new build over the old one,
 # launches it, and reads both directories and the activity count. A second
-# launch must find the library where the first left it.
+# launch must find the library where the first left it. Demo mode does not survive a relaunch,
+# so a signed-out new build never opens the database and the probe then proves the files came
+# through untouched. REENTER_DEMO=1 runs DEMO_CMD again after each launch of the new build so
+# the engine opens the library; entering demo mode deletes a library it did not seed, so the
+# synthetic activities are gone afterwards and the counts then differ by exactly those.
 
 set -euo pipefail
 
@@ -34,9 +40,25 @@ for app in "$OLD_APP" "$NEW_APP"; do
   fi
 done
 
-UDID=$(xcrun simctl create "route-db-upgrade-probe" \
-  com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max \
-  com.apple.CoreSimulator.SimRuntime.iOS-26-2)
+# The first available iOS runtime that accepts the device type, newest first, so the probe
+# follows whatever the host's Xcode ships. DEVICE_TYPE and RUNTIME pin either.
+DEVICE_TYPE=${DEVICE_TYPE:-com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro-Max}
+UDID=""
+if [[ -n ${RUNTIME:-} ]]; then
+  runtimes=$RUNTIME
+else
+  runtimes=$(xcrun simctl list runtimes available | awk '/^iOS / { print $NF }' | sort -r)
+fi
+for runtime in $runtimes; do
+  if UDID=$(xcrun simctl create "route-db-upgrade-probe" "$DEVICE_TYPE" "$runtime" 2>/dev/null); then
+    break
+  fi
+  UDID=""
+done
+if [[ -z $UDID ]]; then
+  echo "error: no available iOS runtime accepts $DEVICE_TYPE" >&2
+  exit 2
+fi
 cleanup() {
   xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
   if [[ ${KEEP_SIMULATOR:-0} != 1 ]]; then xcrun simctl delete "$UDID" || true; fi
@@ -78,6 +100,24 @@ wait_for() {
   return 1
 }
 
+# The directory holding routes.db: Documents for a build that has not moved it yet, else
+# the App Group. Empty when neither has one.
+library_dir() {
+  if [[ -f "$(docs)/routes.db" ]]; then
+    docs
+  elif [[ -f "$(group 2>/dev/null)/routes.db" ]]; then
+    group
+  fi
+}
+
+# Quarantine and corruption leftovers beside the library, in either directory.
+quarantined() {
+  local d
+  for d in "$(docs)" "$(group 2>/dev/null)"; do
+    [[ -n $d ]] && find "$d" -maxdepth 2 \( -iname '*quarantine*' -o -iname '*corrupt*' \) 2>/dev/null
+  done
+}
+
 # Read-only, so reading never checkpoints the journal it is meant to observe.
 count() {
   /usr/bin/python3 -c 'import sqlite3, sys
@@ -88,16 +128,25 @@ print(db.execute("SELECT COUNT(*) FROM activities").fetchone()[0])' "$1/routes.d
 echo "== old build"
 xcrun simctl install "$UDID" "$OLD_APP"
 xcrun simctl launch "$UDID" "$BUNDLE" >/dev/null
-echo "  enter demo mode on simulator $UDID now"
-WAIT_SECS=${OLD_WAIT_SECS:-300} wait_for '[[ -f "$(docs)/routes.db" ]]' \
-  || { echo "error: old build made no Documents/routes.db" >&2; exit 1; }
+enter_demo() {
+  if [[ -n ${DEMO_CMD:-} && ( ${1:-} == old || ${REENTER_DEMO:-0} == 1 ) ]]; then
+    echo "  entering demo mode on simulator $UDID with DEMO_CMD"
+    UDID=$UDID bash -c "$DEMO_CMD"
+  elif [[ ${1:-} == old ]]; then
+    echo "  enter demo mode on simulator $UDID now"
+  fi
+}
+enter_demo old
+WAIT_SECS=${OLD_WAIT_SECS:-300} wait_for '[[ -n "$(library_dir)" ]]' \
+  || { echo "error: old build made no routes.db in Documents or the App Group" >&2; exit 1; }
 sleep 10
 xcrun simctl terminate "$UDID" "$BUNDLE" || true
 sleep 2
 
-DOCS=$(docs)
+OLD_DIR=$(library_dir)
+echo "  library found in $OLD_DIR"
 HALF=$((ACTIVITIES / 2))
-/usr/bin/python3 - "$DOCS/routes.db" "$ACTIVITIES" "$HALF" <<'PY'
+/usr/bin/python3 - "$OLD_DIR/routes.db" "$ACTIVITIES" "$HALF" <<'PY'
 import os, sqlite3, sys
 
 path, total, half = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
@@ -124,38 +173,43 @@ add(half, total)
 os._exit(0)
 PY
 
-BEFORE=$(count "$DOCS")
+BEFORE=$(count "$OLD_DIR")
 echo "  activities before upgrade: $BEFORE ($HALF of them checkpointed, the rest in the -wal at the time of the upgrade)"
 report
 
 echo "== new build, first launch"
 xcrun simctl install "$UDID" "$NEW_APP"
 xcrun simctl launch "$UDID" "$BUNDLE" >/dev/null
-moved='[[ ! -f "$(docs)/routes.db" ]] && [[ -n "$(group 2>/dev/null)" ]] && [[ -f "$(group)/routes.db" ]]'
-if wait_for "$moved"; then echo "  moved"; else echo "  NOT moved within ${WAIT_SECS}s"; fi
+enter_demo
+sleep "${LAUNCH_SECS:-20}"
 sleep 10
 xcrun simctl terminate "$UDID" "$BUNDLE" || true
 sleep 2
 report
-FIRST_DIR=$(if [[ -f "$(docs)/routes.db" ]]; then docs; else group; fi)
+FIRST_DIR=$(library_dir)
 FIRST=$(count "$FIRST_DIR")
 echo "  activities after first launch: $FIRST (read from $FIRST_DIR)"
 
 echo "== new build, second launch"
 xcrun simctl launch "$UDID" "$BUNDLE" >/dev/null
+enter_demo
 sleep 15
 xcrun simctl terminate "$UDID" "$BUNDLE" || true
 sleep 2
 report
-SECOND_DIR=$(if [[ -f "$(docs)/routes.db" ]]; then docs; else group; fi)
+SECOND_DIR=$(library_dir)
 SECOND=$(count "$SECOND_DIR")
 echo "  activities after second launch: $SECOND (read from $SECOND_DIR)"
 
 echo "== result"
 echo "  before=$BEFORE first=$FIRST second=$SECOND"
-if [[ $FIRST_DIR == "$(group 2>/dev/null)" && $BEFORE == "$FIRST" && $FIRST == "$SECOND" \
+echo "  library: $OLD_DIR -> $FIRST_DIR -> $SECOND_DIR"
+STRAY=$(quarantined)
+echo "  quarantine files: ${STRAY:-none}"
+if [[ $FIRST_DIR == "$(group 2>/dev/null)" && $FIRST_DIR == "$SECOND_DIR" \
+  && $BEFORE == "$FIRST" && $FIRST == "$SECOND" && -z $STRAY \
   && ! -e "$(docs)/routes.db" && ! -e "$(docs)/routes.db-wal" && ! -e "$(docs)/routes.db-shm" && ! -e "$(docs)/routes.db-journal" ]]; then
-  echo "  PASS: the library moved into the App Group whole and stayed there"
+  echo "  PASS: the library kept its rows, sits in the App Group and stayed there"
 else
   echo "  FAIL"
   exit 1

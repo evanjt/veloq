@@ -6,7 +6,9 @@
 //! Expected behaviour: one read answers all three, with the FTP comparison
 //! shared with the summary card and three months of chart history.
 
-use super::pooled::{FITNESS_FTP_LOOKBACK_DAYS, SPORT_MIX_ACTIVITIES, fitness_screen_data};
+use super::pooled::{
+    FITNESS_FTP_LOOKBACK_DAYS, SPORT_MIX_ACTIVITIES, fitness_screen_data, load_trend,
+};
 use crate::persistence::PersistentEngine;
 use crate::persistence::fitness::derivations::pooled::{
     SYNC_PACE_WINDOW_DAYS, ftp_trend_to, pace_trend,
@@ -580,6 +582,7 @@ fn the_read_carries_one_load_dot_per_activity_in_the_longest_span() {
     let pool = &dots[1];
     assert_eq!(pool.name, "pool session");
     assert_eq!(pool.sport_type, "Swim");
+    assert_eq!(pool.family, "water");
     assert_eq!(pool.start_date_local, "2026-09-01T07:00:00");
     assert_eq!(pool.moving_time, 35 * 60);
     assert_eq!(pool.distance, 21000.0);
@@ -668,4 +671,123 @@ fn the_weekly_hours_cover_twelve_weeks_to_the_latest_active_one() {
     assert_eq!(weeks[11].0, "2026-08-17");
     assert!(weeks[..11].iter().all(|(_, h)| h.is_empty()));
     assert_eq!(weeks[11].1, vec![("run".to_string(), 1.0)]);
+}
+
+/// Scenario: a strength session and a ride sit in the strip under the fitness
+/// plot, which colours each dot by sport family.
+///
+/// Expected behaviour: each dot names the same lower-case family the weekly
+/// hours name for that sport, so one sport has one family in both charts.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_load_dot_names_the_family_the_weekly_hours_use() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    store_session(&engine, &timed("lift", "WeightTraining", SEP_04_0700, 40));
+    store_session(&engine, &timed("spin", "GravelRide", SEP_04_0700, 40));
+
+    let data = fitness_screen_data(engine.cold_connection(), TODAY, &[30], &windows()).unwrap();
+
+    let dot_families: Vec<_> = data.load_dots.iter().map(|d| d.family.as_str()).collect();
+    let mut hour_families: Vec<_> = data
+        .weekly_hours
+        .iter()
+        .flat_map(|w| w.hours.iter().map(|h| h.family.as_str()))
+        .collect();
+    hour_families.sort_unstable();
+    hour_families.dedup();
+    let mut dots_sorted = dot_families.clone();
+    dots_sorted.sort_unstable();
+    assert_eq!(dots_sorted, vec!["ride", "strength"]);
+    assert_eq!(hour_families, dots_sorted);
+}
+
+fn dot(day: &str, load: f64) -> crate::FfiLoadDot {
+    crate::FfiLoadDot {
+        activity_id: day.into(),
+        name: day.into(),
+        sport_type: "Ride".into(),
+        family: "ride".into(),
+        start_date_local: format!("{day}T07:00:00"),
+        moving_time: 3600,
+        distance: 0.0,
+        load,
+    }
+}
+
+/// Scenario: the scatter of activities by load draws a least-squares line and a
+/// band of one standard deviation about it.
+///
+/// Expected behaviour: the engine fits the line over the dots by whole days from
+/// the first dot's day, and sends none for fewer than two dots or one day.
+#[test]
+fn the_load_trend_is_the_least_squares_line_by_day_from_the_first_dot() {
+    let rising = [
+        dot("2026-09-01", 10.0),
+        dot("2026-09-02", 20.0),
+        dot("2026-09-03", 30.0),
+    ];
+    let line = load_trend(&rising).expect("three dots on three days");
+    assert_eq!(line.origin_day, "2026-09-01");
+    assert!((line.slope_per_day - 10.0).abs() < 1e-9);
+    assert!((line.intercept - 10.0).abs() < 1e-9);
+    assert!(line.spread.abs() < 1e-9);
+
+    let bent = [
+        dot("2026-09-01", 0.0),
+        dot("2026-09-02", 10.0),
+        dot("2026-09-03", 0.0),
+    ];
+    let line = load_trend(&bent).unwrap();
+    assert!(line.slope_per_day.abs() < 1e-9);
+    assert!((line.intercept - 10.0 / 3.0).abs() < 1e-9);
+    assert!((line.spread - (200.0_f64 / 3.0).sqrt()).abs() < 1e-9);
+}
+
+#[test]
+fn the_load_trend_is_absent_without_two_dots_on_two_days() {
+    assert!(load_trend(&[]).is_none());
+    assert!(load_trend(&[dot("2026-09-01", 10.0)]).is_none());
+    assert!(load_trend(&[dot("2026-09-01", 10.0), dot("2026-09-01", 30.0)]).is_none());
+}
+
+#[test]
+fn the_load_trend_counts_a_dot_with_no_recorded_load_as_zero() {
+    let line = load_trend(&[dot("2026-09-01", 0.0), dot("2026-09-03", 20.0)]).unwrap();
+    assert!((line.slope_per_day - 10.0).abs() < 1e-9);
+    assert!(line.intercept.abs() < 1e-9);
+}
+
+#[test]
+fn the_read_carries_the_trend_of_the_dots_it_carries() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    store_session(&engine, &ride("a", SEP_01_0700, 30, 1.0.into()));
+    store_session(&engine, &ride("b", SEP_04_0700, 30, 1.0.into()));
+
+    let read = fitness_screen_data(engine.cold_connection(), TODAY, &[30], &windows()).unwrap();
+
+    let line = read.load_trend.expect("two dots on two days");
+    assert_eq!(line.origin_day, "2026-09-01");
+    let none = fitness_screen_data(engine.cold_connection(), TODAY, &[], &windows()).unwrap();
+    assert!(none.load_trend.is_none());
+}
+
+/// Scenario: an athlete in a timezone west of UTC opens the eFTP chart. The
+/// estimates are stamped at midnight UTC of the day they belong to.
+///
+/// Expected behaviour: each point of the history names its own day, so the page
+/// plots it on that day and not the evening before.
+#[test]
+fn each_eftp_point_names_the_day_it_is_the_estimate_of() {
+    let engine = library();
+
+    let read = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows()).unwrap();
+
+    assert_eq!(
+        read.ftp_trend.history_days,
+        vec!["2026-06-01", "2026-07-20", TODAY]
+    );
+    assert_eq!(
+        read.ftp_trend.history_days.len(),
+        read.ftp_trend.history.len()
+    );
 }

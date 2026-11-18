@@ -141,7 +141,7 @@ describe('flake evidence', () => {
     expect(reports.map((r) => r.name).sort()).toEqual([
       'e2e-gate-${{ matrix.shard }}-report',
       'e2e-ios-map-report',
-      'e2e-map-report',
+      'e2e-map-${{ matrix.shard }}-report',
     ]);
   });
 
@@ -338,5 +338,41 @@ describe('the production build under test', () => {
     const script = scriptsOf(gate.jobs['ios-map-gate']).join('\n');
     expect(script).toMatch(/--process Veloq(\s|$)/);
     expect(script).not.toContain('VeloqDev');
+  });
+});
+
+/**
+ * Scenario: the Android map suite ran every map flow serially on one emulator.
+ * Their measured run times sum to 54 minutes for twelve flows, and the rest
+ * took the job past its 75 minute cap.
+ *
+ * Expected behaviour: the suite is dealt across emulators like the main gate,
+ * and every shard keeps its own report, artifacts and check name.
+ */
+describe('the Android map suite shards', () => {
+  const job = gate.jobs['map-gate'] as Job & {
+    strategy?: { 'fail-fast'?: boolean; matrix?: { shard?: number[] } };
+  };
+  const shards = job.strategy?.matrix?.shard ?? [];
+
+  it('runs one emulator per shard without cancelling the others', () => {
+    expect(shards.length).toBeGreaterThan(1);
+    expect(job.strategy?.['fail-fast']).toBe(false);
+  });
+
+  it('hands each emulator its own share of the flows', () => {
+    const runStep = (job.steps ?? []).find((step) => step.with?.script?.includes('run-suite.sh'));
+    expect(runStep?.env?.MAESTRO_SHARD).toBe(`\${{ matrix.shard }}/${shards.length}`);
+  });
+
+  it('keeps each shard report, artifact and check apart', () => {
+    for (const step of job.steps ?? []) {
+      if (step.uses?.startsWith('actions/upload-artifact')) {
+        expect(step.with?.name).toContain('matrix.shard');
+      }
+    }
+    expect(JSON.stringify(job.steps)).toContain(
+      'E2E Map Suite Results (shard ${{ matrix.shard }})'
+    );
   });
 });

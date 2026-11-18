@@ -6,6 +6,7 @@ import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { Optimistic } from './query';
+import { refusalText } from './link';
 import { useToast } from './ui';
 import { useWrite } from './useRead';
 
@@ -26,8 +27,6 @@ export type SavedWrite = {
   clearRefusal: () => void;
 };
 
-const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
-
 export function useSavedWrite(invalidates: string[]): SavedWrite {
   const { t } = useTranslation();
   const { run } = useWrite();
@@ -35,6 +34,7 @@ export function useSavedWrite(invalidates: string[]): SavedWrite {
   const [refusal, setRefusal] = useState<string | null>(null);
   const clearRefusal = useCallback(() => setRefusal(null), []);
   const key = invalidates.join('\n');
+  const textOf = useCallback((error: unknown) => refusalText(error, t), [t]);
 
   const save = useCallback<SavedWrite['save']>(
     async (change, options = {}) => {
@@ -55,17 +55,17 @@ export function useSavedWrite(invalidates: string[]): SavedWrite {
           undo
             ? {
                 label: t('connectPage.settings.toast.undo'),
-                run: () => void undo().catch((error: unknown) => setRefusal(messageOf(error))),
+                run: () => void undo().catch((error: unknown) => setRefusal(textOf(error))),
               }
             : undefined
         );
         return true;
       } catch (error) {
-        setRefusal(messageOf(error));
+        setRefusal(textOf(error));
         return false;
       }
     },
-    [run, toast, t, key]
+    [run, toast, t, key, textOf]
   );
   return { save, refusal, clearRefusal };
 }

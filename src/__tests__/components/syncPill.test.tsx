@@ -10,7 +10,7 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { act, render } from '@testing-library/react-native';
-import { SyncState, SyncStep } from 'veloqrs';
+import { FfiHoldCause, SyncState, SyncStep, TrackStep, type TrackStage } from 'veloqrs';
 
 import { SyncPill, SYNC_MESSAGE_HOLD_MS } from '@/shared/ui/SyncPill';
 import { SYNC_PILL_GRACE_MS } from '@/shared/ui/syncPillVisible';
@@ -40,6 +40,7 @@ let status: {
   step?: SyncStep;
   stepItemsDone?: number;
   stepItemsTotal?: number;
+  tracks?: TrackStage;
 } = { state: SyncState.Idle };
 const listeners: (() => void)[] = [];
 
@@ -294,4 +295,60 @@ vaultTest('a step that counts items draws at once', async () => {
   const { getByTestId } = await render(<SyncPill />);
 
   expect(getByTestId('sync-progress-pill-detail').props.children).toBe('5/8 · 0/30');
+});
+
+function downloading(completed: number, total: number): TrackStage {
+  return { step: TrackStep.Downloading, completed, total, percent: 0 };
+}
+
+test('a track download the metadata sync has left draws its count past the grace period', async () => {
+  status = { state: SyncState.Idle, tracks: downloading(120, 148) };
+  const { getByTestId } = await renderPastGrace();
+
+  expect(getByTestId('sync-progress-pill-title').props.children).toBe(
+    'routesScreen.downloadingGps'
+  );
+  expect(getByTestId('sync-progress-pill-detail').props.children).toBe('120/148');
+});
+
+test('a track download that ends inside the grace period never draws', async () => {
+  status = { state: SyncState.Idle, tracks: downloading(1, 1) };
+  const { queryByTestId } = await render(<SyncPill />);
+
+  await wait(1000);
+  await announce({ state: SyncState.Idle });
+  await wait(SYNC_PILL_GRACE_MS);
+
+  expect(queryByTestId('sync-progress-pill')).toBeNull();
+});
+
+test('a held track download draws nothing, as the banner draws none', async () => {
+  status = {
+    state: SyncState.Idle,
+    tracks: {
+      step: TrackStep.Held,
+      completed: 0,
+      total: 0,
+      percent: 0,
+      resumesAtMs: Date.now() + 3_600_000,
+      heldCause: FfiHoldCause.Upstream,
+    },
+  };
+  const { queryByTestId } = await renderPastGrace();
+
+  expect(queryByTestId('sync-progress-pill')).toBeNull();
+});
+
+test('a metadata step running takes the pill over the track download', async () => {
+  status = {
+    state: SyncState.Syncing,
+    completed: 2,
+    total: 8,
+    step: SyncStep.Wellness,
+    tracks: downloading(120, 148),
+  };
+  const { getByTestId } = await renderPastGrace();
+
+  expect(getByTestId('sync-progress-pill-title').props.children).toBe('settings.syncStep.wellness');
+  expect(getByTestId('sync-progress-pill-detail').props.children).toBe('2/8');
 });

@@ -619,7 +619,7 @@
     "tracksMissing": {
       "title_one": "{{count}} Route wurde nicht geladen",
       "title_other": "{{count}} Routen wurden nicht geladen",
-      "detail": "Sie fehlen auf der Karte und sind keinem Abschnitt zugeordnet. Die nächste Aktualisierung versucht es erneut."
+      "detail": "Der Download wurde mehrmals versucht und ist nicht durchgekommen. „Erneut versuchen“ fragt noch einmal an."
     },
     "startupError": {
       "title": "Einige Teile der App wurden nicht geladen",
@@ -796,7 +796,9 @@
     "bulkExporting": "{{format}} erstellen…",
     "bulkSharing": "Teilen öffnen…",
     "error": "GPX-Datei konnte nicht exportiert werden.",
+    "fitError": "FIT-Datei konnte nicht exportiert werden.",
     "exporting": "Exportieren…",
+    "fit": "FIT exportieren",
     "gpx": "GPX exportieren",
     "gpxTrimmedAway": "Nichts zu exportieren. Das Kürzen um das Zuhause ließ zu wenig vom Track übrig.",
     "failedTitle": "Export fehlgeschlagen",
@@ -807,6 +809,16 @@
     "shareUnavailable": "Dieses Gerät kann keine Dateien teilen."
   },
   "feed": {
+    "remote": {
+      "offer": "intervals.icu durchsuchen",
+      "searching": "intervals.icu wird durchsucht",
+      "heading": "Auf intervals.icu, nicht auf diesem Gerät",
+      "notOnDevice": "Nicht auf diesem Gerät",
+      "none": "Nichts weiter auf intervals.icu",
+      "failed": "intervals.icu konnte nicht durchsucht werden",
+      "capped": "intervals.icu hat bei einer Namenssuche sein Limit erreicht, daher kann es weitere Treffer geben. Mit einem engeren Namen lassen sie sich finden.",
+      "rowLabel": "{{name}}, {{facts}}, nicht auf diesem Gerät"
+    },
     "activitiesCount_one": "{{count}} Aktivität",
     "activitiesCount_other": "{{count}} Aktivitäten",
     "failedToLoad": "Aktivitäten konnten nicht geladen werden",
@@ -816,6 +828,20 @@
       "last90Days": "Letzte 90 Tage",
       "thisYear": "Dieses Jahr",
       "lastYear": "Letztes Jahr"
+    },
+    "filter": {
+      "show": "Filter anzeigen",
+      "hide": "Filter ausblenden",
+      "clear": "{{filter}} entfernen",
+      "date": "Datum",
+      "dateFrom": "Startdatum",
+      "dateTo": "Enddatum",
+      "distance": "Distanz",
+      "distanceFrom": "Mindestdistanz",
+      "distanceTo": "Höchstdistanz",
+      "duration": "Dauer",
+      "durationFrom": "Mindestdauer",
+      "durationTo": "Höchstdauer"
     },
     "emptyLibrary": {
       "pausedTitle": "Synchronisierung pausiert",
@@ -1293,6 +1319,8 @@
     "oauthInterrupted": "Die Anmeldung wurde unterbrochen. Bitte versuche es erneut.",
     "oauthNeedsNetwork": "Die Anmeldung mit intervals.icu braucht eine Netzwerkverbindung. Verbinde dich und versuche es erneut, oder nutze einen API-Schlüssel, der dich später anmelden kann.",
     "oauthProxyRefused": "Der Anmeldedienst hat die Anfrage nicht angenommen. Bitte versuche es gleich noch einmal.",
+    "intervalsBusy": "intervals.icu ist gerade ausgelastet. Versuche es nach {{time}} noch einmal.",
+    "intervalsBusyShortly": "intervals.icu ist gerade ausgelastet. Versuche es gleich noch einmal.",
     "oauthUnreachable": "Der Anmeldedienst war nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.",
     "oauthInvalidCallback": "Ungültige OAuth-Callback-URL",
     "oauthNotConfigured": "OAuth ist nicht konfiguriert. Verwende stattdessen den API-Schlüssel.",
@@ -1347,7 +1375,6 @@
     "emptyNoGpsHint": "Indoor-, Rollentrainer- und Schwimmbadeinheiten haben keine Route zum Zeichnen.",
     "loadingHeatmap": "Heatmap wird geladen …",
     "panelFold": "Panel einklappen",
-    "panelOpen": "Aktivitätspanel öffnen",
     "panelBack": "Zurück zur Liste",
     "timelineFrom": "Von",
     "timelineTo": "Bis"
@@ -1418,7 +1445,11 @@
     },
     "underPointRoute": "Route {{number}}",
     "underPointNoRoute": "Keiner Route zugeordnet",
-    "underPointDrawn": "{{drawn}} von {{total}} eingezeichnet"
+    "underPointDrawn": "{{drawn}} von {{total}} eingezeichnet",
+    "underPointCount": "{{count}} unter dem Tipp",
+    "underPointFilterAll": "Alle",
+    "underPointOpenRoute": "Route {{name}} öffnen",
+    "underPointOpenSection": "Abschnitt {{name}} öffnen"
   },
   "metrics": {
     "activityCount": "Aktivitäten",
@@ -1957,6 +1988,7 @@
     "setAsReferenceConfirm": "Diese Aktivität als Referenz verwenden? Die Linie folgt dieser Aktivität, und die Ansicht Vorsprung oder Rückstand misst die Zeit im Vergleich zu ihr. Übereinstimmungen mit deinen Aktivitäten werden neu berechnet, dabei können einige hinzukommen oder entfallen.",
     "setReferenceError": "Referenz konnte nicht gesetzt werden. Der Abschnitt oder die Aktivität hat sich möglicherweise geändert. Bitte versuche es erneut.",
     "editBounds": "Grenzen bearbeiten",
+    "sendToWatch": "An Uhr senden",
     "showOnMap": "Auf Karte zeigen",
     "pointsCount_one": "{{count}} Punkt",
     "pointsCount_other": "{{count}} Punkte",
@@ -2226,6 +2258,8 @@
     "storageOther": "Andere",
     "mapCache": "Kartencache",
     "sizeAtLeast": "Mindestens {{size}}",
+    "watchLink": "Anleitung für die Uhr",
+    "watchLinkDescription": "Lässt dieses Telefon Abschnitte an deine Uhr senden. Die Uhr zeigt die Hinweise als Benachrichtigungen an.",
     "permissions": "Berechtigungen",
     "heatmapGeneration": "Heatmap",
     "heatmapDescription": "Hält die Heatmap auf diesem Gerät und belegt dafür Speicherplatz. Schalte sie aus, um diesen Platz freizugeben.",
@@ -2837,6 +2871,8 @@
       "startEmpty": "Leere Einheit starten",
       "previousSessions": "Frühere Einheiten",
       "savedWorkouts": "Gespeicherte Trainings",
+      "removedWorkouts": "Entfernte Trainings",
+      "restoreWorkout": "Wiederherstellen",
       "noHistory": "Einheiten, die du aufzeichnest oder synchronisierst, werden hier als Startpunkt angeboten.",
       "workoutSummary": "{{exercises}} Übungen, {{sets}} Sätze",
       "startFrom": "Starten ab {{name}}",
@@ -3127,6 +3163,7 @@
     "retryNow": "Jetzt erneut versuchen",
     "heldByUpstream": "intervals.icu verlangt eine Pause bis {{time}}",
     "heldByBudget": "Anfragelimit erreicht, Wartezeit bis {{time}}",
+    "heldForPool": "Nachholen pausiert, damit die Synchronisation aller weiterläuft, weiter um {{time}}",
     "pacedOnCaps_one": "Mindestens {{count}} Tag bis zum Abschluss, wegen des Tageslimits von intervals.icu",
     "pacedOnCaps_other": "Mindestens {{count}} Tage bis zum Abschluss, wegen des Tageslimits von intervals.icu",
     "headerRunning_one": "{{count}} Hintergrundaufgabe läuft",
@@ -3448,16 +3485,44 @@
     "notConnected": "Nicht verbunden",
     "noChanges": "Noch keine Änderungen",
     "wrote": "{{browser}}: {{summary}}",
-    "manage": "Verknüpfte Geräte verwalten"
+    "manage": "Verknüpfte Geräte verwalten",
+    "howTitle": "So funktioniert Connect",
+    "howLinked": "Das Scannen des Codes verbindet einen Browser einmalig. Er behält seinen eigenen Schlüssel und verbindet sich selbst wieder, solange Veloq geöffnet ist.",
+    "howPrivate": "Deine Daten gehen direkt von diesem Telefon zum Browser, Ende zu Ende. Kein Server speichert sie.",
+    "howRelay": "Ein Relay vermittelt nur den Verbindungsaufbau. Deine Daten laufen nie darüber.",
+    "refusedToday_one": "Heute wurde {{count}} Verbindungsanfrage eines nicht verknüpften Browsers abgelehnt.",
+    "refusedToday_other": "Heute wurden {{count}} Verbindungsanfragen nicht verknüpfter Browser abgelehnt.",
+    "howAccess": "Eine Verknüpfung bleibt, bis du sie entfernst. Ein verknüpfter Browser kann deine Bibliothek lesen und die auf seiner Seite aufgeführten Änderungen vornehmen.",
+    "linkedOn": "Verknüpft am {{date}}",
+    "connectedNow": "Jetzt verbunden",
+    "scope": "Kann deine Bibliothek lesen und die unten aufgeführten Änderungen vornehmen.",
+    "connectionsTitle": "Verbindungen",
+    "noConnections": "Noch keine Verbindungen",
+    "thisNetwork": "Dieses Netzwerk",
+    "internet": "Internet",
+    "changesTitle": "Änderungen",
+    "kindTool": "Computerprogramm",
+    "clientOn": "{{browser}} auf {{os}}",
+    "endReason": {
+      "closed": "Geschlossen",
+      "backgrounded": "Veloq wechselte in den Hintergrund",
+      "switched_off": "Ausgeschaltet",
+      "removed": "Entfernt",
+      "disconnected": "Vom Telefon getrennt",
+      "refused": "Abgelehnt"
+    },
+    "rename": "Umbenennen",
+    "renameLabel": "Name"
   },
   "connectPage": {
     "undo": {
       "hidden": "Von der Wärmekarte ausgeblendet",
       "shown": "Auf der Wärmekarte angezeigt",
+      "sectionsHidden": "Abschnitte ausgeblendet",
+      "sectionsShown": "Abschnitte angezeigt",
       "excluded": "Aktivität ausgeschlossen",
       "included": "Aktivität wieder einbezogen",
-      "renamed": "Name geändert",
-      "workoutDeleted": "Training gelöscht"
+      "renamed": "Name geändert"
     },
     "title": "Veloq Connect",
     "language": "Sprache",
@@ -3478,7 +3543,8 @@
       "declined": "Die Verknüpfung wurde auf dem Telefon abgelehnt.",
       "removed": "Dieser Browser wurde auf dem Telefon entfernt. Scanne einen neuen Code, um ihn erneut zu verknüpfen.",
       "unreachable": "Dein Telefon ist von hier aus nicht erreichbar. Verbinde beide mit demselben WLAN und scanne den neuen Code.",
-      "phoneLocked": "Entsperre dein Telefon und öffne Veloq, um Änderungen vorzunehmen"
+      "phoneLocked": "Entsperre dein Telefon und öffne Veloq, um Änderungen vorzunehmen",
+      "badId": "Das Telefon hat diese Anfrage nicht angenommen. Versuche es erneut."
     },
     "screens": {
       "fitness": "Fitness",
@@ -3495,7 +3561,8 @@
       "expand": "Seitenleiste ausklappen",
       "breadcrumb": "Aktueller Pfad",
       "search": "Suchen",
-      "account": "Konto"
+      "account": "Konto",
+      "skipToContent": "Zum Inhalt springen"
     },
     "yourPhone": "Dein Telefon",
     "laterScreen": "Dieser Bildschirm ist im Browser noch nicht verfügbar. Öffne ihn auf deinem Telefon.",
@@ -3521,23 +3588,20 @@
     },
     "update": {
       "heading": "Aktualisiere Veloq auf deinem Telefon",
-      "body": "Diese Seite und Veloq auf deinem Telefon sprechen nicht dieselbe Version der Verknüpfung. Aktualisiere Veloq auf deinem Telefon und öffne diese Seite dann erneut.",
-      "screen": "Aktualisiere Veloq auf deinem Telefon, um das zu sehen"
+      "body": "Diese Seite und Veloq auf deinem Telefon sprechen nicht dieselbe Version der Verknüpfung. Aktualisiere Veloq auf deinem Telefon und öffne diese Seite dann erneut."
     },
     "keys": {
-      "heading": "Tasten",
-      "tabs": "Feed, Fitness, Analysen, Karte, Einstellungen",
-      "search": "Im Feed suchen",
+      "heading": "Tastenkürzel",
+      "search": "Suche öffnen",
       "close": "Aktivität schliessen",
       "list": "Diese Liste",
-      "range": "1 bis 5",
       "control": "Strg",
       "shell": "Überall",
       "page": "Auf dieser Seite",
       "palette": "Befehlspalette öffnen",
-      "chord": "Zu einer Seite wechseln: Feed, Karte, Routen, Abschnitte, Fitness, Insights, Kraft, Trainings, Aufzeichnungen, Einstellungen",
       "step": "Vorherige und nächste Aktivität",
-      "open": "Ausgewählte Aktivität öffnen"
+      "open": "Ausgewählte Aktivität öffnen",
+      "pages": "Zu einer Seite wechseln"
     },
     "library": {
       "activities": "Aktivitäten",
@@ -3546,6 +3610,12 @@
       "pick": "Wähle eine Aktivität",
       "loadMore": "Mehr laden",
       "sportLabel": "Sportart",
+      "distance": "Distanz ({{unit}})",
+      "distanceMin": "Kürzeste Distanz ({{unit}})",
+      "distanceMax": "Längste Distanz ({{unit}})",
+      "duration": "Dauer",
+      "durationMin": "Kürzeste Dauer (Minuten)",
+      "durationMax": "Längste Dauer (Minuten)",
       "summary": "Zusammenfassung",
       "fitnessTrend": "Fitness der letzten 30 Tage",
       "range": "Zeitraum",
@@ -3617,11 +3687,14 @@
       "sections": "Abschnitte",
       "routes": "Routen",
       "intervals": "Intervalle",
-      "hideFromHeatmap": "Von der Heatmap ausblenden",
       "showOnHeatmap": "Auf der Heatmap zeigen",
       "actions": "Aktivitätsaktionen",
       "exportGpx": "GPX exportieren",
       "openOnIntervals": "Auf intervals.icu öffnen",
+      "more": "Mehr",
+      "manage": "Verwalten",
+      "manageHeatmap": "Heatmap",
+      "manageHint": "Schalte eine Route oder einen Abschnitt aus, um diese Aktivität davon auszunehmen. Rückgängig stellt sie wieder her.",
       "noTrack": "Diese Aktivität hat keine GPS-Spur.",
       "colourBy": "Spur einfärben nach",
       "colourNone": "Einfarbig",
@@ -3661,7 +3734,16 @@
         "energy": "Energie",
         "conditions": "Bedingungen",
         "newGround": "Neue Strecke"
-      }
+      },
+      "createSection": "Abschnitt erstellen",
+      "createHint": "Ziehe einen Bereich in den Diagrammen auf, ziehe die beiden Enden auf der Karte entlang der Strecke oder gib die Distanzen ein. Esc bricht ab.",
+      "createStart": "Start ({{unit}})",
+      "createEnd": "Ende ({{unit}})",
+      "createStartHandle": "Anfang des neuen Abschnitts",
+      "createEndHandle": "Ende des neuen Abschnitts",
+      "createSave": "Erstellen",
+      "created": "Abschnitt erstellt",
+      "createdNamed": "Abschnitt {{name}} erstellt"
     },
     "chart": {
       "elevation": "Höhe",
@@ -3675,7 +3757,8 @@
       "gap": "Steigungsbereinigtes Tempo",
       "time": "Zeit",
       "axis": "Horizontalachse",
-      "reset": "Zoom zurücksetzen"
+      "reset": "Zoom zurücksetzen",
+      "pace": "Pace"
     },
     "fitness": {
       "range": "Zeitraum",
@@ -3893,7 +3976,8 @@
         "notifications": "Benachrichtigungen",
         "recording": "Aufzeichnung",
         "experimental": "Experimentelle Funktionen",
-        "summaryCard": "Zusammenfassungskarte"
+        "summaryCard": "Zusammenfassungskarte",
+        "singleKeys": "Einzeltasten-Kürzel"
       },
       "options": {
         "system": "System",
@@ -3922,8 +4006,7 @@
       },
       "toast": {
         "saved": "Gespeichert",
-        "undo": "Rückgängig",
-        "dismiss": "Schließen"
+        "undo": "Rückgängig"
       },
       "displayNote": "Design, Einheiten und Hauptsportart werden auf dem Telefon gespeichert. Sprache und Glättung des Wellness-Verlaufs änderst du auf dem Telefon.",
       "thresholds": {
@@ -3954,8 +4037,8 @@
           "zone": "Zone",
           "upper": "Obere Grenze",
           "bpm": "{{value}} bpm",
-          "percentOfMaxHr": "{{value}} % der maximalen Herzfrequenz",
-          "percentOfFtp": "{{value}} % der FTP",
+          "percentOfMaxHr": "{{percent}} der maximalen Herzfrequenz",
+          "percentOfFtp": "{{percent}} der FTP",
           "openTop": "Keine obere Grenze",
           "name": "Zone {{n}}",
           "note": "Eine Sportart, in deren intervals.icu-Sporteinstellungen keine Zonen stehen, zeigt die Standardgrenzen."
@@ -3969,6 +4052,15 @@
       "deltaToBest": "Differenz zur Bestzeit",
       "passTable": "Bis zu {{max}} zum Vergleichen auswählen",
       "fact": "Messwert"
+    },
+    "filter": {
+      "activities": "Aktivitäten filtern",
+      "routes": "Routen filtern",
+      "sections": "Abschnitte filtern",
+      "exercises": "Übungen filtern",
+      "recordings": "Aufnahmen filtern",
+      "count": "{{shown}} von {{total}}",
+      "clear": "Filter löschen"
     },
     "table": {
       "count_one": "{{count}} Zeile",
@@ -3999,9 +4091,6 @@
       "unnamedRoute": "Unbenannte Route",
       "sections": "Abschnitte",
       "routes": "Routen",
-      "searchHint": "Suchen (/)",
-      "searchSections": "Abschnitte suchen",
-      "searchRoutes": "Routen suchen",
       "sort": "Sortieren",
       "show": "Anzeigen",
       "listFailed": "Das Telefon hat diese Liste nicht beantwortet.",
@@ -4074,7 +4163,8 @@
       "viewSpread": "Verteilung",
       "viewTime": "Über die Zeit",
       "views": "Leistungsansichten",
-      "axisBin": "Benötigte Zeit, ab dem Start jedes Bereichs"
+      "axisBin": "Benötigte Zeit, ab dem Start jedes Bereichs",
+      "attemptsMenu": "Aktionen für Versuche"
     },
     "columns": {
       "date": "Datum",
@@ -4150,6 +4240,18 @@
       "alreadyStored": "Bereits in der Bibliothek",
       "failedCount": "Fehlgeschlagen"
     },
+    "export": {
+      "title": "Bibliothek exportieren",
+      "note": "Speichere alle Aktivitäten der Bibliothek als eine ZIP-Datei. Lass das Telefon geöffnet und im Vordergrund, solange die Datei geschrieben und gesendet wird.",
+      "since": "Aktivitäten seit",
+      "originals": "Originaldateien einschließen",
+      "start": "Alles exportieren",
+      "building": "Das Telefon schreibt das Archiv: {{done}} von {{rides}} Aktivitäten",
+      "reading": "{{done}} von {{size}} MB gespeichert",
+      "waiting": "Verbindung wiederhergestellt, weiter bei {{done}} von {{size}} MB",
+      "finished": "Export gespeichert",
+      "failed": "Export fehlgeschlagen"
+    },
     "read": {
       "loading": "Wird vom Telefon gelesen",
       "timeout": "Das Telefon hat nicht geantwortet",
@@ -4157,19 +4259,26 @@
       "retry": "Erneut versuchen"
     },
     "palette": {
-      "open": "Gehe zu",
-      "title": "Gehe zu",
-      "label": "Seiten, Aktivitäten, Routen und Abschnitte durchsuchen",
+      "title": "Suche",
+      "label": "Seiten, Einstellungen, Aktivitäten, Routen, Abschnitte, Übungen, Trainings und Aufnahmen durchsuchen",
       "placeholder": "Namen eingeben",
       "none": "Nichts gefunden",
-      "page": "Seite",
-      "action": "Aktion",
-      "activity": "Aktivität",
-      "route": "Route",
-      "section": "Abschnitt",
       "toggleSidebar": "Seitenleiste ein- oder ausklappen",
       "toggleTheme": "Design umschalten",
-      "showKeys": "Tastenkürzel anzeigen"
+      "showKeys": "Tastenkürzel anzeigen",
+      "showAll": "Alle {{total}} anzeigen",
+      "groups": {
+        "recent": "Zuletzt",
+        "page": "Seiten",
+        "action": "Aktionen",
+        "setting": "Einstellungen",
+        "activity": "Aktivitäten",
+        "route": "Routen",
+        "section": "Abschnitte",
+        "exercise": "Übungen",
+        "workout": "Trainings",
+        "recording": "Aufnahmen"
+      }
     },
     "sections": {
       "acceptAll": "Alle akzeptieren",
@@ -4187,12 +4296,10 @@
       "best": "Bestwert",
       "cancel": "Abbrechen",
       "changed": "Geändert",
-      "clearSearch": "Suche löschen",
       "close": "Schließen",
       "curvesPending": "Das Telefon berechnet diese Kurven noch.",
       "deltaChart": "Sekunden vor oder hinter der Referenz entlang des Abschnitts, eine Linie für jede aktuelle Runde",
       "direction": "Richtung",
-      "dismiss": "Schließen",
       "excludeActivities": "Aktivitäten ausschließen",
       "excludeLaps": "Runden ausschließen",
       "faster": "Schneller",
@@ -4246,7 +4353,7 @@
       "reverse": "Gegenrichtung",
       "selected": "Ausgewählter Abschnitt",
       "slower": "Langsamer",
-      "sport": "Sport",
+      "sport": "Sportart",
       "spread": "Verteilung",
       "spreadChart": "Wie viele Runden in jedes Zeitfenster des Abschnitts fielen",
       "stats": "Runden, Bestwert, Durchschnitt und letzte Zeit für jede Richtung",
@@ -4265,18 +4372,46 @@
       "unflagLift": "Lift-Kennzeichnung entfernen?",
       "unflagLiftBody": "Die Erkennung hat dies als Lift-Gelände markiert. Das Entfernen der Kennzeichnung lässt sich nicht rückgängig machen.",
       "view": "Anzeigen",
-      "views": "Ansichten dieses Abschnitts"
+      "views": "Ansichten dieses Abschnitts",
+      "hideFromMap": "Auf der Karte ausblenden",
+      "showOnMap": "Auf der Karte anzeigen",
+      "boundsBeyond": "Über die Enden hinaus",
+      "boundsEnd": "Ende des Abschnitts",
+      "boundsHint": "Ziehe die beiden Enden entlang der Linie oder fokussiere ein Ende und nutze die Pfeiltasten. Esc bricht ab.",
+      "boundsLine": "Abschnittslinie",
+      "boundsNoTrack": "Die Fahrt, aus der dieser Abschnitt geschnitten wurde, ist nicht gespeichert, daher lassen sich die Enden nur entlang der Linie verschieben.",
+      "boundsReset": "Grenzen zurücksetzen",
+      "boundsResetDone": "Grenzen von {{name}} zurückgesetzt",
+      "boundsSave": "Speichern",
+      "boundsSaved": "Grenzen von {{name}} gespeichert: {{length}}",
+      "boundsShow": "Enden verlaufen entlang",
+      "boundsStart": "Anfang des Abschnitts",
+      "boundsTooShort": "Ein Abschnitt behält mindestens fünf Punkte.",
+      "editBounds": "Grenzen bearbeiten",
+      "lapMenu": "Aktionen für Runden",
+      "referenceReset": "Referenz an die Erkennung zurückgegeben",
+      "referenceSet": "Referenz auf {{name}} gesetzt",
+      "resetReference": "Referenz an die Erkennung zurückgeben",
+      "useAsReference": "Diese Fahrt als Referenz verwenden",
+      "mergeDone": "{{name}} in diesen Abschnitt zusammengeführt",
+      "mergeKept": "Behalten: {{name}}, {{length}}, {{count}} Durchfahrten",
+      "boundsDiscard": "Änderungen verwerfen",
+      "boundsDiscardBody": "Die verschobenen Enden wurden nicht gespeichert.",
+      "boundsDiscardTitle": "Die neuen Enden verwerfen?",
+      "boundsKeepEditing": "Weiter bearbeiten",
+      "boundsLaps": "Beim Speichern neu gemessene Runden: {{count}}.",
+      "mergeLaps": "Auf der behaltenen Linie gemessene Runden: {{count}}."
     },
     "workouts": {
       "open": "Ein Training erstellen",
       "heading": "Trainings",
-      "start": "Starten ab",
       "blank": "Leeres Training",
       "saved": "Gespeicherte Trainings",
       "noneSaved": "Keine gespeicherten Trainings",
       "failed": "Das Telefon hat nicht geantwortet",
-      "counts": "{{exercises}} Übungen, {{sets}} Sätze",
       "delete": "Löschen",
+      "deleted": "Trainings gelöscht: {{count}}",
+      "undo": "Rückgängig",
       "recent": "Letzte Einheiten",
       "times": "{{times}}× erledigt",
       "building": "Wird erstellt",
@@ -4295,8 +4430,6 @@
       "removeExercise": "Übung entfernen",
       "save": "Training speichern",
       "picker": "Übungen",
-      "search": "Übungen suchen",
-      "clearSearch": "Suche löschen",
       "equipment": "Ausrüstung",
       "daysAgo": "vor {{days}} T",
       "confirmDelete": "{{name}} löschen?",

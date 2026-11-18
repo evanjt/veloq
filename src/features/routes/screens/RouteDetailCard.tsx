@@ -108,8 +108,9 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
   const cacheDays = useCacheDays(detail?.activityCount);
   const debugEnabled = useDebugStore((s) => s.enabled);
   const { getPageMetrics } = useFFITimer();
-  const { exportGpx, exporting: gpxExporting } = useGpxExport();
+  const { exportRouteGpx, exportRouteFit, exporting: gpxExporting } = useGpxExport();
   const exportAnchor = useRef<ViewInstance>(null);
+  const fitExportAnchor = useRef<ViewInstance>(null);
 
   const engineGroup = detail?.group;
 
@@ -389,15 +390,22 @@ export function RouteDetailCard({ id, activityId: navActivityId }: RouteDetailCa
               loading={gpxExporting}
               icon={{ chrome: 'share' }}
               onPress={() =>
-                exportGpx({
-                  name: displayName,
-                  points: representativePoints.map((p) => ({
-                    latitude: p.lat,
-                    longitude: p.lng,
-                  })),
-                  sport: effectiveSportType,
-                  anchor: exportAnchor,
-                })
+                exportRouteGpx(id, { sport: effectiveSportType, anchor: exportAnchor })
+              }
+              disabled={gpxExporting}
+              style={styles.exportGpxButton}
+            />
+          ) : null}
+          {representativePoints && representativePoints.length > 0 ? (
+            <Button
+              ref={fitExportAnchor}
+              testID="route-export-fit"
+              variant="secondary"
+              label={t('export.fit')}
+              loading={gpxExporting}
+              icon={{ chrome: 'share' }}
+              onPress={() =>
+                exportRouteFit(id, { sport: effectiveSportType, anchor: fitExportAnchor })
               }
               disabled={gpxExporting}
               style={styles.exportGpxButton}

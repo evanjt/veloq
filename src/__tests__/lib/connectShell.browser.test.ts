@@ -147,7 +147,7 @@ describeWithChromium('the connect page shell in a headless Chromium', () => {
       await connect.until(`document.querySelectorAll('#feed-scroll tbody tr').length > 20`);
       expect(await connect.evaluate(SCROLLERS)).toEqual(['content']);
 
-      await connect.evaluate(`location.hash = '#/fitness'`);
+      await connect.evaluate(`location.hash = '#/fitness?tab=calendar'`);
       await connect.until(`document.querySelector('#months tbody tr') !== null`);
       expect(await connect.evaluate(SCROLLERS)).toEqual(['content']);
     },
@@ -254,6 +254,26 @@ describeWithChromium('the connect page shell in a headless Chromium', () => {
     },
     TIMEOUT_MS
   );
+
+  it(
+    'puts a skip link first, which moves focus to the content pane and leaves the route alone',
+    async () => {
+      await connect.evaluate(`location.hash = '#/activities'`);
+      await connect.until(`${text('#topbar h1')} === 'Activities'`);
+      const first = await connect.evaluate<string | null>(
+        `document.querySelector('body :is(a[href], button, input, select, textarea)')?.className ?? null`
+      );
+      expect(first).toBe('skip-link');
+      expect(
+        await connect.evaluate(`document.querySelector('.skip-link').getAttribute('href')`)
+      ).toBe('#content');
+
+      await connect.evaluate(`document.querySelector('.skip-link').click()`);
+      expect(await connect.evaluate(`document.activeElement.id`)).toBe('content');
+      expect(await connect.evaluate(`location.hash`)).toBe('#/activities');
+    },
+    TIMEOUT_MS
+  );
 });
 
 describeWithChromium('data table cells on a desktop window of 1280 by 800', () => {
@@ -304,6 +324,195 @@ describeWithChromium('data table cells on a desktop window of 1280 by 800', () =
           `document.querySelector('#map-list tbody tr').getBoundingClientRect().height`
         )
       ).toBe(32);
+    },
+    TIMEOUT_MS
+  );
+
+  it(
+    'draws each sort button at least 24 px tall, so the header target is not a 14 px sliver',
+    async () => {
+      await connect.evaluate(`location.hash = '#/activities'`);
+      await connect.until(`document.querySelectorAll('#feed thead th button').length > 0`);
+      const heights = await connect.evaluate<number[]>(
+        `[...document.querySelectorAll('#feed thead th button')].map((b) => b.getBoundingClientRect().height)`
+      );
+      expect(heights.length).toBeGreaterThan(0);
+      for (const height of heights) expect(height).toBeGreaterThanOrEqual(24);
+    },
+    TIMEOUT_MS
+  );
+
+  it(
+    'scrolls a row to the top of the pane below the sticky header, so the row is not hidden under it',
+    async () => {
+      await connect.evaluate(`location.hash = '#/activities'`);
+      await connect.until(`document.querySelectorAll('#feed tbody tr').length > 20`);
+      const gap = await connect.evaluate<number>(`(() => {
+        const row = document.querySelectorAll('#feed tbody tr')[20];
+        row.scrollIntoView({ block: 'start' });
+        const head = document.querySelector('#feed thead th');
+        return row.getBoundingClientRect().top - head.getBoundingClientRect().bottom;
+      })()`);
+      expect(gap).toBeGreaterThanOrEqual(-0.5);
+    },
+    TIMEOUT_MS
+  );
+});
+
+describeWithChromium('the connect page in a narrow window of 960 by 600', () => {
+  let page: { dir: string; remove: () => void };
+  let browser: ConnectBrowser;
+  let connect: ConnectPage;
+
+  beforeAll(() => {
+    page = buildPage();
+  }, TIMEOUT_MS);
+
+  afterAll(() => page.remove());
+
+  beforeEach(async () => {
+    browser = await launchConnectBrowser(chromium as string, page.dir);
+    connect = await browser.open(
+      demoScript({
+        browserFingerprint: BROWSER,
+        phoneFingerprint: PHONE,
+        phoneProof: await proof(SECRET, 'phone', BROWSER, PHONE),
+      }),
+      undefined,
+      { width: 960, height: 600 }
+    );
+    await connect.until(CONNECTED, TIMEOUT_MS);
+  }, TIMEOUT_MS);
+
+  afterEach(async () => {
+    expect(connect.errors()).toEqual([]);
+    await browser.close();
+  });
+
+  it(
+    'keeps the activity name column at least 160 px wide, which the list collapsed to nothing',
+    async () => {
+      await connect.evaluate(`location.hash = '#/activities'`);
+      await connect.until(`document.querySelectorAll('#feed tbody tr').length > 0`);
+      expect(
+        await connect.evaluate<number>(
+          `document.querySelector('#feed tbody td[data-clip]').getBoundingClientRect().width`
+        )
+      ).toBeGreaterThanOrEqual(160);
+    },
+    TIMEOUT_MS
+  );
+
+  it(
+    'stacks the sections list over its map, so the map takes the full width of the pane',
+    async () => {
+      await connect.evaluate(`location.hash = '#/sections'`);
+      await connect.until(`document.getElementById('sections-map') !== null`);
+      const widths = await connect.evaluate<{ map: number; page: number }>(`({
+        map: document.getElementById('sections-map').getBoundingClientRect().width,
+        page: document.getElementById('sections-page').getBoundingClientRect().width,
+      })`);
+      expect(widths.map).toBeGreaterThanOrEqual(widths.page - 1);
+    },
+    TIMEOUT_MS
+  );
+});
+
+describeWithChromium('the map and routes pages in a content pane under 1100 px', () => {
+  let page: { dir: string; remove: () => void };
+  let browser: ConnectBrowser;
+  let connect: ConnectPage;
+
+  beforeAll(() => {
+    page = buildPage();
+  }, TIMEOUT_MS);
+
+  afterAll(() => page.remove());
+
+  const open = async (viewport: { width: number; height: number }) => {
+    browser = await launchConnectBrowser(chromium as string, page.dir);
+    connect = await browser.open(
+      demoScript({
+        browserFingerprint: BROWSER,
+        phoneFingerprint: PHONE,
+        phoneProof: await proof(SECRET, 'phone', BROWSER, PHONE),
+      }),
+      undefined,
+      viewport
+    );
+    await connect.until(CONNECTED, TIMEOUT_MS);
+  };
+
+  afterEach(async () => {
+    expect(connect.errors()).toEqual([]);
+    await browser.close();
+  });
+
+  type Box = { left: number; right: number; top: number; bottom: number; width: number };
+  const boxes = (selectors: string[]) =>
+    connect.evaluate<Record<string, Box | null>>(`(() => {
+      const out = {};
+      for (const selector of ${JSON.stringify(selectors)}) {
+        const el = document.querySelector(selector);
+        if (!el) { out[selector] = null; continue; }
+        const r = el.getBoundingClientRect();
+        out[selector] = { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width };
+      }
+      return out;
+    })()`);
+
+  it(
+    'puts the map list above a map as wide as the pane at 960 px, and floats it over the map at 1440 px',
+    async () => {
+      await open({ width: 960, height: 600 });
+      await connect.evaluate(`location.hash = '#/map'`);
+      await connect.until(`document.querySelector('#map-list thead th') !== null`);
+      const stacked = await boxes(['#content', '#map-list', '#map-stage']);
+      const pane = stacked['#content'] as Box;
+      const list = stacked['#map-list'] as Box;
+      const stage = stacked['#map-stage'] as Box;
+      expect(stage.width).toBe(pane.width);
+      expect(list.width).toBe(pane.width);
+      expect(stage.top).toBeGreaterThanOrEqual(list.bottom);
+      expect(stage.bottom - stage.top).toBeGreaterThan(200);
+    },
+    TIMEOUT_MS
+  );
+
+  it(
+    'keeps the map list floating over the map at 1440 px',
+    async () => {
+      await open(VIEWPORT);
+      await connect.evaluate(`location.hash = '#/map'`);
+      await connect.until(`document.querySelector('#map-list thead th') !== null`);
+      const wide = await boxes(['#map-list', '#map-stage']);
+      const list = wide['#map-list'] as Box;
+      const stage = wide['#map-stage'] as Box;
+      expect(list.top).toBeLessThan(stage.bottom);
+      expect(list.bottom).toBeGreaterThan(stage.top);
+      expect(list.width).toBeLessThan(stage.width / 2);
+    },
+    TIMEOUT_MS
+  );
+
+  it(
+    'stacks the routes list above the map in one column at 960 px, the map not sticky',
+    async () => {
+      await open({ width: 960, height: 600 });
+      await connect.evaluate(`location.hash = '#/routes'`);
+      await connect.until(
+        `document.querySelector('#routes-list tbody tr') !== null && document.querySelector('#map-slot') !== null`
+      );
+      const found = await boxes(['#content', '#routes-list', '#map-slot']);
+      const list = found['#routes-list'] as Box;
+      const map = found['#map-slot'] as Box;
+      expect(list.width).toBe(map.width);
+      expect(map.top).toBeGreaterThanOrEqual(list.bottom);
+      expect(
+        await connect.evaluate<string>(
+          `getComputedStyle(document.querySelector('#map-slot')).position`
+        )
+      ).not.toBe('sticky');
     },
     TIMEOUT_MS
   );

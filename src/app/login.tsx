@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import type { ScrollView } from 'react-native';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -55,6 +56,13 @@ function LoginScreenContent() {
   const [showRestore, setShowRestore] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+
+  // The notice sits at the top of the card and the connect button far below
+  // it, so a refusal lands out of sight unless the screen scrolls back to it.
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  useEffect(() => {
+    if (error) scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }, [error]);
 
   // An expired session is not a failed login, so it never takes the red slot.
   // The two do not stack either: whichever arrived last is the one on screen.
@@ -143,7 +151,7 @@ function LoginScreenContent() {
 
   return (
     <ScreenSafeAreaView style={shared.container} testID="login-screen">
-      <ScreenScrollView contentContainerStyle={styles.scrollContent}>
+      <ScreenScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
         <LanguagePicker />
 
         {/* Logo/Header */}

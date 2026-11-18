@@ -68,6 +68,13 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
+  cpp_uniffi_veloqrs_fn_method_activitymanager_get_feed_filter_bounds(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_activitymanager_get_given_up_tracks(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
   cpp_uniffi_veloqrs_fn_method_activitymanager_get_gps_fetch_candidates(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -313,6 +320,9 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_veloqengine_run_clear_derived(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_veloqengine_run_library_export(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_veloqengine_run_record_backup(
@@ -629,6 +639,13 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_remotemanager_disconnect_all(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_fn_method_remotemanager_disconnect_linked_device(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_remotemanager_linked_devices_screen(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_remotemanager_linked_rooms(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -642,6 +659,9 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_remotemanager_remove_linked_device(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_remotemanager_rename_linked_device(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_remotemanager_set_device_name(
@@ -689,7 +709,7 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_routemanager_get_detail_performance(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_method_routemanager_get_nearby_for_recording(
+  jsi::Value cpp_uniffi_veloqrs_fn_method_routemanager_get_nearby_places(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_routemanager_get_performances(
@@ -849,6 +869,21 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_settingsmanager_build_gpx_file(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_fn_method_settingsmanager_build_route_fit_course(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_settingsmanager_build_route_gpx_file(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_fn_method_settingsmanager_build_section_fit_course(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_fn_method_settingsmanager_build_section_gpx_file(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_settingsmanager_cache_screen_data(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -996,6 +1031,10 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
+  cpp_uniffi_veloqrs_fn_method_strengthmanager_recover_strength_workout(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
   cpp_uniffi_veloqrs_fn_method_strengthmanager_start_live_strength_session(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -1072,6 +1111,12 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_syncmanager_ready_activity_bodies(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_syncmanager_search_remote_activities(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_syncmanager_set_backfill_cap_lifted(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_syncmanager_set_credentials(
@@ -1541,6 +1586,14 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_activitymanager_get_feed_filter_bounds(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_activitymanager_get_given_up_tracks(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
   cpp_uniffi_veloqrs_checksum_method_activitymanager_get_gps_fetch_candidates(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -1774,6 +1827,9 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_veloqengine_run_clear_derived(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_checksum_method_veloqengine_run_library_export(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_veloqengine_run_record_backup(
@@ -2050,6 +2106,14 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_checksum_method_remotemanager_disconnect_all(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_remotemanager_disconnect_linked_device(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_remotemanager_linked_devices_screen(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_remotemanager_linked_rooms(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -2065,6 +2129,10 @@ protected:
       size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_checksum_method_remotemanager_remove_linked_device(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_remotemanager_rename_linked_device(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_remotemanager_set_device_name(
@@ -2095,8 +2163,7 @@ protected:
   cpp_uniffi_veloqrs_checksum_method_routemanager_get_detail_performance(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value
-  cpp_uniffi_veloqrs_checksum_method_routemanager_get_nearby_for_recording(
+  jsi::Value cpp_uniffi_veloqrs_checksum_method_routemanager_get_nearby_places(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_routemanager_get_performances(
@@ -2246,6 +2313,22 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_settingsmanager_build_gpx_file(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_settingsmanager_build_route_fit_course(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_settingsmanager_build_route_gpx_file(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_settingsmanager_build_section_fit_course(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_settingsmanager_build_section_gpx_file(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
@@ -2402,6 +2485,10 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_strengthmanager_recover_strength_workout(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
   cpp_uniffi_veloqrs_checksum_method_strengthmanager_start_live_strength_session(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -2469,6 +2556,14 @@ protected:
       size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_checksum_method_syncmanager_ready_activity_bodies(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_syncmanager_search_remote_activities(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_syncmanager_set_backfill_cap_lifted(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_syncmanager_set_credentials(

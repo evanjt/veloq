@@ -29,9 +29,11 @@ const NOT_TEXT = new Set([
   'Fi',
   'SupersededError',
   'CancelledError',
+  'VersionRefused',
   'ReplyTimeout',
   'veloq link room',
   'phone locked',
+  'bad id',
 ]);
 
 /** A capitalised word, or two words, in a string a component draws. */

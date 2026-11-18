@@ -3,13 +3,17 @@
 mod asks;
 pub mod bounds;
 pub mod bytes;
+pub mod client;
 pub mod digest;
+pub mod export;
 pub mod import;
 pub mod pairing;
 pub mod peer;
 pub mod protocol;
 pub mod service;
 pub mod stun;
+pub mod vectors;
+pub mod watch;
 
 /// Why the phone ends a connection, which it tells the browser before it
 /// hangs up so the page can say so at once. The farewell line carries it in

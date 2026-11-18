@@ -307,38 +307,82 @@ impl PersistentEngine {
     /// Accept (pin) an auto-detected section so it survives re-detection
     /// and its consensus polyline stops evolving.
     pub fn accept_section(&mut self, section_id: &str) -> Result<(), String> {
-        self.in_write_txn(|e| e.write_accept_section(section_id))?;
-        self.mark_section_accepted_in_memory(section_id);
-        self.invalidate_section_cache(section_id);
-        // The section is now a durable intent row; the registry relinquishes it
-        // so auto detection stops re-emitting (and colliding on) its ground.
-        self.section_identity_relinquish(section_id);
-        self.drop_section_pin(section_id);
-        Ok(())
+        self.accept_sections(&[section_id.to_owned()]).map(|_| ())
     }
 
-    fn write_accept_section(&mut self, section_id: &str) -> Result<(), String> {
-        // The row becomes user-owned: the resolved corridor name (if any)
-        // moves onto it and the intent retires, before the flag flip hides
-        // the row from resolution.
-        self.adopt_corridor_name(section_id);
-        let updated_at = super::stamp_now();
-        let rows = self
-            .db
-            .execute(
-                "UPDATE sections SET is_user_defined = 1, updated_at = ? WHERE id = ?",
-                params![updated_at, section_id],
-            )
-            .map_err(|e| format!("Failed to accept section: {}", e))?;
-        if rows == 0 {
-            return Err(format!("Section not found: {}", section_id));
+    /// Accept (pin) detected sections as one write. Every id is checked before
+    /// any is changed: each must exist, be detected and not yet accepted, and
+    /// none may be named twice. The ids are returned, which are the ones
+    /// `unaccept_sections` takes back.
+    pub fn accept_sections(&mut self, section_ids: &[String]) -> Result<Vec<String>, String> {
+        if section_ids.is_empty() {
+            return Ok(Vec::new());
         }
-        self.record_edit_event(
-            section_id,
-            super::history::KIND_ACCEPTED,
-            serde_json::json!({}),
-            None,
-        )
+        self.in_write_txn(|e| e.write_accept_sections(section_ids))?;
+        self.mark_sections_accepted_in_memory(section_ids);
+        for id in section_ids {
+            self.invalidate_section_cache(id);
+        }
+        // The sections are now durable intent rows; the registry relinquishes
+        // them so auto detection stops re-emitting (and colliding on) their ground.
+        self.section_identity_relinquish_many(section_ids);
+        Ok(section_ids.to_vec())
+    }
+
+    fn write_accept_sections(&mut self, section_ids: &[String]) -> Result<(), String> {
+        let mut seen = HashSet::new();
+        for id in section_ids {
+            let row: Option<(String, bool)> = self
+                .db
+                .query_row(
+                    "SELECT section_type, is_user_defined FROM sections WHERE id = ?",
+                    params![id],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .optional()
+                .map_err(|e| format!("Failed to read section: {}", e))?;
+            match row {
+                None => return Err(format!("Section not found: {}", id)),
+                Some((kind, _)) if kind != "auto" => {
+                    return Err(format!("Section was not detected: {}", id));
+                }
+                Some((_, true)) => return Err(format!("Section is already accepted: {}", id)),
+                Some(_) => {}
+            }
+            if !seen.insert(id.as_str()) {
+                return Err(format!("Section named twice: {}", id));
+            }
+        }
+        // The rows become user-owned: each resolved corridor name (if any)
+        // moves onto its row and the intent retires, before the flag flip hides
+        // the rows from resolution.
+        for id in section_ids {
+            self.adopt_corridor_name(id);
+        }
+        let listed = serde_json::to_string(section_ids)
+            .map_err(|e| format!("Failed to list sections to accept: {}", e))?;
+        self.db
+            .execute(
+                "DELETE FROM section_pins WHERE section_id IN (SELECT value FROM json_each(?1))",
+                params![listed],
+            )
+            .map_err(|e| format!("Failed to drop pins: {}", e))?;
+        self.db
+            .execute(
+                "UPDATE sections SET is_user_defined = 1, updated_at = ?1
+                 WHERE id IN (SELECT value FROM json_each(?2))",
+                params![super::stamp_now(), listed],
+            )
+            .map_err(|e| format!("Failed to accept sections: {}", e))?;
+        for id in section_ids {
+            self.record_edit_event(
+                id,
+                super::history::KIND_ACCEPTED,
+                serde_json::json!({}),
+                None,
+            )?;
+        }
+        Ok(())
     }
 
     /// Accept all current auto-detected sections.
@@ -365,9 +409,9 @@ impl PersistentEngine {
         self.in_write_txn(|e| e.write_unaccept_sections(section_ids))?;
         for id in section_ids {
             self.invalidate_section_cache(id);
-            self.refresh_section_in_memory(id);
-            self.section_identity_admit(id);
         }
+        self.refresh_sections_in_memory(section_ids);
+        self.section_identity_admit_many(section_ids);
         Ok(())
     }
 
@@ -1634,6 +1678,27 @@ impl PersistentEngine {
         Ok(None)
     }
 
+    /// Delete a section the athlete made. A detected section is only disabled,
+    /// so deleting one is refused and nothing changes.
+    pub fn delete_user_made_section(&mut self, section_id: &str) -> Result<(), String> {
+        let user_made: Option<bool> = self
+            .db
+            .query_row(
+                "SELECT is_user_defined FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|e| format!("Failed to read the section: {e}"))?;
+        match user_made {
+            None => Err(format!("Section not found: {section_id}")),
+            Some(false) => Err(format!(
+                "Section {section_id} was detected, not made by you, so it can be disabled but not deleted"
+            )),
+            Some(true) => self.delete_section(section_id),
+        }
+    }
+
     /// Delete a section.
     pub fn delete_section(&mut self, section_id: &str) -> Result<(), String> {
         let restored = self.in_write_txn(|engine| {
@@ -1747,6 +1812,14 @@ mod registry_excluded_members;
 #[cfg(test)]
 #[path = "tests/registry_admit_one.rs"]
 mod registry_admit_one;
+
+#[cfg(test)]
+#[path = "tests/bulk_acceptance.rs"]
+mod bulk_acceptance;
+
+#[cfg(test)]
+#[path = "tests/bulk_visibility.rs"]
+mod bulk_visibility;
 
 #[cfg(test)]
 mod tests {
@@ -2200,7 +2273,7 @@ mod tests {
     #[test]
     fn attaching_an_activity_across_many_sections_commits_once() {
         let mut engine = engine_over_sections(12);
-        let commits = commit_counter::watch(&engine);
+        let commits = commit_counter::watch(&mut engine);
 
         let (matched, portions) = engine.attach_activity_junctions("a1").unwrap();
 
@@ -2257,7 +2330,7 @@ mod tests {
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_activity_that_matches_nothing_commits_nothing() {
         let mut engine = engine_over_sections(0);
-        let commits = commit_counter::watch(&engine);
+        let commits = commit_counter::watch(&mut engine);
 
         let (matched, portions) = engine.attach_activity_junctions("a1").unwrap();
 
@@ -2335,7 +2408,7 @@ mod tests {
         POWER_STREAM_READS.store(0, Ordering::Relaxed);
         crate::test_trace::trace_statements!(engine.db, count_stream_reads);
         let (_, portions) = engine.attach_activity_junctions("a1").unwrap();
-        crate::test_trace::untrace(&engine.db);
+        crate::test_trace::untrace(&mut engine.db);
 
         assert!(
             portions >= 2,

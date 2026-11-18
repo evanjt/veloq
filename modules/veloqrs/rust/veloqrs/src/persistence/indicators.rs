@@ -806,8 +806,8 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn backfilling_many_laps_is_one_commit() {
-        let engine = engine_with_null_laps(12);
-        let commits = commit_counter::watch(&engine);
+        let mut engine = engine_with_null_laps(12);
+        let commits = commit_counter::watch(&mut engine);
 
         assert_eq!(engine.backfill_null_lap_times().unwrap(), 12);
 
@@ -906,9 +906,9 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn backfilling_nothing_commits_nothing() {
-        let engine = engine_with_null_laps(3);
+        let mut engine = engine_with_null_laps(3);
         engine.backfill_null_lap_times().unwrap();
-        let commits = commit_counter::watch(&engine);
+        let commits = commit_counter::watch(&mut engine);
 
         assert_eq!(engine.backfill_null_lap_times().unwrap(), 0);
 
@@ -948,7 +948,7 @@ mod tests {
                 [],
             )
             .unwrap();
-        let commits = commit_counter::watch(&engine);
+        let commits = commit_counter::watch(&mut engine);
 
         assert_eq!(engine.backfill_null_lap_times().unwrap(), 4);
 

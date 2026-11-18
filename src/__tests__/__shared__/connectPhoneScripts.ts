@@ -35,6 +35,20 @@ export function isPhoneKind(name: string): name is PhoneKind {
   return (PHONE_KINDS as readonly string[]).includes(name);
 }
 
+/** The script with only the windowed reads of the methods a phone lists. */
+function listing(script: Script, methods: string[]): Script {
+  if (!script.windowed?.days) return script;
+  return {
+    ...script,
+    windowed: {
+      ...script.windowed,
+      days: Object.fromEntries(
+        Object.entries(script.windowed.days).filter(([method]) => methods.includes(method))
+      ),
+    },
+  };
+}
+
 export async function phoneScript(kind: PhoneKind): Promise<Script> {
   const script = demoScript({
     browserFingerprint: BROWSER_FINGERPRINT,
@@ -51,7 +65,7 @@ export async function phoneScript(kind: PhoneKind): Promise<Script> {
       return { ...script, delayMs: SLOW_MS };
     case 'behind':
       return {
-        ...script,
+        ...listing(script, BEHIND_METHODS),
         methods: BEHIND_METHODS,
         results: Object.fromEntries(
           Object.entries(script.results).filter(([method]) => BEHIND_METHODS.includes(method))
@@ -62,7 +76,7 @@ export async function phoneScript(kind: PhoneKind): Promise<Script> {
       // The shim answers `link.hello` from `protocol` and `methods`, so the demo's hello, which
       // names every method of the protocol, is left out rather than carried into the script.
       return {
-        ...script,
+        ...listing(script, OLD_METHODS),
         protocol: PAGE_MIN_PROTOCOL,
         methods: OLD_METHODS,
         results: Object.fromEntries(

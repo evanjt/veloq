@@ -17,7 +17,6 @@ import {
   linearX,
   nearestIndex,
   stackLayout,
-  tooltipLeft,
   valueAxis,
   visibleIndexes,
   xAxisTicks,
@@ -26,6 +25,7 @@ import {
   type IndexRange,
   type ValueAxis,
 } from './scale';
+import { Readout, Tooltip } from './Tooltip';
 import { useBrush } from './useBrush';
 import { useMeasure, useWidth } from './useSize';
 
@@ -54,9 +54,9 @@ export type LanesProps = {
   xFormat: (value: number) => string;
   xTitle: string;
   lanes: readonly LaneSeries[];
-  /** The crosshair's sample, shared with whatever else shows the position. */
-  at: number | null;
-  onAt: (index: number | null) => void;
+  /** The crosshair's sample, shared with whatever else shows the position; left out, the lanes keep their own. */
+  at?: number | null;
+  onAt?: (index: number | null) => void;
   /** Told the samples a brush covers, or null when the zoom is reset. */
   onRange?: (range: IndexRange | null) => void;
   /** A range the page sets from outside, such as a chosen interval; it zooms the lanes to it until it is null or the zoom is reset. */
@@ -73,9 +73,6 @@ export type LanesProps = {
 
 const DEFAULT_MAX_POINTS = 400;
 
-/** The tooltip's padding on each side, matching its stylesheet. */
-const TOOLTIP_PAD = 8;
-
 const plain = (value: number) => String(Math.round(value * 10) / 10);
 
 const finiteIn = (values: readonly number[], indexes: readonly number[]) =>
@@ -85,7 +82,10 @@ const finiteIn = (values: readonly number[], indexes: readonly number[]) =>
   });
 
 /** A lane's line as subpaths that break at every gap; a lone sample is a zero-length segment. */
-function runs(points: ({ x: number; y: number } | null)[]): { line: string; runs: { x: number; y: number }[][] } {
+function runs(points: ({ x: number; y: number } | null)[]): {
+  line: string;
+  runs: { x: number; y: number }[][];
+} {
   const groups: { x: number; y: number }[][] = [];
   let open: { x: number; y: number }[] | null = null;
   for (const point of points) {
@@ -102,7 +102,9 @@ function runs(points: ({ x: number; y: number } | null)[]): { line: string; runs
   const at = (p: { x: number; y: number }) => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
   const line = groups
     .map(([head, ...rest]) =>
-      head ? `M${at(head)}${rest.length === 0 ? `L${at(head)}` : rest.map((p) => `L${at(p)}`).join('')}` : ''
+      head
+        ? `M${at(head)}${rest.length === 0 ? `L${at(head)}` : rest.map((p) => `L${at(p)}`).join('')}`
+        : ''
     )
     .join('');
   return { line, runs: groups };
@@ -123,6 +125,13 @@ export function Lanes(props: LanesProps) {
   const measure = useMeasure(ref);
   const clip = useId().replace(/:/g, '');
   const [zoom, setZoom] = useState<[number, number] | null>(null);
+  const [own, setOwn] = useState<number | null>(null);
+  const shared = props.at !== undefined;
+  const at = shared ? (props.at ?? null) : own;
+  const setAt = (next: number | null) => {
+    if (!shared) setOwn(next);
+    props.onAt?.(next);
+  };
 
   const first = xs[0];
   const last = xs[xs.length - 1];
@@ -142,9 +151,14 @@ export function Lanes(props: LanesProps) {
     yLabels: axes.flatMap((axis, n) => axis.ticks.map(formats[n] ?? plain)),
     measure,
     xTitle: true,
-    yTitle: true,
+    yTitle: false,
   });
-  const stack = stackLayout({ width, lanes: lanes.length, laneHeight: laneHeight(width - margins.left - margins.right), margins });
+  const stack = stackLayout({
+    width,
+    lanes: lanes.length,
+    laneHeight: laneHeight(width - margins.left - margins.right),
+    margins,
+  });
   const edge: Box | undefined = stack.lanes[0]?.box;
   const xScale = linearX(domain, edge?.left ?? 0, edge?.right ?? width);
   const brush = useBrush(xScale, xs.length > 1, (next) => {
@@ -161,11 +175,11 @@ export function Lanes(props: LanesProps) {
     event.clientX - event.currentTarget.getBoundingClientRect().left;
   const key = (event: KeyboardEvent<SVGSVGElement>) => {
     const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
-    if (event.key === 'Escape') props.onAt(null);
+    if (event.key === 'Escape') setAt(null);
     if (step === 0) return;
     event.preventDefault();
-    const from = props.at ?? (step > 0 ? -1 : xs.length);
-    props.onAt(Math.min(xs.length - 1, Math.max(0, from + step)));
+    const from = at ?? (step > 0 ? -1 : xs.length);
+    setAt(Math.min(xs.length - 1, Math.max(0, from + step)));
   };
   const reset = () => {
     setZoom(null);
@@ -180,21 +194,21 @@ export function Lanes(props: LanesProps) {
     width,
     format: props.xFormat,
   });
-  const atX = props.at === null ? null : xScale.position(xs[props.at] ?? NaN);
+  const atX = at === null ? null : xScale.position(xs[at] ?? NaN);
   const lines =
-    props.at === null
+    at === null
       ? []
       : [
-          props.xFormat(xs[props.at] ?? NaN),
+          props.xFormat(xs[at] ?? NaN),
           ...lanes.map((lane, n) => {
-            const v = lane.values[props.at ?? 0];
-            const shown = v !== undefined && Number.isFinite(v) ? (formats[n] ?? plain)(v) : props.none;
+            const v = lane.values[at ?? 0];
+            const shown =
+              v !== undefined && Number.isFinite(v) ? (formats[n] ?? plain)(v) : props.none;
             return `${lane.name} ${shown}${shown === props.none ? '' : ` ${lane.unit}`}`;
           }),
         ];
-  const readout = props.at === null ? ' ' : lines.join(' · ');
+  const readout = at === null ? ' ' : lines.join(' · ');
   const tipLines = brush.drag ? [] : lines;
-  const tipWidth = Math.ceil(Math.max(0, ...tipLines.map(measure))) + 2 * TOOLTIP_PAD;
   const dragLeft = brush.drag ? Math.min(brush.drag.from, brush.drag.to) : 0;
   const dragRight = brush.drag ? Math.max(brush.drag.from, brush.drag.to) : 0;
 
@@ -218,7 +232,7 @@ export function Lanes(props: LanesProps) {
           if (brush.drag) brush.move(px);
           else {
             const index = nearestIndex(xs, xScale.value(px));
-            props.onAt(index < 0 ? null : index);
+            setAt(index < 0 ? null : index);
           }
         }}
         onPointerUp={() => {
@@ -226,11 +240,11 @@ export function Lanes(props: LanesProps) {
         }}
         onPointerCancel={brush.cancel}
         onPointerLeave={() => {
-          if (!brush.drag) props.onAt(null);
+          if (!brush.drag) setAt(null);
         }}
         onDoubleClick={reset}
         onKeyDown={key}
-        onBlur={() => props.onAt(null)}
+        onBlur={() => setAt(null)}
       >
         <defs>
           <clipPath id={clip}>
@@ -249,7 +263,7 @@ export function Lanes(props: LanesProps) {
           });
           const drawn = runs(points);
           const baseline = yOf(Math.max(axis.low, 0), axis, box);
-          const dot = props.at === null ? undefined : lane.values[props.at];
+          const dot = at === null ? undefined : lane.values[at];
           return (
             <g key={lane.key} className="lane" data-lane={lane.key}>
               <ValueGrid
@@ -257,46 +271,58 @@ export function Lanes(props: LanesProps) {
                 box={box}
                 format={formats[n] ?? plain}
                 title={`${lane.name} (${lane.unit})`}
+                inline
                 width={width}
                 measure={measure}
               />
               <g clipPath={`url(#${clip})`}>
                 {lane.fill
                   ? drawn.runs.map((group, g) => (
-                      <path key={g} className="mark-area" d={areaPath(group, baseline)} fill={lane.colour} />
+                      <path
+                        key={g}
+                        className="mark-area"
+                        d={areaPath(group, baseline)}
+                        fill={lane.colour}
+                      />
                     ))
                   : null}
                 <path className="mark-line" d={drawn.line} fill="none" stroke={lane.colour} />
               </g>
               {dot !== undefined && Number.isFinite(dot) && atX !== null ? (
-                <circle className="crosshair-dot" cx={atX} cy={yOf(dot, axis, box)} r={4} fill={lane.colour} />
+                <circle
+                  className="crosshair-dot"
+                  cx={atX}
+                  cy={yOf(dot, axis, box)}
+                  r={4}
+                  fill={lane.colour}
+                />
               ) : null}
             </g>
           );
         })}
         <XAxisRow ticks={ticks} box={lastBox} title={props.xTitle} measure={measure} />
-        {atX === null ? null : <line className="crosshair" x1={atX} x2={atX} y1={top} y2={bottom} />}
+        {atX === null ? null : (
+          <line className="crosshair" x1={atX} x2={atX} y1={top} y2={bottom} />
+        )}
         {brush.drag ? (
-          <rect className="brush" x={dragLeft} y={top} width={dragRight - dragLeft} height={bottom - top} />
+          <rect
+            className="brush"
+            x={dragLeft}
+            y={top}
+            width={dragRight - dragLeft}
+            height={bottom - top}
+          />
         ) : null}
       </svg>
-      {tipLines.length > 0 && atX !== null ? (
-        <div
-          className="chart-tooltip"
-          style={{
-            left: tooltipLeft(atX, tipWidth, edge.left, edge.right),
-            top: edge.top,
-            width: tipWidth,
-          }}
-        >
-          {tipLines.map((line, n) => (
-            <div key={n}>{line}</div>
-          ))}
-        </div>
-      ) : null}
-      <p className="readout" aria-live="polite">
-        {readout}
-      </p>
+      <Tooltip
+        lines={atX === null ? [] : tipLines}
+        x={atX ?? 0}
+        left={edge.left}
+        right={edge.right}
+        top={edge.top}
+        measure={measure}
+      />
+      <Readout text={readout} />
       {zoom || focused ? (
         <Button size="sm" variant="ghost" onClick={reset}>
           {props.resetLabel ?? t('connectPage.chart.reset')}

@@ -6,7 +6,7 @@
 //! keeps a single regroup in flight between that run and the worker here.
 
 use rusqlite::{Connection, Result as SqlResult};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 #[cfg(test)]
 use std::sync::mpsc;
 use std::sync::{Condvar, Mutex};
@@ -399,45 +399,68 @@ fn hold_group_write(conn: &Connection, install: u64, group_count: usize) {
     }
 }
 
-/// Whether a regroup is in flight, on the worker below or inside a detection
-/// run. Two at once would each group the same library and the second write
-/// would be refused over the first, so the second does nothing instead.
-static REGROUP_SLOT: (Mutex<bool>, Condvar) = (Mutex::new(false), Condvar::new());
+/// The libraries with a regroup in flight, on the worker below or inside a
+/// detection run, by database path. Two at once on one library would each
+/// group it and the second write would be refused over the first, so the
+/// second does nothing instead. A regroup on another library groups other
+/// rows and has nothing to wait for.
+static REGROUP_SLOT: (Mutex<BTreeSet<String>>, Condvar) =
+    (Mutex::new(BTreeSet::new()), Condvar::new());
 
-/// The one regroup in flight. Dropping it frees the slot, however its holder
-/// ended.
-pub(crate) struct RegroupClaim(());
+/// The one regroup in flight on a library. Dropping it frees the slot,
+/// however its holder ended.
+pub(crate) struct RegroupClaim(String);
 
-/// Take the slot, or `None` while another regroup holds it.
-pub(crate) fn claim_regroup() -> Option<RegroupClaim> {
+/// Take the library's slot, or `None` while another regroup holds it.
+pub(crate) fn claim_regroup(db_path: &str) -> Option<RegroupClaim> {
     let mut held = REGROUP_SLOT.0.lock().unwrap_or_else(|e| e.into_inner());
-    if *held {
+    if !held.insert(db_path.to_owned()) {
         return None;
     }
-    *held = true;
-    Some(RegroupClaim(()))
+    Some(RegroupClaim(db_path.to_owned()))
 }
 
-/// Whether a regroup holds the slot now, on the worker or inside a detection
-/// run, which is what a screen reads to say routes are being computed.
-pub(crate) fn regroup_in_flight() -> bool {
-    *REGROUP_SLOT.0.lock().unwrap_or_else(|e| e.into_inner())
+/// Whether a regroup holds the library's slot now, on the worker or inside a
+/// detection run, which is what a screen reads to say routes are being
+/// computed.
+pub(crate) fn regroup_in_flight(db_path: &str) -> bool {
+    REGROUP_SLOT
+        .0
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .contains(db_path)
 }
 
 impl Drop for RegroupClaim {
     fn drop(&mut self) {
-        *REGROUP_SLOT.0.lock().unwrap_or_else(|e| e.into_inner()) = false;
+        REGROUP_SLOT
+            .0
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&self.0);
         REGROUP_SLOT.1.notify_all();
     }
 }
 
-/// Wait until no regroup is in flight, and say whether that happened within
-/// `limit`.
-pub(crate) fn wait_for_regroup(limit: Duration) -> bool {
+/// Wait until no regroup is in flight on the library, and say whether that
+/// happened within `limit`.
+pub(crate) fn wait_for_regroup(db_path: &str, limit: Duration) -> bool {
     let held = REGROUP_SLOT.0.lock().unwrap_or_else(|e| e.into_inner());
     let (_held, wait) = REGROUP_SLOT
         .1
-        .wait_timeout_while(held, limit, |held| *held)
+        .wait_timeout_while(held, limit, |held| held.contains(db_path))
+        .unwrap_or_else(|e| e.into_inner());
+    !wait.timed_out()
+}
+
+/// Wait until no regroup is in flight on any library, for a caller that holds
+/// no path.
+#[cfg(test)]
+pub(crate) fn wait_for_every_regroup(limit: Duration) -> bool {
+    let held = REGROUP_SLOT.0.lock().unwrap_or_else(|e| e.into_inner());
+    let (_held, wait) = REGROUP_SLOT
+        .1
+        .wait_timeout_while(held, limit, |held| !held.is_empty())
         .unwrap_or_else(|e| e.into_inner());
     !wait.timed_out()
 }
@@ -454,8 +477,11 @@ pub(crate) fn wait_for_regroup(limit: Duration) -> bool {
 /// committed.
 pub(crate) fn settle_regroup(install: u64, limit: Duration) -> bool {
     let deadline = Instant::now() + limit;
+    let Some((_, db_path)) = super::read_pool::binding() else {
+        return false;
+    };
     loop {
-        if !wait_for_regroup(deadline.saturating_duration_since(Instant::now())) {
+        if !wait_for_regroup(&db_path, deadline.saturating_duration_since(Instant::now())) {
             return false;
         }
         let owed = super::with_persistent_engine_for(install, |engine| {
@@ -626,7 +652,7 @@ impl PersistentEngine {
         if !self.groups_dirty {
             return None;
         }
-        let claim = claim_regroup()?;
+        let claim = claim_regroup(&self.db_path)?;
         Some(ScheduledRegroup {
             claim,
             snapshot: self.regroup_snapshot(),

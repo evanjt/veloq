@@ -277,8 +277,6 @@ export const colors = {
   fatiguePurpleText: '#8E24AA',
 
   // Wellness metric colors
-  chartHrv: '#EC4899', // Pink-500
-  chartRhr: '#EF4444', // Red-500
   // The two wellness hues as text, for the value and label beside a sparkline
   // drawn in them. Worst light surface: chartHrvText 5.43:1, chartRhrText 5.82:1.
   chartHrvText: '#BE185D',
@@ -531,8 +529,6 @@ export const darkColors = {
   chartForm: brand.blueLight, // Brighter blue for TSB (neutral, zone-based at runtime)
 
   // Wellness metric colors for dark mode (one Tailwind step lighter)
-  chartHrv: '#F472B6', // Pink-400
-  chartRhr: '#F87171', // Red-400
   // On the dark surfaces both fills already clear 4.5:1, 5.91:1 and 5.65:1 on
   // the worst, so the text tone is the fill.
   chartHrvText: '#F472B6',

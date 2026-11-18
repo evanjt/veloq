@@ -94,7 +94,7 @@ export async function getActivitiesUnderPoint(
   longitude: number,
   zoom: number
 ): Promise<FfiActivitiesUnderPoint> {
-  if (!host.ready) return { total: 0, truncated: false, traceCap: 0, groups: [] };
+  if (!host.ready) return { total: 0, truncated: false, traceCap: 0, groups: [], activities: [] };
   return host.timedAsync('getActivitiesUnderPoint', () =>
     host.engine.maps().activitiesUnderPoint(latitude, longitude, zoom)
   );

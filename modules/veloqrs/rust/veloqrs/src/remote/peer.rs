@@ -16,6 +16,7 @@ use std::time::{Duration, Instant};
 
 use super::DisconnectReason;
 use super::asks::{Conn, Pool, Reply};
+use super::protocol::Answer;
 use super::protocol::{self, Incoming};
 use super::stun::{self, Stun};
 use str0m::change::{SdpAnswer, SdpOffer};
@@ -38,9 +39,19 @@ const FAREWELL_LIMIT: Duration = Duration::from_millis(300);
 /// The longest between two looks at whether the library changed.
 const CHANGE_POLL: Duration = Duration::from_secs(1);
 
+/// How long an accepted offer may take to become an admitted connection. A
+/// client that sends no connectivity check never connects, and without this
+/// its thread and socket would be held until the app is backgrounded.
+const SETUP_LIMIT: Duration = Duration::from_secs(15);
+
 /// Reply messages waiting for room in a channel's send buffer, oldest first.
 struct Outbox {
-    frames: VecDeque<(ChannelId, super::protocol::Message)>,
+    /// Each message, and whether it is the last of a worker's reply, which is
+    /// the one whose leaving the queue releases the ask it answers.
+    frames: VecDeque<(ChannelId, super::protocol::Message, bool)>,
+    /// Replies that left the queue, written or dropped, since the connection
+    /// last took the count with `take_released`.
+    released: usize,
     /// The protocol version the page last asked in, which the messages the
     /// phone sends unasked (a change, a farewell, a refusal) are written in.
     wire: u32,
@@ -50,35 +61,80 @@ impl Default for Outbox {
     fn default() -> Self {
         Self {
             frames: VecDeque::new(),
+            released: 0,
             wire: super::protocol::PROTOCOL_VERSION,
         }
     }
 }
 
 impl Outbox {
-    /// Queue a reply in the format of protocol `wire`.
+    /// Queue a worker's reply in the format of protocol `wire`. It is
+    /// released when its last message leaves the queue.
     fn push_in(&mut self, channel: ChannelId, reply: &str, wire: u32) {
-        for message in super::protocol::messages(reply, wire) {
-            self.frames.push_back((channel, message));
+        self.push_messages(channel, super::protocol::messages(reply, wire));
+    }
+
+    /// Queue a worker's [`Answer`](super::protocol::Answer), text or raw bytes.
+    fn push_answer(&mut self, channel: ChannelId, answer: &super::protocol::Answer, wire: u32) {
+        self.push_messages(channel, answer.messages(wire));
+    }
+
+    fn push_messages(&mut self, channel: ChannelId, messages: Vec<super::protocol::Message>) {
+        if messages.is_empty() {
+            self.released += 1;
+        }
+        let last = messages.len().saturating_sub(1);
+        for (at, message) in messages.into_iter().enumerate() {
+            self.frames.push_back((channel, message, at == last));
         }
     }
 
-    /// Queue a message in the format the page last asked in.
-    fn push(&mut self, channel: ChannelId, reply: &str) {
-        self.push_in(channel, reply, self.wire);
+    /// Queue a message the phone sends unasked, in the format the page last
+    /// asked in. It answers no ask, so its leaving releases nothing.
+    fn push(&mut self, channel: ChannelId, text: &str) {
+        for message in super::protocol::messages(text, self.wire) {
+            self.frames.push_back((channel, message, false));
+        }
+    }
+
+    /// The replies that left the queue since the last call.
+    fn take_released(&mut self) -> usize {
+        std::mem::take(&mut self.released)
+    }
+
+    /// Forget every queued message, counting the replies among them.
+    fn clear(&mut self) {
+        self.released += self.frames.iter().filter(|(_, _, last)| *last).count();
+        self.frames.clear();
     }
 
     fn is_empty(&self) -> bool {
         self.frames.is_empty()
     }
 
+    /// The bytes of every message still waiting for room in the channel.
+    #[cfg(test)]
+    fn queued_bytes(&self) -> usize {
+        self.frames
+            .iter()
+            .map(|(_, message, _)| message.bytes.len())
+            .sum()
+    }
+
     /// Forget the frames not yet written of the reply to ask `id`.
     fn drop_reply(&mut self, id: u64) {
-        let Ok(id) = u32::try_from(id) else {
+        let Some(id) = super::protocol::frame_id(id) else {
             return;
         };
-        self.frames
-            .retain(|(_, message)| super::protocol::reply_id(message) != Some(id));
+        let mut released = 0;
+        self.frames.retain(|(_, message, last)| {
+            let drop = super::protocol::reply_id(message) == Some(id);
+            if drop && *last {
+                released += 1;
+            }
+            !drop
+        });
+        self.released += released;
     }
 
     /// Write frames while the send buffer has room for the next one. A frame
@@ -86,13 +142,16 @@ impl Outbox {
     /// or an error when a channel is broken.
     fn flush(&mut self, rtc: &mut Rtc) -> Result<bool, ()> {
         let mut wrote = false;
-        while let Some((id, message)) = self.frames.front() {
+        while let Some((id, message, last)) = self.frames.front() {
+            let last = *last;
             let Some(mut channel) = rtc.channel(*id) else {
+                self.released += usize::from(last);
                 self.frames.pop_front();
                 continue;
             };
             match channel.write(message.binary, &message.bytes) {
                 Ok(true) => {
+                    self.released += usize::from(last);
                     self.frames.pop_front();
                     wrote = true;
                 }
@@ -116,10 +175,18 @@ pub trait Gate: Send + Sync + 'static {
     /// is the certificate the peer's connection presented, `local` the
     /// phone's own.
     fn answer(&self, presented: &str, local: &str, request: &str) -> String;
-    /// A pinned peer's connection came up.
-    fn connected(&self, fingerprint: &str);
-    /// A pinned peer's connection ended.
-    fn disconnected(&self, fingerprint: &str);
+    /// [`Gate::answer`] for a method whose answer may be raw bytes. The default
+    /// answers with the text.
+    fn answer_bytes(&self, presented: &str, local: &str, request: &str) -> Answer {
+        Answer::Text(self.answer(presented, local, request))
+    }
+    /// A pinned peer's connection came up. `from` is the address the peer's
+    /// packets arrive from, when one has arrived, and `local` the phone's own
+    /// socket address.
+    fn connected(&self, fingerprint: &str, from: Option<SocketAddr>, local: SocketAddr);
+    /// A pinned peer's connection ended. `reason` is why the phone ended it,
+    /// none when the peer left or the connection failed.
+    fn disconnected(&self, fingerprint: &str, reason: Option<DisconnectReason>);
     /// A stamp that differs from the last one when the library has changed,
     /// or nothing when it cannot be read.
     fn changed(&self) -> Option<u64>;
@@ -143,6 +210,8 @@ pub enum Refusal {
 pub struct Peer {
     stop: Arc<AtomicBool>,
     reason: Arc<Mutex<Option<DisconnectReason>>>,
+    /// Set once the connection is admitted. Before that it is a pending setup.
+    up: Arc<AtomicBool>,
     thread: Option<JoinHandle<()>>,
     /// Where an empty datagram reaches the connection's socket.
     wake: SocketAddr,
@@ -184,6 +253,33 @@ impl Peer {
         }
     }
 
+    /// A connection that only waits to be stopped, for tests of what the
+    /// service does with the connections it holds.
+    #[cfg(test)]
+    pub(crate) fn idle() -> Peer {
+        let stop = Arc::new(AtomicBool::new(false));
+        let thread = {
+            let stop = Arc::clone(&stop);
+            std::thread::spawn(move || {
+                while !stop.load(Ordering::Relaxed) {
+                    std::thread::sleep(std::time::Duration::from_millis(2));
+                }
+            })
+        };
+        Peer {
+            stop,
+            reason: Arc::new(Mutex::new(None)),
+            up: Arc::new(AtomicBool::new(true)),
+            thread: Some(thread),
+            wake: SocketAddr::from(([127, 0, 0, 1], 9)),
+        }
+    }
+
+    /// Whether the connection is still being set up.
+    pub fn is_pending(&self) -> bool {
+        !self.up.load(Ordering::Relaxed)
+    }
+
     /// Whether the connection has ended.
     pub fn is_finished(&self) -> bool {
         self.thread
@@ -210,6 +306,19 @@ fn normalise(hash: &str, hex: &str) -> String {
     )
 }
 
+/// Parse an offer and refuse it unless the browser that made it is pinned.
+/// Does no network or disk work, so an offer from a stranger costs nothing.
+pub fn check_pinned(offer: &str, gate: &dyn Gate) -> Result<SdpOffer, Refusal> {
+    super::install_crypto();
+    let offer: SdpOffer =
+        serde_json::from_str(offer).map_err(|error| Refusal::Malformed(error.to_string()))?;
+    let offered = offered_fingerprint(&offer.to_sdp_string()).ok_or(Refusal::NotPinned)?;
+    if !gate.is_pinned(&offered) {
+        return Err(Refusal::NotPinned);
+    }
+    Ok(offer)
+}
+
 /// Answer a browser's offer and serve the connection on its own thread, on a
 /// socket bound to `bind`. Returns the answer as the JSON a browser sets as
 /// its remote description. With `stun`, the phone first learns its public
@@ -222,7 +331,7 @@ pub fn accept(
     gate: Arc<dyn Gate>,
     stun: Option<Stun>,
 ) -> Result<(String, Peer), Refusal> {
-    accept_polling(offer, cert, bind, gate, stun, STOP_POLL)
+    accept_polling(offer, cert, bind, gate, stun, STOP_POLL, SETUP_LIMIT)
 }
 
 /// `accept` with the longest idle sleep the loop takes given.
@@ -233,14 +342,9 @@ fn accept_polling(
     gate: Arc<dyn Gate>,
     stun: Option<Stun>,
     poll: Duration,
+    setup: Duration,
 ) -> Result<(String, Peer), Refusal> {
-    super::install_crypto();
-    let offer: SdpOffer =
-        serde_json::from_str(offer).map_err(|error| Refusal::Malformed(error.to_string()))?;
-    let offered = offered_fingerprint(&offer.to_sdp_string()).ok_or(Refusal::NotPinned)?;
-    if !gate.is_pinned(&offered) {
-        return Err(Refusal::NotPinned);
-    }
+    let offer = check_pinned(offer, gate.as_ref())?;
 
     let socket = UdpSocket::bind(SocketAddr::new(bind, 0))
         .map_err(|error| Refusal::Network(error.to_string()))?;
@@ -272,6 +376,8 @@ fn accept_polling(
     let stop = Arc::new(AtomicBool::new(false));
     let flag = Arc::clone(&stop);
     let reason = Arc::new(Mutex::new(None));
+    let up = Arc::new(AtomicBool::new(false));
+    let came_up = Arc::clone(&up);
     let said = Arc::clone(&reason);
     let thread = std::thread::Builder::new()
         .name("remote-peer".into())
@@ -286,6 +392,8 @@ fn accept_polling(
                 &said,
                 stun.map(|s| s.server),
                 poll,
+                setup,
+                &came_up,
             )
         })
         .map_err(|error| Refusal::Network(error.to_string()))?;
@@ -294,6 +402,7 @@ fn accept_polling(
         Peer {
             stop,
             reason,
+            up,
             thread: Some(thread),
             wake: wake_address(local),
         },
@@ -311,8 +420,14 @@ impl Admitted {
     /// Move the replies the workers have made into the outbox.
     fn collect(&self, outbox: &mut Outbox) {
         while let Ok((channel, reply, wire)) = self.replies.try_recv() {
-            outbox.push_in(channel, &reply, wire);
+            outbox.push_answer(channel, &reply, wire);
         }
+        self.asks.release(outbox.take_released());
+    }
+
+    /// Tell the connection which replies have left the outbox.
+    fn settle(&self, outbox: &mut Outbox) {
+        self.asks.release(outbox.take_released());
     }
 }
 
@@ -327,23 +442,36 @@ fn serve(
     reason: &Mutex<Option<DisconnectReason>>,
     stun_server: Option<SocketAddr>,
     poll: Duration,
+    setup: Duration,
+    up: &AtomicBool,
 ) {
+    let begun = Instant::now();
     let mut admitted: Option<Admitted> = None;
     let mut outbox = Outbox::default();
     let mut stamp: Option<u64> = None;
     let mut channel: Option<ChannelId> = None;
     let mut looked = Instant::now();
     let mut buf = vec![0u8; 2000];
+    let mut last_source: Option<SocketAddr> = None;
     let Ok(local) = socket.local_addr() else {
         return;
     };
     while rtc.is_alive() && !stop.load(Ordering::Relaxed) {
+        if admitted.is_some() {
+            up.store(true, Ordering::Relaxed);
+        } else if begun.elapsed() >= setup {
+            break;
+        }
         let deadline = match rtc.poll_output() {
             Ok(Output::Timeout(at)) => {
                 if let Some(admitted) = &admitted {
                     admitted.collect(&mut outbox);
                 }
-                match outbox.flush(&mut rtc) {
+                let flushed = outbox.flush(&mut rtc);
+                if let Some(admitted) = &admitted {
+                    admitted.settle(&mut outbox);
+                }
+                match flushed {
                     Err(()) => break,
                     Ok(true) => continue,
                     Ok(false) => at,
@@ -363,6 +491,7 @@ fn serve(
                     &gate,
                     pool,
                     fingerprint,
+                    (last_source, local),
                     &mut admitted,
                     &mut outbox,
                 ) {
@@ -388,6 +517,9 @@ fn serve(
             }
         }
         let mut wait = deadline.saturating_duration_since(Instant::now()).min(poll);
+        if admitted.is_none() {
+            wait = wait.min(setup.saturating_sub(begun.elapsed()));
+        }
         if admitted.is_some() {
             // The library is looked at about once a second however long the
             // idle poll is, so a change reaches the browser on time.
@@ -415,6 +547,7 @@ fn serve(
                 let Ok(contents) = buf.as_slice().try_into() else {
                     continue;
                 };
+                last_source = Some(source);
                 Input::Receive(
                     Instant::now(),
                     Receive {
@@ -446,7 +579,7 @@ fn serve(
     rtc.disconnect();
     if let Some(admitted) = admitted {
         admitted.asks.close();
-        gate.disconnected(&admitted.fingerprint);
+        gate.disconnected(&admitted.fingerprint, reason);
     }
 }
 
@@ -467,7 +600,7 @@ fn say_farewell(
     channel: ChannelId,
     reason: DisconnectReason,
 ) {
-    outbox.frames.clear();
+    outbox.clear();
     outbox.push(channel, &farewell(reason));
     let until = Instant::now() + FAREWELL_LIMIT;
     while Instant::now() < until {
@@ -496,12 +629,14 @@ fn announcement(generation: u64) -> String {
 }
 
 /// Act on one event. False ends the connection.
+#[allow(clippy::too_many_arguments)]
 fn on_event(
     rtc: &mut Rtc,
     event: Event,
     gate: &Arc<dyn Gate>,
     pool: &Pool,
     local: &str,
+    link: (Option<SocketAddr>, SocketAddr),
     admitted: &mut Option<Admitted>,
     outbox: &mut Outbox,
 ) -> bool {
@@ -517,7 +652,7 @@ fn on_event(
                 });
             match presented {
                 Some(fingerprint) if gate.is_pinned(&fingerprint) => {
-                    gate.connected(&fingerprint);
+                    gate.connected(&fingerprint, link.0, link.1);
                     let (asks, replies) = Conn::new(Arc::clone(gate), &fingerprint, local);
                     *admitted = Some(Admitted {
                         fingerprint,
@@ -546,12 +681,26 @@ fn on_event(
                     // A reply made just before the cancel is not sent.
                     admitted.collect(outbox);
                     outbox.drop_reply(id);
+                    admitted.settle(outbox);
                 }
                 Incoming::Ask(id) => {
-                    outbox.wire = protocol::wire_of(request);
-                    if !admitted.asks.submit(pool, data.id, id, request) {
-                        outbox.push(data.id, &protocol::busy(id));
+                    if let Some(refused) = protocol::refusal(request) {
+                        outbox.push_in(data.id, &refused, protocol::MIN_PROTOCOL_VERSION);
+                    } else {
+                        outbox.wire = protocol::wire_of(request);
+                        if !admitted.asks.submit(pool, data.id, id, request) {
+                            outbox.push(data.id, &protocol::busy(id));
+                        }
                     }
+                }
+                Incoming::Refuse(id) => {
+                    // A frame cannot hold this id, so the refusal is the one text reply.
+                    outbox.wire = protocol::wire_of(request);
+                    outbox.push_in(
+                        data.id,
+                        &protocol::refused(id),
+                        protocol::MIN_PROTOCOL_VERSION,
+                    );
                 }
                 Incoming::Ignore => {}
             }

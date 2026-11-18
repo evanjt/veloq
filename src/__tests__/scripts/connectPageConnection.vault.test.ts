@@ -17,7 +17,6 @@ import {
   waitingKey,
   endpointText,
   factsOf,
-  ratePlot,
   trafficRates,
   trafficWindow,
   type StatRow,
@@ -200,23 +199,6 @@ describe('the traffic plot', () => {
   it('gives no rate over a counter that ran backwards or a zero interval', () => {
     expect(trafficRates([sample(0, 900, 900), sample(1000, 100, 100)])).toEqual([]);
     expect(trafficRates([sample(1000, 0, 0), sample(1000, 40, 40)])).toEqual([]);
-  });
-
-  it('scales both lines on one top, and keeps a flat line at zero', () => {
-    const plot = ratePlot([
-      { at: 1, sent: 0, received: 10 },
-      { at: 2, sent: 5, received: 0 },
-    ]);
-    expect(plot.top).toBe(10);
-    expect(plot.received).toBe('0.0,0.0 240.0,48.0');
-    expect(plot.sent).toBe('0.0,48.0 240.0,24.0');
-    expect(ratePlot([]).sent).toBe('');
-    expect(
-      ratePlot([
-        { at: 1, sent: 0, received: 0 },
-        { at: 2, sent: 0, received: 0 },
-      ]).sent
-    ).toBe('0.0,48.0 240.0,48.0');
   });
 });
 

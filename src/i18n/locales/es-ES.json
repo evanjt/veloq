@@ -123,5 +123,88 @@
   },
   "support": {
     "tipNote": "Una propina es una donación. No desbloquea nada: Veloq es gratis para todo el mundo."
+  },
+  "connectPage": {
+    "palette": {
+      "showAll": "Mostrar los {{total}}"
+    },
+    "facts": {
+      "form": "Forma",
+      "restingHr": "Frecuencia cardíaca en reposo",
+      "averageHr": "Frecuencia cardíaca media",
+      "maxHr": "Frecuencia cardíaca máxima"
+    },
+    "activity": {
+      "maxHr": "Frecuencia cardíaca máxima {{bpm}} lpm, de {{source}}",
+      "group": {
+        "heartRate": "Frecuencia cardíaca"
+      }
+    },
+    "chart": {
+      "heartRate": "Frecuencia cardíaca"
+    },
+    "fitness": {
+      "fitnessFatigue": "Forma física y fatiga",
+      "restingHr": "Frecuencia cardíaca en reposo",
+      "noDecoupling": "No hay ninguna salida de media hora o más con potencia y frecuencia cardíaca en estos periodos.",
+      "heartRateZones": "Zonas de frecuencia cardíaca"
+    },
+    "settings": {
+      "tracksOnPhone": "Trazados GPS en el teléfono",
+      "detection": {
+        "maxLength": "Sección más larga (m)",
+        "enabledNote": "Al activar la coincidencia de rutas, se empieza a añadir la elevación a los trazados de las actividades y después se detectan secciones."
+      },
+      "values": {
+        "singleKeys": "Atajos de una sola tecla"
+      },
+      "options": {
+        "imperial": "Imperial"
+      },
+      "thresholds": {
+        "sports": {
+          "Run": "Carrera"
+        },
+        "fields": {
+          "thresholdHr": "Frecuencia cardíaca de umbral (lpm)",
+          "maxHr": "Frecuencia cardíaca máxima (lpm)",
+          "restingHr": "Frecuencia cardíaca en reposo (lpm)"
+        },
+        "zones": {
+          "title": "Zonas de frecuencia cardíaca de {{sport}}",
+          "bpm": "{{value}} lpm",
+          "percentOfMaxHr": "{{percent}} de la frecuencia cardíaca máxima"
+        }
+      }
+    },
+    "table": {
+      "selected_one": "{{count}} seleccionada"
+    },
+    "routes": {
+      "historyFailed": "El teléfono no respondió al historial de esta sección.",
+      "allRoutes": "Todas las rutas"
+    },
+    "sections": {
+      "how": "Resultado",
+      "ledger": "Cambios",
+      "liftChanged": "Se cambió la marca de terreno de remonte",
+      "liftGround": "Terreno de remonte",
+      "liftHint": "El detector marca el terreno de remonte; esto activa o quita la marca",
+      "unflagLift": "¿Quitar la marca de remonte?",
+      "unflagLiftBody": "El detector marcó esto como terreno de remonte. Quitar la marca no se puede deshacer.",
+      "boundsDiscardBody": "Los extremos que has movido no se han guardado.",
+      "boundsDiscardTitle": "¿Descartar los nuevos extremos?",
+      "boundsLaps": "Vueltas medidas de nuevo al guardar: {{count}}."
+    },
+    "insights": {
+      "colVisits": "Visitas",
+      "colDaysAgo": "Días atrás",
+      "fitnessCtl": "Forma física (CTL)",
+      "formTsb": "Forma (TSB)",
+      "category": {
+        "fitness_milestone": "Forma física",
+        "hrv_trend": "Variabilidad de la frecuencia cardíaca"
+      }
+    }
   }
 }

@@ -9,6 +9,7 @@
  * the phone's builder makes for the same input.
  */
 
+import { colourTokens } from '@/theme/colourTokens.generated';
 import { buildActivityLayers } from '@/features/maps/components/activityMapLayerSpecs';
 
 import {
@@ -214,7 +215,7 @@ describe('the spec', () => {
       'compare-b',
       'compare-c',
     ]);
-    expect(spec.layers.at(-2)?.paint?.['line-color']).toBe('#00798c');
+    expect(spec.layers.at(-2)?.paint?.['line-color']).toBe(colourTokens.light['stream-speed']);
   });
 
   it('moves the marker source with the crosshair', () => {

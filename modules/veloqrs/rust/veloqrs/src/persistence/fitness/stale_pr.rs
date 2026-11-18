@@ -340,6 +340,7 @@ mod tests {
             glyph: None,
             lookback_days: 30,
             sample_count: 0,
+            history_days: Vec::new(),
         }
     }
 

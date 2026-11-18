@@ -15,15 +15,15 @@ use tracematch::GpsPoint;
 use crate::persistence::PersistentEngine;
 
 const HELD: usize = 40;
-const LAT: f64 = 46.2;
-const LNG: f64 = 7.3;
+pub(super) const LAT: f64 = 46.2;
+pub(super) const LNG: f64 = 7.3;
 /// About 3.8 km apart at this latitude, so no two lines share a corridor.
-const SPACING_DEG: f64 = 0.05;
+pub(super) const SPACING_DEG: f64 = 0.05;
 const STEP_DEG: f64 = 0.0001;
 const POINTS: usize = 200;
 const READMITTED: &str = "auto-orchard-lane";
 
-fn line(lng: f64) -> Vec<GpsPoint> {
+pub(super) fn line(lng: f64) -> Vec<GpsPoint> {
     (0..POINTS)
         .map(|i| GpsPoint::new(LAT + i as f64 * STEP_DEG, lng))
         .collect()
@@ -39,7 +39,7 @@ fn portion(activity: &str, distance: f64) -> tracematch::SectionPortion {
     }
 }
 
-fn auto_section(
+pub(super) fn auto_section(
     id: &str,
     polyline: Vec<GpsPoint>,
     members: &[&str],

@@ -37,6 +37,7 @@ mod throttle;
 
 pub use composite::{CompositeMember, GeoBox};
 pub use fetch::{FILL_PACE, TileFetchError, TileFetcher};
+pub(crate) use geo::for_collection;
 pub use geo::geo_answer;
 #[cfg(test)]
 pub(crate) use geo::line_feature;

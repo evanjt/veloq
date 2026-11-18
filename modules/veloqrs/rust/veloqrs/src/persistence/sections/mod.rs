@@ -18,7 +18,7 @@ pub(crate) mod attempt_histogram;
 #[cfg(test)]
 #[path = "tests/catalogue_write_lock.rs"]
 mod catalogue_write_lock_tests;
-mod editing;
+pub(crate) mod editing;
 pub(crate) mod geometry;
 pub(crate) mod history;
 mod identity;
@@ -219,6 +219,15 @@ struct OutgoingShape {
     line: Vec<GpsPoint>,
     reference: Option<(String, u32, u32, bool)>,
     distance_meters: f64,
+}
+
+/// What reading one section for memory found.
+enum SectionLoad {
+    /// The row is absent or unreadable: memory is left as it is.
+    Skip,
+    /// The row is disabled, so memory holds none of it.
+    Disabled,
+    Fresh(Arc<FrequentSection>),
 }
 
 fn outgoing_shapes(conn: &rusqlite::Connection) -> SqlResult<HashMap<String, OutgoingShape>> {
@@ -1142,9 +1151,12 @@ impl PersistentEngine {
     /// An accepted section leaves the registry's care, so the flag is set on
     /// the visible copy alone and the registry row keeps the auto payload it
     /// relinquishes.
-    pub fn mark_section_accepted_in_memory(&mut self, section_id: &str) {
-        if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
-            Arc::make_mut(section).is_user_defined = true;
+    pub fn mark_sections_accepted_in_memory(&mut self, section_ids: &[String]) {
+        let accepted: HashSet<&str> = section_ids.iter().map(String::as_str).collect();
+        for section in &mut self.sections {
+            if accepted.contains(section.id.as_str()) {
+                Arc::make_mut(section).is_user_defined = true;
+            }
         }
     }
 
@@ -1154,6 +1166,47 @@ impl PersistentEngine {
     /// leaves it out. Call it after modifying a section's polyline or activity
     /// list.
     pub fn refresh_section_in_memory(&mut self, section_id: &str) {
+        self.refresh_sections_in_memory(&[section_id.to_owned()]);
+    }
+
+    /// Refresh each of the sections from the database in one pass over the
+    /// catalogue: one index of where each section sits, instead of a walk to
+    /// find each.
+    pub fn refresh_sections_in_memory(&mut self, section_ids: &[String]) {
+        let mut at: HashMap<String, usize> = self
+            .sections
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (s.id.clone(), i))
+            .collect();
+        let mut disabled: HashSet<&str> = HashSet::new();
+        for id in section_ids {
+            match self.load_section_for_memory(id) {
+                SectionLoad::Skip => {}
+                SectionLoad::Disabled => {
+                    disabled.insert(id.as_str());
+                }
+                SectionLoad::Fresh(section) => match at.get(id) {
+                    Some(&i) => self.sections[i] = section,
+                    None => {
+                        at.insert(id.clone(), self.sections.len());
+                        self.sections.push(section);
+                    }
+                },
+            }
+        }
+        if !disabled.is_empty() {
+            self.sections.retain(|s| !disabled.contains(s.id.as_str()));
+            self.invalidate_perf_cache();
+        }
+    }
+
+    /// Read a section as memory holds it. Auto and custom
+    /// sections are both cached in `self.sections`, so this applies to any
+    /// row. A disabled row is dropped from memory instead, as `load_sections`
+    /// leaves it out. Call it after modifying a section's polyline or activity
+    /// list.
+    fn load_section_for_memory(&self, section_id: &str) -> SectionLoad {
         type SectionRow = (
             String,
             String,
@@ -1193,7 +1246,7 @@ impl PersistentEngine {
                  FROM sections WHERE id = ?",
             ) {
                 Ok(s) => s,
-                Err(_) => return,
+                Err(_) => return SectionLoad::Skip,
             };
 
             stmt.query_row(params![section_id], |row| {
@@ -1254,14 +1307,13 @@ impl PersistentEngine {
             disabled,
         ) = match section_data {
             Some(data) => data,
-            None => return, // Section not found
+            None => return SectionLoad::Skip, // Section not found
         };
 
         // load_sections holds only the rows with disabled = 0, so a removed
         // section leaves memory here and comes back only through enable_section.
         if disabled {
-            self.remove_section_from_memory(section_id);
-            return;
+            return SectionLoad::Disabled;
         }
 
         // Both auto and custom sections are cached in memory now: the in-memory
@@ -1277,7 +1329,7 @@ impl PersistentEngine {
                  WHERE sa.section_id = ? AND sa.excluded = 0",
             ) {
                 Ok(s) => s,
-                Err(_) => return,
+                Err(_) => return SectionLoad::Skip,
             };
             stmt.query_map(params![section_id], |row| row.get(0))
                 .map(|rows| rows.filter_map(|r| r.ok()).collect())
@@ -1304,7 +1356,7 @@ impl PersistentEngine {
                     section_id,
                     e
                 );
-                return;
+                return SectionLoad::Skip;
             }
         };
         let Ok(point_density) = decode_point_density(
@@ -1314,7 +1366,7 @@ impl PersistentEngine {
             9,
             17,
         ) else {
-            return;
+            return SectionLoad::Skip;
         };
         let point_density = point_density.unwrap_or_default();
 
@@ -1373,31 +1425,23 @@ impl PersistentEngine {
             rank,
         };
 
-        // Find and update existing section, or append if new
-        let updated_section = Arc::new(updated_section);
-        if let Some(existing) = self.sections.iter_mut().find(|s| s.id == section_id) {
-            *existing = updated_section;
-            log::debug!(
-                "veloqrs: [refresh_section_in_memory] Updated section {} in memory",
-                section_id
-            );
-        } else {
-            self.sections.push(updated_section);
-            log::debug!(
-                "veloqrs: [refresh_section_in_memory] Added section {} to memory",
-                section_id
-            );
-        }
+        SectionLoad::Fresh(Arc::new(updated_section))
     }
 
     /// Remove a section from in-memory cache.
     /// Call this after deleting a section.
     pub fn remove_section_from_memory(&mut self, section_id: &str) {
-        self.sections.retain(|s| s.id != section_id);
+        self.remove_sections_from_memory(&[section_id.to_owned()]);
+    }
+
+    /// Remove each of the sections from the in-memory cache in one pass.
+    pub fn remove_sections_from_memory(&mut self, section_ids: &[String]) {
+        let gone: HashSet<&str> = section_ids.iter().map(String::as_str).collect();
+        self.sections.retain(|s| !gone.contains(s.id.as_str()));
         self.invalidate_perf_cache();
         log::debug!(
-            "veloqrs: [remove_section_from_memory] Removed section {} from memory",
-            section_id
+            "veloqrs: [remove_sections_from_memory] Removed {} sections from memory",
+            section_ids.len()
         );
     }
 
@@ -2429,7 +2473,6 @@ mod tests {
     /// Expected behaviour: one row whose ends sit within one point of the
     /// section's and whose distance is within 10 per cent of the section's.
     #[test]
-    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_forced_ride_row_ends_where_the_section_ends() {
         let spacing = 11.1;
         let lead = 100;

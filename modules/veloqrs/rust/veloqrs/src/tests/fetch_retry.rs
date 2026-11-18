@@ -28,6 +28,9 @@ const TIMED_TRACK: &str =
 /// headers, and a body.
 type Reply = fn(u32) -> (&'static str, &'static str, &'static str);
 
+/// A status that closes the connection without answering.
+const HANG_UP: &str = "hang up";
+
 struct FakeServer {
     base: String,
     track_requests: Arc<AtomicU32>,
@@ -70,6 +73,9 @@ impl FakeServer {
                 } else {
                     ("200 OK", "", "[]")
                 };
+                if status == HANG_UP {
+                    continue;
+                }
                 let _ = write!(
                     socket,
                     "HTTP/1.1 {}\r\n{}Content-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
@@ -312,4 +318,228 @@ fn a_run_the_allowance_holds_back_ends_held_until_the_window_frees() {
         panic!("the run ended {end:?}, not held by the budget");
     };
     assert!(until > started, "the hold lifts after the run: {until}");
+}
+
+/// Scenario: a second bulk run asks for a track whose earlier failures still
+/// hold it inside the attempt store's backoff.
+///
+/// Expected behaviour: nothing is sent for it and it is owed, not reported
+/// missing, because this run never asked for it.
+#[test]
+fn a_track_inside_its_backoff_is_owed_and_not_failed() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _tmp = crate::test_globals::init_global_engine("fetch_backoff_owed.db");
+    let server = FakeServer::answering(|_| ("500 Internal Server Error", "", ""));
+    let governor = budgeted(Budget::new(0));
+    let first = bulk_run(&server, ids(1), &governor);
+    assert_eq!(first.failed_ids, ids(1));
+    let before = server.requests();
+
+    let second = bulk_run(&server, ids(1), &governor);
+
+    assert_eq!(second.failed_ids, Vec::<String>::new());
+    assert_eq!(second.owed_ids, ids(1));
+    assert_eq!(server.requests(), before);
+}
+
+/// Scenario: the connection drops while a run is downloading.
+///
+/// Expected behaviour: the tracks it had left are owed, the run ends as a
+/// lost network, and no backoff grows against them.
+#[test]
+fn a_dropped_connection_leaves_the_tracks_owed_and_not_failed() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _tmp = crate::test_globals::init_global_engine("fetch_dropped_owed.db");
+    let server = FakeServer::answering(|_| (HANG_UP, "", ""));
+    let governor = budgeted(Budget::new(0));
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    let result = settle(start_fetch_and_store_ending_with_fetcher(
+        ids(3),
+        server.fetcher_on(Arc::clone(&governor)),
+        move |end| tx.send(end).expect("send"),
+    ));
+    let end = rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("the run ended");
+
+    assert_eq!(result.failed_ids, Vec::<String>::new());
+    let mut owed = result.owed_ids.clone();
+    owed.sort();
+    assert_eq!(owed, ids(3));
+    assert!(matches!(
+        end,
+        crate::objects::gps_pass::PassEnd::NetworkLost
+    ));
+    for id in ids(3) {
+        assert_eq!(attempts_for(&id), None, "{id} grew a backoff");
+    }
+}
+
+const SERVER_RECORDS: u32 = 30;
+
+fn laps_to(end: u32) -> String {
+    format!(
+        "{{\"icu_intervals\":[{{\"id\":1,\"type\":\"WORK\",\"start_index\":0,\"end_index\":{end}}}]}}"
+    )
+}
+
+/// Rides synced from the server, each with a body, an interval body whose last
+/// interval ends at the server's record count, and the census saying a track
+/// exists upstream, and nothing stored for the track. Ride `n` starts ten
+/// minutes after ride `n - 1`.
+fn synced_rides(count: i64) -> Vec<String> {
+    let first = crate::fit_synthetic::outdoor_ride().start_unix + 7_200;
+    let local = |n: i64| first + n * 600;
+    let census: Vec<_> = (0..count)
+        .map(|n| crate::net::types::ActivityCensusEntry {
+            id: format!("i{n}"),
+            start_date_local: Some(
+                chrono::DateTime::from_timestamp(local(n), 0)
+                    .unwrap()
+                    .format("%Y-%m-%dT%H:%M:%S")
+                    .to_string(),
+            ),
+            created: Some("2026-03-14T08:00:00Z".to_string()),
+            icu_sync_date: Some("2026-03-14T08:10:00Z".to_string()),
+            has_latlng: true,
+            has_series: true,
+        })
+        .collect();
+    crate::with_persistent_engine(|e| {
+        e.record_activity_census("i1", &census).unwrap();
+        for n in 0..count {
+            let id = format!("i{n}");
+            e.store_synced_activity_bodies(
+                "i1",
+                &[(
+                    id.clone(),
+                    local(n),
+                    format!("{{\"id\":\"{id}\",\"type\":\"Ride\"}}"),
+                )],
+                &[id.clone()],
+                vec![crate::ActivityMetrics {
+                    activity_id: id.clone(),
+                    date: local(n),
+                    sport_type: "Ride".to_string(),
+                    ..Default::default()
+                }],
+            )
+            .unwrap();
+            e.set_interval_body(&id, &laps_to(SERVER_RECORDS)).unwrap();
+        }
+        census.into_iter().map(|entry| entry.id).collect()
+    })
+    .expect("engine")
+}
+
+/// A file of ride `n` with `records` samples.
+fn file_of_ride(n: i64, records: u32) -> Vec<u8> {
+    let mut ride = crate::fit_synthetic::outdoor_ride();
+    ride.start_unix += n * 600;
+    while ride.samples.len() < records as usize {
+        let mut next = ride.samples.last().unwrap().clone();
+        next.at += 1;
+        ride.samples.push(next);
+    }
+    ride.to_fit()
+}
+
+fn import_files(files: &[Vec<u8>]) {
+    let dir = tempfile::TempDir::new().unwrap();
+    for (n, bytes) in files.iter().enumerate() {
+        std::fs::write(dir.path().join(format!("ride-{n:02}.fit")), bytes).unwrap();
+    }
+    let progress = crate::net::import::import_with(
+        crate::persistence::engine_install(),
+        dir.path(),
+        &AtomicBool::new(false),
+        |_| {},
+    )
+    .expect("the walk finished");
+    assert_eq!(progress.already_stored, files.len() as u32, "{progress:#?}");
+}
+
+/// Run the track pass over the rides the library owes a track, as the front
+/// end does after a sync, and answer how many requests reached the server.
+fn owed_candidates() -> Vec<crate::ffi::ActivitySportMapping> {
+    crate::with_persistent_engine(|e| e.gps_fetch_candidates("i1", "2026-01-01", "2026-12-31"))
+        .expect("engine")
+}
+
+fn owed_now() -> Vec<String> {
+    let mut ids: Vec<String> = owed_candidates()
+        .into_iter()
+        .map(|c| c.activity_id)
+        .collect();
+    ids.sort();
+    ids
+}
+
+fn track_run_requests(server: &FakeServer) -> (Vec<String>, u32) {
+    let ids = owed_now();
+    settle(start_fetch_and_store_with_fetcher(
+        ids.clone(),
+        Vec::new(),
+        DownloadPriority::Bulk,
+        server.fetcher_on(budgeted(Budget::new(0))),
+    ));
+    (ids, server.requests())
+}
+
+/// Scenario: a first sync of twenty rides, each with an imported file of the
+/// same ride whose record count is the server's, then the track run.
+///
+/// Expected behaviour: the track run owes nothing, so no request reaches the
+/// server.
+#[test]
+fn a_first_sync_of_rides_all_linked_to_matching_files_makes_no_track_request() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _tmp = crate::test_globals::init_global_engine("fetch_files_matching.db");
+    let server = FakeServer::answering(|_| ("200 OK", "", TIMED_TRACK));
+    let mut rides = synced_rides(20);
+    rides.sort();
+    assert_eq!(
+        owed_now(),
+        rides,
+        "every ride owes its track before the files"
+    );
+    let files: Vec<Vec<u8>> = (0..20).map(|n| file_of_ride(n, SERVER_RECORDS)).collect();
+    import_files(&files);
+
+    let (owed, requests) = track_run_requests(&server);
+
+    assert_eq!(owed, Vec::<String>::new());
+    assert_eq!(requests, 0);
+}
+
+/// Scenario: the same twenty rides, but the file of one holds a record more
+/// than the server's count.
+///
+/// Expected behaviour: that file is not used, its row carries the mismatch,
+/// and the track run makes one request, for that ride.
+#[test]
+fn a_file_with_one_record_more_than_the_server_is_not_used_and_costs_one_request() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _tmp = crate::test_globals::init_global_engine("fetch_files_extra_record.db");
+    let server = FakeServer::answering(|_| ("200 OK", "", TIMED_TRACK));
+    synced_rides(20);
+    let files: Vec<Vec<u8>> = (0..20)
+        .map(|n| file_of_ride(n, SERVER_RECORDS + u32::from(n == 7)))
+        .collect();
+    import_files(&files);
+
+    let (owed, requests) = track_run_requests(&server);
+
+    assert_eq!(owed, vec!["i7".to_string()]);
+    assert_eq!(requests, 1);
+    let recorded = crate::with_persistent_engine(|e| e.file_track_check("i7")).expect("engine");
+    assert_eq!(
+        recorded,
+        Some(crate::persistence::FileTrackCheck {
+            file_records: 31,
+            server_records: Some(30),
+            supplied: false,
+        })
+    );
 }

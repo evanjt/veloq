@@ -42,11 +42,7 @@ export function useUnderPoint(): UnderPoint {
         if (generation.current !== mine) return;
         setTraceUrl(
           group
-            ? nativeGeoUrl(
-                'under-point',
-                underPointKey(latitude, longitude, zoom, group.routeId ?? null),
-                mine
-              )
+            ? nativeGeoUrl('under-point', underPointKey(latitude, longitude, zoom, group), mine)
             : null
         );
       };
@@ -58,6 +54,7 @@ export function useUnderPoint(): UnderPoint {
           total: answer.total,
           traceCap: answer.traceCap,
           groups: answer.groups,
+          activities: answer.activities,
           onGroup: draw,
         });
         draw(null);

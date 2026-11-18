@@ -30,14 +30,20 @@ export function useRouteRead<T>(
 export function Refused({
   error,
   title,
-  plain = false,
+  onRetry,
 }: {
   error: ReadError;
   title: string;
-  plain?: boolean;
+  onRetry?: () => void;
 }) {
+  const { t } = useTranslation();
   if (error.kind === 'unsupported') return <ReadNotice error={error} />;
-  return plain ? <p className="notice">{title}</p> : <ErrorState title={title} />;
+  return (
+    <ErrorState
+      title={title}
+      {...(onRetry ? { retryLabel: t('connectPage.read.retry'), onRetry } : {})}
+    />
+  );
 }
 
 /** The name in place: a field and a save, with the engine's refusal under it. */

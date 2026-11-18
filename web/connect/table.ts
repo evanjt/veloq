@@ -6,6 +6,7 @@ import type { ParseKeys } from 'i18next';
 
 import { queryValue, type Route } from './router';
 import { readIds, writeIds } from './compare';
+import { FILTER_KEY } from './ui/filterText';
 import type { Card } from './feedReads';
 import type { SportFamily } from './link';
 
@@ -133,7 +134,25 @@ export type FeedQuery = {
   id: string | null;
   /** The rows being compared; two to four, or none. */
   ids: string[];
+  /** The text the table's filter holds. */
+  search: string;
+  /** Inclusive distance bounds in metres, null when unset. */
+  minDistance: number | null;
+  maxDistance: number | null;
+  /** Inclusive moving time bounds in seconds, null when unset. */
+  minMovingTime: number | null;
+  maxMovingTime: number | null;
 };
+
+/** The hash keys of the four bounds, each in metres or seconds whatever unit the athlete reads. */
+const BOUND_KEYS = ['minDistance', 'maxDistance', 'minMovingTime', 'maxMovingTime'] as const;
+
+/** A bound written in the hash; anything but a positive finite number reads as unset. */
+function readBound(text: string | null): number | null {
+  if (text === null || text.trim() === '') return null;
+  const value = Number(text);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
 
 const FAMILY_KEYS: readonly string[] = [
   'ride',
@@ -154,6 +173,11 @@ export function feedQuery(state: FeedQuery): [string, string][] {
   if (state.id) query.push(['id', state.id]);
   const ids = writeIds(state.ids);
   if (ids) query.push(['ids', ids]);
+  if (state.search.trim() !== '') query.push([FILTER_KEY, state.search]);
+  for (const key of BOUND_KEYS) {
+    const bound = state[key];
+    if (bound !== null) query.push([key, String(bound)]);
+  }
   return query;
 }
 
@@ -174,6 +198,11 @@ export function readFeedQuery(route: Route): FeedQuery {
       const ids = readIds(get('ids'));
       return ids.length >= 2 ? ids : [];
     })(),
+    search: get(FILTER_KEY) ?? '',
+    minDistance: readBound(get('minDistance')),
+    maxDistance: readBound(get('maxDistance')),
+    minMovingTime: readBound(get('minMovingTime')),
+    maxMovingTime: readBound(get('maxMovingTime')),
   };
 }
 

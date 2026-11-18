@@ -15,6 +15,8 @@ import {
   keepPresent,
   moveActive,
   readHidden,
+  rowIntent,
+  scrollToRow,
   selectRow,
   storedHidden,
   toggleColumn,
@@ -61,8 +63,7 @@ const key = (name: string, extra: object = {}) => ({
   ...extra,
 });
 
-const scroller = (root: ReactTestRenderer) =>
-  root.root.findByProps({ className: 'ui-table-scroll' });
+const scroller = (root: ReactTestRenderer) => root.root.findByProps({ role: 'grid' });
 const dataRows = (root: ReactTestRenderer) =>
   root.root.findAll((node) => node.type === 'tr' && node.props['data-row'] !== undefined);
 
@@ -153,6 +154,48 @@ describe('the table model', () => {
   });
 });
 
+const click = (extra: object = {}) => ({
+  button: 0,
+  shiftKey: false,
+  ctrlKey: false,
+  metaKey: false,
+  ...extra,
+});
+
+describe('what a row click asks for', () => {
+  it('opens on a plain click and leaves a modified or middle click to the browser', () => {
+    expect(rowIntent(click(), false, 'open')).toBe('open');
+    expect(rowIntent(click({ ctrlKey: true }), false, 'open')).toBe('browser');
+    expect(rowIntent(click({ metaKey: true }), false, 'open')).toBe('browser');
+    expect(rowIntent(click({ button: 1 }), false, 'open')).toBe('browser');
+    expect(rowIntent(click({ shiftKey: true }), false, 'open')).toBe('range');
+  });
+
+  it('leaves a click on a control inside the row to the control', () => {
+    expect(rowIntent(click(), true, 'open')).toBe('ignore');
+    expect(rowIntent(click(), true, 'select')).toBe('ignore');
+  });
+
+  it('selects, ranges and toggles when the table selects', () => {
+    expect(rowIntent(click(), false, 'select')).toBe('single');
+    expect(rowIntent(click({ shiftKey: true }), false, 'select')).toBe('range');
+    expect(rowIntent(click({ ctrlKey: true }), false, 'select')).toBe('toggle');
+  });
+});
+
+describe('the virtual window with a measured row height', () => {
+  it('mounts the rows that fit the measured height, not the assumed one', () => {
+    const tall = visibleWindow(5000, 41 * 1000, 640, 41);
+    expect(tall.start).toBe(1000 - 8);
+    expect(tall.end).toBe(1000 + Math.ceil(640 / 41) + 8);
+  });
+
+  it('scrolls a row into view by its measured height', () => {
+    expect(scrollToRow(100, 0, 400, 30, 41)).toBe(100 * 41 + 41 + 30 - 400);
+    expect(scrollToRow(2, 500, 400, 30, 41)).toBe(82);
+  });
+});
+
 describe('the data table', () => {
   it('moves the active row with j and k and opens it with Enter', () => {
     const opened: string[] = [];
@@ -231,6 +274,131 @@ describe('the data table', () => {
     expect(headers(root)).toBe(1);
     expect(storage.data.get('veloq-connect-columns:feed')).toBe('["metres"]');
     expect(headers(mount({ tableId: 'feed', labels, storage }))).toBe(1);
+  });
+
+  it('opens the row on a plain click on any cell and leaves a ctrl-click to the browser', () => {
+    const opened: string[] = [];
+    const root = mount({
+      rowAction: 'open',
+      href: (row) => `#/item/${row.id}`,
+      onNavigate: (href) => opened.push(href),
+    });
+    const row = dataRows(root)[2];
+    act(() => row.props.onClick({ ...click(), target: { closest: () => null } }));
+    expect(opened).toEqual(['#/item/r2']);
+    const preventDefault = jest.fn();
+    const link = root.root.findAll((node) => node.type === 'a')[2];
+    act(() => link.props.onClick({ ...click({ ctrlKey: true }), preventDefault }));
+    expect(preventDefault).not.toHaveBeenCalled();
+    act(() => link.props.onClick({ ...click({ button: 1 }), preventDefault }));
+    expect(preventDefault).not.toHaveBeenCalled();
+    expect(opened).toEqual(['#/item/r2']);
+  });
+
+  it('puts the link in the primary column and keeps the row links out of the tab order', () => {
+    const root = mount({
+      rowAction: 'open',
+      href: (row) => `#/item/${row.id}`,
+      columns: [
+        { key: 'metres', header: 'Metres', numeric: true, cell: (row) => row.metres },
+        { key: 'name', header: 'Name', primary: true, cell: (row) => row.name },
+      ],
+    });
+    const links = root.root.findAll((node) => node.type === 'a');
+    expect(links).toHaveLength(10);
+    expect(links[0].parent?.props['data-primary']).toBe(true);
+    expect(links.every((link) => link.props.tabIndex === -1)).toBe(true);
+  });
+
+  it('has one tab stop, a grid role and the active descendant on the grid', () => {
+    const root = mount({ rowAction: 'open', href: (row) => `#/item/${row.id}` });
+    const stops = root.root.findAll(
+      (node) => typeof node.type === 'string' && node.props.tabIndex === 0
+    );
+    expect(stops).toHaveLength(1);
+    expect(stops[0].props.role).toBe('grid');
+    act(() => scroller(root).props.onKeyDown(key('j')));
+    expect(scroller(root).props['aria-activedescendant']).toBe('table-row-r0');
+    expect(
+      root.root.findAll((node) => node.props['aria-activedescendant'] !== undefined)
+    ).toHaveLength(1);
+  });
+
+  it('makes the active row the selected row, so cursor and selection agree', () => {
+    const moved: string[] = [];
+    const root = mount({
+      rowAction: 'open',
+      href: (row) => `#/item/${row.id}`,
+      selectedKey: 'r3',
+      onActiveChange: (row) => moved.push(row.id),
+    });
+    const both = () =>
+      dataRows(root).filter((row) => row.props['data-active'] && row.props['aria-selected']);
+    expect(both().map((row) => row.props['data-row'])).toEqual(['r3']);
+    act(() => scroller(root).props.onKeyDown(key('j')));
+    expect(moved).toEqual(['r4']);
+    act(() =>
+      root.update(
+        <DataTable
+          label="Items"
+          columns={columns}
+          rows={items(10)}
+          rowKey={(row) => row.id}
+          storage={null}
+          rowAction="open"
+          href={(row) => `#/item/${row.id}`}
+          selectedKey="r4"
+          onActiveChange={(row) => moved.push(row.id)}
+        />
+      )
+    );
+    expect(both().map((row) => row.props['data-row'])).toEqual(['r4']);
+  });
+
+  it('selects by checkbox and range in open mode, with Space and x toggling the active row', () => {
+    const root = mount({
+      rowAction: 'open',
+      selectable: true,
+      labels,
+      href: (row) => `#/item/${row.id}`,
+    });
+    const boxes = root.root.findAll(
+      (node) =>
+        node.type === 'input' && node.props.type === 'checkbox' && node.props['data-row-box']
+    );
+    expect(boxes).toHaveLength(10);
+    expect(boxes[0].props.tabIndex).toBe(-1);
+    act(() => boxes[1].props.onChange({ nativeEvent: {} }));
+    act(() =>
+      dataRows(root)[4].props.onClick({
+        ...click({ shiftKey: true }),
+        target: { closest: () => null },
+      })
+    );
+    expect(root.root.findByProps({ role: 'toolbar' }).props['aria-label']).toBe('4 selected');
+    act(() => scroller(root).props.onKeyDown(key('Escape')));
+    act(() => scroller(root).props.onKeyDown(key('j')));
+    act(() => scroller(root).props.onKeyDown(key('x')));
+    expect(root.root.findByProps({ role: 'toolbar' }).props['aria-label']).toBe('1 selected');
+  });
+
+  it('closes the column chooser on Escape and returns focus to its button', () => {
+    const root = mount({ tableId: 'feed', labels });
+    const button = () =>
+      root.root.findAll(
+        (node) => node.type === 'button' && node.props['aria-expanded'] !== undefined
+      )[0];
+    act(() => button().props.onClick());
+    expect(button().props['aria-expanded']).toBe(true);
+    const chooser = root.root.findByProps({ className: 'ui-table-chooser' });
+    act(() =>
+      chooser.props.onKeyDown({
+        key: 'Escape',
+        stopPropagation: () => undefined,
+        preventDefault: () => undefined,
+      })
+    );
+    expect(button().props['aria-expanded']).toBe(false);
   });
 
   it('makes the first column a link when the page gives an address', () => {

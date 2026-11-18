@@ -121,6 +121,13 @@ fn epoch_seconds(date: &str) -> i64 {
         .unwrap_or(0)
 }
 
+/// The `YYYY-MM-DD` day a midnight-UTC stamp from [`epoch_seconds`] belongs to.
+fn utc_day(epoch: f64) -> String {
+    chrono::DateTime::from_timestamp(epoch as i64, 0)
+        .map(|moment| moment.date_naive().to_string())
+        .unwrap_or_default()
+}
+
 /// The summary card's reads, over a connection rather than the engine.
 ///
 /// Every one of these was already a plain query on `self.db`, touching nothing
@@ -624,7 +631,7 @@ pub(crate) mod pooled {
         encounters
     }
 
-    use super::{day_offset, epoch_seconds, trend_days};
+    use super::{day_offset, epoch_seconds, trend_days, utc_day};
     use rusqlite::{Connection, Result as SqlResult, params};
 
     /// Route highlights for `activity_ids`, read from the tables the engine's
@@ -1363,6 +1370,7 @@ pub(crate) mod pooled {
             glyph: None,
             lookback_days: lookback,
             sample_count: 0,
+            history_days: Vec::new(),
         };
 
         // The read stops at the day the longer window reaches back to, so a
@@ -1389,6 +1397,12 @@ pub(crate) mod pooled {
         // holds, which is what the ranker should weigh it as.
         let sample_count = previous_at.map(|at| rows.len() - at).unwrap_or(1) as u32;
 
+        // The chart keeps its history even when the step has a shorter window.
+        let history =
+            crate::persistence::screens::series_tail(rows.iter(), history_limit, |(date, ftp)| {
+                (f64::from(*ftp), epoch_seconds(date) as f64)
+            });
+        let history_days = history.iter().map(|point| utc_day(point.date)).collect();
         crate::FfiFtpTrend {
             changes,
             latest_ftp: Some(latest_ftp),
@@ -1403,12 +1417,8 @@ pub(crate) mod pooled {
             ),
             lookback_days: lookback,
             sample_count,
-            // The chart keeps its history even when the step has a shorter window.
-            history: crate::persistence::screens::series_tail(
-                rows.iter(),
-                history_limit,
-                |(date, ftp)| (f64::from(*ftp), epoch_seconds(date) as f64),
-            ),
+            history,
+            history_days,
         }
     }
 

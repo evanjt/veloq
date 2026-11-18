@@ -11,7 +11,9 @@ use super::strength::StrengthManager;
 use crate::persistence::PersistentEngine;
 use crate::persistence::strength_focus::FocusState;
 use crate::persistence::strength_live::{LiveEdit, LiveError, LiveOutcome, StartFrom, read_live};
-use crate::persistence::strength_saved::saved_workouts;
+use crate::persistence::strength_saved::{
+    SavedError, SavedWorkout, removed_workouts, saved_workouts,
+};
 use crate::persistence::strength_sessions::StrengthSession;
 use crate::persistence::strength_sessions::{athlete_weight_unit_on, strength_session_fit_on};
 use crate::persistence::strength_signature::exercises_of;
@@ -289,21 +291,37 @@ pub(crate) fn start_data(conn: &Connection, now: i64) -> Result<FfiStrengthStart
                 .collect(),
         })
         .collect();
-    let workouts = saved_workouts(conn)
-        .map_err(database)?
-        .into_iter()
+    let workouts = saved_rows(saved_workouts(conn).map_err(database)?);
+    let removed = saved_rows(removed_workouts(conn).map_err(database)?);
+    Ok(FfiStrengthStartData {
+        live,
+        groups,
+        workouts,
+        removed,
+    })
+}
+
+fn saved_rows(rows: Vec<SavedWorkout>) -> Vec<FfiStrengthSavedWorkout> {
+    rows.into_iter()
         .map(|workout| FfiStrengthSavedWorkout {
             id: workout.id,
             name: workout.name,
             exercise_count: workout.exercise_count,
             set_count: workout.set_count,
         })
-        .collect();
-    Ok(FfiStrengthStartData {
-        live,
-        groups,
-        workouts,
-    })
+        .collect()
+}
+
+/// Bring a removed workout back to the saved list as it was.
+pub(crate) fn recover_workout(engine: &mut PersistentEngine, id: &str) -> Result<(), VeloqError> {
+    engine
+        .recover_strength_workout(id)
+        .map_err(|error| match error {
+            SavedError::NoSuchWorkout(_) => VeloqError::NotFound {
+                msg: error.to_string(),
+            },
+            other => database(other),
+        })
 }
 
 /// One edit to the live session, weights read and entered in the athlete's unit.
@@ -366,6 +384,12 @@ impl StrengthManager {
     /// the saved workouts. `now` is epoch seconds.
     fn get_strength_start_data(&self, now: f64) -> Result<FfiStrengthStartData, VeloqError> {
         with_reader(|conn| start_data(conn, now as i64))?
+    }
+
+    /// Put a removed workout back in the saved list, with its exercises and its
+    /// place in the list. An id that is not a removed workout is not found.
+    fn recover_strength_workout(&self, id: String) -> Result<(), VeloqError> {
+        with_engine(|engine| recover_workout(engine, &id))?
     }
 
     /// The session being recorded, or none. A restarted app calls this to pick

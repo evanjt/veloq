@@ -417,7 +417,7 @@ fn store_file(
     let mut ambiguous = false;
     let stored = write(install, |e| {
         match same_ride(e, &prepared) {
-            Existing::One(row) => return link_to_row(e, &row, ORIGIN, bytes),
+            Existing::One(row) => return link_to_row(e, &row, ORIGIN, bytes, &prepared),
             Existing::Ambiguous(_) => ambiguous = true,
             Existing::Nothing => {}
         }

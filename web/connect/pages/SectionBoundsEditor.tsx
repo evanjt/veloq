@@ -2,13 +2,12 @@
 // along the section's own line, or along the track of the ride it was cut from
 // once that is shown beyond the ends; each lands on a vertex. A save sends the
 // edit with the vertex indices, and the toast's undo reverts to the version the
-// section held before it. The engine measures and keeps the section: the length
-// and slope shown while dragging are read off the track the ends sit on.
+// section held before it. The engine measures and keeps the section: the length,
+// slope and lap count shown while dragging are its preview of the ends.
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { chartDataOf, DETAIL_STREAM_TYPES } from '../activity';
 import { km } from '../format';
 import type { BoundsEditor } from '../map/SectionMap';
 import type { QueryClient } from '../query';
@@ -19,17 +18,17 @@ import {
   lngLatOf,
   moved,
   paddedWindow,
-  pathMetres,
   resetWrite,
-  slopePercent,
   snapIndex,
   trimWrite,
   expandWrite,
   undoOfEdit,
+  escapeAction,
+  shownBounds,
   type Handle,
   type Span,
 } from '../sectionBounds';
-import { Button, SegmentedControl } from '../ui';
+import { Button, ConfirmDialog, SegmentedControl } from '../ui';
 import type { Batch } from '../useBatch';
 import { useRead } from '../useRead';
 
@@ -49,6 +48,13 @@ export type BoundsEditing = {
   active: boolean;
 };
 
+/** The edit a draft would send: an expand over the reference ride's track, or a trim of the line. */
+function writeOf(draft: Draft, extension: { activityId: string } | undefined, id: string) {
+  return draft.mode === 'expand' && extension
+    ? expandWrite(id, extension.activityId, draft.span)
+    : trimWrite(id, draft.span);
+}
+
 export function useBoundsEditing(args: {
   id: string;
   section: Section | null;
@@ -62,6 +68,7 @@ export function useBoundsEditing(args: {
   // An edit belongs to the section it was begun on, so another section starts with none.
   const draft = held?.of === id ? held : null;
   const [saving, setSaving] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
   const encoded = section?.encodedPolyline ?? null;
   const line = useMemo(() => (encoded ? lngLatOf(pointsOf(encoded)) : []), [encoded]);
   const extension = useRead('section.extensionTrack', draft ? { id } : null);
@@ -76,22 +83,6 @@ export function useBoundsEditing(args: {
         : null,
     [extension.data]
   );
-  const streams = useRead(
-    'activity.streams',
-    draft && extension.data ? { id: extension.data.activityId, types: DETAIL_STREAM_TYPES } : null
-  );
-  const altitude = useMemo(() => chartDataOf(streams.data)?.series['altitude'], [streams.data]);
-
-  const open = draft !== null;
-  useEffect(() => {
-    if (!open) return undefined;
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setDraft(null);
-    };
-    window.addEventListener('keydown', escape);
-    return () => window.removeEventListener('keydown', escape);
-  }, [open]);
-
   const mode = draft?.mode ?? 'trim';
   const path = mode === 'expand' ? track : line;
   const whole = useMemo<Span>(() => ({ start: 0, end: Math.max(0, path.length - 1) }), [path]);
@@ -113,24 +104,33 @@ export function useBoundsEditing(args: {
     else setDraft({ of: id, mode: 'trim', span: { start: 0, end: line.length - 1 } });
   };
 
-  const metres = pathMetres(path, span);
-  // A trimmed line is a consensus of rides and has no altitude of its own, so the slope is read
-  // off the reference ride's samples nearest the two ends.
-  const slopeSpan: Span | null =
-    mode === 'expand'
-      ? span
-      : onTrack
-        ? (() => {
-            const start = snapIndex(track, line[span.start] ?? [0, 0], onTrack);
-            const end = snapIndex(track, line[span.end] ?? [0, 0], onTrack);
-            return start === null || end === null ? null : { start, end };
-          })()
-        : null;
-  const slope = slopeSpan ? slopePercent(altitude, track, slopeSpan) : null;
   const unchanged =
     mode === 'trim'
       ? span.start === 0 && span.end === line.length - 1
       : onTrack !== null && span.start === onTrack.start && span.end === onTrack.end;
+  const proposed = draft && !unchanged && keepsEnough(span) ? writeOf(draft, extension.data, id) : null;
+  const preview = useRead('section.boundsPreview', proposed?.params ?? null);
+  const shown = shownBounds(
+    unchanged,
+    {
+      distanceMeters: section?.distanceMeters ?? 0,
+      avgGradePercent: section?.avgGradePercent ?? null,
+    },
+    preview.data ?? null
+  );
+
+  const open = draft !== null;
+  const dirty = open && !unchanged;
+  useEffect(() => {
+    if (!open) return undefined;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (escapeAction(dirty) === 'close') setDraft(null);
+      else setDiscarding(true);
+    };
+    window.addEventListener('keydown', escape);
+    return () => window.removeEventListener('keydown', escape);
+  }, [open, dirty]);
 
   const label = section?.name ?? t('connectPage.routes.unnamedSection');
   const undoLabel = t('connectPage.sections.undo');
@@ -138,15 +138,12 @@ export function useBoundsEditing(args: {
 
   async function save() {
     if (!draft || saving) return;
-    const write =
-      draft.mode === 'expand' && extension.data
-        ? expandWrite(id, extension.data.activityId, draft.span)
-        : trimWrite(id, draft.span);
+    const write = writeOf(draft, extension.data, id);
     setSaving(true);
     const undo = await back();
     const ok = await batch.run(
       [write],
-      t('connectPage.sections.boundsSaved', { name: label, length: km(metres) ?? '' }),
+      t('connectPage.sections.boundsSaved', { name: label, length: km(shown.metres) ?? '' }),
       undo,
       undoLabel
     );
@@ -190,10 +187,15 @@ export function useBoundsEditing(args: {
       <p className="meta">{t('connectPage.sections.boundsHint')}</p>
       <dl className="facts section-facts">
         <dt>{t('connectPage.routes.sortDistance')}</dt>
-        <dd id="bounds-length">{km(metres)}</dd>
+        <dd id="bounds-length">{km(shown.metres) ?? '–'}</dd>
         <dt>{t('connectPage.sections.grade')}</dt>
-        <dd id="bounds-grade">{slope === null ? '–' : `${slope.toFixed(1)} %`}</dd>
+        <dd id="bounds-grade">{shown.slope === null ? '–' : `${shown.slope.toFixed(1)} %`}</dd>
       </dl>
+      {preview.data ? (
+        <p className="meta" id="bounds-laps">
+          {t('connectPage.sections.boundsLaps', { count: preview.data.lapsRemeasured })}
+        </p>
+      ) : null}
       {extension.data ? (
         <SegmentedControl
           label={t('connectPage.sections.boundsShow')}
@@ -226,8 +228,24 @@ export function useBoundsEditing(args: {
         <Button disabled={!args.hasOriginalBounds || saving} onClick={() => void reset()}>
           {t('connectPage.sections.boundsReset')}
         </Button>
-        <Button onClick={() => setDraft(null)}>{t('connectPage.sections.cancel')}</Button>
+        <Button
+          onClick={() => (escapeAction(dirty) === 'close' ? setDraft(null) : setDiscarding(true))}
+        >
+          {t('connectPage.sections.cancel')}
+        </Button>
       </div>
+      <ConfirmDialog
+        open={discarding}
+        title={t('connectPage.sections.boundsDiscardTitle')}
+        description={t('connectPage.sections.boundsDiscardBody')}
+        confirmLabel={t('connectPage.sections.boundsDiscard')}
+        cancelLabel={t('connectPage.sections.boundsKeepEditing')}
+        onConfirm={() => {
+          setDiscarding(false);
+          setDraft(null);
+        }}
+        onClose={() => setDiscarding(false)}
+      />
     </section>
   ) : null;
 

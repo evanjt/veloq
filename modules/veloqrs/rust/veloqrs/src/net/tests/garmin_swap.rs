@@ -30,6 +30,7 @@ fn http(status: u16) -> FfiCallOutcome {
         id: None,
         status: Some(status),
         detail: None,
+        retry_at_ms: None,
         message: format!("http {status}"),
     }
 }
@@ -40,6 +41,7 @@ fn ok(id: Option<&str>) -> FfiCallOutcome {
         id: id.map(str::to_string),
         status: None,
         detail: None,
+        retry_at_ms: None,
         message: "ok".into(),
     }
 }
@@ -349,6 +351,7 @@ fn a_request_that_failed_in_transport_is_checked_before_it_is_called_failed() {
         id: None,
         status: None,
         detail: None,
+        retry_at_ms: None,
         message: "connection reset".into(),
     };
     let result = replace(&link, "i500");
@@ -366,6 +369,7 @@ fn an_unreadable_answer_to_a_file_that_landed_is_checked_and_reported_replaced()
         id: None,
         status: None,
         detail: None,
+        retry_at_ms: None,
         message: "decode error: EOF while parsing a value".into(),
     };
 
@@ -384,6 +388,7 @@ fn an_unreadable_answer_to_a_file_that_did_not_land_is_failed() {
         id: None,
         status: None,
         detail: None,
+        retry_at_ms: None,
         message: "decode error: EOF while parsing a value".into(),
     };
 

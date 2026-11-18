@@ -359,9 +359,31 @@ static TABLES: &[Table] = &[
          sign-out and a backup never carries it",
     ),
     t(
+        "linked_connections",
+        Identity,
+        "when each linked browser connected, from which address and what it said it is, the last \
+         50 per browser; it goes with its browser, a sign-out and a backup never carries it",
+    ),
+    t(
+        "linked_refusals",
+        Identity,
+        "how many offers from an unlinked certificate arrived each day, a count with no sender",
+    ),
+    t(
         "remote_identity",
         Device,
         "this phone's own certificate, which linked browsers pinned",
+    ),
+    t(
+        "file_track_checks",
+        Derived,
+        "the record count of an imported file of a synced ride against the server's, which says whether the file's track stands in for the download; rebuilt when the file is read again",
+    ),
+    t(
+        "remote_spent",
+        Device,
+        "the pairing secrets this phone has spent, each until its invitation \
+         expires; a backup never carries them",
     ),
     mixed(
         "recordings",

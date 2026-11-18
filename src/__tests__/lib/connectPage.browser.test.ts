@@ -171,9 +171,9 @@ function connectedWording(tag: string): string {
 }
 
 /** The notice a screen shows in place of its content when the phone lacks its method. */
-function updateScreenWording(tag: string): string {
+function updateHeadingWording(tag: string): string {
   const file = path.join(__dirname, '..', '..', 'i18n', 'locales', `${tag}.json`);
-  return JSON.parse(readFileSync(file, 'utf8')).connectPage.update.screen;
+  return JSON.parse(readFileSync(file, 'utf8')).connectPage.update.heading;
 }
 
 /** Opens the account menu, which holds the linked phone's name, and reads it. */
@@ -442,20 +442,12 @@ describeWithChromium('the connect page in a headless Chromium', () => {
       );
       await connect.until(`document.querySelectorAll('#feed-scroll tbody tr').length === 2`);
       await connect.evaluate(`location.hash = '#/settings/display-settings'`);
-      await connect.until(`document.querySelector('#settings-rows dt') !== null`);
+      await connect.until(`document.querySelector('#setting-veloq-unit-preference') !== null`);
       expect(
-        await connect.evaluate<string[][]>(
-          `[...document.querySelectorAll('#settings-rows dt')].map((dt) => [dt.textContent, dt.nextSibling.querySelector('select, input').value])`
+        await connect.evaluate<string[]>(
+          `[document.querySelector('#setting-veloq-theme-preference').value, document.querySelector('#setting-veloq-unit-preference').value]`
         )
-      ).toEqual([
-        ['Theme', ''],
-        ['Units', 'imperial'],
-      ]);
-      expect(
-        await connect.evaluate(
-          `[...document.querySelectorAll('#settings-pane input, #settings-pane button, #settings-pane select')].every((control) => control.disabled)`
-        )
-      ).toBe(true);
+      ).toEqual(['', 'imperial']);
 
       await connect.evaluate(`location.hash = '#/settings/linked-devices'`);
       await connect.until(`document.querySelectorAll('#settings-devices li').length === 2`);
@@ -466,8 +458,13 @@ describeWithChromium('the connect page in a headless Chromium', () => {
       ).toEqual(['Laptop', 'Desk (this browser)']);
 
       await connect.evaluate(`location.hash = '#/settings'`);
-      await connect.until(`document.querySelector('#settings-profile dd') !== null`);
-      expect(await connect.evaluate(text('#settings-profile dd'))).toBe('Sam');
+      await connect.until(`document.querySelector('#settings-profile tbody td') !== null`);
+      expect(await connect.evaluate(text('#settings-profile tbody td'))).toBe('Sam');
+      expect(
+        await connect.evaluate(
+          `document.querySelectorAll('#settings-profile input, #settings-profile button, #settings-profile select').length`
+        )
+      ).toBe(0);
       expect(await accountPhone(connect)).toBe('Your phone');
       expect(await connect.evaluate(`document.getElementById('later')`)).toBeNull();
     },
@@ -641,8 +638,12 @@ describeWithChromium('the connect page in a headless Chromium', () => {
       const connect = await visit(await phoneScript('old'), 'en-GB');
       await connect.until(CONNECTED);
       await connect.evaluate(`location.hash = '#/insights?type=strength'`);
-      await connect.until(`document.querySelector('#content p.notice') !== null`);
-      expect(await connect.evaluate(text('#content p.notice'))).toBe(updateScreenWording('en-GB'));
+      await connect.until(
+        `document.querySelector('#content [data-read-error="unsupported"]') !== null`
+      );
+      expect(await connect.evaluate(text('#content [data-read-error="unsupported"] strong'))).toBe(
+        updateHeadingWording('en-GB')
+      );
       expect(await connect.evaluate(CONNECTED)).toBe(true);
       expect(await connect.evaluate(`document.getElementById('update')`)).toBeNull();
     },
@@ -791,6 +792,11 @@ describeWithChromium('the connect page in a headless Chromium', () => {
       await connect.evaluate(`document.getElementById('map-panel-fold').click()`);
       await connect.until(`document.getElementById('map-list') === null`);
       expect(await connect.evaluate('location.hash')).toContain('panel=closed');
+      const chip = await connect.evaluate<{ visible: string; name: string }>(
+        `(() => { const chip = document.getElementById('map-chip'); return { visible: chip.firstChild.textContent.trim(), name: chip.getAttribute('aria-label') ?? chip.textContent }; })()`
+      );
+      expect(chip.visible).not.toBe('');
+      expect(chip.name).toContain(chip.visible);
       await connect.evaluate(`document.getElementById('map-chip').click()`);
       await connect.until(`document.getElementById('map-list') !== null`);
       expect(await connect.evaluate('location.hash')).not.toContain('panel=');

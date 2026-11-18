@@ -73,7 +73,7 @@ const DENSE_SURFACES = [
   'src/shared/ui/Button.tsx',
   'src/shared/ui/Badge.tsx',
   'src/shared/ui/ChangeChip.tsx',
-  'src/shared/ui/DirectionSwitch.tsx',
+  'src/shared/ui/SegmentedSwitch.tsx',
   'src/features/routes/components/section/SectionStatusLine.tsx',
 ];
 

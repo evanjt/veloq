@@ -51,9 +51,11 @@ jest.mock('@/shared/ui/dialog', () => ({
 jest.mock('veloqrs', () =>
   require('../../__shared__/veloqrsStub').withOverrides({
     remote: {
-      listLinkedDevices: jest.fn(),
+      linkedDevicesScreen: jest.fn(),
       removeLinkedDevice: jest.fn(),
-      recentWrites: jest.fn(),
+      disconnectLinkedDevice: jest.fn(),
+      renameLinkedDevice: jest.fn(),
+      disconnectAll: jest.fn(),
       beginPairing: jest.fn(),
       pairingRequest: jest.fn(),
       confirmPairing: jest.fn(),
@@ -87,6 +89,14 @@ const OLDER = {
   summary: 'Renamed section Climb 2 to Ridge',
   at: 1_700_000_100,
 };
+/** What the engine's one screen read holds, set per test. */
+const held: {
+  devices: unknown[];
+  writes: (id: string) => unknown[];
+  connections: (id: string) => unknown[];
+  refusedToday: number;
+} = { devices: [], writes: () => [], connections: () => [], refusedToday: 0 };
+
 const ROOM = 'room-0123456789abcdefghij';
 const GOOD_CODE = '{"v":1,"room":"room-0123456789abcdefghij"}';
 
@@ -102,8 +112,18 @@ beforeEach(() => {
     jest.fn(),
     jest.fn().mockResolvedValue(undefined),
   ]);
-  mockRemote.listLinkedDevices.mockReturnValue([LAPTOP]);
-  mockRemote.recentWrites.mockReturnValue([]);
+  held.devices = [LAPTOP];
+  held.writes = () => [];
+  held.connections = () => [];
+  held.refusedToday = 0;
+  mockRemote.linkedDevicesScreen.mockImplementation(() => ({
+    browsers: (held.devices as { id: string }[]).map((device) => ({
+      device,
+      writes: held.writes(device.id),
+      connections: held.connections(device.id),
+    })),
+    refusedToday: held.refusedToday,
+  }));
   mockRemote.pairingRequest.mockReturnValue(null);
   mockRemote.beginPairing.mockImplementation((qr: string) => {
     if (qr !== GOOD_CODE) throw new Error('pairing refused: Malformed');
@@ -124,15 +144,101 @@ describe('linked devices', () => {
   it('removes a browser only once the athlete confirms, and closes its room', async () => {
     const tree = await render(<LinkedDevices />);
     await act(async () => fireEvent.press(tree.getByTestId('linked-device-7')));
+    await act(async () => fireEvent.press(tree.getByTestId('linked-device-remove')));
     expect(mockRemote.removeLinkedDevice).not.toHaveBeenCalled();
 
-    mockRemote.listLinkedDevices.mockReturnValue([]);
+    held.devices = [];
     await act(async () => lastConfirm().onConfirm());
 
     expect(mockRemote.removeLinkedDevice).toHaveBeenCalledWith('7');
     expect(mockLink.refresh).toHaveBeenCalled();
     expect(tree.queryByTestId('linked-device-7')).toBeNull();
     expect(tree.getByText('remoteLink.empty')).toBeTruthy();
+  });
+
+  it('opens a browser detail listing each stored connection with its network', async () => {
+    held.connections = () => [
+      {
+        deviceId: '7',
+        startedAt: 1_700_000_300,
+        endedAt: undefined,
+        endReason: undefined,
+        remoteAddress: '198.51.100.20',
+        thisNetwork: true,
+        client: { kind: 'browser', browser: 'Firefox', os: 'Linux' },
+      },
+      {
+        deviceId: '7',
+        startedAt: 1_700_000_000,
+        endedAt: 1_700_000_100,
+        endReason: 'backgrounded',
+        remoteAddress: '203.0.113.9',
+        thisNetwork: false,
+        client: { kind: 'browser', browser: 'Firefox', os: 'Linux' },
+      },
+    ];
+    const tree = await render(<LinkedDevices />);
+    await act(async () => fireEvent.press(tree.getByTestId('linked-device-7')));
+
+    expect(mockRemote.linkedDevicesScreen).toHaveBeenCalledTimes(1);
+    const rows = tree.getAllByTestId(/^linked-connection-/);
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]!).getByText(/remoteLink\.thisNetwork/)).toBeTruthy();
+    expect(within(rows[0]!).getByText(/198\.51\.100\.20/)).toBeTruthy();
+    expect(within(rows[1]!).getByText(/remoteLink\.internet/)).toBeTruthy();
+    expect(within(rows[1]!).getByText(/203\.0\.113\.9/)).toBeTruthy();
+    expect(within(rows[1]!).getByText(/remoteLink\.endReason\.backgrounded/)).toBeTruthy();
+  });
+
+  it('explains how Connect works from the screen', async () => {
+    const tree = await render(<LinkedDevices />);
+    expect(tree.queryByText('remoteLink.howRelay')).toBeNull();
+    await act(async () => fireEvent.press(tree.getByTestId('remote-link-how')));
+    expect(tree.getByText('remoteLink.howRelay')).toBeTruthy();
+  });
+
+  it('disconnects one connected browser by id and not every browser', async () => {
+    held.devices = [{ ...LAPTOP, connectedSince: 1_700_000_300 }, TABLET];
+    const tree = await render(<LinkedDevices />);
+    expect(tree.queryByTestId('linked-device-disconnect-8')).toBeNull();
+
+    await act(async () => fireEvent.press(tree.getByTestId('linked-device-disconnect-7')));
+
+    expect(mockRemote.disconnectLinkedDevice).toHaveBeenCalledWith('7');
+    expect(mockRemote.disconnectAll).not.toHaveBeenCalled();
+    expect(mockRemote.removeLinkedDevice).not.toHaveBeenCalled();
+  });
+
+  it('renames a browser to the trimmed name the athlete saves', async () => {
+    const tree = await render(<LinkedDevices />);
+    await act(async () => fireEvent.press(tree.getByTestId('linked-device-rename-7')));
+    await act(async () =>
+      fireEvent.changeText(tree.getByTestId('linked-device-rename-field-7'), '   ')
+    );
+    await act(async () => fireEvent.press(tree.getByTestId('linked-device-rename-save-7')));
+    expect(mockRemote.renameLinkedDevice).not.toHaveBeenCalled();
+
+    await act(async () =>
+      fireEvent.changeText(tree.getByTestId('linked-device-rename-field-7'), '  Desk  ')
+    );
+    held.devices = [{ ...LAPTOP, name: 'Desk' }];
+    await act(async () => fireEvent.press(tree.getByTestId('linked-device-rename-save-7')));
+
+    expect(mockRemote.renameLinkedDevice).toHaveBeenCalledWith('7', 'Desk');
+    expect(tree.queryByTestId('linked-device-rename-field-7')).toBeNull();
+    expect(tree.getByText('Desk')).toBeTruthy();
+  });
+
+  it('keeps the name and closes the field when the athlete cancels a rename', async () => {
+    const tree = await render(<LinkedDevices />);
+    await act(async () => fireEvent.press(tree.getByTestId('linked-device-rename-7')));
+    await act(async () =>
+      fireEvent.changeText(tree.getByTestId('linked-device-rename-field-7'), 'Desk')
+    );
+    await act(async () => fireEvent.press(tree.getByTestId('linked-device-rename-cancel-7')));
+
+    expect(mockRemote.renameLinkedDevice).not.toHaveBeenCalled();
+    expect(tree.queryByTestId('linked-device-rename-field-7')).toBeNull();
   });
 
   it('joins no room for a code the engine refuses', async () => {
@@ -221,19 +327,42 @@ describe('an invitation carried by the opening link', () => {
   });
 });
 
+describe('one screen read', () => {
+  it('reads every browser, its history and the refused count in one engine call', async () => {
+    held.devices = [LAPTOP, TABLET];
+    held.refusedToday = 3;
+    const tree = await render(<LinkedDevices />);
+    await act(async () => fireEvent.press(tree.getByTestId('linked-device-7')));
+
+    expect(mockRemote.linkedDevicesScreen).toHaveBeenCalledTimes(1);
+    expect(Object.keys(mockRemote)).not.toContain('recentConnections');
+    expect(Object.keys(mockRemote)).not.toContain('listLinkedDevices');
+  });
+
+  it('says how many offers were refused today, and nothing when none were', async () => {
+    held.refusedToday = 2;
+    const tree = await render(<LinkedDevices />);
+    expect(tree.getByTestId('remote-link-refused-today')).toBeTruthy();
+    expect(tree.getByText('remoteLink.refusedToday')).toBeTruthy();
+    tree.unmount();
+
+    held.refusedToday = 0;
+    const quiet = await render(<LinkedDevices />);
+    expect(quiet.queryByTestId('remote-link-refused-today')).toBeNull();
+  });
+});
+
 describe('recent changes', () => {
   beforeEach(() => {
-    mockRemote.listLinkedDevices.mockReturnValue([LAPTOP, TABLET]);
-    mockRemote.recentWrites.mockImplementation((id: string) =>
-      id === LAPTOP.id ? [NEWEST, OLDER] : []
-    );
+    held.devices = [LAPTOP, TABLET];
+    held.writes = (id) => (id === LAPTOP.id ? [NEWEST, OLDER] : []);
   });
 
   vaultIt('lists each browser changes under its own row, newest first', async () => {
     const tree = await render(<LinkedDevices />);
+    await act(async () => fireEvent.press(tree.getByTestId(`linked-device-${LAPTOP.id}`)));
     const laptop = within(tree.getByTestId(`linked-device-writes-${LAPTOP.id}`));
 
-    expect(mockRemote.recentWrites).toHaveBeenCalledWith(LAPTOP.id, expect.any(Number));
     expect(laptop.getAllByText(/^Renamed section/).map((node) => node.props.children)).toEqual([
       NEWEST.summary,
       OLDER.summary,
@@ -243,19 +372,20 @@ describe('recent changes', () => {
 
   vaultIt('says there are no changes under a browser that has made none', async () => {
     const tree = await render(<LinkedDevices />);
+    await act(async () => fireEvent.press(tree.getByTestId(`linked-device-${TABLET.id}`)));
     const tablet = within(tree.getByTestId(`linked-device-writes-${TABLET.id}`));
 
     expect(tablet.getByText('remoteLink.noChanges')).toBeTruthy();
     expect(tablet.queryByText(NEWEST.summary)).toBeNull();
-    expect(tree.queryAllByText(NEWEST.summary)).toHaveLength(1);
   });
 
   it('reads the changes again when a linked browser writes while the screen is open', async () => {
-    mockRemote.recentWrites.mockReturnValue([]);
+    held.writes = () => [];
     const tree = await render(<LinkedDevices />);
+    await act(async () => fireEvent.press(tree.getByTestId(`linked-device-${LAPTOP.id}`)));
     expect(tree.queryByText(NEWEST.summary)).toBeNull();
 
-    mockRemote.recentWrites.mockImplementation((id: string) => (id === LAPTOP.id ? [NEWEST] : []));
+    held.writes = (id) => (id === LAPTOP.id ? [NEWEST] : []);
     await act(async () => emit('remoteWrote'));
 
     expect(tree.getByText(NEWEST.summary)).toBeTruthy();

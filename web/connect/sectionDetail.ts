@@ -71,6 +71,11 @@ export function pointsOf(performance: Performance, direction: Direction): Scatte
 
 export type Bin = { low: number; high: number; count: number };
 
+/** The engine's speed trend band over a direction's counted attempts; none when it answered none. */
+export function trendSpeedOf(performance: Performance, direction: Direction) {
+  return performance.trendCurves[direction === 'forward' ? 'forwardSpeed' : 'reverseSpeed'];
+}
+
 /** The engine's histogram of section times for one direction, as bins; none when it has none. */
 export function binsOf(performance: Performance, direction: Direction): Bin[] {
   const histogram = performance.histograms[direction];

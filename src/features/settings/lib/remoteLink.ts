@@ -24,7 +24,7 @@ export interface RelaySocket {
 
 export interface RemoteLinkEngine {
   linkedRooms(): string[];
-  acceptOffer(offer: string): string;
+  acceptOffer(offer: string): Promise<string>;
   /** End every connection, telling each browser why before it hangs up. */
   disconnectAll(reason: DisconnectReason): void;
   /** Whether the app is in front; the engine answers a browser's write only while it is. */
@@ -152,14 +152,14 @@ export function createRemoteLink({
     socket.onmessage = ({ data }) => {
       const offer = offerOf(data);
       if (offer === null) return;
-      let answer: string;
-      try {
-        answer = engine.acceptOffer(offer);
-      } catch (error) {
-        diagnose?.(`offer refused: ${error instanceof Error ? error.message : String(error)}`);
-        return;
-      }
-      socket.send(answer);
+      engine.acceptOffer(offer).then(
+        (answer) => {
+          if (seat.socket === socket) socket.send(answer);
+        },
+        (error: unknown) => {
+          diagnose?.(`offer refused: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      );
     };
     // The relay ends a room on its own after a while, so a closed room is
     // rejoined for as long as it is still wanted.

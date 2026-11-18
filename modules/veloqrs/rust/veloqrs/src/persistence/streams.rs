@@ -1812,8 +1812,8 @@ mod tests {
     /// four fsyncs under the engine lock and the prune a fifth.
     #[test]
     fn a_body_of_series_is_one_commit() {
-        let (_dir, engine) = engine();
-        let commits = super::super::commit_counter::watch(&engine);
+        let (_dir, mut engine) = engine();
+        let commits = super::super::commit_counter::watch(&mut engine);
 
         engine
             .store_activity_streams(
@@ -1834,14 +1834,14 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_second_write_of_the_same_body_is_one_commit() {
-        let (_dir, engine) = engine();
+        let (_dir, mut engine) = engine();
         let body = [
             series("watts", &[Some(100.0), Some(200.0)]),
             series("heartrate", &[Some(140.0), Some(150.0)]),
         ];
         engine.store_activity_streams("a1", &body).unwrap();
 
-        let commits = super::super::commit_counter::watch(&engine);
+        let commits = super::super::commit_counter::watch(&mut engine);
         engine.store_activity_streams("a1", &body).unwrap();
 
         assert_eq!(super::super::commit_counter::count(&commits), 1);
@@ -1852,8 +1852,8 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_body_with_nothing_storable_is_one_commit_per_call() {
-        let (_dir, engine) = engine();
-        let commits = super::super::commit_counter::watch(&engine);
+        let (_dir, mut engine) = engine();
+        let commits = super::super::commit_counter::watch(&mut engine);
 
         engine.store_activity_streams("a1", &[]).unwrap();
         engine

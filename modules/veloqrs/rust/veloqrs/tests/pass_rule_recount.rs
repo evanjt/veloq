@@ -122,6 +122,22 @@ fn stamp(path: &str) -> Option<i64> {
         .ok()
 }
 
+/// The traversals the stored rows hold: included and complete, which is what a
+/// section's visit count is defined over.
+fn traversal_rows(raw: &Connection, section: &str) -> i64 {
+    raw.query_row(
+        &format!(
+            "SELECT COUNT(*) FROM section_activities sa
+             JOIN sections s ON s.id = sa.section_id
+             WHERE sa.section_id = ?1 AND sa.excluded = 0{}",
+            veloqrs::persistence::complete_traversal_clause("sa", "s")
+        ),
+        params![section],
+        |r| r.get(0),
+    )
+    .unwrap()
+}
+
 #[test]
 fn a_stale_stamp_recounts_stored_passes_once() {
     let lib = build();
@@ -161,16 +177,14 @@ fn a_stale_stamp_recounts_stored_passes_once() {
         .unwrap();
     assert!(held >= 1, "the exclusion survives the recount");
 
-    let (visits, rows): (i64, i64) = raw
+    let visits: i64 = raw
         .query_row(
-            "SELECT s.visit_count,
-                    (SELECT COUNT(*) FROM section_activities sa
-                     WHERE sa.section_id = s.id AND sa.excluded = 0)
-             FROM sections s WHERE s.id = ?1",
+            "SELECT visit_count FROM sections WHERE id = ?1",
             params![lib.section],
-            |r| Ok((r.get(0)?, r.get(1)?)),
+            |r| r.get(0),
         )
         .unwrap();
+    let rows = traversal_rows(&raw, &lib.section);
     assert_eq!(visits, rows, "visit_count agrees with the rows");
     assert!(stamp(&lib.path).is_some(), "the rule is stamped");
 }
@@ -222,16 +236,14 @@ fn the_recount_runs_off_the_opening_thread_and_agrees_with_the_foreground_pass()
     assert!(report.complete, "every section recounted");
 
     let raw = Connection::open(&lib.path).unwrap();
-    let (visits, rows): (i64, i64) = raw
+    let visits: i64 = raw
         .query_row(
-            "SELECT s.visit_count,
-                    (SELECT COUNT(*) FROM section_activities sa
-                     WHERE sa.section_id = s.id AND sa.excluded = 0)
-             FROM sections s WHERE s.id = ?1",
+            "SELECT visit_count FROM sections WHERE id = ?1",
             params![lib.section],
-            |r| Ok((r.get(0)?, r.get(1)?)),
+            |r| r.get(0),
         )
         .unwrap();
+    let rows = traversal_rows(&raw, &lib.section);
     assert_eq!(visits, rows);
     assert!(stamp(&lib.path).is_some());
 }
@@ -247,13 +259,7 @@ fn the_opening_engine_reads_the_recounted_visits_once_the_recount_settles() {
         .find(|s| s.id == lib.section)
         .expect("the section stands");
     let raw = Connection::open(&lib.path).unwrap();
-    let rows: i64 = raw
-        .query_row(
-            "SELECT COUNT(*) FROM section_activities WHERE section_id = ?1 AND excluded = 0",
-            params![lib.section],
-            |r| r.get(0),
-        )
-        .unwrap();
+    let rows = traversal_rows(&raw, &lib.section);
     assert_eq!(i64::from(section.visit_count), rows);
 }
 

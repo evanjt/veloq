@@ -82,7 +82,7 @@ export function SectionMap(props: {
         props.litCandidate,
         props.versions
       );
-      return editorView ? boundsEditorSpec(drawn, editorView) : drawn;
+      return editorView ? boundsEditorSpec(drawn, editorView, base) : drawn;
     },
     // `selected` and `versions` are rebuilt each render; their keys say what they hold.
     // eslint-disable-next-line react-hooks/exhaustive-deps

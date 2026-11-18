@@ -11,8 +11,10 @@
 //
 // Usage: node scripts/lint-connect-bare-controls.mjs [--root DIR] [--write]
 
-import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+
+import { treeView, trackedText } from './lib/indexedSources.mjs';
 
 const args = process.argv.slice(2);
 const rootAt = args.indexOf('--root');
@@ -23,22 +25,19 @@ const KIT = 'web/connect/ui/';
 const BASELINE = 'scripts/connect-bare-controls-baseline.json';
 const CONTROL = /<(button|select|input)[\s>/]/g;
 
-function files(dir) {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name);
-    return statSync(path).isDirectory() ? files(path) : [path];
-  });
-}
-
 export function count(source) {
   return [...source.matchAll(CONTROL)].length;
 }
 
+// The pages and the baseline as the tree records them, so another session's unsaved edit in
+// this checkout is not what a landing is judged on. `--write` keeps the disk: it changes the
+// baseline file the checkout shows.
+const view = treeView(root, [SOURCE]);
 const found = {};
-for (const path of files(join(root, SOURCE))) {
+for (const path of view.files(join(root, SOURCE))) {
   const rel = relative(root, path).split('\\').join('/');
   if (!rel.endsWith('.tsx') || rel.startsWith(KIT)) continue;
-  const n = count(readFileSync(path, 'utf8'));
+  const n = count(view.text(path));
   if (n > 0) found[rel] = n;
 }
 
@@ -49,7 +48,7 @@ if (write) {
 
 let held = {};
 try {
-  held = JSON.parse(readFileSync(join(root, BASELINE), 'utf8'));
+  held = JSON.parse(trackedText(root, BASELINE) ?? '{}');
 } catch {
   held = {};
 }

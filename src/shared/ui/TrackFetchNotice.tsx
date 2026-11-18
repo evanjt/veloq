@@ -1,26 +1,28 @@
 /**
- * The line that says some routes did not download.
+ * The line that says the engine gave up on some routes' downloads.
  *
  * `SyncErrorBanner` covers the engine's own sync and `OfflinePill` a dead
  * radio. Neither covers this: the tracks are fetched outside the sync service,
- * so a run that gives up on three of them leaves sync health clean and every
- * banner silent while those routes are missing from the map and matched against
- * no section. It is dismissible because the fetch retries itself on the next
- * refresh, and it comes back if the next run fails on an activity it was not closed for.
+ * so tracks the engine has stopped asking for leave sync health clean and every
+ * banner silent. The list comes from the engine, so a download still catching
+ * up, which the sync progress already shows, never raises it. It is dismissible,
+ * and it comes back if the engine gives up on an activity it was not closed for.
  *
- * It is a notice about the map, so it floats as a pill in the bottom stack
- * rather than taking the top slot and pushing every screen down.
+ * It floats as a pill in the bottom stack rather than taking the top slot and
+ * pushing every screen down.
  */
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useTrackFetchNoticeRefresh } from '@/features/routes/hooks/useTrackFetchNoticeRefresh';
 import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
 import { navigateTo } from '@/shared/app/navigation';
 import { FloatingPill } from './FloatingPill';
 
 export function TrackFetchNotice() {
   const { t } = useTranslation();
+  useTrackFetchNoticeRefresh();
   const failedIds = useTrackFetchNotice((s) => s.failedIds);
   const failedCount = useTrackFetchNotice((s) => s.failedCount);
   const dismissed = useTrackFetchNotice((s) => s.dismissed);

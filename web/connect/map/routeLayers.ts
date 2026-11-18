@@ -5,11 +5,11 @@ import type { MapSurfaceSpec } from '@/features/maps/lib/htmlBuilders/mapSurface
 import { divergingRamp, routePaletteExpression, sectionPalette } from '@/theme/colors';
 import { colourIndexExpression } from '@/theme/palette';
 
-import { COMPARE_COLOURS } from './activityLayers';
+import { compareColoursOn } from './activityLayers';
 import { compareSet } from '../compare';
 import type { Side } from '../routesDetail';
 import type { PickedFeature } from './hit';
-import { toneOf, type PageBase } from './style';
+import { pagePalette, toneOf, type PageBase } from './style';
 
 /** How long a pointer rests on an attempt before its full track is asked for. */
 export const HOVER_TRACK_MS = 300;
@@ -22,9 +22,9 @@ export const hoverTrackDue = (since: number, now: number) => now - since >= HOVE
  * swatch and the line share it, and a re-sort of the table does not move it.
  * Null for a pass that is not selected, and for any pass below two selected.
  */
-export function passColour(id: string, selected: readonly string[]): string | null {
+export function passColour(id: string, selected: readonly string[], base: PageBase): string | null {
   const entry = compareSet(selected).find((candidate) => candidate.id === id);
-  return entry ? (COMPARE_COLOURS[entry.colour] ?? null) : null;
+  return entry ? (compareColoursOn(base)[entry.colour] ?? null) : null;
 }
 
 /** The row a line on the map means: a pass by its activity id, a list line by its own id. */
@@ -136,9 +136,7 @@ export function routeDetailSpec(
       layout: { ...ROUND },
       paint: {
         'line-color':
-          picked?.id === id
-            ? sideColour(picked.side, base)
-            : (COMPARE_COLOURS['line-1'] ?? '#00798c'),
+          picked?.id === id ? sideColour(picked.side, base) : compareColoursOn(base)['line-1'],
         'line-width': picked?.id === id ? 5 : 4,
       },
       visible: id === hoveredActivity || id === picked?.id,
@@ -179,7 +177,7 @@ export function boundsOfGeoText(text: string): [number, number, number, number] 
 
 /** A section: the line bold, every pass faint, selected passes in their colours, the hovered pass lit. */
 export function sectionDetailSpec(
-  _base: PageBase,
+  base: PageBase,
   sectionId: string,
   hoveredActivity: string | null,
   selected: readonly string[]
@@ -187,7 +185,7 @@ export function sectionDetailSpec(
   const activity = ['get', 'activityId'];
   const colours = compareSet(selected).flatMap((entry) => [
     entry.id,
-    COMPARE_COLOURS[entry.colour] ?? '#888888',
+    compareColoursOn(base)[entry.colour] ?? pagePalette(base).muted,
   ]);
   const chosen = selected.length >= 2 ? selected.slice(0, 4) : [];
   return {
@@ -221,7 +219,9 @@ export function sectionDetailSpec(
         layout: { ...ROUND },
         filter: ['in', activity, ['literal', chosen]],
         paint: {
-          'line-color': colours.length ? ['match', activity, ...colours, '#888888'] : '#888888',
+          'line-color': colours.length
+            ? ['match', activity, ...colours, pagePalette(base).muted]
+            : pagePalette(base).muted,
           'line-width': 4,
         },
       },
@@ -232,7 +232,7 @@ export function sectionDetailSpec(
         layout: { ...ROUND },
         filter: ['==', activity, hoveredActivity ?? ''],
         paint: {
-          'line-color': COMPARE_COLOURS['line-2'] ?? '#edae49',
+          'line-color': compareColoursOn(base)['line-2'],
           'line-width': 5,
           'line-opacity': 0.9,
         },

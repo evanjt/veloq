@@ -146,6 +146,15 @@ describeWithChromium.each(SIZES)('the routes pages at $width by $height', (size)
         `document.querySelector('#route-attempts').closest('.ui-table-scroll').scrollWidth - document.querySelector('#route-attempts').closest('.ui-table-scroll').clientWidth`
       );
       expect(clipped).toBeLessThanOrEqual(1);
+      const [tableWidth, paneWidth] = await connect.evaluate<number[]>(`(() => {
+        const host = document.querySelector('#route-attempts').closest('.ui-context-wrap').parentElement;
+        const style = getComputedStyle(host);
+        return [
+          document.querySelector('#route-attempts').getBoundingClientRect().width,
+          host.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+        ];
+      })()`);
+      expect(tableWidth).toBeGreaterThanOrEqual(paneWidth - 1);
 
       await connect.evaluate(
         `document.querySelector('#routes-detail [role="tab"]:nth-child(2)').click()`

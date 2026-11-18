@@ -22,7 +22,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { followRoutesStatus, readRoutesStatus } from '@/shared/native/routesStatusPoll';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
-import type { RoutesStatus } from 'veloqrs';
+import type { FfiHoldCause, RoutesStatus } from 'veloqrs';
 import type { DailyLimit } from '../lib/dailyLimitLines';
 
 export type BackgroundJobId =
@@ -58,7 +58,7 @@ export interface BackgroundJob {
    * the downloads, when they may be asked again (epoch milliseconds) and who
    * asked for the wait. Null when nothing holds them or the job is not a download.
    */
-  held: { until: number; byUpstream: boolean } | null;
+  held: { until: number; cause: FfiHoldCause } | null;
   /**
    * Whole days the stream download takes to draw what it owes at the daily
    * allowance, null when the queue fits in a day or the engine did not price it.
@@ -167,7 +167,7 @@ interface BackgroundJobsData {
   stagedHistory?: StagedHistory;
   streamDaysToFinish?: number;
   downloadsHeldUntilMs?: number;
-  downloadsHeldByUpstream?: boolean;
+  downloadsHeldCause?: FfiHoldCause;
   dailyLimit?: { used: number; perDay: number; resetsAtMs: number };
 }
 
@@ -315,8 +315,8 @@ function jobsFromStatus(
       : null;
   };
   const held =
-    data?.downloadsHeldUntilMs !== undefined
-      ? { until: data.downloadsHeldUntilMs, byUpstream: data.downloadsHeldByUpstream === true }
+    data?.downloadsHeldUntilMs !== undefined && data.downloadsHeldCause !== undefined
+      ? { until: data.downloadsHeldUntilMs, cause: data.downloadsHeldCause }
       : null;
   const elevation = status?.elevation;
   const cutover = status?.cutover;

@@ -122,7 +122,7 @@
     "tracksMissing": {
       "title_one": "{{count}} route didn't come down",
       "title_other": "{{count}} routes didn't come down",
-      "detail": "They're missing from the map and not matched to any section. The next refresh has another crack."
+      "detail": "The download was tried several times and didn't come through. Retry asks again."
     },
     "startupError": {
       "title": "Some bits of the app didn't load",

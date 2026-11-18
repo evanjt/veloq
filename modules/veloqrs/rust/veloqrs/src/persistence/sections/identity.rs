@@ -1045,6 +1045,8 @@ impl PersistentEngine {
     /// process died. Best-effort: a failed write leaves the older blob, which the
     /// next apply's ground remap heals.
     pub(crate) fn section_identity_persist(&self) {
+        #[cfg(test)]
+        REGISTRY_WRITES.with(|n| n.set(n.get() + 1));
         let Some(blob) = self.section_identity_blob() else {
             log::warn!("veloqrs: [section_identity_persist] serialisation failed");
             return;
@@ -2313,10 +2315,19 @@ impl PersistentEngine {
     /// after they promote a section to user-defined. Idempotent: a real id the
     /// registry does not manage is a no-op.
     pub(crate) fn section_identity_relinquish(&mut self, real_id: &str) {
-        if let Some(base) = self.identity.ingest_base_mut() {
-            relinquish_in(base, real_id);
+        self.section_identity_relinquish_many(&[real_id.to_owned()]);
+    }
+
+    /// Relinquish each of the real ids in one pass, and write the registry once.
+    pub(crate) fn section_identity_relinquish_many(&mut self, real_ids: &[String]) {
+        let mut changed = false;
+        for real_id in real_ids {
+            if let Some(base) = self.identity.ingest_base_mut() {
+                relinquish_in(base, real_id);
+            }
+            changed |= relinquish_in(&mut self.identity, real_id);
         }
-        if relinquish_in(&mut self.identity, real_id) {
+        if changed {
             self.section_identity_persist();
         }
     }
@@ -2336,8 +2347,26 @@ impl PersistentEngine {
     /// reseed. Idempotent: a section already held, user-defined, disabled or
     /// absent from the catalogue is left alone.
     pub(crate) fn section_identity_admit(&mut self, real_id: &str) {
+        self.section_identity_admit_many(&[real_id.to_owned()]);
+    }
+
+    /// Admit each of the real ids as [`section_identity_admit`](Self::section_identity_admit)
+    /// does, and write the registry once for the set.
+    pub(crate) fn section_identity_admit_many(&mut self, real_ids: &[String]) {
+        let mut changed = false;
+        for real_id in real_ids {
+            changed |= self.admit_without_write(real_id);
+        }
+        if changed {
+            self.section_identity_persist();
+        }
+    }
+
+    /// Whether the registry took the section in or was rebuilt for it, so the
+    /// caller owes a write.
+    fn admit_without_write(&mut self, real_id: &str) -> bool {
         if self.identity.rows.values().any(|r| r.real_id == real_id) {
-            return;
+            return false;
         }
         let Some(section) = self
             .sections
@@ -2345,7 +2374,7 @@ impl PersistentEngine {
             .find(|s| s.id == real_id && !s.is_user_defined)
             .map(|s| self.with_excluded_members(s))
         else {
-            return;
+            return false;
         };
 
         // The registry an open ingest began on is handed the row too, or the
@@ -2361,7 +2390,7 @@ impl PersistentEngine {
         if !admit_in(&mut self.identity, real_id, section) {
             self.section_identity_reseed();
         }
-        self.section_identity_persist();
+        true
     }
 
     /// Drop a removed activity from every visible section the registry carries
@@ -2382,6 +2411,17 @@ impl PersistentEngine {
     pub(crate) fn section_identity_purge_activity_in_memory(&mut self, activity_id: &str) -> bool {
         purge_activity_from_tiers(&mut self.identity, &mut self.sections, activity_id)
     }
+}
+
+#[cfg(test)]
+thread_local! {
+    static REGISTRY_WRITES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// Times the registry has been serialised and written on this thread.
+#[cfg(test)]
+pub(crate) fn registry_writes() -> usize {
+    REGISTRY_WRITES.with(std::cell::Cell::get)
 }
 
 /// Stop carrying `real_id` in `identity`. False when it held no such row.
@@ -2555,6 +2595,19 @@ impl PersistentEngine {
     /// behaviour where the corridor could re-emerge, never a crash. For a delete,
     /// call this BEFORE the row is gone.
     pub(crate) fn record_section_intent(&self, section_id: &str, kind: &str) {
+        if let Err(e) = self.try_record_section_intent(section_id, kind) {
+            log::warn!("veloqrs: [record_section_intent] {section_id} ({kind}): {e}");
+        }
+    }
+
+    /// [`record_section_intent`](Self::record_section_intent) that reports a
+    /// failed write, for a caller that holds a transaction and must roll back
+    /// rather than leave a row with no intent.
+    pub(crate) fn try_record_section_intent(
+        &self,
+        section_id: &str,
+        kind: &str,
+    ) -> Result<(), String> {
         // A missing row is a no-op; a row whose geometry will not decode still
         // gets its intent, so suppression by id survives as it did before.
         let exists: bool = self
@@ -2566,21 +2619,22 @@ impl PersistentEngine {
             )
             .unwrap_or(false);
         if !exists {
-            return;
+            return Ok(());
         }
         // The intent keeps its own footprint, the section's decoded line.
         let polyline = self.stored_section_polyline(section_id).unwrap_or_default();
-        if let Err(e) = self.db.execute(
-            "INSERT INTO section_intents (id, kind, polyline_blob, polyline_json, created_at)
-             VALUES (?, ?, ?, NULL, datetime('now'))
-             ON CONFLICT(id, kind) DO UPDATE SET
-                polyline_blob = excluded.polyline_blob,
-                polyline_json = NULL,
-                created_at = excluded.created_at",
-            rusqlite::params![section_id, kind, codec::serialize_track_points(&polyline)],
-        ) {
-            log::warn!("veloqrs: [record_section_intent] {section_id} ({kind}): {e}");
-        }
+        self.db
+            .execute(
+                "INSERT INTO section_intents (id, kind, polyline_blob, polyline_json, created_at)
+                 VALUES (?, ?, ?, NULL, datetime('now'))
+                 ON CONFLICT(id, kind) DO UPDATE SET
+                    polyline_blob = excluded.polyline_blob,
+                    polyline_json = NULL,
+                    created_at = excluded.created_at",
+                rusqlite::params![section_id, kind, codec::serialize_track_points(&polyline)],
+            )
+            .map(|_| ())
+            .map_err(|e| format!("Failed to record the intent for {section_id}: {e}"))
     }
 
     /// Record that the athlete removed `section_id`'s corridor, so detection
@@ -2606,15 +2660,17 @@ impl PersistentEngine {
     }
 
     /// Clear a section's suppression intent (on enable), so its corridor can be
-    /// detected again. Best-effort. Kind-scoped so an enable can never take a
-    /// named intent with it.
-    pub(crate) fn clear_section_intent(&self, section_id: &str) {
-        if let Err(e) = self.db.execute(
-            "DELETE FROM section_intents WHERE id = ? AND kind IN ('disabled', 'deleted')",
-            rusqlite::params![section_id],
-        ) {
-            log::warn!("veloqrs: [clear_section_intent] {section_id}: {e}");
-        }
+    /// detected again. Kind-scoped so an enable can never take a named intent
+    /// with it. A failed write is reported, so a caller holding a transaction
+    /// rolls back.
+    pub(crate) fn clear_section_intent(&self, section_id: &str) -> Result<(), String> {
+        self.db
+            .execute(
+                "DELETE FROM section_intents WHERE id = ? AND kind IN ('disabled', 'deleted')",
+                rusqlite::params![section_id],
+            )
+            .map(|_| ())
+            .map_err(|e| format!("Failed to clear the intent for {section_id}: {e}"))
     }
 
     /// Bounding boxes and ground of the accepted sections. A candidate mostly

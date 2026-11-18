@@ -22,8 +22,10 @@ import {
   peerConfiguration,
   proof,
   proofsMatch,
+  refusedHello,
   roomFor,
   step,
+  VersionRefused,
   withoutHiddenCandidates,
   writeNotice,
   type Build,
@@ -33,6 +35,7 @@ import {
 } from './link';
 import { QueryClient } from './query';
 import type { Methods } from './schema';
+import { pullArchive, type ArchiveSink, type ExportOptions, type PullState } from './exportArchive';
 import { hashBlob, sendArchive } from './upload';
 
 const RELAY = 'wss://auth.veloq.fit/link/';
@@ -108,12 +111,26 @@ export type Upload = {
   error: string | null;
 };
 
+/** The library archive being pulled from the phone, or the last one pulled. */
+export type LibraryExport = {
+  phase: 'building' | 'reading' | 'waiting' | 'finished' | 'failed';
+  rides: number;
+  ridesDone: number;
+  /** Bytes saved so far. */
+  written: number;
+  /** The archive's length once the phone has built it, else what it has written so far. */
+  bytes: number;
+  error: string | null;
+};
+
 export type Snapshot = {
   state: State;
   /** The text of the link code on screen, or null before one is made. */
   code: string | null;
   /** The archive being sent to the phone, or the last one sent; null before any. */
   upload: Upload | null;
+  /** The library archive being saved from the phone, or the last one; null before any. */
+  libraryExport: LibraryExport | null;
   /** Why the phone refused the last write, such as being locked; null once a write goes through. */
   writeNotice: ParseKeys | null;
   /**
@@ -157,6 +174,11 @@ export interface Session {
    * send goes on from the byte count the phone answers.
    */
   importArchive: (file: File) => Promise<void>;
+  /**
+   * Pull the whole library from the phone into `sink`. A dropped link is
+   * reconnected and the pull goes on from the bytes the sink holds.
+   */
+  exportLibrary: (options: ExportOptions, sink: ArchiveSink) => Promise<void>;
 }
 
 export function createSession(env: Environment): Session {
@@ -164,6 +186,7 @@ export function createSession(env: Environment): Session {
     state: { name: 'unpaired' },
     code: null,
     upload: null,
+    libraryExport: null,
     writeNotice: null,
     libraryChanges: 0,
     failed: false,
@@ -266,10 +289,12 @@ export function createSession(env: Environment): Session {
         });
         break;
       case 'remember':
+        if (secret) await env.keys.write('roomSecret', secret);
         await env.keys.write('phone', effect.phone);
         break;
       case 'forget':
         await env.keys.drop('phone');
+        await env.keys.drop('roomSecret');
         break;
       case 'leaveRelay':
         leaveRelay();
@@ -309,6 +334,7 @@ export function createSession(env: Environment): Session {
     const made = await env.generateCertificate();
     await env.keys.write('certificate', made);
     await env.keys.drop('phone');
+    await env.keys.drop('roomSecret');
     return made;
   }
 
@@ -328,7 +354,9 @@ export function createSession(env: Environment): Session {
 
   /** The room shared with a linked phone. With `debug`, the inputs go to this console only. */
   async function linkedRoom(phone: string) {
-    const room = await roomFor(browserFingerprint, phone);
+    const kept = await env.keys.read<Uint8Array<ArrayBuffer>>('roomSecret');
+    if (!kept) throw new Error('no pairing secret');
+    const room = await roomFor(kept, browserFingerprint, phone);
     if (env.debug) console.warn('link room', { room, browser: browserFingerprint, phone });
     return room;
   }
@@ -475,6 +503,8 @@ export function createSession(env: Environment): Session {
         protocol: PAGE_PROTOCOL,
         minProtocol: PAGE_MIN_PROTOCOL,
         page: PAGE_NAME,
+        // The phone shows this as what the page says it is, never as verified.
+        client: { kind: 'browser', userAgent: navigator.userAgent, tool: null, toolVersion: null },
       });
       if (answer && mine === generation) {
         dispatch({
@@ -487,8 +517,12 @@ export function createSession(env: Environment): Session {
           device: answer.device,
         });
       }
-    } catch {
-      if (mine === generation) dispatch({ type: 'drop' });
+    } catch (error) {
+      if (mine !== generation) return;
+      // A phone that refuses the page's version names its own range, which the
+      // page acts on as it would a hello.
+      if (error instanceof VersionRefused) dispatch(refusedHello(error));
+      else dispatch({ type: 'drop' });
     }
   }
 
@@ -545,8 +579,13 @@ export function createSession(env: Environment): Session {
       try {
         certificate = await keptCertificate();
         browserFingerprint = await fingerprintOf(certificate);
-        const phone = await env.keys.read<string>('phone');
-        dispatch({ type: 'start', phone: phone ?? null });
+        let phone = (await env.keys.read<string>('phone')) ?? null;
+        // A pairing kept without its secret has no room to meet in, so it pairs afresh.
+        if (phone && !(await env.keys.read('roomSecret'))) {
+          await env.keys.drop('phone');
+          phone = null;
+        }
+        dispatch({ type: 'start', phone });
       } catch {
         change({ failed: true });
       }
@@ -650,6 +689,76 @@ export function createSession(env: Environment): Session {
               error: error instanceof Error ? error.message : String(error),
             });
             throw error;
+          }
+          show({ phase: 'waiting' });
+        } finally {
+          watch();
+        }
+      }
+    },
+    async exportLibrary(options, sink) {
+      const state: PullState = { exportId: null, sha256: null, bytes: 0, written: 0 };
+      let latest: LibraryExport = {
+        phase: 'building',
+        rides: 0,
+        ridesDone: 0,
+        written: 0,
+        bytes: 0,
+        error: null,
+      };
+      const show = (next: Partial<LibraryExport>) => {
+        latest = { ...latest, ...next };
+        change({ libraryExport: latest });
+      };
+      show({});
+      for (;;) {
+        await new Promise<void>((resolve) => {
+          if (snapshot.state.name === 'connected') {
+            resolve();
+            return;
+          }
+          const stop = this.subscribe(() => {
+            if (snapshot.state.name !== 'connected') return;
+            stop();
+            resolve();
+          });
+        });
+        const mine = generation;
+        const asking = client;
+        if (!asking) {
+          await new Promise((resolve) => setTimeout(resolve, STATUS_POLL_MS));
+          continue;
+        }
+        const stop = new AbortController();
+        const watch = this.subscribe(() => {
+          if (mine !== generation || snapshot.state.name !== 'connected') stop.abort();
+        });
+        try {
+          await pullArchive({
+            ask: (method, params) => asking.ask(method as keyof Methods, params as never),
+            sink,
+            state,
+            options,
+            signal: stop.signal,
+            onProgress: (progress) =>
+              show({
+                phase: progress.building ? 'building' : 'reading',
+                rides: progress.rides,
+                ridesDone: progress.ridesDone,
+                written: progress.written,
+                bytes: progress.bytes,
+              }),
+          });
+          show({ phase: 'finished' });
+          return;
+        } catch (error) {
+          if (snapshot.state.name === 'connected' && mine === generation && !stop.signal.aborted) {
+            await sink.abort().catch(() => undefined);
+            show({
+              phase: 'failed',
+              error: error instanceof Error ? error.message : String(error),
+            });
+            return;
           }
           show({ phase: 'waiting' });
         } finally {

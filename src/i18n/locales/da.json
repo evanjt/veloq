@@ -619,7 +619,7 @@
     "tracksMissing": {
       "title_one": "{{count}} rute blev ikke hentet",
       "title_other": "{{count}} ruter blev ikke hentet",
-      "detail": "De mangler på kortet og er ikke matchet mod nogen strækning. Næste opdatering prøver igen."
+      "detail": "Hentningen blev prøvet flere gange og lykkedes ikke. Prøv igen beder om den igen."
     },
     "startupError": {
       "title": "Dele af appen blev ikke indlæst",
@@ -796,7 +796,9 @@
     "bulkExporting": "Genererer {{format}}…",
     "bulkSharing": "Åbner delingsark…",
     "error": "Kunne ikke eksportere GPX-fil.",
+    "fitError": "Kunne ikke eksportere FIT-fil.",
     "exporting": "Eksporterer…",
+    "fit": "Eksporter FIT",
     "gpx": "Eksporter GPX",
     "gpxTrimmedAway": "Intet at eksportere. Beskæring omkring hjemmet efterlod for lidt af sporet.",
     "failedTitle": "Eksport mislykkedes",
@@ -807,6 +809,16 @@
     "shareUnavailable": "Denne enhed kan ikke dele filer."
   },
   "feed": {
+    "remote": {
+      "offer": "Søg på intervals.icu",
+      "searching": "Søger på intervals.icu",
+      "heading": "På intervals.icu, ikke på denne enhed",
+      "notOnDevice": "Ikke på denne enhed",
+      "none": "Ikke flere på intervals.icu",
+      "failed": "Kunne ikke søge på intervals.icu",
+      "capped": "intervals.icu nåede sin grænse ved en søgning på navn, så der kan være flere resultater. Gør navnet mere specifikt for at se dem.",
+      "rowLabel": "{{name}}, {{facts}}, ikke på denne enhed"
+    },
     "activitiesCount_one": "{{count}} aktivitet",
     "activitiesCount_other": "{{count}} aktiviteter",
     "failedToLoad": "Kunne ikke indlæse aktiviteter",
@@ -816,6 +828,20 @@
       "last90Days": "Seneste 90 dage",
       "thisYear": "I år",
       "lastYear": "Sidste år"
+    },
+    "filter": {
+      "show": "Vis filtre",
+      "hide": "Skjul filtre",
+      "clear": "Ryd {{filter}}",
+      "date": "Dato",
+      "dateFrom": "Startdato",
+      "dateTo": "Slutdato",
+      "distance": "Distance",
+      "distanceFrom": "Mindste distance",
+      "distanceTo": "Største distance",
+      "duration": "Varighed",
+      "durationFrom": "Korteste varighed",
+      "durationTo": "Længste varighed"
     },
     "emptyLibrary": {
       "pausedTitle": "Synkroniseringen er sat på pause",
@@ -1293,6 +1319,8 @@
     "oauthInterrupted": "Login blev afbrudt. Prøv igen.",
     "oauthNeedsNetwork": "Login med intervals.icu kræver en netværksforbindelse. Opret forbindelse og prøv igen, eller brug en API-nøgle, som kan logge dig ind senere.",
     "oauthProxyRefused": "Login-tjenesten afviste anmodningen. Prøv igen om lidt.",
+    "intervalsBusy": "intervals.icu er optaget lige nu. Prøv igen efter {{time}}.",
+    "intervalsBusyShortly": "intervals.icu er optaget lige nu. Prøv igen om lidt.",
     "oauthUnreachable": "Kunne ikke nå login-tjenesten. Tjek din forbindelse og prøv igen.",
     "oauthInvalidCallback": "Ugyldig OAuth-callback-URL",
     "oauthNotConfigured": "OAuth er ikke konfigureret. Brug API-nøgle login i stedet.",
@@ -1347,7 +1375,6 @@
     "emptyNoGpsHint": "Indendørs-, hometrainer- og svømmehalspas har ingen rute at tegne.",
     "loadingHeatmap": "Indlæser varmekortet…",
     "panelFold": "Skjul panelet",
-    "panelOpen": "Åbn aktivitetspanelet",
     "panelBack": "Tilbage til listen",
     "timelineFrom": "Fra",
     "timelineTo": "Til"
@@ -1418,7 +1445,11 @@
     },
     "underPointRoute": "Rute {{number}}",
     "underPointNoRoute": "Ikke på en rute",
-    "underPointDrawn": "{{drawn}} af {{total}} tegnet"
+    "underPointDrawn": "{{drawn}} af {{total}} tegnet",
+    "underPointCount": "{{count}} under trykket",
+    "underPointFilterAll": "Alle",
+    "underPointOpenRoute": "Åbn rute {{name}}",
+    "underPointOpenSection": "Åbn sektion {{name}}"
   },
   "metrics": {
     "activityCount": "Aktiviteter",
@@ -1957,6 +1988,7 @@
     "setAsReferenceConfirm": "Brug denne aktivitet som reference? Linjen følger den, og visningen Foran eller bagud måler tid i forhold til den. Match på tværs af dine aktiviteter genberegnes, og det kan tilføje eller fjerne nogle.",
     "setReferenceError": "Kunne ikke angive reference. Afsnittet eller aktiviteten kan have ændret sig. Prøv igen.",
     "editBounds": "Rediger grænser",
+    "sendToWatch": "Send til ur",
     "showOnMap": "Vis på kort",
     "pointsCount_one": "{{count}} punkt",
     "pointsCount_other": "{{count}} punkter",
@@ -2227,6 +2259,8 @@
     "storageOther": "Andet",
     "mapCache": "Kortcache",
     "sizeAtLeast": "Mindst {{size}}",
+    "watchLink": "Vejledning til ur",
+    "watchLinkDescription": "Lader telefonen sende sektioner til dit ur. Uret læser signalerne som notifikationer.",
     "heatmapGeneration": "Varmekort",
     "heatmapDescription": "Holder heatmappet på denne enhed og bruger lagerplads til det. Slå det fra for at frigive pladsen.",
     "heatmapStorageUsed": "Bruger {{size}} af enhedens lagerplads",
@@ -2837,6 +2871,8 @@
       "startEmpty": "Start en tom session",
       "previousSessions": "Tidligere sessioner",
       "savedWorkouts": "Gemte træninger",
+      "removedWorkouts": "Slettede træninger",
+      "restoreWorkout": "Gendan",
       "noHistory": "Sessioner, du optager eller synkroniserer, tilbydes her som udgangspunkt.",
       "workoutSummary": "{{exercises}} øvelser, {{sets}} sæt",
       "startFrom": "Start fra {{name}}",
@@ -3127,6 +3163,7 @@
     "retryNow": "Prøv igen nu",
     "heldByUpstream": "intervals.icu bad om at vente til {{time}}",
     "heldByBudget": "Anmodningsgrænsen er nået, venter til {{time}}",
+    "heldForPool": "Efterhentning sat på pause, så alles synkronisering kan fortsætte, fortsætter {{time}}",
     "pacedOnCaps_one": "Mindst {{count}} dag til færdig, på grund af intervals.icu's daglige grænse",
     "pacedOnCaps_other": "Mindst {{count}} dage til færdig, på grund af intervals.icu's daglige grænse",
     "headerRunning_one": "{{count}} baggrundsjob kører",
@@ -3448,16 +3485,44 @@
     "notConnected": "Ikke forbundet",
     "noChanges": "Ingen ændringer endnu",
     "wrote": "{{browser}}: {{summary}}",
-    "manage": "Administrér tilknyttede enheder"
+    "manage": "Administrér tilknyttede enheder",
+    "howTitle": "Sådan virker Connect",
+    "howLinked": "Når du scanner koden, kobles en browser én gang. Den beholder sin egen nøgle og forbinder selv igen, så længe Veloq er åben.",
+    "howPrivate": "Dine data går direkte fra denne telefon til browseren, ende til ende. Ingen server gemmer dem.",
+    "howRelay": "Et relæ videresender kun opsætningen af forbindelsen. Det bærer aldrig dine data.",
+    "refusedToday_one": "{{count}} forbindelsesforespørgsel fra en browser, der ikke er forbundet, blev afvist i dag.",
+    "refusedToday_other": "{{count}} forbindelsesforespørgsler fra browsere, der ikke er forbundet, blev afvist i dag.",
+    "howAccess": "En kobling varer, til du fjerner den. En koblet browser kan læse dit bibliotek og foretage de ændringer, der står på dens side.",
+    "linkedOn": "Koblet {{date}}",
+    "connectedNow": "Forbundet nu",
+    "scope": "Kan læse dit bibliotek og foretage de ændringer, der står nedenfor.",
+    "connectionsTitle": "Forbindelser",
+    "noConnections": "Ingen forbindelser endnu",
+    "thisNetwork": "Dette netværk",
+    "internet": "Internet",
+    "changesTitle": "Ændringer",
+    "kindTool": "Computerværktøj",
+    "clientOn": "{{browser}} på {{os}}",
+    "endReason": {
+      "closed": "Lukket",
+      "backgrounded": "Veloq gik i baggrunden",
+      "switched_off": "Slukket",
+      "removed": "Fjernet",
+      "disconnected": "Afbrudt fra telefonen",
+      "refused": "Afvist"
+    },
+    "rename": "Omdøb",
+    "renameLabel": "Navn"
   },
   "connectPage": {
     "undo": {
       "hidden": "Skjult fra varmekortet",
       "shown": "Vist på varmekortet",
+      "sectionsHidden": "Sektioner skjult",
+      "sectionsShown": "Sektioner vist",
       "excluded": "Aktivitet udeladt",
       "included": "Aktivitet medtaget igen",
-      "renamed": "Navn ændret",
-      "workoutDeleted": "Træning slettet"
+      "renamed": "Navn ændret"
     },
     "title": "Veloq Connect",
     "language": "Sprog",
@@ -3478,7 +3543,8 @@
       "declined": "Tilknytningen blev afvist på telefonen.",
       "removed": "Denne browser blev fjernet på telefonen. Scan en ny kode for at tilknytte den igen.",
       "unreachable": "Kunne ikke nå din telefon herfra. Sæt begge på samme Wi-Fi, og scan den nye kode.",
-      "phoneLocked": "Lås telefonen op og åbn Veloq for at foretage ændringer"
+      "phoneLocked": "Lås telefonen op og åbn Veloq for at foretage ændringer",
+      "badId": "Telefonen accepterede ikke den anmodning. Prøv igen."
     },
     "screens": {
       "fitness": "Form",
@@ -3495,7 +3561,8 @@
       "expand": "Vis sidepanelet",
       "breadcrumb": "Hvor du er",
       "search": "Søg",
-      "account": "Konto"
+      "account": "Konto",
+      "skipToContent": "Gå til indholdet"
     },
     "yourPhone": "Din telefon",
     "laterScreen": "Denne skærm er ikke i browseren endnu. Åbn den på din telefon.",
@@ -3521,23 +3588,20 @@
     },
     "update": {
       "heading": "Opdater Veloq på din telefon",
-      "body": "Denne side og Veloq på din telefon bruger ikke samme version af forbindelsen. Opdater Veloq på din telefon, og åbn derefter siden igen.",
-      "screen": "Opdater Veloq på din telefon for at se dette"
+      "body": "Denne side og Veloq på din telefon bruger ikke samme version af forbindelsen. Opdater Veloq på din telefon, og åbn derefter siden igen."
     },
     "keys": {
-      "heading": "Taster",
-      "tabs": "Feed, Form, Indsigt, Kort, Indstillinger",
-      "search": "Søg i feedet",
+      "heading": "Tastaturgenveje",
+      "search": "Åbn søgningen",
       "close": "Luk aktiviteten",
       "list": "Denne liste",
-      "range": "1 til 5",
       "control": "Ctrl",
       "shell": "Overalt",
       "page": "På denne side",
       "palette": "Åbn kommandopaletten",
-      "chord": "Gå til en side: feed, kort, ruter, sektioner, fitness, indsigter, styrke, træninger, optagelser, indstillinger",
       "step": "Forrige og næste aktivitet",
-      "open": "Åbn den valgte aktivitet"
+      "open": "Åbn den valgte aktivitet",
+      "pages": "Gå til en side"
     },
     "library": {
       "activities": "Aktiviteter",
@@ -3546,6 +3610,12 @@
       "pick": "Vælg en aktivitet",
       "loadMore": "Indlæs flere",
       "sportLabel": "Sport",
+      "distance": "Afstand ({{unit}})",
+      "distanceMin": "Korteste afstand ({{unit}})",
+      "distanceMax": "Længste afstand ({{unit}})",
+      "duration": "Varighed",
+      "durationMin": "Korteste varighed (minutter)",
+      "durationMax": "Længste varighed (minutter)",
       "summary": "Oversigt",
       "fitnessTrend": "Form de seneste 30 dage",
       "range": "Periode",
@@ -3572,7 +3642,7 @@
       "form": "Dagsform",
       "hrv": "HRV",
       "restingHr": "Hvilepuls",
-      "distance": "Distance",
+      "distance": "Afstand",
       "movingTime": "Bevægelsestid",
       "elapsedTime": "Forløbet tid",
       "averageSpeed": "Gennemsnitlig hastighed",
@@ -3617,11 +3687,14 @@
       "sections": "Sektioner",
       "routes": "Ruter",
       "intervals": "Intervaller",
-      "hideFromHeatmap": "Skjul fra varmekortet",
       "showOnHeatmap": "Vis på varmekortet",
       "actions": "Aktivitetshandlinger",
       "exportGpx": "Eksportér GPX",
       "openOnIntervals": "Åbn på intervals.icu",
+      "more": "Mere",
+      "manage": "Administrer",
+      "manageHeatmap": "Varmekort",
+      "manageHint": "Slå en rute eller sektion fra for at udelade aktiviteten fra den. Fortryd sætter den tilbage.",
       "noTrack": "Denne aktivitet har ingen GPS-spor.",
       "colourBy": "Farvelæg sporet efter",
       "colourNone": "Ensfarvet",
@@ -3661,7 +3734,16 @@
         "energy": "Energi",
         "conditions": "Forhold",
         "newGround": "Nyt terræn"
-      }
+      },
+      "createSection": "Opret sektion",
+      "createHint": "Mal et område på graferne, træk de to ender langs sporet på kortet, eller skriv afstandene. Escape annullerer.",
+      "createStart": "Start ({{unit}})",
+      "createEnd": "Slut ({{unit}})",
+      "createStartHandle": "Start på den nye sektion",
+      "createEndHandle": "Slut på den nye sektion",
+      "createSave": "Opret",
+      "created": "Sektion oprettet",
+      "createdNamed": "Sektionen {{name}} er oprettet"
     },
     "chart": {
       "elevation": "Højde",
@@ -3675,7 +3757,8 @@
       "gap": "Gradjusteret tempo",
       "time": "Tid",
       "axis": "Vandret akse",
-      "reset": "Nulstil zoom"
+      "reset": "Nulstil zoom",
+      "pace": "Tempo"
     },
     "fitness": {
       "range": "Periode",
@@ -3893,7 +3976,8 @@
         "notifications": "Notifikationer",
         "recording": "Optagelse",
         "experimental": "Eksperimentelle funktioner",
-        "summaryCard": "Opsummeringskort"
+        "summaryCard": "Opsummeringskort",
+        "singleKeys": "Enkelttastgenveje"
       },
       "options": {
         "system": "Systemindstilling",
@@ -3922,8 +4006,7 @@
       },
       "toast": {
         "saved": "Gemt",
-        "undo": "Fortryd",
-        "dismiss": "Luk"
+        "undo": "Fortryd"
       },
       "displayNote": "Tema, enheder og primær sport gemmes på telefonen. Sprog og udglatning af velvære ændres på telefonen.",
       "thresholds": {
@@ -3954,8 +4037,8 @@
           "zone": "Zone",
           "upper": "Øvre grænse",
           "bpm": "{{value}} bpm",
-          "percentOfMaxHr": "{{value}} % af maksimal puls",
-          "percentOfFtp": "{{value}} % af FTP",
+          "percentOfMaxHr": "{{percent}} af maksimal puls",
+          "percentOfFtp": "{{percent}} af FTP",
           "openTop": "Ingen øvre grænse",
           "name": "Zone {{n}}",
           "note": "En sport, hvis intervals.icu-sportsindstillinger ikke har zoner, viser standardgrænserne."
@@ -3969,6 +4052,15 @@
       "deltaToBest": "Forskel til bedste",
       "passTable": "Vælg op til {{max}} at sammenligne",
       "fact": "Måling"
+    },
+    "filter": {
+      "activities": "Filtrer aktiviteter",
+      "routes": "Filtrer ruter",
+      "sections": "Filtrer sektioner",
+      "exercises": "Filtrer øvelser",
+      "recordings": "Filtrer optagelser",
+      "count": "{{shown}} af {{total}}",
+      "clear": "Ryd filteret"
     },
     "table": {
       "count_one": "{{count}} række",
@@ -3984,7 +4076,7 @@
       "sortActivities": "Aktiviteter",
       "sortVisits": "Mest besøgt",
       "sortRelevance": "Relevans",
-      "sortDistance": "Distance",
+      "sortDistance": "Afstand",
       "sortName": "Navn",
       "chipCustom": "Egne",
       "chipRemoved": "Fjernede",
@@ -3999,9 +4091,6 @@
       "unnamedRoute": "Unavngiven rute",
       "sections": "Sektioner",
       "routes": "Ruter",
-      "searchHint": "Søg (/)",
-      "searchSections": "Søg i sektioner",
-      "searchRoutes": "Søg i ruter",
       "sort": "Sortér",
       "show": "Vis",
       "listFailed": "Telefonen svarede ikke på denne liste.",
@@ -4074,13 +4163,14 @@
       "viewSpread": "Spredning",
       "viewTime": "Over tid",
       "views": "Præstationsvisninger",
-      "axisBin": "Tid, fra starten af hvert interval"
+      "axisBin": "Tid, fra starten af hvert interval",
+      "attemptsMenu": "Handlinger for forsøg"
     },
     "columns": {
       "date": "Dato",
       "name": "Navn",
       "sport": "Sport",
-      "distance": "Distance",
+      "distance": "Afstand",
       "time": "Tid",
       "climb": "Stigning",
       "load": "Belastning",
@@ -4150,6 +4240,18 @@
       "alreadyStored": "Allerede i biblioteket",
       "failedCount": "Mislykkedes"
     },
+    "export": {
+      "title": "Eksportér bibliotek",
+      "note": "Gem alle ture i biblioteket som én ZIP-fil. Hold telefonen åben og forrest, mens filen skrives og sendes.",
+      "since": "Ture siden",
+      "originals": "Medtag originale filer",
+      "start": "Eksportér alt",
+      "building": "Telefonen skriver arkivet: {{done}} af {{rides}} ture",
+      "reading": "Gemt {{done}} af {{size}} MB",
+      "waiting": "Forbindelsen er genoprettet, fortsætter fra {{done}} af {{size}} MB",
+      "finished": "Eksport gemt",
+      "failed": "Eksport mislykkedes"
+    },
     "read": {
       "loading": "Læser fra telefonen",
       "timeout": "Telefonen svarede ikke",
@@ -4157,19 +4259,26 @@
       "retry": "Prøv igen"
     },
     "palette": {
-      "open": "Gå til",
-      "title": "Gå til",
-      "label": "Søg efter sider, aktiviteter, ruter og sektioner",
+      "title": "Søg",
+      "label": "Søg efter sider, indstillinger, aktiviteter, ruter, sektioner, øvelser, træninger og optagelser",
       "placeholder": "Skriv et navn",
       "none": "Intet passer",
-      "page": "Side",
-      "action": "Handling",
-      "activity": "Aktivitet",
-      "route": "Rute",
-      "section": "Sektion",
       "toggleSidebar": "Skjul eller vis sidepanelet",
       "toggleTheme": "Skift tema",
-      "showKeys": "Vis tastaturgenveje"
+      "showKeys": "Vis tastaturgenveje",
+      "showAll": "Vis alle {{total}}",
+      "groups": {
+        "recent": "Seneste",
+        "page": "Sider",
+        "action": "Handlinger",
+        "setting": "Indstillinger",
+        "activity": "Aktiviteter",
+        "route": "Ruter",
+        "section": "Sektioner",
+        "exercise": "Øvelser",
+        "workout": "Træninger",
+        "recording": "Optagelser"
+      }
     },
     "sections": {
       "acceptAll": "Godkend alle",
@@ -4187,12 +4296,10 @@
       "best": "Bedst",
       "cancel": "Annuller",
       "changed": "Ændret",
-      "clearSearch": "Ryd søgningen",
       "close": "Luk",
       "curvesPending": "Telefonen er stadig i gang med at beregne disse kurver.",
       "deltaChart": "Sekunder foran eller bag referencen langs sektionen, en linje for hvert nylige omløb",
       "direction": "Retning",
-      "dismiss": "Luk",
       "excludeActivities": "Udelad aktiviteter",
       "excludeLaps": "Udelad omløb",
       "faster": "Hurtigere",
@@ -4265,18 +4372,46 @@
       "unflagLift": "Fjern flaget for løft?",
       "unflagLiftBody": "Detektoren markerede dette som løftegrund. Det kan ikke fortrydes at fjerne flaget.",
       "view": "Vis",
-      "views": "Visninger af denne sektion"
+      "views": "Visninger af denne sektion",
+      "hideFromMap": "Skjul fra kortet",
+      "showOnMap": "Vis på kortet",
+      "boundsBeyond": "Ud over enderne",
+      "boundsEnd": "Sektionens slutning",
+      "boundsHint": "Træk de to ender langs linjen, eller markér en ende og brug piletasterne. Escape annullerer.",
+      "boundsLine": "Sektionslinje",
+      "boundsNoTrack": "Turen, sektionen er klippet fra, er ikke gemt, så enderne kan kun flyttes langs linjen.",
+      "boundsReset": "Nulstil grænser",
+      "boundsResetDone": "Grænserne for {{name}} er nulstillet",
+      "boundsSave": "Gem",
+      "boundsSaved": "Grænserne for {{name}} er gemt: {{length}}",
+      "boundsShow": "Enderne løber langs",
+      "boundsStart": "Sektionens start",
+      "boundsTooShort": "En sektion beholder mindst fem punkter.",
+      "editBounds": "Rediger grænser",
+      "lapMenu": "Handlinger for omgang",
+      "referenceReset": "Referencen er givet tilbage til registreringen",
+      "referenceSet": "Referencen er sat til {{name}}",
+      "resetReference": "Giv referencen tilbage til registreringen",
+      "useAsReference": "Brug denne tur som reference",
+      "mergeDone": "{{name}} er flettet ind i denne sektion",
+      "mergeKept": "Beholdt: {{name}}, {{length}}, {{count}} passager",
+      "boundsDiscard": "Kassér ændringer",
+      "boundsDiscardBody": "De ender, du har flyttet, er ikke gemt.",
+      "boundsDiscardTitle": "Kassér de nye ender?",
+      "boundsKeepEditing": "Fortsæt redigering",
+      "boundsLaps": "Omgange, der måles igen ved gem: {{count}}.",
+      "mergeLaps": "Omgange målt på den beholdte linje: {{count}}."
     },
     "workouts": {
       "open": "Byg en træning",
       "heading": "Træninger",
-      "start": "Start fra",
       "blank": "Tom træning",
       "saved": "Gemte træninger",
       "noneSaved": "Ingen gemte træninger",
       "failed": "Telefonen svarede ikke",
-      "counts": "{{exercises}} øvelser, {{sets}} sæt",
       "delete": "Slet",
+      "deleted": "Træninger slettet: {{count}}",
+      "undo": "Fortryd",
       "recent": "Nylige sessioner",
       "times": "Udført ×{{times}}",
       "building": "Bygger",
@@ -4295,8 +4430,6 @@
       "removeExercise": "Fjern øvelse",
       "save": "Gem træning",
       "picker": "Øvelser",
-      "search": "Søg efter øvelser",
-      "clearSearch": "Ryd søgningen",
       "equipment": "Udstyr",
       "daysAgo": "for {{days}} d siden",
       "confirmDelete": "Slet {{name}}?",
@@ -4476,7 +4609,7 @@
     "overhead_walk": "Gang med vægt over hovedet",
     "inchworm": "Inchworm",
     "weighted_modified_front_lever": "Modificeret front lever med vægt",
-    "russian_twist": "Russian twist",
+    "russian_twist": "Russisk twist",
     "abdominal_leg_rotations": "Benrotationer for maven",
     "arm_and_leg_extension_on_knees": "Arm- og bensstræk på knæ",
     "bicycle": "Cykel",
@@ -4718,7 +4851,7 @@
     "weighted_hip_raise_with_knee_squeeze": "Hofteløft med knæklem og vægt",
     "incline_rear_leg_extension": "Skråt bagudstræk af ben",
     "weighted_incline_rear_leg_extension": "Skråt bagudstræk af ben med vægt",
-    "kettlebell_swing": "Kettlebell swing",
+    "kettlebell_swing": "Kettlebell-sving",
     "marching_hip_raise": "Hofteløft med march",
     "weighted_marching_hip_raise": "Hofteløft med march og vægt",
     "marching_hip_raise_with_feet_on_a_swiss_ball": "Hofteløft med march og fødderne på swissball",
@@ -5020,7 +5153,7 @@
     "weighted_45_degree_plank": "Planke i 45 grader med vægt",
     "90_degree_static_hold": "Statisk hold i 90 grader",
     "weighted_90_degree_static_hold": "Statisk hold i 90 grader med vægt",
-    "bear_crawl": "Bear crawl",
+    "bear_crawl": "Bjørnekrav",
     "weighted_bear_crawl": "Bear crawl med vægt",
     "cross_body_mountain_climber": "Mountain climber på tværs af kroppen",
     "weighted_cross_body_mountain_climber": "Mountain climber på tværs af kroppen med vægt",
@@ -5050,7 +5183,7 @@
     "weighted_medicine_ball_mountain_climber": "Mountain climber med medicinbold og vægt",
     "modified_mountain_climber_and_extension": "Modificeret mountain climber med stræk",
     "weighted_modified_mountain_climber_and_extension": "Modificeret mountain climber med stræk og vægt",
-    "mountain_climber": "Mountain climber",
+    "mountain_climber": "Bjergbestiger",
     "weighted_mountain_climber": "Mountain climber med vægt",
     "mountain_climber_on_sliding_discs": "Mountain climber på glideskiver",
     "weighted_mountain_climber_on_sliding_discs": "Mountain climber på glideskiver med vægt",
@@ -5834,7 +5967,7 @@
     "donkey_kick": "Donkey kick",
     "external_rotation": "Udadrotation",
     "external_rotation_at_90_degree_abduction": "Udadrotation ved 90 graders abduktion",
-    "glute_bridge": "Glute bridge",
+    "glute_bridge": "Bækkenløft",
     "hamstring_curls": "Baglårscurls",
     "high_plank_leg_lifts": "Benløft i høj planke",
     "hip_extension": "Hofteudstrækning",

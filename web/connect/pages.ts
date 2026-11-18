@@ -1,7 +1,9 @@
 // The connect page's map from an address to a page: which page a route is, the
 // title the top bar gives it, the pages above it for the breadcrumb, and the
-// sidebar entry that marks it. Pure, so a test reads it without a browser; the
-// components each page renders are `pages/index.tsx`.
+// sidebar entry that marks it. The sidebar's order and chords are the one table
+// the digit keys, the `g` chords and the keys dialog all read. Pure, so a test
+// reads it without a browser; the components each page renders are
+// `pages/index.tsx`.
 
 import type { ParseKeys } from 'i18next';
 
@@ -50,8 +52,6 @@ export type PageInfo = {
   parents: Crumb[];
   /** True when the page shows one named thing, whose name is the title. */
   named: boolean;
-  /** True when the page has a search field the top bar's search entry reaches. */
-  search: boolean;
 };
 
 const ACTIVITIES: Crumb = { title: 'connectPage.library.activities', href: '#/activities' };
@@ -66,8 +66,8 @@ const page = (
   key: PageKey,
   title: ParseKeys,
   nav: NavKey,
-  rest: Partial<Pick<PageInfo, 'parents' | 'named' | 'search'>> = {}
-): PageInfo => ({ key, title, nav, parents: [], named: false, search: false, ...rest });
+  rest: Partial<Pick<PageInfo, 'parents' | 'named'>> = {}
+): PageInfo => ({ key, title, nav, parents: [], named: false, ...rest });
 
 /** The page a route is. An address no page is built for reads as the feed's own, by the router. */
 export function pageFor(route: Route): PageInfo {
@@ -78,22 +78,20 @@ export function pageFor(route: Route): PageInfo {
         named: true,
       });
     case 'map':
-      return page('map', 'connectPage.screens.map', 'map', { search: true });
+      return page('map', 'connectPage.screens.map', 'map');
     case 'routes':
-      return page('routes', ROUTES.title, 'routes', { search: true });
+      return page('routes', ROUTES.title, 'routes');
     case 'route':
       return page('routes', 'connectPage.routes.unnamedRoute', 'routes', {
         parents: [ROUTES],
         named: true,
-        search: true,
       });
     case 'sections':
-      return page('sections', SECTIONS.title, 'sections', { search: true });
+      return page('sections', SECTIONS.title, 'sections');
     case 'section':
       return page('sections', 'connectPage.routes.unnamedSection', 'sections', {
         parents: [SECTIONS],
         named: true,
-        search: true,
       });
     case 'fitness':
       return page('fitness', 'connectPage.screens.fitness', 'fitness');
@@ -134,12 +132,19 @@ export function pageFor(route: Route): PageInfo {
     case 'best-efforts':
       return page('later', 'connectPage.screens.insights', 'insights');
     default:
-      return page('feed', ACTIVITIES.title, 'feed', { search: true });
+      return page('feed', ACTIVITIES.title, 'feed');
   }
 }
 
 /** One sidebar entry. */
-export type NavEntry = { key: NavKey; href: string; title: ParseKeys; icon: RailIcon };
+export type NavEntry = {
+  key: NavKey;
+  href: string;
+  title: ParseKeys;
+  icon: RailIcon;
+  /** The letter after `g` that goes to the page; no two entries share one. */
+  chord: string;
+};
 
 export type NavGroup = { title: ParseKeys; entries: NavEntry[] };
 
@@ -148,31 +153,44 @@ export const NAV: NavGroup[] = [
   {
     title: 'connectPage.nav.training',
     entries: [
-      { key: 'feed', href: '#/activities', title: ACTIVITIES.title, icon: 'feed' },
-      { key: 'map', href: '#/map', title: 'connectPage.screens.map', icon: 'map' },
-      { key: 'routes', href: '#/routes', title: ROUTES.title, icon: 'routes' },
-      { key: 'sections', href: '#/sections', title: SECTIONS.title, icon: 'sections' },
+      { key: 'feed', href: '#/activities', title: ACTIVITIES.title, icon: 'feed', chord: 'f' },
+      { key: 'map', href: '#/map', title: 'connectPage.screens.map', icon: 'map', chord: 'm' },
+      { key: 'routes', href: '#/routes', title: ROUTES.title, icon: 'routes', chord: 'r' },
+      { key: 'sections', href: '#/sections', title: SECTIONS.title, icon: 'sections', chord: 's' },
     ],
   },
   {
     title: 'connectPage.nav.analysis',
     entries: [
-      { key: 'fitness', href: '#/fitness', title: 'connectPage.screens.fitness', icon: 'fitness' },
+      {
+        key: 'fitness',
+        href: '#/fitness',
+        title: 'connectPage.screens.fitness',
+        icon: 'fitness',
+        chord: 't',
+      },
       {
         key: 'insights',
         href: '#/insights',
         title: 'connectPage.screens.insights',
         icon: 'insights',
+        chord: 'i',
       },
-      { key: 'strength', href: STRENGTH.href, title: STRENGTH.title, icon: 'strength' },
-      { key: 'workouts', href: '#/workouts', title: WORKOUTS.title, icon: 'workouts' },
+      { key: 'strength', href: STRENGTH.href, title: STRENGTH.title, icon: 'strength', chord: 'x' },
+      { key: 'workouts', href: '#/workouts', title: WORKOUTS.title, icon: 'workouts', chord: 'w' },
     ],
   },
   {
     title: 'connectPage.nav.library',
     entries: [
-      { key: 'recordings', href: '#/recordings', title: RECORDINGS.title, icon: 'recordings' },
-      { key: 'settings', href: '#/settings', title: SETTINGS.title, icon: 'settings' },
+      {
+        key: 'recordings',
+        href: '#/recordings',
+        title: RECORDINGS.title,
+        icon: 'recordings',
+        chord: 'd',
+      },
+      { key: 'settings', href: '#/settings', title: SETTINGS.title, icon: 'settings', chord: 'c' },
     ],
   },
 ];

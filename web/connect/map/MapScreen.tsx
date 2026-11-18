@@ -13,11 +13,7 @@ import type { ParseKeys } from 'i18next';
 
 import type { MapSurfaceSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
-import {
-  routePalette,
-  routePaletteExpression,
-  sectionPalette,
-} from '@/theme/colors';
+import { routePalette, routePaletteExpression, sectionPalette } from '@/theme/colors';
 import { colourIndexExpression } from '@/theme/palette';
 
 import { ReadError, type QueryClient } from '../query';
@@ -55,6 +51,16 @@ import {
 } from '../ui';
 import { MapPane } from './MapPane';
 import type { PickedFeature } from './hit';
+import {
+  activityRows,
+  groupRows,
+  kindOptions,
+  underPointAsk,
+  type UnderPointActivity,
+  type UnderPointAnswer,
+  type UnderPointGroup,
+  type UnderPointKind,
+} from './underPoint';
 import { baseForScheme, pagePalette, toneOf, type PageBase } from './style';
 import {
   ACTIVITY_LIST,
@@ -63,9 +69,9 @@ import {
   COLOURINGS,
   LAYERS,
   LISTS,
-  activitiesUnder,
   bandLabel,
   boundsOfFeatures,
+  selectionBounds,
   familyChipOn,
   familyName,
   inView,
@@ -93,6 +99,10 @@ type Screen = Methods['map.screen']['result'];
 type Activity = Screen['screen']['activities'][number];
 
 const WORLD_ZOOM = 2;
+
+/** What a fit keeps clear of: the panels and floating boxes drawn over the map. */
+const overlays = () =>
+  Array.from(document.querySelectorAll('#map-screen .map-panel, #map-screen .map-float'));
 /** The heatmap is drawn from zoom 1; the map does not go out past it. */
 const MIN_ZOOM = 1;
 const HEATMAP_TILE_PX = 512;
@@ -317,7 +327,16 @@ export function MapScreen({
   const [box, setBox] = useState<Box | null>(null);
   const [needle, setNeedle] = useState(state.needle);
   const [heatmapVersion, setHeatmapVersion] = useState(0);
-  const [fit, setFit] = useState<Box | null>(null);
+  // The box the camera is asked to frame; each request carries a number of its own, so asking for
+  // the same box again frames it again and nothing else does.
+  const [frame, setFrame] = useState<{ bounds: Box; seq: number } | null>(null);
+  const frames = useRef(0);
+  const setFit = useCallback((bounds: Box | null) => {
+    frames.current += 1;
+    setFrame(bounds ? { bounds, seq: frames.current } : null);
+  }, []);
+  // The selection the camera has been put on, so that a data refresh never moves it again.
+  const framedFor = useRef<string | null>(null);
   // The camera the address held when the page opened; the map moves it from there.
   const [opening] = useState<Viewport | null>(state.view);
   const cameraNow = useRef<Viewport | null>(state.view);
@@ -329,6 +348,7 @@ export function MapScreen({
   const listsSections = methods.includes('geo.sections');
   const listsProgress = methods.includes('heatmap.progress');
   const listsTrack = methods.includes('geo.track');
+  const listsUnderPoint = methods.includes('heatmap.underPoint');
   const units = useMapRead<Methods['settings.get']['result']>(
     'settings.get',
     { keys: ['veloq-resolved-unit-system'] },
@@ -419,6 +439,25 @@ export function MapScreen({
   const starts = useMemo(() => startPoints(activities, base), [activities, base]);
   const selection = selectionRef(state.selected);
   const selectedId = selection && selection.kind !== 'point' ? selection.id : null;
+  // What lies under a clicked point is the engine's answer at the camera's whole zoom; a phone
+  // that does not offer it leaves the point selected with no list.
+  const [underKind, setUnderKind] = useState<UnderPointKind>('all');
+  // The zoom the camera was at when the point was clicked, so panning afterwards asks nothing new.
+  const [clickZoom, setClickZoom] = useState<{ selected: string; zoom: number } | null>(null);
+  const pointAsk =
+    selection?.kind === 'point'
+      ? underPointAsk(
+          selection.at,
+          clickZoom?.selected === state.selected
+            ? clickZoom.zoom
+            : (state.view?.zoom ?? WORLD_ZOOM)
+        )
+      : null;
+  const underPoint = useMapRead<UnderPointAnswer>(
+    'heatmap.underPoint',
+    pointAsk ?? {},
+    listsUnderPoint && pointAsk !== null
+  );
   const focused = useMemo(() => {
     const isActivity = (id: string | null) =>
       id !== null && everyActivity.some((a) => a.activityId === id);
@@ -454,13 +493,30 @@ export function MapScreen({
   );
   const camera = useMemo(
     () =>
-      fit
-        ? { bounds: fit }
+      frame
+        ? { bounds: frame.bounds, seq: frame.seq }
         : opening
           ? { center: opening.center as unknown as maplibregl.LngLat, zoom: opening.zoom }
           : { center: [0, 0] as maplibregl.LngLat, zoom: WORLD_ZOOM },
-    [fit, opening]
+    [frame, opening]
   );
+  // A selection that arrives with the address (a reload, a link, back) is framed once what it
+  // names has loaded, unless the address also carries a camera. A pick from a list frames itself.
+  useEffect(() => {
+    if (!state.selected) {
+      framedFor.current = null;
+      return;
+    }
+    if (framedFor.current === state.selected) return;
+    if (opening) {
+      framedFor.current = state.selected;
+      return;
+    }
+    const bounds = selectionBounds(state.selected, everyActivity, routes, sections);
+    if (!bounds) return;
+    framedFor.current = state.selected;
+    setFit(bounds);
+  }, [state.selected, opening, everyActivity, routes, sections, setFit]);
   const highlighted = useMemo(
     () => [...new Set([hovered, selectedId].filter((id): id is string => id !== null))],
     [hovered, selectedId]
@@ -504,6 +560,7 @@ export function MapScreen({
   ) => {
     const bounds = boundsOfFeatures(lines, shown);
     if (bounds) setFit(bounds);
+    framedFor.current = selected;
     change({ selected });
   };
   const pickLine = (id: string) => {
@@ -540,7 +597,9 @@ export function MapScreen({
   };
   const onPoint = (at: [number, number]) => {
     if (!state.layers.includes('heatmap')) return;
-    change({ selected: pointSelection(at) });
+    const selected = pointSelection(at);
+    setClickZoom({ selected, zoom: cameraNow.current?.zoom ?? WORLD_ZOOM });
+    change({ selected });
   };
 
   const lineName = useCallback(
@@ -812,7 +871,6 @@ export function MapScreen({
             id="map-chip"
             size="sm"
             variant="ghost"
-            aria-label={t('mapScreen.panelOpen')}
             onClick={() => change({ panel: true })}
           >
             {t('maps.layerActivities')}
@@ -832,6 +890,7 @@ export function MapScreen({
           terrain={state.terrain}
           spec={spec}
           camera={camera}
+          overlays={overlays}
           minZoom={MIN_ZOOM}
           highlightedIds={highlighted}
           queries={queries}
@@ -883,7 +942,10 @@ export function MapScreen({
             value={base}
             options={BASES.map((choice) => ({
               value: choice,
-              label: choice === 'satellite' ? t('maps.baseSatellite') : t(`connectPage.settings.options.${choice}`),
+              label:
+                choice === 'satellite'
+                  ? t('maps.baseSatellite')
+                  : t(`connectPage.settings.options.${choice}`),
             }))}
             onChange={(choice) => change({ base: choice })}
           />
@@ -1017,8 +1079,8 @@ export function MapScreen({
                     : selectedLine
                       ? lineName(selectedLine, selection.kind === 'section' ? 'section' : 'route')
                       : selection.id}
-                {selection.kind === 'point' ? (
-                  <Badge>{String(activitiesUnder(selection.at, activities).length)}</Badge>
+                {selection.kind === 'point' && underPoint ? (
+                  <Badge>{String(underPoint.total)}</Badge>
                 ) : null}
               </h2>
               {foldButton}
@@ -1048,31 +1110,13 @@ export function MapScreen({
               </p>
             ) : null}
             {selection.kind === 'point' ? (
-              <DataTable
-                label={t('maps.layerActivities')}
+              <UnderPointList
+                answer={underPoint}
+                kind={underKind}
+                onKind={setUnderKind}
                 labels={labels}
-                columns={[
-                  {
-                    key: 'date',
-                    header: t('connectPage.columns.date'),
-                    cell: (a: Activity) => isoDay(a.date),
-                  },
-                  {
-                    key: 'name',
-                    header: t('connectPage.columns.name'),
-                    clip: true,
-                    cell: (a: Activity) => a.name,
-                  },
-                ]}
-                rows={
-                  activitiesUnder(
-                    selection.at,
-                    activities as MapActivity[]
-                  ) as unknown as Activity[]
-                }
-                rowKey={(a) => a.activityId}
-                onRowHover={(a) => hoverFrom('list')(a ? a.activityId : null)}
-                onRowClick={(a) => change({ selected: `activity:${a.activityId}` })}
+                onHover={(id) => hoverFrom('list')(id)}
+                onActivity={(id) => change({ selected: `activity:${id}` })}
               />
             ) : (
               <a
@@ -1160,5 +1204,146 @@ function EmptyReason({ reason }: { reason: NonNullable<Screen['screen']['emptyRe
       <h2>{t('mapScreen.emptyNoGps')}</h2>
       <p>{t('mapScreen.emptyNoGpsHint')}</p>
     </div>
+  );
+}
+
+/** What a click on the heatmap lists: the engine's groups, then its activities, as the kind filter says. */
+function UnderPointList({
+  answer,
+  kind,
+  onKind,
+  labels,
+  onHover,
+  onActivity,
+}: {
+  answer: UnderPointAnswer | null;
+  kind: UnderPointKind;
+  onKind: (kind: UnderPointKind) => void;
+  labels: ReturnType<typeof useTableLabels>;
+  onHover: (id: string | null) => void;
+  onActivity: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+  const sportName = useSportName();
+  if (!answer) return null;
+  const options = kindOptions(answer);
+  const shown: UnderPointKind = options.some((option) => option.kind === kind) ? kind : 'all';
+  const kindLabel: Record<UnderPointKind, string> = {
+    all: t('connectPage.library.all'),
+    routes: t('maps.layerRoutes'),
+    sections: t('maps.layerSections'),
+    activities: t('maps.layerActivities'),
+  };
+  const groups = groupRows(answer, shown);
+  const activities = shown === 'routes' || shown === 'sections' ? [] : activityRows(answer);
+  const groupName = (group: UnderPointGroup) =>
+    group.name ??
+    (group.kind === 'route'
+      ? t('maps.underPointRoute', { number: String(group.number ?? group.id ?? '') })
+      : t('sectionHistory.pairUnnamed'));
+  return (
+    <>
+      {options.length > 0 ? (
+        <SegmentedControl
+          id="map-under-kind"
+          label={t('maps.layerActivities')}
+          value={shown}
+          options={options.map((option) => ({
+            value: option.kind,
+            label: `${kindLabel[option.kind]} ${option.count}`,
+          }))}
+          onChange={onKind}
+        />
+      ) : null}
+      {groups.length > 0 ? (
+        <DataTable
+          label={t('maps.layerRoutes')}
+          labels={labels}
+          columns={[
+            {
+              key: 'name',
+              header: t('connectPage.columns.name'),
+              clip: true,
+              cell: (g: UnderPointGroup) => groupName(g),
+            },
+            {
+              key: 'sport',
+              header: t('connectPage.columns.sport'),
+              cell: (g: UnderPointGroup) =>
+                g.sportTypes.map((sport) => sportName(sport)).join(', '),
+            },
+            {
+              key: 'count',
+              header: t('maps.layerActivities'),
+              numeric: true,
+              cell: (g: UnderPointGroup) => String(g.count),
+            },
+            {
+              key: 'distance',
+              header: t('connectPage.columns.distance'),
+              numeric: true,
+              cell: (g: UnderPointGroup) => km(g.distanceM),
+            },
+            {
+              key: 'passes',
+              header: t('connectPage.routes.passes'),
+              numeric: true,
+              cell: (g: UnderPointGroup) => String(g.passes),
+            },
+            {
+              key: 'best',
+              header: t('connectPage.routes.bestTime'),
+              numeric: true,
+              cell: (g: UnderPointGroup) => (g.bestTime === null ? '' : clock(g.bestTime)),
+            },
+            {
+              key: 'last',
+              header: t('connectPage.workouts.colLastDone'),
+              cell: (g: UnderPointGroup) => (g.lastDate === null ? '' : isoDay(g.lastDate)),
+            },
+          ]}
+          rows={groups}
+          rowKey={(g) => `${g.kind}:${g.id ?? ''}`}
+          onRowClick={(g) =>
+            g.id === null ? undefined : navigate({ screen: g.kind as 'route' | 'section', id: g.id, query: [] })
+          }
+        />
+      ) : null}
+      {activities.length > 0 ? (
+        <DataTable
+          label={t('maps.layerActivities')}
+          labels={labels}
+          columns={[
+            {
+              key: 'date',
+              header: t('connectPage.columns.date'),
+              cell: (a: UnderPointActivity) => isoDay(a.date),
+            },
+            {
+              key: 'name',
+              header: t('connectPage.columns.name'),
+              clip: true,
+              cell: (a: UnderPointActivity) => a.name,
+            },
+            {
+              key: 'distance',
+              header: t('connectPage.columns.distance'),
+              numeric: true,
+              cell: (a: UnderPointActivity) => km(a.distance),
+            },
+            {
+              key: 'time',
+              header: t('connectPage.columns.time'),
+              numeric: true,
+              cell: (a: UnderPointActivity) => clock(a.duration),
+            },
+          ]}
+          rows={activities}
+          rowKey={(a) => a.id}
+          onRowHover={(a) => onHover(a ? a.id : null)}
+          onRowClick={(a) => onActivity(a.id)}
+        />
+      ) : null}
+    </>
   );
 }

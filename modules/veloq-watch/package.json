@@ -1,0 +1,17 @@
+{
+  "name": "veloq-watch",
+  "version": "0.1.0",
+  "description": "The phone end of the Apple Watch link: one WatchConnectivity session per process, the nearby list as application context, a section as a transfer, and a watch's requests answered by the engine",
+  "main": "index.ts",
+  "author": "Evan Thomas <evan@evanjt.com>",
+  "homepage": "https://github.com/evanjt/veloq",
+  "license": "MIT",
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "expo-modules-core": "*"
+  }
+}

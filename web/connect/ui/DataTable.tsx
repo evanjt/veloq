@@ -1,20 +1,29 @@
-// A dense table: 32 px rows, a sticky header with a sort affordance on sortable
-// columns, right-aligned tabular figures on numeric ones, and a count line.
-// Keys move an active row (j and k, the arrows, Home and End) and Enter opens
-// it; a click selects, shift-click selects a range, ctrl-click toggles, Space
-// toggles the active row, and a bar offers the bulk actions while rows are
+// A dense table: a sticky header with a sort affordance on sortable columns,
+// right-aligned tabular figures on numeric ones, and a count line.
+//
+// One prop decides what a row does. With `rowAction: 'open'` the primary column
+// carries the row's link, stretched over the row: a plain click or Enter
+// navigates, and a ctrl, cmd or middle click is the browser's own. Selection is
+// a checkbox column and shift-click. With `'select'` (the default) a click
+// selects, shift-click selects a range and ctrl-click toggles.
+//
+// One keyboard model serves both: the table is the one tab stop, j and k, the
+// arrows, Home and End move the active row, Enter opens it, Space or x toggles
+// it, Escape clears the selection. A bar offers the bulk actions while rows are
 // selected. A column chooser keeps what a browser hid, per table. Past
-// `VIRTUALISE_PAST` rows only the rows in view are mounted.
+// `VIRTUALISE_PAST` rows only the rows in view are mounted, by the height of a
+// rendered row.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
 
+import { ListFilter, type ListFilterProps } from './ListFilter';
 import {
-  clickMode,
   keepPresent,
   moveActive,
   NO_SELECTION,
   ROW_HEIGHT,
+  rowIntent,
   scrollToRow,
   selectAll,
   selectRow,
@@ -22,6 +31,7 @@ import {
   toggleColumn,
   visibleWindow,
   writeHidden,
+  type RowAction,
   type RowSelection,
   type TableStorage,
 } from './tableModel';
@@ -40,6 +50,8 @@ export type Column<Row> = {
    * text. The full text is the cell's title; a node cell takes its title from `cellProps`.
    */
   clip?: boolean;
+  /** The column that carries the row's link in an `open` table; the first shown one when none does. */
+  primary?: boolean;
   /** Hidden until the browser keeps a choice in the column chooser. */
   defaultHidden?: boolean;
   sortable?: boolean;
@@ -63,6 +75,8 @@ export type TableLabels = {
   clearSelection: string;
   selectAll: string;
   columns: string;
+  /** The name of a row's checkbox. */
+  selectRow?: string;
 };
 
 /** The longest formatted value of each numeric column, in characters, so a window of rows never resizes it. */
@@ -107,6 +121,16 @@ function browserStorage(): TableStorage | null {
   }
 }
 
+function navigateTo(href: string) {
+  window.location.assign(href);
+}
+
+/** True when the click landed on a control inside the row, which handles it itself. */
+function onControl(target: EventTarget | null): boolean {
+  const reach = target as { closest?: (selector: string) => unknown } | null;
+  return Boolean(reach?.closest?.('a, button, input, label, select, textarea'));
+}
+
 export function DataTable<Row>(props: {
   label: string;
   /** A leading cell on every row, before the first column; it has no sort and no chooser entry. */
@@ -121,12 +145,22 @@ export function DataTable<Row>(props: {
   selectedKey?: string | null;
   /** Marks several rows selected at once; takes the place of `selectedKey`. */
   isSelected?: (row: Row) => boolean;
+  /** Called for a click that selects or is not a navigation; not for one that opens the row. */
   onRowClick?: (row: Row, event: MouseEvent) => void;
   onRowHover?: (row: Row | null) => void;
-  /** Called by Enter on the active row. */
+  /**
+   * What a row does: `open` navigates to its `href`, `select` selects it. A table where
+   * rows lead to a page passes `open`.
+   */
+  rowAction?: RowAction;
+  /** Called by Enter on the active row of a table with no `href`. */
   onOpen?: (row: Row) => void;
-  /** Makes the first shown column a link to the row's page. */
+  /** The row's page, carried by the primary column's link. */
   href?: (row: Row) => string;
+  /** Takes a plain click or Enter on a row to its page; the default sets the address. */
+  onNavigate?: (href: string) => void;
+  /** Called when a key moves the active row, so a page can follow the cursor. */
+  onActiveChange?: (row: Row) => void;
   /** Rows the table selects and counts itself; the bulk bar shows while any is selected. */
   selectable?: boolean;
   /**
@@ -139,6 +173,11 @@ export function DataTable<Row>(props: {
   /** Names the table for the column chooser's kept choice; without it the chooser is off. */
   tableId?: string;
   labels?: TableLabels;
+  /**
+   * The list's filter, drawn at the start of the toolbar. Its "N of M" count takes the place of
+   * the toolbar's row count, and the toolbar stays while the filter leaves no rows.
+   */
+  filter?: ListFilterProps;
   storage?: TableStorage | null;
 }) {
   const { rows, columns } = props;
@@ -147,11 +186,27 @@ export function DataTable<Row>(props: {
     initialHidden(storage, props.tableId, columns)
   );
   const [selection, setSelection] = useState<RowSelection>(NO_SELECTION);
-  const [active, setActive] = useState<number | null>(null);
+  const indexOfKey = (key: string | null | undefined): number | null => {
+    if (key === undefined || key === null) return null;
+    const at = rows.findIndex((row) => props.rowKey(row) === key);
+    return at >= 0 ? at : null;
+  };
+  const [active, setActive] = useState<number | null>(() => indexOfKey(props.selectedKey));
+  const [syncedKey, setSyncedKey] = useState(props.selectedKey);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewport, setViewport] = useState<number | undefined>(undefined);
   const scroller = useRef<HTMLDivElement | null>(null);
   const [chooserOpen, setChooserOpen] = useState(false);
+  const [rowHeight, setRowHeight] = useState(ROW_HEIGHT);
+  const chooserButton = useRef<HTMLButtonElement | null>(null);
+  const action: RowAction = props.rowAction ?? 'select';
+  const opens = action === 'open';
+  const interactive =
+    opens ||
+    Boolean(props.selectable || props.onOpen || props.onRowClick) ||
+    props.isSelected !== undefined ||
+    props.selectedKey !== undefined;
+  const navigate = props.onNavigate ?? navigateTo;
 
   const order = useMemo(() => rows.map(props.rowKey), [rows, props.rowKey]);
   const keyAt = (at: number): string => order[at] ?? '';
@@ -169,7 +224,22 @@ export function DataTable<Row>(props: {
     if (height) setViewport(height);
   }, [rows.length]);
 
-  const { start, end } = visibleWindow(rows.length, scrollTop, viewport);
+  const windowStart = visibleWindow(rows.length, scrollTop, viewport, rowHeight).start;
+  useEffect(() => {
+    const first = scroller.current?.querySelector?.<HTMLElement>('tbody tr[data-row]');
+    const height = first?.getBoundingClientRect().height;
+    if (height && Math.abs(height - rowHeight) > 0.5) setRowHeight(height);
+  }, [rows.length, windowStart, rowHeight]);
+
+  // The cursor follows the page's selected row when that row changes, so the ring and
+  // the selection are never on different rows.
+  if (props.selectedKey !== syncedKey) {
+    setSyncedKey(props.selectedKey);
+    const at = indexOfKey(props.selectedKey);
+    if (at !== null) setActive(at);
+  }
+
+  const { start, end } = visibleWindow(rows.length, scrollTop, viewport, rowHeight);
   const virtual = rows.length > end - start;
 
   const choose = (next: RowSelection) => {
@@ -180,10 +250,12 @@ export function DataTable<Row>(props: {
 
   const activate = (index: number) => {
     setActive(index);
+    const row = rows[index];
+    if (row !== undefined) props.onActiveChange?.(row);
     const box = scroller.current;
     if (box && virtual) {
       const header = box.querySelector('thead')?.clientHeight ?? 0;
-      const next = scrollToRow(index, box.scrollTop, box.clientHeight, header);
+      const next = scrollToRow(index, box.scrollTop, box.clientHeight, header, rowHeight);
       if (next !== box.scrollTop) box.scrollTop = next;
     }
   };
@@ -209,10 +281,12 @@ export function DataTable<Row>(props: {
     }
     const row = active === null ? undefined : rows[active];
     if (!row) return;
-    if (event.key === 'Enter' && props.onOpen) {
+    const onLink = target !== null && /^(A|BUTTON)$/.test(target.tagName);
+    if (event.key === 'Enter' && !onLink && (props.href || props.onOpen)) {
       event.preventDefault();
-      props.onOpen(row);
-    } else if (event.key === ' ' && props.selectable) {
+      if (opens && props.href) navigate(props.href(row));
+      else props.onOpen?.(row);
+    } else if (((event.key === ' ' && !onLink) || event.key === 'x') && props.selectable) {
       event.preventDefault();
       choose(selectRow(kept, order, keyAt(active as number), 'toggle'));
     } else if (event.key === 'Escape' && kept.keys.length > 0) {
@@ -232,13 +306,15 @@ export function DataTable<Row>(props: {
 
   const renderRow = (row: Row, at: number) => {
     const key = keyAt(at);
-    const marked = props.selectable
-      ? selectedKeys.has(key)
-      : props.isSelected
-        ? props.isSelected(row)
-        : props.selectedKey === undefined
-          ? undefined
-          : props.selectedKey === key;
+    const marked =
+      props.selectable || props.isSelected || props.selectedKey !== undefined
+        ? Boolean(
+            (props.selectable && selectedKeys.has(key)) ||
+            props.isSelected?.(row) ||
+            (props.selectedKey !== undefined && props.selectedKey === key)
+          )
+        : undefined;
+    const primary = shown.find((column) => column.primary) ?? shown[0];
     return (
       <tr
         key={key}
@@ -249,17 +325,37 @@ export function DataTable<Row>(props: {
         {...props.rowProps?.(row)}
         data-active={active === at || undefined}
         onClick={(event) => {
-          if (props.selectable) {
-            choose(selectRow(kept, order, key, clickMode(event)));
-            setActive(at);
+          const intent = rowIntent(event, onControl(event.target), action);
+          if (intent === 'ignore') return;
+          setActive(at);
+          if (intent === 'browser') return;
+          if (intent === 'open') {
+            if (props.href) navigate(props.href(row));
+            return;
           }
+          if (props.selectable) choose(selectRow(kept, order, key, intent));
           props.onRowClick?.(row, event);
         }}
         onMouseEnter={props.onRowHover ? () => props.onRowHover?.(row) : undefined}
         onMouseLeave={props.onRowHover ? () => props.onRowHover?.(null) : undefined}
       >
+        {opens && props.selectable ? (
+          <td data-box="">
+            <input
+              type="checkbox"
+              data-row-box
+              tabIndex={-1}
+              aria-label={props.labels?.selectRow ?? props.label}
+              checked={selectedKeys.has(key)}
+              onChange={() => {
+                choose(selectRow(kept, order, key, 'toggle'));
+                setActive(at);
+              }}
+            />
+          </td>
+        ) : null}
         {props.marker ? <td>{props.marker.cell(row)}</td> : null}
-        {shown.map((column, position) => {
+        {shown.map((column) => {
           const content = column.cell(row);
           const width = widths[column.key];
           return (
@@ -267,16 +363,21 @@ export function DataTable<Row>(props: {
               key={column.key}
               data-numeric={column.numeric || undefined}
               data-clip={column.clip || undefined}
+              data-primary={column === primary && props.href ? true : undefined}
               title={column.clip ? plainText(content) : undefined}
               style={column.numeric && width ? { minWidth: `${width}ch` } : undefined}
               {...column.cellProps?.(row)}
             >
-              {position === 0 && props.href ? (
+              {column === primary && props.href ? (
                 <a
                   href={props.href(row)}
+                  tabIndex={opens ? -1 : undefined}
                   onClick={(event) => {
-                    if (event.shiftKey || event.ctrlKey || event.metaKey) event.preventDefault();
-                    else event.stopPropagation();
+                    setActive(at);
+                    if (event.shiftKey && props.selectable) {
+                      event.preventDefault();
+                      choose(selectRow(kept, order, key, 'range'));
+                    }
                   }}
                 >
                   {content}
@@ -293,10 +394,11 @@ export function DataTable<Row>(props: {
 
   const labels = props.labels;
   const activeRow = active === null ? undefined : rows[active];
+  const leading = (props.marker ? 1 : 0) + (opens && props.selectable ? 1 : 0);
   const spacer = (height: number, where: string) =>
     height > 0 ? (
       <tr aria-hidden="true" data-spacer={where} style={{ height }}>
-        <td colSpan={shown.length + (props.marker ? 1 : 0)} />
+        <td colSpan={shown.length + leading} />
       </tr>
     ) : null;
 
@@ -304,6 +406,7 @@ export function DataTable<Row>(props: {
     <div className="ui-table-frame">
       {labels ? (
         <div className="ui-table-bar">
+          {props.filter ? <ListFilter {...props.filter} /> : null}
           {kept.keys.length > 0 ? (
             <div
               className="ui-table-bulk"
@@ -320,7 +423,7 @@ export function DataTable<Row>(props: {
                 {labels.clearSelection}
               </button>
             </div>
-          ) : (
+          ) : props.filter ? null : (
             <span className="ui-table-count" role="status">
               {labels.count(rows.length)}
             </span>
@@ -331,9 +434,19 @@ export function DataTable<Row>(props: {
             </button>
           ) : null}
           {props.tableId ? (
-            <span className="ui-table-chooser">
+            <span
+              className="ui-table-chooser"
+              onKeyDown={(event) => {
+                if (event.key !== 'Escape' || !chooserOpen) return;
+                event.stopPropagation();
+                event.preventDefault();
+                setChooserOpen(false);
+                chooserButton.current?.focus();
+              }}
+            >
               <button
                 type="button"
+                ref={chooserButton}
                 aria-expanded={chooserOpen}
                 onClick={() => setChooserOpen(!chooserOpen)}
               >
@@ -363,13 +476,7 @@ export function DataTable<Row>(props: {
         className="ui-table-scroll"
         ref={scroller}
         data-virtual={virtual || undefined}
-        tabIndex={0}
-        aria-activedescendant={
-          activeRow === undefined
-            ? undefined
-            : `${props.tableId ?? 'table'}-row-${keyAt(active as number)}`
-        }
-        onKeyDown={onKeyDown}
+        tabIndex={virtual && !interactive ? 0 : undefined}
         onScroll={virtual ? (event) => setScrollTop(event.currentTarget.scrollTop) : undefined}
       >
         <table
@@ -377,10 +484,32 @@ export function DataTable<Row>(props: {
           id={props.tableId}
           aria-label={props.label}
           aria-rowcount={rows.length + 1}
-          aria-multiselectable={props.selectable || undefined}
+          role={interactive ? 'grid' : undefined}
+          tabIndex={interactive ? 0 : undefined}
+          aria-multiselectable={interactive && props.selectable ? true : undefined}
+          aria-activedescendant={
+            interactive && activeRow !== undefined
+              ? `${props.tableId ?? 'table'}-row-${keyAt(active as number)}`
+              : undefined
+          }
+          data-open={opens || undefined}
+          onKeyDown={interactive ? onKeyDown : undefined}
         >
           <thead>
             <tr>
+              {opens && props.selectable ? (
+                <th scope="col" data-box="">
+                  <input
+                    type="checkbox"
+                    tabIndex={-1}
+                    aria-label={labels?.selectAll ?? props.label}
+                    checked={rows.length > 0 && kept.keys.length === rows.length}
+                    onChange={() =>
+                      choose(kept.keys.length === rows.length ? NO_SELECTION : selectAll(order))
+                    }
+                  />
+                </th>
+              ) : null}
               {props.marker ? <th scope="col">{props.marker.header}</th> : null}
               {shown.map((column) => {
                 const sorted = props.sort?.key === column.key ? props.sort.direction : null;
@@ -412,9 +541,9 @@ export function DataTable<Row>(props: {
             </tr>
           </thead>
           <tbody>
-            {spacer(start * ROW_HEIGHT, 'start')}
+            {spacer(start * rowHeight, 'start')}
             {rows.slice(start, end).map((row, at) => renderRow(row, start + at))}
-            {spacer((rows.length - end) * ROW_HEIGHT, 'end')}
+            {spacer((rows.length - end) * rowHeight, 'end')}
           </tbody>
         </table>
       </div>

@@ -334,6 +334,32 @@ pub struct ListedActivity {
     pub activity_type: Option<String>,
 }
 
+/// One activity as a search of the athlete's account lists it: enough to draw
+/// a row and to ask for the whole activity by its id.
+#[derive(Debug, Clone, Default, Deserialize, PartialEq)]
+pub struct RemoteActivitySummary {
+    pub id: String,
+    #[serde(default, deserialize_with = "null_as_default")]
+    pub name: String,
+    #[serde(rename = "type", default, deserialize_with = "null_as_default")]
+    pub sport: String,
+    #[serde(default)]
+    pub start_date_local: Option<String>,
+    #[serde(default)]
+    pub distance: Option<f64>,
+    #[serde(default)]
+    pub moving_time: Option<f64>,
+}
+
+/// A field the server sends as `null` reads as its default, as a missing one does.
+fn null_as_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Default + Deserialize<'de>,
+{
+    Ok(Option::<T>::deserialize(deserializer)?.unwrap_or_default())
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct AthleteRecord {
     pub id: String,

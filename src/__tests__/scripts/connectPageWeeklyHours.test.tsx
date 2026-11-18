@@ -62,6 +62,10 @@ describe('the weekly hours chart', () => {
     ]);
   });
 
+  it('titles the value axis with the unit alone, as the card title names the quantity', () => {
+    expect(chartOf(WEEKS).yTitle).toBe('h');
+  });
+
   it('draws an empty chart for a read with no weeks', () => {
     const props = chartOf([]);
     expect(props.categories).toEqual([]);

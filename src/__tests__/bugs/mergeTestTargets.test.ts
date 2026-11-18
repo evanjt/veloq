@@ -249,7 +249,7 @@ describe('which suites a merge runs', () => {
     const commands = mergeTestCommands(targets, NO_CORPORA);
 
     expect(targets.related).toContain('src/i18n/locales/da.json');
-    expect(targets.related).toContain('src/__tests__/i18n/deChRegister.test.ts');
+    expect(targets.related).toContain('src/__tests__/i18n/deChRegister.vault.test.ts');
     expect(commands).toEqual([expect.stringContaining('--findRelatedTests')]);
     expect(commands[0]).toContain('src/i18n/locales/da.json');
   });

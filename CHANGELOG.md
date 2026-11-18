@@ -5,13 +5,14 @@ All notable changes to Veloq are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2026-11-18
 
-Planned as 0.4.0. On first launch the new section detector goes over the whole library, so some
-sections are re-drawn and a feed card lists what moved. Every change can be reverted. A pass now
-counts only when it covers the whole section, so some visit counts and PRs fall. Google no longer
-restores the library on a new Android phone, so back up to `Documents/Veloq`. iOS 15 and earlier
-stay on 0.3.8.
+0.5.0 adds activity recording, one section detector, a new look and automatic Android backups.
+On first launch the new section detector goes over the whole library, so some sections are
+re-drawn and a feed card lists what moved. Every change can be reverted. A pass now counts only
+when it covers the whole section, so some visit counts and PRs fall. Google no longer restores
+the library on a new Android phone, so back up to `Documents/Veloq`. iOS 15 and earlier stay on
+0.3.8.
 
 ### Added
 

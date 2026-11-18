@@ -14,6 +14,8 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
+import { trackedText } from './lib/indexedSources.mjs';
+
 const KEY = 'ITSAppUsesNonExemptEncryption';
 const CONFIG_KEY = 'usesNonExemptEncryption';
 
@@ -35,7 +37,10 @@ function appTargets(iosDir) {
 
 try {
   const root = resolve(flag('--root') ?? process.cwd());
-  const app = JSON.parse(readFileSync(join(root, 'app.json'), 'utf8'));
+  // app.json as the tree records it, so an unsaved edit in this checkout is not judged.
+  const appText = trackedText(root, 'app.json');
+  if (appText === undefined) throw new Error('app.json is not in the tree');
+  const app = JSON.parse(appText);
   const ios = app.expo?.ios ?? {};
   const problems = [];
 
@@ -51,6 +56,8 @@ try {
       `app.json expo.ios.config.${CONFIG_KEY} is ${show(config)}, it must be the boolean false`
     );
 
+  // ios/ is generated and git-ignored, so the index holds none of it. Its Info.plist is read from
+  // the disk on purpose: that file is the only place the prebuilt declaration exists.
   const iosDir = join(root, 'ios');
   if (existsSync(iosDir)) {
     const targets = appTargets(iosDir);

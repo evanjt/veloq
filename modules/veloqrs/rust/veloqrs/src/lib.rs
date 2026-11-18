@@ -94,6 +94,9 @@ pub(crate) mod fit_write;
 // A strength session written as a FIT file
 pub mod fit_strength;
 
+// A route or section line written as a FIT course file
+pub mod fit_course;
+
 // Activity FIT files built to the profile, for tests
 #[cfg(test)]
 pub(crate) mod fit_synthetic;
@@ -380,7 +383,7 @@ pub(crate) mod test_globals {
     /// that scheduled it and swaps into the next one's engine.
     pub(crate) fn wait_for_regroup_workers() {
         assert!(
-            crate::persistence::regroup::wait_for_regroup(Duration::from_secs(120)),
+            crate::persistence::regroup::wait_for_every_regroup(Duration::from_secs(120)),
             "a regroup worker did not finish"
         );
     }
@@ -434,6 +437,8 @@ pub(crate) mod test_globals {
             crate::net::elevation_backfill::reset_pause();
             crate::objects::clear_test_credentials();
             crate::persistence::suspension::reset();
+            crate::remote::import::reset_for_test();
+            crate::remote::export::reset_for_test();
             *SERIAL_HOLDER.lock().unwrap_or_else(|e| e.into_inner()) = None;
         }
     }
@@ -462,6 +467,8 @@ pub(crate) mod test_globals {
         crate::net::elevation_backfill::reset_pause();
         crate::objects::clear_test_credentials();
         crate::persistence::suspension::reset();
+        crate::remote::import::reset_for_test();
+        crate::remote::export::reset_for_test();
         *SERIAL_HOLDER.lock().unwrap_or_else(|e| e.into_inner()) = Some(current().id());
         SerialGuard(guard, mode)
     }
@@ -787,8 +794,9 @@ pub(crate) mod test_trace {
     }
 
     /// Removes the hook [`trace_statements`] installed.
-    pub(crate) fn untrace(conn: &Connection) {
-        conn.trace_v2(TraceEventCodes::empty(), None);
+    pub(crate) fn untrace(conn: &mut Connection) {
+        conn.trace_v2(TraceEventCodes::empty(), None::<fn(TraceEvent<'_>)>)
+            .expect("remove the trace hook");
     }
 
     /// Hands every statement `$conn` runs to `$sink`, a `fn(&str)`, until
@@ -796,14 +804,16 @@ pub(crate) mod test_trace {
     /// named by path and keeps its state in a static.
     macro_rules! trace_statements {
         ($conn:expr, $sink:path) => {
-            $conn.trace_v2(
-                ::rusqlite::trace::TraceEventCodes::SQLITE_TRACE_STMT,
-                Some(|event| {
-                    if let Some(sql) = $crate::test_trace::statement_sql(event) {
-                        $sink(&sql);
-                    }
-                }),
-            )
+            $conn
+                .trace_v2(
+                    ::rusqlite::trace::TraceEventCodes::SQLITE_TRACE_STMT,
+                    Some(|event: ::rusqlite::trace::TraceEvent<'_>| {
+                        if let Some(sql) = $crate::test_trace::statement_sql(event) {
+                            $sink(&sql);
+                        }
+                    }),
+                )
+                .expect("install the trace hook")
         };
     }
     pub(crate) use trace_statements;

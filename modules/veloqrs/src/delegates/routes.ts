@@ -7,7 +7,8 @@
  */
 
 import type {
-  FfiNearbyRoute,
+  FfiNearbyKind,
+  FfiNearbyPlace,
   FfiRouteGroup,
   FfiRouteDetailData,
   FfiRoutePerformanceResult,
@@ -226,21 +227,27 @@ export function getRouteDetailData(
 }
 
 /**
- * The saved routes of the sport near a fix, nearest first, each with its name, length, best
- * time and simplified line: the record screen's one read of its nearby routes.
+ * The routes and sections of the sport that start near a point, of the `kinds` asked for, nearest
+ * start first, each with its best and latest time, passes, elevation gain and a thinned line with
+ * elevation. The limit counts only the kinds asked for. The followed route comes back too,
+ * wherever it starts, with `offered` false beyond the radius.
  */
-export type NearbyRoute = FfiNearbyRoute;
+export type NearbyPlace = FfiNearbyPlace;
 
-export function getNearbyRoutesForRecording(
+export function getNearbyPlaces(
   host: DelegateHost,
   latitude: number,
   longitude: number,
   sport: string,
+  kinds: FfiNearbyKind[],
   followedRouteId?: string
-): NearbyRoute[] {
+): NearbyPlace[] {
   if (!host.ready) return [];
-  return host.timed('getNearbyRoutesForRecording', () =>
-    host.engine.routes().getNearbyForRecording(latitude, longitude, sport, followedRouteId)
+  return host.timed('getNearbyPlaces', () =>
+    host.engine.routes().getNearbyPlaces(latitude, longitude, sport, kinds, followedRouteId, {
+      maxPoints: 0,
+      packed: false,
+    })
   );
 }
 

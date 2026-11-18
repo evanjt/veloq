@@ -149,6 +149,8 @@
   --colour-data-div-mid: #878F9C;
   --colour-chart-series: #3A7AB8;
   --colour-chart-muted: #878F9C;
+  --colour-wellness-hrv: #EC4899;
+  --colour-wellness-rhr: #EF4444;
   --colour-chart-grid: #878F9C;
   --colour-chart-axis: #646D7A;
   --colour-chart-reference: #646D7A;
@@ -311,6 +313,8 @@
   --role-secondary: #3A7AB8;
   --role-fitness: #3688EC;
   --role-fatigue: #9A338A;
+  --role-chartHrv: #EC4899;
+  --role-chartRhr: #EF4444;
   --role-chartFtp: #BD7211;
   --role-chartSeries: #3A7AB8;
   --role-formTransition: #1C3F61;
@@ -422,6 +426,10 @@
   --web-layout-sidebar: 232px;
   --web-layout-sidebar-collapsed: 56px;
   --web-layout-list-pane: 340px;
+  --web-layout-search-min: 280px;
+  --web-layout-search-max: 360px;
+  --web-layout-palette: 560px;
+  --web-layout-name-column: 160px;
   --web-layout-selection-panel: 380px;
   --web-layout-form-max: 960px;
 }
@@ -501,6 +509,8 @@
   --colour-data-div-mid: #646D7A;
   --colour-chart-series: #7DB3E3;
   --colour-chart-muted: #646D7A;
+  --colour-wellness-hrv: #F472B6;
+  --colour-wellness-rhr: #F87171;
   --colour-chart-grid: #646D7A;
   --colour-chart-axis: #8A93A1;
   --colour-chart-reference: #8A93A1;
@@ -568,6 +578,8 @@
   --role-infoBg: #152C43;
   --role-fitness: #4193F8;
   --role-fatigue: #BB52A8;
+  --role-chartHrv: #F472B6;
+  --role-chartRhr: #F87171;
   --role-chartFtp: #D37E03;
   --role-chartSeries: #7DB3E3;
   --role-formTransition: #B5D2EE;
@@ -653,6 +665,8 @@
     --colour-data-div-mid: #646D7A;
     --colour-chart-series: #7DB3E3;
     --colour-chart-muted: #646D7A;
+    --colour-wellness-hrv: #F472B6;
+    --colour-wellness-rhr: #F87171;
     --colour-chart-grid: #646D7A;
     --colour-chart-axis: #8A93A1;
     --colour-chart-reference: #8A93A1;
@@ -720,6 +734,8 @@
     --role-infoBg: #152C43;
     --role-fitness: #4193F8;
     --role-fatigue: #BB52A8;
+    --role-chartHrv: #F472B6;
+    --role-chartRhr: #F87171;
     --role-chartFtp: #D37E03;
     --role-chartSeries: #7DB3E3;
     --role-formTransition: #B5D2EE;

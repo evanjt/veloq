@@ -14,6 +14,7 @@ import type {
   ExportPrivacyPreview as FfiExportPrivacyPreview,
   FfiGpsPoint,
   GpxFile as FfiGpxFile,
+  FitCourseFile as FfiFitCourseFile,
   FfiBackupScreenData,
   FfiCacheScreenData,
   FfiHistoryRangeEstimate,
@@ -165,6 +166,80 @@ export function buildGpxFile(
   return (
     host.timed('buildGpxFile', () =>
       host.engine.settings().buildGpxFile(name, sport, time, points)
+    ) ?? null
+  );
+}
+
+/**
+ * The GPX file for a route's representative track, read by the route's id so
+ * the engine writes each point's elevation under the name the route is shown
+ * by. Null when the trim leaves too little to be a track. Throws when the
+ * engine cannot answer.
+ */
+export function buildRouteGpxFile(
+  host: DelegateHost,
+  groupId: string,
+  sport: string | undefined
+): FfiGpxFile | null {
+  if (!host.ready) throw new Error('Engine not ready');
+  return (
+    host.timed('buildRouteGpxFile', () =>
+      host.engine.settings().buildRouteGpxFile(groupId, sport)
+    ) ?? null
+  );
+}
+
+/**
+ * The GPX file for a section's stored line, read by the section's id so the
+ * engine writes each point's elevation under the name the section is shown
+ * by. Null when the trim leaves too little to be a track. Throws when the
+ * engine cannot answer.
+ */
+export function buildSectionGpxFile(
+  host: DelegateHost,
+  sectionId: string,
+  sport: string | undefined
+): FfiGpxFile | null {
+  if (!host.ready) throw new Error('Engine not ready');
+  return (
+    host.timed('buildSectionGpxFile', () =>
+      host.engine.settings().buildSectionGpxFile(sectionId, sport)
+    ) ?? null
+  );
+}
+
+/**
+ * The FIT course file for a route's representative track, read by the route's
+ * id, through the same export privacy trim as the GPX file. Null when the trim
+ * leaves too little to be a line. Throws when the engine cannot answer.
+ */
+export function buildRouteFitCourse(
+  host: DelegateHost,
+  groupId: string,
+  sport: string | undefined
+): FfiFitCourseFile | null {
+  if (!host.ready) throw new Error('Engine not ready');
+  return (
+    host.timed('buildRouteFitCourse', () =>
+      host.engine.settings().buildRouteFitCourse(groupId, sport)
+    ) ?? null
+  );
+}
+
+/**
+ * The FIT course file for a section's stored line, read by the section's id,
+ * through the same export privacy trim as the GPX file. Null when the trim
+ * leaves too little to be a line. Throws when the engine cannot answer.
+ */
+export function buildSectionFitCourse(
+  host: DelegateHost,
+  sectionId: string,
+  sport: string | undefined
+): FfiFitCourseFile | null {
+  if (!host.ready) throw new Error('Engine not ready');
+  return (
+    host.timed('buildSectionFitCourse', () =>
+      host.engine.settings().buildSectionFitCourse(sectionId, sport)
     ) ?? null
   );
 }

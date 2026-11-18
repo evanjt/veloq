@@ -95,13 +95,25 @@ pub fn resume_at(at: DateTime<Utc>) {
     }
 }
 
+/// Who asked for a hold on the downloads. The order is the order they are
+/// named in: intervals.icu's cooldown, then the shared pool, then this
+/// install's own share.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HoldCause {
+    /// intervals.icu asked for the wait, through a refusal's cooldown.
+    Upstream,
+    /// A low figure from the shared intervals.icu pool holds the backfill, so
+    /// it yields to everyone's sync.
+    Pool,
+    /// This install's own share of its request budget.
+    Budget,
+}
+
 /// Why the downloads cannot be restarted yet, and until when.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DownloadsHold {
     pub until: DateTime<Utc>,
-    /// Whether intervals.icu asked for the wait (a refusal's cooldown) rather
-    /// than this install's own request budget.
-    pub by_upstream: bool,
+    pub cause: HoldCause,
 }
 
 /// What a Retry now did.
@@ -113,25 +125,37 @@ pub enum RetryNow {
     Held(DownloadsHold),
 }
 
-/// The hold at `now`, given the refusal cooldown and the backfill's own
-/// deferral. A cooldown is intervals.icu's ask, so it names itself first.
+/// The hold at `now`, given the refusal cooldown, the backfill's whole
+/// deferral and the shared pool's low figure.
+///
+/// A cooldown is intervals.icu's ask, so it names itself first and holds
+/// until its own end. Otherwise a live pool figure names the hold ahead of
+/// this install's share, which is only what this install spent. The downloads
+/// resume once every deferral has lifted, so `until` is the latest live one.
 fn hold_from(
     now: DateTime<Utc>,
     cooldown: Option<DateTime<Utc>>,
     budget: Option<DateTime<Utc>>,
+    pool: Option<DateTime<Utc>>,
 ) -> Option<DownloadsHold> {
     if let Some(until) = cooldown.filter(|until| *until > now) {
         return Some(DownloadsHold {
             until,
-            by_upstream: true,
+            cause: HoldCause::Upstream,
         });
     }
-    budget
+    let pool = pool.filter(|until| *until > now);
+    let until = budget
+        .into_iter()
+        .chain(pool)
         .filter(|until| *until > now)
-        .map(|until| DownloadsHold {
-            until,
-            by_upstream: false,
-        })
+        .max()?;
+    let cause = if pool.is_some() {
+        HoldCause::Pool
+    } else {
+        HoldCause::Budget
+    };
+    Some(DownloadsHold { until, cause })
 }
 
 /// The hold on the downloads right now, if any.
@@ -142,6 +166,7 @@ pub fn downloads_hold() -> Option<DownloadsHold> {
         now,
         GOVERNOR.cooldown_until(now),
         GOVERNOR.deferred_until(Intent::Backfill, now),
+        GOVERNOR.pool_hold_until(now),
     )
 }
 
@@ -396,10 +421,10 @@ mod tests {
         assert!(due.take_due(now));
     }
 
-    fn hold(until: &str, by_upstream: bool) -> DownloadsHold {
+    fn hold(until: &str, cause: HoldCause) -> DownloadsHold {
         DownloadsHold {
             until: at(until),
-            by_upstream,
+            cause,
         }
     }
 
@@ -420,7 +445,7 @@ mod tests {
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_retry_inside_a_hold_restarts_nothing_and_reports_the_time() {
         let mut restarted = 0;
-        let held = hold("2026-03-04T10:30:00Z", true);
+        let held = hold("2026-03-04T10:30:00Z", HoldCause::Upstream);
         let outcome = retry_with(Some(held), || restarted += 1);
         assert_eq!(restarted, 0);
         assert_eq!(outcome, RetryNow::Held(held));
@@ -441,7 +466,7 @@ mod tests {
         );
         assert_eq!(started, 1);
 
-        let held = hold("2026-03-04T10:30:00Z", false);
+        let held = hold("2026-03-04T10:30:00Z", HoldCause::Budget);
         assert_eq!(
             retry_downloads_with(Some(held), || started += 1),
             RetryNow::Held(held)
@@ -450,26 +475,90 @@ mod tests {
     }
 
     /// Expected behaviour: the refusal's own cooldown names intervals.icu as
-    /// the one that asked, and the install's request budget does not.
+    /// the one that asked, ahead of the shared pool and the install's budget.
     #[test]
-    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
-    fn the_cooldown_outranks_the_budget_in_naming_who_asked() {
+    fn the_cooldown_outranks_the_pool_and_the_budget_in_naming_who_asked() {
         let now = at("2026-03-04T10:00:00Z");
         let cooldown = Some(at("2026-03-04T10:20:00Z"));
         let budget = Some(at("2026-03-04T10:05:00Z"));
+        let pool = Some(at("2026-03-04T10:15:00Z"));
         assert_eq!(
-            hold_from(now, cooldown, budget),
-            Some(hold("2026-03-04T10:20:00Z", true))
+            hold_from(now, cooldown, budget, pool),
+            Some(hold("2026-03-04T10:20:00Z", HoldCause::Upstream))
         );
         assert_eq!(
-            hold_from(now, None, budget),
-            Some(hold("2026-03-04T10:05:00Z", false))
+            hold_from(now, None, budget, None),
+            Some(hold("2026-03-04T10:05:00Z", HoldCause::Budget))
         );
-        assert_eq!(hold_from(now, None, None), None);
+        assert_eq!(hold_from(now, None, None, None), None);
         assert_eq!(
-            hold_from(now, None, Some(now)),
+            hold_from(now, None, Some(now), None),
             None,
             "a hold that has lifted is none"
+        );
+    }
+
+    /// Scenario: the shared pool's low figure holds the backfill until
+    /// midnight, and this install's own day share is spent until the same
+    /// midnight.
+    ///
+    /// Expected behaviour: the hold is named for the pool, which asked, and
+    /// not for the install's own limit, which nothing of the athlete's reached.
+    #[test]
+    fn a_pool_hold_is_named_for_the_pool_not_the_install() {
+        let now = at("2026-03-04T10:00:00Z");
+        let midnight = Some(at("2026-03-05T00:00:00Z"));
+        assert_eq!(
+            hold_from(now, None, midnight, midnight),
+            Some(hold("2026-03-05T00:00:00Z", HoldCause::Pool))
+        );
+    }
+
+    /// Expected behaviour: a pool figure with no install share still holds,
+    /// and names the pool.
+    #[test]
+    fn a_pool_hold_alone_is_named_for_the_pool() {
+        let now = at("2026-03-04T10:00:00Z");
+        let midnight = Some(at("2026-03-05T00:00:00Z"));
+        assert_eq!(
+            hold_from(now, None, None, midnight),
+            Some(hold("2026-03-05T00:00:00Z", HoldCause::Pool))
+        );
+    }
+
+    /// Scenario: the pool figure has lifted, and this install's day share is
+    /// spent until midnight.
+    ///
+    /// Expected behaviour: the hold is the install's own share, named as such.
+    /// A pool figure that has already passed names nothing.
+    #[test]
+    fn once_the_pool_lifts_the_install_share_is_what_holds() {
+        let now = at("2026-03-04T10:00:00Z");
+        let midnight = Some(at("2026-03-05T00:00:00Z"));
+        assert_eq!(
+            hold_from(now, None, midnight, None),
+            Some(hold("2026-03-05T00:00:00Z", HoldCause::Budget))
+        );
+        assert_eq!(
+            hold_from(now, None, midnight, Some(now)),
+            Some(hold("2026-03-05T00:00:00Z", HoldCause::Budget))
+        );
+    }
+
+    /// Scenario: the pool figure lifts at half past ten and this install's
+    /// window stays full until midnight.
+    ///
+    /// Expected behaviour: the pool still names the hold while it is live,
+    /// and the hold runs to the later end, so the downloads do not resume at
+    /// the pool's lift while the install's share still holds them.
+    #[test]
+    fn the_hold_runs_to_the_later_deferral_and_the_pool_names_it_while_live() {
+        let now = at("2026-03-04T10:00:00Z");
+        let midnight = Some(at("2026-03-05T00:00:00Z"));
+        let pool = Some(at("2026-03-04T10:30:00Z"));
+        assert_eq!(
+            hold_from(now, None, midnight, pool),
+            Some(hold("2026-03-05T00:00:00Z", HoldCause::Pool))
         );
     }
 }

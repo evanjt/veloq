@@ -20,6 +20,29 @@ const oneDecimal = (value: number) =>
     value
   );
 
+/** A number to at most one decimal in the page's locale: 150, not 150.0, and never a negative zero. */
+export function plainNumber(value: number): string {
+  const rounded = Math.round(value * 10) / 10 + 0;
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(rounded);
+}
+
+/**
+ * A gap in seconds with its sign, in the unit that suits its size: `+4.3 s`,
+ * `−10:00` for minutes and seconds, `+2 h 46 min` from an hour up. Rounds to
+ * the unit it writes, so a rounded 60 carries into the next one.
+ */
+export function signedDuration(seconds: number): string {
+  const sign = seconds < 0 ? '−' : '+';
+  const size = Math.abs(seconds);
+  if (Math.round(size * 10) / 10 === 0) return '0 s';
+  if (size < 59.95) return `${sign}${plainNumber(size)} s`;
+  const whole = Math.round(size);
+  if (whole < 3600)
+    return `${sign}${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
+  const minutes = Math.round(size / 60);
+  return `${sign}${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')} min`;
+}
+
 export const km = (metres: number | null | undefined) =>
   metres == null
     ? null

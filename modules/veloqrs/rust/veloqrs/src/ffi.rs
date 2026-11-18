@@ -851,8 +851,9 @@ fn start_fetch_and_store_run_ending(
                     }
                 }
             }
-            // Still owed, and reported so, but not asked for in this pass.
-            failed_ids.extend(backing_off);
+            // Still owed, but not asked for in this run: the run gave up on
+            // nothing here, so it is not reported as failed.
+            owed_ids.extend(backing_off);
             if to_fetch.is_empty() {
                 break 'passes;
             }
@@ -1049,7 +1050,19 @@ fn start_fetch_and_store_run_ending(
                 }
             }
             if !retry {
-                failed_ids.append(&mut offered);
+                // The run reports as failed only what it gave up on itself. A
+                // lost connection says nothing about the track, and the
+                // reconnect retries it, so it is owed.
+                for id in offered.drain(..) {
+                    let lost = pass_failed.iter().any(|(f, error)| {
+                        *f == id && crate::objects::tracks::network_absent(error)
+                    });
+                    if lost {
+                        owed_ids.push(id);
+                    } else {
+                        failed_ids.push(id);
+                    }
+                }
                 break 'passes;
             }
         }
@@ -1450,12 +1463,12 @@ pub fn retry_downloads_now() -> crate::FfiRetryNow {
         crate::net::resume::RetryNow::Started => crate::FfiRetryNow {
             started: true,
             held_until_ms: None,
-            held_by_upstream: false,
+            held_cause: None,
         },
         crate::net::resume::RetryNow::Held(hold) => crate::FfiRetryNow {
             started: false,
             held_until_ms: Some(hold.until.timestamp_millis() as f64),
-            held_by_upstream: hold.by_upstream,
+            held_cause: Some(crate::FfiHoldCause::from(hold.cause)),
         },
     }
 }

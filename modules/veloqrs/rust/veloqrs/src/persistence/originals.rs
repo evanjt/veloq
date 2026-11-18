@@ -22,7 +22,7 @@ use crate::remote::digest::sha256;
 /// Deflate level of the stored body.
 const LEVEL: u32 = 9;
 
-fn deflate(bytes: &[u8]) -> std::io::Result<Vec<u8>> {
+pub(crate) fn deflate(bytes: &[u8]) -> std::io::Result<Vec<u8>> {
     let mut encoder = DeflateEncoder::new(Vec::new(), Compression::new(LEVEL));
     encoder.write_all(bytes)?;
     encoder.finish()
@@ -57,6 +57,34 @@ pub fn keep_original(
     Ok(())
 }
 
+/// A kept original as it is stored: the deflated body with what a reader needs
+/// to check and place it, so a writer can copy the body without compressing it
+/// again.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredOriginal {
+    /// Where the ride came from, as kept.
+    pub source: String,
+    /// The length of the file once inflated.
+    pub raw_len: u64,
+    /// CRC-32 of the inflated file.
+    pub crc32: u32,
+    /// The raw deflate stream, as stored.
+    pub body: Vec<u8>,
+}
+
+/// Inflate `body` and hold it to the length and digest kept beside it.
+fn verified(key: &str, raw_len: i64, digest: &[u8], body: &[u8]) -> Option<Vec<u8>> {
+    let mut bytes = Vec::with_capacity(usize::try_from(raw_len).unwrap_or(0));
+    if DeflateDecoder::new(body).read_to_end(&mut bytes).is_err()
+        || bytes.len() as i64 != raw_len
+        || sha256(&[bytes.as_slice()]).as_slice() != digest
+    {
+        log::warn!("veloqrs: [originals] The kept original of {key} does not match its digest");
+        return None;
+    }
+    Some(bytes)
+}
+
 /// The original of `key`, inflated. `None` when none is kept, or when the
 /// stored body no longer inflates to the bytes that were kept.
 pub fn original_of(conn: &Connection, key: &str) -> SqlResult<Option<Vec<u8>>> {
@@ -73,17 +101,37 @@ pub fn original_of(conn: &Connection, key: &str) -> SqlResult<Option<Vec<u8>>> {
     let Some((raw_len, digest, body)) = row else {
         return Ok(None);
     };
-    let mut bytes = Vec::with_capacity(usize::try_from(raw_len).unwrap_or(0));
-    if DeflateDecoder::new(body.as_slice())
-        .read_to_end(&mut bytes)
-        .is_err()
-        || bytes.len() as i64 != raw_len
-        || sha256(&[bytes.as_slice()]).as_slice() != digest.as_slice()
-    {
-        log::warn!("veloqrs: [originals] The kept original of {key} does not match its digest");
+    Ok(verified(key, raw_len, &digest, &body))
+}
+
+/// The original of `key` as stored, checked against its digest. `None` when
+/// none is kept or the stored body does not match what was kept.
+pub fn stored_original_of(conn: &Connection, key: &str) -> SqlResult<Option<StoredOriginal>> {
+    let row = conn
+        .prepare_cached(
+            "SELECT source, raw_len, sha256, body FROM ride_originals WHERE activity_id = ?1",
+        )?
+        .query_row(params![key], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, Vec<u8>>(2)?,
+                r.get::<_, Vec<u8>>(3)?,
+            ))
+        })
+        .optional()?;
+    let Some((source, raw_len, digest, body)) = row else {
         return Ok(None);
-    }
-    Ok(Some(bytes))
+    };
+    let Some(bytes) = verified(key, raw_len, &digest, &body) else {
+        return Ok(None);
+    };
+    Ok(Some(StoredOriginal {
+        source,
+        raw_len: bytes.len() as u64,
+        crc32: crc32fast::hash(&bytes),
+        body,
+    }))
 }
 
 /// Drop the original of `key`, if one is kept.

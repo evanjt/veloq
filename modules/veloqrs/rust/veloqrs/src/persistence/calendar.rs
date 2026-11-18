@@ -60,7 +60,9 @@ pub enum FfiAbsoluteUnits {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiAbsoluteTarget {
+    /// Unit: FfiAbsoluteUnits.
     pub low: f64,
+    /// Unit: FfiAbsoluteUnits.
     pub high: f64,
     pub units: FfiAbsoluteUnits,
 }
@@ -70,7 +72,9 @@ pub struct FfiAbsoluteTarget {
 #[serde(rename_all = "camelCase")]
 pub struct FfiStepTarget {
     pub metric: FfiTargetMetric,
+    /// Unit: FfiTargetMetric.
     pub low: f64,
+    /// Unit: FfiTargetMetric.
     pub high: f64,
     /// The units as the plan wrote them: `%ftp`, `w`, `power_zone` and so on.
     pub units: String,
@@ -84,8 +88,10 @@ pub struct FfiStepTarget {
 pub struct FfiPlanLine {
     pub kind: FfiPlanLineKind,
     pub text: String,
+    /// Unit: second.
     pub duration_seconds: Option<f64>,
     /// A prescribed distance. Any duration beside it is an estimate, not a countdown.
+    /// Unit: metre.
     pub distance_metres: Option<f64>,
     pub targets: Vec<FfiStepTarget>,
 }
@@ -95,10 +101,12 @@ pub struct FfiPlanLine {
 #[serde(rename_all = "camelCase")]
 pub struct FfiStepBlock {
     /// The width the block takes, in seconds of the plan.
+    /// Unit: second.
     pub seconds: f64,
     /// The athlete's training zone, 1 to 7, that the step's target falls in.
     /// `None` for a rest step and for a step with no target a zone can be
     /// worked out from.
+    /// Unit: index.
     pub zone: Option<u32>,
     pub rest: bool,
 }
@@ -108,6 +116,7 @@ pub struct FfiStepBlock {
 #[serde(rename_all = "camelCase")]
 pub struct FfiPlannedEvent {
     /// The upstream event id.
+    /// Unit: identifier.
     pub id: f64,
     pub name: String,
     /// The local day the event is planned for, `YYYY-MM-DD`.
@@ -117,7 +126,9 @@ pub struct FfiPlannedEvent {
     pub category: FfiPlannedCategory,
     pub target: Option<FfiPlanTarget>,
     /// The planned moving time, in seconds.
+    /// Unit: second.
     pub moving_time: Option<f64>,
+    /// Unit: tss.
     pub training_load: Option<f64>,
     /// The workout's steps as the lines the athlete follows. Empty for an
     /// event that is not a workout, or a workout with nothing to follow.

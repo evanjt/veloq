@@ -4,6 +4,7 @@
 
 import type { ParseKeys } from 'i18next';
 
+import { writeNotice } from './link';
 import { type Matcher, type Optimistic, type WriteOptions } from './query';
 import type { Methods } from './schema';
 
@@ -11,13 +12,17 @@ export type Edit =
   | { kind: 'renameSection'; id: string; name: string; was: string }
   | { kind: 'setLift'; id: string; isLift: boolean }
   | { kind: 'accept'; id: string }
+  | { kind: 'acceptMany'; ids: string[] }
   | { kind: 'setEnabled'; id: string; enabled: boolean }
+  | { kind: 'setEnabledMany'; ids: string[]; enabled: boolean }
+  | { kind: 'deleteSection'; id: string }
   | { kind: 'sectionPass'; id: string; activityId: string; excluded: boolean }
   | { kind: 'renameRoute'; id: string; name: string; was: string }
   | { kind: 'routePass'; id: string; activityId: string; excluded: boolean }
   | { kind: 'setReference'; id: string; activityId: string }
   | { kind: 'resetReference'; id: string }
-  | { kind: 'heatmap'; activityId: string; hidden: boolean };
+  | { kind: 'heatmap'; activityId: string; hidden: boolean }
+  | { kind: 'heatmapMany'; activityIds: string[]; hidden: boolean };
 
 export type Call = { method: keyof Methods; params: object };
 
@@ -30,11 +35,20 @@ export function callOf(edit: Edit): Call {
       return { method: 'section.setLift', params: { id: edit.id, isLift: edit.isLift } };
     case 'accept':
       return { method: 'section.accept', params: { id: edit.id } };
+    case 'acceptMany':
+      return { method: 'section.acceptMany', params: { ids: edit.ids } };
     case 'setEnabled':
       return {
         method: edit.enabled ? 'section.enable' : 'section.disable',
         params: { id: edit.id },
       };
+    case 'setEnabledMany':
+      return {
+        method: 'section.setEnabledMany',
+        params: { ids: edit.ids, enabled: edit.enabled },
+      };
+    case 'deleteSection':
+      return { method: 'section.delete', params: { id: edit.id } };
     case 'sectionPass':
       return {
         method: edit.excluded ? 'section.excludeActivity' : 'section.includeActivity',
@@ -54,6 +68,11 @@ export function callOf(edit: Edit): Call {
       };
     case 'resetReference':
       return { method: 'route.resetReference', params: { id: edit.id } };
+    case 'heatmapMany':
+      return {
+        method: 'heatmap.setHiddenMany',
+        params: { activityIds: edit.activityIds, hidden: edit.hidden },
+      };
     case 'heatmap':
     default:
       return {
@@ -95,13 +114,15 @@ const SECTION_READS = [
 ] as const;
 
 /**
- * The reads an edit changes. The heatmap switch changes one activity's detail;
+ * The reads an edit changes. The heatmap switch changes the detail of each
+ * activity it names;
  * a route edit changes the route reads, and a section edit the section reads.
  * No other screen's read is asked again.
  */
 export function invalidatesOf(edit: Edit): Matcher {
   switch (edit.kind) {
     case 'heatmap':
+    case 'heatmapMany':
       return ['activity.detail'];
     case 'renameRoute':
     case 'routePass':
@@ -113,6 +134,26 @@ export function invalidatesOf(edit: Edit): Matcher {
 
 type SectionDetail = Methods['section.detail']['result'];
 type RouteDetail = Methods['route.detail']['result'];
+type ActivityDetail = Methods['activity.detail']['result'];
+
+/** The activity's own detail, with the exclusion of one route or section changed. */
+function membershipOptimistic(
+  kind: 'route' | 'section',
+  id: string,
+  activityId: string,
+  excluded: boolean
+): Optimistic {
+  return {
+    method: 'activity.detail',
+    args: { id: activityId },
+    update: (held: ActivityDetail) => ({
+      ...held,
+      memberships: (held.memberships ?? []).map((member) =>
+        member.kind === kind && member.id === id ? { ...member, excluded } : member
+      ),
+    }),
+  };
+}
 
 /** An excluded pass is listed as excluded, and an included one is not. */
 function passesWith(listed: readonly string[], activityId: string, excluded: boolean): string[] {
@@ -156,6 +197,7 @@ export function optimisticOf(edit: Edit): Optimistic[] {
             ),
           }),
         },
+        membershipOptimistic('section', edit.id, edit.activityId, edit.excluded),
       ];
     case 'renameRoute':
       return [
@@ -181,6 +223,15 @@ export function optimisticOf(edit: Edit): Optimistic[] {
               edit.excluded
             ),
           }),
+        },
+        membershipOptimistic('route', edit.id, edit.activityId, edit.excluded),
+      ];
+    case 'heatmap':
+      return [
+        {
+          method: 'activity.detail',
+          args: { id: edit.activityId },
+          update: (held: ActivityDetail) => ({ ...held, heatmapHidden: edit.hidden }),
         },
       ];
     default:
@@ -215,16 +266,22 @@ export function undoOf(edit: Edit): { notice: ParseKeys; reverse: Edit } | null 
         reverse: { ...edit, excluded: !edit.excluded },
       };
     case 'heatmap':
+    case 'heatmapMany':
       return {
         notice: edit.hidden ? 'connectPage.undo.hidden' : 'connectPage.undo.shown',
         reverse: { ...edit, hidden: !edit.hidden },
+      };
+    case 'setEnabledMany':
+      return {
+        notice: edit.enabled ? 'connectPage.undo.sectionsShown' : 'connectPage.undo.sectionsHidden',
+        reverse: { ...edit, enabled: !edit.enabled },
       };
     default:
       return null;
   }
 }
 
-export type Outcome = { ok: true } | { ok: false; refusal: string };
+export type Outcome = { ok: true } | { ok: false; refusal: string; notice?: ParseKeys | undefined };
 
 type Write = (method: never, params: never, options?: WriteOptions) => Promise<{ ok: boolean }>;
 
@@ -246,7 +303,11 @@ export async function applyEdit(write: Write, edit: Edit): Promise<Outcome> {
     });
     if (!done.ok) return { ok: false, refusal: '' };
   } catch (error) {
-    return { ok: false, refusal: error instanceof Error ? error.message : String(error) };
+    return {
+      ok: false,
+      refusal: error instanceof Error ? error.message : String(error),
+      notice: writeNotice(error),
+    };
   }
   return { ok: true };
 }

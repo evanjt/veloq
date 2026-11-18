@@ -68,7 +68,9 @@ tags:
 # The alert's accept carries the screen button's label. Maestro intersects a
 # selector's filters, so a relative filter narrows the matches but does not order
 # them, and the first in the tree wins. iOS keeps the screen's Keep in the tree
-# under the alert, ahead of it, so take the Keep that sits above the screen's.
+# under the alert, ahead of it, so take the Keep that sits above the screen's, and
+# the second Keep when the alert sits below the screen's button. The flow goes on
+# only once the settings screen is back, which neither tap reaches without the alert.
 # On Android the tap under the alert's title reaches the dialog's Keep.
 - runFlow:
     when:
@@ -78,6 +80,11 @@ tags:
           text: "Keep"
           above:
             id: "preview-keep-button"
+          optional: true
+      - tapOn:
+          text: "Keep"
+          index: 1
+          optional: true
 - runFlow:
     when:
       platform: Android

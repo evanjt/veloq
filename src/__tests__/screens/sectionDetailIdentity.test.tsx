@@ -12,7 +12,8 @@
  */
 
 import React from 'react';
-import { act, render } from '@testing-library/react-native';
+import * as Notifications from 'expo-notifications';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { Platform, ScrollView } from 'react-native';
 
 import { sectionCardInHost } from '../__shared__/sectionCardInHost';
@@ -54,16 +55,53 @@ jest.mock('@/shared/debug/useFFITimer', () => ({
 jest.mock('@/shared/async/useAfterNavigationTransition', () => ({
   useAfterNavigationTransition: () => {},
 }));
-jest.mock('@/shared/ui', () => ({
-  Button: () => null,
-  ErrorState: () => null,
-  EmptyState: () => null,
-  useBottomClearance: () => 0,
-  useScrollEndInset: () => 0,
-}));
+jest.mock('@/shared/ui', () => {
+  const { createElement } = jest.requireActual('react');
+  const { Pressable } = jest.requireActual('react-native');
+  return {
+    Button: ({
+      testID,
+      onPress,
+      disabled,
+    }: {
+      testID?: string;
+      onPress?: () => void;
+      disabled?: boolean;
+    }) => createElement(Pressable, { testID, onPress, disabled }),
+    ErrorState: () => null,
+    EmptyState: () => null,
+    useBottomClearance: () => 0,
+    useScrollEndInset: () => 0,
+  };
+});
+const mockExportSectionGpx = jest.fn();
 jest.mock('@/features/settings', () => ({
-  useGpxExport: () => ({ exportGpx: jest.fn(), exporting: false }),
+  useGpxExport: () => ({
+    exportGpx: jest.fn(),
+    exportSectionGpx: mockExportSectionGpx,
+    exporting: false,
+  }),
   useDebugStore: (select: (s: { enabled: boolean }) => unknown) => select({ enabled: false }),
+}));
+
+// The watch module the link reads and sends through, and the phone's notification permission.
+const mockWatchModule = {
+  state: jest.fn((): { enabled?: boolean } => ({ enabled: true })),
+  sendSection: jest.fn(),
+  setEnabled: jest.fn(),
+};
+jest.mock('expo-modules-core', () => {
+  const actual = jest.requireActual('expo-modules-core');
+  return {
+    ...actual,
+    requireOptionalNativeModule: (name: string) =>
+      name === 'VeloqWatch' ? mockWatchModule : actual.requireOptionalNativeModule(name),
+  };
+});
+jest.mock('expo-notifications', () => ({
+  ...jest.requireActual('expo-notifications'),
+  getPermissionsAsync: jest.fn(),
+  requestPermissionsAsync: jest.fn(),
 }));
 
 const mockSection = {
@@ -71,7 +109,7 @@ const mockSection = {
   name: 'Ridge climb',
   sectionType: 'auto',
   sportTypes: ['Ride'],
-  polyline: [],
+  polyline: [] as { lat: number; lng: number }[],
   distanceMeters: 1200,
   activityIds: ['a1'],
   activityPortions: [{ activityId: 'a1' }],
@@ -108,6 +146,7 @@ const mockUseSectionTimeStreamSync = jest.fn((..._args: unknown[]) => ({
 const mockUseSectionActions = jest.fn((_options: Record<string, unknown>) => ({}));
 
 let capturedSaveName: ((name: string) => void) | undefined;
+let capturedOverflowMenu: { onSendToWatch?: () => void } | undefined;
 let capturedActivitySelect: ((activityId: string | null) => void) | undefined;
 let capturedEfficiencyTrend: unknown;
 let capturedContentArea:
@@ -171,7 +210,10 @@ function mockRoutes() {
     DataRangeFooter: component,
     DetailFallback: component,
     SectionStatusLine: component,
-    SectionOverflowMenu: component,
+    SectionOverflowMenu: (props: { onSendToWatch?: () => void }) => {
+      capturedOverflowMenu = props;
+      return null;
+    },
     SectionContentArea: (props: {
       onActivitySelect: (activityId: string | null) => void;
       efficiencyTrend?: unknown;
@@ -525,5 +567,139 @@ describe('section detail open timing', () => {
     await render(<SectionDetailScreen />);
     await act(async () => {});
     expect(mockCompleteFlowAfterFrame).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Scenario: the athlete shares a section from its detail page.
+ *
+ * Expected behaviour: the export names the section by its id and passes the
+ * engine no points, so the engine writes the stored line with each point's
+ * elevation under the name the section is shown by.
+ */
+describe('section detail GPX export', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSearchParams = { id: 'sec-1' };
+    mockSelectedSport = undefined;
+    mockSection.polyline = [
+      { lat: 46.5, lng: 6.6 },
+      { lat: 46.501, lng: 6.6 },
+    ];
+  });
+
+  afterEach(() => {
+    mockSection.polyline = [];
+  });
+
+  it('shares the section by its id', async () => {
+    const screen = await render(<SectionDetailScreen />);
+    await act(async () => {});
+
+    await fireEvent.press(screen.getByTestId('section-export-gpx'));
+
+    expect(mockExportSectionGpx).toHaveBeenCalledTimes(1);
+    expect(mockExportSectionGpx.mock.calls[0]?.[0]).toBe('sec-1');
+  });
+});
+
+/**
+ * Scenario: the athlete sends a section to the Apple Watch guide from the section page's overflow
+ * menu, with the watch link on, and the phone's notification permission is still askable.
+ *
+ * Expected behaviour: the menu carries the send action only while the link is on and the section
+ * has a line. Each press hands the watch module the section, and the notification request is
+ * raised once, on the first press, after which the system holds the answer.
+ */
+describe('section detail send to watch', () => {
+  const line = [
+    { lat: 46.5, lng: 6.6 },
+    { lat: 46.501, lng: 6.6 },
+  ];
+
+  async function renderOverflowMenu(): Promise<{ onSendToWatch?: () => void } | undefined> {
+    capturedOverflowMenu = undefined;
+    const headerRight = mockScreenOptions.headerRight as () => React.ReactElement;
+    await render(headerRight());
+    return capturedOverflowMenu;
+  }
+
+  async function pressSendToWatch() {
+    await act(async () => {
+      capturedOverflowMenu?.onSendToWatch?.();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockScreenOptions = {};
+    mockSearchParams = { id: 'sec-1' };
+    mockSelectedSport = undefined;
+    mockSection.polyline = line;
+    mockWatchModule.state.mockReturnValue({ enabled: true });
+    // The system asks once: undetermined until the request is raised, granted after it.
+    jest
+      .mocked(Notifications.getPermissionsAsync)
+      .mockReset()
+      .mockResolvedValueOnce({ status: 'undetermined', canAskAgain: true } as never)
+      .mockResolvedValue({ status: 'granted', canAskAgain: true } as never);
+    jest
+      .mocked(Notifications.requestPermissionsAsync)
+      .mockReset()
+      .mockResolvedValue({
+        status: 'granted',
+        canAskAgain: true,
+      } as never);
+  });
+
+  afterEach(() => {
+    mockSection.polyline = [];
+  });
+
+  it('sends the section from the menu on each press and asks for notifications once', async () => {
+    await render(<SectionDetailScreen />);
+    await act(async () => {});
+    await renderOverflowMenu();
+
+    await pressSendToWatch();
+
+    expect(mockWatchModule.sendSection).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(mockWatchModule.sendSection.mock.calls[0]?.[0])).toEqual({
+      name: 'Ridge climb',
+      line: [
+        { latitude: 46.5, longitude: 6.6 },
+        { latitude: 46.501, longitude: 6.6 },
+      ],
+    });
+    expect(Notifications.requestPermissionsAsync).toHaveBeenCalledTimes(1);
+
+    await pressSendToWatch();
+
+    expect(mockWatchModule.sendSection).toHaveBeenCalledTimes(2);
+    expect(Notifications.requestPermissionsAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers no send action while the watch link is switched off', async () => {
+    mockWatchModule.state.mockReturnValue({ enabled: false });
+    await render(<SectionDetailScreen />);
+    await act(async () => {});
+
+    const menu = await renderOverflowMenu();
+
+    expect(menu).toBeDefined();
+    expect(menu?.onSendToWatch).toBeUndefined();
+  });
+
+  it('offers no send action for a section with no line', async () => {
+    mockSection.polyline = [];
+    await render(<SectionDetailScreen />);
+    await act(async () => {});
+
+    const menu = await renderOverflowMenu();
+
+    expect(menu).toBeDefined();
+    expect(menu?.onSendToWatch).toBeUndefined();
+    expect(mockWatchModule.sendSection).not.toHaveBeenCalled();
   });
 });

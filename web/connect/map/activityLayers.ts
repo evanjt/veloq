@@ -18,21 +18,21 @@ import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
 import { divergingStep } from '@/features/maps/lib/divergingStep';
 
 import type { QueryClient } from '../query';
+import { colourTokens } from '@/theme/colourTokens.generated';
+
+import { compareColours } from '../charts/colours';
 import { mapPalette, zoneColour } from '../theme';
 import { pagePalette, toneOf, type PageBase } from './style';
 
 export type LngLat = [number, number];
 
-/** Colours of the compared tracks, by the class `compareColour` names; the table's own. */
-export const COMPARE_COLOURS: Readonly<Record<string, string>> = {
-  'line-0': '#d1495b',
-  'line-1': '#00798c',
-  'line-2': '#edae49',
-  'line-3': '#66a182',
-};
+/** Colours of the compared tracks on a base, by the class `compareColour` names; the table's own. */
+export const compareColoursOn = (base: PageBase): Readonly<Record<string, string>> =>
+  compareColours(toneOf(base));
 
-/** The colour of the line a brush on the charts covers. */
-const BRUSH_COLOUR = '#ff7a00';
+/** The colour of the line a brush on the charts covers, the data ramp's warm end on the base's scheme. */
+export const brushColour = (base: PageBase): string =>
+  (colourTokens[toneOf(base)] as Record<string, string>)['data-div-warm-2'] as string;
 
 const NO_FEATURES: GeoJSON.FeatureCollection = EMPTY_FEATURE_COLLECTION;
 
@@ -421,7 +421,10 @@ export function activityMapSpec(input: ActivityMapInput): MapSurfaceSpec {
       type: 'line',
       source,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': COMPARE_COLOURS[colour] ?? '#888888', 'line-width': 3 },
+      paint: {
+        'line-color': compareColoursOn(input.base)[colour] ?? pagePalette(input.base).muted,
+        'line-width': 3,
+      },
     });
   }
   if (input.range && input.range.features.length > 0) {
@@ -431,7 +434,7 @@ export function activityMapSpec(input: ActivityMapInput): MapSurfaceSpec {
       type: 'line',
       source: 'brush-range',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': BRUSH_COLOUR, 'line-width': 6 },
+      paint: { 'line-color': brushColour(input.base), 'line-width': 6 },
     });
   }
   return {

@@ -12,6 +12,7 @@ import { renderHook, act } from '@testing-library/react-native';
 import { CallKind, validateCredentials } from 'veloqrs';
 
 import { useApiKeyLogin } from '@/features/auth/hooks/useApiKeyLogin';
+import { formatClockOrDate } from '@/shared/format/format';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
 jest.mock('veloqrs', () => ({
@@ -43,7 +44,7 @@ jest.mock('@/shared/app/NetworkContext', () => ({
   useNetwork: () => ({ isOnline: true }),
   useIsOnline: () => true,
 }));
-jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
 
 // Declared after the mocks, not before: the factory is hoisted above every
 // `const` in this file, so a mock named up there is still undefined when it
@@ -90,5 +91,42 @@ describe('API key sign-in with no engine open', () => {
     const setError = await signIn();
 
     expect(setError).toHaveBeenCalledWith('login.invalidApiKey');
+  });
+
+  it('says the service is busy until the refusal lifts, and keeps the key', async () => {
+    const liftsAt = Date.UTC(2026, 10, 18, 15, 20);
+    mockValidateCredentials.mockResolvedValue({
+      kind: CallKind.RateLimited,
+      status: 429,
+      retryAtMs: liftsAt,
+    });
+
+    const setError = await signIn();
+
+    expect(setError).toHaveBeenCalledWith(
+      `login.intervalsBusy:${JSON.stringify({ time: formatClockOrDate(liftsAt) })}`
+    );
+    expect(setError).not.toHaveBeenCalledWith('login.connectionFailed');
+    expect(useAuthStore.getState().setCredentials).not.toHaveBeenCalled();
+  });
+
+  it('says the service is busy without a time when the refusal names none', async () => {
+    mockValidateCredentials.mockResolvedValue({ kind: CallKind.RateLimited, status: 429 });
+
+    const setError = await signIn();
+
+    expect(setError).toHaveBeenCalledWith('login.intervalsBusyShortly');
+    expect(setError).not.toHaveBeenCalledWith('login.connectionFailed');
+  });
+
+  it('says the service is busy for a deferral from the request budget', async () => {
+    mockValidateCredentials.mockResolvedValue({
+      kind: CallKind.RateLimited,
+      retryAtMs: Date.UTC(2026, 10, 18, 15, 20),
+    });
+
+    const setError = await signIn();
+
+    expect(setError).toHaveBeenCalledWith(expect.stringContaining('login.intervalsBusy:'));
   });
 });

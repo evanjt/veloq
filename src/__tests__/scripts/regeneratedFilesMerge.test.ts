@@ -18,7 +18,9 @@ const REPO = resolve(__dirname, '../../..');
 const INSTALL = join(REPO, 'scripts/install-merge-drivers.mjs');
 const GENERATED = [
   'web/connect/methods.json',
+  'modules/veloqrs/rust/veloqrs/examples/link/vectors.json',
   'web/connect/schema.d.ts',
+  'web/connect/schema.json',
   'modules/veloqrs/src/generated/veloqrs.ts',
 ];
 
@@ -87,7 +89,7 @@ describe('regenerating the link files at a landing', () => {
       join(root, 'scripts/regenerate-link-files.mjs'),
       [
         "import { mkdirSync, writeFileSync } from 'node:fs';",
-        "for (const f of ['web/connect/methods.json', 'web/connect/schema.d.ts', 'modules/veloqrs/src/generated/veloqrs.ts']) {",
+        "for (const f of ['web/connect/methods.json', 'modules/veloqrs/rust/veloqrs/examples/link/vectors.json', 'web/connect/schema.d.ts', 'web/connect/schema.json', 'modules/veloqrs/src/generated/veloqrs.ts']) {",
         "  mkdirSync(f.slice(0, f.lastIndexOf('/')), { recursive: true });",
         "  writeFileSync(f, 'alpha\\nbeta\\n');",
         '}',

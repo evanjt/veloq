@@ -184,6 +184,38 @@ pub extern "C" fn veloq_push_widget_snapshot() -> *mut c_char {
     })
 }
 
+/// A watch's nearby ask: the link's reply text for the saved sections and routes near the
+/// watch's own fix, with no JavaScript.
+///
+/// Opens the engine when it is closed, as the widget refresh does. Null when the database is
+/// missing, the engine will not open or an argument is unreadable, and then the watch keeps the
+/// last answer it holds. Blocks, so the caller runs it off its main thread. The caller hands the
+/// string back to [`veloq_push_string_free`].
+///
+/// # Safety
+///
+/// `db_path` and `sport` are NUL-terminated strings or null.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn veloq_watch_nearby(
+    db_path: *const c_char,
+    latitude: f64,
+    longitude: f64,
+    sport: *const c_char,
+) -> *mut c_char {
+    crate::ffi_refuse_on_panic("watch nearby", std::ptr::null_mut(), || {
+        // SAFETY: the caller's contract above.
+        let (Some(db_path), Some(sport)) = (unsafe { read(db_path) }, unsafe { read(sport) })
+        else {
+            log::warn!("[watch] a nearby ask was handed no database path or sport");
+            return std::ptr::null_mut();
+        };
+        match crate::widget_refresh::watch_nearby_native(db_path, latitude, longitude, sport) {
+            Some(json) => hand_over(json),
+            None => std::ptr::null_mut(),
+        }
+    })
+}
+
 /// Record a push that ended before the engine answered, as a `failed` run
 /// with `reason`, in the database at `db_path`.
 ///

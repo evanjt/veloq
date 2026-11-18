@@ -287,6 +287,9 @@ fn a_malformed_under_point_key_is_refused() {
         "under-point/1_2_3",
         "under-point/46200000_7350000_99_x",
         "under-point/46200000_7350000_14_",
+        "under-point/46200000_7350000_14_route_",
+        "under-point/46200000_7350000_14_section_",
+        "under-point/46200000_7350000_14_bare-id",
         "under-point/95000000_7350000_14__",
         "under-point/46200000_7350000_x_group",
     ] {
@@ -347,4 +350,35 @@ fn under_point_answers_the_traces_of_the_named_group_as_a_feature_collection() {
     assert_eq!(features[0]["properties"]["date"], 1_700_000_100);
     assert_eq!(features[0]["geometry"]["type"], "LineString");
     assert_eq!(features[0]["id"], "one-new");
+}
+
+/// Scenario: the key names a route and a section of one id, and a section
+/// that is not in the library.
+///
+/// Expected behaviour: both keys are accepted and answer an empty collection
+/// while the heatmap is on, so a route and a section cannot be read as one
+/// another.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn under_point_keys_name_a_route_or_a_section_apart() {
+    let _serial_state = super::serial_state();
+    let (dir, _path) = init_global_engine();
+    let tiles = dir.path().join("heat");
+    with_persistent_engine(|engine| {
+        engine.set_heatmap_tiles_path(tiles.to_string_lossy().into_owned());
+    })
+    .expect("the engine is open");
+
+    for path in [
+        "under-point/46200000_7350000_14_route_a_b",
+        "under-point/46200000_7350000_14_section_a_b",
+    ] {
+        let body = geo_answer(path).expect("answer");
+        let value = json(&body);
+        assert_eq!(
+            value["features"].as_array().map(Vec::len),
+            Some(0),
+            "{path:?}"
+        );
+    }
 }

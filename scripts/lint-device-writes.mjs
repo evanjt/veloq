@@ -86,6 +86,7 @@ const TREES = [
   { dir: 'modules', ext: /\.(?:swift|m|mm)$/, patterns: SWIFT, under: /^modules\/[^/]+\/ios\// },
   { dir: 'widget/ios', ext: /\.(?:swift|m|mm)$/, patterns: SWIFT },
   { dir: 'push/ios', ext: /\.(?:swift|m|mm)$/, patterns: SWIFT },
+  { dir: 'watch/ios', ext: /\.(?:swift|m|mm)$/, patterns: SWIFT },
 ];
 
 /** Tests, generated bindings and the build-time config plugins write nothing on a device. */

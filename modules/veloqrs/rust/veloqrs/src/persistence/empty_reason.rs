@@ -73,7 +73,10 @@ pub(crate) fn detection_state(conn: &Connection) -> DetectionState {
 /// the regroup waits on the same hold the sections page names. Any other owed
 /// regroup is running or scheduled, and has no hold to name.
 pub(crate) fn regroup_hold(conn: &Connection, groups_dirty: bool) -> Option<FfiDetectionHold> {
-    if !groups_dirty || super::regroup::regroup_in_flight() {
+    if !groups_dirty {
+        return None;
+    }
+    if conn.path().is_some_and(super::regroup::regroup_in_flight) {
         return None;
     }
     if !super::cutover::pooled::cutover_holds_detection(conn) {

@@ -1,0 +1,12 @@
+App Review note for the watch app's location background mode
+
+Guideline 2.5.4 limits background modes to their intended purposes. The watch app declares
+`location` in `WKBackgroundModes` and `UIBackgroundModes` for one visible feature:
+
+- The athlete loads a section or route on the watch, then starts their run or ride in the
+  Workout app. Veloq keeps receiving location behind it and raises a notification with a sound
+  200 m before the section starts and at its end.
+- Location runs only between loading a section and 500 m past its end, or until the athlete ends
+  the guide. It never holds a workout session and records nothing.
+- Veloq shows what it is doing: the guide screen names the loaded section and carries an End
+  button.

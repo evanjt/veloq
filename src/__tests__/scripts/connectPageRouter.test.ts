@@ -129,15 +129,14 @@ describe('router and the link', () => {
 describe('router keys', () => {
   const press = (key: string, tagName = 'BODY') => keyAction({ key, target: { tagName } });
 
-  vaultIt('switches tabs with 1 to 5 in the phone order', () => {
-    expect(press('1')).toEqual({ do: 'tab', tab: 'feed' });
-    expect(press('4')).toEqual({ do: 'tab', tab: 'map' });
-    expect(press('5')).toEqual({ do: 'tab', tab: 'settings' });
-    expect(press('6')).toBeNull();
+  vaultIt('reads a digit as the page at that place in the sidebar', () => {
+    expect(press('1')).toEqual({ do: 'digit', digit: 1 });
+    expect(press('9')).toEqual({ do: 'digit', digit: 9 });
+    expect(press('0')).toEqual({ do: 'digit', digit: 0 });
   });
 
   vaultIt('maps search, close and help', () => {
-    expect(press('/')).toEqual({ do: 'search' });
+    expect(press('/')).toEqual({ do: 'palette' });
     expect(press('Escape')).toEqual({ do: 'closeDetail' });
     expect(press('?')).toEqual({ do: 'help' });
   });

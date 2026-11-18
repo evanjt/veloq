@@ -80,7 +80,8 @@ fn a_regroup_in_flight_names_no_hold() {
     let _dir = init_global_engine("regroup_hold_in_flight.db");
     seed_older_build_catalogue(true);
 
-    let claim = crate::persistence::regroup::claim_regroup().expect("the slot is free");
+    let db_path = with_persistent_engine(|e| e.db_path.clone()).expect("engine");
+    let claim = crate::persistence::regroup::claim_regroup(&db_path).expect("the slot is free");
     let (own, pooled) = read_both();
     drop(claim);
 

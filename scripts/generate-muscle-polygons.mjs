@@ -612,6 +612,58 @@ ${sets.join('\n\n')}
 `;
 }
 
+/**
+ * The wrapper's view box and outline path for one body and side, read from the library's
+ * wrapper source because the wrapper itself imports react-native-svg.
+ */
+function wrapperDrawing(gender, side) {
+  const wrapper = gender === 'male' ? 'SvgMaleWrapper' : 'SvgFemaleWrapper';
+  const source = readFileSync(
+    require.resolve(`react-native-body-highlighter/dist/components/${wrapper}.js`),
+    'utf8'
+  );
+  const box = source.match(/viewBox = side === "front" \? "([^"]+)" : "([^"]+)"/);
+  const outline = source.match(new RegExp(`side === "${side}" && .*?\\sd="([^"]+)"`, 's'));
+  if (!box || !outline) throw new Error(`${wrapper}: the library changed its wrapper`);
+  return { viewBox: box[side === 'front' ? 1 : 2], outline: outline[1] };
+}
+
+/**
+ * A platform-neutral module of the library's paths, outline and view box for both bodies and
+ * sides, for every surface that draws the body from plain data: the shared fills, the phone's
+ * picture and the browser page.
+ */
+export function emitBodyPaths() {
+  const parts = {};
+  const drawings = {};
+  for (const [gender, side] of SETS) {
+    (parts[gender] ??= {})[side] = libraryParts(gender, side).map((part) => ({
+      slug: part.slug,
+      color: part.color,
+      path: part.path,
+    }));
+    (drawings[gender] ??= {})[side] = wrapperDrawing(gender, side);
+  }
+  return `${nativeHeader()}
+
+export type BodyPartPaths = {
+  slug?: string;
+  color?: string;
+  path?: { common?: string[]; left?: string[]; right?: string[] };
+};
+
+export type BodyDrawing = { viewBox: string; outline: string };
+
+type Bodies<T> = Record<'male' | 'female', Record<'front' | 'back', T>>;
+
+/** Every part of each body and side, in the order the library paints them. */
+export const BODY_PARTS: Bodies<BodyPartPaths[]> = ${JSON.stringify(parts)};
+
+/** The view box and outline path each body and side is drawn in. */
+export const BODY_DRAWINGS: Bodies<BodyDrawing> = ${JSON.stringify(drawings)};
+`;
+}
+
 // ---------------------------------------------------------------- main
 
 async function main() {
@@ -662,6 +714,8 @@ async function main() {
       await format(emitTypeScript(gender, front, back))
     );
   }
+
+  write(join(OUT_DIR, '..', 'bodyPaths.generated.ts'), await format(emitBodyPaths()));
 
   const outlines = buildOutlines();
   write(join(ROOT, 'widget/android/java/BodyOutline.kt'), emitKotlin(outlines));

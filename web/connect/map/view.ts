@@ -184,23 +184,32 @@ export function selectionRef(selected: string | null): Selection | null {
   return Number.isFinite(lng) && Number.isFinite(lat) ? { kind, at: [lng, lat] } : null;
 }
 
+/**
+ * The box a selection names, as far as what is loaded can say: null for a point, for no
+ * selection, and until the selected item is among what has loaded.
+ */
+export function selectionBounds(
+  selected: string | null,
+  activities: readonly MapActivity[],
+  routes: readonly LineFeature[],
+  sections: readonly LineFeature[]
+): Box | null {
+  const selection = selectionRef(selected);
+  if (!selection || selection.kind === 'point') return null;
+  if (selection.kind === 'activity')
+    return boundsOfFeatures(
+      [],
+      activities.filter((a) => a.activityId === selection.id)
+    );
+  const lines = (selection.kind === 'route' ? routes : sections).filter(
+    (line) => line.id === selection.id
+  );
+  return boundsOfFeatures(lines, []);
+}
+
 /** The selection value for a click on the heatmap. */
 export function pointSelection(at: [number, number]): string {
   return `point:${at[0].toFixed(5)},${at[1].toFixed(5)}`;
-}
-
-/** The activities whose bounds hold a point: what lies under a click on the heatmap. */
-export function activitiesUnder<A extends MapActivity>(
-  at: [number, number],
-  all: readonly A[]
-): A[] {
-  return all.filter(
-    ({ bounds }) =>
-      at[0] >= bounds.minLng &&
-      at[0] <= bounds.maxLng &&
-      at[1] >= bounds.minLat &&
-      at[1] <= bounds.maxLat
-  );
 }
 
 export type { SportFamily };

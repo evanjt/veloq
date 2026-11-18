@@ -608,7 +608,12 @@ impl PersistentEngine {
 
     /// Score the laps of a stored lap body, when the activity has one, with the
     /// same function and thresholds as the ride.
-    fn settle_lap_metrics(&self, id: &str, samples: &Samples, judged: &Judged) -> SqlResult<()> {
+    fn settle_lap_metrics(
+        &mut self,
+        id: &str,
+        samples: &Samples,
+        judged: &Judged,
+    ) -> SqlResult<()> {
         let Some(raw) = self.get_interval_body(id)? else {
             return Ok(());
         };

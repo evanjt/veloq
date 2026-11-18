@@ -8,6 +8,8 @@
 //! budget hold, holds the same slot as one a screen asked for. So the engine is the one place that can
 //! say which of them is running, and this decides it once for every surface.
 
+use crate::FfiHoldCause;
+use crate::net::resume::HoldCause;
 use crate::persistence::sections::detection::PHASE_CANCELLED;
 
 /// Which piece of the track work is running.
@@ -36,19 +38,23 @@ pub struct FfiTrackStage {
     pub step: FfiTrackStep,
     /// Items the step has handled, of `total`: tracks for the download, tiles
     /// for the heatmap, the current phase's items for detection.
+    /// Unit: count.
     pub completed: u32,
     /// Zero while the step has not counted its work yet.
+    /// Unit: count.
     pub total: u32,
     /// The step's own progress, 0 to 100. Detection weights its phases, so
     /// this is not always `completed` of `total`.
+    /// Unit: percent.
     pub percent: u32,
     /// When a held download starts again, as epoch milliseconds. `None` for
     /// every other step. The counts beside it are zero: the window's own
     /// coverage says how many tracks are still owed.
+    /// Unit: epoch_millisecond.
     pub resumes_at_ms: Option<f64>,
-    /// Whether intervals.icu asked for the wait, rather than this install's
-    /// own request budget. False for every other step.
-    pub held_by_upstream: bool,
+    /// Who asked for the wait, when the step is `Held`. `None` for every other
+    /// step.
+    pub held_cause: Option<FfiHoldCause>,
 }
 
 /// A detection run's progress as its handle reports it.
@@ -65,7 +71,8 @@ pub(crate) struct DetectionWork {
 pub(crate) struct HeldDownload {
     /// When it starts again, epoch milliseconds.
     pub until_ms: i64,
-    pub by_upstream: bool,
+    /// Who asked for the wait, when the governor still names one.
+    pub cause: Option<HoldCause>,
 }
 
 /// What each slot holds right now. `None` is a slot with nothing running.
@@ -107,7 +114,7 @@ pub(crate) fn stage_of(work: &TrackWork) -> Option<FfiTrackStage> {
     if let Some(held) = work.held {
         return Some(FfiTrackStage {
             resumes_at_ms: Some(held.until_ms as f64),
-            held_by_upstream: held.by_upstream,
+            held_cause: held.cause.map(FfiHoldCause::from),
             ..counted(FfiTrackStep::Held, 0, 0, 0)
         });
     }
@@ -140,16 +147,16 @@ fn counted(step: FfiTrackStep, completed: u32, total: u32, percent: u32) -> FfiT
         total,
         percent,
         resumes_at_ms: None,
-        held_by_upstream: false,
+        held_cause: None,
     }
 }
 
-/// The held GPS pass, and whether intervals.icu's cooldown is what holds it.
+/// The held GPS pass, and who asked for the wait while the governor names one.
 fn read_held() -> Option<HeldDownload> {
     let until = super::gps_pass::held_until()?;
     Some(HeldDownload {
         until_ms: until.timestamp_millis(),
-        by_upstream: crate::net::resume::downloads_hold().is_some_and(|hold| hold.by_upstream),
+        cause: crate::net::resume::downloads_hold().map(|hold| hold.cause),
     })
 }
 

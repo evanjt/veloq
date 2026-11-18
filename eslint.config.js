@@ -138,6 +138,9 @@ module.exports = [
       'web/connect/qr.ts',
       // The connect page's built, minified output, written by `npm run build:connect`.
       'docs/connect/**',
+      // The connect page's screenshots, written by `npm run connect:screenshots`
+      // and git-ignored, so they exist only in a checkout that has run it.
+      'connect-screenshots/**',
       'coverage/**',
       'dist/**',
       '.expo/**',
@@ -211,6 +214,8 @@ module.exports = [
       'src/theme/typography.ts',
       'src/theme/colors.ts',
       'src/theme/colourTokens.generated.ts',
+      // The drawing library's own part colours, copied as data.
+      'src/features/strength/lib/bodyPaths.generated.ts',
       'src/theme/shadows.ts',
     ],
     rules: {

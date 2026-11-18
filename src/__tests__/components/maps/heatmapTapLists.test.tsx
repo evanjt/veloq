@@ -4,7 +4,7 @@
  *
  * Expected behaviour: with the heatmap shown and the map at zoom 11 or more, the
  * engine is asked which activities pass under the tap and a sheet lists them
- * grouped by route; the group chosen there is the line drawn from the engine's
+ * grouped by route and section; the group chosen there is the line drawn from the engine's
  * URL, and closing the sheet empties it. Below zoom 11, with the heatmap off or
  * with nothing under the tap, the tap only dismisses, as a tap on bare ground
  * does. A second tap before the first answers supersedes it.
@@ -19,7 +19,7 @@ import {
 } from '@/features/maps/components/regional/regionalMapLayerSpecs';
 import type { UnderPointInput } from '@/app/sheets/under-point';
 import { mapPalette } from '@/theme';
-import { maps } from '../../__shared__/veloqrsStub';
+import { FfiUnderPointKind, maps } from '../../__shared__/veloqrsStub';
 import type { SheetResult } from '@/shared/app/sheetRequest';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
@@ -63,8 +63,34 @@ const ANSWER = {
   truncated: false,
   traceCap: 20,
   groups: [
-    { routeId: 'loop-1', name: 'Lake loop', count: 2, activities: [activity('a'), activity('b')] },
-    { count: 1, activities: [activity('c')] },
+    {
+      kind: FfiUnderPointKind.Route,
+      id: 'loop-1',
+      name: 'Lake loop',
+      count: 2,
+      sportTypes: [],
+      distanceM: 0,
+      passes: 0,
+      activities: [activity('a'), activity('b')],
+    },
+    {
+      kind: FfiUnderPointKind.Section,
+      id: 'climb-1',
+      name: 'Lake climb',
+      count: 2,
+      sportTypes: [],
+      distanceM: 0,
+      passes: 0,
+      activities: [activity('a'), activity('c')],
+    },
+    {
+      kind: FfiUnderPointKind.NoRoute,
+      count: 1,
+      sportTypes: [],
+      distanceM: 0,
+      passes: 0,
+      activities: [activity('c')],
+    },
   ],
 };
 
@@ -207,13 +233,21 @@ describe('the group chosen in the sheet', () => {
     const { rendered, sheet } = await openSheet();
     await act(async () => sheet.input.onGroup(ANSWER.groups[0]!));
     expect(rendered.result.current.traceUrl).toMatch(
-      /veloq-geo\/under-point\/46519700_6632100_14_loop-1\?v=\d+$/
+      /veloq-geo\/under-point\/46519700_6632100_14_route_loop-1\?v=\d+$/
+    );
+  });
+
+  it('names the engine URL for the tap and the chosen section', async () => {
+    const { rendered, sheet } = await openSheet();
+    await act(async () => sheet.input.onGroup(ANSWER.groups[1]!));
+    expect(rendered.result.current.traceUrl).toMatch(
+      /veloq-geo\/under-point\/46519700_6632100_14_section_climb-1\?v=\d+$/
     );
   });
 
   it('names the group of activities in no route with the underscore', async () => {
     const { rendered, sheet } = await openSheet();
-    await act(async () => sheet.input.onGroup(ANSWER.groups[1]!));
+    await act(async () => sheet.input.onGroup(ANSWER.groups[2]!));
     expect(rendered.result.current.traceUrl).toMatch(
       /veloq-geo\/under-point\/46519700_6632100_14__\?v=\d+$/
     );

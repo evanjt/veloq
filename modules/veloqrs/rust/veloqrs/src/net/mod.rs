@@ -39,6 +39,9 @@ pub use source::{Source, SourceWrites};
 #[path = "tests/recording_source.rs"]
 pub(crate) mod recording_source;
 
+/// The search of the athlete's account the feed offers past its local results.
+pub(crate) mod remote_search;
+
 pub mod elevation_backfill;
 
 pub mod stream_backfill;

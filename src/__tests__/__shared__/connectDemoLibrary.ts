@@ -5,7 +5,17 @@
  */
 
 import methods from '../../../web/connect/methods.json';
-import { baseResults, newestFirst, type DemoActivity, type DemoResults } from './connectDemoBase';
+import {
+  baseResults,
+  card,
+  heatTilePng,
+  isoLocal,
+  newestFirst,
+  previewOf,
+  WELLNESS,
+  type DemoActivity,
+  type DemoResults,
+} from './connectDemoBase';
 import { keyedResults, moreResults } from './connectDemoMore';
 import type { Script } from './headlessConnectPage';
 
@@ -50,7 +60,46 @@ export function demoScript(
     methods: names,
     results,
     byActivity: keyedResults(),
+    tilesByBase: {
+      light: heatTilePng('light'),
+      dark: heatTilePng('dark'),
+      satellite: heatTilePng('satellite'),
+    },
     anyTile: results['heatmap.tile'].png ?? '',
+    windowed: {
+      feed: {
+        families: ['ride', 'run', 'water', 'foot', 'strength'],
+        entries: newestFirst.map((a) => ({
+          ts: Math.floor(Date.parse(`${isoLocal(a.start)}Z`) / 1000),
+          family: a.sport.family,
+          name: a.name,
+          sport: a.sport.type,
+          card: card(a),
+          preview: previewOf(a),
+        })),
+      },
+      routes: results['routes.screen'] as unknown as Record<string, unknown>,
+      picker: results['strength.picker'] as unknown as Record<string, unknown>,
+      days: {
+        'fitness.wellness': {
+          field: 'days',
+          bounds: 'day',
+          rows: WELLNESS.days,
+          alongside: { form: WELLNESS.form },
+          rest: {
+            coverage: WELLNESS.coverage,
+            formAsPercent: WELLNESS.formAsPercent,
+            formZoneEdges: WELLNESS.formZoneEdges,
+          },
+        },
+        'fitness.loads': {
+          field: 'days',
+          bounds: 'wall',
+          rows: results['fitness.loads'].days,
+          rest: {},
+        },
+      },
+    },
     device: 'Sam’s phone',
     stats: [],
   };

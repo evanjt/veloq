@@ -6,6 +6,9 @@
  * and the engine call that listed the group are built from the same three
  * values.
  */
+import { FfiUnderPointKind } from 'veloqrs';
+import type { FfiUnderPointGroup } from 'veloqrs';
+
 import { TRACE_ZOOM_THRESHOLD } from './mapBudgets';
 
 /** The zoom from which a tap on the heatmap lists the activities under it. */
@@ -17,6 +20,21 @@ const UNDER_POINT_MAX_ZOOM = 24;
 /** The group the activities in no route are asked for under. */
 const NO_ROUTE_GROUP = '_';
 
+/** What a route id follows in a key, so a route and a section of one id are two groups. */
+const ROUTE_GROUP_PREFIX = 'route_';
+
+/** What a section id follows in a key. */
+const SECTION_GROUP_PREFIX = 'section_';
+
+/** The part of a group the engine needs to name it again. */
+export type UnderPointGroupRef = Pick<FfiUnderPointGroup, 'kind' | 'id'>;
+
+/** The group part of a key: `_`, `route_<id>` or `section_<id>`. */
+function groupPart({ kind, id }: UnderPointGroupRef): string {
+  if (id === undefined || kind === FfiUnderPointKind.NoRoute) return NO_ROUTE_GROUP;
+  return `${kind === FfiUnderPointKind.Section ? SECTION_GROUP_PREFIX : ROUTE_GROUP_PREFIX}${id}`;
+}
+
 /** The whole zoom the camera has passed, which is what the engine reads. */
 export function underPointZoom(zoom: number): number {
   return Math.min(UNDER_POINT_MAX_ZOOM, Math.max(0, Math.floor(zoom)));
@@ -24,14 +42,15 @@ export function underPointZoom(zoom: number): number {
 
 /**
  * `<lat_e6>_<lng_e6>_<zoom>_<group>`: the tap in micro-degrees, the whole zoom
- * it was made at, and a route id or `_` for the activities in no route.
+ * it was made at, and the group: `route_<id>`, `section_<id>`, or `_` for the
+ * activities in no route.
  */
 export function underPointKey(
   latitude: number,
   longitude: number,
   zoom: number,
-  routeId: string | null
+  group: UnderPointGroupRef
 ): string {
   const micro = (degrees: number) => String(Math.round(degrees * 1e6) || 0);
-  return `${micro(latitude)}_${micro(longitude)}_${zoom}_${routeId ?? NO_ROUTE_GROUP}`;
+  return `${micro(latitude)}_${micro(longitude)}_${zoom}_${groupPart(group)}`;
 }

@@ -1,6 +1,7 @@
 //! A fake STUN server on loopback answers binding requests.
 
 use super::*;
+use crate::remote::DisconnectReason;
 use crate::remote::peer::{Gate, accept};
 use std::sync::Arc;
 use std::thread;
@@ -16,8 +17,8 @@ impl Gate for OpenGate {
     fn answer(&self, _presented: &str, _local: &str, _request: &str) -> String {
         String::new()
     }
-    fn connected(&self, _fingerprint: &str) {}
-    fn disconnected(&self, _fingerprint: &str) {}
+    fn connected(&self, _fingerprint: &str, _from: Option<SocketAddr>, _local: SocketAddr) {}
+    fn disconnected(&self, _fingerprint: &str, _reason: Option<DisconnectReason>) {}
     fn changed(&self) -> Option<u64> {
         None
     }

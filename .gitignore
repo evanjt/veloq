@@ -153,6 +153,8 @@ maestro-*-retest.xml
 !modules/veloqrs/rust/veloqrs/floor/**/*.png
 # The app's own images, which app.json names and a fresh clone builds from.
 !src/assets/*.png
+# The watch app's icon, which its asset catalogue names and a clone needs to archive the watch app.
+!watch/ios/VeloqWatch/Assets.xcassets/AppIcon.appiconset/*.png
 .tsbuild/
 
 # App Store videos, built by a command from the committed stills.

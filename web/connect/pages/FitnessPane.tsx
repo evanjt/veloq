@@ -1,31 +1,35 @@
 // The fitness page, drawn from the engine's numbers. Charts are SVG in the
 // page's colour variables, each with a readout that follows the pointer.
 
-import type { ParseKeys, TFunction } from 'i18next';
-import { Fragment, type ReactNode } from 'react';
+import type { ParseKeys } from 'i18next';
+import { Fragment, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
   FITNESS_SPORTS,
-  SPORT_FAMILIES,
   dotsOnDay,
   decouplingRows,
-  formOf,
+  formText,
   formZoneBands,
+  loadTrendOnDateAxis,
   monthTickLabels,
   type FormZone,
-  sportColour,
-  sportFamily,
+  dotFamilies,
   monthRows,
   sortMonths,
   wellnessLanes,
   type FitnessChoices,
   type MonthColumn,
-  type SportFamily,
 } from '../dashboard';
 import { Calendar as HeatCalendar } from '../charts/Calendar';
 import { Chart, type XValues } from '../charts/Chart';
-import { fitnessColours, streamColour, zoneColour } from '../charts/colours';
+import {
+  fitnessColours,
+  formZoneColour,
+  streamColour,
+  wellnessColour,
+  zoneColour,
+} from '../charts/colours';
 import { Curve } from '../charts/Curve';
 import { Lanes } from '../charts/Lanes';
 import { DISTANCE_TICKS, DURATION_TICKS } from '../charts/scale';
@@ -39,12 +43,26 @@ import {
   type Ordering,
 } from '../tableOrder';
 import { useTableLabels } from '../tableLabels';
-import { Button, Card, CardHeader, DataTable, SegmentedControl, Tabs, type Column } from '../ui';
-import { BEST_EFFORT_PERIODS, RANGES, dayOf } from '../fitness';
+import {
+  Button,
+  Card,
+  CardHeader,
+  DataTable,
+  EmptyState,
+  GridCell,
+  PageGrid,
+  SegmentedControl,
+  StatStrip,
+  StatTile,
+  Tabs,
+  type Column,
+} from '../ui';
+import { plainNumber } from '../format';
+import { BEST_EFFORT_PERIODS, RANGES } from '../fitness';
 import type { ReadState } from '../query';
 import type { Methods } from '../schema';
 import type { Panels } from '../fitnessReads';
-import { Reading } from '../shell/StatePanes';
+import { ReadBoundary, Reading } from '../shell/StatePanes';
 
 type Wellness = Methods['fitness.wellness']['result'];
 type Loads = Methods['fitness.loads']['result'];
@@ -57,9 +75,9 @@ type BestEfforts = Methods['fitness.bestEfforts']['result'];
 type Line = { className: string; values: (number | null)[] };
 
 const LINE_COLOURS: Record<string, string> = {
-  'line-a': 'var(--chart-a)',
-  'line-b': 'var(--chart-b)',
-  'line-c': 'var(--primary)',
+  'line-a': 'var(--colour-chart-series)',
+  'line-b': 'var(--colour-fatigue-atl)',
+  'line-c': 'var(--colour-action-primary)',
 };
 
 /**
@@ -77,6 +95,8 @@ export function LineChart({
   xTitle,
   yTitle,
   bands,
+  at,
+  onAt,
 }: {
   labels: string[];
   lines: Line[];
@@ -90,15 +110,20 @@ export function LineChart({
   xTitle?: string;
   yTitle?: string;
   bands?: { name: string; colour: string; from: number; to: number }[];
+  /** The crosshair's day, shared with the charts stacked with this one. */
+  at?: number | null;
+  onAt?: (index: number | null) => void;
 }) {
   const { t } = useTranslation();
   return (
     <Chart
       kind="line"
+      {...(at !== undefined ? { at } : {})}
+      {...(onAt ? { onAt } : {})}
       categories={labels}
       series={lines.map((line, n) => ({
         name: names[n] ?? '',
-        colour: colours?.[n] ?? LINE_COLOURS[line.className] ?? 'var(--chart-a)',
+        colour: colours?.[n] ?? LINE_COLOURS[line.className] ?? 'var(--colour-chart-series)',
         values: line.values,
       }))}
       format={format}
@@ -119,13 +144,13 @@ const dateAxis = (days: readonly string[]): XValues => ({
   kind: 'time',
 });
 
-/** The fill of each form zone, from the zone palette. */
+/** The fill of each form zone, from the form palette. */
 const FORM_ZONE_COLOURS: Record<FormZone, string> = {
-  highRisk: zoneColour(7),
-  optimal: zoneColour(3),
-  greyZone: zoneColour(1),
-  fresh: zoneColour(2),
-  transition: zoneColour(5),
+  highRisk: formZoneColour('highRisk'),
+  optimal: formZoneColour('optimal'),
+  greyZone: formZoneColour('greyZone'),
+  fresh: formZoneColour('fresh'),
+  transition: formZoneColour('transition'),
 };
 
 const COVERAGE_NOTES: Record<Wellness['coverage'], ParseKeys | null> = {
@@ -134,9 +159,11 @@ const COVERAGE_NOTES: Record<Wellness['coverage'], ParseKeys | null> = {
   notFetched: 'connectPage.fitness.wellnessNotFetched',
 };
 
-function WellnessPanel({ data }: { data: Wellness }) {
+type Crosshair = { at: number | null; onAt: (index: number | null) => void };
+
+export function WellnessPanel({ data, at, onAt }: { data: Wellness } & Crosshair) {
   const { t } = useTranslation();
-  const bands = formZoneBands(-1000, 1000).map((band) => ({
+  const bands = formZoneBands(data.formZoneEdges, -1000, 1000).map((band) => ({
     name: t(`formZones.${band.zone}`),
     colour: FORM_ZONE_COLOURS[band.zone],
     from: band.from,
@@ -146,40 +173,54 @@ function WellnessPanel({ data }: { data: Wellness }) {
   return (
     <>
       <LineChart
+        at={at}
+        onAt={onAt}
         labels={data.days.map((day) => day.date)}
         lines={[
           { className: 'line-a', values: data.days.map((day) => day.ctl) },
           { className: 'line-b', values: data.days.map((day) => day.atl) },
-          { className: 'line-c', values: data.days.map(formOf) },
+          { className: 'line-c', values: data.form },
         ]}
         names={[
           t('connectPage.facts.fitness'),
           t('connectPage.fitness.fatigue'),
-          t('connectPage.facts.form'),
+          `${t('connectPage.facts.form')}${data.formAsPercent ? ' (%)' : ''}`,
         ]}
-        format={(value) => value.toFixed(1)}
+        format={plainNumber}
         colours={[fitnessColours.fitness, fitnessColours.fatigue, 'var(--primary)']}
         bands={bands}
         x={dateAxis(data.days.map((day) => day.date))}
         xTitle={t('connectPage.fitness.axisDate')}
-        yTitle={`${t('connectPage.fitness.fitnessFatigue')} (${t('connectPage.fitness.loadUnit')})`}
+        yTitle={t('connectPage.fitness.loadUnit')}
       />
-      {note ? <p className="empty">{t(note)}</p> : null}
+      {note ? <EmptyState title={t(note)} /> : null}
     </>
   );
 }
 
 /** HRV, resting heart rate, sleep and weight as lanes over the same days as the fitness chart. */
-function WellnessLanes({ data }: { data: Wellness }) {
+function WellnessLanes({ data, at, onAt }: { data: Wellness } & Crosshair) {
   const { t } = useTranslation();
   const lanes = wellnessLanes(data.days);
-  if (lanes.length === 0) return <p className="empty">{t('connectPage.fitness.noWellness')}</p>;
+  if (lanes.length === 0) return <EmptyState title={t('connectPage.fitness.noWellness')} />;
   const dates = data.days.map((day) => day.date);
   const meta = {
-    hrv: { name: t('connectPage.fitness.hrv'), unit: 'ms', colour: 'var(--chart-a)' },
-    restingHr: { name: t('connectPage.fitness.restingHr'), unit: 'bpm', colour: 'var(--chart-b)' },
-    sleep: { name: t('connectPage.fitness.sleep'), unit: 'h', colour: 'var(--primary)' },
-    weight: { name: t('connectPage.fitness.weight'), unit: 'kg', colour: 'var(--chart-a)' },
+    hrv: { name: t('connectPage.fitness.hrv'), unit: 'ms', colour: wellnessColour('hrv') },
+    restingHr: {
+      name: t('connectPage.fitness.restingHr'),
+      unit: 'bpm',
+      colour: wellnessColour('restingHr'),
+    },
+    sleep: {
+      name: t('connectPage.fitness.sleep'),
+      unit: 'h',
+      colour: 'var(--colour-action-primary)',
+    },
+    weight: {
+      name: t('connectPage.fitness.weight'),
+      unit: 'kg',
+      colour: 'var(--colour-chart-series)',
+    },
   } as const;
   return (
     <Lanes
@@ -188,17 +229,15 @@ function WellnessLanes({ data }: { data: Wellness }) {
       xFormat={(i) => dates[Math.round(i)] ?? ''}
       xTitle={t('connectPage.fitness.axisDate')}
       lanes={lanes.map((lane) => ({ key: lane.key, ...meta[lane.key], values: lane.values }))}
-      at={null}
-      onAt={() => undefined}
+      at={at}
+      onAt={onAt}
       label={t('connectPage.fitness.wellnessLanes')}
       none={t('connectPage.fitness.none')}
     />
   );
 }
 
-const sumOf = (values: (number | null)[]) => values.reduce<number>((a, v) => a + (v ?? 0), 0);
-
-function LoadsPanel({ data }: { data: Loads }) {
+export function LoadsPanel({ data }: { data: Loads }) {
   const { t, i18n } = useTranslation();
   const dates = data.days.map((day) => day.date);
   return (
@@ -210,20 +249,20 @@ function LoadsPanel({ data }: { data: Loads }) {
         series={[
           {
             name: t('connectPage.fitness.colLoad'),
-            colour: 'var(--chart-a)',
+            colour: 'var(--colour-chart-series)',
             values: data.days.map((day) => day.total),
           },
         ]}
         format={(value) => String(Math.round(value))}
         label={t('connectPage.fitness.dailyLoad')}
         xTitle={t('connectPage.fitness.axisMonth')}
-        yTitle={`${t('connectPage.fitness.dailyLoad')} (${t('connectPage.fitness.loadUnit')})`}
+        yTitle={t('connectPage.fitness.loadUnit')}
         empty={t('connectPage.fitness.noActivities')}
         none={t('connectPage.fitness.none')}
       />
       <p className="readout">
         {t('connectPage.fitness.totalLoad', {
-          load: Math.round(sumOf(data.days.map((day) => day.total))),
+          load: Math.round(data.total),
         })}
       </p>
     </>
@@ -237,16 +276,14 @@ function ZonesPanel({ data }: { data: Zones }) {
   );
   return (
     <Chart
-      kind="bar"
+      kind="stacked"
       categories={names}
-      series={[
-        {
-          name: t('connectPage.fitness.colLoad'),
-          colour: 'var(--chart-a)',
-          values: data.seconds.map((seconds) => seconds / 3600),
-        },
-      ]}
-      format={(hours) => `${hours.toFixed(1)} h`}
+      series={data.seconds.map((seconds, at) => ({
+        name: names[at] ?? '',
+        colour: zoneColour(at + 1),
+        values: data.seconds.map((_, i) => (i === at ? seconds / 3600 : null)),
+      }))}
+      format={(hours) => `${plainNumber(hours)} h`}
       label={t('connectPage.fitness.powerZones')}
       xTitle={t('connectPage.fitness.axisZone')}
       yTitle={`${t('connectPage.fitness.timeInZone')} (h)`}
@@ -258,14 +295,14 @@ function ZonesPanel({ data }: { data: Zones }) {
 
 export const clock = (seconds: number) =>
   seconds >= 3600
-    ? `${Math.floor(seconds / 3600)} h ${String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')}`
+    ? `${Math.floor(seconds / 3600)} h ${String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')} min`
     : seconds >= 60
       ? `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, '0')}`
       : `${Math.round(seconds)} s`;
 
 function NotDownloaded() {
   const { t } = useTranslation();
-  return <p className="empty">{t('connectPage.fitness.curveMissing')}</p>;
+  return <EmptyState title={t('connectPage.fitness.curveMissing')} />;
 }
 
 function PowerCurvePanel({ data }: { data: PowerCurve }) {
@@ -478,15 +515,13 @@ function ThresholdsPanel({ data }: { data: Screen }) {
 }
 
 /** The daily cycling eFTP the screen read carries, oldest first. */
-function EftpPanel({ data }: { data: Screen }) {
+export function EftpPanel({ data }: { data: Screen }) {
   const { t } = useTranslation();
   if (data.ftpTrendCoverage === 'notFetched') {
-    return <p className="empty">{t('connectPage.fitness.wellnessNotFetched')}</p>;
+    return <EmptyState title={t('connectPage.fitness.wellnessNotFetched')} />;
   }
   const history = data.ftpTrend.history;
-  const days = history.map((point) =>
-    dayOf(new Date(point.date * 1000 + new Date().getTimezoneOffset() * 60000))
-  );
+  const days = data.ftpTrend.historyDays;
   return (
     <LineChart
       labels={days}
@@ -504,7 +539,7 @@ function EftpPanel({ data }: { data: Screen }) {
 function DecouplingPanel({ data }: { data: Screen }) {
   const { t } = useTranslation();
   const rows = decouplingRows(data.decouplingSources);
-  if (rows.length === 0) return <p className="empty">{t('connectPage.fitness.noDecoupling')}</p>;
+  if (rows.length === 0) return <EmptyState title={t('connectPage.fitness.noDecoupling')} />;
   return (
     <dl>
       {rows.map((row) => (
@@ -521,37 +556,29 @@ function DecouplingPanel({ data }: { data: Screen }) {
 }
 
 /** The latest day's fitness, fatigue, form and ramp as a strip of tiles above the charts. */
-function Tiles({ data }: { data: Wellness }) {
+export function Tiles({ data }: { data: Wellness }) {
   const { t } = useTranslation();
-  const days = data.days.filter((day) => day.ctl !== null || day.atl !== null);
-  const latest = days[days.length - 1];
+  const at = data.days.findLastIndex((day) => day.ctl !== null || day.atl !== null);
+  const latest = data.days[at];
   if (!latest) return null;
   const one = (value: number | null) => (value === null ? '' : value.toFixed(1));
   const tiles: [string, string][] = [
     [t('connectPage.facts.fitness'), one(latest.ctl)],
     [t('connectPage.fitness.fatigue'), one(latest.atl)],
-    [t('connectPage.facts.form'), one(formOf(latest))],
+    [t('connectPage.facts.form'), formText(data.form[at] ?? null, data.formAsPercent)],
     [t('connectPage.fitness.ramp'), one(latest.rampRate)],
   ];
   return (
-    <ul id="fitness-tiles" className="tiles">
+    <StatStrip id="fitness-tiles" label={t('connectPage.screens.fitness')}>
       {tiles
         .filter(([, value]) => value !== '')
         .map(([label, value]) => (
-          <li key={label}>
-            <span className="tile-label">{label}</span>
-            <span className="tile-value">{value}</span>
-          </li>
+          <StatTile key={label} label={label} value={value} />
         ))}
-    </ul>
+    </StatStrip>
   );
 }
 
-const SPORT_NAMES = { ride: 'Ride', run: 'Run', swim: 'Swim', walk: 'Walk' } as const;
-
-/** The sport family's name: the activity type it is named for, or "Other". */
-const familyName = (t: TFunction, family: SportFamily) =>
-  family === 'other' ? t('connectPage.families.other') : t(`activityTypes.${SPORT_NAMES[family]}`);
 /** Moving hours per week, stacked by the engine's sport families over the weeks the read holds. */
 export function WeeklyHours({ weeks }: { weeks: Screen['weeklyHours'] }) {
   const { t, i18n } = useTranslation();
@@ -571,10 +598,10 @@ export function WeeklyHours({ weeks }: { weeks: Screen['weeklyHours'] }) {
         colour: `var(--colour-sport-${family})`,
         values: weeks.map((week) => hoursOf(week, family)),
       }))}
-      format={(hours) => `${hours.toFixed(1)} h`}
+      format={(hours) => `${plainNumber(hours)} h`}
       label={t('connectPage.fitness.hoursPerWeek')}
       xTitle={t('connectPage.fitness.axisMonth')}
-      yTitle={`${t('connectPage.fitness.hoursPerWeek')} (h)`}
+      yTitle="h"
       empty={t('connectPage.fitness.noActivitiesSpan')}
       none={t('connectPage.fitness.none')}
     />
@@ -597,7 +624,11 @@ function Slot<T>({
   const held = panels[slot];
   return (
     <div id={`panel-${slot}${part ? `-${part}` : ''}`}>
-      {held === undefined ? null : <Reading read={held as ReadState<T>}>{draw}</Reading>}
+      {held === undefined ? null : (
+        <ReadBoundary method={slot} resetKey={held.data}>
+          <Reading read={held as ReadState<T>}>{draw}</Reading>
+        </ReadBoundary>
+      )}
     </div>
   );
 }
@@ -634,12 +665,14 @@ function Choices({
 type Dot = Screen['loadDots'][number];
 
 /** Each activity of the longest span as a dot by start and load; a click opens it. */
-function LoadDots({
+export function LoadDots({
   dots,
+  trend,
   open,
   onOpen,
 }: {
   dots: Dot[];
+  trend: Screen['loadTrend'];
   open: string | null;
   onOpen: (id: string) => void;
 }) {
@@ -647,22 +680,20 @@ function LoadDots({
   const sorted = [...dots].sort(
     (a, b) => Date.parse(a.startDateLocal) - Date.parse(b.startDateLocal)
   );
-  const families = SPORT_FAMILIES.filter((family) =>
-    sorted.some((dot) => sportFamily(dot.sportType) === family)
-  );
+  const families = dotFamilies(sorted);
   return (
     <Chart
       kind="scatter"
       categories={sorted.map((dot) => `${dot.startDateLocal.slice(0, 10)} ${dot.name}`)}
       series={families.map((family) => ({
-        name: familyName(t, family),
-        colour: sportColour(family),
-        values: sorted.map((dot) => (sportFamily(dot.sportType) === family ? dot.load : null)),
+        name: t(`connectPage.families.${family}` as ParseKeys),
+        colour: `var(--colour-sport-${family})`,
+        values: sorted.map((dot) => (dot.family === family ? dot.load : null)),
       }))}
       format={(value) => String(Math.round(value))}
       label={t('connectPage.fitness.activitiesByLoad')}
       x={dateAxis(sorted.map((dot) => dot.startDateLocal.slice(0, 10)))}
-      trend
+      trend={loadTrendOnDateAxis(trend)}
       xTitle={t('connectPage.fitness.axisDate')}
       yTitle={`${t('connectPage.fitness.colLoad')} (${t('connectPage.fitness.loadUnit')})`}
       empty={t('connectPage.fitness.noActivitiesSpan')}
@@ -884,17 +915,18 @@ export function FitnessPane({
   onBestPeriod: (days: number) => void;
 }) {
   const { t } = useTranslation();
+  const [wellnessAt, setWellnessAt] = useState<number | null>(null);
   const held = panels.screen?.data as Screen | undefined;
   const open = held?.loadDots.find((dot) => dot.activityId === choices.open);
   const power = choices.sport === 'Ride';
   const openActivity = (id: string) => onChoose({ ...choices, open: id });
   const card = (title: ReactNode, body: ReactNode, wide = false) => (
-    <div className={wide ? 'cell wide' : 'cell'}>
+    <GridCell span={wide ? 2 : 1}>
       <Card>
         <CardHeader title={String(title)} />
         {body}
       </Card>
-    </div>
+    </GridCell>
   );
   const comparisons = card(
     t('connectPage.fitness.weekAndSeason'),
@@ -909,14 +941,14 @@ export function FitnessPane({
   const overview = (
     <>
       <Slot<Wellness> slot="wellness" panels={panels} draw={(data) => <Tiles data={data} />} />
-      <div className="dashboard">
+      <PageGrid>
         {card(
           t('connectPage.fitness.fitnessFatigue'),
           <Slot<Wellness>
             slot="wellness"
             part="chart"
             panels={panels}
-            draw={(data) => <WellnessPanel data={data} />}
+            draw={(data) => <WellnessPanel data={data} at={wellnessAt} onAt={setWellnessAt} />}
           />,
           true
         )}
@@ -926,7 +958,7 @@ export function FitnessPane({
             slot="wellness"
             part="lanes"
             panels={panels}
-            draw={(data) => <WellnessLanes data={data} />}
+            draw={(data) => <WellnessLanes data={data} at={wellnessAt} onAt={setWellnessAt} />}
           />,
           true
         )}
@@ -937,21 +969,26 @@ export function FitnessPane({
             part="dots"
             panels={panels}
             draw={(data) => (
-              <LoadDots dots={data.loadDots} open={choices.open} onOpen={openActivity} />
+              <LoadDots
+                dots={data.loadDots}
+                trend={data.loadTrend}
+                open={choices.open}
+                onOpen={openActivity}
+              />
             )}
           />,
           true
         )}
         {open ? (
-          <div className="cell">
+          <GridCell>
             <OpenedDetail dot={open} onClose={() => onChoose({ ...choices, open: null })} />
-          </div>
+          </GridCell>
         ) : null}
-      </div>
+      </PageGrid>
     </>
   );
   const calendar = (
-    <div className="dashboard">
+    <PageGrid>
       {card(
         t('connectPage.fitness.calendar'),
         <Slot<Screen>
@@ -974,10 +1011,10 @@ export function FitnessPane({
           draw={(data) => <MonthsTable months={data.months} route={route} onRoute={go} />}
         />
       )}
-    </div>
+    </PageGrid>
   );
   const performance = (
-    <div className="dashboard">
+    <PageGrid>
       {power
         ? card(
             t('connectPage.fitness.powerCurve'),
@@ -997,7 +1034,7 @@ export function FitnessPane({
             />,
             true
           )}
-      <div className="cell wide">
+      <GridCell span={2}>
         <Card>
           <CardHeader
             title={t('connectPage.fitness.bestEfforts')}
@@ -1020,11 +1057,11 @@ export function FitnessPane({
             draw={(data) => <BestEffortsPanel data={data} route={route} onRoute={go} />}
           />
         </Card>
-      </div>
-    </div>
+      </GridCell>
+    </PageGrid>
   );
   const trends = (
-    <div className="dashboard">
+    <PageGrid>
       {card(
         power ? t('connectPage.fitness.powerZones') : t('connectPage.fitness.heartRateZones'),
         <Slot<Zones> slot="zones" panels={panels} draw={(data) => <ZonesPanel data={data} />} />
@@ -1069,7 +1106,7 @@ export function FitnessPane({
         t('connectPage.fitness.dailyLoad'),
         <Slot<Loads> slot="loads" panels={panels} draw={(data) => <LoadsPanel data={data} />} />
       )}
-    </div>
+    </PageGrid>
   );
   return (
     <section id="fitness-page">

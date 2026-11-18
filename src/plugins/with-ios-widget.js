@@ -678,6 +678,7 @@ module.exports.BUNDLES_FILE = BUNDLES_FILE;
 module.exports.SAMPLE_FILE = SAMPLE_FILE;
 module.exports.SHARED_APP_FILES = SHARED_APP_FILES;
 module.exports.SHARED_DIR = SHARED_DIR;
+module.exports.addMissingResources = addMissingResources;
 module.exports.addMissingSourceFiles = addMissingSourceFiles;
 module.exports.addMissingStringCatalogues = addMissingStringCatalogues;
 module.exports.addCatalogueRegions = addCatalogueRegions;

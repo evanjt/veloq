@@ -2582,7 +2582,7 @@ fn retry_now_releases_the_withheld_and_only_those() {
 
     let held = veloqrs::net::resume::DownloadsHold {
         until: chrono::Utc::now() + chrono::Duration::minutes(5),
-        by_upstream: true,
+        cause: veloqrs::net::resume::HoldCause::Upstream,
     };
     let mut started = false;
     veloqrs::net::resume::retry_downloads_with(Some(held), || started = true);

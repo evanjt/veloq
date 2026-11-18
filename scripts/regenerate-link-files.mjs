@@ -1,9 +1,12 @@
 #!/usr/bin/env node
-// Rewrites the three files that follow from the link method table and the
+// Rewrites the files that follow from the link method table and the
 // engine's exports, in the order each reads the one before:
 //   1. web/connect/methods.json, rendered from `METHODS` in the engine;
-//   2. the generated bindings, from the engine's exported signatures;
-//   3. web/connect/schema.d.ts, from the first two.
+//   2. examples/link/vectors.json under the engine crate, the derivations a
+//      client in another language checks itself against;
+//   3. the generated bindings, from the engine's exported signatures;
+//   4. web/connect/schema.d.ts and web/connect/schema.json, from the others;
+//   5. docs/api/index.html, the published API reference, from the schema.
 //
 // Two branches that each add a method change all three, and git merges them
 // by taking one side (the `regenerated` driver in `.gitattributes`), so this
@@ -21,6 +24,7 @@ import { gitFreeEnv } from './lib/indexedSources.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const env = gitFreeEnv();
+const VECTORS = 'modules/veloqrs/rust/veloqrs/examples/link/vectors.json';
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, { cwd: ROOT, env, encoding: 'utf8', ...options });
@@ -38,5 +42,11 @@ const methods = run('cargo', ['run', '-q', '-p', 'veloqrs', '--example', 'link_m
   stdio: ['ignore', 'pipe', 'inherit'],
 });
 writeFileSync(join(ROOT, 'web/connect/methods.json'), methods);
+const vectors = run('cargo', ['run', '-q', '-p', 'veloqrs', '--example', 'link_vectors_json'], {
+  cwd: join(ROOT, 'modules/veloqrs/rust'),
+  stdio: ['ignore', 'pipe', 'inherit'],
+});
+writeFileSync(join(ROOT, VECTORS), vectors);
 run('npm', ['run', '--silent', 'ffi:generate'], { stdio: 'inherit' });
 run('node', ['scripts/generate-link-schema.mjs'], { stdio: 'inherit' });
+run('node', ['scripts/build-api-reference.mjs'], { stdio: 'inherit' });

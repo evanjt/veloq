@@ -58,12 +58,6 @@ export function muscleSplit(
   return { primary, secondary: group.exercises.length - primary };
 }
 
-/** Each muscle's weighted sets over the most-worked muscle's, from 0 to 1; zero when nothing was done. */
-export function intensities(volumes: Screen['summary']['muscleVolumes']): Map<string, number> {
-  const most = Math.max(0, ...volumes.map((volume) => volume.weightedSets));
-  return new Map(volumes.map((volume) => [volume.slug, most > 0 ? volume.weightedSets / most : 0]));
-}
-
 /** The share of a pair's weighted sets each side holds, 0 to 1, or half each when neither was trained. */
 export function pairShares(pair: Screen['summary']['balance'][number]): {
   left: number;

@@ -217,3 +217,12 @@ function getLastErrorReason(): SyncErrorReason | null {
 export function useSyncLastErrorReason(): SyncErrorReason | null {
   return useSyncExternalStore(subscribe, getLastErrorReason, getLastErrorReason);
 }
+
+function getRetryAtMs(): number | null {
+  return snapshot?.retryAtMs ?? null;
+}
+
+/** When the sync may ask again, as its own selector so a progress step wakes nobody reading it. */
+export function useSyncRetryAtMs(): number | null {
+  return useSyncExternalStore(subscribe, getRetryAtMs, getRetryAtMs);
+}

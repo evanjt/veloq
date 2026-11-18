@@ -5,7 +5,7 @@ import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { elevation } from 'veloqrs';
+import { elevation, FfiHoldCause } from 'veloqrs';
 import { Button, Card, CollapsibleSection, RowGroup, Spinner } from '@/shared/ui';
 import { summariseBackgroundJobs } from '../lib/backgroundJobsSummary';
 import { Icon } from '@/shared/ui/Icon';
@@ -129,7 +129,7 @@ function useDetail(job: BackgroundJob): string {
   if (job.held && (job.state === 'waiting' || job.state === 'partial')) {
     return [
       ...owedParts(),
-      t(job.held.byUpstream ? 'backgroundJobs.heldByUpstream' : 'backgroundJobs.heldByBudget', {
+      t(holdKey(job.held.cause), {
         time: formatClockOrDate(job.held.until),
       }),
     ].join(' · ');
@@ -285,6 +285,20 @@ function JobRow({ job }: { job: BackgroundJob }) {
       ) : null}
     </View>
   );
+}
+
+/** The copy for a hold, naming whoever asked for the wait. The install's own share is what remains. */
+function holdKey(
+  cause: FfiHoldCause
+): 'backgroundJobs.heldByUpstream' | 'backgroundJobs.heldForPool' | 'backgroundJobs.heldByBudget' {
+  switch (cause) {
+    case FfiHoldCause.Upstream:
+      return 'backgroundJobs.heldByUpstream';
+    case FfiHoldCause.Pool:
+      return 'backgroundJobs.heldForPool';
+    default:
+      return 'backgroundJobs.heldByBudget';
+  }
 }
 
 /** Whether a job is working or owes work, which keeps it open on the jobs screen. */

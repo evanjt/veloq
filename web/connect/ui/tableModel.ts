@@ -5,7 +5,10 @@
 /** Rows are mounted in a window once a table holds more than this many. */
 export const VIRTUALISE_PAST = 200;
 
-/** A row's height in pixels; the stylesheet's `--web-size-row` is the same 32. */
+/**
+ * The row height assumed until a rendered row has been measured; the stylesheet's
+ * `--web-size-row` is the same 32. A table with taller rows measures its own.
+ */
 export const ROW_HEIGHT = 32;
 
 /** The rows mounted above and below the visible ones, so a fast scroll shows no gap. */
@@ -54,6 +57,28 @@ export function selectRow(
     ? current.keys.filter((held) => held !== key)
     : [...current.keys, key];
   return { keys: held, anchor: key };
+}
+
+export type RowAction = 'open' | 'select';
+
+export type RowIntent = 'open' | 'browser' | 'range' | 'single' | 'toggle' | 'ignore';
+
+/**
+ * What a click on a row asks for. A click on a control inside the row is left to the
+ * control. In an `open` table a plain click opens the row, a shift-click selects a range,
+ * and a ctrl, cmd or middle click is the browser's own (a new tab). In a `select` table the
+ * modifiers choose how the selection changes.
+ */
+export function rowIntent(
+  event: { button: number; shiftKey: boolean; ctrlKey: boolean; metaKey: boolean },
+  onControl: boolean,
+  action: RowAction
+): RowIntent {
+  if (onControl) return 'ignore';
+  if (action === 'select') return clickMode(event);
+  if (event.shiftKey) return 'range';
+  if (event.ctrlKey || event.metaKey || event.button !== 0) return 'browser';
+  return 'open';
 }
 
 /** The selection with every row of the table in it. */
@@ -107,11 +132,12 @@ export type Window = { start: number; end: number };
 export function visibleWindow(
   count: number,
   scrollTop: number,
-  viewport: number = DEFAULT_VIEWPORT
+  viewport: number = DEFAULT_VIEWPORT,
+  rowHeight: number = ROW_HEIGHT
 ): Window {
   if (count <= VIRTUALISE_PAST) return { start: 0, end: count };
-  const first = Math.floor(Math.max(scrollTop, 0) / ROW_HEIGHT);
-  const shown = Math.ceil(viewport / ROW_HEIGHT);
+  const first = Math.floor(Math.max(scrollTop, 0) / rowHeight);
+  const shown = Math.ceil(viewport / rowHeight);
   return {
     start: Math.max(first - OVERSCAN, 0),
     end: Math.min(first + shown + OVERSCAN, count),
@@ -123,10 +149,11 @@ export function scrollToRow(
   index: number,
   scrollTop: number,
   viewport: number,
-  headerHeight: number
+  headerHeight: number,
+  rowHeight: number = ROW_HEIGHT
 ): number {
-  const top = index * ROW_HEIGHT;
-  const bottom = top + ROW_HEIGHT + headerHeight;
+  const top = index * rowHeight;
+  const bottom = top + rowHeight + headerHeight;
   if (top < scrollTop) return top;
   if (bottom > scrollTop + viewport) return bottom - viewport;
   return scrollTop;

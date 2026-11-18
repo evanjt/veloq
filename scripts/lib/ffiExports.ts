@@ -106,9 +106,10 @@ function parseFnDecl(
 }
 
 /**
- * The doc comment above `declLine` on one line. Attributes and blank lines
- * between `///` blocks are skipped, as rustc attaches every outer doc block
- * above an item whether or not a blank line separates them.
+ * The doc comment above `declLine` on one line. Attributes, plain `//`
+ * comments and blank lines between `///` blocks are skipped, as rustc attaches
+ * every outer doc block above an item whether or not a blank line or a plain
+ * comment separates them.
  */
 function docsAbove(lines: string[], declLine: number): string {
   const collected: string[] = [];
@@ -119,6 +120,7 @@ function docsAbove(lines: string[], declLine: number): string {
       collected.push(trimmed.slice(3).trim());
       continue;
     }
+    if (trimmed.startsWith('//') && !trimmed.startsWith('//!')) continue;
     break;
   }
   return collected.reverse().join(' ').replace(/\s+/g, ' ').trim();

@@ -421,8 +421,8 @@ mod tests {
     /// thirty fsyncs under the engine lock.
     #[test]
     fn a_session_of_sets_is_one_commit() {
-        let (_dir, engine) = engine();
-        let commits = commit_counter::watch(&engine);
+        let (_dir, mut engine) = engine();
+        let commits = commit_counter::watch(&mut engine);
 
         let sets: Vec<FitExerciseSet> = (0..30).map(set).collect();
         engine.store_exercise_sets("a1", &sets).unwrap();
@@ -434,11 +434,11 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn re_storing_the_same_session_is_one_commit() {
-        let (_dir, engine) = engine();
+        let (_dir, mut engine) = engine();
         let sets: Vec<FitExerciseSet> = (0..30).map(set).collect();
         engine.store_exercise_sets("a1", &sets).unwrap();
 
-        let commits = commit_counter::watch(&engine);
+        let commits = commit_counter::watch(&mut engine);
         engine.store_exercise_sets("a1", &sets).unwrap();
 
         assert_eq!(commit_counter::count(&commits), 1);
@@ -448,8 +448,8 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_session_with_no_sets_writes_nothing() {
-        let (_dir, engine) = engine();
-        let commits = commit_counter::watch(&engine);
+        let (_dir, mut engine) = engine();
+        let commits = commit_counter::watch(&mut engine);
 
         engine.store_exercise_sets("a1", &[]).unwrap();
 
@@ -664,11 +664,11 @@ mod tests {
     /// verdict is parsed, all in one commit, and the swim leaves the queue.
     #[test]
     fn a_pool_swim_file_stores_its_lengths_and_leaves_the_queue() {
-        let (_dir, engine) = engine();
+        let (_dir, mut engine) = engine();
         add_activity(&engine, "pool", "Swim", 200);
         let swim = crate::fit::parse_fit_pool_swim(&crate::fit::pool_swim_fit()).unwrap();
 
-        let commits = commit_counter::watch(&engine);
+        let commits = commit_counter::watch(&mut engine);
         engine.settle_pool_swim("pool", &swim).unwrap();
 
         assert_eq!(commit_counter::count(&commits), 1);

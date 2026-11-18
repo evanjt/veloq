@@ -533,6 +533,22 @@ fn estimated_one_rep_max(set: &crate::FfiExerciseSet) -> Option<f64> {
 pub fn background_jobs_data(
     conn: &rusqlite::Connection,
 ) -> Result<crate::FfiBackgroundJobsData, crate::objects::error::VeloqError> {
+    background_jobs_data_under(
+        conn,
+        crate::governor::backfill_allowance_now(),
+        crate::governor::backfill_share_today(),
+    )
+}
+
+/// The background jobs read under the backfill's allowance as the governor
+/// holds it: `allowance` is the one a later day draws against, and
+/// `share_today` the figure today draws, which the upgrade day raises.
+pub(crate) fn background_jobs_data_under(
+    conn: &rusqlite::Connection,
+    allowance: crate::governor::Allowance,
+    share_today: Option<u32>,
+) -> Result<crate::FfiBackgroundJobsData, crate::objects::error::VeloqError> {
+    let first_day = share_today.unwrap_or_default();
     let runs = crate::persistence::job_runs::job_runs(conn).map_err(|error| {
         crate::objects::error::VeloqError::Database {
             msg: error.to_string(),
@@ -544,23 +560,17 @@ pub fn background_jobs_data(
             .map(|owed| owed.try_into().unwrap_or(u32::MAX));
     let stream_days_to_finish = crate::net::stream_backfill::queue_estimate(conn)
         .ok()
-        .and_then(|(owed, _)| {
-            crate::governor::days_to_draw(
-                owed,
-                crate::governor::BACKFILL_ALLOWANCE,
-                crate::governor::backfill_share_today().unwrap_or_default(),
-            )
-        });
+        .and_then(|(owed, _)| crate::governor::days_to_draw(owed, allowance, first_day));
     let hold = crate::net::resume::downloads_hold();
     Ok(crate::FfiBackgroundJobsData {
         runs,
         detection_awaiting,
         cutover_owed: crate::persistence::cutover::pooled::cutover_is_owed(conn),
         stream_days_to_finish,
-        backfill_day_share: crate::governor::BACKFILL_ALLOWANCE.per_day,
+        backfill_day_share: allowance.per_day,
         garmin_pull: crate::net::garmin::pull::screen_read(conn),
         downloads_held_until_ms: hold.map(|hold| hold.until.timestamp_millis() as f64),
-        downloads_held_by_upstream: hold.is_some_and(|hold| hold.by_upstream),
+        downloads_held_cause: hold.map(|hold| crate::FfiHoldCause::from(hold.cause)),
         daily_limit: crate::governor::daily_limit(),
         pass_recount_running: conn
             .path()
@@ -571,8 +581,8 @@ pub fn background_jobs_data(
                 total,
                 days_to_finish: crate::governor::days_to_draw(
                     u64::from(total.saturating_sub(done)),
-                    crate::governor::BACKFILL_ALLOWANCE,
-                    crate::governor::backfill_share_today().unwrap_or_default(),
+                    allowance,
+                    first_day,
                 ),
             },
         ),
@@ -597,7 +607,7 @@ fn stride_track(points: Vec<crate::GpsPoint>, max_points: u32) -> Vec<crate::Gps
 
 /// The rule itself, over a borrowed slice, so the section thumbnail below
 /// draws the same outline as the widget.
-fn strided(points: &[crate::GpsPoint], max_points: usize) -> Vec<crate::GpsPoint> {
+pub(crate) fn strided(points: &[crate::GpsPoint], max_points: usize) -> Vec<crate::GpsPoint> {
     if max_points == 0 || points.len() <= max_points {
         return points.to_vec();
     }
@@ -610,6 +620,17 @@ fn strided(points: &[crate::GpsPoint], max_points: usize) -> Vec<crate::GpsPoint
         out.push(points[last]);
     }
     out
+}
+
+/// `points` capped to at most `max_points` by [`strided`], keeping the first and the last. Zero
+/// means the whole line, and a cap of one keeps the first point alone.
+pub(crate) fn capped_line(points: &[crate::GpsPoint], max_points: usize) -> Vec<crate::GpsPoint> {
+    match max_points {
+        0 => points.to_vec(),
+        1 => points.iter().take(1).copied().collect(),
+        // `strided` adds the last point when the stride misses it, so it is asked for one fewer.
+        cap => strided(points, cap - 1),
+    }
 }
 
 /// The weeks the chronic window is read as. The window itself is whatever the
@@ -1388,6 +1409,7 @@ impl super::PersistentEngine {
         prev_start: i64,
         prev_end: i64,
         preview_activity_ids: &[String],
+        remote_search: bool,
     ) -> crate::FfiStartupData {
         pooled::startup_data(
             self.cold_connection(),
@@ -1396,6 +1418,7 @@ impl super::PersistentEngine {
             prev_start,
             prev_end,
             preview_activity_ids,
+            remote_search,
         )
     }
 
@@ -2430,6 +2453,7 @@ pub mod pooled {
                 windows.now_wall_seconds,
             ))
             .map(|bounds| super::summary_comparison(conn, bounds));
+        let dots = load_dots(conn, today_date, span_days);
         Ok(crate::FfiFitnessScreenData {
             ftp_trend: fitness::ftp_trend_with_history(conn, today, FITNESS_FTP_LOOKBACK_DAYS),
             ftp_trend_coverage: crate::persistence::wellness::pooled::coverage(
@@ -2445,7 +2469,8 @@ pub mod pooled {
             cycling_ftp_setting: sport_settings::cycling_ftp(conn, &settings),
             running_lthr: sport_settings::running_lthr(&settings),
             decoupling_sources: decoupling_sources(conn, today_date, span_days),
-            load_dots: load_dots(conn, today_date, span_days),
+            load_trend: load_trend(&dots),
+            load_dots: dots,
             weekly_hours: weekly_hours(conn),
             heatmap: activity_heatmap(conn, &calendar_first_day, &windows.heatmap_last_day)?,
             calendar_first_day,
@@ -2596,10 +2621,12 @@ pub mod pooled {
         )
         .and_then(|mut stmt| {
             stmt.query_map(rusqlite::params![start, end], |row| {
+                let sport_type: String = row.get(2)?;
                 Ok(crate::FfiLoadDot {
                     activity_id: row.get(0)?,
                     name: row.get(1)?,
-                    sport_type: row.get(2)?,
+                    family: crate::sport::sport_family(&sport_type).to_lowercase(),
+                    sport_type,
                     start_date_local: wall_clock(row.get(3)?),
                     moving_time: u32::try_from(row.get::<_, i64>(4)?).unwrap_or(0),
                     distance: row.get(5)?,
@@ -2610,6 +2637,57 @@ pub mod pooled {
         })
         .map_err(|e| log::warn!("veloqrs: [fitness] load dots read failed: {e}"))
         .unwrap_or_default()
+    }
+
+    /// The least-squares line of the dots' loads by whole days from the first
+    /// dot's day, with the standard deviation of the loads about it. A dot with
+    /// no recorded load counts as zero, as the strip draws it. Absent for fewer
+    /// than two dots or dots that all fall on one day.
+    pub(crate) fn load_trend(dots: &[crate::FfiLoadDot]) -> Option<crate::FfiLoadTrend> {
+        let day_of = |dot: &crate::FfiLoadDot| {
+            chrono::NaiveDate::parse_from_str(dot.start_date_local.get(..10)?, "%Y-%m-%d").ok()
+        };
+        let points: Vec<(chrono::NaiveDate, f64)> = dots
+            .iter()
+            .filter_map(|dot| Some((day_of(dot)?, dot.load)))
+            .filter(|(_, load)| load.is_finite())
+            .collect();
+        let origin = points.iter().map(|(day, _)| *day).min()?;
+        let xy: Vec<(f64, f64)> = points
+            .iter()
+            .map(|(day, load)| ((*day - origin).num_days() as f64, *load))
+            .collect();
+        let n = xy.len() as f64;
+        if xy.len() < 2 {
+            return None;
+        }
+        let mean_x = xy.iter().map(|(x, _)| x).sum::<f64>() / n;
+        let mean_y = xy.iter().map(|(_, y)| y).sum::<f64>() / n;
+        let sxx: f64 = xy.iter().map(|(x, _)| (x - mean_x).powi(2)).sum();
+        if sxx == 0.0 {
+            return None;
+        }
+        let slope = xy
+            .iter()
+            .map(|(x, y)| (x - mean_x) * (y - mean_y))
+            .sum::<f64>()
+            / sxx;
+        let intercept = mean_y - slope * mean_x;
+        let residual: f64 = xy
+            .iter()
+            .map(|(x, y)| (y - (intercept + slope * x)).powi(2))
+            .sum();
+        let spread = if xy.len() > 2 {
+            (residual / (n - 2.0)).sqrt()
+        } else {
+            0.0
+        };
+        Some(crate::FfiLoadTrend {
+            origin_day: origin.to_string(),
+            slope_per_day: slope,
+            intercept,
+            spread,
+        })
     }
 
     /// The weeks the weekly hours chart draws.
@@ -3317,6 +3395,16 @@ pub mod pooled {
             .map(|(section_id, _)| section_id.clone())
             .collect();
 
+        let memberships: Vec<crate::FfiActivityMembership> =
+            routes::activity_route_memberships(conn, activity_id)
+                .into_iter()
+                .chain(sections::activity_section_memberships(
+                    conn,
+                    activity_id,
+                    &names,
+                ))
+                .collect();
+
         let ids = [activity_id.to_string()];
         let (max_hr, max_hr_source) = super::activity_max_hr(conn, activity_id);
         let body = activities::activity_body(conn, activity_id).ok().flatten();
@@ -3350,6 +3438,7 @@ pub mod pooled {
                 .collect(),
             custom_sections: custom.into_iter().map(crate::FfiSection::from).collect(),
             encounters,
+            memberships,
             highlights: crate::FfiActivityHighlightsBundle {
                 indicators: indicators::activity_indicators(conn, &ids),
                 route_highlights: derivations::route_highlights(conn, &ids),
@@ -4051,6 +4140,7 @@ pub mod pooled {
         prev_start: i64,
         prev_end: i64,
         preview_activity_ids: &[String],
+        remote_search: bool,
     ) -> crate::FfiStartupData {
         startup_data_refilling(
             conn,
@@ -4059,12 +4149,15 @@ pub mod pooled {
             prev_start,
             prev_end,
             preview_activity_ids,
+            remote_search,
         )
         .0
     }
 
     /// [`startup_data`] and the signatures rebuilt to draw its preview lines,
     /// for the caller to write back with `persist_refilled_signatures`.
+    /// `remote_search` is the held source's answer to whether it searches, which
+    /// the caller reads from the sync service, not from the library.
     pub fn startup_data_refilling(
         conn: &Connection,
         current_start: i64,
@@ -4072,6 +4165,7 @@ pub mod pooled {
         prev_start: i64,
         prev_end: i64,
         preview_activity_ids: &[String],
+        remote_search: bool,
     ) -> (crate::FfiStartupData, Vec<tracematch::RouteSignature>) {
         let mut refilled = Vec::new();
         let mut preview_tracks = Vec::with_capacity(preview_activity_ids.len());
@@ -4090,8 +4184,36 @@ pub mod pooled {
             )
             .ok()
             .flatten(),
+            remote_search,
         };
         (data, refilled)
+    }
+
+    /// The span the feed's filter bars draw across, from one pass over the
+    /// metrics. The dates take every stored activity. Each distance and time
+    /// bound takes only its positive values, so a session with no distance
+    /// does not pull the shortest to zero. Every field is `None` on an empty
+    /// library, and on a library with no positive distance or time.
+    pub fn feed_filter_bounds(conn: &Connection) -> rusqlite::Result<crate::FfiFeedFilterBounds> {
+        conn.query_row(
+            "SELECT MIN(date), MAX(date),
+                    MIN(CASE WHEN distance > 0 THEN distance END),
+                    MAX(CASE WHEN distance > 0 THEN distance END),
+                    MIN(CASE WHEN moving_time > 0 THEN moving_time END),
+                    MAX(CASE WHEN moving_time > 0 THEN moving_time END)
+             FROM activity_metrics",
+            [],
+            |row| {
+                Ok(crate::FfiFeedFilterBounds {
+                    oldest_ts: row.get(0)?,
+                    newest_ts: row.get(1)?,
+                    min_distance: row.get(2)?,
+                    max_distance: row.get(3)?,
+                    min_moving_time: row.get(4)?,
+                    max_moving_time: row.get(5)?,
+                })
+            },
+        )
     }
 
     /// The week against the week before it, plus the three trends beside them.
@@ -4371,14 +4493,26 @@ pub mod pooled {
 
     /// The sections the map draws, read once per database state: the list the
     /// phone's overlay and the linked browser's section layer both come from.
+    /// Each line is already thinned to the collection tolerance, so both draw
+    /// the same one; a section's own read keeps its full line.
     pub(crate) fn map_section_list(conn: &Connection) -> std::sync::Arc<Vec<crate::FfiMapSection>> {
         crate::persistence::read_cache::map_sections(conn, || {
-            crate::persistence::sections::pooled::map_sections(
+            let mut sections = crate::persistence::sections::pooled::map_sections(
                 conn,
                 None,
                 Some(1),
                 &crate::persistence::sections::named::pooled::overlay_names(conn),
-            )
+            );
+            for section in &mut sections {
+                if let Some(points) =
+                    crate::persistence::codec::decode_polyline(&section.encoded_polyline)
+                {
+                    section.encoded_polyline = crate::persistence::codec::encode_polyline(
+                        &crate::basemap::for_collection(&points),
+                    );
+                }
+            }
+            sections
         })
     }
 
@@ -5051,6 +5185,114 @@ mod tests {
                 crate::persistence::tiles::heatmap_hidden_listing(&engine.db).len(),
                 1
             );
+        }
+
+        /// Scenario: a ride matched route `loop` and sections `hill` and `lane`,
+        /// and a second ride matched `loop` and `hill`. The athlete takes the
+        /// first ride out of `loop` and out of `hill`, and out of one lap of
+        /// `lane`. A hidden section the ride passes through is not listed.
+        ///
+        /// Expected behaviour: before the exclusions every membership reads
+        /// not excluded; after, the first ride's read marks `loop` and `hill`
+        /// excluded and `lane` not (one lap left in), still lists `hill`
+        /// though the matched list no longer does, and leaves the second
+        /// ride's read untouched.
+        #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+        fn the_detail_read_says_which_matches_the_activity_is_excluded_from() {
+            let mut engine = crate::persistence::PersistentEngine::in_memory().expect("engine");
+            engine
+                .db
+                .execute_batch(
+                    "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng, start_date)
+                     VALUES ('first', 'Ride', 0, 0, 0, 0, 1700000000),
+                            ('second', 'Ride', 0, 0, 0, 0, 1700000100);
+                     INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                         distance_meters, is_user_defined, version, created_at,
+                         bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng, disabled)
+                     VALUES ('hill', 'auto', 'Hill', 'Ride', '[]', 400.0, 0, 1, '2026-01-01T00:00:00Z',
+                                46.2, 46.21, 7.3, 7.31, 0),
+                            ('lane', 'auto', 'Lane', 'Ride', '[]', 400.0, 0, 1, '2026-01-01T00:00:00Z',
+                                46.2, 46.21, 7.3, 7.31, 0),
+                            ('gone', 'auto', 'Gone', 'Ride', '[]', 400.0, 0, 1, '2026-01-01T00:00:00Z',
+                                46.2, 46.21, 7.3, 7.31, 1);
+                     INSERT INTO section_activities (section_id, activity_id, direction,
+                         start_index, end_index, distance_meters, excluded)
+                     VALUES ('hill', 'first', 'same', 0, 2, 400.0, 0),
+                            ('hill', 'second', 'same', 0, 2, 400.0, 0),
+                            ('lane', 'first', 'same', 0, 2, 400.0, 0),
+                            ('lane', 'first', 'same', 5, 7, 400.0, 0),
+                            ('gone', 'first', 'same', 0, 2, 400.0, 0);
+                     INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
+                         activity_count)
+                     VALUES ('loop', 'first', '[\"first\",\"second\"]', 'Ride', 2),
+                            ('other', 'second', '[\"second\"]', 'Ride', 1);
+                     INSERT INTO activity_matches (route_id, activity_id, match_percentage,
+                         direction, excluded)
+                     VALUES ('loop', 'first', 100.0, 'same', 0),
+                            ('loop', 'second', 100.0, 'same', 0),
+                            ('other', 'second', 100.0, 'same', 0);",
+                )
+                .expect("rows");
+            engine.groups_dirty = false;
+            let memberships = |engine: &crate::persistence::PersistentEngine, id: &str| {
+                let mut rows: Vec<(String, String, bool)> =
+                    pooled::activity_detail_data(&engine.db, id, 1)
+                        .memberships
+                        .into_iter()
+                        .map(|m| (m.kind, m.id, m.excluded))
+                        .collect();
+                rows.sort();
+                rows
+            };
+            let row =
+                |kind: &str, id: &str, excluded: bool| (kind.to_string(), id.to_string(), excluded);
+
+            assert_eq!(
+                memberships(&engine, "first"),
+                vec![
+                    row("route", "loop", false),
+                    row("section", "hill", false),
+                    row("section", "lane", false),
+                ]
+            );
+
+            engine.exclude_activity_from_route("loop", "first").unwrap();
+            engine
+                .exclude_activity_from_section("hill", "first")
+                .unwrap();
+            engine.exclude_section_lap("lane", "first", 5).unwrap();
+
+            assert_eq!(
+                memberships(&engine, "first"),
+                vec![
+                    row("route", "loop", true),
+                    row("section", "hill", true),
+                    row("section", "lane", false),
+                ]
+            );
+            assert_eq!(
+                memberships(&engine, "second"),
+                vec![
+                    row("route", "loop", false),
+                    row("route", "other", false),
+                    row("section", "hill", false),
+                ]
+            );
+            assert!(
+                pooled::activity_detail_data(&engine.db, "first", 1)
+                    .matched_sections
+                    .iter()
+                    .all(|s| s.id != "hill"),
+                "the matched list still leaves an excluded section out"
+            );
+
+            engine.include_activity_in_route("loop", "first").unwrap();
+            assert_eq!(
+                memberships(&engine, "first")[0],
+                row("route", "loop", false)
+            );
+            assert!(memberships(&engine, "nobody").is_empty());
         }
 
         #[test]
@@ -6484,12 +6726,12 @@ mod tests {
         let path = dir.path().join("detail_queries.db");
         let db_path = path.to_str().expect("utf-8");
         crate::persistence::read_pool::bind(db_path);
-        let engine = engine_with_a_traversed_section(db_path);
+        let mut engine = engine_with_a_traversed_section(db_path);
 
         DETAIL_SQL.lock().unwrap().clear();
         crate::test_trace::trace_statements!(engine.db, record_detail_sql);
         let detail = pooled::section_detail_data(&engine.db, "auto1");
-        crate::test_trace::untrace(&engine.db);
+        crate::test_trace::untrace(&mut engine.db);
 
         assert!(detail.section.is_some());
         assert!(
@@ -7765,6 +8007,43 @@ mod tests {
         assert!(stride_track(Vec::new(), 150).is_empty());
     }
 
+    /// Scenario: the feed offers the account search on a session whose source
+    /// cannot answer it, and hides the offer only after a tap.
+    ///
+    /// Expected behaviour: the bundle carries the held source's answer as read,
+    /// whatever the library holds.
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn the_startup_bundle_says_whether_the_held_source_searches() {
+        use tempfile::TempDir;
+
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = TempDir::new().expect("tempdir");
+        let path = dir.path().join("remote_search_bundle.db");
+        let path = path.to_str().expect("utf-8");
+        let engine = crate::persistence::PersistentEngine::new(path).expect("engine");
+
+        let window = (1_699_000_000, 1_701_000_000, 1_698_000_000, 1_699_000_000);
+        let ids: Vec<String> = Vec::new();
+        let read = |remote_search| {
+            pooled::startup_data(
+                &engine.db,
+                window.0,
+                window.1,
+                window.2,
+                window.3,
+                &ids,
+                remote_search,
+            )
+            .remote_search
+        };
+
+        assert!(read(true));
+        assert!(!read(false));
+
+        crate::persistence::read_cache::close();
+    }
+
     /// Scenario: the feed card drew its sparklines from a second engine call
     /// beside the bundle it had already read.
     ///
@@ -7785,9 +8064,11 @@ mod tests {
         let ids: Vec<String> = Vec::new();
 
         assert!(
-            pooled::startup_data(&engine.db, window.0, window.1, window.2, window.3, &ids,)
-                .sparklines
-                .is_none(),
+            pooled::startup_data(
+                &engine.db, window.0, window.1, window.2, window.3, &ids, false
+            )
+            .sparklines
+            .is_none(),
             "an athlete with no wellness has no line to draw"
         );
 
@@ -7800,7 +8081,9 @@ mod tests {
             )
             .expect("wellness");
 
-        let data = pooled::startup_data(&engine.db, window.0, window.1, window.2, window.3, &ids);
+        let data = pooled::startup_data(
+            &engine.db, window.0, window.1, window.2, window.3, &ids, false,
+        );
         let lines = data.sparklines.expect("a day of wellness");
         assert_eq!(lines.fitness, vec![70]);
         assert_eq!(lines.form, vec![10], "form is fitness less fatigue");
@@ -8220,6 +8503,11 @@ mod tests {
                 sport_families: Vec::new(),
                 offset: 0,
                 limit: None,
+                min_distance: None,
+                max_distance: None,
+                min_moving_time: None,
+                max_moving_time: None,
+                sort: None,
             },
         )
         .expect("page");

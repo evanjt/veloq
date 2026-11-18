@@ -343,8 +343,10 @@ pub enum Admission {
     /// Send it.
     Admitted,
     /// Send it as the one request a cooldown lets through to ask whether the
-    /// refusal has lifted. It is never retried inline, and a refusal of it
-    /// holds everything until the daily reset.
+    /// refusal has lifted. It goes only after the `Retry-After` the refusal
+    /// carried has passed, and is never retried inline. A refusal of it
+    /// that carries a `Retry-After` holds for that, on the ladder; one that
+    /// carries none holds everything until the daily reset.
     Probe,
     /// Send nothing before `until`. Not a failure: the work is still owed.
     Deferred { until: DateTime<Utc> },
@@ -383,6 +385,11 @@ pub const BACKFILL_ALLOWANCE: Allowance = Allowance {
 /// figure for that day alone and never applies again.
 pub const UPGRADE_DAY_BACKFILL_SHARE: u32 = 1_500;
 
+/// The backfill's window while its day cap is lifted: below the 2,500 requests
+/// in fifteen minutes a personal key allows, so the sync and the athlete's own
+/// reads keep room beside it.
+pub const LIFTED_BACKFILL_PER_FIFTEEN_MINUTES: u32 = 2_000;
+
 /// The whole days an allowance's daily cap takes to draw `owed` requests, when
 /// that is more than one day. `None` when the queue fits in one day, or when
 /// the allowance has no daily cap to count against.
@@ -399,6 +406,12 @@ pub fn days_to_draw(owed: u64, allowance: Allowance, first_day: u32) -> Option<u
     Some(u32::try_from(1 + after_first.div_ceil(per_day)).unwrap_or(u32::MAX))
 }
 
+/// Whether the held credential is a personal key, the only sign-in the day
+/// cap may be lifted on.
+fn held_key_session() -> bool {
+    crate::objects::sync::held_auth_kind() == Some(crate::objects::sync::AuthKind::ApiKey)
+}
+
 /// The backfill's share of the budget day the process governor is in now: the
 /// upgrade day's figure while it is that day, else the allowance's. `None`
 /// where the backfill has no daily cap.
@@ -407,6 +420,15 @@ pub fn backfill_share_today() -> Option<u32> {
         Some(seen) => seen.backfill.per_day,
         None => BACKFILL_ALLOWANCE.per_day,
     }
+}
+
+/// The backfill's allowance on an ordinary day, as the process governor holds
+/// it now: no day figure while the day cap is lifted, the shipped allowance
+/// where the governor only paces.
+pub fn backfill_allowance_now() -> Allowance {
+    GOVERNOR
+        .backfill_allowance(GOVERNOR.now())
+        .unwrap_or(BACKFILL_ALLOWANCE)
 }
 
 /// The sync's share: a full pass asks about twenty, so fifty in any fifteen
@@ -456,6 +478,9 @@ pub struct DayCounts {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StoredBudget {
     pub cooldown_until: Option<DateTime<Utc>>,
+    /// The end of the `Retry-After` the last refusal carried, before which a
+    /// user request is not sent as a probe.
+    pub asked_until: Option<DateTime<Utc>>,
     /// The budget day the count belongs to.
     pub day: NaiveDate,
     /// Backfill requests admitted on `day`.
@@ -467,6 +492,9 @@ pub struct StoredBudget {
     /// The budget day that carries the upgrade share, or none while no
     /// cutover has marked one.
     pub upgrade_day: Option<NaiveDate>,
+    /// Whether the athlete lifted the backfill's day cap. It is written from
+    /// outside the budget, so the stored value is the one that holds.
+    pub backfill_cap_lifted: bool,
 }
 
 /// Where the budget's state outlives the process. Read before every
@@ -477,9 +505,23 @@ pub trait BudgetStore: Send + Sync {
     fn save(&self, stored: &StoredBudget);
 }
 
+/// The shared pool's budget pair as the last response that carried one read
+/// it. Kept for the process only: the next response refreshes it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PoolFigure {
+    pub remaining: RateWindows,
+    /// The response's limit pair, or the shared limits when it sent none.
+    pub limit: RateWindows,
+    pub seen_at: DateTime<Utc>,
+}
+
 /// The budget at a moment, as the Developer Dashboard shows it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BudgetSnapshot {
+    /// The last budget pair a response carried, or none seen this process.
+    pub pool: Option<PoolFigure>,
+    /// Until when a low pool figure holds the backfill, or none.
+    pub pool_hold_until: Option<DateTime<Utc>>,
     pub today: DayCounts,
     pub backfill_last_fifteen_minutes: u32,
     pub sync_last_fifteen_minutes: u32,
@@ -487,6 +529,11 @@ pub struct BudgetSnapshot {
     pub sync: Allowance,
     pub cooldown_until: Option<DateTime<Utc>>,
     pub next_reset: DateTime<Utc>,
+    /// Successful responses that carried the remaining-budget pair.
+    pub pair_responses: u32,
+    /// The latest remaining-budget pair and when it arrived.
+    pub last_pair: Option<(RateWindows, DateTime<Utc>)>,
+    pub backfill_cap_lifted: bool,
 }
 
 /// The request budget as the Developer Dashboard shows it. Instants are
@@ -504,13 +551,43 @@ pub struct FfiRequestBudget {
     pub sync_per_fifteen_minutes: Option<u32>,
     /// Until when a refusal's cooldown holds, or none.
     pub cooldown_until: Option<f64>,
+    /// Requests the shared pool reported left in its 15-minute window, or
+    /// none when no response has carried the pair this process.
+    pub pool_remaining_fifteen_minutes: Option<u32>,
+    /// Requests the shared pool reported left in its day.
+    pub pool_remaining_daily: Option<u32>,
+    /// The pool's 15-minute limit, as the response sent it or the shared one.
+    pub pool_limit_fifteen_minutes: Option<u32>,
+    /// The pool's daily limit, as the response sent it or the shared one.
+    pub pool_limit_daily: Option<u32>,
+    /// When the pair was read.
+    pub pool_seen_at: Option<f64>,
+    /// Until when a low pool figure holds the backfill, or none.
+    pub pool_hold_until: Option<f64>,
     /// When this install's daily count next resets.
     pub next_reset: f64,
+    /// Successful responses that carried the remaining-budget pair. The
+    /// personal-key path sends none, so a count of zero beside that sign-in is
+    /// expected and the budget hold never applies there.
+    pub pair_responses: u32,
+    /// The latest pair's rolling 15-minute figure.
+    pub last_remaining_fifteen_minutes: Option<u32>,
+    /// The latest pair's UTC-day figure.
+    pub last_remaining_daily: Option<u32>,
+    /// When the latest pair arrived.
+    pub last_pair_at: Option<f64>,
+    /// Whether the backfill's day cap is lifted and in force: set, and the
+    /// held credential is a personal key.
+    pub backfill_cap_lifted: bool,
+    /// The scheme of the held credential, `"oauth"` or `"apiKey"`, or none
+    /// while signed out.
+    pub signed_in_with: Option<String>,
 }
 
 impl From<BudgetSnapshot> for FfiRequestBudget {
     fn from(seen: BudgetSnapshot) -> Self {
         let seconds = |at: DateTime<Utc>| at.timestamp() as f64;
+        let count = |n: u64| u32::try_from(n).unwrap_or(u32::MAX);
         Self {
             user_today: seen.today.user,
             sync_today: seen.today.sync,
@@ -521,7 +598,23 @@ impl From<BudgetSnapshot> for FfiRequestBudget {
             sync_last_fifteen_minutes: seen.sync_last_fifteen_minutes,
             sync_per_fifteen_minutes: seen.sync.per_fifteen_minutes,
             cooldown_until: seen.cooldown_until.map(seconds),
+            pool_remaining_fifteen_minutes: seen.pool.map(|p| count(p.remaining.fifteen_minutes)),
+            pool_remaining_daily: seen.pool.map(|p| count(p.remaining.daily)),
+            pool_limit_fifteen_minutes: seen.pool.map(|p| count(p.limit.fifteen_minutes)),
+            pool_limit_daily: seen.pool.map(|p| count(p.limit.daily)),
+            pool_seen_at: seen.pool.map(|p| seconds(p.seen_at)),
+            pool_hold_until: seen.pool_hold_until.map(seconds),
             next_reset: seconds(seen.next_reset),
+            pair_responses: seen.pair_responses,
+            last_remaining_fifteen_minutes: seen
+                .last_pair
+                .map(|(pair, _)| u32::try_from(pair.fifteen_minutes).unwrap_or(u32::MAX)),
+            last_remaining_daily: seen
+                .last_pair
+                .map(|(pair, _)| u32::try_from(pair.daily).unwrap_or(u32::MAX)),
+            last_pair_at: seen.last_pair.map(|(_, at)| seconds(at)),
+            backfill_cap_lifted: seen.backfill_cap_lifted,
+            signed_in_with: None,
         }
     }
 }
@@ -533,10 +626,13 @@ impl From<BudgetSnapshot> for FfiRequestBudget {
 #[serde(rename_all = "camelCase")]
 pub struct FfiDailyLimit {
     /// Requests the backfill has drawn in this budget day.
+    /// Unit: count.
     pub used: u32,
     /// The backfill's requests for a budget day.
+    /// Unit: count.
     pub per_day: u32,
     /// When this install's daily count next resets.
+    /// Unit: epoch_millisecond.
     pub resets_at_ms: f64,
 }
 
@@ -563,7 +659,14 @@ pub fn daily_limit() -> Option<FfiDailyLimit> {
 /// The process governor's budget for the dashboard, or `None` where it only
 /// paces.
 pub fn request_budget() -> Option<FfiRequestBudget> {
-    GOVERNOR.budget_snapshot(GOVERNOR.now()).map(Into::into)
+    GOVERNOR.budget_snapshot(GOVERNOR.now()).map(|seen| {
+        let mut budget = FfiRequestBudget::from(seen);
+        budget.signed_in_with = crate::objects::sync::held_auth_kind().map(|kind| match kind {
+            crate::objects::sync::AuthKind::OAuth => "oauth".to_string(),
+            crate::objects::sync::AuthKind::ApiKey => "apiKey".to_string(),
+        });
+        budget
+    })
 }
 
 /// One install's share of the limits every user of the app shares, and the
@@ -586,14 +689,28 @@ pub struct Budget {
     backfill_recent: VecDeque<DateTime<Utc>>,
     sync_recent: VecDeque<DateTime<Utc>>,
     cooldown_until: Option<DateTime<Utc>>,
+    /// The end of the last `Retry-After` a refusal carried.
+    asked_until: Option<DateTime<Utc>>,
     ladder_step: u32,
     refusals_in_a_row: u32,
     headerless_in_a_row: u32,
     last_probe_at: Option<DateTime<Utc>>,
     /// Until when a low budget figure on a response holds the backfill.
     low_figure_until: Option<DateTime<Utc>>,
+    /// The last budget pair a response carried.
+    pool_seen: Option<PoolFigure>,
     /// The budget day that carries the upgrade share. Set once.
     upgrade_day: Option<NaiveDate>,
+    /// Successful responses that carried the remaining-budget pair.
+    pair_responses: u32,
+    /// The latest remaining-budget pair and when it arrived.
+    last_pair: Option<(RateWindows, DateTime<Utc>)>,
+    /// The stored switch that lifts the backfill's day cap.
+    backfill_cap_lifted: bool,
+    /// Whether the held credential is a personal key. The switch lifts nothing
+    /// on any other sign-in, since the shared pool of the OAuth application
+    /// is not the athlete's to spend.
+    key_session: bool,
 }
 
 impl Budget {
@@ -613,12 +730,50 @@ impl Budget {
             backfill_recent: VecDeque::new(),
             sync_recent: VecDeque::new(),
             cooldown_until: None,
+            asked_until: None,
             ladder_step: 0,
             refusals_in_a_row: 0,
             headerless_in_a_row: 0,
             last_probe_at: None,
             low_figure_until: None,
+            pool_seen: None,
+            pair_responses: 0,
+            last_pair: None,
             upgrade_day: None,
+            backfill_cap_lifted: false,
+            key_session: false,
+        }
+    }
+
+    /// Set the stored switch that lifts the backfill's day cap.
+    pub fn set_backfill_cap_lifted(&mut self, lifted: bool) {
+        self.backfill_cap_lifted = lifted;
+    }
+
+    /// Say whether the held credential is a personal key.
+    pub fn set_key_session(&mut self, key_session: bool) {
+        self.key_session = key_session;
+    }
+
+    /// Whether the day cap is lifted and in force.
+    pub fn backfill_cap_is_lifted(&self) -> bool {
+        self.backfill_cap_lifted && self.key_session
+    }
+
+    /// The backfill's allowance as it stands: the shipped one, or while the day
+    /// cap is lifted no day figure and a fifteen-minute window.
+    ///
+    /// A lifted cap does not lift the cooldown after a refusal, the ladder,
+    /// `Retry-After`, the low budget figure on a response or the sync's
+    /// window. The upstream's own refusal still holds the lane.
+    fn backfill_allowance_today(&self) -> Allowance {
+        if self.backfill_cap_is_lifted() {
+            Allowance {
+                per_fifteen_minutes: Some(LIFTED_BACKFILL_PER_FIFTEEN_MINUTES),
+                per_day: None,
+            }
+        } else {
+            self.backfill_allowance
         }
     }
 
@@ -634,7 +789,7 @@ impl Budget {
 
     /// The backfill's day figure on the budget day `now` falls in.
     fn backfill_day_share(&self, now: DateTime<Utc>) -> Option<u32> {
-        let per_day = self.backfill_allowance.per_day?;
+        let per_day = self.backfill_allowance_today().per_day?;
         if self.upgrade_day == Some(self.budget_day(now)) {
             Some(per_day.max(UPGRADE_DAY_BACKFILL_SHARE))
         } else {
@@ -679,11 +834,15 @@ impl Budget {
 
     /// Until when a request for `intent` would be deferred at `now`, without
     /// counting or sending anything. `None` when it would go. A user request is
-    /// never deferred here, since inside a cooldown it may go as the probe.
+    /// deferred inside a cooldown before the `Retry-After` it carried has
+    /// passed, and after that it may go as the probe.
     pub fn deferred_until(&mut self, intent: Intent, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
         self.roll(now);
         if let Some(until) = self.cooldown_until.filter(|until| *until > now) {
-            return (intent != Intent::User).then_some(until);
+            return match intent {
+                Intent::User => self.asked_until(now).map(|asked| asked.min(until)),
+                _ => Some(until),
+            };
         }
         match intent {
             Intent::User => None,
@@ -696,13 +855,13 @@ impl Budget {
     /// figure, the day's count, or a full fifteen-minute window where the
     /// allowance has one.
     fn backfill_held_until(&self, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
-        let low_figure = self.low_figure_until.filter(|until| *until > now);
+        let low_figure = self.pool_hold_until(now);
         [
             low_figure,
             self.backfill_day_share(now)
                 .filter(|share| self.today.backfill >= *share)
                 .map(|_| self.next_reset(now)),
-            window_full(&self.backfill_recent, self.backfill_allowance),
+            window_full(&self.backfill_recent, self.backfill_allowance_today()),
         ]
         .into_iter()
         .flatten()
@@ -716,6 +875,11 @@ impl Budget {
         if let Some(until) = self.cooldown_until.filter(|until| *until > now) {
             return match intent {
                 Intent::User => match self.last_probe_at {
+                    _ if self.asked_until(now).is_some() => Admission::Deferred {
+                        until: self
+                            .asked_until(now)
+                            .map_or(until, |asked| asked.min(until)),
+                    },
                     Some(last) if now < last + PROBE_INTERVAL => Admission::Deferred {
                         until: (last + PROBE_INTERVAL).min(until),
                     },
@@ -758,8 +922,9 @@ impl Budget {
     /// five seconds or less from the edge, is retried inline. Anything else
     /// sets the cooldown: to the larger of its `Retry-After` in full and the
     /// ladder's rung, with up to a quarter more by `jitter`, a draw in
-    /// `[0, 1)`. A second header-less refusal in a row, or a refused probe,
-    /// says the day's quota is spent, and holds until the next reset.
+    /// `[0, 1)`, probe or not. A second header-less refusal in a row, or a
+    /// refused probe that carries no `Retry-After`, says the day's quota is
+    /// spent, and holds until the next reset.
     pub fn refused(
         &mut self,
         rate: &RateBudget,
@@ -779,7 +944,10 @@ impl Budget {
         if refusal == Refusal::EdgeBurst && !probe {
             return AfterRefusal::RetryInline;
         }
-        let until = if probe || self.headerless_in_a_row >= HEADERLESS_REFUSALS_TO_THE_RESET {
+        let headerless_probe = probe && rate.retry_after_secs.is_none();
+        let until = if headerless_probe
+            || self.headerless_in_a_row >= HEADERLESS_REFUSALS_TO_THE_RESET
+        {
             self.next_midnight(now)
         } else {
             let rung = COOLDOWN_LADDER[(self.ladder_step as usize).min(COOLDOWN_LADDER.len() - 1)];
@@ -798,6 +966,13 @@ impl Budget {
                 .unwrap_or(DateTime::<Utc>::MAX_UTC)
         };
         self.ladder_step = self.ladder_step.saturating_add(1);
+        if let Some(asked) = rate
+            .retry_after_secs
+            .and_then(|secs| TimeDelta::try_seconds(i64::try_from(secs).ok()?))
+            .and_then(|asked| now.checked_add_signed(asked))
+        {
+            self.asked_until = Some(self.asked_until(now).map_or(asked, |held| held.max(asked)));
+        }
         let until = self
             .cooldown_until
             .map_or(until, |current| current.max(until));
@@ -814,7 +989,12 @@ impl Budget {
         self.headerless_in_a_row = 0;
         self.ladder_step = 0;
         self.cooldown_until = None;
+        self.asked_until = None;
         self.last_probe_at = None;
+        if let Some(remaining) = rate.remaining {
+            self.pair_responses = self.pair_responses.saturating_add(1);
+            self.last_pair = Some((remaining, now));
+        }
         self.hold_on_low_figure(rate, now);
         ended
     }
@@ -823,6 +1003,13 @@ impl Budget {
     /// until the next midnight, below a quarter of the window for the window.
     /// A hold only lengthens; it lapses when its time passes.
     fn hold_on_low_figure(&mut self, rate: &RateBudget, now: DateTime<Utc>) {
+        if let Some(remaining) = rate.remaining {
+            self.pool_seen = Some(PoolFigure {
+                remaining,
+                limit: rate.limit.unwrap_or(SHARED_LIMITS),
+                seen_at: now,
+            });
+        }
         if let Some(until) = budget_hold_until(rate, now) {
             self.low_figure_until = Some(self.low_figure_until.map_or(until, |c| c.max(until)));
         }
@@ -833,11 +1020,24 @@ impl Budget {
         self.cooldown_until.filter(|until| *until > now)
     }
 
+    /// Until when the last `Retry-After` a refusal carried holds, or `None`
+    /// once it has passed.
+    fn asked_until(&self, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        self.asked_until.filter(|until| *until > now)
+    }
+
+    /// Until when a low figure from the shared intervals.icu pool holds the
+    /// backfill at `now`, or `None` when none does.
+    pub fn pool_hold_until(&self, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        self.low_figure_until.filter(|until| *until > now)
+    }
+
     /// What outlives the process.
     pub fn stored(&self, now: DateTime<Utc>) -> StoredBudget {
         let day = self.budget_day(now);
         StoredBudget {
             cooldown_until: self.cooldown_until(now),
+            asked_until: self.asked_until(now),
             day,
             backfill_today: if self.day == Some(day) {
                 self.today.backfill
@@ -847,6 +1047,7 @@ impl Budget {
             day_offset_secs: u32::try_from(self.day_offset.num_seconds()).unwrap_or(0),
             ladder_step: self.ladder_step,
             upgrade_day: self.upgrade_day,
+            backfill_cap_lifted: self.backfill_cap_lifted,
         }
     }
 
@@ -874,7 +1075,15 @@ impl Budget {
         if Some(stored.day) == self.day {
             self.today.backfill = self.today.backfill.max(stored.backfill_today);
         }
+        if let Some(asked) = stored.asked_until.filter(|asked| *asked > now) {
+            let ceiling = self.cooldown_until.unwrap_or(now);
+            let asked = asked.min(ceiling);
+            if asked > now {
+                self.asked_until = Some(self.asked_until.map_or(asked, |c| c.max(asked)));
+            }
+        }
         self.ladder_step = self.ladder_step.max(stored.ladder_step);
+        self.backfill_cap_lifted = stored.backfill_cap_lifted;
         self.upgrade_day = match (self.upgrade_day, stored.upgrade_day) {
             (Some(held), Some(kept)) => Some(held.min(kept)),
             (held, kept) => held.or(kept),
@@ -886,17 +1095,22 @@ impl Budget {
     pub fn snapshot(&mut self, now: DateTime<Utc>) -> BudgetSnapshot {
         self.roll(now);
         BudgetSnapshot {
+            pool: self.pool_seen,
+            pool_hold_until: self.pool_hold_until(now),
             today: self.today,
             backfill_last_fifteen_minutes: u32::try_from(self.backfill_recent.len())
                 .unwrap_or(u32::MAX),
             sync_last_fifteen_minutes: u32::try_from(self.sync_recent.len()).unwrap_or(u32::MAX),
             backfill: Allowance {
                 per_day: self.backfill_day_share(now),
-                ..self.backfill_allowance
+                ..self.backfill_allowance_today()
             },
             sync: self.sync_allowance,
             cooldown_until: self.cooldown_until(now),
             next_reset: self.next_reset(now),
+            pair_responses: self.pair_responses,
+            last_pair: self.last_pair,
+            backfill_cap_lifted: self.backfill_cap_is_lifted(),
         }
     }
 }
@@ -1152,6 +1366,10 @@ pub struct Governor {
     skip_backoff_waits: bool,
     /// The retry backoff not slept, in nanoseconds.
     skipped_backoff_nanos: std::sync::atomic::AtomicU64,
+    /// Whether the budget answers. A test's process governor holds one that
+    /// stays silent until a test takes it with [`Governor::live_budget`].
+    #[cfg(test)]
+    budget_live: std::sync::atomic::AtomicBool,
 }
 
 /// No jitter, for a governor whose waits a test reads back.
@@ -1177,6 +1395,8 @@ impl Governor {
             count_notice: CountNotice::new(COUNT_NOTICE_WINDOW, announce_count_moved),
             skip_backoff_waits: false,
             skipped_backoff_nanos: std::sync::atomic::AtomicU64::new(0),
+            #[cfg(test)]
+            budget_live: std::sync::atomic::AtomicBool::new(true),
         }
     }
 
@@ -1335,6 +1555,10 @@ impl Governor {
         now: DateTime<Utc>,
         f: impl FnOnce(&mut Budget) -> R,
     ) -> Option<R> {
+        #[cfg(test)]
+        if !self.budget_live.load(std::sync::atomic::Ordering::SeqCst) {
+            return None;
+        }
         let (result, moved) = {
             let mut budget = self
                 .budget
@@ -1346,6 +1570,7 @@ impl Governor {
             if let Some(stored) = &loaded {
                 budget.adopt(stored, now);
             }
+            budget.set_key_session(held_key_session());
             let result = f(&mut budget);
             let after = budget.stored(now);
             if let Some(store) = &self.store
@@ -1411,6 +1636,14 @@ impl Governor {
             .flatten()
     }
 
+    /// Until when a low figure from the shared intervals.icu pool holds the
+    /// backfill at `now`, as every process sees it. `None` when none does, and
+    /// always on a pacing-only governor.
+    pub fn pool_hold_until(&self, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        self.with_budget_state(now, |budget| budget.pool_hold_until(now))
+            .flatten()
+    }
+
     /// Until when a request for `intent` would be deferred at `now`, as every
     /// process sees it, counting nothing. `None` when it would go, and always
     /// on a pacing-only governor.
@@ -1424,6 +1657,18 @@ impl Governor {
     pub fn refusal_lifts_at(&self, now: DateTime<Utc>) -> DateTime<Utc> {
         self.cooldown_until(now)
             .unwrap_or_else(|| now + COOLDOWN_LADDER[0])
+    }
+
+    /// Set or clear the stored switch that lifts the backfill's day cap, at
+    /// `now`. `None` on a pacing-only governor.
+    pub fn lift_backfill_cap(&self, now: DateTime<Utc>, lifted: bool) -> Option<()> {
+        self.with_budget_state(now, |budget| budget.set_backfill_cap_lifted(lifted))
+    }
+
+    /// The backfill's allowance on an ordinary day at `now`, as every process
+    /// sees it. `None` on a pacing-only governor.
+    pub fn backfill_allowance(&self, now: DateTime<Utc>) -> Option<Allowance> {
+        self.with_budget_state(now, |budget| budget.backfill_allowance_today())
     }
 
     /// The budget at `now`, or `None` on a pacing-only governor.
@@ -1507,6 +1752,38 @@ impl Governor {
     pub fn yields(&self) -> u64 {
         self.yields.load(std::sync::atomic::Ordering::Relaxed)
     }
+
+    /// Turn the budget on for a test of what a refusal does to the process,
+    /// from an empty one. Dropping the guard empties it again and turns it
+    /// off, so the refusal does not defer the next test's requests.
+    #[cfg(test)]
+    pub(crate) fn live_budget(&self) -> LiveBudget<'_> {
+        self.reset_budget();
+        self.budget_live
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        LiveBudget(self)
+    }
+
+    #[cfg(test)]
+    fn reset_budget(&self) {
+        if let Some(budget) = &self.budget {
+            *budget.lock().unwrap_or_else(|e| e.into_inner()) = Budget::new(0);
+        }
+    }
+}
+
+/// The budget of a test's process governor, on while it is held.
+#[cfg(test)]
+pub(crate) struct LiveBudget<'a>(&'a Governor);
+
+#[cfg(test)]
+impl Drop for LiveBudget<'_> {
+    fn drop(&mut self) {
+        self.0
+            .budget_live
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        self.0.reset_budget();
+    }
 }
 
 /// Longest a single request will park waiting for a busier lane to drain.
@@ -1526,7 +1803,8 @@ const MAX_DISPATCH_PER_SEC: u32 = 8;
 /// It carries the shipped budget, kept in the settings rows. The crate's own
 /// tests share this one governor across every test in the process, so there
 /// it only paces: a refusal one test provokes must not defer the next test's
-/// requests. A test of the budget builds its own.
+/// requests. A test of the budget builds its own, or takes this one's with
+/// `live_budget` for the length of the test.
 pub static GOVERNOR: LazyLock<Arc<Governor>> = LazyLock::new(|| {
     let governor = Governor::new(MAX_DISPATCH_PER_SEC, Box::new(YieldBackfillPolicy::new()));
     #[cfg(not(test))]
@@ -1535,6 +1813,14 @@ pub static GOVERNOR: LazyLock<Arc<Governor>> = LazyLock::new(|| {
         Some(Arc::new(crate::persistence::settings::RequestBudgetRows)),
         random_unit,
     );
+    #[cfg(test)]
+    let governor = {
+        let governor = governor.with_budget(Budget::new(0), None, random_unit);
+        governor
+            .budget_live
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        governor
+    };
     Arc::new(governor)
 });
 
@@ -1977,6 +2263,48 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn a_success_with_a_pair_is_counted_and_kept() {
+        let mut budget = Budget::new(0);
+        let now = at("2026-03-04T10:00:00Z");
+        budget.succeeded(&remaining(80, 900), now);
+        let seen = budget.snapshot(now);
+        assert_eq!(seen.pair_responses, 1);
+        assert_eq!(
+            seen.last_pair,
+            Some((
+                RateWindows {
+                    fifteen_minutes: 80,
+                    daily: 900
+                },
+                now
+            ))
+        );
+        let ffi = FfiRequestBudget::from(seen);
+        assert_eq!(ffi.last_remaining_fifteen_minutes, Some(80));
+        assert_eq!(ffi.last_remaining_daily, Some(900));
+        assert_eq!(ffi.last_pair_at, Some(now.timestamp() as f64));
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn a_success_without_a_pair_leaves_the_count_and_the_last_pair() {
+        let mut budget = Budget::new(0);
+        let now = at("2026-03-04T10:00:00Z");
+        budget.succeeded(&RateBudget::default(), now);
+        let seen = budget.snapshot(now);
+        assert_eq!(seen.pair_responses, 0);
+        assert_eq!(seen.last_pair, None);
+        assert_eq!(FfiRequestBudget::from(seen).last_pair_at, None);
+
+        budget.succeeded(&remaining(80, 900), now);
+        budget.succeeded(&RateBudget::default(), now);
+        let seen = budget.snapshot(now);
+        assert_eq!(seen.pair_responses, 1);
+        assert!(seen.last_pair.is_some());
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_absent_or_healthy_budget_holds_nothing() {
         let now = at("2026-03-04T10:00:00Z");
         assert_eq!(budget_hold_until(&RateBudget::default(), now), None);
@@ -2319,51 +2647,125 @@ mod tests {
         let mut budget = Budget::new(0);
         let now = at("2026-03-04T10:00:00Z");
         let (rate, via) = via_app(3_600);
-        let until = at("2026-03-04T11:00:00Z");
+        let until = at("2026-03-04T11:15:00Z");
         assert_eq!(
-            budget.refused(&rate, via, b"", false, now, 0.0),
-            AfterRefusal::Cooldown { until }
+            budget.refused(&rate, via, b"", false, now, 1.0),
+            AfterRefusal::Cooldown { until },
+            "an hour asked, a quarter more by jitter"
         );
+        let asked = at("2026-03-04T11:00:00Z");
+        assert_eq!(
+            budget.admit(Intent::User, now),
+            Admission::Deferred { until: asked }
+        );
+        let now = asked;
         assert_eq!(budget.admit(Intent::User, now), Admission::Probe);
         assert_eq!(
-            budget.admit(Intent::User, at("2026-03-04T10:04:59Z")),
+            budget.admit(Intent::User, at("2026-03-04T11:04:59Z")),
             Admission::Deferred {
-                until: at("2026-03-04T10:05:00Z")
+                until: at("2026-03-04T11:05:00Z")
             },
             "one probe in five minutes"
         );
         assert_eq!(
-            budget.admit(Intent::Sync, at("2026-03-04T10:04:59Z")),
+            budget.admit(Intent::Sync, at("2026-03-04T11:04:59Z")),
             Admission::Deferred { until }
         );
         assert_eq!(
-            budget.admit(Intent::User, at("2026-03-04T10:05:00Z")),
+            budget.admit(Intent::User, at("2026-03-04T11:05:00Z")),
             Admission::Probe
         );
         // A probe that answers ends the cooldown for everyone.
-        budget.succeeded(&RateBudget::default(), at("2026-03-04T10:05:01Z"));
+        budget.succeeded(&RateBudget::default(), at("2026-03-04T11:05:01Z"));
         assert_eq!(
-            budget.admit(Intent::Backfill, at("2026-03-04T10:05:01Z")),
+            budget.admit(Intent::Backfill, at("2026-03-04T11:05:01Z")),
             Admission::Admitted
         );
-        admit_n(&mut budget, Intent::User, 3, at("2026-03-04T10:05:01Z"));
+        admit_n(&mut budget, Intent::User, 3, at("2026-03-04T11:05:01Z"));
+    }
+
+    #[test]
+    fn a_headerless_refused_probe_holds_until_the_next_midnight() {
+        let mut budget = Budget::new(20 * 60);
+        let now = at("2026-03-04T10:00:00Z");
+        let (rate, via) = via_app(60);
+        budget.refused(&rate, via, b"", false, now, 1.0);
+        let probe_at = at("2026-03-04T10:01:00Z");
+        assert_eq!(budget.admit(Intent::User, probe_at), Admission::Probe);
+        assert_eq!(
+            budget.refused(&RateBudget::default(), None, b"", true, probe_at, 0.0),
+            AfterRefusal::Cooldown {
+                until: at("2026-03-05T00:20:00Z")
+            },
+            "a probe refused with no Retry-After says the day is spent"
+        );
+    }
+
+    #[test]
+    fn a_user_request_waits_out_the_retry_after_before_it_probes() {
+        let mut budget = Budget::new(0);
+        let (rate, via) = via_app(600);
+        budget.refused(&rate, via, b"", false, at("2026-03-04T10:00:00Z"), 1.0);
+        let inside = at("2026-03-04T10:02:00Z");
+        let end = at("2026-03-04T10:10:00Z");
+        assert_eq!(budget.deferred_until(Intent::User, inside), Some(end));
+        assert_eq!(
+            budget.admit(Intent::User, inside),
+            Admission::Deferred { until: end }
+        );
+        assert_eq!(budget.admit(Intent::User, end), Admission::Probe);
     }
 
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
-    fn a_refused_probe_holds_until_the_next_midnight() {
-        let mut budget = Budget::new(20 * 60);
-        let now = at("2026-03-04T10:00:00Z");
-        let (rate, via) = via_app(60);
-        budget.refused(&rate, via, b"", false, now, 0.0);
-        assert_eq!(budget.admit(Intent::User, now), Admission::Probe);
+    fn a_refused_probe_holds_for_its_own_retry_after_and_climbs_the_ladder() {
+        let mut budget = Budget::new(0);
+        let (rate, via) = via_app(600);
+        budget.refused(&rate, via, b"", false, at("2026-03-04T10:00:00Z"), 1.0);
+        let probe_at = at("2026-03-04T10:10:00Z");
+        assert_eq!(budget.admit(Intent::User, probe_at), Admission::Probe);
+        let (rate, via) = via_app(480);
         assert_eq!(
-            budget.refused(&retry_after(1), None, b"", true, now, 0.0),
+            budget.refused(&rate, via, b"", true, probe_at, 1.0),
             AfterRefusal::Cooldown {
-                until: at("2026-03-05T00:20:00Z")
+                until: at("2026-03-04T10:20:00Z")
             },
-            "a probe is never retried inline, even on what looks like a burst"
+            "480 s is over the five-minute rung, a quarter more by jitter"
         );
+        let next_probe = at("2026-03-04T10:18:00Z");
+        assert_eq!(budget.admit(Intent::User, next_probe), Admission::Probe);
+        let (rate, via) = via_app(60);
+        assert_eq!(
+            budget.refused(&rate, via, b"", true, next_probe, 0.0),
+            AfterRefusal::Cooldown {
+                until: at("2026-03-04T10:33:00Z")
+            },
+            "the next refusal is on the fifteen-minute rung"
+        );
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn what_the_refusal_asked_is_stored_adopted_and_cleared_by_a_success() {
+        let mut budget = Budget::new(0);
+        let (rate, via) = via_app(600);
+        let now = at("2026-03-04T10:00:00Z");
+        budget.refused(&rate, via, b"", false, now, 0.0);
+        let stored = budget.stored(now);
+        assert_eq!(stored.asked_until, Some(at("2026-03-04T10:10:00Z")));
+
+        let mut other = Budget::new(0);
+        let later = at("2026-03-04T10:02:00Z");
+        other.adopt(&stored, later);
+        assert_eq!(
+            other.admit(Intent::User, later),
+            Admission::Deferred {
+                until: at("2026-03-04T10:10:00Z")
+            }
+        );
+
+        budget.succeeded(&RateBudget::default(), later);
+        assert_eq!(budget.stored(later).asked_until, None);
     }
 
     #[test]
@@ -2411,7 +2813,9 @@ mod tests {
             backfill_today: 0,
             day_offset_secs: 0,
             ladder_step: 0,
+            asked_until: None,
             upgrade_day: None,
+            backfill_cap_lifted: false,
         };
         let mut budget = Budget::new(0);
         budget.adopt(&stored, now);
@@ -2452,7 +2856,9 @@ mod tests {
             backfill_today: BACKFILL_ALLOWANCE.per_day.expect("a daily allowance"),
             day_offset_secs: 0,
             ladder_step: 0,
+            asked_until: None,
             upgrade_day: None,
+            backfill_cap_lifted: false,
         };
         let mut budget = Budget::new(0);
         budget.adopt(&stored, now);
@@ -2491,6 +2897,114 @@ mod tests {
         assert_eq!(wild.next_reset(now), at("2026-03-05T00:05:00Z"));
     }
 
+    fn lifted_key_budget() -> Budget {
+        let mut budget = Budget::new(0);
+        budget.set_backfill_cap_lifted(true);
+        budget.set_key_session(true);
+        budget
+    }
+
+    /// Scenario: the day cap is lifted on a key session.
+    /// Expected behaviour: the 801st request of a day goes, and so does the
+    /// upgrade day's 1,501st, with the window of 2,000 in fifteen minutes the
+    /// only hold; the same budget unlifted defers the 801st to the reset.
+    #[test]
+    fn a_lifted_day_cap_admits_past_the_day_share_and_holds_at_the_window() {
+        let now = at("2026-03-04T10:00:00Z");
+        let mut plain = Budget::new(0);
+        admit_n(&mut plain, Intent::Backfill, 800, now);
+        assert_eq!(
+            plain.admit(Intent::Backfill, now),
+            Admission::Deferred {
+                until: at("2026-03-05T00:00:00Z")
+            }
+        );
+
+        let mut lifted = lifted_key_budget();
+        admit_n(&mut lifted, Intent::Backfill, 2_000, now);
+        assert_eq!(
+            lifted.admit(Intent::Backfill, now),
+            Admission::Deferred {
+                until: now + FIFTEEN_MINUTES
+            },
+            "the 2,001st in fifteen minutes waits for the window"
+        );
+        let later = now + FIFTEEN_MINUTES;
+        assert_eq!(lifted.admit(Intent::Backfill, later), Admission::Admitted);
+        assert_eq!(lifted.snapshot(later).backfill.per_day, None);
+
+        let mut upgrade = lifted_key_budget();
+        upgrade.mark_upgrade_day(now);
+        let mut t = now;
+        for i in 0..1_501 {
+            if i % 1_000 == 0 {
+                t = now + FIFTEEN_MINUTES * (i / 1_000 + 1);
+            }
+            assert_eq!(
+                upgrade.admit(Intent::Backfill, t),
+                Admission::Admitted,
+                "{i}"
+            );
+        }
+    }
+
+    /// Expected behaviour: a lifted cap lifts neither the cooldown after a
+    /// refusal nor the sync's window.
+    #[test]
+    fn a_lifted_day_cap_leaves_the_cooldown_and_the_sync_window() {
+        let now = at("2026-03-04T10:00:00Z");
+        let mut budget = lifted_key_budget();
+        let (rate, via) = via_app(600);
+        let until = at("2026-03-04T10:10:00Z");
+        assert_eq!(
+            budget.refused(&rate, via, b"", false, now, 0.0),
+            AfterRefusal::Cooldown { until }
+        );
+        assert_eq!(
+            budget.admit(Intent::Backfill, now),
+            Admission::Deferred { until }
+        );
+        assert_eq!(budget.admit(Intent::Backfill, until), Admission::Admitted);
+
+        let mut synced = lifted_key_budget();
+        admit_n(
+            &mut synced,
+            Intent::Sync,
+            SYNC_ALLOWANCE.per_fifteen_minutes.expect("a sync window"),
+            now,
+        );
+        assert!(matches!(
+            synced.admit(Intent::Sync, now),
+            Admission::Deferred { .. }
+        ));
+    }
+
+    /// Expected behaviour: the switch lifts nothing unless the held credential
+    /// is a personal key, and the stored value survives a masked decision.
+    #[test]
+    fn the_switch_lifts_nothing_off_a_key_session_and_is_kept_in_the_store() {
+        let now = at("2026-03-04T10:00:00Z");
+        let store = Arc::new(MemoryStore::default());
+        let gov = Governor::new(1000, Box::new(NoopPolicy)).with_budget(
+            Budget::new(0),
+            Some(store.clone()),
+            no_jitter,
+        );
+        gov.lift_backfill_cap(now, true);
+        assert_eq!(store.get().map(|s| s.backfill_cap_lifted), Some(true));
+        // No credential is held in this process, so the cap stays.
+        let seen = gov.budget_snapshot(now).expect("a budget");
+        assert_eq!(seen.backfill.per_day, BACKFILL_ALLOWANCE.per_day);
+        assert!(!seen.backfill_cap_lifted);
+        assert_eq!(
+            store.get().map(|s| s.backfill_cap_lifted),
+            Some(true),
+            "a decision made without a key does not erase the switch"
+        );
+        gov.lift_backfill_cap(now, false);
+        assert_eq!(store.get().map(|s| s.backfill_cap_lifted), Some(false));
+    }
+
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_store_is_written_only_when_what_it_holds_changes() {
@@ -2513,6 +3027,36 @@ mod tests {
         gov.admit(Intent::Backfill, now);
         assert_eq!(store.saves(), first + 1);
         assert_eq!(store.get().map(|s| s.backfill_today), Some(1));
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn the_snapshot_carries_the_pool_figure_and_the_hold_it_set() {
+        let mut budget = Budget::new(0);
+        let now = at("2026-03-04T22:00:00Z");
+        assert_eq!(budget.snapshot(now).pool, None);
+        budget.succeeded(&remaining(2_000, 100), now);
+        let seen = budget.snapshot(now);
+        let pool = seen.pool.expect("a figure");
+        assert_eq!(pool.remaining.daily, 100);
+        assert_eq!(pool.remaining.fifteen_minutes, 2_000);
+        assert_eq!(pool.limit.daily, 8_000);
+        assert_eq!(pool.seen_at, now);
+        assert_eq!(seen.pool_hold_until, Some(at("2026-03-05T00:00:00Z")));
+        let ffi = FfiRequestBudget::from(seen);
+        assert_eq!(ffi.pool_remaining_daily, Some(100));
+        assert_eq!(ffi.pool_limit_daily, Some(8_000));
+        assert_eq!(
+            ffi.pool_hold_until,
+            Some(at("2026-03-05T00:00:00Z").timestamp() as f64)
+        );
+        // A response without the pair leaves the last figure as it was.
+        budget.succeeded(&RateBudget::default(), now);
+        assert_eq!(budget.snapshot(now).pool, Some(pool));
+        // The hold lapses with its time; the figure stays.
+        let after = budget.snapshot(at("2026-03-05T00:00:00Z"));
+        assert_eq!(after.pool_hold_until, None);
+        assert_eq!(after.pool, Some(pool));
     }
 
     #[test]
@@ -2639,10 +3183,10 @@ mod tests {
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_deferred_acquire_sends_nothing_and_takes_no_slot() {
         let now = chrono::Utc::now();
-        let gov =
-            Governor::new(1, Box::new(NoopPolicy)).with_budget(Budget::new(0), None, no_jitter);
+        let gov = Governor::new(1, Box::new(NoopPolicy)).with_budget(Budget::new(0), None, || 1.0);
         let (rate, via) = via_app(600);
-        gov.note_refusal(&rate, via, b"", false, now);
+        let refused_at = now - chrono::TimeDelta::seconds(601);
+        gov.note_refusal(&rate, via, b"", false, refused_at);
         crate::runtime::block_on(async {
             for _ in 0..3 {
                 assert!(matches!(

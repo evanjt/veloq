@@ -27,7 +27,6 @@ use super::library::LibraryCoverage;
 use super::observer;
 use super::observer::Announcement;
 use super::start::{FfiStartOutcome, FfiStartResult};
-#[cfg(test)]
 use crate::governor;
 use crate::governor::{AuthMethod, Dispatch, Intent, Lane};
 use crate::net::intervals::activity_metrics_row;
@@ -117,14 +116,19 @@ struct Credentials {
 #[serde(rename_all = "camelCase")]
 pub struct FfiSyncStatus {
     pub state: SyncState,
+    /// Unit: count.
     pub in_flight: u32,
+    /// Unit: count.
     pub completed: u32,
+    /// Unit: count.
     pub total: u32,
     /// Activities the running per-activity step has handled, of
     /// `step_items_total`. Both are zero for a step that is not a walk over
     /// activities, and between steps.
+    /// Unit: count.
     pub step_items_done: u32,
     /// Activities the running per-activity step owes, read when it began.
+    /// Unit: count.
     pub step_items_total: u32,
     /// Which endpoint the run is on, or `None` when nothing is running. The
     /// counters beside it count steps, so this is the only field that says
@@ -141,6 +145,7 @@ pub struct FfiSyncStatus {
     /// When the work the last run left owed is asked for again, as epoch
     /// milliseconds, when it ended on a refusal or a deferral from the
     /// request budget. The engine resumes it itself at this time.
+    /// Unit: epoch_millisecond.
     pub retry_at_ms: Option<f64>,
     /// The track work running beside the sync or after it: the GPS download,
     /// section detection or the heatmap pass, whichever comes first in that
@@ -151,6 +156,7 @@ pub struct FfiSyncStatus {
     /// How many activities the last download newly marked as held back by
     /// intervals.icu, which it serves as empty stubs. Zero before any download
     /// and after one that found none.
+    /// Unit: count.
     pub held_back_in_last_download: u32,
 }
 
@@ -326,6 +332,10 @@ pub struct FfiCallOutcome {
     pub status: Option<u16>,
     /// The server's own message, when the body carried one.
     pub detail: Option<String>,
+    /// When a refusal lifts, as epoch milliseconds, when `kind` is `RateLimited`
+    /// and the engine knows the time: the end of the deferral or cooldown that
+    /// refused the call. `None` otherwise.
+    pub retry_at_ms: Option<f64>,
     /// Diagnostic text. Always present.
     pub message: String,
 }
@@ -337,6 +347,7 @@ impl FfiCallOutcome {
             id,
             status: None,
             detail: None,
+            retry_at_ms: None,
             message: "ok".to_string(),
         }
     }
@@ -349,38 +360,60 @@ impl FfiCallOutcome {
             id: None,
             status: None,
             detail: None,
+            retry_at_ms: None,
             message: message.into(),
         }
     }
 
     fn from_error(e: &NetError) -> Self {
         let message = e.to_string();
-        let (kind, status, detail) = match e {
-            NetError::Unauthorized => (FfiCallKind::Unauthorized, Some(401), None),
-            NetError::RateLimited => (FfiCallKind::RateLimited, Some(429), None),
+        let (kind, status, detail, retry_at_ms) = match e {
+            NetError::Unauthorized => (FfiCallKind::Unauthorized, Some(401), None, None),
+            // The 429's cooldown is not in the error; the caller that holds the
+            // transport names it with `with_refusal_lift`.
+            NetError::RateLimited => (FfiCallKind::RateLimited, Some(429), None, None),
             // Nothing was sent, or the refusal set a cooldown: the caller
             // waits as it waits on a 429, and sends again later.
-            NetError::Deferred { .. } => (FfiCallKind::RateLimited, None, None),
+            NetError::Deferred { until } => (
+                FfiCallKind::RateLimited,
+                None,
+                None,
+                Some(until.timestamp_millis() as f64),
+            ),
             NetError::Http { status, body } => {
-                (FfiCallKind::Http, Some(*status), server_detail(body))
+                (FfiCallKind::Http, Some(*status), server_detail(body), None)
             }
-            NetError::Transport(_) => (FfiCallKind::Network, None, None),
+            NetError::Transport(_) => (FfiCallKind::Network, None, None, None),
             // A decode or file failure is local. Calling it a network error
             // would queue the item for a connectivity retry that cannot help.
             NetError::Decode(_)
             | NetError::Io(_)
             | NetError::Storage(_)
             | NetError::StorageFull(_)
-            | NetError::EngineClosed => (FfiCallKind::Internal, None, None),
+            | NetError::EngineClosed => (FfiCallKind::Internal, None, None, None),
         };
         FfiCallOutcome {
             kind,
             id: None,
             status,
             detail,
+            retry_at_ms,
             message,
         }
     }
+}
+
+/// Names when a refused call may be asked again: a 429 that carries no time of
+/// its own takes `lifts_at`, the end of the cooldown the transport holds. A
+/// deferral keeps the time it came with.
+fn with_refusal_lift(
+    mut outcome: FfiCallOutcome,
+    lifts_at: chrono::DateTime<chrono::Utc>,
+) -> FfiCallOutcome {
+    if outcome.kind == FfiCallKind::RateLimited && outcome.retry_at_ms.is_none() {
+        outcome.retry_at_ms = Some(lifts_at.timestamp_millis() as f64);
+    }
+    outcome
 }
 
 /// How long a body may be and still be worth showing someone. Past this it is
@@ -414,7 +447,9 @@ struct SyncInner {
     step: Option<FfiSyncStep>,
     last_error: Option<String>,
     last_error_reason: Option<FfiSyncErrorReason>,
-    /// When the last run's refusal lifts, if it ended on one.
+    /// When the last run's refusal lifts, if it ended on one that no governor
+    /// cooldown holds, and the short wait after a first transient failure.
+    /// A cooldown is read from the governor, never copied here.
     retry_at: Option<chrono::DateTime<chrono::Utc>>,
     /// When the install's own allowance frees, if the last run stopped on it.
     /// Not a refusal: nothing is shown for it, and a restart waits for it.
@@ -690,6 +725,43 @@ impl SyncService {
             .map(|c| governor::format_auth_header(c.method.auth_method(&c.secret)))
     }
 
+    /// The scheme of the held credential, or none while signed out.
+    fn held_kind(&self) -> Option<AuthKind> {
+        let g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
+        g.as_ref().map(|c| c.method)
+    }
+
+    /// Lift or restore the backfill's day cap on `gov`. Lifting is refused
+    /// unless the held credential is a personal key: the shared pool of the
+    /// OAuth application is not the athlete's to spend.
+    fn set_backfill_cap_lifted(
+        &self,
+        gov: &governor::Governor,
+        lifted: bool,
+    ) -> Result<(), VeloqError> {
+        if lifted && self.held_kind() != Some(AuthKind::ApiKey) {
+            return Err(VeloqError::ParseError {
+                msg: "the backfill day cap can be lifted only on a personal key sign-in"
+                    .to_string(),
+            });
+        }
+        gov.lift_backfill_cap(gov.now(), lifted);
+        Ok(())
+    }
+
+    /// A credential was given: any sign-in but a personal key puts the
+    /// backfill's day cap back.
+    fn note_credentials_given(&self, gov: &governor::Governor, kind: AuthKind) {
+        if kind != AuthKind::ApiKey {
+            gov.lift_backfill_cap(gov.now(), false);
+        }
+    }
+
+    /// The athlete signed out: the backfill's day cap goes back.
+    fn note_signed_out(&self, gov: &governor::Governor) {
+        gov.lift_backfill_cap(gov.now(), false);
+    }
+
     /// The athlete id the held credential belongs to, if any.
     fn athlete_id(&self) -> Option<String> {
         let g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
@@ -711,6 +783,13 @@ impl SyncService {
             .map_err(|e| SyncFailure::new(FfiSyncErrorReason::NotConfigured, e))?;
         Ok(live_source(transport, creds.athlete_id.clone())
             .built_under(self.generation.load(Ordering::SeqCst)))
+    }
+
+    /// Whether the feed is offered the account search: the held credential's
+    /// source answers one. With no intervals.icu credential there is no source,
+    /// and the search is not offered.
+    pub(crate) fn remote_search_offered(&self) -> bool {
+        self.build_session().is_ok_and(|session| session.searches())
     }
 
     /// Whether the credential `source` was built under is still the held one.
@@ -1132,7 +1211,7 @@ impl SyncService {
         self.inner
             .lock()
             .unwrap_or_else(|e| e.into_inner())
-            .retry_at = retry_at;
+            .retry_at = retry_at.filter(|_| source.cooldown_until(now).is_none());
         self.finish_run(
             source,
             SyncState::Idle,
@@ -1282,6 +1361,18 @@ impl SyncService {
     }
 
     pub fn snapshot(&self) -> FfiSyncStatus {
+        self.snapshot_at(&crate::governor::GOVERNOR, chrono::Utc::now())
+    }
+
+    /// The status at `now`. `retry_at_ms` is when work held back may be asked
+    /// for again: the governor's cooldown while one holds, else the service's
+    /// own short retry while it is still ahead.
+    fn snapshot_at(
+        &self,
+        governor: &crate::governor::Governor,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> FfiSyncStatus {
+        let cooldown = governor.cooldown_until(now);
         // Read before the service's own lock, so no slot lock is ever taken
         // under it.
         let tracks = super::track_stage::read();
@@ -1297,7 +1388,9 @@ impl SyncService {
             last_error: inner.last_error.clone(),
             last_error_reason: inner.last_error_reason,
             last_success_at: read_last_success_at(),
-            retry_at_ms: inner.retry_at.map(|at| at.timestamp_millis() as f64),
+            retry_at_ms: cooldown
+                .or(inner.retry_at.filter(|at| *at > now))
+                .map(|at| at.timestamp_millis() as f64),
             tracks,
             held_back_in_last_download: read_held_back_in_last_download(),
         }
@@ -1898,22 +1991,32 @@ async fn time_streams_job(
 /// offline gets nothing by asking until it is back. A key already in flight
 /// stops being held the moment that job lands. A key backing off lands on its
 /// own schedule. And a start before the engine opens is early, not refused.
-pub(crate) fn spawn_once<F, Fut>(key: JobKey, job: F) -> FfiStartResult
+///
+/// `intent` is what the job's requests are for. A start the request budget
+/// would defer under that intent is held with the time the hold lifts, before
+/// the lease is taken, so the key stays free for the reconnect or resume.
+pub(crate) fn spawn_once<F, Fut>(key: JobKey, intent: Intent, job: F) -> FfiStartResult
 where
     F: FnOnce(u64, LiveSource) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<(), NetError>> + Send,
 {
-    spawn_once_at(key, now_ms, job)
+    spawn_once_at(key, &crate::governor::GOVERNOR, intent, now_ms, job)
 }
 
-/// The start itself, with the clock handed in.
+/// The start itself, with the governor and the clock handed in.
 ///
 /// Split out the way `drain_queue_with` and `re_ask_with` are: the backoff is
 /// a pure function of the attempt count, and a test that has to spend the
 /// ladder to read it asserts on wall clock, which this suite has failed on
 /// twice under load. The clock is read twice, once for the claim and once for
 /// the release, because the release genuinely happens later.
-fn spawn_once_at<F, Fut, C>(key: JobKey, clock: C, job: F) -> FfiStartResult
+fn spawn_once_at<F, Fut, C>(
+    key: JobKey,
+    governor: &crate::governor::Governor,
+    intent: Intent,
+    clock: C,
+    job: F,
+) -> FfiStartResult
 where
     F: FnOnce(u64, LiveSource) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<(), NetError>> + Send,
@@ -1930,6 +2033,19 @@ where
     if crate::net::connectivity::is_offline() {
         log::info!("[Sync] {} deferred: offline", key.as_str());
         return FfiStartOutcome::Offline.into();
+    }
+    // Asked of the budget before the claim. A job whose requests the budget
+    // would all defer still takes the lease and answers `Started`, and then
+    // announces nothing, so the screen waits out its deadline. Held with the
+    // time the hold lifts instead, which leaves the key free for the resume
+    // that asks again. A user request is held here too while a Retry-After the
+    // refusal carried runs; a cooldown with no Retry-After lets it through to
+    // the budget's probe.
+    let at = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(now)
+        .unwrap_or_else(chrono::Utc::now);
+    if let Some(until) = governor.deferred_until(intent, at) {
+        log::info!("[Sync] {} held until {}", key.as_str(), until);
+        return FfiStartResult::backing_off(until.timestamp_millis());
     }
     // Which library this job belongs to, read on the calling thread, which is
     // the one that holds the engine. The lease and every write the job makes
@@ -2094,6 +2210,7 @@ impl Drop for TestCredentials {
 /// next.
 pub fn clear_credentials_from_native() {
     SYNC_SERVICE.clear_credentials();
+    SYNC_SERVICE.note_signed_out(&governor::GOVERNOR);
 }
 
 /// Set the process-wide credential from a native handler, which reached Rust
@@ -2109,6 +2226,7 @@ pub fn set_credentials_from_native(
 ) -> Result<(), String> {
     let kind = AuthKind::parse(method).ok_or_else(|| format!("unknown auth method: {method}"))?;
     SYNC_SERVICE.set_credentials(kind, secret.to_string(), athlete_id.to_string());
+    SYNC_SERVICE.note_credentials_given(&governor::GOVERNOR, kind);
     Ok(())
 }
 
@@ -2123,12 +2241,18 @@ pub(crate) fn give_credentials(
         msg: format!("unknown auth method: {}", method),
     })?;
     SYNC_SERVICE.set_credentials(kind, secret, athlete_id);
+    SYNC_SERVICE.note_credentials_given(&governor::GOVERNOR, kind);
     crate::net::elevation_backfill::start_owed_work();
     Ok(())
 }
 
 pub fn current_transport() -> Option<Result<Transport, String>> {
     current_session().map(|r| r.map(|session| session.transport().clone()))
+}
+
+/// The scheme of the credential the process holds, or none while signed out.
+pub(crate) fn held_auth_kind() -> Option<AuthKind> {
+    SYNC_SERVICE.held_kind()
 }
 
 pub(crate) fn signed_in_athlete_id() -> Option<String> {
@@ -2188,10 +2312,12 @@ pub(crate) async fn validate_credentials_detached(
         Err(e) => return FfiCallOutcome::internal(e),
     };
     // The athlete is what this asks, so the session names none yet.
+    let cooldown = transport.clone();
     let session = live_source(transport, String::new());
     // A rejected candidate is not an expired session, so unlike a write this
     // deliberately leaves the service state alone.
-    run_on_runtime(async move { credential_athlete(&session).await }).await
+    let outcome = run_on_runtime(async move { credential_athlete(&session).await }).await;
+    with_refusal_lift(outcome, cooldown.cooldown_lifts_at(chrono::Utc::now()))
 }
 
 /// The athlete a credential belongs to, asked on the athlete's own tap.
@@ -2240,6 +2366,7 @@ fn athlete_mismatch(held: &str, expected: Option<&str>) -> Option<FfiCallOutcome
         id: None,
         status: None,
         detail: None,
+        retry_at_ms: None,
         message: "the signed-in athlete is not the one this was recorded for".to_string(),
     })
 }
@@ -3787,6 +3914,10 @@ fn owed_windows(days: &[String]) -> Vec<(String, String)> {
 #[path = "tests/sync_window.rs"]
 mod sync_window_tests;
 
+#[cfg(test)]
+#[path = "tests/sync_refused.rs"]
+mod sync_refused_tests;
+
 /// What a window sync did with the page it asked for. A job that was cancelled
 /// wrote nothing, so its caller owes a terminal state that does not read as a
 /// success.
@@ -4374,7 +4505,7 @@ async fn upstream_pairs(
 const BULK_BODIES_FLOOR: usize = 25;
 
 /// An owed activity the bulk answer did not settle: the answer left it out,
-/// or carried it with no intervals.
+/// or carried it with no `icu_intervals` field.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct UnsettledBodies {
     activity_id: String,
@@ -4466,7 +4597,8 @@ async fn fetch_bodies_in_bulk(
 struct MatchedAnswer {
     /// `(key, date, body)` for each item in the detail form.
     details: Vec<(String, i64, String)>,
-    /// `(key, body)` for each item that carried intervals.
+    /// `(key, body)` for each item that carried an interval body, a null one
+    /// included.
     intervals: Vec<(String, String)>,
     unsettled: Vec<UnsettledBodies>,
     /// Set when the answer named an id the chunk did not ask for.
@@ -4477,9 +4609,9 @@ struct MatchedAnswer {
 /// not by the order asked.
 ///
 /// An item counts as a detail body only in the detail form, which a stub for
-/// an activity the server cannot share is not. An item with no intervals is
-/// left for the single request to settle, as is an id the answer left out,
-/// but only when the answer's ids are a subset of those asked: an answer that
+/// an activity the server cannot share is not. An item with no `icu_intervals`
+/// field is left for the single request to settle, as is an id the answer left
+/// out, but only when the answer's ids are a subset of those asked: an answer that
 /// names an id nobody asked for is not this request's answer, so nothing it
 /// omits is taken as absent.
 fn match_bulk_answer(
@@ -5092,6 +5224,13 @@ impl SyncManager {
     /// is the one way to drop the key.
     fn clear_credentials(&self) {
         SYNC_SERVICE.clear_credentials();
+        SYNC_SERVICE.note_signed_out(&governor::GOVERNOR);
+    }
+
+    /// Lift the backfill's day cap, or put it back. Refused unless the held
+    /// credential is a personal key.
+    fn set_backfill_cap_lifted(&self, lifted: bool) -> Result<(), VeloqError> {
+        SYNC_SERVICE.set_backfill_cap_lifted(&governor::GOVERNOR, lifted)
     }
 
     /// Ask Garmin whether a pasted Personal key works, with one token
@@ -5277,6 +5416,7 @@ impl SyncManager {
         let days = crate::ffi_types::int_from_wire(days);
         spawn_once(
             JobKey::new("power", &[&sport, &days.to_string()]),
+            Intent::User,
             move |install, session| async move { power_curve_job(install, &session, sport, days).await },
         )
     }
@@ -5287,6 +5427,7 @@ impl SyncManager {
         let days = crate::ffi_types::int_from_wire(days);
         spawn_once(
             JobKey::new("pace", &[&sport, &days.to_string(), &gap.to_string()]),
+            Intent::User,
             move |install, session| async move {
                 pace_curve_job(install, &session, sport, days, gap).await
             },
@@ -5297,6 +5438,7 @@ impl SyncManager {
     fn sync_activity_intervals(&self, activity_id: String) -> FfiStartResult {
         spawn_once(
             JobKey::new("intervals", &[&activity_id]),
+            Intent::User,
             move |install, session| async move {
                 activity_intervals_job(install, &session, activity_id).await
             },
@@ -5308,6 +5450,7 @@ impl SyncManager {
     fn sync_calendar_events(&self, oldest: String, newest: String) -> FfiStartResult {
         spawn_once(
             JobKey::new("calendar", &[&oldest, &newest]),
+            Intent::User,
             move |install, session| async move {
                 fetch_and_store_calendar(
                     install,
@@ -5326,6 +5469,7 @@ impl SyncManager {
     fn sync_activity_streams(&self, activity_id: String, types: String) -> FfiStartResult {
         spawn_once(
             JobKey::new("streams", &[&activity_id, &types]),
+            Intent::User,
             move |install, session| async move {
                 activity_streams_job(install, &session, activity_id, types).await
             },
@@ -5337,10 +5481,58 @@ impl SyncManager {
     fn sync_activity_detail(&self, activity_id: String) -> FfiStartResult {
         spawn_once(
             JobKey::new("detail", &[&activity_id]),
+            Intent::User,
             move |install, session| async move {
                 activity_detail_job(install, &session, activity_id).await
             },
         )
+    }
+
+    /// Search the signed-in athlete's account for the activities the library
+    /// does not hold, for the end of a feed search that has run out of local
+    /// results. `query` is the feed's own: a name is searched by name, a date
+    /// range alone is listed, and the sport, distance and moving time bounds
+    /// narrow what comes back; its paging fields are ignored. Opening a row is
+    /// `sync_activity_detail` on its server id.
+    ///
+    /// A refused or unreachable request resolves `Failed` rather than an empty
+    /// list, so the screen can say the search did not happen.
+    pub async fn search_remote_activities(
+        &self,
+        query: crate::FfiActivityBodiesQuery,
+    ) -> crate::FfiRemoteActivitySearch {
+        use crate::FfiRemoteSearchStatus as Status;
+        let Ok(session) = SYNC_SERVICE.build_session() else {
+            return crate::FfiRemoteActivitySearch::without_rows(Status::Unavailable);
+        };
+        if crate::net::connectivity::is_offline() {
+            return crate::FfiRemoteActivitySearch::without_rows(Status::Failed);
+        }
+        let install = crate::persistence::engine_install();
+        crate::runtime::ASYNC_RUNTIME
+            .spawn(async move {
+                let held = async |ids: Vec<String>| {
+                    crate::persistence::with_persistent_engine_blocking_for(install, move |e| {
+                        e.held_upstream_ids(&ids)
+                    })
+                    .await
+                    .and_then(Result::ok)
+                    .unwrap_or_default()
+                };
+                match crate::net::remote_search::search(&session, &query, held).await {
+                    Ok(found) => found.into(),
+                    Err(NetError::Unauthorized) => {
+                        park_auth_expired(&session).await;
+                        crate::FfiRemoteActivitySearch::without_rows(Status::Failed)
+                    }
+                    Err(e) => {
+                        log::warn!("[Sync] remote activity search failed: {e}");
+                        crate::FfiRemoteActivitySearch::without_rows(Status::Failed)
+                    }
+                }
+            })
+            .await
+            .unwrap_or_else(|_| crate::FfiRemoteActivitySearch::without_rows(Status::Failed))
     }
 
     /// Fetch and store what one activity still lacks for a screen that opens
@@ -5391,7 +5583,7 @@ impl SyncManager {
             return FfiStartOutcome::NotOwed.into();
         }
         let key = JobKey::over("timestreams", &activity_ids);
-        spawn_once(key, move |install, session| async move {
+        spawn_once(key, Intent::Backfill, move |install, session| async move {
             time_streams_job(install, &session, activity_ids).await
         })
     }
@@ -5454,6 +5646,51 @@ mod sync_verbs_source_tests;
 
 #[cfg(test)]
 mod tests {
+    /// Expected behaviour: the switch that lifts the backfill's day cap is
+    /// refused on an OAuth credential, written on a key, and cleared by an
+    /// OAuth sign-in and by a sign-out. Driven through the doors the app
+    /// calls, with the stored switch read back on a key sign-in, since the
+    /// budget reports it only while a key is held.
+    #[test]
+    fn the_backfill_cap_switch_follows_the_sign_in() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("backfill_cap_switch.db");
+        let _base = test_base_url("http://127.0.0.1:9".to_string());
+        let _live = governor::GOVERNOR.live_budget();
+        let manager = SyncManager::new();
+        let lifted = || {
+            governor::GOVERNOR
+                .budget_snapshot(governor::GOVERNOR.now())
+                .is_some_and(|s| s.backfill_cap_lifted)
+        };
+
+        give_credentials("oauth", "t".into(), "i1".into()).unwrap();
+        assert!(manager.set_backfill_cap_lifted(true).is_err());
+        give_credentials("api_key", "k".into(), "i1".into()).unwrap();
+        assert!(!lifted(), "a refused switch writes nothing");
+
+        manager.set_backfill_cap_lifted(true).unwrap();
+        assert!(lifted());
+
+        give_credentials("api_key", "k".into(), "i1".into()).unwrap();
+        assert!(lifted(), "a key signing in again keeps it");
+
+        give_credentials("oauth", "t".into(), "i1".into()).unwrap();
+        give_credentials("api_key", "k".into(), "i1".into()).unwrap();
+        assert!(!lifted(), "an OAuth sign-in clears it");
+
+        manager.set_backfill_cap_lifted(true).unwrap();
+        assert!(lifted());
+        manager.clear_credentials();
+        give_credentials("api_key", "k".into(), "i1".into()).unwrap();
+        assert!(!lifted(), "a sign-out clears it");
+
+        manager.set_backfill_cap_lifted(true).unwrap();
+        manager.set_backfill_cap_lifted(false).unwrap();
+        assert!(!lifted(), "putting it back needs no key check");
+        manager.clear_credentials();
+    }
+
     use super::*;
     use crate::governor::{Governor, NoopPolicy};
     use httpmock::prelude::*;
@@ -5854,10 +6091,11 @@ mod tests {
     /// failing backs off instead of being re-admitted the instant it lands.
     mod leases {
         use super::*;
+        use crate::governor::{AfterRefusal, Budget, GOVERNOR, Governor, NoopPolicy, RateBudget};
         use crate::persistence::attempts::{JobKey, attempt_backoff_ms};
         use crate::persistence::with_persistent_engine;
         use crate::test_globals::{init_global_engine, serial_global_state};
-        use std::sync::atomic::AtomicI64;
+        use std::sync::atomic::{AtomicBool, AtomicI64};
 
         fn key() -> JobKey {
             JobKey::new("detail", &["a1"])
@@ -5903,6 +6141,8 @@ mod tests {
 
             let refused = spawn_once_at(
                 key(),
+                &GOVERNOR,
+                Intent::User,
                 || 1_000,
                 |_i, _session| async { Ok::<(), NetError>(()) },
             );
@@ -5918,6 +6158,8 @@ mod tests {
 
             let busy = spawn_once_at(
                 key(),
+                &GOVERNOR,
+                Intent::User,
                 || 1_001,
                 |_i, _session| async { Ok::<(), NetError>(()) },
             );
@@ -5944,6 +6186,8 @@ mod tests {
             assert_eq!(
                 spawn_once_at(
                     key(),
+                    &GOVERNOR,
+                    Intent::User,
                     || 1_001,
                     |_i, _session| async { Ok::<(), NetError>(()) }
                 ),
@@ -5956,6 +6200,8 @@ mod tests {
             assert_eq!(
                 spawn_once_at(
                     key(),
+                    &GOVERNOR,
+                    Intent::User,
                     || 1_002,
                     |_i, _session| async { Ok::<(), NetError>(()) }
                 ),
@@ -5980,6 +6226,8 @@ mod tests {
                 assert_eq!(
                     spawn_once_at(
                         key(),
+                        &GOVERNOR,
+                        Intent::User,
                         move || tick.load(Ordering::SeqCst),
                         |_i, _session| async {
                             Err::<(), NetError>(NetError::Http {
@@ -5995,6 +6243,8 @@ mod tests {
                 let tick = Arc::clone(&clock);
                 let held = spawn_once_at(
                     key(),
+                    &GOVERNOR,
+                    Intent::User,
                     move || tick.load(Ordering::SeqCst),
                     |_i, _session| async { Ok::<(), NetError>(()) },
                 );
@@ -6037,6 +6287,8 @@ mod tests {
                 assert_eq!(
                     spawn_once_at(
                         key(),
+                        &GOVERNOR,
+                        Intent::User,
                         || 1_000,
                         |_i, _session| async {
                             Err::<(), NetError>(NetError::Transport("offline".to_string()))
@@ -6051,6 +6303,8 @@ mod tests {
             assert_eq!(
                 spawn_once_at(
                     key(),
+                    &GOVERNOR,
+                    Intent::User,
                     || 1_000,
                     |_i, _session| async { Ok::<(), NetError>(()) }
                 ),
@@ -6075,6 +6329,8 @@ mod tests {
             assert_eq!(
                 spawn_once_at(
                     key(),
+                    &GOVERNOR,
+                    Intent::User,
                     || 1_000,
                     |_i, _session| async {
                         Err::<(), NetError>(NetError::Http {
@@ -6097,6 +6353,8 @@ mod tests {
                 assert_eq!(
                     spawn_once_at(
                         key(),
+                        &GOVERNOR,
+                        Intent::User,
                         move || after_backoff,
                         |_i, _session| async {
                             Err::<(), NetError>(NetError::Deferred {
@@ -6131,6 +6389,8 @@ mod tests {
             assert_eq!(
                 spawn_once_at(
                     key(),
+                    &GOVERNOR,
+                    Intent::User,
                     || 1_000,
                     |_i, _session| async {
                         panic!("the job blew up");
@@ -6165,6 +6425,8 @@ mod tests {
             assert_eq!(
                 spawn_once_at(
                     key(),
+                    &GOVERNOR,
+                    Intent::User,
                     || 1_000,
                     |_i, _session| async { Ok::<(), NetError>(()) }
                 ),
@@ -6180,6 +6442,8 @@ mod tests {
             assert_eq!(
                 spawn_once_at(
                     key(),
+                    &GOVERNOR,
+                    Intent::User,
                     || 1_001,
                     |_i, _session| async { Ok::<(), NetError>(()) }
                 ),
@@ -6198,11 +6462,104 @@ mod tests {
 
             let outcome = spawn_once_at(
                 key(),
+                &GOVERNOR,
+                Intent::User,
                 || 1_000,
                 |_i, _session| async { Ok::<(), NetError>(()) },
             );
             assert_eq!(outcome, FfiStartOutcome::NotReady);
             assert!(outcome.is_retryable());
+        }
+
+        /// Scenario: a refusal put the request budget in a cooldown, and a
+        /// section opens whose time streams it would defer.
+        ///
+        /// Expected behaviour: a backfill start answers held with the time the
+        /// cooldown ends, takes no lease and runs no job, so the key is free for
+        /// the reconnect that asks again. A user start inside the Retry-After is
+        /// held to the same time, and goes once that time has passed. With no
+        /// cooldown a backfill start still starts.
+        #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+        fn a_cooldown_holds_a_backfill_start_before_it_takes_the_lease() {
+            let _serial = serial_global_state();
+            let _tmp = init_global_engine("leases.db");
+            let _creds = test_credentials();
+
+            let now = chrono::Utc::now();
+            let clock = now.timestamp_millis();
+            let governor =
+                Governor::new(1000, Box::new(NoopPolicy)).with_budget(Budget::new(0), None, || 0.0);
+            let refused = RateBudget {
+                retry_after_secs: Some(600),
+                ..Default::default()
+            };
+            let AfterRefusal::Cooldown { until } =
+                governor.note_refusal(&refused, None, b"", false, now)
+            else {
+                panic!("a long Retry-After sets a cooldown");
+            };
+
+            let ran = Arc::new(AtomicBool::new(false));
+            let flag = Arc::clone(&ran);
+            let held = spawn_once_at(
+                key(),
+                &governor,
+                Intent::Backfill,
+                move || clock,
+                move |_i, _session| async move {
+                    flag.store(true, Ordering::SeqCst);
+                    Ok::<(), NetError>(())
+                },
+            );
+            assert_eq!(held.outcome, FfiStartOutcome::Held);
+            assert_eq!(held.retry_at_ms, Some(until.timestamp_millis() as f64));
+            assert!(!ran.load(Ordering::SeqCst), "a held start ran its job");
+            assert!(
+                with_persistent_engine(|engine| engine.job_attempt(&key()).expect("read"))
+                    .expect("engine")
+                    .is_none_or(|row| row.lease_gen == 0),
+                "a held start took the lease"
+            );
+
+            let tapped = spawn_once_at(
+                key(),
+                &governor,
+                Intent::User,
+                move || clock,
+                |_i, _session| async { Ok::<(), NetError>(()) },
+            );
+            assert_eq!(tapped.outcome, FfiStartOutcome::Held);
+            assert_eq!(tapped.retry_at_ms, Some(until.timestamp_millis() as f64));
+
+            let first_ms_after = (until + chrono::Duration::milliseconds(1)).timestamp_millis();
+            assert_eq!(
+                spawn_once_at(
+                    key(),
+                    &governor,
+                    Intent::User,
+                    move || first_ms_after,
+                    |_i, _session| async { Ok::<(), NetError>(()) },
+                ),
+                FfiStartOutcome::Started,
+                "a tapped screen was held after the Retry-After had passed"
+            );
+            drain_spawned();
+
+            let open =
+                Governor::new(1000, Box::new(NoopPolicy)).with_budget(Budget::new(0), None, || 0.0);
+            assert_eq!(
+                spawn_once_at(
+                    key(),
+                    &open,
+                    Intent::Backfill,
+                    move || clock,
+                    |_i, _session| async { Ok::<(), NetError>(()) },
+                ),
+                FfiStartOutcome::Started,
+                "a start with no cooldown was held"
+            );
+            drain_spawned();
         }
 
         /// `timestreams` was the one unbounded key: `activity_ids.join(",")`
@@ -6425,6 +6782,17 @@ mod tests {
         stop.store(true, Ordering::Relaxed);
         parker.join().expect("parker");
         assert_eq!(busy, 0, "a park is a missing credential, never a held slot");
+    }
+
+    /// Scenario: a session with no intervals.icu credential is not offered the
+    /// account search, because the search is answered by the intervals.icu
+    /// session alone.
+    #[test]
+    fn the_account_search_is_offered_only_under_an_intervals_credential() {
+        let svc = SyncService::new();
+        assert!(!svc.remote_search_offered());
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(svc.remote_search_offered());
     }
 
     #[test]
@@ -7878,9 +8246,54 @@ mod tests {
         let until = gov
             .cooldown_until(chrono::Utc::now())
             .expect("the refusal set a cooldown");
-        let s = svc.snapshot();
+        let s = svc.snapshot_at(&gov, chrono::Utc::now());
         assert_eq!(s.last_error_reason, Some(FfiSyncErrorReason::RateLimited));
         assert_eq!(s.retry_at_ms, Some(until.timestamp_millis() as f64));
+    }
+
+    /// Scenario: a cooldown is stored by another process, or set by a start
+    /// that sent nothing, and no run of this service ever ended on a refusal.
+    ///
+    /// Expected behaviour: the status carries the cooldown's end, and carries
+    /// nothing once it has lapsed or when only a retry time already past is
+    /// left on the service.
+    #[test]
+    fn the_status_reads_the_cooldown_from_the_governor_not_from_a_run() {
+        let gov = Governor::new(1000, Box::new(NoopPolicy)).with_budget(
+            crate::governor::Budget::new(0),
+            None,
+            || 0.0,
+        );
+        let now = chrono::Utc::now();
+        let svc = SyncService::new();
+        assert_eq!(svc.snapshot_at(&gov, now).retry_at_ms, None);
+
+        let refused = crate::governor::RateBudget {
+            retry_after_secs: Some(600),
+            ..Default::default()
+        };
+        let crate::governor::AfterRefusal::Cooldown { until } =
+            gov.note_refusal(&refused, None, b"", false, now)
+        else {
+            panic!("a long Retry-After sets a cooldown");
+        };
+        assert_eq!(
+            svc.snapshot_at(&gov, now).retry_at_ms,
+            Some(until.timestamp_millis() as f64),
+            "no run ended on the refusal"
+        );
+        assert_eq!(svc.snapshot_at(&gov, until).retry_at_ms, None, "lapsed");
+
+        let past = now - chrono::TimeDelta::minutes(5);
+        svc.inner.lock().unwrap().retry_at = Some(past);
+        assert_eq!(svc.snapshot_at(&gov, until).retry_at_ms, None, "past");
+        let ahead = until + chrono::TimeDelta::minutes(1);
+        svc.inner.lock().unwrap().retry_at = Some(ahead);
+        assert_eq!(
+            svc.snapshot_at(&gov, until).retry_at_ms,
+            Some(ahead.timestamp_millis() as f64),
+            "the short retry still ahead"
+        );
     }
 
     /// Scenario: the install's own sync allowance is spent when a run starts,
@@ -7985,7 +8398,7 @@ mod tests {
         let gov = Governor::new(1000, Box::new(NoopPolicy)).with_budget(
             crate::governor::Budget::new(0),
             None,
-            || 0.0,
+            || 1.0,
         );
         let now = chrono::Utc::now();
         assert_eq!(
@@ -7998,9 +8411,13 @@ mod tests {
             retry_after_secs: Some(600),
             ..Default::default()
         };
-        let crate::governor::AfterRefusal::Cooldown { until } =
-            gov.note_refusal(&refused, None, b"", false, now)
-        else {
+        let crate::governor::AfterRefusal::Cooldown { until } = gov.note_refusal(
+            &refused,
+            None,
+            b"",
+            false,
+            now - chrono::TimeDelta::seconds(601),
+        ) else {
             panic!("a long Retry-After sets a cooldown");
         };
 
@@ -9598,6 +10015,43 @@ mod tests {
         let missing = FfiCallOutcome::from_error(&NetError::Io("no such file".to_string()));
         assert_eq!(missing.kind, FfiCallKind::Internal);
         assert_eq!(missing.status, None);
+    }
+
+    #[test]
+    fn a_deferral_names_the_time_its_refusal_lifts() {
+        let until = chrono::Utc::now() + chrono::Duration::minutes(5);
+        let deferred = FfiCallOutcome::from_error(&NetError::Deferred { until });
+        assert_eq!(deferred.kind, FfiCallKind::RateLimited);
+        assert_eq!(deferred.retry_at_ms, Some(until.timestamp_millis() as f64));
+    }
+
+    #[test]
+    fn a_429_the_retries_ran_out_on_takes_the_cooldown_time() {
+        let cooldown_ends = chrono::Utc::now() + chrono::Duration::minutes(2);
+        let limited = with_refusal_lift(
+            FfiCallOutcome::from_error(&NetError::RateLimited),
+            cooldown_ends,
+        );
+        assert_eq!(limited.kind, FfiCallKind::RateLimited);
+        assert_eq!(
+            limited.retry_at_ms,
+            Some(cooldown_ends.timestamp_millis() as f64)
+        );
+
+        // A deferral already carries its own time, which the cooldown does not replace.
+        let until = chrono::Utc::now() + chrono::Duration::minutes(5);
+        let deferred = with_refusal_lift(
+            FfiCallOutcome::from_error(&NetError::Deferred { until }),
+            cooldown_ends,
+        );
+        assert_eq!(deferred.retry_at_ms, Some(until.timestamp_millis() as f64));
+
+        // A failure that is not a refusal names no time.
+        let offline = with_refusal_lift(
+            FfiCallOutcome::from_error(&NetError::Transport("dns".to_string())),
+            cooldown_ends,
+        );
+        assert_eq!(offline.retry_at_ms, None);
     }
 
     #[test]

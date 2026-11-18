@@ -41,6 +41,9 @@ pub enum SessionKind {
     Finished,
     /// A named workout that starting copies into a live session.
     Saved,
+    /// A saved workout the athlete deleted. Its rows stay so the phone can
+    /// list and recover it, and no reader of saved workouts sees it.
+    Removed,
 }
 
 impl SessionKind {
@@ -49,6 +52,7 @@ impl SessionKind {
             SessionKind::Live => "live",
             SessionKind::Finished => "finished",
             SessionKind::Saved => "saved",
+            SessionKind::Removed => "removed",
         }
     }
 
@@ -57,6 +61,7 @@ impl SessionKind {
             "live" => Some(SessionKind::Live),
             "finished" => Some(SessionKind::Finished),
             "saved" => Some(SessionKind::Saved),
+            "removed" => Some(SessionKind::Removed),
             _ => None,
         }
     }

@@ -10,7 +10,8 @@
  * nothing queued behind it. A refused pull is now held and run when the slot
  * frees. One is held however many times the athlete pulls: they asked for
  * current data, not for a sync each. The verdict says which refusal it was, so
- * only the kind that lifts is held. A missing credential is not waited on.
+ * only the kind that lifts is held. A missing credential is not waited on, and
+ * neither is a hold that names its end, which the engine resumes itself.
  *
  * The pull forces the athlete profile, which a foreground sync leaves to its
  * age gate: the athlete asked for current data, and an edit they just made on
@@ -44,6 +45,12 @@ export function requestSyncRefresh(): StartOutcome {
   const result = engine.syncNow(true);
   const outcome = startOutcome(result);
   if (hasStarted(result) || !isRetryableStart(result)) return outcome;
+  // A hold that names its end is the governor's cooldown: the engine starts
+  // the run itself when it lifts, and the status carries the time. Nothing is
+  // waited on, since no run settles before then.
+  if (outcome === StartOutcome.Held && typeof result === 'object' && result.retryAtMs != null) {
+    return outcome;
+  }
 
   // `syncSettled` is the terminal transition, so each retry costs one sync
   // ending. A slot taken again in between waits for the next one rather than

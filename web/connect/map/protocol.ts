@@ -23,15 +23,19 @@ export type Response = maplibregl.ResourceResponse;
 export const SCHEME = 'veloq';
 
 /** Which method answers each kind of `geo` URL, and what it is asked. */
-const GEO_KINDS: Record<string, { method: string; params: (key: string) => object }> = {
-  track: { method: 'geo.track', params: (key) => ({ activityId: key }) },
-  'activity-overlay': { method: 'geo.activityOverlay', params: (key) => ({ activityId: key }) },
+export const GEO_KINDS: Record<string, { method: string; params: (key: string) => object }> = {
+  track: { method: 'geo.track', params: (key) => ({ id: key }) },
+  'activity-overlay': { method: 'geo.activityOverlay', params: (key) => ({ id: key }) },
   'route-lines': { method: 'geo.routeLines', params: () => ({}) },
   sections: { method: 'geo.sections', params: () => ({}) },
   route: { method: 'geo.route', params: (key) => ({ groupId: key }) },
   'route-attempts': { method: 'geo.routeAttempts', params: (key) => ({ groupId: key }) },
   'route-latest': { method: 'geo.routeLatest', params: (key) => ({ groupId: key }) },
-  section: { method: 'geo.section', params: (key) => ({ sectionId: key }) },
+  // Zero points and no packing keep the line whole, as GeoJSON text.
+  section: {
+    method: 'geo.section',
+    params: (key) => ({ sectionId: key, maxPoints: 0, packed: false }),
+  },
   // The key is `<version>:<section id>`, a version being digits.
   'section-version': {
     method: 'geo.sectionVersion',

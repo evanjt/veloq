@@ -34,7 +34,7 @@ fn statements_in(engine: &mut PersistentEngine, read: impl FnOnce(&mut Persisten
     *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner()) = 0;
     crate::test_trace::trace_statements!(engine.db, count);
     read(engine);
-    crate::test_trace::untrace(&engine.db);
+    crate::test_trace::untrace(&mut engine.db);
     *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner())
 }
 
@@ -238,7 +238,7 @@ fn reads(small: Ids, large: Ids) -> Vec<(&'static str, Read)> {
         (
             "startup_data",
             Box::new(move |_, e| {
-                consume(e.startup_data(NOW - week, NOW, NOW - 2 * week, NOW - week, &[]))
+                consume(e.startup_data(NOW - week, NOW, NOW - 2 * week, NOW - week, &[], false))
             }),
         ),
         (

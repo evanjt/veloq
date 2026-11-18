@@ -378,10 +378,18 @@
       "role": "text-primary"
     },
     "chartHrv": {
-      "role": "chart-series"
+      "role": "wellness-hrv",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
     "chartRhr": {
-      "role": "chart-series"
+      "role": "wellness-rhr",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
     "chartHrvText": {
       "role": "text-primary"

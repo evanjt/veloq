@@ -15,6 +15,9 @@ import { initialiseI18n } from '@/i18n';
 import { TrackFetchNotice } from '@/shared/ui/TrackFetchNotice';
 import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
 
+// The notice reads the engine on mount; a closed engine leaves the held list as the test set it.
+jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
+
 jest.mock('@/shared/app/useTheme', () => ({ useTheme: () => ({ isDark: false }) }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -45,6 +48,17 @@ describe('the missing-tracks notice', () => {
 
     expect(getByTestId('track-fetch-notice')).toBeTruthy();
     expect(getByText("3 routes didn't come down")).toBeTruthy();
+  });
+
+  it('says what happened and what to do, with no talk of the map or sections', async () => {
+    useTrackFetchNotice.setState({ failedCount: 3, dismissed: false });
+
+    const { getByTestId } = await render(<TrackFetchNotice />);
+    const text = JSON.stringify(getByTestId('track-fetch-notice').props.accessibilityLabel ?? '');
+
+    expect(text).toMatch(/tried several times/);
+    expect(text).toMatch(/Retry/);
+    expect(text).not.toMatch(/map|section|refresh/i);
   });
 
   vaultIt('counts one route in the singular', async () => {

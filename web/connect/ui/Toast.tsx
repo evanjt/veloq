@@ -11,13 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import {
-  dismissToast,
-  pushToast,
-  TOAST_LIFETIME_MS,
-  undoToast,
-  type ToastEntry,
-} from './behaviour';
+import { dismissToast, pushToast, toastLifetime, undoToast, type ToastEntry } from './behaviour';
 import { Button } from './Button';
 
 type Notify = (message: string, undo?: ToastEntry['undo']) => void;
@@ -30,9 +24,20 @@ export function ToastRegion(props: {
   dismissLabel: string;
   onDismiss: (id: number) => void;
   onUndo: (id: number) => void;
+  /** Called when a pointer or focus enters (true) or leaves (false) the region. */
+  onHold?: (held: boolean) => void;
 }) {
+  const { onHold } = props;
   return (
-    <div className="ui-toasts" role="status" aria-live="polite">
+    <div
+      className="ui-toasts"
+      role="status"
+      aria-live="polite"
+      onMouseEnter={() => onHold?.(true)}
+      onMouseLeave={() => onHold?.(false)}
+      onFocus={() => onHold?.(true)}
+      onBlur={() => onHold?.(false)}
+    >
       {props.toasts.map((toast) => (
         <div key={toast.id} className="ui-toast">
           <span>{toast.message}</span>
@@ -63,29 +68,31 @@ export function ToastProvider({
   children: ReactNode;
 }) {
   const [toasts, setToasts] = useState<ToastEntry[]>([]);
+  const [held, setHeld] = useState(false);
   const next = useRef(1);
   const notify = useCallback<Notify>((message, undo) => {
     const id = next.current++;
-    setToasts((held) => pushToast(held, undo ? { id, message, undo } : { id, message }));
+    setToasts((list) => pushToast(list, undo ? { id, message, undo } : { id, message }));
   }, []);
   useEffect(() => {
     const first = toasts[0];
-    if (!first) return undefined;
+    if (!first || held) return undefined;
     const oldest = first.id;
     const timer = setTimeout(
-      () => setToasts((held) => dismissToast(held, oldest)),
-      TOAST_LIFETIME_MS
+      () => setToasts((list) => dismissToast(list, oldest)),
+      toastLifetime(first)
     );
     return () => clearTimeout(timer);
-  }, [toasts]);
+  }, [toasts, held]);
   return (
     <ToastContext.Provider value={notify}>
       {children}
       <ToastRegion
         toasts={toasts}
         dismissLabel={dismissLabel}
-        onDismiss={(id) => setToasts((held) => dismissToast(held, id))}
-        onUndo={(id) => setToasts((held) => undoToast(held, id))}
+        onDismiss={(id) => setToasts((list) => dismissToast(list, id))}
+        onUndo={(id) => setToasts((list) => undoToast(list, id))}
+        onHold={setHeld}
       />
     </ToastContext.Provider>
   );

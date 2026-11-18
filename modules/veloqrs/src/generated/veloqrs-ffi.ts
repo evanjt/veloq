@@ -465,6 +465,14 @@ interface NativeModuleInterface {
     query: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_get_feed_filter_bounds(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_get_given_up_tracks(
+    uniffiSelf: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_get_gps_fetch_candidates(
     uniffiSelf: bigint,
     oldest: Uint8Array,
@@ -1075,8 +1083,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_remotemanager_accept_offer(
     uniffiSelf: bigint,
     offer: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_remotemanager_begin_pairing(
     uniffiSelf: bigint,
     qr: Uint8Array,
@@ -1100,6 +1107,17 @@ interface NativeModuleInterface {
     reason: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_remotemanager_disconnect_linked_device(
+    uniffiSelf: bigint,
+    id: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_remotemanager_linked_devices_screen(
+    uniffiSelf: bigint,
+    writesLimit: number,
+    connectionsLimit: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_remotemanager_linked_rooms(
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1121,6 +1139,12 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_remotemanager_remove_linked_device(
     uniffiSelf: bigint,
     id: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_remotemanager_rename_linked_device(
+    uniffiSelf: bigint,
+    id: Uint8Array,
+    name: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
   ubrn_uniffi_veloqrs_fn_method_remotemanager_set_device_name(
@@ -1186,12 +1210,14 @@ interface NativeModuleInterface {
     highlightActivityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_routemanager_get_nearby_for_recording(
+  ubrn_uniffi_veloqrs_fn_method_routemanager_get_nearby_places(
     uniffiSelf: bigint,
     latitude: number,
     longitude: number,
     sport: Uint8Array,
+    kinds: Uint8Array,
     followedRouteId: Uint8Array,
+    lineAsk: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_performances(
@@ -1481,6 +1507,30 @@ interface NativeModuleInterface {
     points: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_build_route_fit_course(
+    uniffiSelf: bigint,
+    groupId: Uint8Array,
+    sport: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_build_route_gpx_file(
+    uniffiSelf: bigint,
+    groupId: Uint8Array,
+    sport: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_build_section_fit_course(
+    uniffiSelf: bigint,
+    sectionId: Uint8Array,
+    sport: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_build_section_gpx_file(
+    uniffiSelf: bigint,
+    sectionId: Uint8Array,
+    sport: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_cache_screen_data(
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1679,6 +1729,11 @@ interface NativeModuleInterface {
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_recover_strength_workout(
+    uniffiSelf: bigint,
+    id: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_search_exercises(
     uniffiSelf: bigint,
     query: Uint8Array,
@@ -1789,6 +1844,15 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     activityId: Uint8Array,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_search_remote_activities(
+    uniffiSelf: bigint,
+    query: Uint8Array,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_set_backfill_cap_lifted(
+    uniffiSelf: bigint,
+    lifted: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_set_credentials(
     uniffiSelf: bigint,
     method: Uint8Array,
@@ -1975,6 +2039,11 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_veloqengine_run_clear_derived(
     uniffiSelf: bigint,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_run_library_export(
+    uniffiSelf: bigint,
+    destPath: Uint8Array,
+    options: Uint8Array,
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_run_record_backup(
     uniffiSelf: bigint,
     destPath: Uint8Array,
@@ -2051,6 +2120,8 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_count(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_detail_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_feed_cards(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_feed_filter_bounds(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_given_up_tracks(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_gps_fetch_candidates(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_gps_track(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_highlights_bundle(): number;
@@ -2177,11 +2248,14 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_confirm_pairing(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_connected_count(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_disconnect_all(): number;
+  ubrn_uniffi_veloqrs_checksum_method_remotemanager_disconnect_linked_device(): number;
+  ubrn_uniffi_veloqrs_checksum_method_remotemanager_linked_devices_screen(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_linked_rooms(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_list_linked_devices(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_pairing_request(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_recent_writes(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_remove_linked_device(): number;
+  ubrn_uniffi_veloqrs_checksum_method_remotemanager_rename_linked_device(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_set_device_name(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_set_in_front(): number;
   ubrn_uniffi_veloqrs_checksum_method_routefollower_advance(): number;
@@ -2195,7 +2269,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_all(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_detail_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_detail_performance(): number;
-  ubrn_uniffi_veloqrs_checksum_method_routemanager_get_nearby_for_recording(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_get_nearby_places(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_performances(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_representative_route(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_screen_data(): number;
@@ -2250,6 +2324,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_background_jobs_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_backup_screen_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_build_gpx_file(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_build_route_fit_course(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_build_route_gpx_file(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_build_section_fit_course(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_build_section_gpx_file(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_cache_screen_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_delete_setting(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_engine_install(): number;
@@ -2289,6 +2367,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_unprocessed_strength_ids(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_recover_strength_workout(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_search_exercises(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_set_exercise_labels(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_start_live_strength_session(): number;
@@ -2314,6 +2393,8 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_pull_garmin_now(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_range_coverage(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_ready_activity_bodies(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_search_remote_activities(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_set_backfill_cap_lifted(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_set_credentials(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_start_import(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activities_window(): number;
@@ -2355,6 +2436,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_run_bulk_export(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_run_clear_all(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_run_clear_derived(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_run_library_export(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_run_record_backup(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_set_name_translations(): number;

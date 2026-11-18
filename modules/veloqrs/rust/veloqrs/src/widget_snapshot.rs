@@ -39,7 +39,7 @@ pub const FORM_HISTORY_DAYS: u32 = 42;
 /// Where the form zones change, on the intervals.icu TSB boundaries: below the
 /// first is high risk, then optimal, grey zone, fresh, and from the last
 /// transition. Natives draw the bands from these and never hold a copy.
-const FORM_ZONE_BOUNDS: [i32; 4] = [-30, -10, 5, 25];
+pub(crate) const FORM_ZONE_BOUNDS: [i32; 4] = [-30, -10, 5, 25];
 
 /// The most points a route outline carries, which keeps the file small.
 pub const ROUTE_OUTLINE_MAX_POINTS: usize = 150;

@@ -8,6 +8,7 @@
 //! invitation lasts at most two minutes. The athlete then confirms on the
 //! phone, and only then is the browser pinned.
 
+#[cfg(test)]
 use std::collections::HashSet;
 
 use base64::Engine as _;
@@ -124,17 +125,22 @@ pub fn proof(secret: &[u8; SECRET_BYTES], role: Role, browser: &str, phone: &str
     )
 }
 
-/// The room a linked browser and the phone meet in to reconnect: a hash of
-/// both fingerprints, each length-prefixed. The web page repeats this
-/// derivation, so the bytes hashed never change.
-pub fn room_for(browser: &str, phone: &str) -> String {
-    let digest = sha256(&[
-        b"veloq link room",
-        &length_prefix(browser.as_bytes()),
-        browser.as_bytes(),
-        &length_prefix(phone.as_bytes()),
-        phone.as_bytes(),
-    ]);
+/// The room a linked browser and the phone meet in to reconnect: an HMAC of
+/// both fingerprints under the secret they shared at pairing, each field
+/// behind its length. Fingerprints travel in every offer and answer, so the
+/// secret is what keeps a room id from being computed by a third party. The
+/// web page repeats this derivation, so the bytes hashed never change.
+pub fn room_for(secret: &[u8], browser: &str, phone: &str) -> String {
+    let digest = hmac_sha256(
+        secret,
+        &[
+            b"veloq link room",
+            &length_prefix(browser.as_bytes()),
+            browser.as_bytes(),
+            &length_prefix(phone.as_bytes()),
+            phone.as_bytes(),
+        ],
+    );
     URL_SAFE_NO_PAD.encode(digest)
 }
 
@@ -147,6 +153,23 @@ pub fn fingerprint_of(certificate: &[u8]) -> String {
     format!("sha-256 {}", hex.join(":"))
 }
 
+/// The pairing secrets already spent, so none is used twice. The engine keeps
+/// them in its library, so a restart cannot forget one.
+pub trait SpentSecrets {
+    /// Record a secret as spent until `expires_at`, at `now`. Returns false
+    /// when it was spent already, or when the record cannot be kept: a secret
+    /// that cannot be recorded is refused rather than used.
+    fn spend(&mut self, secret: &[u8; SECRET_BYTES], expires_at: i64, now: i64) -> bool;
+}
+
+/// A set held by a test stands in for the library's record.
+#[cfg(test)]
+impl SpentSecrets for HashSet<[u8; SECRET_BYTES]> {
+    fn spend(&mut self, secret: &[u8; SECRET_BYTES], _expires_at: i64, _now: i64) -> bool {
+        self.insert(*secret)
+    }
+}
+
 /// Decide a browser's proof. `presented` is the certificate the browser's
 /// connection presented and `phone` the phone's own. The secret is spent
 /// whatever the outcome, so a wrong guess cannot be followed by another.
@@ -156,9 +179,9 @@ pub fn verify(
     phone: &str,
     browser_proof: &[u8],
     now: i64,
-    spent: &mut HashSet<[u8; SECRET_BYTES]>,
+    spent: &mut impl SpentSecrets,
 ) -> Result<(), PairingRefusal> {
-    if !spent.insert(invitation.secret) {
+    if !spent.spend(&invitation.secret, invitation.expires_at, now) {
         return Err(PairingRefusal::Spent);
     }
     if now > invitation.expires_at {
@@ -254,7 +277,7 @@ impl Pairing {
         method: &str,
         params: serde_json::Value,
         now: i64,
-        spent: &mut HashSet<[u8; SECRET_BYTES]>,
+        spent: &mut impl SpentSecrets,
     ) -> Result<serde_json::Value, String> {
         match method {
             "pair.prove" => {

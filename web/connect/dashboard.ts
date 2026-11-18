@@ -5,6 +5,7 @@
 import { RANGES } from './fitness';
 import type { Route } from './router';
 import { queryValue } from './router';
+import type { Trend } from './charts/scale';
 import type { Methods } from './schema';
 import { orderRows } from './tableOrder';
 
@@ -132,46 +133,61 @@ export function calendarYears(days: readonly HeatDay[], firstDay: number): Calen
     });
 }
 
-/** The sport families the load scatter and the weekly hours colour, in legend order. */
-export const SPORT_FAMILIES = ['ride', 'run', 'swim', 'walk', 'other'] as const;
-export type SportFamily = (typeof SPORT_FAMILIES)[number];
+/** The engine's sport families in the order a legend lists them. */
+const FAMILY_ORDER = ['ride', 'winter', 'run', 'water', 'foot', 'strength', 'other'];
 
-/** The family a sport type belongs to; the page's `--sport-*` variables are keyed by it. */
-export function sportFamily(sportType: string): SportFamily {
-  const sport = sportType.toLowerCase();
-  if (/ride|cycl|bike/.test(sport)) return 'ride';
-  if (/run/.test(sport)) return 'run';
-  if (/swim/.test(sport)) return 'swim';
-  if (/walk|hike/.test(sport)) return 'walk';
-  return 'other';
+/** The families the dots name, each once, in legend order. */
+export function dotFamilies(dots: readonly { family: string }[]): string[] {
+  const named = new Set(dots.map((dot) => dot.family));
+  const rank = (family: string) => {
+    const at = FAMILY_ORDER.indexOf(family);
+    return at < 0 ? FAMILY_ORDER.length : at;
+  };
+  return [...named].sort((a, b) => rank(a) - rank(b));
 }
 
-/** The family's colour variable. */
-export const sportColour = (family: SportFamily) => `var(--sport-${family})`;
-
-type FormDay = { ctl: number | null; atl: number | null };
-
-/** Form: fitness less fatigue, null on a day missing either. */
-export const formOf = (day: FormDay): number | null =>
-  day.ctl === null || day.atl === null ? null : day.ctl - day.atl;
-
-/** Where the form zones change, on the intervals.icu form boundaries, lowest first. */
-const FORM_ZONE_EDGES = [-30, -10, 5, 25] as const;
 const FORM_ZONES = ['highRisk', 'optimal', 'greyZone', 'fresh', 'transition'] as const;
 export type FormZone = (typeof FORM_ZONES)[number];
 
-/** The form zones a range reaches, each clipped to it, lowest first. */
+/**
+ * The form zones a range reaches, each clipped to it, lowest first. `edges` are
+ * the engine's, in the unit the athlete reads form in.
+ */
 export function formZoneBands(
+  edges: readonly number[],
   low: number,
   high: number
 ): { zone: FormZone; from: number; to: number }[] {
   if (!(high > low)) return [];
-  const edges = [-Infinity, ...FORM_ZONE_EDGES, Infinity];
+  const bounds = [-Infinity, ...edges, Infinity];
   return FORM_ZONES.flatMap((zone, i) => {
-    const from = Math.max(low, edges[i] ?? -Infinity);
-    const to = Math.min(high, edges[i + 1] ?? Infinity);
+    const from = Math.max(low, bounds[i] ?? -Infinity);
+    const to = Math.min(high, bounds[i + 1] ?? Infinity);
     return to > from ? [{ zone, from, to }] : [];
   });
+}
+
+/** A form figure as the athlete reads it: one decimal, and a percent sign under the percentage unit. */
+export function formText(value: number | null, asPercent: boolean): string {
+  return value === null ? '' : `${value.toFixed(1)}${asPercent ? '%' : ''}`;
+}
+
+const DAY_MS = 86_400_000;
+
+/**
+ * The engine's load line, which runs by day from its origin day, as the chart
+ * draws it over a date axis in milliseconds. Null when the engine sent none.
+ */
+export function loadTrendOnDateAxis(
+  trend: Methods['fitness.screen']['result']['loadTrend']
+): Trend | null {
+  if (!trend) return null;
+  const slope = trend.slopePerDay / DAY_MS;
+  return {
+    slope,
+    intercept: trend.intercept - slope * Date.parse(trend.originDay),
+    spread: trend.spread,
+  };
 }
 
 /**

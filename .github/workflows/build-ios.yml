@@ -440,7 +440,7 @@ jobs:
 
       - name: Import code signing certificate
         if: steps.check_ios_signing.outputs.has_signing == 'true'
-        uses: apple-actions/import-codesign-certs@77ba2a2a8f5cfc8c405ebf3159f767c323e238f9 # v7
+        uses: apple-actions/import-codesign-certs@288b8ec97b82c66b6f2a6baaf7acc8dfbcbe331c # v7
         with:
           p12-file-base64: ${{ secrets.IOS_DISTRIBUTION_CERT_P12 }}
           p12-password: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
@@ -594,6 +594,13 @@ jobs:
           # The app, its embedded Expo configuration and every extension.
           node scripts/build-record.js identity "$IPA_FILE" --variant "$APP_VARIANT" || {
             echo "::error::The IPA carries another identity than $APP_VARIANT"
+            exit 1
+          }
+
+          # The watch app, its companion id and its compiled icon.
+          APP_ID=$(node -e "console.log(require('./scripts/lib/app-identity.js').selected({ APP_VARIANT: process.argv[1] }).appId)" "$APP_VARIANT")
+          node scripts/lib/watch-embed.js "$APP_PATH" --bundle-id "$APP_ID" || {
+            echo "::error::The IPA does not embed the watch app with its icon"
             exit 1
           }
 

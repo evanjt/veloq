@@ -9,6 +9,8 @@
 
 import { act, renderHook } from '@testing-library/react-native';
 
+import { FfiNearbyKind } from 'veloqrs';
+
 import { useNearbyRouteOverlay } from '@/shared/app/useNearbyRouteOverlay';
 import { useRecordingLiveStore, useRecordingStore } from '@/features/recording';
 
@@ -16,7 +18,7 @@ const mockGetNearby = jest.fn();
 
 jest.mock('veloqrs', () => ({
   ...require('../__shared__/veloqrsStub'),
-  routes: { getNearbyRoutesForRecording: (...args: unknown[]) => mockGetNearby(...args) },
+  routes: { getNearbyPlaces: (...args: unknown[]) => mockGetNearby(...args) },
   decodeCoords: () => [
     { latitude: 46.5, longitude: 6.6 },
     { latitude: 46.51, longitude: 6.61 },
@@ -28,9 +30,10 @@ jest.mock('@/shared/native/useEngineSubscription', () => {
   return { useEngineRead: () => reader };
 });
 
-const route = (groupId: string, over: Record<string, unknown> = {}) => ({
-  groupId,
-  name: `Route ${groupId}`,
+const route = (id: string, over: Record<string, unknown> = {}) => ({
+  kind: FfiNearbyKind.Route,
+  id,
+  name: `Route ${id}`,
   distanceMeters: 12_400,
   awayMeters: 0,
   offered: true,
@@ -98,10 +101,39 @@ describe('useNearbyRouteOverlay', () => {
     });
   });
 
+  it('offers the routes in the engine order and leaves out a section that starts nearer', () => {
+    mockGetNearby.mockReturnValue([
+      route('climb', { kind: FfiNearbyKind.Section, awayMeters: 40 }),
+      route('a', { awayMeters: 300 }),
+      route('b', { awayMeters: 900 }),
+    ]);
+    const { result } = render();
+    expect(result.current.nearby.map((r) => r.id)).toEqual(['a', 'b']);
+    act(() => result.current.choose('climb'));
+    expect(result.current.followed).toBeNull();
+  });
+
   it('asks the engine for the followed route so one outside the radius is still described', () => {
     const { result } = render();
     act(() => result.current.choose('faraway'));
-    expect(mockGetNearby).toHaveBeenLastCalledWith(46.5, 6.6, 'Walk', 'faraway');
+    expect(mockGetNearby).toHaveBeenLastCalledWith(
+      46.5,
+      6.6,
+      'Walk',
+      [FfiNearbyKind.Route],
+      'faraway'
+    );
+  });
+
+  it('asks the engine for routes only, so its limit is spent on routes the follower can take', () => {
+    render();
+    expect(mockGetNearby).toHaveBeenLastCalledWith(
+      46.5,
+      6.6,
+      'Walk',
+      [FfiNearbyKind.Route],
+      undefined
+    );
   });
 
   it('drops a remembered route far from the fix while no ride is recording', () => {

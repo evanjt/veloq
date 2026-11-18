@@ -23,7 +23,13 @@ export function useEdit(): Editor {
           (await sendWrite(method, params, options)).result as { ok: boolean },
         edit
       );
-      setRefusal(outcome.ok ? null : outcome.refusal || t('connectPage.routes.editFailed'));
+      setRefusal(
+        outcome.ok
+          ? null
+          : outcome.notice
+            ? t(outcome.notice)
+            : outcome.refusal || t('connectPage.routes.editFailed')
+      );
       return outcome.ok;
     },
     [sendWrite, t]

@@ -5,7 +5,7 @@
 // mounted through a drop and a reconnect, dimmed under a banner, so the athlete
 // keeps their place while the link tries again.
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent } from 'react';
 
 import { flipTheme, systemPrefersDark, useTheme } from './appearance';
 import { setUnitSystem } from './format';
@@ -16,8 +16,8 @@ import type { Session } from './session';
 import { unitSystem } from './settings';
 import { useSettingsReads } from './settingsReads';
 import { PAIRING, isLinking } from './connection';
-import { CHORD_WINDOW_MS, CHORDS, chordStep, isPaletteKey, pageHref } from './palette';
-import { registerShortcuts } from './shortcuts';
+import { CHORD_WINDOW_MS, chordStep, digitTarget, isPaletteKey, pageHref } from './palette';
+import { registerShortcuts, useSingleKeyShortcuts } from './shortcuts';
 import { CommandPalette } from './shell/CommandPalette';
 import { KeysPane } from './shell/KeysPane';
 import { PageNameContext } from './shell/pageName';
@@ -30,6 +30,12 @@ import { useTranslation } from 'react-i18next';
 function subscribeToHash(listener: () => void) {
   window.addEventListener('hashchange', listener);
   return () => window.removeEventListener('hashchange', listener);
+}
+
+/** The hash names the route, so the skip link moves focus instead of following it. */
+function skipToContent(event: MouseEvent<HTMLAnchorElement>) {
+  event.preventDefault();
+  document.getElementById('content')?.focus();
 }
 
 /** The shell under the toasts every page can raise. */
@@ -54,6 +60,7 @@ function Shell({
   const hash = useSyncExternalStore(subscribeToHash, () => location.hash);
   const [keysOpen, setKeysOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [singleKeys, setSingleKeys] = useSingleKeyShortcuts();
   const chordAt = useRef<number | null>(null);
   const toggleSidebarRef = useRef<() => void>(() => {});
   const [kept, toggleKept] = useCollapsed();
@@ -93,13 +100,16 @@ function Shell({
         setPaletteOpen((open) => !open);
         return;
       }
-      const action = keyAction({
-        key: event.key,
-        target: event.target as HTMLElement | null,
-        ctrlKey: event.ctrlKey,
-        metaKey: event.metaKey,
-        altKey: event.altKey,
-      });
+      const action = keyAction(
+        {
+          key: event.key,
+          target: event.target as HTMLElement | null,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          altKey: event.altKey,
+        },
+        singleKeys
+      );
       const chord = chordStep(
         {
           key: event.key,
@@ -108,7 +118,8 @@ function Shell({
           metaKey: event.metaKey,
           altKey: event.altKey,
         },
-        chordAt.current !== null && Date.now() - chordAt.current <= CHORD_WINDOW_MS
+        chordAt.current !== null && Date.now() - chordAt.current <= CHORD_WINDOW_MS,
+        singleKeys
       );
       chordAt.current = chord.armed ? Date.now() : null;
       if (chord.page) {
@@ -117,15 +128,15 @@ function Shell({
         return;
       }
       if (!action) return;
-      if (action.do === 'tab') {
-        event.preventDefault();
-        go({ screen: action.tab, id: null, query: [] });
-      } else if (action.do === 'search') {
-        const field = document.getElementById('search');
-        if (field) {
+      if (action.do === 'digit') {
+        const target = digitTarget(String(action.digit));
+        if (target) {
           event.preventDefault();
-          field.focus();
+          location.hash = pageHref(target);
         }
+      } else if (action.do === 'palette') {
+        event.preventDefault();
+        setPaletteOpen(true);
       } else if (action.do === 'closeDetail') {
         const current = parse(location.hash);
         if (current.screen === 'activity') go(FEED);
@@ -143,15 +154,13 @@ function Shell({
         label: 'connectPage.keys.palette',
         group: 'shell',
       },
-      { keys: ['1 to 5'], label: 'connectPage.keys.tabs', group: 'shell' },
-      {
-        keys: ['g', `${Object.keys(CHORDS).join(' ')}`],
-        label: 'connectPage.keys.chord',
-        group: 'shell',
-      },
-      { keys: ['/'], label: 'connectPage.keys.search', group: 'shell' },
+      ...(singleKeys
+        ? [{ keys: ['/'], label: 'connectPage.keys.search' as const, group: 'shell' as const }]
+        : []),
       { keys: ['Esc'], label: 'connectPage.keys.close', group: 'shell' },
-      { keys: ['?'], label: 'connectPage.keys.list', group: 'shell' },
+      ...(singleKeys
+        ? [{ keys: ['?'], label: 'connectPage.keys.list' as const, group: 'shell' as const }]
+        : []),
     ]);
     return () => {
       document.removeEventListener('keydown', onKey);
@@ -159,7 +168,7 @@ function Shell({
       setKeysOpen(false);
       setPaletteOpen(false);
     };
-  }, [connected, t]);
+  }, [connected, t, singleKeys]);
 
   useEffect(() => {
     toggleSidebarRef.current = toggleSidebar;
@@ -192,6 +201,9 @@ function Shell({
 
   return (
     <div id="shell" data-sidebar={page ? (collapsed ? 'collapsed' : 'expanded') : 'none'}>
+      <a className="skip-link" href="#content" onClick={skipToContent}>
+        {t('connectPage.nav.skipToContent')}
+      </a>
       <TopBar
         session={session}
         state={state}
@@ -205,9 +217,11 @@ function Shell({
         theme={theme}
         onTheme={chooseTheme}
         onPalette={() => setPaletteOpen(true)}
+        shortcuts={singleKeys}
+        onShortcuts={setSingleKeys}
       />
       {page ? <Sidebar current={page.nav} collapsed={collapsed} onToggle={toggleSidebar} /> : null}
-      <main id="content">
+      <main id="content" tabIndex={-1}>
         {snapshot.failed ? (
           <p className="notice" role="status">
             {t('connectPage.unsupported')}
@@ -232,7 +246,7 @@ function Shell({
             </PageNameContext.Provider>
           </div>
         ) : null}
-        {connected && keysOpen ? <KeysPane /> : null}
+        {connected ? <KeysPane open={keysOpen} onClose={() => setKeysOpen(false)} /> : null}
         {connected ? (
           <CommandPalette
             open={paletteOpen}

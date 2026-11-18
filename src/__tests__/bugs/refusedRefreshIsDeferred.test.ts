@@ -29,7 +29,9 @@ function requestSyncRefresh(): StartOutcome {
   ).requestSyncRefresh();
 }
 
-function engineThatRefuses(answers: StartOutcome[]) {
+function engineThatRefuses(
+  answers: (StartOutcome | { outcome: StartOutcome; retryAtMs?: number })[]
+) {
   const listeners: Record<string, (() => void)[]> = {};
   const syncNow = jest.fn(() => answers.shift() ?? StartOutcome.Started);
   // The real unsubscribe drops the listener, and a fake that only counts calls
@@ -60,6 +62,26 @@ function engineThatRefuses(answers: StartOutcome[]) {
 beforeEach(() => {
   jest.clearAllMocks();
   jest.resetModules();
+});
+
+describe('a refresh held by a cooldown that has an end time', () => {
+  it('waits for nothing, since the engine resumes the work at the cooldown end', () => {
+    const engine = engineThatRefuses([
+      { outcome: StartOutcome.Held, retryAtMs: Date.now() + 60_000 },
+    ]);
+
+    expect(requestSyncRefresh()).toBe(StartOutcome.Held);
+
+    expect(engine.subscribe).not.toHaveBeenCalled();
+  });
+
+  it('still waits for a settle when the hold names no time', () => {
+    const engine = engineThatRefuses([StartOutcome.Held]);
+
+    requestSyncRefresh();
+
+    expect(engine.subscribe).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('a refresh refused because a sync holds the slot', () => {

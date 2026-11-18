@@ -223,6 +223,8 @@ export const ROLE_FAMILIES: Record<string, TokenFamily> = {
   'data-div-warm-2': 'mark',
   'data-div-warm-3': 'mark',
   'data-div-mid': 'mark',
+  'wellness-hrv': 'mark',
+  'wellness-rhr': 'mark',
   'chart-series': 'mark',
   'chart-muted': 'ground',
   'chart-grid': 'ground',

@@ -10,12 +10,17 @@
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import { DetectionPane } from '../../../web/connect/DetectionPane';
-import { HeatmapSwitch } from '../../../web/connect/pages/ActivityPage';
+import { ManageActivity } from '../../../web/connect/pages/ActivityPage';
 import { WorkoutsPage } from '../../../web/connect/pages/WorkoutsPage';
 import type { Route } from '../../../web/connect/router';
-import { Button } from '../../../web/connect/ui';
 import { useRead } from '../../../web/connect/useRead';
 import { fakePhone } from '../__shared__/connectPhone';
+
+// The dialog reads `document`, which this environment has none of; its props carry the confirm.
+jest.mock('../../../web/connect/ui/Dialog', () => ({
+  ...jest.requireActual('../../../web/connect/ui/Dialog'),
+  ConfirmDialog: () => null,
+}));
 
 async function settle() {
   for (let at = 0; at < 8; at += 1) {
@@ -34,6 +39,14 @@ async function mount(element: React.ReactElement) {
   return root;
 }
 
+const pickerRows = (root: ReactTestRenderer) =>
+  root.root.findAll(
+    (node) =>
+      node.type === 'tr' &&
+      typeof node.props.id === 'string' &&
+      node.props.id.startsWith('workout-picker-row-')
+  );
+
 const SETTINGS = {
   enabled: true,
   strictness: { minMatchPct: 80, endpointThreshold: 200 },
@@ -46,11 +59,11 @@ const SETTINGS = {
   },
 };
 
-describe('the heatmap switch', () => {
+describe('the activity Manage panel', () => {
   it('shares the detail read with another view and reads only that again after an edit', async () => {
     let hidden = false;
     const phone = fakePhone((method) => {
-      if (method === 'activity.detail') return { heatmapHidden: hidden };
+      if (method === 'activity.detail') return { heatmapHidden: hidden, memberships: [] };
       if (method === 'activity.summary') return { id: 'a1' };
       if (method === 'heatmap.setHidden') {
         hidden = true;
@@ -67,18 +80,18 @@ describe('the heatmap switch', () => {
       phone.wrap(
         <>
           <Beside />
-          <HeatmapSwitch id="a1" />
+          <ManageActivity id="a1" onClose={() => undefined} />
         </>
       )
     );
     expect(phone.callsOf('activity.detail')).toHaveLength(1);
     await act(async () => {
-      root.root.findByType('button').props.onClick();
+      root.root.findByType('input').props.onChange({ currentTarget: { checked: false } });
     });
     await settle();
     expect(phone.callsOf('activity.detail')).toHaveLength(2);
     expect(phone.callsOf('activity.summary')).toHaveLength(1);
-    expect(root.root.findByType('button').props['aria-pressed']).toBe(true);
+    expect(root.root.findByType('input').props.checked).toBe(false);
     root.unmount();
   });
 });
@@ -143,13 +156,11 @@ describe('the workouts page', () => {
     });
     const root = await mount(phone.wrap(<WorkoutsPage route={route} />));
     await act(async () => {
-      root.root.findByProps({ id: 'workout-picker-rows' }).findAllByType(Button)[0].props.onClick();
+      pickerRows(root)[0]?.props.onClick({});
     });
     await settle();
     expect(root.root.findAllByProps({ id: 'workout-add-failed' }).length).toBeGreaterThan(0);
-    expect(root.root.findByProps({ id: 'workout-picker-rows' }).findAllByType('li')).toHaveLength(
-      1
-    );
+    expect(pickerRows(root)).toHaveLength(1);
     root.unmount();
   });
 
@@ -160,15 +171,19 @@ describe('the workouts page', () => {
         return { workouts: [{ id: 'w1', name: 'Push', exerciseCount: 1, setCount: 3 }] };
       }
       if (method === 'strength.groups') return { groups: [] };
+      if (method === 'strength.workout') return { workout: null };
       if (method === 'strength.deleteWorkout') return null;
       throw new Error(`unexpected ${method}`);
     });
     const root = await mount(phone.wrap(<WorkoutsPage route={route} />));
     const groupsBefore = phone.callsOf('strength.groups').length;
     const pickerBefore = phone.callsOf('strength.picker').length;
-    const remove = root.root.findByProps({ id: 'workouts-saved' }).findAllByType(Button)[0];
+    const saved = root.root.findByProps({ tableId: 'workouts-saved' });
     await act(async () => {
-      remove.props.onClick();
+      saved.props.bulkActions[0].run([{ id: 'w1', name: 'Push', exerciseCount: 1, setCount: 3 }]);
+    });
+    await act(async () => {
+      root.root.findByProps({ confirmLabel: 'connectPage.workouts.delete' }).props.onConfirm();
     });
     await settle();
     expect(phone.callsOf('strength.deleteWorkout')).toEqual([

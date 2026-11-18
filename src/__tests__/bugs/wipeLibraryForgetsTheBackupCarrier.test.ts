@@ -61,7 +61,7 @@ import {
   getCameraOverride,
   setCameraOverride,
 } from '@/features/maps/lib/storage/terrainCameraOverrides';
-import { reportTrackFetchRun, useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
+import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
 import { getCrashLog, recordCrash } from '@/shared/debug/crashLog';
 import { getMapCameraState, saveMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
 import { useSensorStore } from '@/features/sensors/store';
@@ -813,6 +813,14 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: [],
+    where: 'exports/ beside the database, the archive a linked browser asked for',
+    writers: [`${RUST}/remote/export.rs`],
+    holds:
+      'one plain library export per linked browser, being built or ready to read, until it is read and done, the browser is removed, a day old, or the library is wiped',
+    wiped: { engine: 'clear_deletes_every_spool_of_a_library_export' },
+  },
+  {
+    confirm: [],
     where: 'routes.db.init.lock beside the database',
     writers: [`${RUST}/persistence/mod.rs`, `${RUST}/persistence/file_lock.rs`],
     holds: 'nothing: an empty file the init takes a lock on',
@@ -968,9 +976,11 @@ const DEVICE_WRITES: DeviceWrite[] = [
       'src/shared/storage/cacheFiles.ts',
       'src/features/settings/lib/shareFile.ts',
       'src/features/settings/lib/bulkExport.ts',
+      `${RUST}/persistence/library_export.rs`,
       'src/features/settings/lib/autobackup/autoBackup.ts',
     ],
-    holds: 'backups, activity exports, GPX, the crash log, a shared copy of a recording',
+    holds:
+      'backups, activity exports, library exports, GPX and FIT courses, the crash log, a shared copy of a recording',
     wiped: {
       files: [
         'file:///cache/exports/veloq-activities-2026-10-01.zip',
@@ -1167,6 +1177,13 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: [],
+    where: 'the Apple Watch link switch',
+    writers: ['modules/veloq-watch/ios/VeloqWatchSession.swift'],
+    holds: 'whether the watch link answers, a switch and no athlete data',
+    kept: 'a preference of the device, no athlete data',
+  },
+  {
+    confirm: [],
     where: 'the strength summary switch',
     writers: ['src/app/recording-upload.tsx'],
     holds: "whether a strength upload's description lists its sets",
@@ -1258,6 +1275,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     confirm: [],
     where: 'the tray and the schedule',
     writers: [
+      'src/features/recording/lib/liveActivity/restAlert.ts',
       'src/features/settings/lib/notificationService.ts',
       'modules/veloqrs/android/src/main/java/com/veloq/ActivityNotificationPoster.kt',
     ],
@@ -1785,11 +1803,11 @@ describe('the stores the wipe empties', () => {
   });
 
   it('forgets the dismissed track notice', async () => {
-    reportTrackFetchRun({ failedIds: ['i999'] });
+    useTrackFetchNotice.getState().setGivenUp(['i999']);
     useTrackFetchNotice.getState().dismiss();
 
     await wipeLibrary();
-    reportTrackFetchRun({ failedIds: ['i999'] });
+    useTrackFetchNotice.getState().setGivenUp(['i999']);
 
     expect(useTrackFetchNotice.getState().dismissedKey).toBeNull();
     expect(useTrackFetchNotice.getState().failedIds).toEqual(['i999']);

@@ -2,15 +2,15 @@
 // over the page while the link waits for the phone, the prompt to update it,
 // and the note a screen shows when the phone lacks its method.
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { Component, useEffect, useRef, type ReactNode } from 'react';
 import type { ParseKeys } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
 import { STATUS, waitingKey } from '../connection';
 import type { Notice, State } from '../link';
-import type { ReadError, ReadState } from '../query';
+import { ReadError, type ReadState } from '../query';
 import { toQR } from '../qr';
-import { Button } from '../ui';
+import { Button, EmptyState, ErrorState, Skeleton } from '../ui';
 
 const NOTICE: Record<Notice, ParseKeys> = {
   refused: 'connectPage.notice.refused',
@@ -97,16 +97,6 @@ export function LinkBanner({ state, onRetry }: { state: State; onRetry: () => vo
   );
 }
 
-/** In place of a screen whose method the phone does not have; the rest of the page keeps working. */
-export function Unsupported() {
-  const { t } = useTranslation();
-  return (
-    <p className="notice" role="status">
-      {t('connectPage.update.screen')}
-    </p>
-  );
-}
-
 const READ_FAILURE: Record<Exclude<ReadError['kind'], 'unsupported'>, ParseKeys> = {
   timeout: 'connectPage.read.timeout',
   failed: 'connectPage.read.failed',
@@ -114,8 +104,8 @@ const READ_FAILURE: Record<Exclude<ReadError['kind'], 'unsupported'>, ParseKeys>
 
 /**
  * What a panel shows in place of its answer when the read failed. A phone that
- * lacks the method says to update it, which is not a failure; a timeout or a
- * refusal offers to ask again.
+ * lacks the method is a panel that says what to do, which is not a failure; a
+ * timeout or a refusal is an alert that offers to ask again.
  */
 export function ReadNotice({
   error,
@@ -127,26 +117,24 @@ export function ReadNotice({
   const { t } = useTranslation();
   if (error.kind === 'unsupported') {
     return (
-      <p className="notice" role="status" data-read-error="unsupported">
-        {t('connectPage.update.screen')}
-      </p>
+      <div data-read-error="unsupported">
+        <EmptyState title={t('connectPage.update.heading')} detail={t('connectPage.update.body')} />
+      </div>
     );
   }
   return (
-    <p className="notice" role="status" data-read-error={error.kind}>
-      {t(READ_FAILURE[error.kind])}
-      {onRetry ? (
-        <Button variant="secondary" size="sm" onClick={onRetry}>
-          {t('connectPage.read.retry')}
-        </Button>
-      ) : null}
-    </p>
+    <div data-read-error={error.kind}>
+      <ErrorState
+        title={t(READ_FAILURE[error.kind])}
+        {...(onRetry ? { retryLabel: t('connectPage.read.retry'), onRetry } : {})}
+      />
+    </div>
   );
 }
 
 /**
- * One read drawn in place: a loading line until the first answer, the typed
- * notice when it failed with nothing held, and the answer otherwise. Older
+ * One read drawn in place: a skeleton until the first answer, the typed
+ * state when it failed with nothing held, and the answer otherwise. Older
  * data stays on screen while it is read again.
  */
 export function Reading<T>({
@@ -168,9 +156,9 @@ export function Reading<T>({
   if (read.error) return <ReadNotice error={read.error} onRetry={read.retry} />;
   if (read.loading) {
     return (
-      <p className="notice" role="status" aria-busy="true" data-reading="loading">
-        {t('connectPage.read.loading')}
-      </p>
+      <div data-reading="loading">
+        <Skeleton label={t('connectPage.read.loading')} />
+      </div>
     );
   }
   return null;
@@ -187,4 +175,35 @@ export function UpdatePane({ onRetry }: { onRetry: () => void }) {
       </Button>
     </section>
   );
+}
+
+/**
+ * Draws one panel and, when drawing it throws, the failed read state in its
+ * place with a retry, so an answer the page cannot draw spoils that panel and
+ * not the page. A new `resetKey` draws the panel again.
+ */
+export class ReadBoundary extends Component<
+  { method: string; resetKey?: unknown; children: ReactNode },
+  { failed: boolean }
+> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  override componentDidUpdate(before: { resetKey?: unknown }) {
+    if (this.state.failed && before.resetKey !== this.props.resetKey)
+      this.setState({ failed: false });
+  }
+
+  override render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <ReadNotice
+        error={new ReadError('failed', this.props.method)}
+        onRetry={() => this.setState({ failed: false })}
+      />
+    );
+  }
 }

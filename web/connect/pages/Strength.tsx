@@ -8,9 +8,10 @@ import { useTranslation } from 'react-i18next';
 
 import { balancePairName, muscleName } from '../../../src/features/strength/lib/muscleNames';
 import { BodyFigure } from '../BodyFigure';
+import { Sparkline } from '../charts/Sparkline';
 import { settledNow, wallSeconds } from '../fitness';
 import { strengthPeriodDays } from '../link';
-import { go, queryValue, withQuery, write, type Route } from '../router';
+import { go, queryValue, replaceRoute, withQuery, write, type Route } from '../router';
 import type { Methods } from '../schema';
 import { Reading } from '../shell/StatePanes';
 import { useTableLabels } from '../tableLabels';
@@ -18,12 +19,22 @@ import { nextOrder, orderRows, readTableOrder, sortProp, writeTableOrder } from 
 import {
   chosenMuscle,
   exerciseRows,
-  intensities,
   muscleSplit,
   pairShares,
   type ExerciseRow,
 } from '../strengthView';
-import { Button, Card, CardHeader, DataTable, SegmentedControl, type Column } from '../ui';
+import {
+  Button,
+  Card,
+  CardHeader,
+  DataTable,
+  GridCell,
+  PageGrid,
+  SegmentedControl,
+  type Column,
+} from '../ui';
+import { filterCount, matchesFilter, readFilterText, withFilterText } from '../ui/filterText';
+import { useFilterDraft } from '../useFilterDraft';
 import { useRead } from '../useRead';
 import type { PageProps } from './types';
 
@@ -62,20 +73,6 @@ const MUSCLE_ORDER = { column: 'sets', descending: true } as const;
 const WEEK_ORDER = { column: 'week', descending: true } as const;
 const EXERCISE_ORDER = { column: 'volume', descending: true } as const;
 
-/** One muscle's weekly weighted sets as a line, the peak week at the top of the box. */
-function Sparkline({ values }: { values: number[] }) {
-  const peak = Math.max(1, ...values);
-  const step = values.length > 1 ? 100 / (values.length - 1) : 0;
-  const points = values
-    .map((value, at) => `${(at * step).toFixed(1)},${(22 - (value / peak) * 20).toFixed(1)}`)
-    .join(' ');
-  return (
-    <svg className="progression-line" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden>
-      <polyline points={points} />
-    </svg>
-  );
-}
-
 function ProgressionCard({ progression, name }: { progression: Progression; name: string }) {
   const { t } = useTranslation();
   const change = progression.changePct;
@@ -90,7 +87,12 @@ function ProgressionCard({ progression, name }: { progression: Progression; name
           </span>
         )}
       </div>
-      <Sparkline values={progression.weeklyWeightedSets} />
+      <Sparkline
+        className="progression-line"
+        range="zero"
+        height={32}
+        lines={[{ values: progression.weeklyWeightedSets }]}
+      />
       <dl className="progression-facts">
         <dt>{t('strength.recentAvg')}</dt>
         <dd>{setCount(progression.recentAverage)}</dd>
@@ -121,7 +123,11 @@ function BalanceRow({
           {pair.ratio === null ? pair.status : `${(Math.round(pair.ratio * 10) / 10).toFixed(1)}×`}
         </span>
       </div>
-      <div className="balance-bar" role="img" aria-label={`${names(pair.leftSlug)} ${setCount(pair.leftWeightedSets)}, ${names(pair.rightSlug)} ${setCount(pair.rightWeightedSets)}`}>
+      <div
+        className="balance-bar"
+        role="img"
+        aria-label={`${names(pair.leftSlug)} ${setCount(pair.leftWeightedSets)}, ${names(pair.rightSlug)} ${setCount(pair.rightWeightedSets)}`}
+      >
         <span className="balance-left" style={{ flexGrow: shares.left }} />
         <span className="balance-right" style={{ flexGrow: shares.right }} />
       </div>
@@ -138,18 +144,26 @@ function BalanceRow({
 }
 
 /** The strength page with the engine's screen, or without it while it is read. */
-function StrengthPane({ route, screen }: { route: Route; screen: Screen | undefined }) {
+function StrengthPane({
+  route,
+  screen,
+  sex,
+}: {
+  route: Route;
+  screen: Screen | undefined;
+  sex: string | null | undefined;
+}) {
   const { t } = useTranslation();
   const labels = useTableLabels();
   const base = pageRoute(route);
   const days = strengthPeriodDays(queryValue(route, 'period'));
   const period =
-    STRENGTH_PERIODS.find(([key]) => strengthPeriodDays(key) === days)?.[0] ?? STRENGTH_PERIODS[0][0];
+    STRENGTH_PERIODS.find(([key]) => strengthPeriodDays(key) === days)?.[0] ??
+    STRENGTH_PERIODS[0][0];
   const names = (slug: string) => muscleName(slug, t);
   const volumes = screen?.summary.muscleVolumes ?? [];
   const muscle = chosenMuscle(queryValue(route, 'muscle'), volumes);
-  const choose = (slug: string) =>
-    go(withQuery(base, { muscle: slug === muscle ? null : slug }));
+  const choose = (slug: string) => go(withQuery(base, { muscle: slug === muscle ? null : slug }));
   const split = muscleSplit(screen?.exercises ?? [], muscle);
   const owed = screen?.owedCount ?? 0;
 
@@ -191,7 +205,14 @@ function StrengthPane({ route, screen }: { route: Route; screen: Screen | undefi
           : row.maxWeightedSets
   );
   const exercises = exerciseRows(screen?.exercises ?? [], muscle);
-  const exerciseSorted = orderRows(exercises, exerciseOrder, (row, column) =>
+  const filterText = readFilterText(route);
+  const [filterDraft, setFilterDraft] = useFilterDraft(filterText, (next) =>
+    replaceRoute(withFilterText(route, next))
+  );
+  const exercisesShown = exercises.filter((row) =>
+    matchesFilter(filterText, [row.name, ...row.muscles.map(names)])
+  );
+  const exerciseSorted = orderRows(exercisesShown, exerciseOrder, (row, column) =>
     column === 'name'
       ? row.name
       : column === 'muscles'
@@ -342,7 +363,8 @@ function StrengthPane({ route, screen }: { route: Route; screen: Screen | undefi
         </p>
       ) : null}
 
-      <div className="strength-overview">
+      <PageGrid className="strength-overview">
+        <GridCell>
         <Card label={t('strength.muscleGroupVolume')}>
           <CardHeader
             title={t('strength.muscleGroupVolume')}
@@ -355,13 +377,17 @@ function StrengthPane({ route, screen }: { route: Route; screen: Screen | undefi
             }
           />
           <BodyFigure
-            intensity={intensities(volumes)}
+            volumes={volumes}
+            maxWeightedSets={screen?.summary.maxWeightedSets ?? 0}
+            sex={sex}
             names={names}
             chosen={muscle}
             onChoose={choose}
           />
           <p className="meta">{t('strength.relativeWeightedSets')}</p>
         </Card>
+</GridCell>
+        <GridCell>
         <Card label={t('connectPage.strength.balance')}>
           <CardHeader title={t('connectPage.strength.balance')} />
           <ul id="strength-balance" className="balance-list">
@@ -371,6 +397,8 @@ function StrengthPane({ route, screen }: { route: Route; screen: Screen | undefi
           </ul>
           <p className="meta">{t('strength.balanceFootnote')}</p>
         </Card>
+</GridCell>
+        <GridCell>
         <Card label={t('connectPage.strength.progressions')}>
           <CardHeader title={t('connectPage.strength.progressions')} />
           <ul id="strength-progressions" className="progression-list">
@@ -383,7 +411,8 @@ function StrengthPane({ route, screen }: { route: Route; screen: Screen | undefi
             ))}
           </ul>
         </Card>
-      </div>
+</GridCell>
+      </PageGrid>
 
       <div className="strength-tables">
         <div className="strength-table">
@@ -411,6 +440,15 @@ function StrengthPane({ route, screen }: { route: Route; screen: Screen | undefi
             label={t('connectPage.strength.exercises')}
             tableId="strength-exercises"
             labels={labels}
+            filter={{
+              id: 'strength-exercises-search',
+              label: t('connectPage.filter.exercises'),
+              clearLabel: t('connectPage.filter.clear'),
+              value: filterDraft,
+              onChange: setFilterDraft,
+              count: filterCount(exercisesShown.length, exercises.length),
+              countText: (count) => t('connectPage.filter.count', count),
+            }}
             columns={exerciseColumns}
             rows={exerciseSorted}
             rowKey={(row) => String(row.category)}
@@ -460,10 +498,13 @@ export function StrengthPage({ route }: PageProps) {
   const days = strengthPeriodDays(queryValue(route, 'period'));
   const nowWallSeconds = useMemo(() => wallSeconds(settledNow()), []);
   const read = useRead('strength.screen', { nowWallSeconds, periodDays: days });
+  const sex = useRead('settings.profile', { unused: null }).data?.sex;
   return (
     <>
-      {read.data === undefined ? <StrengthPane route={route} screen={undefined} /> : null}
-      <Reading read={read}>{(screen) => <StrengthPane route={route} screen={screen} />}</Reading>
+      {read.data === undefined ? <StrengthPane route={route} screen={undefined} sex={sex} /> : null}
+      <Reading read={read}>
+        {(screen) => <StrengthPane route={route} screen={screen} sex={sex} />}
+      </Reading>
     </>
   );
 }

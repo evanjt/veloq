@@ -17,6 +17,7 @@ export { ExportPrivacyRow } from './ExportPrivacyRow';
 export { HeatmapRow } from './HeatmapRow';
 export { MapsSection } from './MapsSection';
 export { NotificationSection } from './NotificationSection';
+export { WatchLinkRow } from './WatchLinkRow';
 export { ProfileAccountSection } from './ProfileAccountSection';
 export { OfflineRow } from './OfflineRow';
 export { RecordingPermissionSection } from './RecordingPermissionSection';

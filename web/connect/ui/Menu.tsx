@@ -5,7 +5,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import { stepIndex } from './behaviour';
-import { Button } from './Button';
+import { Button, type ButtonSize } from './Button';
 
 export type MenuItem = { id: string; label: string; onSelect: () => void; disabled?: boolean };
 
@@ -62,7 +62,12 @@ function MenuList(props: {
   );
 }
 
-export function Menu(props: { label: string; trigger: ReactNode; items: readonly MenuItem[] }) {
+export function Menu(props: {
+  label: string;
+  trigger: ReactNode;
+  items: readonly MenuItem[];
+  size?: ButtonSize;
+}) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLSpanElement>(null);
   const id = useId();
@@ -81,6 +86,7 @@ export function Menu(props: { label: string; trigger: ReactNode; items: readonly
   return (
     <span ref={wrap} className="ui-menu-wrap">
       <Button
+        size={props.size ?? 'md'}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? id : undefined}

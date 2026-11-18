@@ -26,8 +26,15 @@ const EDITS: [Edit, string, object][] = [
   ],
   [{ kind: 'setLift', id: 's1', isLift: true }, 'section.setLift', { id: 's1', isLift: true }],
   [{ kind: 'accept', id: 's1' }, 'section.accept', { id: 's1' }],
+  [{ kind: 'acceptMany', ids: ['s1', 's2'] }, 'section.acceptMany', { ids: ['s1', 's2'] }],
   [{ kind: 'setEnabled', id: 's1', enabled: true }, 'section.enable', { id: 's1' }],
   [{ kind: 'setEnabled', id: 's1', enabled: false }, 'section.disable', { id: 's1' }],
+  [
+    { kind: 'setEnabledMany', ids: ['s1', 's2'], enabled: false },
+    'section.setEnabledMany',
+    { ids: ['s1', 's2'], enabled: false },
+  ],
+  [{ kind: 'deleteSection', id: 's1' }, 'section.delete', { id: 's1' }],
   [
     { kind: 'sectionPass', id: 's1', activityId: 'a1', excluded: true },
     'section.excludeActivity',
@@ -57,6 +64,11 @@ const EDITS: [Edit, string, object][] = [
     { kind: 'heatmap', activityId: 'a1', hidden: true },
     'heatmap.setHidden',
     { activityId: 'a1', hidden: true },
+  ],
+  [
+    { kind: 'heatmapMany', activityIds: ['a1', 'a2'], hidden: true },
+    'heatmap.setHiddenMany',
+    { activityIds: ['a1', 'a2'], hidden: true },
   ],
 ];
 
@@ -107,6 +119,31 @@ describe('applyEdit', () => {
     expect(options.undo()).toEqual({
       method: 'heatmap.setHidden',
       params: { activityId: 'a1', hidden: false },
+    });
+  });
+
+  it('sends many activities as one write whose undo is the same write with the flag inverted', async () => {
+    const calls: [string, unknown, unknown][] = [];
+    await applyEdit(
+      async (method, params, options) => {
+        calls.push([method, params, options]);
+        return { ok: true };
+      },
+      { kind: 'heatmapMany', activityIds: ['a1', 'a2', 'a3'], hidden: true }
+    );
+    expect(calls).toHaveLength(1);
+    const [method, params, options] = calls[0] as [
+      string,
+      object,
+      { notice: string; invalidates: string[]; undo: () => unknown },
+    ];
+    expect(method).toBe('heatmap.setHiddenMany');
+    expect(params).toEqual({ activityIds: ['a1', 'a2', 'a3'], hidden: true });
+    expect(options.notice).toBe('connectPage.undo.hidden');
+    expect(options.invalidates).toEqual(['activity.detail']);
+    expect(options.undo()).toEqual({
+      method: 'heatmap.setHiddenMany',
+      params: { activityIds: ['a1', 'a2', 'a3'], hidden: false },
     });
   });
 
@@ -244,6 +281,16 @@ describe('undoOf', () => {
       { kind: 'heatmap', activityId: 'a1', hidden: false },
       'connectPage.undo.shown',
       { kind: 'heatmap', activityId: 'a1', hidden: true },
+    ],
+    [
+      { kind: 'setEnabledMany', ids: ['s1', 's2'], enabled: false },
+      'connectPage.undo.sectionsHidden',
+      { kind: 'setEnabledMany', ids: ['s1', 's2'], enabled: true },
+    ],
+    [
+      { kind: 'setEnabledMany', ids: ['s1', 's2'], enabled: true },
+      'connectPage.undo.sectionsShown',
+      { kind: 'setEnabledMany', ids: ['s1', 's2'], enabled: false },
     ],
   ])('offers the reverse of %j with its notice', (edit, notice, reverse) => {
     expect(undoOf(edit)).toEqual({ notice, reverse });

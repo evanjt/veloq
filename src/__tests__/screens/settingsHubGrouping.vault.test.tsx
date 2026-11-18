@@ -189,6 +189,7 @@ describe('Settings hub grouping', () => {
       'settings-group-keeps',
       'settings-nav-detection',
       'settings-nav-backup',
+      'settings-nav-import-collection',
       'settings-nav-cache',
     ]);
   });
@@ -200,10 +201,11 @@ describe('Settings hub grouping', () => {
 
     mockExperimental = { garminUpdate: true, remoteLink: true };
     const on = await render(<SettingsScreen />);
-    expect(inRenderOrder(on.toJSON()).slice(-4)).toEqual([
+    expect(inRenderOrder(on.toJSON()).slice(-5)).toEqual([
       'settings-nav-detection',
       'settings-nav-backup',
       'settings-nav-linked-devices',
+      'settings-nav-import-collection',
       'settings-nav-cache',
     ]);
   });

@@ -34,6 +34,7 @@ function engineReporting(failure: () => { message: string; failedAt: number } | 
       matchedSections: [],
       customSections: [],
       encounters: [],
+      memberships: [],
       highlights: { indicators: [], routeHighlights: [], newGround: [], strengthCards: [] },
       sectionTraces: [],
       prSectionIds: [],

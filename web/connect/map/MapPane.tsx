@@ -13,6 +13,18 @@ import type {
 
 import { NOT_CONNECTED } from '../connection';
 import { hitBox, pickFeature, type PickedFeature } from './hit';
+import {
+  FIT_PADDING_PX,
+  MAX_FRAME_ZOOM,
+  RESIZE_SETTLE_MS,
+  frameDuration,
+  framePadding,
+  frameToken,
+  shouldFrame,
+  shouldRefit,
+  type Rect,
+  type Size,
+} from './framing';
 import { boxFromCorners, type Box, type Viewport } from './view';
 import type { QueryClient } from '../query';
 import { installProtocol } from './protocol';
@@ -24,6 +36,9 @@ export interface MapCamera {
   zoom?: number;
   /** Fit these bounds instead of centring. */
   bounds?: maplibregl.Bounds;
+  /** Changes for every request to frame: the same bounds again frames again, a refresh does not. */
+  seq?: number;
+  /** Uniform padding in pixels, in place of the padding computed from the overlays. */
   padding?: number;
 }
 
@@ -53,6 +68,8 @@ export interface MapPaneProps {
   onClick?: (feature: PickedFeature) => void;
   /** A click on the map where no interactive feature lies, as `[lng, lat]`. */
   onPoint?: (at: [number, number]) => void;
+  /** The elements drawn over the map, which a fit keeps clear of. */
+  overlays?: () => readonly Element[];
   /** The camera, after every move. */
   onCamera?: (view: Viewport) => void;
   /** The visible area, once the map has loaded and after every move. */
@@ -68,8 +85,6 @@ export interface MapPaneProps {
   /** An arrow key pressed on a grip: -1 for left or down, 1 for right or up. */
   onHandleStep?: (id: string, delta: number) => void;
 }
-
-const FIT_PADDING_PX = 48;
 
 function sourceDefinition(spec: MapSourceSpec): object {
   if (spec.kind === 'raster') {
@@ -284,6 +299,10 @@ export function MapPane(props: MapPaneProps) {
   const live = useRef<{
     map: maplibregl.Map;
     ready: boolean;
+    /** The frame request last applied; panning and data refreshes leave it as it was. */
+    framed: string | null;
+    /** The container's size when that request was applied. */
+    framedSize: Size | null;
     applied: MapSurfaceSpec | null;
     lit: ReadonlySet<string>;
     base: PageBase;
@@ -295,13 +314,30 @@ export function MapPane(props: MapPaneProps) {
     latest.current = props;
   });
 
-  function fit() {
+  function fit(ease = true) {
     const { camera } = latest.current;
-    const map = live.current?.map;
-    if (!map || !camera.bounds) return;
-    map.fitBounds(toBounds(camera.bounds), {
-      padding: camera.padding ?? FIT_PADDING_PX,
-      duration: 0,
+    const state = live.current;
+    if (!state || !camera.bounds) return;
+    state.framed = frameToken(camera);
+    const element = container.current;
+    state.framedSize = element
+      ? { width: element.clientWidth, height: element.clientHeight }
+      : null;
+    const box = (each: Element | DOMRect): Rect => {
+      const { left, top, right, bottom } =
+        each instanceof Element ? each.getBoundingClientRect() : each;
+      return { left, top, right, bottom };
+    };
+    const padding =
+      camera.padding ??
+      (element
+        ? framePadding(box(element), (latest.current.overlays?.() ?? []).map(box))
+        : FIT_PADDING_PX);
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    state.map.fitBounds(toBounds(camera.bounds), {
+      padding,
+      maxZoom: MAX_FRAME_ZOOM,
+      duration: ease ? frameDuration(reduced) : 0,
     });
   }
 
@@ -344,6 +380,8 @@ export function MapPane(props: MapPaneProps) {
     const state = {
       map,
       ready: false,
+      framed: null as string | null,
+      framedSize: null as Size | null,
       applied: null as MapSurfaceSpec | null,
       lit: new Set<string>() as ReadonlySet<string>,
       base,
@@ -370,7 +408,8 @@ export function MapPane(props: MapPaneProps) {
       apply(map, null, latest.current.spec);
       state.applied = latest.current.spec;
       light(latest.current.spec, new Set(latest.current.highlightedIds ?? []));
-      if (latest.current.camera.bounds) fit();
+      // The first paint is placed rather than eased into from the world view.
+      if (latest.current.camera.bounds) fit(false);
     }
     map.once('load', show);
 
@@ -414,11 +453,22 @@ export function MapPane(props: MapPaneProps) {
     map.on('mousemove', move);
     map.on('click', click);
     map.getCanvas().addEventListener('mouseleave', leave);
-    const resize = new ResizeObserver(() => map.resize());
+    // The renderer follows every size at once. The request in force is framed again for a size
+    // once it has held still, or what was fitted to the old size is cut off in the new one.
+    let settle: ReturnType<typeof setTimeout> | undefined;
+    const resize = new ResizeObserver(() => {
+      map.resize();
+      clearTimeout(settle);
+      settle = setTimeout(() => {
+        const now = { width: element.clientWidth, height: element.clientHeight };
+        if (state.ready && shouldRefit(state.framedSize, now)) fit();
+      }, RESIZE_SETTLE_MS);
+    });
     resize.observe(element);
 
     return () => {
       drag();
+      clearTimeout(settle);
       resize.disconnect();
       release();
       map.remove();
@@ -501,11 +551,14 @@ export function MapPane(props: MapPaneProps) {
       firstCamera.current = false;
       return;
     }
-    const map = live.current?.map;
-    if (!map) return;
+    const state = live.current;
+    const map = state?.map;
+    if (!state || !map) return;
     const { bounds, center, zoom } = latest.current.camera;
-    if (bounds) fit();
-    else
+    // A map still loading frames the latest request once it has loaded.
+    if (bounds) {
+      if (state.ready && shouldFrame(state.framed, frameToken(latest.current.camera))) fit();
+    } else
       map.jumpTo({
         ...(center && { center }),
         ...(zoom !== undefined && { zoom }),

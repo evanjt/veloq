@@ -24,7 +24,9 @@
 // Usage: node scripts/build-connect-page.mjs [--root <repo>] [--out <dir>] [--plain]
 //
 // `--out` defaults to `docs/connect` under the root. `--plain` writes the page
-// alone, which is how a kept page is built from its own commit.
+// alone, which is how a kept page is built from its own commit. The build also
+// writes `schema.json`, the link's JSON Schema, beside the page and in the
+// versioned directory, which is where the API reference links it.
 //
 // The map renderer is not bundled: it is the app's own vendored copy, a UMD
 // build that sets a global, so it is copied from the basemap assets under a
@@ -69,10 +71,17 @@ const KEPT_SOURCES = [
 /** Where the template reaches the shared icon, one directory above the page. */
 const ICON = 'href="../icon.png"';
 const TEMPLATE = 'index.html';
+/** The link's JSON Schema, which the API reference links beside the page. */
+const SCHEMA_DOCUMENT = 'schema.json';
 /** Copied beside the output unchanged: the vendored encoder's licence. */
 const NOTICES = ['qr.LICENSE.txt'];
 /** The app's font licence, copied beside the faces the stylesheet names. */
 const FONT_LICENCE = { source: 'assets/fonts/Manrope-OFL.txt', name: 'Manrope.LICENSE.txt' };
+/** The body drawing's licence, copied beside the page whose figure draws those shapes. */
+const BODY_LICENCE = {
+  source: 'node_modules/react-native-body-highlighter/LICENSE',
+  name: 'body-highlighter.LICENSE.txt',
+};
 /** The template's own names for what it loads, replaced by the built names. */
 const ENTRIES = ['boot.ts', 'connect.css'];
 /** Where the app keeps the renderer, and the module that pins its version and hashes. */
@@ -325,9 +334,11 @@ export async function buildConnectPage({ root, out, plain = false }) {
   writeFileSync(join(out, TEMPLATE), page);
   for (const notice of NOTICES) cpSync(join(source, notice), join(out, notice));
   cpSync(join(root, FONT_LICENCE.source), join(out, FONT_LICENCE.name));
+  cpSync(join(root, BODY_LICENCE.source), join(out, BODY_LICENCE.name));
   for (const file of renderer) writeFileSync(join(out, file.name), file.bytes);
   const built = [...names.values(), ...renderer.map((file) => file.name)];
   if (plain) return built;
+  cpSync(join(source, SCHEMA_DOCUMENT), join(out, SCHEMA_DOCUMENT));
   const { protocol, minProtocol } = JSON.parse(readFileSync(join(source, SCHEMA_INPUT), 'utf8'));
   const current = `v${protocol}/`;
   const listed = [{ path: current, min: minProtocol, max: protocol }];

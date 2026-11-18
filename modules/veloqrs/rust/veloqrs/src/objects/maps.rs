@@ -11,7 +11,7 @@ pub struct MapManager {
 #[uniffi::export]
 impl MapManager {
     #[uniffi::constructor]
-    fn new() -> Arc<Self> {
+    pub fn new() -> Arc<Self> {
         Arc::new(Self { _private: () })
     }
 
@@ -85,7 +85,7 @@ impl MapManager {
     /// ms in release at the densest cell of a 2,077-activity library, 33 to
     /// 40 ms in debug, on a tap whose transition is already running. It takes
     /// no engine lock. A heatmap that is off answers an empty result.
-    async fn activities_under_point(
+    pub async fn activities_under_point(
         &self,
         latitude: f64,
         longitude: f64,

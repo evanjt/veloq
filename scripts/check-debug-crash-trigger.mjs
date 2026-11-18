@@ -29,7 +29,7 @@ const launchArgument = 'VeloqForceRenderCrash';
 const nativeSource = /\.(kt|java|xml|swift|m|mm|h|plist|pbxproj|xcscheme)$/;
 
 const failures = [];
-const sources = [...indexedSources(root, ['modules', 'android', 'ios', 'push', 'widget'])]
+const sources = [...indexedSources(root, ['modules', 'android', 'ios', 'push', 'watch', 'widget'])]
   .filter(([path]) => nativeSource.test(path))
   .map(([path, bytes]) => [path, bytes.toString('utf8')]);
 

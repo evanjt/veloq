@@ -2236,7 +2236,7 @@ mod tests {
         engine.attach_finalize(0, false);
         assert_eq!(traced::lap_scans(), 1, "the batch tail scans once");
 
-        crate::test_trace::untrace(&engine.db);
+        crate::test_trace::untrace(&mut engine.db);
     }
 
     /// The lazy populate the section screen triggers had the same one-commit-
@@ -2244,8 +2244,8 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn populating_many_laps_is_one_commit() {
-        let engine = engine_with_null_laps(12);
-        let commits = commit_counter::watch(&engine);
+        let mut engine = engine_with_null_laps(12);
+        let commits = commit_counter::watch(&mut engine);
 
         assert_eq!(engine.backfill_section_performance_cache(), 12);
 
@@ -2264,9 +2264,9 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn populating_nothing_commits_nothing() {
-        let engine = engine_with_null_laps(2);
+        let mut engine = engine_with_null_laps(2);
         engine.backfill_section_performance_cache();
-        let commits = commit_counter::watch(&engine);
+        let commits = commit_counter::watch(&mut engine);
 
         assert_eq!(engine.backfill_section_performance_cache(), 0);
 

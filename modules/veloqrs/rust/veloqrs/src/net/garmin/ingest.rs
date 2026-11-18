@@ -15,6 +15,7 @@ use crate::fit::{FitActivity, FitParseError, parse_fit_activity};
 use crate::net::types::StreamDto;
 use crate::persistence::PersistentEngine;
 use crate::persistence::activities::FileSeries;
+use crate::persistence::file_track_checks::{FileTrackCheck, server_records_of};
 use crate::persistence::origin::{FILE_KEY_PREFIX, garmin_source_key};
 use crate::persistence::ride_identity::{self, Existing, RideIdentity};
 use crate::{FfiActivityBody, GpsPoint};
@@ -74,6 +75,10 @@ pub struct Prepared {
     pub laps: Option<String>,
     /// What the library compares this ride to its rows by.
     pub identity: RideIdentity,
+    /// How many samples the file's clock holds: the length of the index an
+    /// interval of a stored body addresses, a lap's `end_index` being one of
+    /// its positions. Zero for a file with no clock.
+    pub samples: usize,
     /// What the original's bytes are, as the originals table names it.
     pub format: &'static str,
 }
@@ -196,6 +201,10 @@ pub fn prepare_activity(
 ) -> Result<Prepared, IngestError> {
     let sport = crate::sport::from_fit(activity.sport, activity.sub_sport);
     let raw = activity.streams();
+    let samples = raw
+        .iter()
+        .find(|s| s.kind == "time")
+        .map_or(0, |s| s.data.len());
     let stream_types: Vec<String> = raw.iter().map(|s| s.kind.clone()).collect();
 
     let mut coords = Vec::new();
@@ -233,6 +242,7 @@ pub fn prepare_activity(
         key,
         body,
         identity,
+        samples,
         coords,
         streams,
         clock,
@@ -410,14 +420,23 @@ pub fn same_ride(engine: &PersistentEngine, prepared: &Result<Prepared, IngestEr
     })
 }
 
-/// A file whose ride the library holds as the row `row`: nothing is stored.
+/// A file whose ride the library holds as the row `row`: no row is stored.
 /// The file becomes that row's original when it keeps none, or when the file
 /// holds a message or field the kept one lacks.
+///
+/// A row that holds no track and no series takes the file's, so the ride is not
+/// owed a download of what the athlete has just handed over, when the file's
+/// record count is the server's. The intervals of a stored body address the
+/// server's samples and the last of them ends at its record count, so a file
+/// with any other count is not that recording and its series stay owed. With no
+/// interval body there is no count to contradict, and the file is taken; an
+/// interval body that arrives later is held against it.
 pub fn link_to_row(
-    engine: &PersistentEngine,
+    engine: &mut PersistentEngine,
     row: &str,
     source: &str,
     fit: &[u8],
+    prepared: &Result<Prepared, IngestError>,
 ) -> Result<Ingested, IngestError> {
     let storage = |e: rusqlite::Error| IngestError::Storage(e.to_string());
     let fuller =
@@ -436,22 +455,66 @@ pub fn link_to_row(
         )
         .map_err(storage)?;
     }
+    if let Ok(prepared) = prepared {
+        supply_series(engine, row, prepared);
+    }
     Ok(Ingested::Linked {
         to: row.to_string(),
     })
+}
+
+/// Store the track and series of a file for the row that holds the same ride,
+/// when the row has none and the file's record count is the server's. The
+/// check is recorded on the row either way. A failure is logged: the row stays
+/// as it was and the download stays owed.
+fn supply_series(engine: &mut PersistentEngine, row: &str, prepared: &Prepared) {
+    let file_records = u32::try_from(prepared.samples).unwrap_or(u32::MAX);
+    let server_records = engine
+        .get_interval_body(row)
+        .ok()
+        .flatten()
+        .as_deref()
+        .and_then(server_records_of);
+    let mut check = FileTrackCheck {
+        file_records,
+        server_records,
+        supplied: false,
+    };
+    if check.mismatched() {
+        log::info!(
+            "veloqrs: [garmin] the file of {row} holds {file_records} records and the server {}, so its series stay owed",
+            server_records.unwrap_or_default()
+        );
+    } else {
+        let series = FileSeries {
+            streams: &prepared.streams,
+            clock: &prepared.clock,
+        };
+        match engine.store_file_series_for_row(row, &prepared.coords, &series) {
+            Ok(stored) => check.supplied = stored,
+            Err(e) => log::warn!("veloqrs: [garmin] the file's series of {row} not stored: {e}"),
+        }
+    }
+    // A row whose track a file supplied earlier keeps that mark.
+    check.supplied |= engine
+        .file_track_check(row)
+        .is_some_and(|earlier| earlier.supplied);
+    if let Err(e) = engine.record_file_track_check(row, &check) {
+        log::warn!("veloqrs: [garmin] the file check of {row} not recorded: {e}");
+    }
 }
 
 /// A Garmin original whose ride was read from a file first is that file's
 /// row, not a second one. A match with any other kind of row is left to the
 /// Garmin link, which goes by Garmin's id alone.
 fn linked_to_file_row(
-    engine: &PersistentEngine,
+    engine: &mut PersistentEngine,
     prepared: &Result<Prepared, IngestError>,
     fit: &[u8],
 ) -> Option<Result<Ingested, IngestError>> {
     match same_ride(engine, prepared) {
         Existing::One(row) if row.starts_with(FILE_KEY_PREFIX) => {
-            Some(link_to_row(engine, &row, "garmin", fit))
+            Some(link_to_row(engine, &row, "garmin", fit, prepared))
         }
         _ => None,
     }

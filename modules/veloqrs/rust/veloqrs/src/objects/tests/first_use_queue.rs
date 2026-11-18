@@ -370,6 +370,11 @@ fn feed_failure_of(
         sport_families: Vec::new(),
         offset: 0,
         limit: None,
+        min_distance: None,
+        max_distance: None,
+        min_moving_time: None,
+        max_moving_time: None,
+        sort: None,
     };
     let page = with_persistent_engine(|engine| {
         crate::persistence::activities::pooled::feed_card_page(&engine.db, &query).expect("page")

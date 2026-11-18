@@ -134,7 +134,7 @@ tags:
 - runFlow:
     file: helpers/sheet-scroll-to.yaml
     env:
-      TARGET: "section-summary"
+      TARGET: "section-detail-stats"
       DIRECTION: UP
 
 - assertNotVisible:

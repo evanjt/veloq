@@ -254,12 +254,16 @@ fn a_library_upgraded_with_stored_groups_reads_its_lines_after_the_load() {
                  ALTER TABLE strength_sessions DROP COLUMN current_set;
                  ALTER TABLE strength_sessions DROP COLUMN rest_started_at;
                  ALTER TABLE strength_sessions DROP COLUMN notes;
+                 DROP TABLE linked_connections;
+                 DROP TABLE linked_refusals;
                  DROP TABLE remote_writes;
                  DROP TABLE activity_curves;
                  ALTER TABLE curve_bodies DROP COLUMN source;
                  DROP TABLE linked_devices;
                  ALTER TABLE activity_metrics DROP COLUMN metrics_source;
                  DROP TABLE remote_identity;
+                 DROP TABLE remote_spent;
+                 DROP TABLE file_track_checks;
                  DROP TABLE activity_held_back;
                  DROP TABLE garmin_link_unresolved;
                  ALTER TABLE gps_tracks DROP COLUMN elevation_settled_version;

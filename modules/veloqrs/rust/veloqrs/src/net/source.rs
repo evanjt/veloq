@@ -15,7 +15,8 @@
 use crate::governor::Dispatch;
 use crate::net::endpoints::{BulkActivityBodies, Replacement, UploadDetails};
 use crate::net::intervals::wire::{
-    ActivityRecord, AthleteRecord, ListedActivity, ManualActivityBody, WellnessRecord,
+    ActivityRecord, AthleteRecord, ListedActivity, ManualActivityBody, RemoteActivitySummary,
+    WellnessRecord,
 };
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::{ActivityHistorySummary, ParsedStreams, StreamDto};
@@ -100,6 +101,39 @@ pub trait Source: Send + Sync {
         limit: Option<u32>,
         dispatch: Dispatch,
     ) -> impl Future<Output = Result<Vec<(ActivityRecord, String)>, NetError>> + Send;
+
+    /// Whether the source answers the account search, that is whether
+    /// [`Source::search_activities`] and [`Source::activity_summaries`] give
+    /// rows rather than `None`. The feed offers the search only when this holds,
+    /// so a source without one is never offered what it cannot answer.
+    fn searches(&self) -> bool {
+        false
+    }
+
+    /// The activities whose name holds `query`, newest first and at most
+    /// `limit`, for a search of what the device does not hold. `None` when the
+    /// source has no search, which hides the offer.
+    fn search_activities(
+        &self,
+        query: &str,
+        limit: u32,
+        dispatch: Dispatch,
+    ) -> impl Future<Output = Result<Option<Vec<RemoteActivitySummary>>, NetError>> + Send {
+        let _ = (query, limit, dispatch);
+        async { Ok(None) }
+    }
+
+    /// The activities between two local dates, inclusive, as a row of the
+    /// remote search draws them. `None` when the source has no such listing.
+    fn activity_summaries(
+        &self,
+        oldest: &str,
+        newest: &str,
+        dispatch: Dispatch,
+    ) -> impl Future<Output = Result<Option<Vec<RemoteActivitySummary>>, NetError>> + Send {
+        let _ = (oldest, newest, dispatch);
+        async { Ok(None) }
+    }
 
     fn activity_body(
         &self,

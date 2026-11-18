@@ -527,6 +527,10 @@ fn activity_keyed_seeds() -> Vec<(&'static str, &'static str)> {
              VALUES (?1, 'import', 'fit', 0, x'00', x'00', 0)",
         ),
         (
+            "file_track_checks",
+            "INSERT INTO file_track_checks (activity_id, file_records) VALUES (?1, 10)",
+        ),
+        (
             "ride_identity",
             "INSERT INTO ride_identity (activity_id, device_serial, created_unix, start_local, sport)
              VALUES (?1, 1, 2, 3, 'Ride')

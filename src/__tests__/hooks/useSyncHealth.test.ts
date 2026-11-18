@@ -21,7 +21,10 @@ jest.mock('@/shared/native/engine', () => ({
 
 let mockStatus: SyncStatus | null = null;
 jest.mock('@/shared/native/useSyncStatus', () => ({
-  useSyncStatus: () => mockStatus,
+  useSyncLastError: () => mockStatus?.lastError,
+  useSyncLastErrorReason: () => mockStatus?.lastErrorReason ?? null,
+  useLastSyncSuccessAt: () => mockStatus?.lastSuccessAt ?? null,
+  useSyncRetryAtMs: () => mockStatus?.retryAtMs ?? null,
 }));
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;

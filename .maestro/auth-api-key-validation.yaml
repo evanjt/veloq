@@ -61,7 +61,6 @@ tags:
     visible:
       id: "login-error-text"
     timeout: 25000
-    optional: true
 
 - takeScreenshot: "screenshots/auth-api-key-error"
 

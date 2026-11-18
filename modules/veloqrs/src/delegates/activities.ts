@@ -9,6 +9,7 @@
 
 import type {
   ActivitySportMapping,
+  FfiGivenUpTracks,
   FfiActivityBody,
   FfiActivityDetailData,
   FfiActivityIndicator,
@@ -20,6 +21,7 @@ import type {
   FfiActivityBodiesQuery,
   FfiFeedCard,
   FfiFeedCardsPage,
+  FfiFeedFilterBounds,
   FfiPreviewTrack,
   FfiStrengthCardSummary,
 } from '../generated/veloqrs';
@@ -87,6 +89,15 @@ export function getGpsFetchCandidates(
   return host.timed('getGpsFetchCandidates', () =>
     host.engine.activities().getGpsFetchCandidates(oldest, newest)
   );
+}
+
+/**
+ * The activities whose track the engine has given up on, newest first, each
+ * with its stored name and local start. Refused tracks are not listed.
+ */
+export function getGivenUpTracks(host: DelegateHost): FfiGivenUpTracks {
+  if (!host.ready) return { tracks: [] };
+  return host.timed('getGivenUpTracks', () => host.engine.activities().getGivenUpTracks());
 }
 
 /**
@@ -300,7 +311,16 @@ function windowQuery(oldestTs: number, newestTs: number): FfiActivityBodiesQuery
 /** A feed search: the text and the chip, paged, over every stored activity. */
 export type FeedCardsSearch = Pick<
   FfiActivityBodiesQuery,
-  'needle' | 'sportFamilies' | 'offset' | 'limit' | 'oldestTs' | 'newestTs'
+  | 'needle'
+  | 'sportFamilies'
+  | 'offset'
+  | 'limit'
+  | 'oldestTs'
+  | 'newestTs'
+  | 'minDistance'
+  | 'maxDistance'
+  | 'minMovingTime'
+  | 'maxMovingTime'
 >;
 
 /**
@@ -315,6 +335,12 @@ export function searchFeedCards(
 ): FfiFeedCardsPage | undefined {
   if (!host.ready) return undefined;
   return host.timed('searchFeedCards', () => host.engine.activities().getFeedCards(query));
+}
+
+/** The span of the library the feed's filter bars draw across, as the engine reads it. */
+export function getFeedFilterBounds(host: DelegateHost): FfiFeedFilterBounds | undefined {
+  if (!host.ready) return undefined;
+  return host.timed('getFeedFilterBounds', () => host.engine.activities().getFeedFilterBounds());
 }
 
 /** One activity's display name, as the engine knows it. */

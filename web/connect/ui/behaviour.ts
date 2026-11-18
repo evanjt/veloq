@@ -3,6 +3,8 @@
 
 export const TOOLTIP_DELAY_MS = 400;
 export const TOAST_LIFETIME_MS = 6000;
+/** A toast that offers an undo stays longer, so the button can be reached. */
+export const UNDO_TOAST_LIFETIME_MS = 10_000;
 
 export type Focusable = { focus(): void };
 
@@ -69,6 +71,10 @@ export function stepIndex(
 }
 
 export type ToastEntry = { id: number; message: string; undo?: { label: string; run: () => void } };
+
+/** How long a toast stays when nothing holds it. */
+export const toastLifetime = (toast: ToastEntry): number =>
+  toast.undo ? UNDO_TOAST_LIFETIME_MS : TOAST_LIFETIME_MS;
 
 export function pushToast(list: readonly ToastEntry[], entry: ToastEntry): ToastEntry[] {
   return [...list.filter((held) => held.id !== entry.id), entry];

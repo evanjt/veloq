@@ -10,13 +10,13 @@ import { useTranslation } from 'react-i18next';
 import {
   chipOf,
   endpointText,
-  ratePlot,
   trafficRates,
   trafficWindow,
   type Facts,
   type Rate,
   type Traffic,
 } from './connection';
+import { Sparkline } from './charts/Sparkline';
 import { elapsed, rate } from './format';
 import type { State } from './link';
 import type { Session } from './session';
@@ -137,7 +137,6 @@ function ConnectionDetails({
     };
   }, [session]);
 
-  const plot = ratePlot(rates);
   const latest = rates[rates.length - 1];
   return (
     <div
@@ -165,10 +164,16 @@ function ConnectionDetails({
         </dd>
       </dl>
       <figure>
-        <svg viewBox="0 0 240 48" role="img" aria-label={t('connectPage.connection.trafficLabel')}>
-          <polyline className="received" fill="none" points={plot.received} />
-          <polyline className="sent" fill="none" points={plot.sent} />
-        </svg>
+        <Sparkline
+          className="traffic"
+          range="zero"
+          height={48}
+          label={t('connectPage.connection.trafficLabel')}
+          lines={[
+            { values: rates.map((r) => r.received), className: 'received' },
+            { values: rates.map((r) => r.sent), className: 'sent' },
+          ]}
+        />
         <figcaption>
           {t('connectPage.connection.traffic', {
             received: rate(latest?.received ?? 0),

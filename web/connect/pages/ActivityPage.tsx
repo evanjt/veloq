@@ -15,10 +15,17 @@ import {
   ChipGroup,
   DataTable,
   DetailHeader,
+  EmptyState,
+  GridCell,
   LinkButton,
+  ManagePanel,
+  PageGrid,
   SegmentedControl,
+  Skeleton,
   Tabs,
   type Column,
+  type ManageGroup,
+  type MenuItem,
 } from "../ui";
 import type {
   FfiActivityRecord,
@@ -27,6 +34,7 @@ import type {
   Methods,
 } from "../schema";
 import { Lanes, type LaneSeries } from "../charts/Lanes";
+import { Sparkline } from "../charts/Sparkline";
 import { streamColour } from "../charts/colours";
 import type { IndexRange } from "../charts/scale";
 import type { ChartStream } from "../theme";
@@ -84,7 +92,11 @@ export type Facts = {
     history: number[];
     /** The index in `history` of this pass. */
     current: number;
+    /** The athlete left the activity out of this section: the row has no pass. */
+    excluded?: boolean;
   }[];
+  /** Every route and section the activity matched, and whether it is left out of each. */
+  memberships?: { kind: "route" | "section"; id: string; name: string; excluded: boolean }[];
   /** Where the activity stands on each route it belongs to. */
   standing?: {
     id: string;
@@ -329,6 +341,7 @@ export function ActivityPage(props: {
   const [pickedLap, setPickedLap] = useState<string | null>(null);
   // While a section is being cut the range is its ends, whatever sets it.
   const [creating, setCreating] = useState(false);
+  const [managing, setManaging] = useState(false);
   const samples = data?.time.length ?? 0;
   const cutRange = range ?? { from: 0, to: Math.max(0, samples - 1) };
   // A brush or a reset on the charts is not an interval any longer.
@@ -358,6 +371,7 @@ export function ActivityPage(props: {
   return (
     <section id="activity-page">
       <ActivityHeader
+        onManage={() => setManaging(true)}
         id={props.id}
         record={record}
         detailData={detailData}
@@ -369,6 +383,9 @@ export function ActivityPage(props: {
             : null
         }
       />
+      {managing && props.queries ? (
+        <ManageActivity id={props.id} onClose={() => setManaging(false)} />
+      ) : null}
       <div id="activity-top" data-map={showMap ? "track" : "none"}>
         {showMap && props.queries ? (
           <div
@@ -480,12 +497,35 @@ function ActivityHeader(props: {
   queries: QueryClient | undefined;
   /** Opens the section cutter; null when the ride cannot be cut or it is open. */
   onCreateSection: (() => void) | null;
+  /** Opens the Manage panel. */
+  onManage: () => void;
 }) {
   const { record, detailData, queries } = props;
   const { t } = useTranslation();
   const mark = sportMark(record?.sportType);
   const provenance = detailData?.provenance;
   const intervalsId = detailData?.intervalsId;
+  const items: MenuItem[] = [];
+  if (queries && detailData?.hasGpsTrack) {
+    items.push({
+      id: "export-gpx",
+      label: t("connectPage.activity.exportGpx"),
+      onSelect: () =>
+        void exportGpx(
+          queries,
+          props.id,
+          record?.name ?? props.id,
+          props.data?.series["altitude"],
+        ),
+    });
+  }
+  if (queries) {
+    items.push({
+      id: "manage",
+      label: t("connectPage.activity.manage"),
+      onSelect: props.onManage,
+    });
+  }
   return (
     <DetailHeader
       id="activity-header"
@@ -498,43 +538,30 @@ function ActivityHeader(props: {
         .join(" · ")}
       note={provenance ? t(PROVENANCE_KEYS[provenance]) : undefined}
       actionsLabel={t("connectPage.activity.actions")}
-      actions={
-        <>
-          {queries && detailData?.hasGpsTrack ? (
-            <Button
-              size="sm"
-              onClick={() =>
-                void exportGpx(
-                  queries,
-                  props.id,
-                  record?.name ?? props.id,
-                  props.data?.series["altitude"],
-                )
-              }
-            >
-              {t("connectPage.activity.exportGpx")}
-            </Button>
-          ) : null}
-          {queries && detailData?.hasGpsTrack ? (
-            <Button
-              size="sm"
-              disabled={props.onCreateSection === null}
-              onClick={props.onCreateSection ?? undefined}
-            >
-              {t("connectPage.activity.createSection")}
-            </Button>
-          ) : null}
-          {queries ? <HeatmapSwitch id={props.id} /> : null}
-          {intervalsId ? (
-            <LinkButton
-              size="sm"
-              href={`https://intervals.icu/activities/${encodeURIComponent(intervalsId)}`}
-            >
-              {t("connectPage.activity.openOnIntervals")}
-            </LinkButton>
-          ) : null}
-        </>
-      }
+      primary={[
+        queries && detailData?.hasGpsTrack ? (
+          <Button
+            size="sm"
+            disabled={props.onCreateSection === null}
+            onClick={props.onCreateSection ?? undefined}
+          >
+            {t("connectPage.activity.createSection")}
+          </Button>
+        ) : null,
+        intervalsId ? (
+          <LinkButton
+            size="sm"
+            href={`https://intervals.icu/activities/${encodeURIComponent(intervalsId)}`}
+          >
+            {t("connectPage.activity.openOnIntervals")}
+          </LinkButton>
+        ) : null,
+      ]}
+      menu={{
+        label: t("connectPage.activity.actions"),
+        trigger: t("connectPage.activity.more"),
+        items,
+      }}
     />
   );
 }
@@ -606,9 +633,9 @@ function ActivityLanes(props: {
         {props.series?.error ? (
           <ReadNotice error={props.series.error} />
         ) : props.series?.loading ? (
-          <p className="empty">{t("connectPage.read.loading")}</p>
+          <Skeleton label={t("connectPage.read.loading")} />
         ) : (
-          <p className="empty">{t("connectPage.activity.noSeries")}</p>
+          <EmptyState title={t("connectPage.activity.noSeries")} />
         )}
       </Card>
     );
@@ -677,7 +704,7 @@ function ActivityLanes(props: {
       <RangeReadoutBar data={data} range={props.range} />
       <div id="activity-lanes">
         {lanes.length === 0 ? (
-          <p className="empty">{t("connectPage.activity.noStreamsShown")}</p>
+          <EmptyState title={t("connectPage.activity.noStreamsShown")} />
         ) : (
           <Lanes
             key={shown}
@@ -861,13 +888,25 @@ function ActivityTabs(props: {
       ),
     });
   }
-  if (facts.passes?.length) {
+  const leftOut: NonNullable<Facts["passes"]> = (facts.memberships ?? [])
+    .filter((member) => member.kind === "section" && member.excluded)
+    .map((member) => ({
+      id: member.id,
+      name: member.name,
+      lapTime: "",
+      rank: null,
+      pr: false,
+      history: [],
+      current: 0,
+      excluded: true,
+    }));
+  if (facts.passes?.length || leftOut.length) {
     items.push({
       id: "sections",
       label: t("connectPage.activity.sections"),
       panel: (
         <Passes
-          passes={facts.passes}
+          passes={[...(facts.passes ?? []), ...leftOut]}
           position={props.position}
           lit={props.lit}
           onLit={props.onLit}
@@ -944,18 +983,22 @@ function Zones({
     },
   ];
   return (
-    <div className="activity-zones">
-      {zones.map((zone) => (
-        <Card key={zone.label} label={zone.label}>
-          <CardHeader title={zone.label} />
-          <DataTable
-            label={zone.label}
-            columns={columns}
-            rows={zone.rows}
-            rowKey={(r) => r.name}
-          />
-        </Card>
-      ))}
+    <>
+      <PageGrid className="activity-zones">
+        {zones.map((zone) => (
+          <GridCell key={zone.label}>
+            <Card label={zone.label}>
+              <CardHeader title={zone.label} />
+              <DataTable
+                label={zone.label}
+                columns={columns}
+                rows={zone.rows}
+                rowKey={(r) => r.name}
+              />
+            </Card>
+          </GridCell>
+        ))}
+      </PageGrid>
       {maxHr && source ? (
         <p id="max-hr-source">
           {t("connectPage.activity.maxHr", {
@@ -964,7 +1007,7 @@ function Zones({
           })}
         </p>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -1024,23 +1067,14 @@ function Laps({
 
 /** A section's times in date order as a line, this pass marked. */
 function History({ times, current }: { times: number[]; current: number }) {
-  const low = Math.min(...times);
-  const span = Math.max(...times) - low || 1;
-  const step = times.length > 1 ? 100 / (times.length - 1) : 50;
-  const at = (i: number) =>
-    `${(i * step).toFixed(1)},${(2 + ((times[i] ?? low) - low) / span * 20).toFixed(1)}`;
   return (
-    <svg
+    <Sparkline
       className="history-line"
-      viewBox="0 0 100 24"
-      preserveAspectRatio="none"
-      aria-hidden
-    >
-      {times.length > 1 ? (
-        <polyline points={times.map((_, i) => at(i)).join(" ")} />
-      ) : null}
-      <circle cx={at(current).split(",")[0]} cy={at(current).split(",")[1]} r="2.5" />
-    </svg>
+      range="fit"
+      height={20}
+      lines={[{ values: times }]}
+      marker={{ line: 0, index: current }}
+    />
   );
 }
 
@@ -1060,7 +1094,7 @@ function Passes(props: {
       key: "number",
       header: "#",
       numeric: true,
-      cell: (row) => numbers.get(row.id) ?? "",
+      cell: (row) => (row.excluded ? "" : (numbers.get(row.id) ?? "")),
     },
     {
       key: "name",
@@ -1088,7 +1122,9 @@ function Passes(props: {
       header: t("connectPage.activity.rank"),
       numeric: true,
       cell: (row) =>
-        row.pr
+        row.excluded
+          ? t("connectPage.routes.excluded")
+          : row.pr
           ? t("connectPage.activity.record")
           : row.rank === null
             ? ""
@@ -1109,6 +1145,7 @@ function Passes(props: {
       columns={columns}
       rows={props.passes}
       rowKey={keyOf}
+      rowProps={(row) => ({ "data-excluded": row.excluded ? "true" : undefined })}
       selectedKey={props.lit}
       isSelected={(row) => props.lit === row.id}
       onRowHover={(row) => props.onLit(row?.id ?? null)}
@@ -1356,35 +1393,71 @@ function Notes({ notes }: { notes: Facts["notes"] }) {
 }
 
 /**
- * Hides this activity from the heatmap, or shows it again. The state is the
- * phone's own, held by the read cache: the write names that read, so an edit
+ * Every setting of this activity: whether it shows on the heatmap, and for
+ * each route and section it matched whether it counts there. The state is the
+ * phone's own, held by the read cache: each write names that read, so an edit
  * or its undo shows the state the phone now holds.
  */
-export function HeatmapSwitch({ id }: { id: string }) {
+export function ManageActivity(props: { id: string; onClose: () => void }) {
   const { t } = useTranslation();
   const editor = useEdit();
-  const detail = useRead("activity.detail", { id });
-  const hidden = detail.data?.heatmapHidden ?? null;
-  if (hidden === null) return null;
+  const detail = useRead("activity.detail", { id: props.id });
+  const data = detail.data;
+  if (!data) return null;
+  const members = (kind: "route" | "section") =>
+    (data.memberships ?? [])
+      .filter((member) => member.kind === kind)
+      .map((member) => ({
+        id: member.id,
+        label: member.name ?? member.id,
+        on: !member.excluded,
+        onChange: (on: boolean) =>
+          void editor.run({
+            kind: kind === "route" ? "routePass" : "sectionPass",
+            id: member.id,
+            activityId: props.id,
+            excluded: !on,
+          }),
+      }));
+  const groups: ManageGroup[] = [
+    {
+      id: "heatmap",
+      title: t("connectPage.activity.manageHeatmap"),
+      rows: [
+        {
+          id: "heatmap",
+          label: t("connectPage.activity.showOnHeatmap"),
+          on: !data.heatmapHidden,
+          onChange: (on) =>
+            void editor.run({
+              kind: "heatmap",
+              activityId: props.id,
+              hidden: !on,
+            }),
+        },
+      ],
+    },
+    {
+      id: "routes",
+      title: t("connectPage.activity.routes"),
+      rows: members("route"),
+    },
+    {
+      id: "sections",
+      title: t("connectPage.activity.sections"),
+      rows: members("section"),
+    },
+  ];
   return (
-    <>
-      <Button
-        size="sm"
-        aria-pressed={hidden}
-        onClick={() =>
-          void editor.run({ kind: "heatmap", activityId: id, hidden: !hidden })
-        }
-      >
-        {hidden
-          ? t("connectPage.activity.showOnHeatmap")
-          : t("connectPage.activity.hideFromHeatmap")}
-      </Button>
-      {editor.refusal ? (
-        <span className="notice" role="alert">
-          {editor.refusal}
-        </span>
-      ) : null}
-    </>
+    <ManagePanel
+      id="activity-manage"
+      title={t("connectPage.activity.manage")}
+      hint={t("connectPage.activity.manageHint")}
+      closeLabel={t("common.close")}
+      groups={groups}
+      refusal={editor.refusal}
+      onClose={props.onClose}
+    />
   );
 }
 

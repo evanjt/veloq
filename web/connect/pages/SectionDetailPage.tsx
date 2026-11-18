@@ -10,11 +10,22 @@ import { useTranslation } from 'react-i18next';
 import { changeCopy } from '@/features/routes/lib/sectionChangeCopy';
 
 import { Chart } from '../charts/Chart';
-import { distanceUnit, distanceValue, elapsed, km, kmh, metricUnits } from '../format';
+import { Histogram } from '../charts/Histogram';
+import { curveColour, directionColour } from '../charts/colours';
+import {
+  distanceUnit,
+  distanceValue,
+  elapsed,
+  km,
+  kmh,
+  metricUnits,
+  signedDuration,
+} from '../format';
 import { pointsOf as trackPoints } from '../preview';
 import { SectionMap } from '../map/SectionMap';
+import { refusalText } from '../link';
 import { go, queryValue, withQuery, type Route } from '../router';
-import { historyRowsOf } from '../routesDetail';
+import { historyRowsOf, trendBandOf } from '../routesDetail';
 import {
   askOf,
   binsOf,
@@ -26,6 +37,7 @@ import {
   pointsOf,
   RANGES,
   statsOf,
+  trendSpeedOf,
   type Candidate,
   type Direction,
   type Performance,
@@ -41,7 +53,14 @@ import {
   type LapRow,
   type LapWrite,
 } from '../sectionLaps';
-import { resetReferenceWrite, setReferenceWrite, undoOfEdit } from '../sectionBounds';
+import {
+  liftWrites,
+  mergeUndoWrites,
+  resetReferenceWrite,
+  setReferenceWrite,
+  undoOfEdit,
+} from '../sectionBounds';
+import { callOf } from '../routesEdits';
 import { usePageName } from '../shell/pageName';
 import { Reading } from '../shell/StatePanes';
 import { useTableLabels } from '../tableLabels';
@@ -56,9 +75,9 @@ import {
   Dialog,
   EmptyState,
   SegmentedControl,
+  Skeleton,
   Tabs,
   TextField,
-  ToastProvider,
   Tooltip,
   useToast,
   type BulkAction,
@@ -80,13 +99,8 @@ const NO_NAME = 'connectPage.routes.unnamedSection';
 const dateOf = (seconds: number) => new Date(seconds * 1000).toISOString().slice(0, 10);
 
 export function SectionDetailPage({ route }: { route: Route }) {
-  const { t } = useTranslation();
   if (!route.id) return null;
-  return (
-    <ToastProvider dismissLabel={t('connectPage.sections.dismiss')}>
-      <SectionDetail route={route} id={route.id} />
-    </ToastProvider>
-  );
+  return <SectionDetail route={route} id={route.id} />;
 }
 
 function SectionDetail({ route, id }: { route: Route; id: string }) {
@@ -305,6 +319,7 @@ function Header({
   const { t } = useTranslation();
   const name = section.name ?? '';
   const [unflagging, setUnflagging] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const run = (writes: Write[], message: string, undo: Write[]) =>
     batch.run(writes, message, undo, t('connectPage.sections.undo'));
   const sports = performance?.sportCounts ?? [];
@@ -369,9 +384,9 @@ function Header({
                 section.isLift
                   ? setUnflagging(true)
                   : void run(
-                      [{ method: 'section.setLift', params: { id, isLift: true } }],
+                      liftWrites(id, true).writes,
                       t('connectPage.sections.liftChanged'),
-                      []
+                      liftWrites(id, true).undo
                     )
               }
             >
@@ -387,9 +402,9 @@ function Header({
           cancelLabel={t('connectPage.sections.cancel')}
           onConfirm={() =>
             void run(
-              [{ method: 'section.setLift', params: { id, isLift: false } }],
+              liftWrites(id, false).writes,
               t('connectPage.sections.liftChanged'),
-              []
+              liftWrites(id, false).undo
             )
           }
           onClose={() => setUnflagging(false)}
@@ -400,21 +415,54 @@ function Header({
         >
           {t('connectPage.sections.editBounds')}
         </Button>
-        <Button
-          onClick={() =>
-            void run(
-              [{ method: section.disabled ? 'section.enable' : 'section.disable', params: { id } }],
-              t(
-                section.disabled
-                  ? 'connectPage.sections.restoredShort'
-                  : 'connectPage.sections.removed'
-              ),
-              [{ method: section.disabled ? 'section.disable' : 'section.enable', params: { id } }]
-            )
-          }
-        >
-          {t(section.disabled ? 'connectPage.sections.restore' : 'connectPage.sections.remove')}
-        </Button>
+        {section.isUserDefined && !section.disabled ? (
+          <>
+            <Button variant="destructive" onClick={() => setDeleting(true)}>
+              {t('sections.deleteSection')}
+            </Button>
+            <ConfirmDialog
+              open={deleting}
+              title={t('sections.deleteSection')}
+              description={t('sections.deleteSectionConfirm', { name: name || t(NO_NAME) })}
+              confirmLabel={t('common.delete')}
+              cancelLabel={t('connectPage.sections.cancel')}
+              onConfirm={() =>
+                void run(
+                  [callOf({ kind: 'deleteSection', id })],
+                  t('connectPage.sections.removed'),
+                  []
+                )
+              }
+              onClose={() => setDeleting(false)}
+            />
+          </>
+        ) : (
+          <Button
+            onClick={() =>
+              void run(
+                [
+                  {
+                    method: section.disabled ? 'section.enable' : 'section.disable',
+                    params: { id },
+                  },
+                ],
+                t(
+                  section.disabled
+                    ? 'connectPage.sections.restoredShort'
+                    : 'connectPage.sections.removed'
+                ),
+                [
+                  {
+                    method: section.disabled ? 'section.disable' : 'section.enable',
+                    params: { id },
+                  },
+                ]
+              )
+            }
+          >
+            {t(section.disabled ? 'connectPage.sections.restore' : 'connectPage.sections.remove')}
+          </Button>
+        )}
       </div>
       <div className="section-controls">
         {sports.length > 1 ? (
@@ -528,7 +576,9 @@ function Stats({ performance }: { performance: Performance }) {
             <td data-numeric>{row.count}</td>
             <td data-numeric>
               {row.best === null ? null : elapsed(row.best * 1000)}
-              {row.record ? <Badge>{t('connectPage.sections.statusRecord')}</Badge> : null}
+              {row.record ? (
+                <Badge tone="record">{t('connectPage.sections.statusRecord')}</Badge>
+              ) : null}
             </td>
             <td data-numeric>{row.avgTime === null ? null : elapsed(row.avgTime * 1000)}</td>
             <td>{row.last === null ? null : dateOf(row.last)}</td>
@@ -540,8 +590,8 @@ function Stats({ performance }: { performance: Performance }) {
 }
 
 const DIRECTION_COLOURS: Record<Direction, string> = {
-  forward: 'var(--colour-data-div-cool-2)',
-  reverse: 'var(--colour-data-div-warm-2)',
+  forward: directionColour('forward'),
+  reverse: directionColour('reverse'),
 };
 
 /** The direction a view shows: the one the address names when the section has it, else forward. */
@@ -612,7 +662,7 @@ function OverTime({
         format={(value) => kmh(value) ?? ''}
         xTitle={t('connectPage.strength.colDate')}
         yTitle={t('connectPage.routes.speed')}
-        trend
+        curveBand={{ points: trendBandOf(trendSpeedOf(performance, direction)) }}
         picked={picked}
         onPick={setPicked}
         height={300}
@@ -645,22 +695,16 @@ function Spread({
       {bins.length === 0 ? (
         <EmptyState title={t('connectPage.routes.noAttempts')} />
       ) : (
-        <Chart
-          kind="bar"
+        <Histogram
+          binned={bins}
           label={t('connectPage.sections.spreadChart')}
           empty={t('connectPage.routes.noAttempts')}
-          none={t('connectPage.sections.noValue')}
-          categories={bins.map((bin) => `${elapsed(bin.low * 1000)}–${elapsed(bin.high * 1000)}`)}
-          series={[
-            {
-              name: t('connectPage.sections.laps'),
-              colour: DIRECTION_COLOURS[direction],
-              values: bins.map((bin) => bin.count),
-            },
-          ]}
-          format={(value) => String(Math.round(value))}
+          format={(seconds) => elapsed(seconds * 1000)}
+          count={(n) => String(Math.round(n))}
+          binText={(low, high, n) => `${elapsed(low * 1000)}–${elapsed(high * 1000)}: ${n}`}
           xTitle={t('connectPage.facts.time')}
           yTitle={t('connectPage.sections.laps')}
+          colour={DIRECTION_COLOURS[direction]}
           height={300}
         />
       )}
@@ -688,9 +732,7 @@ function AheadBehind({
     <div className="section-view">
       <DirectionControl direction={direction} directions={directions} onChange={choose} />
       {performance.curvesPending ? (
-        <p className="notice" role="status">
-          {t('connectPage.sections.curvesPending')}
-        </p>
+        <Skeleton lines={1} label={t('connectPage.sections.curvesPending')} />
       ) : null}
       {set === null || shown.length === 0 ? (
         <EmptyState title={t('connectPage.sections.noCurves')} />
@@ -708,10 +750,10 @@ function AheadBehind({
           }}
           series={shown.map((curve, at) => ({
             name: dateOf(curve.date),
-            colour: `var(--colour-data-seq-${at + 1})`,
+            colour: curveColour(at),
             values: curve.values,
           }))}
-          format={(value) => `${value > 0 ? '+' : ''}${value.toFixed(1)} s`}
+          format={signedDuration}
           xTitle={t('connectPage.sections.alongSection', { unit: distanceUnit() })}
           yTitle={t('connectPage.sections.behindReference')}
           height={300}
@@ -838,7 +880,9 @@ function Laps({
           {row.excluded || excludedActivities.has(row.activityId) ? (
             <Badge tone="warning">{t('connectPage.routes.excluded')}</Badge>
           ) : null}
-          {row.isRecord ? <Badge>{t('connectPage.sections.statusRecord')}</Badge> : null}
+          {row.isRecord ? (
+            <Badge tone="record">{t('connectPage.sections.statusRecord')}</Badge>
+          ) : null}
           {row.outsideBand ? <Badge>{t('connectPage.sections.outsideBand')}</Badge> : null}
         </span>
       ),
@@ -1006,6 +1050,7 @@ function MergeCandidates({
   const [pending, setPending] = useState<{
     candidate: Candidate;
     dropped: Methods['section.mergePreview']['result']['dropped'];
+    laps: number;
   } | null>(null);
   const [refusal, setRefusal] = useState<string | null>(null);
   useEffect(() => {
@@ -1052,10 +1097,15 @@ function MergeCandidates({
                 secondaryId: row.sectionId,
               }) as Promise<Methods['section.mergePreview']['result']>
             ).then(
-              (preview) => setPending({ candidate: row, dropped: preview.dropped }),
+              (preview) =>
+                setPending({
+                  candidate: row,
+                  dropped: preview.dropped,
+                  laps: preview.lapsRemeasured,
+                }),
               (error: unknown) =>
                 setRefusal(
-                  error instanceof Error ? error.message : t('connectPage.routes.editFailed')
+                  error instanceof Error ? refusalText(error, t) : t('connectPage.routes.editFailed')
                 )
             );
           }}
@@ -1100,29 +1150,42 @@ function MergeCandidates({
                 const candidate = pending?.candidate;
                 setPending(null);
                 if (!candidate) return;
-                void phone
-                  .write('section.merge', { primaryId: id, secondaryId: candidate.sectionId })
-                  .then(
-                    (outcome) => {
-                      toast(
-                        t('connectPage.sections.mergeDone', {
-                          name: candidate.name ?? t(NO_NAME),
-                        }),
-                        {
-                          label: t('connectPage.sections.undo'),
-                          run: () =>
-                            void phone
-                              .write('section.restore', { id: candidate.sectionId })
-                              .catch(() => undefined),
-                        }
-                      );
-                      go({ screen: 'section', id: outcome.result.sectionId, query: [] });
-                    },
-                    (error: unknown) =>
-                      setRefusal(
-                        error instanceof Error ? error.message : t('connectPage.routes.editFailed')
-                      )
-                  );
+                void undoOfEdit(phone, id).then((keptRevert) =>
+                  phone
+                    .write('section.merge', { primaryId: id, secondaryId: candidate.sectionId })
+                    .then(
+                      (outcome) => {
+                        toast(
+                          t('connectPage.sections.mergeDone', {
+                            name: candidate.name ?? t(NO_NAME),
+                          }),
+                          {
+                            label: t('connectPage.sections.undo'),
+                            run: () => {
+                              // Restore the merged section first, then put the kept one back, in order.
+                              const writes = mergeUndoWrites(candidate.sectionId, keptRevert);
+                              void writes
+                                .reduce(
+                                  (done, write) =>
+                                    done.then(() =>
+                                      phone.write(write.method as never, write.params as never)
+                                    ),
+                                  Promise.resolve<unknown>(undefined)
+                                )
+                                .catch(() => undefined);
+                            },
+                          }
+                        );
+                        go({ screen: 'section', id: outcome.result.sectionId, query: [] });
+                      },
+                      (error: unknown) =>
+                        setRefusal(
+                          error instanceof Error
+                            ? refusalText(error, t)
+                            : t('connectPage.routes.editFailed')
+                        )
+                    )
+                );
               }}
             >
               {t('connectPage.sections.merge')}
@@ -1136,6 +1199,9 @@ function MergeCandidates({
             length: km(kept.distanceMeters) ?? '',
             count: kept.visitCount,
           })}
+        </p>
+        <p className="meta" id="merge-laps">
+          {t('connectPage.sections.mergeLaps', { count: pending?.laps ?? 0 })}
         </p>
         <ul className="merge-dropped">
           {(pending?.dropped ?? []).slice(0, 8).map((ride) => (

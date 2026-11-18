@@ -3,7 +3,7 @@
 // their own. The address holds the sort, search, filters, selection and view;
 // the engine orders, filters and counts, and this draws its answer.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { km } from '../format';
@@ -22,6 +22,8 @@ import {
 import { CHIPS, SECTION_SORTS, opening, toggled, type Chip } from '../routesList';
 import { Reading } from '../shell/StatePanes';
 import { useTableLabels } from '../tableLabels';
+import { filterCount } from '../ui/filterText';
+import { useFilterDraft, useLastAnswered } from '../useFilterDraft';
 import {
   Button,
   Card,
@@ -30,18 +32,13 @@ import {
   ConfirmDialog,
   DataTable,
   EmptyState,
-  SearchField,
   SegmentedControl,
   Select,
-  ToastProvider,
   type Column,
 } from '../ui';
 import { useBatch } from '../useBatch';
 import { useQueries, useRead } from '../useRead';
 import { StatusBadges, Trend } from './SectionParts';
-
-/** How long typing pauses before the search is asked of the phone. */
-const SEARCH_PAUSE_MS = 250;
 
 const CHIP_KEYS: Record<
   Chip,
@@ -64,19 +61,17 @@ const SORT_KEYS = {
 const NO_NAME = 'connectPage.routes.unnamedSection';
 
 export function SectionsPage({ route }: { route: Route }) {
-  const { t } = useTranslation();
-  return (
-    <ToastProvider dismissLabel={t('connectPage.sections.dismiss')}>
-      <Sections view={viewOf(route)} />
-    </ToastProvider>
-  );
+  return <Sections view={viewOf(route)} />;
 }
 
 function Sections({ view }: { view: SectionsView }) {
   const { t } = useTranslation();
   const phone = useQueries();
   const change = (next: Partial<SectionsView>) => go(routeOf({ ...view, ...next }));
-  const list = useRead('routes.screen', queryOf(view) as never);
+  const read = useRead('routes.screen', queryOf(view) as never);
+  // A new filter's rows are on their way: the table, and the field in its toolbar, stay mounted
+  // with the answer already held, so typing is not interrupted.
+  const list = { ...read, data: useLastAnswered(read.data) };
   const retired = useRead('sections.retired', view.retired ? ({} as never) : null);
   const [hovered, setHovered] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -121,6 +116,7 @@ function Sections({ view }: { view: SectionsView }) {
                   view={view}
                   rows={listRows(data)}
                   total={data.filteredSectionCount}
+                  held={data.sectionCount}
                   more={data.hasMoreSections}
                   onChange={change}
                   onHover={setHovered}
@@ -188,14 +184,6 @@ function Toolbar({
   onAcceptAll: () => void;
 }) {
   const { t } = useTranslation();
-  const [text, setText] = useState(view.search);
-  useEffect(() => {
-    if (text === view.search) return undefined;
-    const typing = setTimeout(() => onChange({ search: text, selected: null }), SEARCH_PAUSE_MS);
-    return () => clearTimeout(typing);
-    // `onChange` is a new function each render; the text and the address say what to write.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view.search, text]);
   return (
     <div className="filter-bar">
       <SegmentedControl
@@ -209,13 +197,6 @@ function Toolbar({
       />
       {view.retired ? null : (
         <>
-          <SearchField
-            label={t('connectPage.routes.searchSections')}
-            clearLabel={t('connectPage.sections.clearSearch')}
-            placeholder={t('connectPage.routes.searchHint')}
-            value={text}
-            onChange={setText}
-          />
           <Select
             label={t('connectPage.routes.sort')}
             value={view.sort}
@@ -257,6 +238,7 @@ function SectionTable({
   view,
   rows,
   total,
+  held,
   more,
   onChange,
   onHover,
@@ -264,12 +246,17 @@ function SectionTable({
   view: SectionsView;
   rows: ListRow[];
   total: number;
+  /** The sections the catalogue holds before the text and the chips narrow them. */
+  held: number;
   more: boolean;
   onChange: (next: Partial<SectionsView>) => void;
   onHover: (id: string | null) => void;
 }) {
   const { t } = useTranslation();
   const labels = useTableLabels();
+  const [draft, setDraft] = useFilterDraft(view.search, (search) =>
+    onChange({ search, selected: null })
+  );
   const columns: Column<ListRow>[] = [
     {
       key: 'name',
@@ -309,25 +296,34 @@ function SectionTable({
       cell: (row) => <StatusBadges status={row.status} />,
     },
   ];
-  if (rows.length === 0) return <EmptyState title={t('connectPage.sections.none')} />;
+  if (rows.length === 0 && view.search.trim() === '') {
+    return <EmptyState title={t('connectPage.sections.none')} />;
+  }
   return (
     <>
       <DataTable
         label={t('connectPage.routes.sections')}
         tableId="sections"
         labels={labels}
+        filter={{
+          id: 'search',
+          label: t('connectPage.filter.sections'),
+          clearLabel: t('connectPage.filter.clear'),
+          value: draft,
+          onChange: setDraft,
+          count: filterCount(total, held),
+          countText: (count) => t('connectPage.filter.count', count),
+        }}
         columns={columns}
         rows={rows}
         rowKey={(row) => row.id}
+        rowAction="open"
         href={(row) => `#/section/${encodeURIComponent(row.id)}`}
         sort={{ key: view.sort, direction: view.sort === 'name' ? 'asc' : 'desc' }}
         onSort={(sort) => onChange({ sort, selected: null })}
         selectedKey={view.selected}
-        onRowClick={(row) => onChange({ selected: row.id })}
-        onOpen={(row) => go({ screen: 'section', id: row.id, query: [] })}
         onRowHover={(row) => onHover(row?.id ?? null)}
       />
-      <p className="meta">{t('connectPage.routes.shown', { count: total })}</p>
       {more ? <p className="meta">{t('connectPage.routes.more')}</p> : null}
     </>
   );

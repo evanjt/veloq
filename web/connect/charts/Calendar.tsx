@@ -4,6 +4,9 @@
 // click picks it.
 
 import { useRef, useState, type KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { EmptyState } from '../ui';
 
 import {
   CALENDAR_GAP as GAP,
@@ -53,9 +56,11 @@ export function Calendar(props: CalendarProps) {
   const ref = useRef<HTMLElement>(null);
   const width = useWidth(ref, props.width);
   const measure = useMeasure(ref);
+  const { i18n } = useTranslation();
+  const locale = props.locale ?? i18n.language;
   const [at, setAt] = useState<string | null>(null);
   const held = new Set(props.days.map((day) => day.date));
-  if (props.days.length === 0) return <p className="empty">{props.empty}</p>;
+  if (props.days.length === 0) return <EmptyState title={props.empty} />;
 
   const key = (event: KeyboardEvent<SVGSVGElement>) => {
     const step: Record<string, number> = {
@@ -73,11 +78,11 @@ export function Calendar(props: CalendarProps) {
     const next = addDays(from, n);
     if (held.has(next)) setAt(next);
   };
-  const month = new Intl.DateTimeFormat(props.locale ?? 'en-GB', {
+  const month = new Intl.DateTimeFormat(locale, {
     month: 'short',
     timeZone: 'UTC',
   });
-  const weekday = new Intl.DateTimeFormat(props.locale ?? 'en-GB', {
+  const weekday = new Intl.DateTimeFormat(locale, {
     weekday: 'short',
     timeZone: 'UTC',
   });

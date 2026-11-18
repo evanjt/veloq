@@ -1,7 +1,7 @@
 //! The linked browsers, as the settings screen reads and edits them.
 
-use super::error::{VeloqError, engine_refused, with_reader};
-use crate::persistence::linked_devices::{self, LinkedDevice, RemoteWrite};
+use super::error::{VeloqError, with_reader};
+use crate::persistence::linked_devices::{self, LinkedDevice, LinkedDevicesScreen, RemoteWrite};
 use crate::remote::DisconnectReason;
 use std::sync::Arc;
 
@@ -35,30 +35,51 @@ impl RemoteManager {
         with_reader(|conn| linked_devices::recent_writes(conn, &device_id, limit).map_err(db))?
     }
 
+    /// The linked-devices screen in one read: each browser with its recent
+    /// changes and connections, and today's refused offers. Read on the read
+    /// connections so the screen never waits behind a write.
+    fn linked_devices_screen(
+        &self,
+        writes_limit: u32,
+        connections_limit: u32,
+    ) -> Result<LinkedDevicesScreen, VeloqError> {
+        let up = crate::remote::service::connections();
+        let now = crate::remote::service::now();
+        with_reader(|conn| {
+            linked_devices::screen(conn, &up, now, writes_limit, connections_limit).map_err(db)
+        })?
+    }
+
     /// Unlink a browser so it can never reconnect, and end its connection
     /// if it has one. Written on the connection no engine lock stands in
     /// front of: an unlink is a tap, and must not wait behind a sync batch.
     /// Returns whether one was removed.
     fn remove_linked_device(&self, id: String) -> Result<bool, VeloqError> {
-        let (fingerprint, removed) =
-            crate::persistence::settings_conn::with_settings_conn(|conn| {
-                let fingerprint = linked_devices::fingerprint_of(conn, &id)?;
-                linked_devices::remove(conn, &id).map(|removed| (fingerprint, removed))
-            })
-            .ok_or_else(engine_refused)?
-            .map_err(db)?;
-        if let Some(fingerprint) = fingerprint {
-            crate::remote::service::disconnect(Some(&fingerprint), DisconnectReason::Removed);
-        }
-        Ok(removed)
+        crate::remote::service::unlink(&id)
+    }
+
+    /// End one linked browser's connection now, keeping its link, so it may
+    /// connect again. Returns whether the device exists.
+    fn disconnect_linked_device(&self, id: String) -> Result<bool, VeloqError> {
+        crate::remote::service::disconnect_device(&id)
+    }
+
+    /// Give a linked browser a new name. Returns whether it was renamed: a
+    /// blank name or an unknown id renames nothing.
+    fn rename_linked_device(&self, id: String, name: String) -> Result<bool, VeloqError> {
+        crate::remote::service::rename_device(&id, &name)
     }
 
     /// Answer a linked browser's connection offer and serve its requests.
     /// Refused for a browser that is not linked. Returns the answer, as the
     /// JSON the browser sets as its remote description.
-    fn accept_offer(&self, offer: String) -> Result<String, VeloqError> {
+    async fn accept_offer(&self, offer: String) -> Result<String, VeloqError> {
         use crate::remote::peer::Refusal;
-        crate::remote::service::accept_offer(&offer).map_err(|refusal| match refusal {
+        let answered = crate::runtime::ASYNC_RUNTIME
+            .spawn_blocking(move || crate::remote::service::accept_offer(&offer))
+            .await
+            .unwrap_or_else(|e| Err(Refusal::Engine(format!("the offer thread died: {e}"))));
+        answered.map_err(|refusal| match refusal {
             Refusal::NotPinned => VeloqError::NotFound {
                 msg: "this browser is not linked".into(),
             },

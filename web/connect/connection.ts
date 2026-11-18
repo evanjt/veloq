@@ -34,7 +34,7 @@ export function waitingKey(state: State): ParseKeys {
 }
 
 /** The message a read carries while the link is down, told apart from a failure of the phone. */
-export const NOT_CONNECTED = 'not connected';
+export const NOT_CONNECTED = 'not-connected';
 
 /** The states of pairing a browser that has no phone linked yet. */
 export const PAIRING = new Set<State['name']>(['unpaired', 'inviting', 'proving', 'confirming']);
@@ -189,43 +189,4 @@ export function trafficRates(series: readonly Traffic[]): Rate[] {
     });
   }
   return rates;
-}
-
-/** SVG points for values on a 0 to `top` scale, oldest first, across a `width` by `height` box. */
-function linePoints(values: readonly number[], top: number, width: number, height: number) {
-  if (values.length < 2) return '';
-  const scale = top > 0 ? top : 1;
-  return values
-    .map(
-      (value, at) =>
-        `${((at / (values.length - 1)) * width).toFixed(1)},${(height - (value / scale) * height).toFixed(1)}`
-    )
-    .join(' ');
-}
-
-/**
- * Both lines of the traffic plot on one scale, so they compare. The top is the
- * largest rate of either line, and nothing at all reads as a flat line at zero.
- */
-export function ratePlot(
-  rates: readonly Rate[],
-  width = 240,
-  height = 48
-): { sent: string; received: string; top: number } {
-  const top = Math.max(0, ...rates.flatMap((rate) => [rate.sent, rate.received]));
-  return {
-    sent: linePoints(
-      rates.map((rate) => rate.sent),
-      top,
-      width,
-      height
-    ),
-    received: linePoints(
-      rates.map((rate) => rate.received),
-      top,
-      width,
-      height
-    ),
-    top,
-  };
 }

@@ -482,7 +482,7 @@ function MapScreenContent() {
         </Text>
         {mapReadFailure}
         <View style={styles.loadingBannerContainer}>
-          <SyncProgressBanner />
+          <SyncProgressBanner visible={focused} />
         </View>
       </View>
     );

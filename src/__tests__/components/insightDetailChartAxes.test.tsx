@@ -20,7 +20,7 @@ import { SupportingDataSection } from '@/features/insights/components/Supporting
 import { SectionPerformanceTimeline } from '@/features/insights/components/content/SectionPerformanceTimeline';
 import type { Insight, InsightSupportingData } from '@/features/insights/types';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
-import { formatDuration, formatShortDate } from '@/shared/format/format';
+import { formatDuration, formatEpochDayUtc } from '@/shared/format/format';
 import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -40,7 +40,7 @@ async function layout(tree: Awaited<ReturnType<typeof render>>) {
   });
 }
 
-const dayLabel = (epochSeconds: number) => formatShortDate(new Date(epochSeconds * 1000));
+const dayLabel = (epochSeconds: number) => formatEpochDayUtc(epochSeconds);
 
 async function select(tree: Awaited<ReturnType<typeof render>>, index: number) {
   const chart = tree.UNSAFE_getByType(CurveChart);

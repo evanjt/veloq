@@ -46,6 +46,7 @@ const passTime = (a: DemoActivity, index: number) =>
 
 const geoText = (features: unknown[]) => ({
   text: JSON.stringify({ type: 'FeatureCollection', features }),
+  packedLine: null,
 });
 
 const lineFeature = (
@@ -361,6 +362,7 @@ function activityDetail(a: DemoActivity): Result<'activity.detail'> {
       route === null ? [] : [{ ...(sectionRows()[route] as object) } as never].slice(0, 1),
     customSections: [],
     encounters: encounter,
+    memberships: [],
     highlights: highlightsOf(a),
     sectionTraces:
       route === null
@@ -584,6 +586,21 @@ function demoTrendBand(
   });
 }
 
+/** A time band as a speed band over a distance: slower times are lower speeds. */
+function speedBandOf(
+  band: Result<'section.performance'>['trendCurves']['forwardTime'],
+  distance: number
+): Result<'section.performance'>['trendCurves']['forwardSpeed'] {
+  return (
+    band?.map((point) => ({
+      time: point.time,
+      value: distance / point.value,
+      lower: distance / point.upper,
+      upper: distance / point.lower,
+    })) ?? null
+  );
+}
+
 function performanceData(
   attempts: Attempt[],
   distance: number,
@@ -736,7 +753,7 @@ function performanceData(
     bestForwardIsRecord: true,
     bestReverseIsRecord: false,
     trendCurves: {
-      forwardSpeed: null,
+      forwardSpeed: speedBandOf(demoTrendBand(attempts), distance),
       forwardTime: demoTrendBand(attempts),
       reverseSpeed: null,
       reverseTime: null,
@@ -882,6 +899,20 @@ function sectionEventDetails(
   };
 }
 
+function sectionStanding(id: string, index: number): Result<'section.standing'> {
+  return {
+    id,
+    name: `Section ${index + 1}`,
+    sportType: ROUTE_SPORT[index] ?? 'Ride',
+    distanceMeters: sectionLength(index),
+    elevationGainM: null,
+    traversalCount: 0,
+    best: { forward: null, reverse: null },
+    recent: [],
+    trend: { windowDays: 365, forward: null, reverse: null },
+  };
+}
+
 function sectionHistory(index: number): Result<'section.history'> {
   const attempts = attemptsOn(index);
   const best = Math.min(...attempts.map((t) => t.time));
@@ -1005,7 +1036,7 @@ const summaryWeek = (start: number, scale: number): Result<'strength.screen'>['s
       totalReps: sets * 9,
       volumeKg: sets * 9 * 40,
       exerciseNames: [STRENGTH[at % STRENGTH.length]?.label ?? ''],
-      shade: Math.min(1, sets / 12),
+      shade: Math.min(5, Math.max(1, Math.ceil((sets / 9) * 5))),
     };
   });
   return {
@@ -1460,6 +1491,9 @@ export function keyedResults(): Record<string, Rows<unknown>> {
         performanceData(attemptsOn(at), sectionLength(at), ROUTE_SPORT[at] ?? 'Ride'),
       ])
     ),
+    'section.standing': Object.fromEntries(
+      sectionIds.map((id, at) => [id, sectionStanding(id, at)])
+    ),
     'section.history': Object.fromEntries(sectionIds.map((id, at) => [id, sectionHistory(at)])),
     'section.extensionTrack': Object.fromEntries(
       sectionIds.map((id, at) => [id, sectionExtension(at)])
@@ -1507,7 +1541,7 @@ export function keyedResults(): Record<string, Rows<unknown>> {
         geoText(
           onRoute(at)
             .slice(-12)
-            .map((a) => lineFeature(trackOf(a).slice(10, 40), { activityId: a.id }))
+            .map((a) => lineFeature(trackOf(a).slice(40, 160), { activityId: a.id }))
         ),
       ])
     ),
@@ -1516,6 +1550,21 @@ export function keyedResults(): Record<string, Rows<unknown>> {
     ),
     'strength.workout': Object.fromEntries(WORKOUTS.map((w) => [w.id, workoutAnswer(w.id)])),
     'recordings.get': Object.fromEntries(RECORDINGS.map((r) => [r.id, { recording: r }])),
+  };
+}
+
+/** The library's span as the engine answers it: every start, and only the positive distances and times. */
+function filterBoundsOf(library: readonly DemoActivity[]): Result<'feed.filterBounds'> {
+  const distances = library.map((a) => a.distance).filter((d) => d > 0);
+  const times = library.map((a) => a.seconds).filter((s) => s > 0);
+  const starts = library.map((a) => a.start);
+  return {
+    oldestTs: Math.min(...starts) / 1000,
+    newestTs: Math.max(...starts) / 1000,
+    minDistance: Math.min(...distances),
+    maxDistance: Math.max(...distances),
+    minMovingTime: Math.min(...times),
+    maxMovingTime: Math.max(...times),
   };
 }
 
@@ -1534,6 +1583,7 @@ export function moreResults(
       newGround: known.flatMap((a) => highlightsOf(a).newGround),
       strengthCards: known.flatMap((a) => highlightsOf(a).strengthCards),
     },
+    'feed.filterBounds': filterBoundsOf(everyActivity),
     'activity.summary': activityDetail(shown).summary,
     'activity.detail': activityDetail(shown),
     'activity.record': activityRecord(shown),
@@ -1565,6 +1615,7 @@ export function moreResults(
     'route.attempts': first('route.attempts'),
     'section.detail': first('section.detail'),
     'section.performance': first('section.performance'),
+    'section.standing': first('section.standing'),
     'section.history': first('section.history'),
     'section.extensionTrack': first('section.extensionTrack'),
     'section.excluded': { activityIds: [] },
@@ -1619,9 +1670,22 @@ export function moreResults(
     'geo.routeLatest': first('geo.routeLatest'),
     'geo.routeAttempts': first('geo.routeAttempts'),
     'geo.section': first('geo.section'),
+    'nearby.places': { places: [] },
     'geo.sectionVersion': first('geo.sectionVersion'),
     'geo.sectionPasses': first('geo.sectionPasses'),
-    'heatmap.tile': { png: heatTilePng() },
+    'export.begin': { exportId: 'demo-export' },
+    'export.status': {
+      state: 'ready',
+      bytes: 0,
+      rides: 0,
+      ridesDone: 0,
+      sha256: null,
+      error: null,
+    },
+    'export.read': { length: 0 },
+    'export.done': { ok: true },
+    'heatmap.tile': { png: heatTilePng('dark') },
+    'heatmap.underPoint': { total: 0, truncated: false, traceCap: 100, groups: [], activities: [] },
     'detection.settings': {
       enabled: true,
       strictness: { minMatchPct: 80, endpointThreshold: 50 },
@@ -1665,17 +1729,21 @@ export function moreResults(
     'section.rename': done,
     'section.setLift': done,
     'section.accept': done,
+    'section.acceptMany': { ok: true, ids: [] },
     'section.acceptAll': { ok: true, ids: [] },
     'section.unaccept': done,
     'section.enable': done,
     'section.disable': done,
+    'section.setEnabledMany': done,
+    'section.delete': { ok: true, departed: [] },
     'section.excludeActivity': done,
     'section.includeActivity': done,
     'section.excludeLap': done,
     'section.includeLap': done,
     'section.editBounds': { ok: true, departed: [] },
     'section.create': { sectionId: 'section-0' },
-    'section.mergePreview': { dropped: [] },
+    'section.boundsPreview': { distanceMeters: 1800, avgGradePercent: 2.5, lapsRemeasured: 6 },
+    'section.mergePreview': { dropped: [], lapsRemeasured: 3 },
     'section.merge': { sectionId: 'section-0', departed: [] },
     'section.restore': { ok: true, departed: [] },
     'route.rename': done,
@@ -1684,6 +1752,7 @@ export function moreResults(
     'route.setReference': done,
     'route.resetReference': done,
     'heatmap.setHidden': done,
+    'heatmap.setHiddenMany': done,
     'detection.setEnabled': done,
     'detection.setStrictness': done,
     'detection.setSectionConfig': done,

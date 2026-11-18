@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import { decodeCoords, routes } from 'veloqrs';
+import { decodeCoords, FfiNearbyKind, routes } from 'veloqrs';
 
 import {
   useRecordingLiveStore,
@@ -22,9 +22,10 @@ interface NearbyRouteOverlayInput {
 const FIX_GRID_DEGREES = 1000;
 
 /**
- * The saved routes around the athlete and the one they follow. The engine returns the routes
- * within reach of the fix, nearest first, with each one's length, best time and line; nothing is
- * followed until the athlete chooses. A choice, "no route" included, holds for that sport from
+ * The saved routes around the athlete and the one they follow. The engine's places read returns
+ * the routes and sections that start within reach of the fix, nearest start first, with each
+ * one's length, best time and line; only the routes are offered, since a section cannot be
+ * followed. Nothing is followed until the athlete chooses. A choice, "no route" included, holds for that sport from
  * the entry screen through the ride, and is described by the same read wherever the route lies
  * once the ride is recording. Before the start, a remembered route beyond the radius of the fix
  * is stale: it is neither offered nor drawn, and the choice is forgotten.
@@ -51,20 +52,21 @@ export function useNearbyRouteOverlay({
     if (!enabled || latitude === null || longitude === null) return [];
     const read =
       readGroups(() =>
-        routes.getNearbyRoutesForRecording(
+        routes.getNearbyPlaces(
           latitude,
           longitude,
           activityType,
+          [FfiNearbyKind.Route],
           chosenRouteId ?? undefined
         )
       ) ?? [];
-    return read;
+    return read.filter((row) => row.kind === FfiNearbyKind.Route);
   }, [enabled, latitude, longitude, activityType, chosenRouteId, readGroups]);
 
   const stale =
     !recording &&
     chosenRouteId !== null &&
-    rows.some((row) => row.groupId === chosenRouteId && !row.offered);
+    rows.some((row) => row.id === chosenRouteId && !row.offered);
   const followedRouteId = stale ? null : chosenRouteId;
   useEffect(() => {
     if (stale) setRouteChoice(activityType, null);
@@ -72,9 +74,9 @@ export function useNearbyRouteOverlay({
 
   const nearby = useMemo<NearbyRouteView[]>(() => {
     return rows
-      .filter((row) => row.offered || (recording && row.groupId === chosenRouteId))
+      .filter((row) => row.offered || (recording && row.id === chosenRouteId))
       .map((row) => ({
-        id: row.groupId,
+        id: row.id,
         name: row.name,
         distanceMeters: row.distanceMeters,
         bestTimeSeconds: row.bestTimeSeconds ?? null,

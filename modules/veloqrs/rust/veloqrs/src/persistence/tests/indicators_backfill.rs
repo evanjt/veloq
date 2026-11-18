@@ -12,7 +12,7 @@ struct StreamReads {
     series_data: Arc<AtomicUsize>,
 }
 
-fn count_stream_reads(engine: &super::PersistentEngine) -> StreamReads {
+fn count_stream_reads(engine: &mut super::PersistentEngine) -> StreamReads {
     engine.db.flush_prepared_statement_cache();
     let reads = StreamReads {
         times: Arc::new(AtomicUsize::new(0)),
@@ -42,7 +42,7 @@ fn count_stream_reads(engine: &super::PersistentEngine) -> StreamReads {
     reads
 }
 
-fn stop_counting(engine: &super::PersistentEngine) {
+fn stop_counting(engine: &mut super::PersistentEngine) {
     engine
         .db
         .authorizer(None::<fn(AuthContext<'_>) -> Authorization>)
@@ -52,13 +52,13 @@ fn stop_counting(engine: &super::PersistentEngine) {
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_backfill_strapless_second_pass_skips_time_stream() {
-    let engine = engine_with_null_laps(3);
+    let mut engine = engine_with_null_laps(3);
     assert_eq!(engine.backfill_null_lap_times().unwrap(), 3);
 
-    let reads = count_stream_reads(&engine);
+    let reads = count_stream_reads(&mut engine);
 
     assert_eq!(engine.backfill_null_lap_times().unwrap(), 0);
-    stop_counting(&engine);
+    stop_counting(&mut engine);
     assert_eq!(reads.times.load(Ordering::Relaxed), 0);
     assert_eq!(reads.series_data.load(Ordering::Relaxed), 0);
 }
@@ -66,7 +66,7 @@ fn test_backfill_strapless_second_pass_skips_time_stream() {
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_backfill_late_heart_rate_skips_filled_time_stream() {
-    let engine = engine_with_null_laps(2);
+    let mut engine = engine_with_null_laps(2);
     assert_eq!(engine.backfill_null_lap_times().unwrap(), 2);
     let values = vec![Some(150.0); 8];
     let blob = codec::encode_series(&values, codec::series_scale("heartrate"));
@@ -78,10 +78,10 @@ fn test_backfill_late_heart_rate_skips_filled_time_stream() {
             params![blob],
         )
         .unwrap();
-    let reads = count_stream_reads(&engine);
+    let reads = count_stream_reads(&mut engine);
 
     assert_eq!(engine.backfill_null_lap_times().unwrap(), 2);
-    stop_counting(&engine);
+    stop_counting(&mut engine);
     assert_eq!(reads.times.load(Ordering::Relaxed), 0);
     assert!(reads.series_data.load(Ordering::Relaxed) >= 1);
     let avg_hr: f64 = engine
@@ -117,14 +117,14 @@ fn dropout_series(value: f64) -> Vec<Option<f64>> {
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_backfill_dropout_lap_is_not_decoded_again() {
-    let engine = engine_with_null_laps(1);
+    let mut engine = engine_with_null_laps(1);
     store_series(&engine, "heartrate", dropout_series(150.0));
     engine.backfill_null_lap_times().unwrap();
     engine.backfill_null_lap_times().unwrap();
-    let reads = count_stream_reads(&engine);
+    let reads = count_stream_reads(&mut engine);
 
     assert_eq!(engine.backfill_null_lap_times().unwrap(), 0);
-    stop_counting(&engine);
+    stop_counting(&mut engine);
     assert_eq!(reads.series_data.load(Ordering::Relaxed), 0);
 }
 
@@ -152,31 +152,31 @@ fn test_backfill_dropout_lap_is_filled_when_the_series_is_replaced() {
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_backfill_power_dropout_lap_is_not_decoded_again() {
-    let engine = engine_with_null_laps(1);
+    let mut engine = engine_with_null_laps(1);
     store_series(&engine, "watts", dropout_series(200.0));
     engine.backfill_null_lap_times().unwrap();
     engine.backfill_null_lap_times().unwrap();
-    let reads = count_stream_reads(&engine);
+    let reads = count_stream_reads(&mut engine);
 
     assert_eq!(engine.backfill_null_lap_times().unwrap(), 0);
-    stop_counting(&engine);
+    stop_counting(&mut engine);
     assert_eq!(reads.series_data.load(Ordering::Relaxed), 0);
 }
 
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_backfill_untimeable_lap_does_not_reread_time_stream() {
-    let engine = engine_with_null_laps(2);
+    let mut engine = engine_with_null_laps(2);
     engine
         .store_time_stream("a1", &[0, 10, 20, 30, 40])
         .unwrap();
     engine.backfill_null_lap_times().unwrap();
 
-    let reads = count_stream_reads(&engine);
+    let reads = count_stream_reads(&mut engine);
 
     engine.backfill_null_lap_times().unwrap();
     engine.backfill_null_lap_times().unwrap();
-    stop_counting(&engine);
+    stop_counting(&mut engine);
     assert_eq!(reads.times.load(Ordering::Relaxed), 0);
 }
 

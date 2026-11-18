@@ -121,8 +121,8 @@ final class WidgetCaptureTests: XCTestCase {
         texts += ["load label", "load value"]
       }
       // A fitness hero moves form onto the row, or at Large onto its line, which then names its
-      // zone.
-      if widget == "summary-fitness" { texts.append("metric caption") }
+      // zone. The no-wellness fixture carries no zone, so form has no caption to draw.
+      if widget == "summary-fitness", fixture != "no-wellness" { texts.append("metric caption") }
       // The fitness chart names its two lines and the days they span; the large form chart
       // names its zone and labels the bounds between zones.
       if fixture == "demo" || fixture == "demo-own" || fixture == "long-text" {

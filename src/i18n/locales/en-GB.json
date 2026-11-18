@@ -619,7 +619,7 @@
     "tracksMissing": {
       "title_one": "{{count}} route didn't download",
       "title_other": "{{count}} routes didn't download",
-      "detail": "They are missing from the map and matched against no section. The next refresh tries again."
+      "detail": "The download was tried several times and did not come through. Retry asks again."
     },
     "startupError": {
       "title": "Some parts of the app did not load",
@@ -796,7 +796,9 @@
     "bulkExporting": "Generating {{format}}…",
     "bulkSharing": "Opening share sheet…",
     "error": "Failed to export GPX file.",
+    "fitError": "Failed to export FIT file.",
     "exporting": "Exporting…",
+    "fit": "Export FIT",
     "gpx": "Export GPX",
     "gpxTrimmedAway": "Nothing to export. Trimming near home left too little of the track.",
     "failedTitle": "Export failed",
@@ -807,6 +809,16 @@
     "shareUnavailable": "This device has no way to share files."
   },
   "feed": {
+    "remote": {
+      "offer": "Search intervals.icu",
+      "searching": "Searching intervals.icu",
+      "heading": "On intervals.icu, not on this device",
+      "notOnDevice": "Not on this device",
+      "none": "Nothing more on intervals.icu",
+      "failed": "Couldn't search intervals.icu",
+      "capped": "intervals.icu reached its limit for a name search, so there may be more matches. Narrow the name to see them.",
+      "rowLabel": "{{name}}, {{facts}}, not on this device"
+    },
     "activitiesCount_one": "{{count}} activity",
     "activitiesCount_other": "{{count}} activities",
     "failedToLoad": "Failed to load activities",
@@ -816,6 +828,20 @@
       "last90Days": "Last 90 days",
       "thisYear": "This year",
       "lastYear": "Last year"
+    },
+    "filter": {
+      "show": "Show filters",
+      "hide": "Hide filters",
+      "clear": "Clear {{filter}}",
+      "date": "Date",
+      "dateFrom": "Start date",
+      "dateTo": "End date",
+      "distance": "Distance",
+      "distanceFrom": "Minimum distance",
+      "distanceTo": "Maximum distance",
+      "duration": "Duration",
+      "durationFrom": "Minimum duration",
+      "durationTo": "Maximum duration"
     },
     "emptyLibrary": {
       "pausedTitle": "Sync is paused",
@@ -1293,6 +1319,8 @@
     "oauthInterrupted": "Sign-in was interrupted. Try again.",
     "oauthNeedsNetwork": "Signing in with intervals.icu needs a network connection. Connect and try again, or use an API key, which can sign you in later.",
     "oauthProxyRefused": "The sign-in service did not accept the request. Please try again shortly.",
+    "intervalsBusy": "intervals.icu is busy right now. Try again after {{time}}.",
+    "intervalsBusyShortly": "intervals.icu is busy right now. Try again shortly.",
     "oauthUnreachable": "Could not reach the sign-in service. Check your connection and try again.",
     "oauthInvalidCallback": "Invalid OAuth callback URL",
     "oauthNotConfigured": "OAuth is not configured. Use API key login instead.",
@@ -1347,7 +1375,6 @@
     "emptyNoGpsHint": "Indoor, trainer and pool sessions have no route to draw.",
     "loadingHeatmap": "Loading the heatmap…",
     "panelFold": "Collapse the panel",
-    "panelOpen": "Open the activity panel",
     "panelBack": "Back to the list",
     "timelineFrom": "From",
     "timelineTo": "To"
@@ -1418,7 +1445,11 @@
     },
     "underPointRoute": "Route {{number}}",
     "underPointNoRoute": "Not in a route",
-    "underPointDrawn": "{{drawn}} of {{total}} drawn"
+    "underPointDrawn": "{{drawn}} of {{total}} drawn",
+    "underPointCount": "{{count}} under the tap",
+    "underPointFilterAll": "All",
+    "underPointOpenRoute": "Open {{name}} route",
+    "underPointOpenSection": "Open {{name}} section"
   },
   "metrics": {
     "activityCount": "Activities",
@@ -1966,6 +1997,7 @@
     "setAsReferenceConfirm": "Use this activity as the reference? The line will follow it, and Ahead or behind will measure time against it. Matches across your activities are recalculated, which can add or remove some.",
     "setReferenceError": "Failed to set reference. The section or activity may have changed. Please try again.",
     "editBounds": "Edit bounds",
+    "sendToWatch": "Send to watch",
     "showOnMap": "Show on map",
     "pointsCount_one": "{{count}} point",
     "pointsCount_other": "{{count}} points",
@@ -2230,6 +2262,8 @@
     "storageOther": "Other",
     "mapCache": "Map cache",
     "sizeAtLeast": "At least {{size}}",
+    "watchLink": "Watch guide",
+    "watchLinkDescription": "Lets this phone send sections to your watch. The watch reads its cues as notifications.",
     "heatmapGeneration": "Heatmap",
     "heatmapDescription": "Keeps the heatmap on this device and uses storage for it. Turn it off to free that space.",
     "heatmapStorageUsed": "Using {{size}} of device storage",
@@ -2837,6 +2871,8 @@
       "startEmpty": "Start empty session",
       "previousSessions": "Previous sessions",
       "savedWorkouts": "Saved workouts",
+      "removedWorkouts": "Removed workouts",
+      "restoreWorkout": "Restore",
       "noHistory": "Sessions you record or sync will be offered here to start from.",
       "workoutSummary": "{{exercises}} exercises, {{sets}} sets",
       "startFrom": "Start from {{name}}",
@@ -3127,6 +3163,7 @@
     "retryNow": "Retry now",
     "heldByUpstream": "intervals.icu asked for a wait until {{time}}",
     "heldByBudget": "Request limit reached, waiting until {{time}}",
+    "heldForPool": "Catch-up paused so everyone's sync keeps going, back at {{time}}",
     "pacedOnCaps_one": "At least {{count}} day to finish, because of intervals.icu's daily limit",
     "pacedOnCaps_other": "At least {{count}} days to finish, because of intervals.icu's daily limit",
     "headerRunning_one": "{{count}} background job running",
@@ -3448,16 +3485,44 @@
     "notConnected": "Not connected",
     "noChanges": "No changes yet",
     "wrote": "{{browser}}: {{summary}}",
-    "manage": "Manage linked devices"
+    "manage": "Manage linked devices",
+    "howTitle": "About Veloq Connect",
+    "howLinked": "Scanning the code links a browser once. It keeps its own key and reconnects by itself while Veloq is open.",
+    "howPrivate": "Your data goes straight from this phone to the browser, end to end. No server stores it.",
+    "howRelay": "A relay passes connection setup only. It never carries your data.",
+    "refusedToday_one": "{{count}} connection offer from a browser that is not linked was refused today.",
+    "refusedToday_other": "{{count}} connection offers from browsers that are not linked were refused today.",
+    "howAccess": "A link lasts until you remove it. A linked browser can read your library and make the changes listed on its page.",
+    "linkedOn": "Linked {{date}}",
+    "connectedNow": "Connected now",
+    "scope": "Can read your library and make the changes listed below.",
+    "connectionsTitle": "Connections",
+    "noConnections": "No connections yet",
+    "thisNetwork": "This network",
+    "internet": "Internet",
+    "changesTitle": "Changes",
+    "kindTool": "Computer tool",
+    "clientOn": "{{browser}} on {{os}}",
+    "endReason": {
+      "closed": "Closed",
+      "backgrounded": "Veloq went to the background",
+      "switched_off": "Switched off",
+      "removed": "Removed",
+      "disconnected": "Disconnected from the phone",
+      "refused": "Refused"
+    },
+    "rename": "Rename",
+    "renameLabel": "Name"
   },
   "connectPage": {
     "undo": {
       "hidden": "Hidden from heatmap",
       "shown": "Shown on heatmap",
+      "sectionsHidden": "Sections hidden",
+      "sectionsShown": "Sections shown",
       "excluded": "Activity left out",
       "included": "Activity included again",
-      "renamed": "Name changed",
-      "workoutDeleted": "Workout deleted"
+      "renamed": "Name changed"
     },
     "title": "Veloq Connect",
     "language": "Language",
@@ -3478,7 +3543,8 @@
       "declined": "Linking was declined on the phone.",
       "removed": "This browser was removed on the phone. Scan a new code to link it again.",
       "unreachable": "Could not reach your phone from here. Put both on the same Wi-Fi and scan the new code.",
-      "phoneLocked": "Unlock your phone and open Veloq to make changes"
+      "phoneLocked": "Unlock your phone and open Veloq to make changes",
+      "badId": "The phone did not accept that request. Try again."
     },
     "screens": {
       "fitness": "Fitness",
@@ -3495,7 +3561,8 @@
       "expand": "Expand the sidebar",
       "breadcrumb": "Breadcrumb trail",
       "search": "Search",
-      "account": "Account"
+      "account": "Account",
+      "skipToContent": "Skip to content"
     },
     "yourPhone": "Your phone",
     "laterScreen": "This screen is not on the browser yet. Open it on your phone.",
@@ -3526,35 +3593,40 @@
       "retry": "Try again"
     },
     "update": {
-      "screen": "Update Veloq on your phone to see this",
       "heading": "Update Veloq on your phone",
       "body": "This page and the Veloq on your phone do not speak the same version of the link. Update Veloq on your phone, then open this page again."
     },
     "keys": {
-      "heading": "Keys",
-      "tabs": "Feed, Fitness, Insights, Map, Settings",
-      "search": "Search the feed",
+      "heading": "Keyboard shortcuts",
+      "pages": "Go to a page",
+      "search": "Open the search",
       "close": "Close the activity",
       "list": "This list",
       "control": "Ctrl",
       "shell": "Everywhere",
       "page": "On this page",
       "palette": "Open the command palette",
-      "chord": "Go to a page: feed, map, routes, sections, fitness, insights, strength, workouts, recordings, settings",
       "step": "Previous and next activity",
       "open": "Open the selected activity"
     },
     "palette": {
-      "open": "Go to",
-      "title": "Go to",
-      "label": "Search pages, activities, routes and sections",
+      "title": "Search",
+      "label": "Search pages, settings, activities, routes, sections, exercises, workouts and recordings",
       "placeholder": "Type a name",
       "none": "Nothing matches",
-      "page": "Page",
-      "action": "Action",
-      "activity": "Activity",
-      "route": "Route",
-      "section": "Section",
+      "showAll": "Show all {{total}}",
+      "groups": {
+        "recent": "Recent",
+        "page": "Pages",
+        "action": "Actions",
+        "setting": "Settings",
+        "activity": "Activities",
+        "route": "Routes",
+        "section": "Sections",
+        "exercise": "Exercises",
+        "workout": "Workouts",
+        "recording": "Recordings"
+      },
       "toggleSidebar": "Collapse or expand the sidebar",
       "toggleTheme": "Toggle theme",
       "showKeys": "Show keyboard shortcuts"
@@ -3566,6 +3638,12 @@
       "pick": "Pick an activity",
       "loadMore": "Load more",
       "sportLabel": "Sport",
+      "distance": "Distance ({{unit}})",
+      "distanceMin": "Shortest distance ({{unit}})",
+      "distanceMax": "Longest distance ({{unit}})",
+      "duration": "Duration",
+      "durationMin": "Shortest duration (minutes)",
+      "durationMax": "Longest duration (minutes)",
       "summary": "Summary",
       "fitnessTrend": "Fitness over the last 30 days",
       "range": "Range",
@@ -3630,7 +3708,6 @@
     },
     "activity": {
       "untitled": "Activity",
-      "hideFromHeatmap": "Hide from heatmap",
       "showOnHeatmap": "Show on heatmap",
       "map": "Map",
       "facts": "Activity facts",
@@ -3642,6 +3719,10 @@
       "actions": "Activity actions",
       "exportGpx": "Export GPX",
       "openOnIntervals": "Open on intervals.icu",
+      "more": "More",
+      "manage": "Manage",
+      "manageHeatmap": "Heatmap",
+      "manageHint": "Switch a route or section off to leave this activity out of it. Undo puts it back.",
       "noTrack": "This activity has no GPS track.",
       "colourBy": "Shade the track by",
       "colourNone": "Plain",
@@ -3932,6 +4013,7 @@
       },
       "values": {
         "theme": "Theme",
+        "singleKeys": "Single-key shortcuts",
         "language": "Language",
         "units": "Units",
         "primarySport": "Primary sport",
@@ -3983,8 +4065,8 @@
           "zone": "Zone",
           "upper": "Upper edge",
           "bpm": "{{value}} bpm",
-          "percentOfMaxHr": "{{value}} % of maximum heart rate",
-          "percentOfFtp": "{{value}} % of FTP",
+          "percentOfMaxHr": "{{percent}} of maximum heart rate",
+          "percentOfFtp": "{{percent}} of FTP",
           "openTop": "No upper edge",
           "name": "Zone {{n}}",
           "note": "A sport whose intervals.icu sport settings list no zones shows the default edges."
@@ -3998,6 +4080,15 @@
       "deltaToBest": "Delta to best",
       "passTable": "Select up to {{max}} to compare",
       "fact": "Measure"
+    },
+    "filter": {
+      "activities": "Filter activities",
+      "routes": "Filter routes",
+      "sections": "Filter sections",
+      "exercises": "Filter exercises",
+      "recordings": "Filter recordings",
+      "count": "{{shown}} of {{total}}",
+      "clear": "Clear filter"
     },
     "table": {
       "count_one": "{{count}} row",
@@ -4034,9 +4125,6 @@
       "unnamedRoute": "Unnamed route",
       "sections": "Sections",
       "routes": "Routes",
-      "searchHint": "Search (/)",
-      "searchSections": "Search sections",
-      "searchRoutes": "Search routes",
       "sort": "Sort",
       "show": "Show",
       "listFailed": "The phone did not answer this list.",
@@ -4133,12 +4221,10 @@
       "best": "Best",
       "cancel": "Cancel",
       "changed": "Changed",
-      "clearSearch": "Clear the search",
       "close": "Close",
       "curvesPending": "The phone is still working out these curves.",
       "deltaChart": "Seconds ahead of or behind the reference along the section, one line for each recent lap",
       "direction": "Direction",
-      "dismiss": "Dismiss",
       "excludeActivities": "Exclude activities",
       "excludeLaps": "Exclude laps",
       "faster": "Faster",
@@ -4219,6 +4305,11 @@
       "boundsHint": "Drag the two ends along the line, or focus an end and press the arrow keys. Escape cancels.",
       "boundsLine": "Section line",
       "boundsNoTrack": "The ride this section was cut from is not stored, so the ends can only move along the line.",
+      "boundsDiscard": "Discard changes",
+      "boundsDiscardBody": "The ends you moved have not been saved.",
+      "boundsDiscardTitle": "Discard the new ends?",
+      "boundsKeepEditing": "Keep editing",
+      "boundsLaps": "Laps measured again on save: {{count}}.",
       "boundsReset": "Reset bounds",
       "boundsResetDone": "Bounds of {{name}} reset",
       "boundsSave": "Save",
@@ -4233,7 +4324,8 @@
       "resetReference": "Hand the reference back to detection",
       "useAsReference": "Use this ride as the reference",
       "mergeDone": "Merged {{name}} into this section",
-      "mergeKept": "Kept: {{name}}, {{length}}, {{count}} passes"
+      "mergeKept": "Kept: {{name}}, {{length}}, {{count}} passes",
+      "mergeLaps": "Laps measured on the kept line: {{count}}."
     },
     "ranges": {
       "last90Days": "Last 90 days",
@@ -4292,6 +4384,8 @@
       "noneSaved": "No saved workouts",
       "failed": "The phone did not answer",
       "delete": "Delete",
+      "deleted": "Workouts deleted: {{count}}",
+      "undo": "Undo",
       "recent": "Recent sessions",
       "times": "Done ×{{times}}",
       "building": "Building",
@@ -4310,8 +4404,6 @@
       "removeExercise": "Remove exercise",
       "save": "Save workout",
       "picker": "Exercises",
-      "search": "Search exercises",
-      "clearSearch": "Clear search",
       "equipment": "Equipment",
       "daysAgo": "{{days}} d ago",
       "confirmDelete": "Delete {{name}}?",
@@ -4353,6 +4445,18 @@
       "stored": "Stored",
       "alreadyStored": "Already in the library",
       "failedCount": "Failed"
+    },
+    "export": {
+      "title": "Export library",
+      "note": "Save every ride in the library as one ZIP file. Keep the phone open and in front while it is written and sent.",
+      "since": "Rides since",
+      "originals": "Include original files",
+      "start": "Export everything",
+      "building": "The phone is writing the archive: {{done}} of {{rides}} rides",
+      "reading": "Saved {{done}} of {{size}} MB",
+      "waiting": "Link resumed, continuing from {{done}} of {{size}} MB",
+      "finished": "Export saved",
+      "failed": "Export failed"
     },
     "toast": {
       "dismiss": "Dismiss"

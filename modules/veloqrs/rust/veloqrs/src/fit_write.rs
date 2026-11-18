@@ -7,7 +7,6 @@ pub(crate) const FIT_EPOCH_UNIX: i64 = 631_065_600;
 pub(crate) const BASE_ENUM: u8 = 0x00;
 pub(crate) const BASE_UINT8: u8 = 0x02;
 pub(crate) const BASE_STRING: u8 = 0x07;
-#[cfg(test)]
 pub(crate) const BASE_SINT32: u8 = 0x85;
 pub(crate) const BASE_UINT16: u8 = 0x84;
 pub(crate) const BASE_UINT32: u8 = 0x86;
@@ -17,7 +16,6 @@ pub(crate) const BASE_UINT32Z: u8 = 0x8C;
 pub(crate) const INVALID_UINT8: u8 = 0xFF;
 pub(crate) const INVALID_UINT16: u16 = 0xFFFF;
 pub(crate) const INVALID_UINT32: u32 = 0xFFFF_FFFF;
-#[cfg(test)]
 pub(crate) const INVALID_SINT32: i32 = 0x7FFF_FFFF;
 
 /// A definition message for local message type `local`, little endian, with

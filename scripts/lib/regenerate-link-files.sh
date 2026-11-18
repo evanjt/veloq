@@ -7,7 +7,7 @@
 # are therefore regenerated over every merged tree, and any change becomes a
 # commit on the candidate. A generator that fails stops the landing: the
 # freshness guards would only say the files are stale.
-GENERATED_LINK_FILES=(web/connect/methods.json web/connect/schema.d.ts modules/veloqrs/src/generated/veloqrs.ts)
+GENERATED_LINK_FILES=(web/connect/methods.json modules/veloqrs/rust/veloqrs/examples/link/vectors.json web/connect/schema.d.ts web/connect/schema.json modules/veloqrs/src/generated/veloqrs.ts)
 regenerate_link_files() {
   [ -e "$LANDING/scripts/regenerate-link-files.mjs" ] || return 0
   if ! (cd "$LANDING" && node scripts/regenerate-link-files.mjs); then

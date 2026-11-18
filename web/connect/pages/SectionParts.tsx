@@ -14,13 +14,20 @@ const STATUS_KEYS = {
   record: 'connectPage.sections.statusRecord',
 } as const;
 
+const BADGE_TONES = {
+  custom: 'neutral',
+  removed: 'warning',
+  lift: 'neutral',
+  record: 'record',
+} as const;
+
 /** What the engine reports of a section, as badges: a record is the one gold mark. */
 export function StatusBadges({ status }: { status: readonly Status[] }) {
   const { t } = useTranslation();
   return (
     <span className="section-badges">
       {status.map((name) => (
-        <Badge key={name} tone={name === 'removed' ? 'warning' : 'neutral'}>
+        <Badge key={name} tone={BADGE_TONES[name]}>
           {t(STATUS_KEYS[name])}
         </Badge>
       ))}

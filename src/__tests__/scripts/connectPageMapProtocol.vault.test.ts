@@ -11,6 +11,7 @@
  * nothing. Requests for one URL in flight share one ask.
  */
 
+import { NOT_CONNECTED } from '../../../web/connect/connection';
 import { CancelledError } from '../../../web/connect/link';
 import { createHandler, installProtocol, parse, type Ask } from '../../../web/connect/map/protocol';
 
@@ -31,9 +32,9 @@ const request = (url: string, type?: 'json' | 'string' | 'arrayBuffer' | 'image'
 
 describe('the veloq page protocol urls', () => {
   it.each([
-    ['veloq://geo/track/ride-1?v=3', 'geo.track', { activityId: 'ride-1' }],
-    ['veloq://geo/track/a%2Fb?v=1', 'geo.track', { activityId: 'a/b' }],
-    ['veloq://geo/activity-overlay/ride-1', 'geo.activityOverlay', { activityId: 'ride-1' }],
+    ['veloq://geo/track/ride-1?v=3', 'geo.track', { id: 'ride-1' }],
+    ['veloq://geo/track/a%2Fb?v=1', 'geo.track', { id: 'a/b' }],
+    ['veloq://geo/activity-overlay/ride-1', 'geo.activityOverlay', { id: 'ride-1' }],
     ['veloq://geo/route-lines/all?v=7', 'geo.routeLines', {}],
     ['veloq://geo/route-attempts/g%201', 'geo.routeAttempts', { groupId: 'g 1' }],
     ['veloq://geo/sections/all?v=2', 'geo.sections', {}],
@@ -257,6 +258,6 @@ describe('installing the scheme', () => {
     releaseSecond();
     await expect(
       handler(request('veloq://geo/sections/all?v=3', 'json'), new AbortController())
-    ).rejects.toThrow('not connected');
+    ).rejects.toThrow(NOT_CONNECTED);
   });
 });

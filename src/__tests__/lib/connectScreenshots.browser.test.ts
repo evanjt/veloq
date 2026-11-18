@@ -17,7 +17,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { inflateSync } from 'node:zlib';
 
-import { ROUTES, captureScreenshots, exitStatus } from '../../../scripts/connect-screenshots';
+import {
+  ROUTES,
+  SIZES,
+  captureScreenshots,
+  exitStatus,
+  type Capture,
+} from '../../../scripts/connect-screenshots';
 import { phoneScript } from '../__shared__/connectPhoneScripts';
 import { buildPage, findChromium, launchConnectBrowser } from '../__shared__/headlessConnectPage';
 
@@ -67,12 +73,18 @@ describeWithChromium('the connect screenshot tool', () => {
     expect(exitStatus(report)).toBe(0);
     const files = readdirSync(out).sort();
     expect(files).toEqual([
+      'feed-1280-dark.axe.json',
       'feed-1280-dark.png',
+      'feed-1280-light.axe.json',
       'feed-1280-light.png',
       'index.html',
+      'pairing-1280-dark.axe.json',
       'pairing-1280-dark.png',
+      'pairing-1280-light.axe.json',
       'pairing-1280-light.png',
+      'routes-1280-dark.axe.json',
       'routes-1280-dark.png',
+      'routes-1280-light.axe.json',
       'routes-1280-light.png',
     ]);
     for (const name of ['feed', 'routes', 'pairing']) {
@@ -107,7 +119,9 @@ describeWithChromium('the connect screenshot tool', () => {
     ]);
     expect(report.written).toEqual(['feed-1280-light.png', 'feed-1280-dark.png']);
     expect(readdirSync(out).sort()).toEqual([
+      'feed-1280-dark.axe.json',
       'feed-1280-dark.png',
+      'feed-1280-light.axe.json',
       'feed-1280-light.png',
       'index.html',
     ]);
@@ -115,14 +129,29 @@ describeWithChromium('the connect screenshot tool', () => {
   }, 120_000);
 
   it('writes a PNG of each detail page the demo library answers, in each scheme', async () => {
-    const pages = ['route', 'section', 'strength', 'recordings', 'recording', 'workouts', 'live'];
-    await captureScreenshots({
+    const pages = [
+      'route',
+      'section',
+      'strength',
+      'recordings',
+      'recording',
+      'workouts',
+      'live',
+      'settings',
+    ];
+    const report = await captureScreenshots({
       out,
       routes: pages,
       sizes: [{ width: 1280, height: 800 }],
       chromium: chromium as string,
     });
-    const expected = pages.flatMap((page) => [`${page}-1280-dark.png`, `${page}-1280-light.png`]);
+    expect(report.failed).toEqual([]);
+    const expected = pages.flatMap((page) => [
+      `${page}-1280-dark.axe.json`,
+      `${page}-1280-dark.png`,
+      `${page}-1280-light.axe.json`,
+      `${page}-1280-light.png`,
+    ]);
     const files = readdirSync(out).sort();
     expect(files).toEqual([...expected, 'index.html'].sort());
     for (const page of pages) {
@@ -141,6 +170,40 @@ describeWithChromium('the connect screenshot tool', () => {
       captureScreenshots({ out, routes: ['nowhere'], chromium: chromium as string })
     ).rejects.toThrow(/nowhere/);
   });
+
+  it('captures at the three large-screen sizes by default', () => {
+    expect(SIZES).toEqual([
+      { width: 1440, height: 900 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+    ]);
+  });
+
+  it('fails the run, by name and rule, when a route has a serious accessibility violation', async () => {
+    const scratch: Capture = {
+      hash: '#/feed',
+      ready: ROUTES.feed?.ready as string,
+      then: {
+        do: `document.querySelector('#feed-scroll').append(Object.assign(document.createElement('button'), { className: 'scratch-unlabelled' }))`,
+        until: `document.querySelector('.scratch-unlabelled') !== null`,
+      },
+    };
+    const report = await captureScreenshots({
+      out,
+      routes: ['scratch'],
+      captures: { scratch },
+      sizes: [{ width: 1280, height: 800 }],
+      chromium: chromium as string,
+    });
+    expect(report.failed.map((failure) => `${failure.name} ${failure.scheme}`)).toEqual([
+      'scratch light',
+      'scratch dark',
+    ]);
+    expect(report.failed[0]?.message).toContain('button-name');
+    expect(exitStatus(report)).toBe(1);
+    const violations = JSON.parse(readFileSync(join(out, 'scratch-1280-light.axe.json'), 'utf8'));
+    expect(violations.map((violation: { id: string }) => violation.id)).toContain('button-name');
+  }, 120_000);
 
   it('keeps a phone whose every read fails connected while each panel shows its error', async () => {
     const built = buildPage();

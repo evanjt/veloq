@@ -191,6 +191,22 @@ impl ActivityManager {
         })
     }
 
+    /// The activities whose track the engine has given up on, newest first,
+    /// each with its stored name. Empty when no athlete is set.
+    fn get_given_up_tracks(&self) -> Result<crate::FfiGivenUpTracks, VeloqError> {
+        with_reader(|conn| {
+            let athlete_id = crate::persistence::settings::setting_from(
+                conn,
+                crate::persistence::settings_keys::ATHLETE_ID,
+            )
+            .ok()
+            .flatten();
+            athlete_id
+                .map(|id| crate::persistence::activities::pooled::given_up_tracks(conn, &id))
+                .unwrap_or_default()
+        })
+    }
+
     /// Whether the library already holds this activity.
     ///
     /// An in-memory `contains_key`, so the answer is one boolean rather than
@@ -263,6 +279,19 @@ impl ActivityManager {
     ) -> Result<crate::FfiFeedCardsPage, VeloqError> {
         with_reader(|conn| {
             crate::persistence::activities::pooled::feed_card_page(conn, &query).map_err(|err| {
+                VeloqError::Database {
+                    msg: format!("{}", err),
+                }
+            })
+        })?
+    }
+
+    /// The span of the library the feed's filter bars draw across. The bars
+    /// read it rather than a constant, so a library of ten years and one of
+    /// three draw their own range.
+    fn get_feed_filter_bounds(&self) -> Result<crate::FfiFeedFilterBounds, VeloqError> {
+        with_reader(|conn| {
+            crate::persistence::screens::pooled::feed_filter_bounds(conn).map_err(|err| {
                 VeloqError::Database {
                     msg: format!("{}", err),
                 }

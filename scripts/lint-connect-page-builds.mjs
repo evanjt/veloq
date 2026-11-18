@@ -17,6 +17,10 @@ const run = spawnSync(
   { encoding: 'utf8' }
 );
 rmSync(out, { recursive: true, force: true });
+if (run.error) {
+  console.error(`the connect page build did not start: ${run.error.message}`);
+  process.exit(1);
+}
 if (run.status !== 0) {
   console.error(`the connect page does not build:\n${run.stderr || run.stdout}`);
   process.exit(1);

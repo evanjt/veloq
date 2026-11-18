@@ -101,3 +101,21 @@ fn a_preview_with_a_missing_primary_line_refuses() {
 
     assert!(pooled::merge_preview(&reader, "missing", "donor").is_err());
 }
+
+#[test]
+fn a_counted_preview_reports_the_laps_the_kept_line_measures_for_the_donor_rides() {
+    let (_engine, reader, _tmp) = pair();
+
+    let (dropped, laps) = pooled::merge_preview_counted(&reader, "primary", "donor").unwrap();
+
+    assert_eq!(dropped.len(), 1);
+    assert_eq!(dropped[0].activity_id, "donor_only");
+    assert_eq!(
+        laps, 1,
+        "only the ride that rides the kept line is measured"
+    );
+
+    let (dropped, laps) = pooled::merge_preview_counted(&reader, "donor", "primary").unwrap();
+    assert!(dropped.is_empty());
+    assert_eq!(laps, 1);
+}

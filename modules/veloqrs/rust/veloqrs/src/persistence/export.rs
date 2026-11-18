@@ -242,16 +242,37 @@ pub struct BulkExportProgress {
     visited: AtomicU32,
     total: AtomicU32,
     cancelled: AtomicBool,
+    /// A check the writer runs before each unit of work, answering why the
+    /// run must stop, or `None` to go on.
+    guard: std::sync::OnceLock<StopGuard>,
 }
 
+/// Answers why a run must stop now, `None` while it may go on.
+pub type StopGuard = Box<dyn Fn() -> Option<String> + Send + Sync>;
+
 impl BulkExportProgress {
+    /// Install the check a writer runs before each unit of work. Set once;
+    /// a second call is ignored.
+    pub fn set_guard(&self, guard: StopGuard) {
+        let _ = self.guard.set(guard);
+    }
+
+    /// Why the run must stop before its next unit of work: [`JOB_CANCELLED`]
+    /// when asked to, or the guard's reason.
+    pub(crate) fn stop_reason(&self) -> Option<String> {
+        if self.cancelled() {
+            return Some(JOB_CANCELLED.to_string());
+        }
+        self.guard.get().and_then(|guard| guard())
+    }
+
     /// Ask the writer to stop before its next track. The track in hand is
     /// finished first, then the partial file is removed.
     pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::SeqCst);
     }
 
-    fn cancelled(&self) -> bool {
+    pub(crate) fn cancelled(&self) -> bool {
         self.cancelled.load(Ordering::SeqCst)
     }
 
@@ -264,8 +285,13 @@ impl BulkExportProgress {
     }
 
     /// One more stored track taken, whatever became of it.
-    fn visit(&self) {
+    pub(crate) fn visit(&self) {
         self.visited.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Set how many units the run expects to visit.
+    pub(crate) fn set_total(&self, total: u32) {
+        self.total.store(total, Ordering::Relaxed);
     }
 
     /// The row count is one cheap query and it is what makes a progress bar
@@ -386,6 +412,121 @@ pub(crate) fn single_gpx_file_from(
         &kept,
         &stamp.for_track(shortened),
     )))
+}
+
+/// A stored section's line and the name it is shown under. A section no
+/// athlete named is shown under the section word.
+fn section_line_and_name(
+    conn: &rusqlite::Connection,
+    section_id: &str,
+) -> Result<(String, Vec<GpsPoint>), String> {
+    let line = crate::persistence::sections::geometry::stored_line(conn, section_id)?;
+    let name = crate::persistence::sections::naming::pooled::section_name(conn, section_id)
+        .filter(|n| !n.is_empty())
+        .unwrap_or_else(super::get_section_word);
+    Ok((name, line))
+}
+
+/// A route's representative track and the name the route is shown under, or
+/// `None` when the route has no track.
+fn route_line_and_name(
+    conn: &rusqlite::Connection,
+    group_id: &str,
+) -> Option<(String, Vec<GpsPoint>)> {
+    use crate::persistence::routes::pooled as routes;
+
+    let track = routes::representative_route(conn, group_id)?;
+    let name = routes::route_names_for(conn, &[group_id])
+        .remove(group_id)
+        .unwrap_or_else(super::get_route_word);
+    Some((name, track))
+}
+
+/// The GPX file for a stored section's line, read by its id with its elevation
+/// and the name it is shown under, through the same privacy trim as any shared
+/// track.
+pub(crate) fn section_gpx_file_from(
+    conn: &rusqlite::Connection,
+    section_id: &str,
+    sport: Option<&str>,
+) -> Result<Option<GpxFile>, String> {
+    let (name, line) = section_line_and_name(conn, section_id)?;
+    single_gpx_file_from(conn, &name, sport, None, &line)
+}
+
+/// The GPX file for a route's representative track, read by the route's id
+/// with its elevation and the name the route is shown under, through the same
+/// privacy trim as any shared track.
+pub(crate) fn route_gpx_file_from(
+    conn: &rusqlite::Connection,
+    group_id: &str,
+    sport: Option<&str>,
+) -> Result<Option<GpxFile>, String> {
+    let Some((name, track)) = route_line_and_name(conn, group_id) else {
+        return Ok(None);
+    };
+    single_gpx_file_from(conn, &name, sport, None, &track)
+}
+
+/// A FIT course file ready to share.
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FitCourseFile {
+    pub filename: String,
+    #[serde(with = "crate::remote::bytes")]
+    pub content: Vec<u8>,
+}
+
+/// The FIT course for one shared line with the configured export privacy trim
+/// applied, or `None` when the trim leaves too little to be a line. An
+/// unreadable trim is an error, and no file is made.
+fn fit_course_file_from(
+    conn: &rusqlite::Connection,
+    name: &str,
+    sport: Option<&str>,
+    points: &[GpsPoint],
+) -> Result<Option<FitCourseFile>, String> {
+    let finite: Vec<GpsPoint> = points
+        .iter()
+        .filter(|p| is_finite_point(p))
+        .cloned()
+        .collect();
+    let trim = PrivacyTrim::from_connection(conn)?;
+    let Some((kept, _)) = trim_for_export(trim.as_ref(), finite) else {
+        return Ok(None);
+    };
+    let course = crate::fit_course::CourseLine {
+        name,
+        sport,
+        points: &kept,
+        start_unix: chrono::Utc::now().timestamp(),
+    };
+    Ok(course.to_fit().map(|content| FitCourseFile {
+        filename: format!("{}.fit", gpx_file_stem(name)),
+        content,
+    }))
+}
+
+/// The FIT course for a stored section's line, read by its id.
+pub(crate) fn section_fit_course_from(
+    conn: &rusqlite::Connection,
+    section_id: &str,
+    sport: Option<&str>,
+) -> Result<Option<FitCourseFile>, String> {
+    let (name, line) = section_line_and_name(conn, section_id)?;
+    fit_course_file_from(conn, &name, sport, &line)
+}
+
+/// The FIT course for a route's representative track, read by the route's id.
+pub(crate) fn route_fit_course_from(
+    conn: &rusqlite::Connection,
+    group_id: &str,
+    sport: Option<&str>,
+) -> Result<Option<FitCourseFile>, String> {
+    let Some((name, track)) = route_line_and_name(conn, group_id) else {
+        return Ok(None);
+    };
+    fit_course_file_from(conn, &name, sport, &track)
 }
 
 /// Generate GPX 1.1 XML for a single activity. A missing sport is written as
@@ -827,6 +968,32 @@ impl PersistentEngine {
             progress,
         })
     }
+}
+
+/// Start the library export on a background thread, on a connection of its
+/// own to the file at `db_path`, the way a bulk export runs. It reads nothing
+/// from the engine, so it takes no engine lock. `progress` is the run's own
+/// counters and stop latch, made by the caller.
+pub fn library_export_background(
+    db_path: String,
+    options: super::library_export::LibraryExportOptions,
+    dest_path: &str,
+    progress: Arc<BulkExportProgress>,
+) -> super::LibraryExportHandle {
+    let dest_path = dest_path.to_string();
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    crate::threads::spawn_named("veloq-export", move || {
+        let result = open_export_connection(&db_path).and_then(|db| {
+            super::library_export::write_library_export(&db, &dest_path, options, &progress)
+        });
+        if let Err(e) = &result {
+            log::error!("[LibraryExport] Export to {} failed: {}", dest_path, e);
+        }
+        tx.send(result).ok();
+    });
+
+    super::LibraryExportHandle { receiver: rx }
 }
 
 /// A read-only connection for the export thread. The engine's own connection
@@ -1275,11 +1442,15 @@ mod privacy_trim_tests {
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct SuggestedHome {
+    /// Unit: degree.
     pub latitude: f64,
+    /// Unit: degree.
     pub longitude: f64,
     /// Rides whose first or last fix falls in the cluster.
+    /// Unit: count.
     pub activity_count: u32,
     /// Endpoints in the cluster, of every endpoint in the library.
+    /// Unit: ratio.
     pub endpoint_share: f64,
 }
 
@@ -1660,7 +1831,7 @@ fn each_stored_track(
 
 /// `read` under a suspension hold, for the one-statement reads either side of
 /// the paged tracks.
-fn held_read<T>(read: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+pub(crate) fn held_read<T>(read: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
     let _read = super::suspension::begin_read()
         .ok_or_else(|| "The export was refused while the engine is suspended".to_string())?;
     read()
@@ -2199,6 +2370,169 @@ fn write_geojson(
     );
 
     Ok(BulkExportResult::tally(exported, &skipped, total_bytes))
+}
+
+#[cfg(test)]
+mod engine_line_gpx_tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    /// Five points climbing 3 m each, every one carrying its elevation.
+    fn climb() -> Vec<GpsPoint> {
+        (0..5)
+            .map(|i| GpsPoint {
+                latitude: 46.500 + i as f64 * 0.001,
+                longitude: 6.600,
+                elevation: Some(400.0 + i as f64 * 3.0),
+            })
+            .collect()
+    }
+
+    fn engine(dir: &TempDir) -> PersistentEngine {
+        let path = dir.path().join("lines.db");
+        PersistentEngine::new(path.to_str().unwrap()).expect("engine")
+    }
+
+    /// A section row whose stored polyline is `line`, under `name` when it
+    /// has one.
+    fn insert_section(engine: &PersistentEngine, id: &str, name: Option<&str>, line: &[GpsPoint]) {
+        engine
+            .db
+            .execute(
+                "INSERT INTO sections
+                     (id, section_type, name, sport_type, polyline_json, polyline_blob,
+                      distance_meters, representative_activity_id, rep_start_index,
+                      rep_end_index, geometry_source, created_at, is_user_defined,
+                      bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                 VALUES (?1, 'auto', ?2, 'Ride', NULL, ?3, 1200.0,
+                         'a1', 0, ?4, 'exact', '2026-01-01T00:00:00Z', 0,
+                         46.5, 46.6, 6.6, 6.6)",
+                rusqlite::params![
+                    id,
+                    name,
+                    crate::persistence::codec::serialize_track_points(line),
+                    line.len() as i64 - 1
+                ],
+            )
+            .expect("insert the section");
+    }
+
+    /// Scenario: a section is shared by its id, and the screen passes no
+    /// points of its own.
+    /// Expected behaviour: every point of the stored line is written with its
+    /// elevation, under the name the section is shown by.
+    #[test]
+    fn a_section_shared_by_id_keeps_the_elevation_of_every_point() {
+        let dir = TempDir::new().unwrap();
+        let engine = engine(&dir);
+        insert_section(&engine, "s_col", Some("Col test"), &climb());
+
+        let file = section_gpx_file_from(&engine.db, "s_col", Some("Ride"))
+            .expect("export")
+            .expect("a track");
+
+        assert_eq!(
+            file.content.matches("<trkpt").count(),
+            5,
+            "{}",
+            file.content
+        );
+        assert_eq!(file.content.matches("<ele>").count(), 5, "{}", file.content);
+        assert_eq!(file.filename, "Col_test.gpx");
+    }
+
+    /// A section the athlete never named is shared under the name the engine
+    /// shows it by, the same name the section screen reads.
+    #[test]
+    fn an_unnamed_section_is_shared_under_the_name_the_engine_shows() {
+        let dir = TempDir::new().unwrap();
+        let engine = engine(&dir);
+        insert_section(&engine, "s_bare", None, &climb());
+        let shown =
+            crate::persistence::sections::naming::pooled::section_name(&engine.db, "s_bare")
+                .expect("the engine names an unnamed section");
+
+        let file = section_gpx_file_from(&engine.db, "s_bare", Some("Ride"))
+            .expect("export")
+            .expect("a track");
+
+        assert_eq!(file.filename, format!("{}.gpx", gpx_file_stem(&shown)));
+    }
+
+    /// Scenario: a section is shared as a watch course by its id.
+    /// Expected behaviour: one record per stored point, each with its
+    /// elevation, under the section's name, ending at the line's length.
+    #[test]
+    fn a_section_course_by_id_holds_every_point_with_its_elevation() {
+        let dir = TempDir::new().unwrap();
+        let engine = engine(&dir);
+        insert_section(&engine, "s_col", Some("Col test"), &climb());
+
+        let file = section_fit_course_from(&engine.db, "s_col", Some("Ride"))
+            .expect("export")
+            .expect("a course");
+
+        assert_eq!(file.filename, "Col_test.fit");
+        let info = crate::fit::inspect(&file.content).expect("decodes");
+        assert_eq!(info.record_count, 5);
+        assert!(
+            info.fields
+                .contains(&("record".into(), "enhanced_altitude".into()))
+        );
+    }
+
+    /// A route with no stored track makes no course.
+    #[test]
+    fn a_route_with_no_track_makes_no_course() {
+        let dir = TempDir::new().unwrap();
+        let engine = engine(&dir);
+        assert!(
+            route_fit_course_from(&engine.db, "missing", None)
+                .expect("export")
+                .is_none()
+        );
+    }
+
+    /// Scenario: a route is shared by its id, and its representative activity
+    /// carries elevation.
+    /// Expected behaviour: the file writes the elevation of every point and
+    /// takes the name the route is shown by.
+    #[test]
+    fn a_route_shared_by_id_keeps_the_elevation_of_its_representative() {
+        let dir = TempDir::new().unwrap();
+        let mut engine = engine(&dir);
+        engine
+            .add_activity("a1".into(), climb(), "Ride".into())
+            .expect("add ride");
+        engine
+            .db
+            .execute(
+                "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type, activity_count)
+                 VALUES ('g1', 'a1', '[\"a1\"]', 'Ride', 1)",
+                [],
+            )
+            .expect("route group");
+        engine
+            .db
+            .execute(
+                "INSERT INTO route_names (route_id, custom_name) VALUES ('g1', 'Lake loop')",
+                [],
+            )
+            .expect("route name");
+
+        let file = route_gpx_file_from(&engine.db, "g1", Some("Ride"))
+            .expect("export")
+            .expect("a track");
+
+        assert_eq!(
+            file.content.matches("<trkpt").count(),
+            5,
+            "{}",
+            file.content
+        );
+        assert_eq!(file.content.matches("<ele>").count(), 5, "{}", file.content);
+        assert_eq!(file.filename, "Lake_loop.gpx");
+    }
 }
 
 #[cfg(test)]

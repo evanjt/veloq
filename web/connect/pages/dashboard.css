@@ -32,9 +32,7 @@
   margin: 0;
 }
 
-#fitness-page svg {
-  width: 100%;
-  height: auto;
+#fitness-page .chart svg {
   touch-action: none;
 }
 
@@ -44,15 +42,14 @@
 }
 
 #fitness-page .line-a {
-  stroke: var(--chart-a);
+  stroke: var(--colour-chart-series);
 }
 
 #fitness-page .line-b {
-  stroke: var(--chart-b);
+  stroke: var(--colour-fatigue-atl);
 }
 
-#fitness-page .readout,
-#fitness-page .empty {
+#fitness-page .readout {
   color: var(--text-muted);
   min-height: 1.4em;
   margin: var(--space-xs) 0 0;
@@ -82,7 +79,7 @@
 #fitness-page .bars span {
   display: block;
   width: 100%;
-  background: var(--chart-a);
+  background: var(--colour-chart-series);
 }
 
 #fitness-page .zones li {
@@ -96,7 +93,7 @@
 #fitness-page .zones span:nth-child(2) {
   display: block;
   height: 12px;
-  background: var(--chart-a);
+  background: var(--colour-chart-series);
 }
 
 #fitness-page [role='group'] button {
@@ -111,13 +108,12 @@
   border-color: var(--primary);
 }
 
-#fitness-page table {
+#fitness-page .ui-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-#fitness-page th,
-#fitness-page td {
+#fitness-page .ui-table :is(th, td) {
   text-align: left;
   padding: var(--space-xs) var(--space-sm);
   border-bottom: var(--stroke-1) solid var(--border);
@@ -148,7 +144,7 @@
 
 #fitness-page .dot,
 #insights-page .dot {
-  fill: var(--chart-a);
+  fill: var(--colour-chart-series);
   cursor: pointer;
 }
 
@@ -188,24 +184,24 @@
 
 #fitness-page .day.level-1 {
   opacity: 0.45;
-  background: var(--chart-a);
+  background: var(--colour-chart-series);
 }
 
 #fitness-page .day.level-2 {
   opacity: 0.65;
-  background: var(--chart-a);
+  background: var(--colour-chart-series);
 }
 
 #fitness-page .day.level-3 {
   opacity: 0.85;
-  background: var(--chart-a);
+  background: var(--colour-chart-series);
 }
 
 #fitness-page .day.level-4 {
-  background: var(--chart-a);
+  background: var(--colour-chart-series);
 }
 
-#fitness-page th button {
+#fitness-page .ui-table th button {
   background: none;
   border: 0;
   color: inherit;
@@ -225,29 +221,22 @@
   margin: 0;
 }
 
-#insights-page svg {
-  width: 100%;
-  height: auto;
-}
-
 #insights-page .line-a {
-  stroke: var(--chart-a);
+  stroke: var(--colour-chart-series);
   stroke-width: 2;
 }
 
-#insights-page .readout,
-#insights-page .empty {
+#insights-page .readout {
   color: var(--text-muted);
   margin: var(--space-xs) 0 0;
 }
 
-#insights-page table {
+#insights-page .ui-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-#insights-page th,
-#insights-page td {
+#insights-page .ui-table :is(th, td) {
   text-align: left;
   padding: var(--space-xs) var(--space-sm);
   border-bottom: var(--stroke-1) solid var(--border);
@@ -260,15 +249,6 @@
 #insights-page tr[aria-selected='true'] {
   background: var(--card);
   outline: var(--stroke-1) solid var(--primary);
-}
-
-.insight-cards {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
 .insight-cards article {
@@ -290,67 +270,10 @@
   margin-top: var(--space-sm);
 }
 
-/* The fitness dashboard: a four-tile strip, then cards on the 12-column grid. */
+/* The fitness dashboard: a strip of tiles, then cards on the page grid. */
 
-#fitness-page .tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: var(--space-md);
+#fitness-tiles {
   margin: var(--space-md) 0;
-  padding: 0;
-  list-style: none;
-}
-
-#fitness-page .tiles li {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xxs);
-  padding: var(--space-sm-plus) var(--space-md);
-  background: var(--card);
-  border: var(--stroke-1) solid var(--border);
-  border-radius: var(--web-radius-lg);
-}
-
-#fitness-page .tile-label {
-  color: var(--text-muted);
-}
-
-#fitness-page .tile-value {
-  font-size: var(--web-type-title-size);
-  font-weight: var(--web-type-title-weight);
-  font-variant-numeric: tabular-nums;
-}
-
-#fitness-page .dashboard {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: var(--space-md);
-  align-items: start;
-}
-
-#fitness-page .dashboard .cell {
-  grid-column: span 12;
-  min-width: 0;
-}
-
-@media (min-width: 1024px) {
-  #fitness-page .dashboard .cell {
-    grid-column: span 6;
-  }
-
-  #fitness-page .dashboard .cell.wide {
-    grid-column: span 12;
-  }
-}
-
-@media (min-width: 1600px) {
-  #fitness-page .dashboard .cell {
-    grid-column: span 4;
-  }
-
-  #fitness-page .dashboard .cell.wide {
-    grid-column: span 8;
-  }
 }
 
 #fitness-page .ui-card-header h2 {
@@ -384,10 +307,6 @@
 }
 
 #insights-page .insight-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--space-md);
-  align-items: start;
   min-width: 0;
 }
 

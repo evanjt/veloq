@@ -6,6 +6,7 @@
 import { readIds, writeIds } from './compare';
 import { queryValue, type Route } from './router';
 import type { Methods } from './schema';
+import { FILTER_KEY } from './ui/filterText';
 
 /** The ask: every field the engine's query has, bar the place `nearby` needs, which the page has none of. */
 export type Query = Omit<Methods['routes.screen']['params'], 'userLat' | 'userLng'>;
@@ -103,7 +104,8 @@ export function toggled(state: ListState, chip: Chip): ListState {
 
 /**
  * The address for the page: `#/routes` or `#/sections` with each list's sort,
- * search and chips in the query. The list in focus names its selected row in
+ * search and chips in the query. The text of the list in focus is the page's filter, `q`; the
+ * other list keeps its text under `rq` or `sq` while it is out of focus. The list in focus names its selected row in
  * the path (`#/route/<id>`, `#/section/<id>`); the other list's selection is
  * the `route` or `section` query value. A value at its default is left out.
  */
@@ -111,9 +113,11 @@ export function toRoute(page: PageState): Route {
   const { routes, sections, focus } = page;
   const query: [string, string][] = [];
   if (routes.sort !== defaultSort('routes')) query.push(['rsort', routes.sort]);
-  if (routes.search !== '') query.push(['rq', routes.search]);
+  if (routes.search !== '') query.push([focus === 'routes' ? FILTER_KEY : 'rq', routes.search]);
   if (sections.sort !== defaultSort('sections')) query.push(['ssort', sections.sort]);
-  if (sections.search !== '') query.push(['sq', sections.search]);
+  if (sections.search !== '') {
+    query.push([focus === 'sections' ? FILTER_KEY : 'sq', sections.search]);
+  }
   if (sections.chips.length > 0) {
     query.push(['chips', CHIPS.filter((chip) => sections.chips.includes(chip)).join(',')]);
   }
@@ -153,7 +157,7 @@ export function fromRoute(route: Route): PageState | null {
     routes: {
       kind: 'routes',
       sort: sortOf('routes', 'rsort'),
-      search: value('rq') ?? '',
+      search: value(focus === 'routes' ? FILTER_KEY : 'rq') ?? '',
       chips: [],
       selected: selected('routes'),
       ids: focus === 'routes' && ids.length >= 2 ? ids : [],
@@ -161,7 +165,7 @@ export function fromRoute(route: Route): PageState | null {
     sections: {
       kind: 'sections',
       sort: sortOf('sections', 'ssort'),
-      search: value('sq') ?? '',
+      search: value(focus === 'sections' ? FILTER_KEY : 'sq') ?? '',
       chips: CHIPS.filter((chip) => named.includes(chip)),
       selected: selected('sections'),
       ids: focus === 'sections' && ids.length >= 2 ? ids : [],

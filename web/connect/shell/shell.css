@@ -8,19 +8,11 @@
   --text-muted: var(--colour-text-secondary);
   --card: var(--colour-surface);
   --border: var(--colour-border);
-  --chart-a: var(--colour-chart-series);
-  --chart-b: var(--colour-direction-reverse);
   --sport-ride: var(--colour-sport-ride);
   --sport-run: var(--colour-sport-run);
   --sport-swim: var(--colour-sport-water);
   --sport-walk: var(--colour-sport-foot);
   --sport-other: var(--colour-sport-other);
-  --line-0: var(--colour-chart-series);
-  --line-1: var(--colour-direction-reverse);
-  --line-2: var(--colour-sport-foot);
-  --line-3: var(--colour-sport-ride);
-  --line-4: var(--colour-stream-speed);
-  --line-5: var(--colour-fatigue-atl);
   --topbar-height: var(--web-layout-topbar);
   --sidebar-width: var(--web-layout-sidebar);
   --sidebar-width-collapsed: var(--web-layout-sidebar-collapsed);
@@ -57,7 +49,7 @@ body {
 }
 
 a {
-  color: var(--colour-action-primary);
+  color: var(--colour-action-link);
   text-decoration: none;
 }
 
@@ -143,8 +135,38 @@ a:hover {
   text-decoration: underline;
 }
 
+/* The one search: a field-shaped control that opens the palette, at the right of the bar. */
+#topbar-search {
+  display: flex;
+  flex: 0 1 var(--web-layout-search-max);
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: var(--web-layout-search-min);
+  height: var(--web-size-control);
+  justify-content: flex-start;
+  padding: 0 var(--space-sm);
+  color: var(--colour-text-secondary);
+  font: inherit;
+  text-align: left;
+  background: var(--colour-surface-input);
+  border: var(--stroke-1) solid var(--colour-border-strong);
+  border-radius: var(--web-radius-md);
+  cursor: text;
+}
+
+#topbar-search:hover {
+  border-color: var(--colour-text-tertiary);
+}
+
+#topbar-search .topbar-search-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 #topbar-search kbd {
-  margin-left: var(--space-sm);
   padding: 0 var(--space-xs);
   border: var(--stroke-1) solid var(--colour-border-strong);
   border-radius: var(--web-radius-sm);
@@ -287,13 +309,37 @@ a:hover {
   min-height: 0;
   overflow: auto;
   padding: var(--page-gutter);
+  /* The width a page lays out in is the pane's, not the window's: the sidebar takes 56 or 232 px
+     of the window, so a page asks its container whether it is narrow. */
+  container: content / inline-size;
   /* A sticky edge is measured from the scroller's content box, so the header
-     cancels the gutter to sit on the pane's own top edge. */
+     cancels the gutter to sit on the pane's own top edge. A focused row scrolls
+     clear of that header, which is one row tall. */
   --ui-table-sticky-top: calc(-1 * var(--page-gutter));
+  scroll-padding-top: var(--web-size-row);
 }
 
-#content > section {
-  margin-top: 0;
+/* The pane takes focus from the skip link, so it is a stop, not a control to outline. */
+#content:focus {
+  outline: none;
+}
+
+/* Hidden until a keyboard user tabs to it, then the first stop on the page. */
+.skip-link {
+  position: absolute;
+  top: var(--space-sm);
+  left: var(--space-sm);
+  z-index: var(--layer-overlay);
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--stroke-2) solid var(--colour-focus-ring);
+  border-radius: var(--web-radius-sm);
+  background: var(--colour-surface-raised);
+  color: var(--colour-action-link);
+  transform: translateY(-200%);
+}
+
+.skip-link:focus-visible {
+  transform: none;
 }
 
 #content:has(#map-screen) {
@@ -302,12 +348,6 @@ a:hover {
 
 .notice {
   color: var(--text-muted);
-}
-
-.notice[data-read-error] {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
 }
 
 * {
@@ -320,7 +360,6 @@ a:hover {
 
 .connection {
   position: relative;
-  margin-left: auto;
 }
 
 .chip {
@@ -367,7 +406,7 @@ a:hover {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  z-index: 10;
+  z-index: var(--layer-floating);
   width: min(320px, 90vw);
   padding: var(--space-sm-plus) var(--space-md);
   border: var(--stroke-1) solid var(--border);
@@ -425,10 +464,6 @@ a:hover {
   margin-top: var(--space-xs);
   color: var(--text-muted);
   font-size: var(--web-type-small-size);
-}
-
-section {
-  margin-top: var(--space-lg);
 }
 
 #code {
@@ -497,17 +532,6 @@ section {
   pointer-events: none;
 }
 
-#search {
-  width: 100%;
-  font: inherit;
-  padding: var(--space-sm) var(--space-sm-plus);
-  margin-bottom: var(--space-sm-plus);
-  color: inherit;
-  background: var(--card);
-  border: var(--stroke-1) solid var(--border);
-  border-radius: var(--web-radius-lg);
-}
-
 #keys dl {
   display: grid;
   grid-template-columns: max-content 1fr;
@@ -518,24 +542,10 @@ section {
   margin: 0;
 }
 
-section table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-section th,
-section td {
-  padding: var(--space-xs-plus) var(--space-sm);
-  text-align: left;
-  vertical-align: top;
-}
-
-section th {
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-section table:not(.ui-table) {
+/* A table the kit does not draw scrolls sideways in a narrow pane rather than widening it. */
+.settings-table,
+.workout-sets,
+.section-stats {
   display: block;
   max-width: 100%;
   overflow-x: auto;
@@ -550,8 +560,7 @@ section table:not(.ui-table) {
   display: contents;
 }
 
-#keys kbd,
-.palette-kind {
+#keys kbd {
   padding: 0 var(--space-xs);
   border: var(--stroke-1) solid var(--colour-border-strong);
   border-radius: var(--web-radius-sm);
@@ -565,7 +574,7 @@ section table:not(.ui-table) {
 
 #palette-input {
   box-sizing: border-box;
-  width: min(560px, 80vw);
+  width: min(var(--web-layout-palette), 80vw);
   height: var(--web-size-control);
   padding: 0 var(--space-sm);
   color: inherit;
@@ -607,4 +616,20 @@ section table:not(.ui-table) {
 .palette-detail {
   color: var(--colour-text-secondary);
   font-size: var(--web-type-micro-size);
+}
+
+.palette-heading {
+  margin: var(--space-sm) 0 var(--space-xs);
+  padding: 0 var(--space-sm);
+  color: var(--colour-text-tertiary);
+  font-size: var(--web-type-micro-size);
+  cursor: default;
+}
+
+.palette-heading:first-child {
+  margin-top: 0;
+}
+
+.palette-show-all {
+  color: var(--colour-text-secondary);
 }

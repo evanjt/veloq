@@ -8,7 +8,14 @@
  * to the opening one, and a retired section lists what took its ground.
  */
 
-import { OPENING, listRows, retiredRows, routeOf, viewOf } from '../../../web/connect/sectionsList';
+import {
+  OPENING,
+  listRows,
+  retiredRows,
+  routeOf,
+  statusOf,
+  viewOf,
+} from '../../../web/connect/sectionsList';
 import type { Route } from '../../../web/connect/router';
 
 const at = (query: [string, string][]): Route => ({ screen: 'sections', id: null, query });
@@ -30,7 +37,7 @@ describe('the sections view in the address', () => {
     const written = routeOf({ ...view, chips: [...view.chips] });
     expect(written.query).toEqual([
       ['ssort', 'distance'],
-      ['sq', 'col du'],
+      ['q', 'col du'],
       ['chips', 'custom,accepted'],
       ['selected', 's2'],
     ]);
@@ -63,6 +70,7 @@ const ROW = (over: object) => ({
   avgGradePercent: 5.4,
   trend: 0.3,
   latestIsRecord: false,
+  sectionType: 'auto',
   isUserDefined: false,
   disabled: false,
   isLift: false,
@@ -74,13 +82,30 @@ describe('the sections list rows', () => {
     const rows = listRows({
       sections: [
         ROW({}),
-        ROW({ id: 's2', isUserDefined: true, latestIsRecord: true, isLift: true }),
+        ROW({
+          id: 's2',
+          sectionType: 'custom',
+          isUserDefined: true,
+          latestIsRecord: true,
+          isLift: true,
+        }),
         ROW({ id: 's3', disabled: true, name: null, avgGradePercent: null, trend: null }),
       ],
     } as never);
     expect(rows.map((row) => row.status)).toEqual([[], ['custom', 'lift', 'record'], ['removed']]);
     expect(rows[2]).toMatchObject({ name: null, grade: null, trend: null });
     expect(rows[0]).toMatchObject({ id: 's1', passes: 4, distance: 1200, grade: 5.4, trend: 0.3 });
+  });
+
+  it('gives the custom status to a custom section only, not to an accepted auto one', () => {
+    const base = { disabled: false, isLift: false };
+    expect(statusOf({ ...base, isUserDefined: true, sectionType: 'auto' })).toEqual([]);
+    expect(statusOf({ ...base, isUserDefined: true, sectionType: 'custom' })).toEqual(['custom']);
+    expect(statusOf({ ...base, isUserDefined: false, sectionType: 'auto' })).toEqual([]);
+    const rows = listRows({
+      sections: [ROW({ id: 'a', isUserDefined: true, sectionType: 'auto' })],
+    } as never);
+    expect(rows[0].status).toEqual([]);
   });
 
   it('is empty for no screen', () => {

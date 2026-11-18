@@ -46,7 +46,9 @@ describe('the strength delegate with the engine closed', () => {
       live: false,
       groups: [],
       workouts: [],
+      removed: [],
     });
+    expect(strength.recoverStrengthWorkout(host, 'w1')).toBeUndefined();
     expect(strength.getLiveStrengthSession(host)).toBeNull();
     expect(strength.startLiveStrengthSession(host, { kind: 'Blank' }, 0)).toBeNull();
     expect(strength.startLiveStrengthSessionFromPlan(host, ['Plank 60 sec'], 0)).toBeNull();

@@ -334,8 +334,7 @@ fn library_rows(id: &str) -> Vec<(String, Vec<Row>)> {
                         "SELECT * FROM {table} WHERE {key} = ?1 ORDER BY 2"
                     ))
                     .expect("the read");
-                let names: Vec<String> =
-                    stmt.column_names().iter().map(|n| n.to_string()).collect();
+                let names: Vec<String> = stmt.column_names().map(str::to_string).collect();
                 let rows = stmt
                     .query_map([id], |row| {
                         let mut out = Vec::new();

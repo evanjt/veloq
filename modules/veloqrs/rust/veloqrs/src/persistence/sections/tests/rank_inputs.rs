@@ -263,7 +263,7 @@ fn unstored(engine: &PersistentEngine) -> i64 {
 /// Rank through a read-only connection while another connection commits
 /// `write` part-way through the read's first statement.
 fn rank_across_a_commit(path: &std::path::Path, write: fn(&rusqlite::Connection)) -> Vec<String> {
-    let reader = rusqlite::Connection::open_with_flags(
+    let mut reader = rusqlite::Connection::open_with_flags(
         path,
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
@@ -375,7 +375,7 @@ fn a_traversal_whose_metrics_arrive_later_is_ranked_once_they_do() {
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_read_after_a_refresh_costs_what_it_keeps_not_what_the_library_holds() {
     let steps = |sections: usize| {
-        let engine = library(sections, 12);
+        let mut engine = library(sections, 12);
         refresh_rank_inputs(&engine.db).unwrap();
         STEPS.store(0, Ordering::SeqCst);
         engine.db.progress_handler(1, Some(count_step)).unwrap();

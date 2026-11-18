@@ -73,6 +73,20 @@ const FAILURE_WORDING = [
 ];
 
 describe('a phone that lists only the feed reads', () => {
+  // The tabs of a panel read the address from the browser, which this node environment lacks.
+  const host = globalThis as { window?: unknown };
+  const hostWindow = host.window;
+  beforeEach(() => {
+    host.window = {
+      location: { hash: '', assign: () => undefined },
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    };
+  });
+  afterEach(() => {
+    host.window = hostWindow;
+  });
+
   it.each([
     [
       'the activity page',

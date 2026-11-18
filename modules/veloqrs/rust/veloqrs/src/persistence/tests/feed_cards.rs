@@ -19,6 +19,11 @@ fn query(needle: &str, offset: u32, limit: Option<u32>) -> crate::FfiActivityBod
         sport_families: Vec::new(),
         offset,
         limit,
+        min_distance: None,
+        max_distance: None,
+        min_moving_time: None,
+        max_moving_time: None,
+        sort: None,
     }
 }
 
@@ -84,6 +89,7 @@ fn test_feed_cards_carry_every_card_field_from_the_stored_body() {
             has_altitude: false,
             sync_failure: None,
             stub: crate::net::garmin_swap::FfiStubVerdict::NotStub,
+            heatmap_hidden: false,
         }
     );
 
@@ -260,4 +266,224 @@ fn test_feed_card_carries_one_stub_verdict_from_the_body_and_the_key() {
         verdicts(false),
         vec![NoKey, OtherSource, OtherSource, NotStub]
     );
+}
+
+/// Scenario: the activities table marks the rows the athlete hid from the
+/// heatmap, and a hidden id may also name an activity the library does not
+/// hold.
+///
+/// Expected behaviour: only the cards of hidden activities read
+/// `heatmap_hidden`, showing the activity again clears it, and a hidden id
+/// with no stored body adds no card.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn test_feed_card_carries_whether_its_activity_is_hidden_from_the_heatmap() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    store(
+        &mut engine,
+        &[
+            ("i601", NOW, r#"{"id":"i601","type":"Ride"}"#),
+            ("i602", NOW - DAY, r#"{"id":"i602","type":"Ride"}"#),
+            ("i603", NOW - 2 * DAY, r#"{"id":"i603","type":"Run"}"#),
+        ],
+    );
+    engine.set_heatmap_hidden("i602", true).expect("hide");
+    engine.set_heatmap_hidden("gone", true).expect("hide");
+
+    let hidden_flags = |engine: &PersistentEngine| -> Vec<(String, bool)> {
+        pooled::feed_card_page(&engine.db, &query("", 0, None))
+            .expect("page")
+            .cards
+            .into_iter()
+            .map(|c| (c.id, c.heatmap_hidden))
+            .collect()
+    };
+    assert_eq!(
+        hidden_flags(&engine),
+        vec![
+            ("i601".to_string(), false),
+            ("i602".to_string(), true),
+            ("i603".to_string(), false),
+        ]
+    );
+
+    engine.set_heatmap_hidden("i602", false).expect("show");
+    assert!(hidden_flags(&engine).iter().all(|(_, hidden)| !hidden));
+}
+
+/// Scenario: three activities share a name, and the feed narrows by name,
+/// sport, distance and moving time together. One body has no metrics row and
+/// carries its distance only in its payload.
+///
+/// Expected behaviour: every bound narrows every other filter, a bound equal
+/// to the stored value matches, the sport chip counts narrow by the same
+/// bounds, and a body without a metrics row is matched by its payload.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn test_feed_card_distance_and_duration_bounds_narrow_with_name_and_sport() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    store(
+        &mut engine,
+        &[
+            (
+                "i1",
+                NOW,
+                r#"{"id":"i1","name":"Loop","type":"Ride","distance":10000,"moving_time":1800}"#,
+            ),
+            (
+                "i2",
+                NOW - DAY,
+                r#"{"id":"i2","name":"Loop","type":"Ride","distance":50000,"moving_time":7200}"#,
+            ),
+            (
+                "i3",
+                NOW - 2 * DAY,
+                r#"{"id":"i3","name":"Loop","type":"Run","distance":50000,"moving_time":14400}"#,
+            ),
+        ],
+    );
+    let ids = |q: &crate::FfiActivityBodiesQuery| -> Vec<String> {
+        pooled::feed_card_page(&engine.db, q)
+            .expect("page")
+            .cards
+            .into_iter()
+            .map(|card| card.id)
+            .collect()
+    };
+
+    let mut q = query("loop", 0, None);
+    q.sport_families = vec![crate::FfiSportFamily::Ride];
+    q.min_distance = Some(20_000.0);
+    q.max_moving_time = Some(10_800);
+    assert_eq!(ids(&q), ["i2"]);
+    let page = pooled::feed_card_page(&engine.db, &q).expect("page");
+    assert_eq!(page.matched_count, 1);
+
+    q.sport_families = Vec::new();
+    assert_eq!(
+        pooled::family_counts(&engine.db, &q).expect("counts"),
+        vec![(crate::FfiSportFamily::Ride, 1)]
+    );
+
+    let mut exact = query("", 0, None);
+    exact.min_distance = Some(50_000.0);
+    exact.max_distance = Some(50_000.0);
+    exact.min_moving_time = Some(7_200);
+    exact.max_moving_time = Some(7_200);
+    assert_eq!(ids(&exact), ["i2"]);
+
+    let mut none = query("", 0, None);
+    none.max_distance = Some(9_999.0);
+    let page = pooled::feed_card_page(&engine.db, &none).expect("page");
+    assert!(page.cards.is_empty());
+    assert_eq!(page.matched_count, 0);
+    assert!(!page.has_more);
+
+    engine
+        .db
+        .execute("DELETE FROM activity_metrics WHERE activity_id = 'i1'", [])
+        .expect("drop metrics");
+    let mut short = query("", 0, None);
+    short.max_distance = Some(20_000.0);
+    assert_eq!(ids(&short), ["i1"]);
+    short.max_moving_time = Some(1_000);
+    assert!(ids(&short).is_empty());
+}
+
+/// Scenario: the feed's filter bars need the library's span. The library holds
+/// a ride, a longer ride, a run, a strength session with neither distance nor
+/// time, and a strength session with a duration but no distance.
+///
+/// Expected behaviour: the dates reach every stored activity, the strength
+/// session included, while each distance and duration bound takes only the
+/// positive values, so a session with none does not pull a minimum to zero.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn test_feed_filter_bounds_span_the_library_over_positive_distance_and_time() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    store(
+        &mut engine,
+        &[
+            (
+                "ride-short",
+                NOW - 2 * DAY,
+                r#"{"id":"ride-short","type":"Ride","name":"Hill","distance":10000.0,"moving_time":1800}"#,
+            ),
+            (
+                "ride-long",
+                NOW - DAY,
+                r#"{"id":"ride-long","type":"Ride","name":"Coast","distance":50000.0,"moving_time":7200}"#,
+            ),
+            (
+                "run-newest",
+                NOW,
+                r#"{"id":"run-newest","type":"Run","name":"Track","distance":21097.5,"moving_time":5400}"#,
+            ),
+            (
+                "lift-oldest",
+                NOW - 3 * DAY,
+                r#"{"id":"lift-oldest","type":"WeightTraining","name":"Legs","distance":0.0,"moving_time":0}"#,
+            ),
+            (
+                "strength-timed",
+                NOW - 4 * DAY,
+                r#"{"id":"strength-timed","type":"WeightTraining","name":"Core","distance":0.0,"moving_time":900}"#,
+            ),
+        ],
+    );
+
+    let bounds =
+        crate::persistence::screens::pooled::feed_filter_bounds(&engine.db).expect("bounds");
+    assert_eq!(
+        bounds,
+        crate::FfiFeedFilterBounds {
+            oldest_ts: Some((NOW - 4 * DAY) as f64),
+            newest_ts: Some(NOW as f64),
+            min_distance: Some(10_000.0),
+            max_distance: Some(50_000.0),
+            min_moving_time: Some(900.0),
+            max_moving_time: Some(7_200.0),
+        }
+    );
+}
+
+/// Scenario: the bars on a library with nothing stored yet.
+///
+/// Expected behaviour: every bound is absent, so the panel has no span to draw
+/// rather than a span of zero.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn test_feed_filter_bounds_are_absent_on_an_empty_library() {
+    let engine = PersistentEngine::in_memory().expect("engine");
+    let bounds =
+        crate::persistence::screens::pooled::feed_filter_bounds(&engine.db).expect("bounds");
+    assert_eq!(bounds, crate::FfiFeedFilterBounds::default());
+}
+
+/// Scenario: a library whose every stored session is a strength session with
+/// neither distance nor time.
+///
+/// Expected behaviour: the dates still answer, since the sessions are in the
+/// library, and the distance and duration bounds stay absent rather than
+/// reading zero.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn test_feed_filter_bounds_leave_distance_and_time_absent_without_any() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    store(
+        &mut engine,
+        &[(
+            "lift-only",
+            NOW,
+            r#"{"id":"lift-only","type":"WeightTraining","name":"Press","distance":0.0,"moving_time":0}"#,
+        )],
+    );
+    let bounds =
+        crate::persistence::screens::pooled::feed_filter_bounds(&engine.db).expect("bounds");
+    assert_eq!(bounds.oldest_ts, Some(NOW as f64));
+    assert_eq!(bounds.newest_ts, Some(NOW as f64));
+    assert_eq!(bounds.min_distance, None);
+    assert_eq!(bounds.max_distance, None);
+    assert_eq!(bounds.min_moving_time, None);
+    assert_eq!(bounds.max_moving_time, None);
 }

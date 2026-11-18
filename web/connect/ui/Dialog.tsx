@@ -15,6 +15,8 @@ export function Dialog(props: {
   title: string;
   description?: string;
   onClose: () => void;
+  /** `top` seats the panel near the top of the window, as a palette sits; the default is the centre. */
+  anchor?: 'top';
   children?: ReactNode;
   actions?: ReactNode;
 }) {
@@ -41,6 +43,7 @@ export function Dialog(props: {
   return (
     <div
       className="ui-dialog-backdrop"
+      data-anchor={props.anchor}
       onMouseDown={(event) => event.target === event.currentTarget && props.onClose()}
     >
       <div

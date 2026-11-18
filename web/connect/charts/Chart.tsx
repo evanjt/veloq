@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { curveAreaSvg, curveLineSvg } from '@/shared/charts/curvePath';
 import { bandSvgPath, polylineSvgPath } from '@/shared/charts/svgPath';
 
-import { Button } from '../ui';
+import { Button, EmptyState } from '../ui';
 import { ValueGrid, XAxisRow } from './Axes';
 import {
   TEXT_PX,
@@ -22,14 +22,14 @@ import {
   nearestIndex,
   drawingHeight,
   plotBox,
-  tooltipLeft,
-  trendBand,
   valueAxis,
   xAxisTicks,
   xOfIndex,
   yOf,
   type IndexRange,
+  type Trend,
 } from './scale';
+import { Readout, Tooltip } from './Tooltip';
 import { useBrush } from './useBrush';
 import { useMeasure, useWidth } from './useSize';
 
@@ -87,8 +87,11 @@ export type ChartProps = {
   at?: number | null;
   /** Told the category under the pointer or keys, or null when the crosshair leaves. */
   onAt?: (index: number | null) => void;
-  /** Draws a least-squares line with a band of one standard deviation, on a scatter. */
-  trend?: boolean;
+  /**
+   * The line and band of one standard deviation a scatter draws, as the data's
+   * owner fitted them. The chart fits nothing of its own.
+   */
+  trend?: Trend | null;
   /**
    * Draws a curve through the points' values, with the band between their lower and upper values
    * behind it. A point's `time` is in the x values' units, milliseconds on a date axis. Points
@@ -113,9 +116,6 @@ export type ChartProps = {
   /** Draws at this width rather than measuring one; for a drawing made without a browser. */
   width?: number;
 };
-
-/** The tooltip's padding on each side, matching its stylesheet. */
-const TOOLTIP_PAD = 8;
 
 /** The path of a step line: each point's value held across to the next x, the last to `end`. */
 function stepPath(
@@ -150,7 +150,7 @@ function axisValues(kind: Kind, series: Series[], indexes: readonly number[]): n
 
 export function Chart(props: ChartProps) {
   const { kind, categories, series, format, label, empty, none } = props;
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const ref = useRef<HTMLElement>(null);
   const width = useWidth(ref, props.width);
   const measure = useMeasure(ref);
@@ -198,7 +198,7 @@ export function Chart(props: ChartProps) {
     props.onRange?.(indexRange(xs, next[0], next[1]));
   });
 
-  if (count === 0 || values.length === 0) return <p className="empty">{empty}</p>;
+  if (count === 0 || values.length === 0) return <EmptyState title={empty} />;
 
   const indexAt = (px: number) =>
     band ? indexAtPointer(px, count, true, box) : nearestIndex(xs, xScale.value(px));
@@ -227,7 +227,7 @@ export function Chart(props: ChartProps) {
         measure,
         width,
         ...(props.x.format ? { format: props.x.format } : {}),
-        ...(props.x.locale ? { locale: props.x.locale } : {}),
+        locale: props.x.locale ?? i18n.language,
       })
     : categoryTicks(
         labelled.map((i) => props.tickLabels?.[i] ?? categories[i] ?? ''),
@@ -247,22 +247,7 @@ export function Chart(props: ChartProps) {
   const stackedBase = (i: number, upTo: number) =>
     series.slice(0, upTo).reduce((sum, s) => sum + (s.values[i] ?? 0), 0);
 
-  const trend =
-    props.trend && kind === 'scatter'
-      ? (() => {
-          const pxs: number[] = [];
-          const pys: number[] = [];
-          for (const s of series)
-            for (const i of visible) {
-              const v = s.values[i];
-              if (v != null) {
-                pxs.push(xs[i] ?? NaN);
-                pys.push(v);
-              }
-            }
-          return trendBand(pxs, pys);
-        })()
-      : null;
+  const trend = kind === 'scatter' ? (props.trend ?? null) : null;
   const trendY = (t: NonNullable<typeof trend>, value: number, offset: number) => {
     const y = yOf(t.intercept + t.slope * value + offset, axis, box);
     return Math.min(box.bottom, Math.max(box.top, y));
@@ -283,7 +268,6 @@ export function Chart(props: ChartProps) {
           categories[at] ?? '',
           ...series.map((s) => `${s.name} ${s.values[at] == null ? none : format(s.values[at])}`),
         ];
-  const tipWidth = Math.ceil(Math.max(0, ...tipLines.map(measure))) + 2 * TOOLTIP_PAD;
   const tipX = at === null ? 0 : x(at);
 
   const dragLeft = brush.drag ? Math.min(brush.drag.from, brush.drag.to) : 0;
@@ -523,23 +507,8 @@ export function Chart(props: ChartProps) {
           ))}
         </ul>
       ) : null}
-      {tipLines.length > 0 ? (
-        <div
-          className="chart-tooltip"
-          style={{
-            left: tooltipLeft(tipX, tipWidth, box.left, box.right),
-            top: box.top,
-            width: tipWidth,
-          }}
-        >
-          {tipLines.map((line, n) => (
-            <div key={n}>{line}</div>
-          ))}
-        </div>
-      ) : null}
-      <p className="readout" aria-live="polite">
-        {readout}
-      </p>
+      <Tooltip lines={tipLines} x={tipX} left={box.left} right={box.right} top={box.top} measure={measure} />
+      <Readout text={readout} />
       {zoom ? (
         <Button size="sm" variant="ghost" onClick={reset}>
           {props.resetLabel ?? t('connectPage.chart.reset')}

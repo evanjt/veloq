@@ -79,7 +79,7 @@ const PLATFORMS = {
   ios: {
     read: iosBundleId,
     flags: [],
-    configuration: ['widget/ios', 'push/ios', 'config/StoreKitConfiguration.storekit'],
+    configuration: ['widget/ios', 'push/ios', 'watch/ios', 'config/StoreKitConfiguration.storekit'],
   },
 };
 

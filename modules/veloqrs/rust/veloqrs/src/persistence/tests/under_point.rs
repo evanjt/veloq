@@ -12,12 +12,13 @@ use std::sync::Arc;
 use rusqlite::params;
 use tracematch::GpsPoint;
 
-use crate::persistence::PersistentEngine;
+use crate::ffi_types::FfiUnderPointKind;
 use crate::persistence::tiles::HeatmapSource;
 use crate::persistence::under_point::{
-    MAX_ACTIVITIES, MAX_TRACES, answer, buffer_metres, clip_and_simplify, clip_radius_metres,
-    query, traces,
+    Group, MAX_ACTIVITIES, MAX_TRACES, answer, buffer_metres, clip_and_simplify,
+    clip_radius_metres, query, traces,
 };
+use crate::persistence::{PersistentEngine, codec};
 
 const TAP: (f64, f64) = (46.2, 7.35);
 const METRES_PER_DEGREE: f64 = 111_320.0;
@@ -289,12 +290,18 @@ fn six_hundred_hits_answer_two_routes_then_the_one_offs_capped_to_the_newest_fiv
         )
         .expect("number");
 
+    crate::tiles::work::take_figure_reads();
     let found = answer(&source_of(&engine), &engine.db, tap(), 14);
 
+    assert_eq!(
+        crate::tiles::work::take_figure_reads(),
+        2,
+        "one figures read per route group, none for the one-offs"
+    );
     assert_eq!(found.total, 600);
     assert_eq!(found.trace_cap as usize, MAX_TRACES);
     assert!(found.truncated);
-    let route_ids: Vec<Option<&str>> = found.groups.iter().map(|g| g.route_id.as_deref()).collect();
+    let route_ids: Vec<Option<&str>> = found.groups.iter().map(|g| g.id.as_deref()).collect();
     assert_eq!(route_ids, [Some("big"), Some("small"), None]);
     assert_eq!(found.groups[0].name.as_deref(), Some("Lake loop"));
     assert_eq!(found.groups[1].name, None);
@@ -404,12 +411,51 @@ mod published_source {
 
         assert_eq!(found, crate::ffi_types::FfiActivitiesUnderPoint::default());
     }
+
+    /// Scenario: the sheet lists a section group and the athlete chooses it, so
+    /// the map asks `veloq-geo` for the key the phone builds for that group.
+    ///
+    /// Expected behaviour: the key names the section group the engine parses it
+    /// as, the answer is the section's members newest first and never the
+    /// activity that rode no section, and a section with no such members
+    /// answers an empty collection.
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn a_section_key_at_the_geo_path_answers_the_section_members() {
+        let _serial = serial_global_state();
+        let _tmp = init_global_engine("under-point-section-key.db");
+        with_persistent_engine(|e| {
+            route_section_and_loose(e);
+            publish_heatmap_source(Some(source_of(e)));
+        })
+        .expect("engine");
+
+        let answer = |group: &str| {
+            crate::basemap::geo_answer(&format!("under-point/46200000_7350000_14_{group}"))
+        };
+        let feature_ids = |body: Vec<u8>| -> Vec<String> {
+            let value: serde_json::Value = serde_json::from_slice(&body).expect("JSON");
+            value["features"]
+                .as_array()
+                .expect("features")
+                .iter()
+                .map(|feature| feature["id"].as_str().expect("an id").to_string())
+                .collect()
+        };
+
+        let climb = answer("section_climb").expect("a section key answers");
+        let absent = answer("section_absent").expect("an absent section answers");
+        publish_heatmap_source(None);
+
+        assert_eq!(feature_ids(climb), ["section-b", "section-a", "route-a"]);
+        assert!(feature_ids(absent).is_empty());
+    }
 }
 
 /// Metres from the tap on the flat plane the clip is made on, which takes a
-/// degree of latitude as 111 km.
+/// degree of latitude as the engine's shared figure.
 fn metres_from_tap(point: &GpsPoint) -> f64 {
-    const CLIP_METRES_PER_DEGREE: f64 = 111_000.0;
+    const CLIP_METRES_PER_DEGREE: f64 = METRES_PER_DEGREE;
     let north = (point.latitude - TAP.0) * CLIP_METRES_PER_DEGREE;
     let east = (point.longitude - TAP.1) * CLIP_METRES_PER_DEGREE * TAP.0.to_radians().cos();
     north.hypot(east)
@@ -445,7 +491,7 @@ fn a_group_answers_its_newest_traces_clipped_to_the_circle_and_simplified() {
     let source = source_of(&engine);
     let radius = clip_radius_metres(TAP.0, 14);
 
-    let route = traces(&source, &engine.db, tap(), 14, Some("loop"));
+    let route = traces(&source, &engine.db, tap(), 14, Group::Route("loop"));
 
     assert_eq!(route.len(), MAX_TRACES);
     let expected: Vec<String> = (4..members_count - 1)
@@ -463,11 +509,237 @@ fn a_group_answers_its_newest_traces_clipped_to_the_circle_and_simplified() {
             "a point lies outside the circle of {radius} m"
         );
     }
-    let ones = traces(&source, &engine.db, tap(), 14, None);
+    let ones = traces(&source, &engine.db, tap(), 14, Group::NoRoute);
     let mut one_ids: Vec<&str> = ones.iter().map(|t| t.activity_id.as_str()).collect();
     one_ids.sort_unstable();
     assert_eq!(one_ids, ["solo-a", "solo-b"]);
-    assert!(traces(&source, &engine.db, tap(), 14, Some("absent")).is_empty());
+    assert!(traces(&source, &engine.db, tap(), 14, Group::Route("absent")).is_empty());
+}
+
+/// A section whose line is `line`, ridden by `members`.
+fn add_section(
+    engine: &PersistentEngine,
+    id: &str,
+    name: Option<&str>,
+    line: &[GpsPoint],
+    members: &[&str],
+) {
+    let bounds = tracematch::geo_utils::compute_bounds(line);
+    engine
+        .db
+        .execute(
+            "INSERT INTO sections
+                 (id, section_type, name, sport_type, polyline_blob, distance_meters, visit_count,
+                  representative_activity_id, rep_start_index, rep_end_index,
+                  geometry_source, created_at, is_user_defined,
+                  bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+             VALUES (?, 'auto', ?, 'Ride', ?, 1200.0, ?, ?, 0, 12, 'exact',
+                     '2026-01-01T00:00:00Z', 0, ?, ?, ?, ?)",
+            params![
+                id,
+                name,
+                codec::serialize_track_points(line),
+                members.len() as i64,
+                members[0],
+                bounds.min_lat,
+                bounds.max_lat,
+                bounds.min_lng,
+                bounds.max_lng,
+            ],
+        )
+        .expect("section stored");
+    for member in members {
+        engine
+            .db
+            .execute(
+                "INSERT INTO section_activities
+                     (section_id, activity_id, direction, start_index, end_index, distance_meters)
+                 VALUES (?1, ?2, 'same', 0, 10, 1200.0)",
+                params![id, member],
+            )
+            .expect("section member stored");
+    }
+}
+
+/// Three groups cross the tap: a route of two activities, a section of three
+/// (one of them also in the route) and one activity in neither.
+fn route_section_and_loose(engine: &mut PersistentEngine) {
+    for (id, date) in [
+        ("route-a", 1_700_000_100),
+        ("route-b", 1_700_000_200),
+        ("section-a", 1_700_000_300),
+        ("section-b", 1_700_000_400),
+        ("loose", 1_700_000_500),
+    ] {
+        store(engine, id, date, passing(3.0, 40));
+    }
+    add_route(engine, "loop", &["route-a".into(), "route-b".into()]);
+    add_section(
+        engine,
+        "climb",
+        Some("The climb"),
+        &passing(3.0, 40),
+        &["section-a", "section-b", "route-a"],
+    );
+}
+
+/// Scenario: a route, a section and a loose activity all cross the tap, and
+/// one activity is in both the route and the section.
+///
+/// Expected behaviour: three groups, the route, the section and the
+/// activities in no route; the section lists its three members newest first;
+/// the shared activity is listed under both and counted once in the total.
+#[test]
+fn a_section_under_the_tap_is_a_group_of_its_own_between_the_routes_and_no_route() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    route_section_and_loose(&mut engine);
+
+    let found = answer(&source_of(&engine), &engine.db, tap(), 14);
+
+    assert_eq!(found.total, 5);
+    let shape: Vec<(FfiUnderPointKind, Option<&str>, u32)> = found
+        .groups
+        .iter()
+        .map(|g| (g.kind, g.id.as_deref(), g.count))
+        .collect();
+    assert_eq!(
+        shape,
+        [
+            (FfiUnderPointKind::Route, Some("loop"), 2),
+            (FfiUnderPointKind::Section, Some("climb"), 3),
+            (FfiUnderPointKind::NoRoute, None, 3),
+        ]
+    );
+    let section = &found.groups[1];
+    assert_eq!(section.name.as_deref(), Some("The climb"));
+    assert_eq!(section.number, None);
+    let members: Vec<&str> = section.activities.iter().map(|a| a.id.as_str()).collect();
+    assert_eq!(members, ["section-b", "section-a", "route-a"]);
+}
+
+/// Scenario: the same route, section and loose activity as above, one of them
+/// in both the route and the section.
+///
+/// Expected behaviour: `activities` names each activity under the tap once,
+/// the shared one included, newest first across the groups, without the
+/// grouping.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_flat_list_names_each_activity_under_the_tap_once_newest_first() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    route_section_and_loose(&mut engine);
+
+    let found = answer(&source_of(&engine), &engine.db, tap(), 14);
+
+    let listed: Vec<&str> = found.activities.iter().map(|a| a.id.as_str()).collect();
+    assert_eq!(
+        listed,
+        ["loose", "section-b", "section-a", "route-b", "route-a"]
+    );
+}
+
+/// Scenario: a section whose line is 60 m from the tap, ridden by activities
+/// that pass 3 m from it.
+///
+/// Expected behaviour: the section is under the tap when the fingertip reaches
+/// its line, at zoom 12 and not at zoom 16, whatever the activities do.
+#[test]
+fn a_section_is_under_the_tap_by_its_own_line_not_by_its_members() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    store(&mut engine, "rider", 1_700_000_000, passing(3.0, 40));
+    add_section(&engine, "off", None, &passing(60.0, 40), &["rider"]);
+    let source = source_of(&engine);
+
+    let at_16 = answer(&source, &engine.db, tap(), 16);
+    let at_12 = answer(&source, &engine.db, tap(), 12);
+
+    let kinds = |found: &crate::ffi_types::FfiActivitiesUnderPoint| -> Vec<FfiUnderPointKind> {
+        found.groups.iter().map(|g| g.kind).collect()
+    };
+    assert_eq!(kinds(&at_16), [FfiUnderPointKind::NoRoute]);
+    assert_eq!(
+        kinds(&at_12),
+        [FfiUnderPointKind::Section, FfiUnderPointKind::NoRoute]
+    );
+    assert_eq!(at_12.total, 1);
+}
+
+/// Scenario: a section on the tap that the athlete disabled, one a merge
+/// superseded, an activity the athlete excluded from a third, and one whose
+/// members are all hidden from the heatmap.
+///
+/// Expected behaviour: none of them is a group.
+#[test]
+fn a_disabled_superseded_or_memberless_section_is_not_offered() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    store(&mut engine, "rider", 1_700_000_000, passing(3.0, 40));
+    store(&mut engine, "hidden", 1_700_000_100, passing(3.0, 40));
+    engine.set_heatmap_hidden("hidden", true).expect("hidden");
+    add_section(&engine, "off", None, &passing(3.0, 40), &["rider"]);
+    add_section(&engine, "merged", None, &passing(3.0, 40), &["rider"]);
+    add_section(&engine, "excluded", None, &passing(3.0, 40), &["rider"]);
+    add_section(&engine, "unseen", None, &passing(3.0, 40), &["hidden"]);
+    engine
+        .db
+        .execute("UPDATE sections SET disabled = 1 WHERE id = 'off'", [])
+        .expect("disabled");
+    engine
+        .db
+        .execute(
+            "UPDATE sections SET superseded_by = 'off' WHERE id = 'merged'",
+            [],
+        )
+        .expect("superseded");
+    engine
+        .db
+        .execute(
+            "UPDATE section_activities SET excluded = 1 WHERE section_id = 'excluded'",
+            [],
+        )
+        .expect("excluded");
+
+    let found = answer(&source_of(&engine), &engine.db, tap(), 14);
+
+    let kinds: Vec<FfiUnderPointKind> = found.groups.iter().map(|g| g.kind).collect();
+    assert_eq!(kinds, [FfiUnderPointKind::NoRoute]);
+}
+
+/// Scenario: a section's line passes the tap and none of the activities
+/// under the tap rode it.
+///
+/// Expected behaviour: no section group.
+#[test]
+fn a_section_none_of_the_listed_activities_rode_is_not_offered() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    store(&mut engine, "rider", 1_700_000_000, passing(3.0, 40));
+    store(&mut engine, "elsewhere", 1_700_000_100, passing(900.0, 40));
+    add_section(&engine, "quiet", None, &passing(3.0, 40), &["elsewhere"]);
+
+    let found = answer(&source_of(&engine), &engine.db, tap(), 14);
+
+    assert_eq!(found.groups.len(), 1);
+    assert_eq!(found.groups[0].kind, FfiUnderPointKind::NoRoute);
+}
+
+/// Scenario: the sheet lists a section group and the athlete chooses it.
+///
+/// Expected behaviour: the traces are the section's members under the tap,
+/// newest first, and never the activity that rode no section.
+#[test]
+fn a_section_group_draws_its_members_and_not_the_loose_activity() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    route_section_and_loose(&mut engine);
+    let source = source_of(&engine);
+
+    let section = traces(&source, &engine.db, tap(), 14, Group::Section("climb"));
+    let route = traces(&source, &engine.db, tap(), 14, Group::Route("loop"));
+
+    let ids = |traces: &[crate::persistence::under_point::Trace]| -> Vec<String> {
+        traces.iter().map(|t| t.activity_id.clone()).collect()
+    };
+    assert_eq!(ids(&section), ["section-b", "section-a", "route-a"]);
+    assert_eq!(ids(&route), ["route-b", "route-a"]);
+    assert!(traces(&source, &engine.db, tap(), 14, Group::Section("absent")).is_empty());
 }
 
 /// Scenario: a track crosses the circle, leaves it and crosses it again.
@@ -519,4 +791,95 @@ fn simplifying_drops_vertices_within_the_tolerance_and_keeps_a_corner() {
 
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0].len(), 3, "the ends and the corner stay");
+}
+
+/// Scenario: a route of two attempts (1 800 s and 1 500 s, the faster one
+/// earlier), a section of three laps and a loose activity cross the tap.
+///
+/// Expected behaviour: the route group answers its representative's length,
+/// its sport, two passes, the faster attempt's time and the later attempt's
+/// date; the section group answers its visit count, its length and its best
+/// lap time; the no-route group answers no figures.
+#[test]
+fn route_and_section_groups_carry_their_sports_length_passes_best_and_last_date() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    route_section_and_loose(&mut engine);
+    engine
+        .db
+        .execute(
+            "UPDATE activity_metrics SET moving_time = 1500 WHERE activity_id = 'route-a'",
+            [],
+        )
+        .expect("faster attempt");
+    for (activity, lap) in [
+        ("section-a", 140.0),
+        ("section-b", 120.0),
+        ("route-a", 130.0),
+    ] {
+        engine
+            .db
+            .execute(
+                "UPDATE section_activities SET lap_time = ?1 WHERE activity_id = ?2",
+                params![lap, activity],
+            )
+            .expect("lap");
+    }
+
+    let found = answer(&source_of(&engine), &engine.db, tap(), 14);
+
+    let route = &found.groups[0];
+    assert_eq!(route.sport_types, ["Ride"]);
+    assert_eq!(route.distance_m, 10_000.0);
+    assert_eq!(route.passes, 2);
+    assert_eq!(route.best_time, Some(1_500));
+    assert_eq!(route.last_date, Some(1_700_000_200.0));
+    let section = &found.groups[1];
+    assert_eq!(section.sport_types, ["Ride"]);
+    assert_eq!(section.distance_m, 1_200.0);
+    assert_eq!(section.passes, 3);
+    assert_eq!(section.best_time, Some(120));
+    assert_eq!(section.last_date, Some(1_700_000_400.0));
+    let loose = &found.groups[2];
+    assert!(loose.sport_types.is_empty());
+    assert_eq!((loose.distance_m, loose.passes), (0.0, 0));
+    assert_eq!((loose.best_time, loose.last_date), (None, None));
+}
+
+/// Scenario: a route whose attempts all have a zero moving time.
+///
+/// Expected behaviour: the group still answers its length and its passes, with
+/// no best time.
+#[test]
+fn a_route_whose_attempts_have_no_time_answers_no_best_and_still_its_length() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    route_section_and_loose(&mut engine);
+    engine
+        .db
+        .execute("UPDATE activity_metrics SET moving_time = 0", [])
+        .expect("untimed");
+
+    let found = answer(&source_of(&engine), &engine.db, tap(), 14);
+
+    let route = &found.groups[0];
+    assert_eq!(route.best_time, None);
+    assert_eq!(route.distance_m, 10_000.0);
+}
+
+/// Expected behaviour: an answer reads figures once per route and section
+/// group, never per hit.
+#[test]
+fn figures_are_read_once_per_route_and_section_group() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    route_section_and_loose(&mut engine);
+    crate::tiles::work::take_figure_reads();
+
+    let found = answer(&source_of(&engine), &engine.db, tap(), 14);
+
+    let wanted = found
+        .groups
+        .iter()
+        .filter(|g| g.kind != FfiUnderPointKind::NoRoute)
+        .count();
+    assert_eq!(wanted, 2);
+    assert_eq!(crate::tiles::work::take_figure_reads(), wanted);
 }

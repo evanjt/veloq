@@ -138,10 +138,15 @@ pub struct JobRun {
     /// complete, partial, failed, paused, stopped or deferred.
     pub outcome: RunOutcome,
     /// Items the run took on.
+    /// Unit: count.
     pub handled: u32,
+    /// Unit: count.
     pub added: u32,
+    /// Unit: count.
     pub changed: u32,
+    /// Unit: count.
     pub retired: u32,
+    /// Unit: count.
     pub failed: u32,
 }
 

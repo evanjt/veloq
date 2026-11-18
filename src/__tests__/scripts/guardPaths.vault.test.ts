@@ -233,7 +233,7 @@ describe('run-guards at the land gate', () => {
 });
 
 describe('the guard list', () => {
-  it('scopes only the engine-surface guards and the connect page style guards', () => {
+  it('scopes exactly the guards listed here, each to the paths it reads', () => {
     const r = spawnSync(process.execPath, [RUNNER, '--json', '--set', 'all'], {
       cwd: tmpdir(),
       encoding: 'utf8',
@@ -246,11 +246,14 @@ describe('the guard list', () => {
     expect(scoped).toEqual(
       [
         'check:bindings-fresh',
+        'check:export-compliance',
         'ffi:client-reach',
         'ffi:orphans:check',
         'ffi:reach',
         'lint:connect-bare-controls',
+        'lint:connect-contrast',
         'lint:connect-css',
+        'lint:connect-css-elements',
         'lint:engine-surface',
         ...SCOPED_STYLE_GUARDS,
       ].sort()

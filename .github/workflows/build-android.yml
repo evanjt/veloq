@@ -206,7 +206,7 @@ jobs:
 
       - name: Setup Gradle
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
         with:
           # The production build on main is the one writer of the Gradle home. The
           # dev build and every pull request read it and write none, so they cannot

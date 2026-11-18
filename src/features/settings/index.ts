@@ -85,6 +85,7 @@ export {
   FooterSection,
   MapsSection,
   NotificationSection,
+  WatchLinkRow,
   ProfileAccountSection,
   OfflineRow,
   RecordingPermissionSection,

@@ -10,7 +10,7 @@
 //! decoded, tested and dropped before the next row is read, so what is held
 //! decoded at once is one track and never a chunk of them.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use rstar::AABB;
 use rusqlite::Connection;
@@ -18,9 +18,11 @@ use tracematch::GpsPoint;
 use tracematch::geo_utils::distance_to_segment;
 
 use super::codec::TrackRead;
-use super::routes::follower::{Metres, simplify};
+use super::line_simplify::{Metres, simplify};
 use super::tiles::{HeatmapSource, heatmap_source, with_track_reader};
-use crate::ffi_types::{FfiActivitiesUnderPoint, FfiUnderPointActivity, FfiUnderPointGroup};
+use crate::ffi_types::{
+    FfiActivitiesUnderPoint, FfiUnderPointActivity, FfiUnderPointGroup, FfiUnderPointKind,
+};
 use crate::objects::error::VeloqError;
 
 /// The most activities an answer lists across its groups.
@@ -41,7 +43,7 @@ const TILE_PX: f64 = crate::tiles::TILE_SIZE as f64;
 /// The equator's length in metres on the spherical Web Mercator model.
 const EQUATOR_METRES: f64 = 40_075_016.686;
 
-const METRES_PER_DEGREE: f64 = 111_000.0;
+use crate::persistence::nearby_routes::{self, METRES_PER_DEGREE};
 
 /// Rows per `IN (...)` statement, under SQLite's default limit of 999 bound
 /// parameters.
@@ -123,6 +125,12 @@ impl Reach {
     }
 }
 
+/// The fingertip at `tap` and `zoom`: its box, and its reach in metres.
+fn fingertip(tap: &GpsPoint, zoom: u8) -> (Reach, f64) {
+    let buffer = buffer_metres(tap.latitude, zoom);
+    (Reach::around(tap, buffer), buffer)
+}
+
 /// How close `track` comes to `tap` within `buffer` metres, `None` when it
 /// stays further off.
 fn nearest_within(track: &[GpsPoint], tap: &GpsPoint, reach: &Reach, buffer: f64) -> Option<f64> {
@@ -148,8 +156,7 @@ pub(super) fn query(
     tap: GpsPoint,
     zoom: u8,
 ) -> Vec<Hit> {
-    let buffer = buffer_metres(tap.latitude, zoom);
-    let reach = Reach::around(&tap, buffer);
+    let (reach, buffer) = fingertip(&tap, zoom);
     let around = AABB::from_corners(
         [reach.min_lng, reach.min_lat],
         [reach.max_lng, reach.max_lat],
@@ -289,6 +296,99 @@ fn route_labels(
     (names, numbers)
 }
 
+/// A section whose line passes under the tap, and the listed activities that
+/// ride it.
+struct SectionUnder {
+    id: String,
+    name: Option<String>,
+    members: HashSet<String>,
+}
+
+/// The sections whose line passes under `tap`, each with the activities of
+/// `ids` that ride it, by section id.
+///
+/// A section is a candidate when it is enabled, not superseded, has an
+/// activity of `ids` that was not excluded from it, and its stored bounds
+/// meet the fingertip's box. Each candidate's line is decoded, tested and
+/// dropped before the next is read. `only` asks for one section.
+fn sections_under(
+    conn: &Connection,
+    ids: &[&str],
+    tap: &GpsPoint,
+    (reach, buffer): &(Reach, f64),
+    only: Option<&str>,
+) -> Vec<SectionUnder> {
+    use rusqlite::types::Value;
+
+    let mut found: BTreeMap<String, SectionUnder> = BTreeMap::new();
+    for chunk in ids.chunks(CHUNK) {
+        let marks = vec!["?"; chunk.len()].join(",");
+        let sql = format!(
+            "SELECT sa.section_id, s.name, sa.activity_id
+             FROM section_activities sa JOIN sections s ON s.id = sa.section_id
+             WHERE sa.activity_id IN ({marks}) AND sa.excluded = 0
+               AND s.disabled = 0 AND s.superseded_by IS NULL
+               AND s.bounds_min_lat <= ? AND s.bounds_max_lat >= ?
+               AND s.bounds_min_lng <= ? AND s.bounds_max_lng >= ?
+               AND (? IS NULL OR s.id = ?)"
+        );
+        let mut bound: Vec<Value> = chunk
+            .iter()
+            .map(|id| Value::Text((*id).to_string()))
+            .collect();
+        bound.extend([
+            Value::Real(reach.max_lat),
+            Value::Real(reach.min_lat),
+            Value::Real(reach.max_lng),
+            Value::Real(reach.min_lng),
+        ]);
+        let only_id = only.map_or(Value::Null, |id| Value::Text(id.to_string()));
+        bound.extend([only_id.clone(), only_id]);
+        let read = conn.prepare(&sql).and_then(|mut stmt| {
+            stmt.query_map(rusqlite::params_from_iter(bound), |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()
+        });
+        match read {
+            Ok(rows) => {
+                for (section_id, name, activity_id) in rows {
+                    found
+                        .entry(section_id.clone())
+                        .or_insert_with(|| SectionUnder {
+                            id: section_id,
+                            name: name.filter(|name| !name.trim().is_empty()),
+                            members: HashSet::new(),
+                        })
+                        .members
+                        .insert(activity_id);
+                }
+            }
+            Err(e) => log::warn!("[under_point] section members: {e}"),
+        }
+    }
+
+    found
+        .into_values()
+        .filter(|section| {
+            let line = match super::sections::geometry::stored_line(conn, &section.id) {
+                Ok(line) => line,
+                Err(e) => {
+                    log::warn!("[under_point] section {}: {e}", section.id);
+                    return false;
+                }
+            };
+            #[cfg(test)]
+            crate::tiles::work::held_decoded(line.len());
+            nearest_within(&line, tap, reach, *buffer).is_some()
+        })
+        .collect()
+}
+
 /// The hits that have a metrics row, newest first, and the route each one
 /// belongs to.
 ///
@@ -313,13 +413,16 @@ fn listed(
     (rows, route_of)
 }
 
-/// The activities under `tap`, grouped by route.
+/// The activities under `tap`, grouped by route and by section.
 ///
 /// Newest first, at most [`MAX_ACTIVITIES`] across the groups, with `total`
-/// counting every activity under the point and `truncated` saying the cap
-/// bit. Routes come biggest first by how many of their activities are under
-/// the point, then the activities in no route. An activity with no metrics row
-/// has no name or date to list and is left out.
+/// counting every activity under the point once and `truncated` saying the cap
+/// bit. An activity in a route and in a section is listed under both. Routes
+/// come biggest first by how many of their activities are under the point,
+/// then the sections the same way, then the activities in no route. A section
+/// is a group when its own line passes under the point and an activity under
+/// the point rides it. An activity with no metrics row has no name or date to
+/// list and is left out.
 pub(super) fn answer(
     source: &HeatmapSource,
     conn: &Connection,
@@ -331,46 +434,116 @@ pub(super) fn answer(
         return FfiActivitiesUnderPoint::default();
     }
     let (rows, route_of) = listed(conn, &hits);
+    let listed_ids: Vec<&str> = rows.iter().map(|(m, _)| m.activity_id.as_str()).collect();
+    let sections = sections_under(conn, &listed_ids, &tap, &fingertip(&tap, zoom), None);
 
-    let mut counts: HashMap<Option<&str>, u32> = HashMap::new();
+    let mut sections_of: HashMap<&str, Vec<&str>> = HashMap::new();
+    for section in &sections {
+        for member in &section.members {
+            sections_of.entry(member).or_default().push(&section.id);
+        }
+    }
+    let groups_of = |activity_id: &str| -> Vec<Group<'_>> {
+        let route = route_of
+            .get(activity_id)
+            .map_or(Group::NoRoute, |id| Group::Route(id));
+        let own = sections_of.get(activity_id).into_iter().flatten();
+        std::iter::once(route)
+            .chain(own.map(|id| Group::Section(id)))
+            .collect()
+    };
+
+    let mut counts: HashMap<Group<'_>, u32> = HashMap::new();
     for (m, _) in &rows {
-        let route = route_of.get(&m.activity_id).map(String::as_str);
-        *counts.entry(route).or_insert(0) += 1;
+        for group in groups_of(&m.activity_id) {
+            *counts.entry(group).or_insert(0) += 1;
+        }
     }
     let total = rows.len();
-    let mut kept: HashMap<Option<&str>, Vec<FfiUnderPointActivity>> = HashMap::new();
+    let listing = |m: &crate::ActivityMetrics, nearest_m: f64| FfiUnderPointActivity {
+        id: m.activity_id.clone(),
+        name: m.name.clone(),
+        sport_type: m.sport_type.clone(),
+        date: m.date as f64,
+        distance: m.distance,
+        duration: m.moving_time,
+        nearest_m,
+    };
+    let activities: Vec<FfiUnderPointActivity> = rows
+        .iter()
+        .take(MAX_ACTIVITIES)
+        .map(|(m, nearest_m)| listing(m, *nearest_m))
+        .collect();
+    let mut kept: HashMap<Group<'_>, Vec<FfiUnderPointActivity>> = HashMap::new();
     for (m, nearest_m) in rows.iter().take(MAX_ACTIVITIES) {
-        let route = route_of.get(&m.activity_id).map(String::as_str);
-        kept.entry(route).or_default().push(FfiUnderPointActivity {
-            id: m.activity_id.clone(),
-            name: m.name.clone(),
-            sport_type: m.sport_type.clone(),
-            date: m.date as f64,
-            distance: m.distance,
-            duration: m.moving_time,
-            nearest_m: *nearest_m,
-        });
+        for group in groups_of(&m.activity_id) {
+            kept.entry(group).or_default().push(listing(m, *nearest_m));
+        }
     }
 
-    let mut order: Vec<Option<&str>> = kept.keys().copied().collect();
-    order.sort_by(|a, b| match (a, b) {
-        (Some(a), Some(b)) => counts[&Some(*b)]
-            .cmp(&counts[&Some(*a)])
-            .then_with(|| a.cmp(b)),
-        (Some(_), None) => std::cmp::Ordering::Less,
-        (None, Some(_)) => std::cmp::Ordering::Greater,
-        (None, None) => std::cmp::Ordering::Equal,
+    let mut order: Vec<Group<'_>> = kept.keys().copied().collect();
+    order.sort_by(|a, b| {
+        let rank = |group: &Group<'_>| match group {
+            Group::Route(_) => 0,
+            Group::Section(_) => 1,
+            Group::NoRoute => 2,
+        };
+        rank(a)
+            .cmp(&rank(b))
+            .then_with(|| counts[b].cmp(&counts[a]))
+            .then_with(|| a.id().cmp(&b.id()))
     });
-    let route_ids: Vec<&str> = order.iter().flatten().copied().collect();
+    let route_ids: Vec<&str> = order
+        .iter()
+        .filter_map(|group| match group {
+            Group::Route(id) => Some(*id),
+            _ => None,
+        })
+        .collect();
     let (names, numbers) = route_labels(conn, &route_ids);
+    let section_names: HashMap<&str, &str> = sections
+        .iter()
+        .filter_map(|s| Some((s.id.as_str(), s.name.as_deref()?)))
+        .collect();
     let groups = order
         .into_iter()
-        .map(|route| FfiUnderPointGroup {
-            route_id: route.map(str::to_string),
-            name: route.and_then(|id| names.get(id).cloned()),
-            number: route.and_then(|id| numbers.get(id).copied()),
-            count: counts[&route],
-            activities: kept.remove(&route).unwrap_or_default(),
+        .map(|group| {
+            let (kind, id, name, number) = match group {
+                Group::Route(id) => (
+                    FfiUnderPointKind::Route,
+                    Some(id),
+                    names.get(id).cloned(),
+                    numbers.get(id).copied(),
+                ),
+                Group::Section(id) => (
+                    FfiUnderPointKind::Section,
+                    Some(id),
+                    section_names.get(id).map(|name| (*name).to_string()),
+                    None,
+                ),
+                Group::NoRoute => (FfiUnderPointKind::NoRoute, None, None, None),
+            };
+            let figures = match group {
+                Group::Route(id) => nearby_routes::pooled::route_figures(conn, id, None),
+                Group::Section(id) => nearby_routes::pooled::section_figures(conn, id),
+                Group::NoRoute => None,
+            };
+            FfiUnderPointGroup {
+                kind,
+                id: id.map(str::to_string),
+                name,
+                number,
+                count: counts[&group],
+                sport_types: figures
+                    .as_ref()
+                    .map(|f| f.sport_types.clone())
+                    .unwrap_or_default(),
+                distance_m: figures.as_ref().map_or(0.0, |f| f.distance_meters),
+                passes: figures.as_ref().map_or(0, |f| f.passes),
+                best_time: figures.as_ref().and_then(|f| f.best).map(|b| b.0),
+                last_date: figures.as_ref().and_then(|f| f.last).map(|l| l.1 as f64),
+                activities: kept.remove(&group).unwrap_or_default(),
+            }
         })
         .collect();
     FfiActivitiesUnderPoint {
@@ -378,6 +551,7 @@ pub(super) fn answer(
         truncated: total > MAX_ACTIVITIES,
         trace_cap: MAX_TRACES as u32,
         groups,
+        activities,
     }
 }
 
@@ -504,10 +678,28 @@ fn inside_circle(from: Metres, to: Metres, radius: f64) -> Option<(f64, f64)> {
     (enter <= leave).then_some((enter, leave))
 }
 
+/// Which group of an answer is asked for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum Group<'a> {
+    Route(&'a str),
+    Section(&'a str),
+    NoRoute,
+}
+
+impl<'a> Group<'a> {
+    /// The route or the section, `None` for the activities in no route.
+    fn id(self) -> Option<&'a str> {
+        match self {
+            Self::Route(id) | Self::Section(id) => Some(id),
+            Self::NoRoute => None,
+        }
+    }
+}
+
 /// The traces of one group's activities under `tap`, newest first, at most
 /// [`MAX_TRACES`].
 ///
-/// `group` is a route id, or `None` for the activities in no route. The
+/// `group` is a route, a section, or the activities in no route. The
 /// activities are the ones the sheet lists for the group, so a hidden
 /// activity is absent, and each track is read, clipped and dropped before the
 /// next is read.
@@ -516,10 +708,23 @@ pub(super) fn traces(
     conn: &Connection,
     tap: GpsPoint,
     zoom: u8,
-    group: Option<&str>,
+    group: Group<'_>,
 ) -> Vec<Trace> {
     let hits = query(source, conn, tap, zoom);
     let (rows, route_of) = listed(conn, &hits);
+    let riders: Option<HashSet<String>> = match group {
+        Group::Section(id) => {
+            let listed_ids: Vec<&str> = rows.iter().map(|(m, _)| m.activity_id.as_str()).collect();
+            let found = sections_under(conn, &listed_ids, &tap, &fingertip(&tap, zoom), Some(id));
+            Some(
+                found
+                    .into_iter()
+                    .flat_map(|section| section.members)
+                    .collect(),
+            )
+        }
+        _ => None,
+    };
     let radius = clip_radius_metres(tap.latitude, zoom);
     let tolerance = SIMPLIFY_TOLERANCE_PX * metres_per_pixel(tap.latitude, zoom);
     let mut out = Vec::new();
@@ -527,7 +732,15 @@ pub(super) fn traces(
         if out.len() == MAX_TRACES {
             break;
         }
-        if route_of.get(&metrics.activity_id).map(String::as_str) != group {
+        let route = route_of.get(&metrics.activity_id).map(String::as_str);
+        let member = match group {
+            Group::Route(id) => route == Some(id),
+            Group::Section(_) => riders
+                .as_ref()
+                .is_some_and(|riders| riders.contains(&metrics.activity_id)),
+            Group::NoRoute => route.is_none(),
+        };
+        if !member {
             continue;
         }
         let Some(track) = super::activities::pooled::gps_track(conn, &metrics.activity_id) else {
@@ -560,7 +773,7 @@ pub(crate) fn traces_under_point(
     latitude: f64,
     longitude: f64,
     zoom: u8,
-    group: Option<&str>,
+    group: Group<'_>,
 ) -> Result<Vec<Trace>, TracesError> {
     let source = heatmap_source().ok_or(TracesError::NoHeatmap)?;
     let tap = GpsPoint::new(latitude, longitude);

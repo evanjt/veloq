@@ -16,7 +16,10 @@ import {
   fitnessQuery,
   fitnessTabFor,
   decouplingRows,
+  formText,
   formZoneBands,
+  loadTrendOnDateAxis,
+  dotFamilies,
   monthTickLabels,
   sortMonths,
   wellnessLanes,
@@ -174,9 +177,11 @@ describe('wellnessLanes', () => {
   });
 });
 
+const EDGES = [-30, -10, 5, 25];
+
 describe('formZoneBands', () => {
-  it('splits a range at the form boundaries, lowest first', () => {
-    expect(formZoneBands(-40, 30).map((b) => [b.zone, b.from, b.to])).toEqual([
+  it('splits a range at the edges the engine sends, lowest first', () => {
+    expect(formZoneBands(EDGES, -40, 30).map((b) => [b.zone, b.from, b.to])).toEqual([
       ['highRisk', -40, -30],
       ['optimal', -30, -10],
       ['greyZone', -10, 5],
@@ -186,15 +191,25 @@ describe('formZoneBands', () => {
   });
 
   it('keeps only the bands the range reaches, clipped to it', () => {
-    expect(formZoneBands(-20, 0).map((b) => [b.zone, b.from, b.to])).toEqual([
+    expect(formZoneBands(EDGES, -20, 0).map((b) => [b.zone, b.from, b.to])).toEqual([
       ['optimal', -20, -10],
       ['greyZone', -10, 0],
     ]);
   });
 
+  it('cuts where the engine says, not at any edge held here', () => {
+    expect(formZoneBands([0, 10, 20, 30], -5, 35).map((b) => [b.zone, b.from, b.to])).toEqual([
+      ['highRisk', -5, 0],
+      ['optimal', 0, 10],
+      ['greyZone', 10, 20],
+      ['fresh', 20, 30],
+      ['transition', 30, 35],
+    ]);
+  });
+
   it('returns nothing for an empty or inverted range', () => {
-    expect(formZoneBands(3, 3)).toEqual([]);
-    expect(formZoneBands(5, -5)).toEqual([]);
+    expect(formZoneBands(EDGES, 3, 3)).toEqual([]);
+    expect(formZoneBands(EDGES, 5, -5)).toEqual([]);
   });
 });
 
@@ -229,5 +244,52 @@ describe('decouplingRows', () => {
     ).toEqual([
       { days: 42, activityId: 'a1', name: 'Long ride', date: '2026-05-02', decoupling: 4.3 },
     ]);
+  });
+});
+
+describe('dotFamilies', () => {
+  it('lists each family the engine named once, in the weekly hours order, strength included', () => {
+    const dots = [
+      { family: 'strength' },
+      { family: 'ride' },
+      { family: 'strength' },
+      { family: 'water' },
+    ];
+    expect(dotFamilies(dots)).toEqual(['ride', 'water', 'strength']);
+  });
+
+  it('names no family for no dots', () => {
+    expect(dotFamilies([])).toEqual([]);
+  });
+});
+
+describe('formText', () => {
+  it('prints one decimal, with a percent sign under the percentage unit', () => {
+    expect(formText(-12.34, false)).toBe('-12.3');
+    expect(formText(20, true)).toBe('20.0%');
+  });
+
+  it('prints nothing for a day with no form', () => {
+    expect(formText(null, true)).toBe('');
+    expect(formText(null, false)).toBe('');
+  });
+});
+
+describe('loadTrendOnDateAxis', () => {
+  it('moves the engine line from days off its origin day to milliseconds on a date axis', () => {
+    const line = loadTrendOnDateAxis({
+      originDay: '2026-09-01',
+      slopePerDay: 10,
+      intercept: 25,
+      spread: 4,
+    })!;
+    const at = (day: string) => line.intercept + line.slope * Date.parse(`${day}T00:00:00Z`);
+    expect(at('2026-09-01')).toBeCloseTo(25, 6);
+    expect(at('2026-09-03')).toBeCloseTo(45, 6);
+    expect(line.spread).toBe(4);
+  });
+
+  it('draws nothing when the engine sent no line', () => {
+    expect(loadTrendOnDateAxis(null)).toBeNull();
   });
 });

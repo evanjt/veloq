@@ -478,6 +478,18 @@ pub(crate) fn serve_heatmap_dir_for_test(dir: Option<&Path>) {
     }));
 }
 
+/// Publish `engine`'s own bounds and database as the heatmap source, for a
+/// test in another module that reads what lies under a point.
+#[cfg(test)]
+pub(crate) fn serve_engine_for_test(engine: &super::PersistentEngine) {
+    publish_heatmap_source(Some(HeatmapSource {
+        dir: String::new(),
+        db_path: engine.db_path.clone(),
+        bounds: Arc::clone(&engine.spatial_index),
+        hidden: Arc::clone(&engine.heatmap_hidden),
+    }));
+}
+
 pub(super) fn heatmap_source() -> Option<Arc<HeatmapSource>> {
     match HEATMAP_SOURCE.read() {
         Ok(held) => held.clone(),
@@ -1140,41 +1152,65 @@ impl PersistentEngine {
 
     /// Hide an activity from the heatmap, or show it again.
     ///
-    /// The choice is stored first, then both tile paths see it: the pass reads
+    /// The one-id form of [`Self::set_heatmap_hidden_many`].
+    pub fn set_heatmap_hidden(&mut self, activity_id: &str, hidden: bool) -> rusqlite::Result<()> {
+        self.set_heatmap_hidden_many(&[activity_id.to_string()], hidden)
+    }
+
+    /// Hide activities from the heatmap, or show them again, as one change.
+    ///
+    /// The choice is stored first, in one transaction, so a failure part-way
+    /// leaves every id as it was. Then both tile paths see it: the pass reads
     /// the set when it collects activities, and the on-request draw reads the
-    /// copy the source carries, which is published again here. The tiles the
-    /// activity's bounds reach are swept, which redraws them without it, or
-    /// with it again. The activity stays in every list, statistic and section.
+    /// copy the source carries, which is published once for the whole call.
+    /// The tiles the bounds of every activity that changed reach are swept in
+    /// one sweep, which redraws them without the activities, or with them
+    /// again. The activities stay in every list, statistic and section.
     ///
     /// An id the library does not hold is stored all the same: a sync that
-    /// removes an activity and stores it again must not lose the choice.
-    pub fn set_heatmap_hidden(&mut self, activity_id: &str, hidden: bool) -> rusqlite::Result<()> {
-        if self.heatmap_hidden.contains(activity_id) == hidden {
+    /// removes an activity and stores it again must not lose the choice. An
+    /// id already in the state asked for changes nothing and sweeps nothing.
+    pub fn set_heatmap_hidden_many(
+        &mut self,
+        activity_ids: &[String],
+        hidden: bool,
+    ) -> rusqlite::Result<()> {
+        let mut seen = HashSet::new();
+        let changing: Vec<&String> = activity_ids
+            .iter()
+            .filter(|id| self.heatmap_hidden.contains(id.as_str()) != hidden)
+            .filter(|id| seen.insert(id.as_str()))
+            .collect();
+        if changing.is_empty() {
             return Ok(());
         }
-        if hidden {
-            self.db.execute(
+        super::climb_bests::in_write_txn(&self.db, |conn| {
+            let mut statement = conn.prepare_cached(if hidden {
                 "INSERT OR IGNORE INTO heatmap_hidden_activities (activity_id, hidden_at)
-                 VALUES (?1, CAST(strftime('%s', 'now') AS INTEGER))",
-                [activity_id],
-            )?;
-        } else {
-            self.db.execute(
-                "DELETE FROM heatmap_hidden_activities WHERE activity_id = ?1",
-                [activity_id],
-            )?;
-        }
+                 VALUES (?1, CAST(strftime('%s', 'now') AS INTEGER))"
+            } else {
+                "DELETE FROM heatmap_hidden_activities WHERE activity_id = ?1"
+            })?;
+            for id in &changing {
+                statement.execute([id.as_str()])?;
+            }
+            Ok(())
+        })?;
         let mut set = (*self.heatmap_hidden).clone();
-        if hidden {
-            set.insert(activity_id.to_string());
-        } else {
-            set.remove(activity_id);
+        for id in &changing {
+            if hidden {
+                set.insert((*id).clone());
+            } else {
+                set.remove(id.as_str());
+            }
         }
         self.heatmap_hidden = Arc::new(set);
         self.publish_heatmap_source();
-        if let Some(bounds) = self.activity_metadata.get(activity_id).map(|m| m.bounds) {
-            self.sweep_tiles_for(vec![bounds], "heatmap visibility");
-        }
+        let bounds: Vec<Bounds> = changing
+            .iter()
+            .filter_map(|id| self.activity_metadata.get(id.as_str()).map(|m| m.bounds))
+            .collect();
+        self.sweep_tiles_for(bounds, "heatmap visibility");
         Ok(())
     }
 
@@ -2891,6 +2927,87 @@ mod tests {
             assert!(
                 dir.join(DIRTY_MARKER).exists(),
                 "the wiped library's set is not marked"
+            );
+        }
+
+        /// Scenario: the athlete hides two of three rides and an id the
+        /// library does not hold, in one write, with the heatmap on.
+        ///
+        /// Expected behaviour: the hidden set holds the two rides and the
+        /// unknown id and not the third, the whole call takes one sweep
+        /// registration, and showing the same ids again takes one more and
+        /// empties the set.
+        #[test]
+        fn many_activities_are_hidden_and_shown_in_one_write_and_one_sweep() {
+            let mut engine = PersistentEngine::in_memory().expect("engine");
+            for (id, lat) in [("a", 46.2), ("b", 46.3), ("c", 46.4)] {
+                let track = (0..10)
+                    .map(|k| GpsPoint::new(lat, 7.35 + f64::from(k) * 0.001))
+                    .collect();
+                engine
+                    .add_activity(id.to_string(), track, "Ride".to_string())
+                    .expect("activity stored");
+            }
+            let tiles = tempfile::tempdir().expect("tiles dir");
+            engine.heatmap_tiles_path = Some(tiles.path().to_string_lossy().into_owned());
+            let ids = ["a", "b", "gone"].map(String::from);
+
+            let before = crate::persistence::sweeps_registered_on_this_thread();
+            engine
+                .set_heatmap_hidden_many(&ids, true)
+                .expect("hidden stored");
+            let hid = crate::persistence::sweeps_registered_on_this_thread() - before;
+
+            assert_eq!(engine.heatmap_hidden_activity_ids(), ["a", "b", "gone"]);
+            assert_eq!(hid, 1, "hiding three ids registered {hid} sweeps");
+            assert!(is_heatmap_hidden(&engine.db, "gone"));
+            assert!(!is_heatmap_hidden(&engine.db, "c"));
+
+            let before = crate::persistence::sweeps_registered_on_this_thread();
+            engine
+                .set_heatmap_hidden_many(&ids, true)
+                .expect("hidden again");
+            assert_eq!(
+                crate::persistence::sweeps_registered_on_this_thread(),
+                before,
+                "ids already hidden swept the tiles again"
+            );
+
+            engine
+                .set_heatmap_hidden_many(&ids, false)
+                .expect("shown stored");
+            let shown = crate::persistence::sweeps_registered_on_this_thread() - before;
+            assert!(engine.heatmap_hidden_activity_ids().is_empty());
+            assert_eq!(shown, 1, "showing three ids registered {shown} sweeps");
+        }
+
+        /// Scenario: a hide of several ids fails part-way, on the third row.
+        ///
+        /// Expected behaviour: no id is hidden, in the table or in the set the
+        /// tile paths read, and no sweep is taken.
+        #[test]
+        fn a_hide_that_fails_part_way_hides_none() {
+            let mut engine = PersistentEngine::in_memory().expect("engine");
+            engine
+                .db
+                .execute_batch(
+                    "CREATE TRIGGER refuse_third BEFORE INSERT ON heatmap_hidden_activities
+                     WHEN NEW.activity_id = 'third'
+                     BEGIN SELECT RAISE(ABORT, 'refused'); END;",
+                )
+                .expect("trigger");
+            let tiles = tempfile::tempdir().expect("tiles dir");
+            engine.heatmap_tiles_path = Some(tiles.path().to_string_lossy().into_owned());
+            let ids = ["first", "second", "third"].map(String::from);
+            let before = crate::persistence::sweeps_registered_on_this_thread();
+
+            assert!(engine.set_heatmap_hidden_many(&ids, true).is_err());
+
+            assert!(engine.heatmap_hidden_activity_ids().is_empty());
+            assert!(!is_heatmap_hidden(&engine.db, "first"));
+            assert_eq!(
+                crate::persistence::sweeps_registered_on_this_thread(),
+                before
             );
         }
 

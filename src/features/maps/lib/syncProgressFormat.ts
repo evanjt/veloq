@@ -55,3 +55,21 @@ export function formatTrackStage(stage: TrackStage, t: TFunction): SyncDisplayIn
     indeterminate: stage.step === TrackStep.Analysing ? stage.percent === 0 : stage.total === 0,
   };
 }
+
+/**
+ * The download's line split for the sync pill: its label and the count of
+ * tracks stored. The label comes from `TRACK_STEPS`, the same key the banner
+ * and the range panel print through `formatTrackStage`. Only the download
+ * carries a count, and a held download or one that has not counted its tracks
+ * has no line.
+ */
+export function formatTrackProgressParts(
+  stage: TrackStage | null,
+  t: TFunction
+): { label: string; counts: string } | null {
+  if (!stage || stage.step !== TrackStep.Downloading || stage.total === 0) return null;
+  return {
+    label: t(TRACK_STEPS[TrackStep.Downloading].stageKey) as string,
+    counts: `${stage.completed}/${stage.total}`,
+  };
+}

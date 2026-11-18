@@ -24,7 +24,7 @@
   position: absolute;
   top: var(--space-sm);
   left: var(--space-sm);
-  z-index: 1;
+  z-index: var(--layer-raised);
 }
 
 #map-empty {
@@ -53,13 +53,12 @@
   background: var(--colour-surface-raised);
 }
 
-/* The shell's rule spaces every section from the one above it; the grid's gap does that here. */
-#activity-summary section,
+/* The grid's gap spaces the cards. */
 #activity-page .ui-card {
   margin-top: 0;
 }
 
-#activity-summary section {
+#activity-summary [data-group] {
   min-width: 0;
   padding-bottom: var(--space-sm-plus);
   break-inside: avoid;
@@ -109,27 +108,27 @@
 }
 
 #chart .line-0 {
-  stroke: var(--line-0);
+  stroke: var(--colour-chart-series);
 }
 
 #chart .line-1 {
-  stroke: var(--line-1);
+  stroke: var(--colour-stream-speed);
 }
 
 #chart .line-2 {
-  stroke: var(--line-2);
+  stroke: var(--colour-sport-foot);
 }
 
 #chart .line-3 {
-  stroke: var(--line-3);
+  stroke: var(--colour-sport-ride);
 }
 
 #chart .line-4 {
-  stroke: var(--line-4);
+  stroke: var(--colour-stream-speed);
 }
 
 #chart .line-5 {
-  stroke: var(--line-5);
+  stroke: var(--colour-fatigue-atl);
 }
 
 .swatch {
@@ -139,13 +138,13 @@
   border-radius: var(--web-radius-sm);
 }
 
-.swatch.line-0 { background: var(--line-0); }
+.swatch.line-0 { background: var(--colour-chart-series); }
 
-.swatch.line-1 { background: var(--line-1); }
+.swatch.line-1 { background: var(--colour-stream-speed); }
 
-.swatch.line-2 { background: var(--line-2); }
+.swatch.line-2 { background: var(--colour-sport-foot); }
 
-.swatch.line-3 { background: var(--line-3); }
+.swatch.line-3 { background: var(--colour-sport-ride); }
 
 #compare-overlay {
   position: absolute;
@@ -159,13 +158,13 @@
   stroke-width: 3;
 }
 
-.compare-track.line-0 { stroke: var(--line-0); }
+.compare-track.line-0 { stroke: var(--colour-chart-series); }
 
-.compare-track.line-1 { stroke: var(--line-1); }
+.compare-track.line-1 { stroke: var(--colour-stream-speed); }
 
-.compare-track.line-2 { stroke: var(--line-2); }
+.compare-track.line-2 { stroke: var(--colour-sport-foot); }
 
-.compare-track.line-3 { stroke: var(--line-3); }
+.compare-track.line-3 { stroke: var(--colour-sport-ride); }
 
 
 #activity-lanes {
@@ -203,7 +202,7 @@
 }
 
 #activity-tables a {
-  color: var(--primary);
+  color: var(--colour-action-link);
 }
 
 .ui-detail-header {
@@ -251,13 +250,6 @@
   }
 }
 
-#activity-tables .activity-zones {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: var(--space-md);
-  align-items: start;
-}
-
 #activity-tables tr[data-row] {
   cursor: pointer;
 }
@@ -272,13 +264,13 @@
 #activity-tables tr[data-zone='7'] > td:first-child { box-shadow: inset 3px 0 0 var(--colour-zone-7); }
 
 .history-line {
-  display: block;
   width: 96px;
   height: 20px;
-  fill: none;
+}
+
+.history-line polyline {
   stroke: var(--colour-chart-series);
   stroke-width: 1.5;
-  vector-effect: non-scaling-stroke;
 }
 
 .history-line circle {

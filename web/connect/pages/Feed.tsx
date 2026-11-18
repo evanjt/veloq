@@ -6,15 +6,23 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { ParseKeys } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
-import { compareColour, compareRows, select, type Mode } from '../compare';
-import { clock, km, kmh } from '../format';
+import { Sparkline } from '../charts/Sparkline';
+import { compareColour, compareRows, MAX_COMPARED } from '../compare';
+import { clock, distanceUnit, km, kmh, metresOfDistance } from '../format';
 import type { FeedFilter, SportFamily } from '../link';
 import { sportMark, THUMB, trackShape } from '../preview';
-import { go, keyAction, queryValue, type Route } from '../router';
+import { go, queryValue, replaceRoute, type Route } from '../router';
 import { registerShortcuts } from '../shortcuts';
-import { useDetails, useFeed, type Card, type Detail, type Sparklines, type Summary } from '../feedReads';
+import {
+  useDetails,
+  useFeed,
+  type Card,
+  type Detail,
+  type Sparklines,
+  type Summary,
+} from '../feedReads';
 import { ReadNotice } from '../shell/StatePanes';
-import type { Read } from '../useRead';
+import { useRead, type Read } from '../useRead';
 import { SportGlyph } from '../SportGlyph';
 import {
   COLUMNS,
@@ -24,7 +32,6 @@ import {
   feedQuery,
   rangeBounds,
   readFeedQuery,
-  selectionAfter,
   sortRows,
   type ColumnKey,
   type FeedQuery,
@@ -34,16 +41,20 @@ import {
 import {
   Badge,
   Button,
-  Card as Surface,
   Chip,
   ChipGroup,
   DataTable,
   EmptyState,
-  SearchField,
   SegmentedControl,
+  TextField,
+  Skeleton,
+  StatStrip,
+  StatTile,
   type Column,
 } from '../ui';
 import { useTableLabels } from '../tableLabels';
+import { filterCount } from '../ui/filterText';
+import { useFilterDraft, useLastAnswered } from '../useFilterDraft';
 import type { PageProps } from './types';
 
 const FAMILIES: [family: SportFamily, label: ParseKeys][] = [
@@ -56,73 +67,42 @@ const FAMILIES: [family: SportFamily, label: ParseKeys][] = [
   ['other', 'connectPage.families.other'],
 ];
 
-/** How long typing pauses before the search is asked of the phone. */
-const SEARCH_PAUSE_MS = 250;
-
 /** How long the pointer rests on a row before the detail pane previews it. */
 const PREVIEW_DELAY_MS = 300;
 
-/** True when a key press landed on something that handles Enter itself. */
-function isControl(target: EventTarget | null) {
-  const tag = (target as HTMLElement | null)?.tagName?.toUpperCase();
-  return tag === 'BUTTON' || tag === 'A';
-}
-
 export function FeedPage({ route }: PageProps) {
-  const [search, setSearch] = useState('');
-  const [needle, setNeedle] = useState('');
   const [previewId, setPreviewId] = useState<string | null>(null);
   const feedState = readFeedQuery(route);
+  const needle = feedState.search.trim();
   const familiesKey = feedState.families.join(',');
   const shownId = previewId ?? queryValue(route, 'id');
+  const { minDistance, maxDistance, minMovingTime, maxMovingTime } = feedState;
 
   const filter = useMemo<FeedFilter>(() => {
     const { oldestTs, newestTs } = rangeBounds(feedState.range, new Date());
     const families = familiesKey ? (familiesKey.split(',') as SportFamily[]) : [];
-    return { families, needle, oldestTs, newestTs };
-  }, [familiesKey, feedState.range, needle]);
+    return {
+      families,
+      needle,
+      oldestTs,
+      newestTs,
+      minDistance,
+      maxDistance,
+      minMovingTime,
+      maxMovingTime,
+    };
+  }, [
+    familiesKey,
+    feedState.range,
+    needle,
+    minDistance,
+    maxDistance,
+    minMovingTime,
+    maxMovingTime,
+  ]);
   const feed = useFeed(filter);
   const details = useDetails([...(shownId ? [shownId] : []), ...feedState.ids]);
 
-  const typed = search.trim();
-  useEffect(() => {
-    if (typed === needle) return undefined;
-    const typing = setTimeout(() => setNeedle(typed), SEARCH_PAUSE_MS);
-    return () => clearTimeout(typing);
-  }, [typed, needle]);
-
-  const cards = useRef(feed.cards);
-  useEffect(() => {
-    cards.current = feed.cards;
-  }, [feed.cards]);
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      const action = keyAction({
-        key: event.key,
-        target: event.target as HTMLElement | null,
-        ctrlKey: event.ctrlKey,
-        metaKey: event.metaKey,
-        altKey: event.altKey,
-      });
-      if (action?.do !== 'step' && action?.do !== 'open') return;
-      const query = readFeedQuery(route);
-      if (action.do === 'step') {
-        const ids = sortRows(cards.current, query.sort).map((row) => row.id);
-        const id = selectionAfter(ids, query.id, action.step);
-        if (id === null) return;
-        event.preventDefault();
-        go({ ...route, query: feedQuery({ ...query, id, ids: [] }) });
-        document
-          .querySelector(`[data-row="${CSS.escape(id)}"]`)
-          ?.scrollIntoView?.({ block: 'nearest' });
-      } else if (query.id && !isControl(event.target)) {
-        event.preventDefault();
-        go({ screen: 'activity', id: query.id, query: [] });
-      }
-    }
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [route]);
   useEffect(
     () =>
       registerShortcuts([
@@ -139,6 +119,8 @@ export function FeedPage({ route }: PageProps) {
       first={feed.first}
       summary={feed.summary}
       familyCounts={feed.familyCounts}
+      matched={feed.matched}
+      total={feed.total}
       sparklines={feed.sparklines.data ?? null}
       highlights={feed.highlights}
       previews={feed.previews}
@@ -147,8 +129,6 @@ export function FeedPage({ route }: PageProps) {
       shownId={shownId}
       route={route}
       query={feedState}
-      search={search}
-      onSearch={setSearch}
       onPreview={setPreviewId}
       details={details}
     />
@@ -161,6 +141,8 @@ function Library(props: {
   first: Read<unknown>;
   summary: Read<Summary>;
   familyCounts: Readonly<Partial<Record<string, number>>>;
+  matched: number | undefined;
+  total: number | undefined;
   sparklines: Sparklines | null;
   highlights: Readonly<Record<string, string[]>>;
   previews: Readonly<Record<string, string>>;
@@ -169,8 +151,6 @@ function Library(props: {
   shownId: string | null;
   route: Route;
   query: FeedQuery;
-  search: string;
-  onSearch: (value: string) => void;
   onPreview: (id: string | null) => void;
   details: Readonly<Record<string, Detail | undefined>>;
 }) {
@@ -181,7 +161,14 @@ function Library(props: {
     .filter((row): row is Card => row !== undefined);
   const comparing = compared.length >= 2;
   const card = props.cards.find((row) => row.id === props.shownId);
-  const rows = sortRows(props.cards, props.query.sort);
+  // Until the first page answers, a count or chip would read as a zero the phone never gave.
+  const answered = props.first.data !== undefined;
+  // A new filter's rows are on their way: the table, and the field in its toolbar, stay mounted
+  // with the rows already held, so typing is not interrupted.
+  const held = useLastAnswered(answered ? props.cards : undefined);
+  const matched = useLastAnswered(props.matched);
+  const total = useLastAnswered(props.total);
+  const rows = sortRows(held ?? [], props.query.sort);
   return (
     <section id="library">
       {props.summary.data ? (
@@ -189,25 +176,32 @@ function Library(props: {
       ) : props.summary.error && !props.first.error ? (
         <ReadNotice error={props.summary.error} onRetry={props.summary.retry} />
       ) : null}
-      <FilterBar query={props.query} counts={props.familyCounts} search={props.search} onSearch={props.onSearch} />
+      <FilterBar query={props.query} counts={answered ? props.familyCounts : null} />
       <div id="list-pane">
         {props.query.sort && props.more ? (
           <p id="sort-note" role="note">
             {t('connectPage.library.sortNote', { count: props.cards.length })}
           </p>
         ) : null}
-        {props.first.error && props.cards.length === 0 ? (
+        {held !== undefined ? (
+          <>
+            <FeedTable
+              rows={rows}
+              matched={matched}
+              total={total}
+              highlights={props.highlights}
+              previews={props.previews}
+              query={props.query}
+              onPreview={props.onPreview}
+              onDropped={setDropped}
+            />
+            {props.more ? <MoreButton onMore={props.onMore} /> : null}
+          </>
+        ) : props.first.error ? (
           <ReadNotice error={props.first.error} onRetry={props.first.retry} />
-        ) : null}
-        <FeedTable
-          rows={rows}
-          highlights={props.highlights}
-          previews={props.previews}
-          query={props.query}
-          onPreview={props.onPreview}
-          onDropped={setDropped}
-        />
-        {props.more ? <MoreButton onMore={props.onMore} /> : null}
+        ) : (
+          <Skeleton lines={5} label={t('connectPage.read.loading')} />
+        )}
       </div>
       <aside id="detail-pane" aria-label={t('connectPage.library.detailLabel')}>
         {comparing ? (
@@ -263,62 +257,93 @@ function SummaryStrip({ card, lines }: { card: Summary; lines: Sparklines | null
     },
   ];
   return (
-    <section id="summary" aria-label={t('connectPage.library.summary')}>
+    <StatStrip id="summary" label={t('connectPage.library.summary')}>
       {tiles.map((tile) => (
-        <Surface key={tile.key} label={tile.label}>
-          <p className="tile-label">{tile.label}</p>
-          <p className="tile-value">{tile.value ?? '–'}</p>
-          {tile.key === 'fitness' ? (
-            <svg
-              id="summary-spark"
-              viewBox="0 0 120 32"
-              role="img"
-              aria-label={t('connectPage.library.fitnessTrend')}
-            >
-              <polyline
-                id="summary-line"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                points={sparkPoints(lines?.fitness ?? [])}
+        <StatTile
+          key={tile.key}
+          label={tile.label}
+          value={tile.value}
+          note={tile.note}
+          trend={
+            tile.key === 'fitness' ? (
+              <Sparkline
+                className="summary-spark"
+                range="fit"
+                height={32}
+                label={t('connectPage.library.fitnessTrend')}
+                lines={[{ values: lines?.fitness ?? [] }]}
               />
-            </svg>
-          ) : tile.note ? (
-            <p className="tile-note">{tile.note}</p>
-          ) : null}
-        </Surface>
+            ) : undefined
+          }
+        />
       ))}
-    </section>
+    </StatStrip>
   );
 }
 
-/** An SVG polyline's points for a series, scaled into a 120 by 32 box. */
-function sparkPoints(series: readonly number[]) {
-  if (series.length < 2) return '';
-  const low = Math.min(...series);
-  const span = Math.max(...series) - low || 1;
-  return series
-    .map(
-      (v, at) =>
-        `${((at / (series.length - 1)) * 120).toFixed(1)},${(32 - ((v - low) / span) * 32).toFixed(1)}`
-    )
-    .join(' ');
+const SECONDS_PER_MINUTE = 60;
+
+/** A bound as the text its field shows, in the field's unit to one decimal. */
+function boundText(value: number | null, perUnit: number): string {
+  return value === null ? '' : String(Math.round((value / perUnit) * 10) / 10);
 }
 
-/** The one filter bar: the range, the sport families and the search. */
+/**
+ * One min or max field. The typed text is written to the address once typing pauses; text that
+ * is not a positive number clears the bound. `perUnit` is how many of the stored unit (metres or
+ * seconds) the field's unit holds.
+ */
+function BoundField({
+  label,
+  placeholder,
+  value,
+  perUnit,
+  onCommit,
+}: {
+  label: string;
+  placeholder: string;
+  value: number | null;
+  perUnit: number;
+  onCommit: (value: number | null) => void;
+}) {
+  const [draft, setDraft] = useFilterDraft(boundText(value, perUnit), (text) => {
+    const typed = Number(text.trim().replace(',', '.'));
+    onCommit(text.trim() !== '' && Number.isFinite(typed) && typed > 0 ? typed * perUnit : null);
+  });
+  return (
+    <TextField
+      label={label}
+      hideLabel
+      inputMode="decimal"
+      placeholder={placeholder}
+      value={draft}
+      onChange={setDraft}
+    />
+  );
+}
+
+/** The library's extreme in the field's unit, as the placeholder of an empty field. */
+function boundPlaceholder(value: number | null | undefined, perUnit: number): string {
+  return value == null ? '' : String(Math.round((value / perUnit) * 10) / 10);
+}
+
+/**
+ * The filter bar: the range, the distance and duration bounds and the sport families. The text
+ * filter is in the table's toolbar.
+ */
 function FilterBar({
   query,
   counts,
-  search,
-  onSearch,
 }: {
   query: FeedQuery;
-  counts: Readonly<Partial<Record<string, number>>>;
-  search: string;
-  onSearch: (value: string) => void;
+  /** Null until the phone has answered, so no chip reads as a zero it was never given. */
+  counts: Readonly<Partial<Record<string, number>>> | null;
 }) {
   const { t } = useTranslation();
   const everything = 'all';
+  const bounds = useRead('feed.filterBounds', { unused: null }).data;
+  const perDistanceUnit = metresOfDistance(1);
+  const unit = distanceUnit();
   return (
     <div id="filters" role="search">
       <SegmentedControl<RangePreset | typeof everything>
@@ -333,36 +358,64 @@ function FilterBar({
         ]}
         onChange={(value) => goFeed({ ...query, range: value === everything ? null : value })}
       />
-      <ChipGroup label={t('connectPage.library.sportLabel')}>
-        {FAMILIES.map(([family, label]) => {
-          const on = query.families.includes(family);
-          return (
-            <Chip
-              key={family}
-              selected={on}
-              onToggle={() =>
-                goFeed({
-                  ...query,
-                  families: on
-                    ? query.families.filter((held) => held !== family)
-                    : [...query.families, family],
-                })
-              }
-            >
-              {t(label)}
-              <span className="chip-count"> {counts[family] ?? 0}</span>
-            </Chip>
-          );
-        })}
-      </ChipGroup>
-      <SearchField
-        id="search"
-        label={t('connectPage.library.searchLabel')}
-        clearLabel={t('connectPage.library.clearSearch')}
-        placeholder={t('connectPage.library.searchPlaceholder')}
-        value={search}
-        onChange={onSearch}
-      />
+      <fieldset className="bound-pair">
+        <legend>{t('connectPage.library.distance', { unit })}</legend>
+        <BoundField
+          label={t('connectPage.library.distanceMin', { unit })}
+          placeholder={boundPlaceholder(bounds?.minDistance, perDistanceUnit)}
+          value={query.minDistance}
+          perUnit={perDistanceUnit}
+          onCommit={(minDistance) => goFeed({ ...query, minDistance })}
+        />
+        <BoundField
+          label={t('connectPage.library.distanceMax', { unit })}
+          placeholder={boundPlaceholder(bounds?.maxDistance, perDistanceUnit)}
+          value={query.maxDistance}
+          perUnit={perDistanceUnit}
+          onCommit={(maxDistance) => goFeed({ ...query, maxDistance })}
+        />
+      </fieldset>
+      <fieldset className="bound-pair">
+        <legend>{t('connectPage.library.duration')}</legend>
+        <BoundField
+          label={t('connectPage.library.durationMin')}
+          placeholder={boundPlaceholder(bounds?.minMovingTime, SECONDS_PER_MINUTE)}
+          value={query.minMovingTime}
+          perUnit={SECONDS_PER_MINUTE}
+          onCommit={(minMovingTime) => goFeed({ ...query, minMovingTime })}
+        />
+        <BoundField
+          label={t('connectPage.library.durationMax')}
+          placeholder={boundPlaceholder(bounds?.maxMovingTime, SECONDS_PER_MINUTE)}
+          value={query.maxMovingTime}
+          perUnit={SECONDS_PER_MINUTE}
+          onCommit={(maxMovingTime) => goFeed({ ...query, maxMovingTime })}
+        />
+      </fieldset>
+      {counts ? (
+        <ChipGroup label={t('connectPage.library.sportLabel')}>
+          {FAMILIES.map(([family, label]) => {
+            const on = query.families.includes(family);
+            return (
+              <Chip
+                key={family}
+                selected={on}
+                onToggle={() =>
+                  goFeed({
+                    ...query,
+                    families: on
+                      ? query.families.filter((held) => held !== family)
+                      : [...query.families, family],
+                  })
+                }
+              >
+                {t(label)}
+                <span className="chip-count"> {counts[family] ?? 0}</span>
+              </Chip>
+            );
+          })}
+        </ChipGroup>
+      ) : null}
     </div>
   );
 }
@@ -431,6 +484,8 @@ function useWindowWidth(): number {
 
 function FeedTable({
   rows,
+  matched,
+  total,
   highlights,
   previews,
   query,
@@ -438,6 +493,8 @@ function FeedTable({
   onDropped,
 }: {
   rows: Card[];
+  matched: number | undefined;
+  total: number | undefined;
   highlights: Readonly<Record<string, string[]>>;
   previews: Readonly<Record<string, string>>;
   query: FeedQuery;
@@ -446,6 +503,9 @@ function FeedTable({
 }) {
   const { t } = useTranslation();
   const labels = useTableLabels();
+  const [draft, setDraft] = useFilterDraft(query.search, (search) =>
+    replaceRoute({ screen: 'activities', id: null, query: feedQuery({ ...query, search }) })
+  );
   const hover = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(
     () => () => {
@@ -455,47 +515,58 @@ function FeedTable({
     [onPreview]
   );
   const shown = columnsForWidth(useWindowWidth());
-  const columns: Column<Card>[] = COLUMNS.filter((column) =>
-    shown.includes(column.key)
-  ).map((column) => ({
-    key: column.key,
-    header: t(column.label),
-    numeric: column.numeric,
-    sortable: true,
-    clip: column.key === 'name',
-    ...(column.key === 'name' ? { cellProps: (card: Card) => ({ title: card.name }) } : {}),
-    cell: (card: Card) => {
-      if (column.key === 'name') {
-        return (
-          <span className="feed-name">
-            <Thumbnail card={card} preview={previews[card.id]} />
-            <span className="feed-title">
-              <span className="name">{card.name}</span>
-              {highlights[card.id]?.length ? (
-                <span className="feed-badges">
-                  {(highlights[card.id] ?? []).map((label, at) => (
-                    <Badge key={at}>{label}</Badge>
-                  ))}
-                </span>
-              ) : null}
+  const columns: Column<Card>[] = COLUMNS.filter((column) => shown.includes(column.key)).map(
+    (column) => ({
+      key: column.key,
+      header: t(column.label),
+      numeric: column.numeric,
+      sortable: true,
+      clip: column.key === 'name',
+      primary: column.key === 'name',
+      ...(column.key === 'name' ? { cellProps: (card: Card) => ({ title: card.name }) } : {}),
+      cell: (card: Card) => {
+        if (column.key === 'name') {
+          return (
+            <span className="feed-name">
+              <Thumbnail card={card} preview={previews[card.id]} />
+              <span className="feed-title">
+                <span className="name">{card.name}</span>
+                {highlights[card.id]?.length ? (
+                  <span className="feed-badges">
+                    {(highlights[card.id] ?? []).map((label, at) => (
+                      <Badge key={at}>{label}</Badge>
+                    ))}
+                  </span>
+                ) : null}
+              </span>
             </span>
-          </span>
-        );
-      }
-      if (column.key === 'sport') {
-        const sport = sportMark(card.sportType);
-        return <SportGlyph family={sport.family} label={card.sportType ?? ''} />;
-      }
-      return cell(card, column.key);
-    },
-  }));
-  const selected = new Set([...(query.id ? [query.id] : []), ...query.ids]);
+          );
+        }
+        if (column.key === 'sport') {
+          const sport = sportMark(card.sportType);
+          return <SportGlyph family={sport.family} label={card.sportType ?? ''} />;
+        }
+        return cell(card, column.key);
+      },
+    })
+  );
   return (
     <div id="feed-scroll" className="feed-table">
       <DataTable
         label={t('connectPage.library.activities')}
         tableId="feed"
         labels={labels}
+        filter={{
+          id: 'search',
+          label: t('connectPage.filter.activities'),
+          clearLabel: t('connectPage.filter.clear'),
+          value: draft,
+          onChange: setDraft,
+          count: matched === undefined || total === undefined ? null : filterCount(matched, total),
+          countText: (count) => t('connectPage.filter.count', count),
+        }}
+        rowAction="open"
+        selectable
         href={(card) => `#/activity/${encodeURIComponent(card.id)}`}
         columns={columns}
         rows={rows}
@@ -507,33 +578,25 @@ function FeedTable({
           onPreview(null);
           if (card) hover.current = setTimeout(() => onPreview(card.id), PREVIEW_DELAY_MS);
         }}
-        onRowClick={(card, event) => {
-          clearTimeout(hover.current);
-          onPreview(null);
-          const mode: Mode = event.shiftKey
-            ? 'range'
-            : event.ctrlKey || event.metaKey
-              ? 'toggle'
-              : 'single';
-          if (mode === 'single') {
-            onDropped([]);
-            goFeed({ ...query, id: card.id, ids: [] });
-            return;
-          }
-          const next = select(
-            { ids: query.ids, anchor: query.id ?? query.ids[0] ?? null },
-            rows.map((row) => row.id),
-            card.id,
-            mode
-          );
-          onDropped(next.dropped);
+        selectedKey={query.id ?? null}
+        {...(query.ids.length >= 2 ? { selectedKeys: query.ids } : {})}
+        onActiveChange={(card) =>
+          replaceRoute({
+            screen: 'activities',
+            id: null,
+            query: feedQuery({ ...query, id: card.id, ids: [] }),
+          })
+        }
+        onSelectionChange={(chosen) => {
+          const ids = chosen.map((card) => card.id);
+          onDropped(ids.slice(MAX_COMPARED));
+          const held = ids.slice(0, MAX_COMPARED);
           goFeed(
-            next.ids.length >= 2
-              ? { ...query, ids: next.ids, id: query.id ?? next.ids[0] ?? null }
-              : { ...query, ids: [], id: next.ids[0] ?? query.id }
+            held.length >= 2
+              ? { ...query, ids: held, id: query.id ?? held[0] ?? null }
+              : { ...query, ids: [], id: query.id }
           );
         }}
-        isSelected={(card) => selected.has(card.id)}
       />
     </div>
   );

@@ -35,6 +35,7 @@
 mod aead;
 mod layout;
 pub mod pack;
+pub mod ride_bytes;
 
 use argon2::{Algorithm, Argon2, Params, Version};
 use zeroize::Zeroizing;

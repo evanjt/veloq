@@ -101,6 +101,10 @@
   border-bottom: var(--stroke-1) solid var(--colour-border);
 }
 
+.settings-table th {
+  color: var(--text-muted);
+}
+
 .settings-table thead th {
   color: var(--colour-text-secondary);
   font-size: var(--web-type-caption-size);

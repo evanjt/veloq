@@ -20,6 +20,7 @@ const base = {
   lastErrorReason: null as SyncErrorReason | null,
   isError: false,
   isLoading: false,
+  retryAtMs: null as number | null,
   hasFilter: false,
   engine: 'ready' as const,
 };
@@ -109,6 +110,10 @@ describe('what an empty feed shows', () => {
  * the sync failed to bring them.
  */
 describe('why an empty library is empty', () => {
+  it('says the sync is paused while a cooldown holds, with no error reason', () => {
+    expect(feedEmptyState({ ...base, retryAtMs: Date.now() + 60_000 })).toBe('paused');
+  });
+
   it('says the sync is paused while the engine holds it', () => {
     expect(feedEmptyState({ ...base, syncState: SyncState.Paused })).toBe('paused');
   });

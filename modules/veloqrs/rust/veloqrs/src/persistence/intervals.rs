@@ -50,25 +50,36 @@ impl FfiIntervalKind {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiActivityInterval {
+    /// Unit: identifier.
     pub id: u32,
     pub kind: FfiIntervalKind,
     /// The training zone the server placed a work interval in, from 1.
+    /// Unit: index.
     pub zone: Option<u32>,
     /// Elapsed seconds from the activity start. Index-free, so it survives a
     /// reduction of the streams, which the indices below do not. Every body
     /// measured carries them; the indices place a lap that comes without.
+    /// Unit: second.
     pub start_time: Option<f64>,
+    /// Unit: second.
     pub end_time: Option<f64>,
     /// Positions in the server's own streams.
+    /// Unit: index.
     pub start_index: u32,
+    /// Unit: index.
     pub end_index: u32,
+    /// Unit: watt.
     pub average_watts: Option<f64>,
+    /// Unit: beat_per_minute.
     pub average_heartrate: Option<f64>,
     /// Metres per second.
+    /// Unit: metre_per_second.
     pub average_speed: Option<f64>,
     /// Seconds.
+    /// Unit: second.
     pub moving_time: Option<f64>,
     /// Metres.
+    /// Unit: metre.
     pub distance: Option<f64>,
     /// The name the athlete gave the interval, when they gave one.
     pub label: Option<String>,
@@ -252,7 +263,7 @@ mod tests {
 
     #[test]
     fn a_stored_body_reads_back_as_its_laps() {
-        let (_dir, engine, reader) = engine_and_reader();
+        let (_dir, mut engine, reader) = engine_and_reader();
         engine.set_interval_body("ride-1", THREE_LAPS).unwrap();
 
         let laps = activity_intervals(&reader, "ride-1")
@@ -339,7 +350,7 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_fetched_activity_with_no_laps_reads_as_an_empty_list() {
-        let (_dir, engine, reader) = engine_and_reader();
+        let (_dir, mut engine, reader) = engine_and_reader();
         engine
             .set_interval_body("steady-1", r#"{"icu_intervals":[],"icu_groups":[]}"#)
             .unwrap();
@@ -350,7 +361,7 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_body_that_will_not_parse_reads_as_never_fetched() {
-        let (_dir, engine, reader) = engine_and_reader();
+        let (_dir, mut engine, reader) = engine_and_reader();
         engine.set_interval_body("torn-1", "{not json").unwrap();
         assert_eq!(activity_intervals(&reader, "torn-1").unwrap(), None);
     }
@@ -393,7 +404,7 @@ mod tests {
     /// The store drops every null key, and a lap reads the same either way.
     #[test]
     fn a_stored_body_reads_as_the_body_that_was_fetched() {
-        let (_dir, engine, reader) = engine_and_reader();
+        let (_dir, mut engine, reader) = engine_and_reader();
         for (name, body) in fetched_bodies() {
             let fetched = body.to_string();
             engine.set_interval_body(&name, &fetched).unwrap();

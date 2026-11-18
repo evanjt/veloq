@@ -754,6 +754,38 @@ pub(crate) mod pooled {
         Some(section)
     }
 
+    /// Every visible section this activity has a pass on, with whether the
+    /// athlete excluded it from each: no included row remains, the rule
+    /// `excluded_activity_ids` applies from the section's side. Excluded
+    /// sections are listed here and left out of `sections_for_activity`.
+    pub(crate) fn activity_section_memberships(
+        conn: &Connection,
+        activity_id: &str,
+        names: &BTreeMap<String, String>,
+    ) -> Vec<crate::FfiActivityMembership> {
+        let query = format!(
+            "SELECT sa.section_id, SUM(sa.excluded = 0) = 0 FROM section_activities sa
+             JOIN sections s ON s.id = sa.section_id
+             WHERE sa.activity_id = ? AND s.{VISIBLE_FILTER}
+             GROUP BY sa.section_id ORDER BY sa.section_id"
+        );
+        let rows: Vec<(String, bool)> = match conn.prepare(&query) {
+            Ok(mut stmt) => stmt
+                .query_map([activity_id], |row| Ok((row.get(0)?, row.get(1)?)))
+                .map(|rows| rows.filter_map(|r| r.ok()).collect())
+                .unwrap_or_default(),
+            Err(_) => return Vec::new(),
+        };
+        rows.into_iter()
+            .map(|(id, excluded)| crate::FfiActivityMembership {
+                kind: "section".to_string(),
+                name: section_name_and_length(conn, &id, names).and_then(|(name, _)| name),
+                id,
+                excluded,
+            })
+            .collect()
+    }
+
     /// Every activity whose every junction row for this section is excluded.
     pub(crate) fn excluded_activity_ids(conn: &Connection, section_id: &str) -> Vec<String> {
         let mut stmt = match conn.prepare(

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Platform, type ViewInstance } from 'react-nativ
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import Constants from 'expo-constants';
 import { Button, ScreenScrollView, PressTarget } from '@/shared/ui';
+import { SwitchRow } from '@/shared/ui/SwitchRow';
 import { Icon } from '@/shared/ui/Icon';
 import { shareText } from '@/features/settings/light';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -17,6 +18,9 @@ import {
   stroke,
 } from '@/theme';
 import { useTheme } from '@/shared/app';
+import { useAuthStore } from '@/shared/app/AuthStore';
+import { SCHEME_LABEL_KEY, sourceFor } from '@/shared/app/source';
+import { useTranslation } from 'react-i18next';
 import {
   readBasemapTileCounts,
   readSnapshotQueueReport,
@@ -36,7 +40,12 @@ import { formatEpochDayUtc, formatLocalDate } from '@/shared/format/format';
 import { readTaskRuns, clearTaskRuns, type TaskRunEntry } from '@/features/insights';
 import { SyncDebugSection } from '@/features/routes';
 import { readSensorLinkReport } from '@/features/sensors';
-import type { FfiDashboardData, FfiRequestBudget, PersistentEngineStats } from 'veloqrs';
+import {
+  sync,
+  type FfiDashboardData,
+  type FfiRequestBudget,
+  type PersistentEngineStats,
+} from 'veloqrs';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import {
   attemptEngineRead,
@@ -400,14 +409,50 @@ function BackgroundNotificationsDebug({
   );
 }
 
-function RequestBudgetDebug({ isDark, dashboard }: { isDark: boolean; dashboard: DashboardRead }) {
+/** What the engine reports of the sign-in and the lifted cap, beside the budget it always carried. */
+type BudgetWithCap = FfiRequestBudget & {
+  signedInWith?: string | undefined;
+  backfillCapLifted?: boolean | undefined;
+};
+
+const CAP_WARNING =
+  "This takes the backfill past its daily share, up to your key's own limit (5,000 requests a day). A refusal from intervals.icu then holds this install. This may affect other users of Veloq using the API; do not use it unless you are aware of the API consequences.";
+
+function RequestBudgetDebug({
+  isDark,
+  dashboard,
+  onChanged,
+}: {
+  isDark: boolean;
+  dashboard: DashboardRead;
+  onChanged: () => void;
+}) {
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const budget: FfiRequestBudget | undefined = dashboard.ok
+  const [capError, setCapError] = useState<string | null>(null);
+  const budget: BudgetWithCap | undefined = dashboard.ok
     ? dashboard.value?.requestBudget
     : undefined;
+  const lifted = budget?.backfillCapLifted === true;
+  const toggleCap = (next: boolean) => {
+    try {
+      sync.setBackfillCapLifted(next);
+      setCapError(null);
+    } catch (error) {
+      setCapError(engineErrorTag(error) ?? String(error));
+    }
+    onChanged();
+  };
   const instant = (seconds: number) => new Date(seconds * 1000).toLocaleString(); // true-instant: a recorded moment shown in the device's clock
   const share = (used: number, allowance: number | undefined) =>
     allowance == null ? String(used) : `${used} / ${allowance}`;
+  const { t } = useTranslation();
+  const authMethod = useAuthStore((state) => state.authMethod);
+  const isDemoMode = useAuthStore((state) => state.isDemoMode);
+  const scheme = sourceFor({ authMethod, isDemoMode })?.scheme;
+  const pairSeen = (seen: FfiRequestBudget) =>
+    seen.pairResponses === 0 || seen.lastPairAt == null
+      ? 'never'
+      : `${seen.pairResponses} responses, last ${seen.lastRemainingFifteenMinutes ?? ABSENT} / ${seen.lastRemainingDaily ?? ABSENT} at ${instant(seen.lastPairAt)}`;
 
   return (
     <CollapsibleSection
@@ -424,10 +469,45 @@ function RequestBudgetDebug({ isDark, dashboard }: { isDark: boolean; dashboard:
       ) : budget ? (
         <>
           <StatRow
+            label="Sign-in"
+            value={scheme ? t(SCHEME_LABEL_KEY[scheme]) : ABSENT}
+            isDark={isDark}
+          />
+          <StatRow label="Budget pair seen" value={pairSeen(budget)} isDark={isDark} />
+          {scheme === 'apiKey' && (
+            <Text style={[styles.emptyText, { color: mutedColor }]}>
+              The API key path sends no budget pair, so the budget hold does not apply.
+            </Text>
+          )}
+          <StatRow
             label="Cooldown until"
             value={budget.cooldownUntil == null ? 'none' : instant(budget.cooldownUntil)}
             isDark={isDark}
           />
+          <StatRow
+            label="Pool hold until"
+            value={budget.poolHoldUntil == null ? 'none' : instant(budget.poolHoldUntil)}
+            isDark={isDark}
+          />
+          {budget.poolRemainingDaily == null || budget.poolRemainingFifteenMinutes == null ? (
+            <StatRow label="Pool remaining" value="none seen this process" isDark={isDark} />
+          ) : (
+            <>
+              <StatRow
+                label="Pool remaining, today"
+                value={share(budget.poolRemainingDaily, budget.poolLimitDaily)}
+                isDark={isDark}
+              />
+              <StatRow
+                label="Pool remaining, 15 min"
+                value={share(budget.poolRemainingFifteenMinutes, budget.poolLimitFifteenMinutes)}
+                isDark={isDark}
+              />
+              {budget.poolSeenAt != null && (
+                <StatRow label="Pool read at" value={instant(budget.poolSeenAt)} isDark={isDark} />
+              )}
+            </>
+          )}
           <StatRow label="Daily reset" value={instant(budget.nextReset)} isDark={isDark} />
           {budget.backfillPerFifteenMinutes != null && (
             <StatRow
@@ -438,7 +518,11 @@ function RequestBudgetDebug({ isDark, dashboard }: { isDark: boolean; dashboard:
           )}
           <StatRow
             label="Backfill, today"
-            value={share(budget.backfillToday, budget.backfillPerDay)}
+            value={
+              lifted
+                ? `${budget.backfillToday} / no cap (lifted)`
+                : share(budget.backfillToday, budget.backfillPerDay)
+            }
             isDark={isDark}
           />
           <StatRow
@@ -448,6 +532,32 @@ function RequestBudgetDebug({ isDark, dashboard }: { isDark: boolean; dashboard:
           />
           <StatRow label="Sync, today" value={String(budget.syncToday)} isDark={isDark} />
           <StatRow label="User, today" value={String(budget.userToday)} isDark={isDark} />
+          {budget.signedInWith != null && (
+            <StatRow
+              label="Signed in with"
+              value={budget.signedInWith === 'apiKey' ? 'personal key' : 'OAuth'}
+              isDark={isDark}
+            />
+          )}
+          {budget.signedInWith === 'apiKey' && (
+            <>
+              <SwitchRow
+                title="Lift the daily backfill cap"
+                value={lifted}
+                onValueChange={toggleCap}
+                testID="debug-backfill-cap-switch"
+              />
+              <Text style={[styles.emptyText, { color: mutedColor }]}>{CAP_WARNING}</Text>
+              {capError != null && (
+                <Text
+                  style={[styles.emptyText, { color: mutedColor }]}
+                  testID="debug-backfill-cap-error"
+                >
+                  {`Could not change the backfill cap: ${capError}`}
+                </Text>
+              )}
+            </>
+          )}
           <Text style={[styles.emptyText, { color: mutedColor }]}>
             Sign-in calls through the OAuth proxy spend the same shared limits and are not counted
             here.
@@ -705,7 +815,7 @@ function DebugScreenContent() {
           )}
         </CollapsibleSection>
 
-        <RequestBudgetDebug isDark={isDark} dashboard={dashboard} />
+        <RequestBudgetDebug isDark={isDark} dashboard={dashboard} onChanged={onRefresh} />
 
         {/* Preview queue trace: the last events the render pool recorded */}
         <CollapsibleSection

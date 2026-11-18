@@ -12,7 +12,7 @@ fn engine_and_reader() -> (TempDir, PersistentEngine, Connection) {
 
 #[test]
 fn test_pooled_interval_body_matches_engine_for_present_and_missing_rows() {
-    let (_dir, engine, reader) = engine_and_reader();
+    let (_dir, mut engine, reader) = engine_and_reader();
     engine.set_interval_body("a1", "laps").unwrap();
     assert_eq!(
         pooled::interval_body(&reader, "a1").unwrap(),

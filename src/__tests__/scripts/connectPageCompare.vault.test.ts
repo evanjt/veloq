@@ -69,7 +69,18 @@ describe('the hash', () => {
     const hash = write({
       screen: 'feed',
       id: null,
-      query: feedQuery({ range: null, families: [], sort: null, id: 'i1', ids }),
+      query: feedQuery({
+        range: null,
+        families: [],
+        sort: null,
+        id: 'i1',
+        ids,
+        search: '',
+        minDistance: null,
+        maxDistance: null,
+        minMovingTime: null,
+        maxMovingTime: null,
+      }),
     });
     expect(readFeedQuery(parse(hash)).ids).toEqual(ids);
     expect(readFeedQuery(parse(hash)).id).toBe('i1');

@@ -33,7 +33,6 @@ import {
   plotBox,
   stackLayout,
   timeTicks,
-  trendBand,
   visibleIndexes,
   xAxisTicks,
   xOfIndex,
@@ -289,26 +288,6 @@ describe('histogram bins', () => {
   it('ignores gaps and answers no bins for no values', () => {
     expect(histogramBins([NaN, Infinity], 4)).toEqual([]);
     expect(histogramBins([], 4)).toEqual([]);
-  });
-});
-
-describe('a trend band', () => {
-  it('fits the line through collinear points with a zero-width band', () => {
-    const band = trendBand([0, 1, 2, 3], [1, 3, 5, 7])!;
-    expect(band.slope).toBeCloseTo(2);
-    expect(band.intercept).toBeCloseTo(1);
-    expect(band.spread).toBeCloseTo(0);
-  });
-
-  it('widens the band with the scatter about the line', () => {
-    const tight = trendBand([0, 1, 2, 3, 4], [0, 1.1, 1.9, 3.1, 4])!;
-    const loose = trendBand([0, 1, 2, 3, 4], [0, 3, 1, 4, 2])!;
-    expect(loose.spread).toBeGreaterThan(tight.spread);
-  });
-
-  it('needs two distinct x values', () => {
-    expect(trendBand([1], [1])).toBeNull();
-    expect(trendBand([2, 2, 2], [1, 2, 3])).toBeNull();
   });
 });
 

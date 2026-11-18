@@ -100,6 +100,7 @@ function ExercisePane({
         columns={columns}
         rows={sessions}
         rowKey={(row) => row.activityId}
+        rowAction="open"
         href={(row) => write({ screen: 'activity', id: row.activityId, query: [] })}
       />
     </section>

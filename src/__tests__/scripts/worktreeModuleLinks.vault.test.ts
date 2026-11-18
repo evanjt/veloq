@@ -38,14 +38,27 @@ function run(tree: string, main: string) {
 
 describe('the worktree module links', () => {
   it('adds the entry the main checkout gained and leaves the rest alone', () => {
-    const { main, tree } = trees(['react', '@ubjs'], ['react']);
+    const { main, tree } = trees(['react', '@ubjs/core'], ['react']);
 
     const result = run(tree, main);
 
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('@ubjs');
-    expect(fs.realpathSync(path.join(tree, 'node_modules', '@ubjs'))).toBe(
-      fs.realpathSync(path.join(main, 'node_modules', '@ubjs'))
+    expect(result.stdout).toContain('@ubjs/core');
+    expect(fs.lstatSync(path.join(tree, 'node_modules', '@ubjs')).isDirectory()).toBe(true);
+  });
+
+  it('links a scope’s packages one by one, never the scope directory itself', () => {
+    const { main, tree } = trees(['react', '@ubjs/core'], []);
+    fs.symlinkSync(
+      path.join(main, 'node_modules', '@ubjs'),
+      path.join(tree, 'node_modules', '@ubjs')
+    );
+
+    run(tree, main);
+
+    expect(fs.lstatSync(path.join(tree, 'node_modules', '@ubjs')).isSymbolicLink()).toBe(false);
+    expect(fs.realpathSync(path.join(tree, 'node_modules', '@ubjs', 'core'))).toBe(
+      fs.realpathSync(path.join(main, 'node_modules', '@ubjs', 'core'))
     );
   });
 
@@ -116,7 +129,7 @@ describe('the worktree module links', () => {
   });
 
   it('still levels a per-entry set, whose lockfile record is a link like the rest', () => {
-    const { main, tree } = trees(['react', '@ubjs'], ['react']);
+    const { main, tree } = trees(['react', '@ubjs/core'], ['react']);
     fs.writeFileSync(path.join(main, 'node_modules', '.package-lock.json'), '{}');
     fs.symlinkSync(
       path.join(main, 'node_modules', '.package-lock.json'),
@@ -126,7 +139,7 @@ describe('the worktree module links', () => {
     const result = run(tree, main);
 
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('@ubjs');
+    expect(result.stdout).toContain('@ubjs/core');
   });
 
   it('runs before the gates rather than once at worktree creation', () => {

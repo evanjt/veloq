@@ -13,7 +13,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import { parse, tabOf, write } from '../../../web/connect/router';
 import { fakePhone } from '../__shared__/connectPhone';
-import { Button } from '../../../web/connect/ui';
+import { Button, ToastProvider } from '../../../web/connect/ui';
 import { WorkoutsPage } from '../../../web/connect/pages/WorkoutsPage';
 import {
   blankDraft,
@@ -350,49 +350,120 @@ describe('deleting saved workouts', () => {
     globals.document = originalDocument;
   });
 
-  function phoneWithRow() {
-    return fakePhone((method: string) => {
-      if (method === 'strength.workouts') return { workouts: [row] };
-      if (method === 'strength.workout') return { workout: held };
+  const rows = ['saved-1', 'saved-2', 'saved-3'].map((id, at) => ({
+    ...row,
+    id,
+    name: `Pull ${at + 1}`,
+    createdAt: 1_800_000_000 + at,
+  }));
+
+  /** Accepts every write but the delete numbered `refuseDelete` (from one), which the phone locks. */
+  function phoneWithRows(refuseDelete: number | null = null) {
+    let deletes = 0;
+    return fakePhone((method: string, params: object) => {
+      if (method === 'strength.workouts') return { workouts: rows };
+      if (method === 'strength.workout') {
+        return { workout: { ...held, id: (params as { id: string }).id } };
+      }
       if (method === 'strength.groups') return { groups: [] };
       if (method === 'strength.picker') return { rows: [], equipment: [], muscles: [] };
-      if (method === 'strength.deleteWorkout' || method === 'strength.restoreWorkout') {
+      if (method === 'strength.deleteWorkout') {
+        deletes += 1;
+        if (deletes === refuseDelete) throw new Error('phone locked');
         return { ok: true };
       }
+      if (method === 'strength.restoreWorkout') return { ok: true };
       throw new Error(`unexpected read ${method}`);
     });
   }
 
-  it('offers an undo that restores the workout as it was read before the delete', async () => {
-    const phone = phoneWithRow();
-    const events: { method: string; undo: (() => Promise<void>) | null }[] = [];
-    phone.queries.onWrite((event) => events.push(event));
+  async function deleteAll(phone: ReturnType<typeof phoneWithRows>) {
     let root!: ReactTestRenderer;
     await act(async () => {
       root = create(
-        phone.wrap(<WorkoutsPage route={{ screen: 'workouts', id: null, query: [] }} />)
+        <ToastProvider dismissLabel="dismiss">
+          {phone.wrap(<WorkoutsPage route={{ screen: 'workouts', id: null, query: [] }} />)}
+        </ToastProvider>
       );
     });
     await settle();
     await act(async () => {
-      root.root.findByProps({ tableId: 'workouts-saved' }).props.bulkActions[0].run([row]);
+      root.root.findByProps({ tableId: 'workouts-saved' }).props.bulkActions[0].run(rows);
     });
     await act(async () => {
       root.root.findByProps({ confirmLabel: 'connectPage.workouts.delete' }).props.onConfirm();
     });
     await settle();
+    const toasts = root.root.findAll(
+      (node) => node.type === 'div' && node.props.className === 'ui-toast'
+    );
+    const undoButton = root.root.findAll(
+      (node) =>
+        node.type === 'button' &&
+        node.findAll((inner) => inner.children.includes('connectPage.workouts.undo')).length > 0
+    )[0];
+    const message = toasts[0]?.findAll((node) => node.type === 'span')[0]?.children.join('');
+    const undo = async () => {
+      await act(async () => {
+        undoButton?.props.onClick();
+      });
+      await settle();
+    };
+    return { root, toasts, message, undoButton, undo };
+  }
 
-    const deleted = events.find((event) => event.method === 'strength.deleteWorkout');
-    expect(deleted?.undo).not.toBeNull();
-    await act(async () => {
-      await deleted?.undo?.();
-    });
-    expect(phone.callsOf('strength.restoreWorkout')).toEqual([
-      {
-        method: 'strength.restoreWorkout',
-        params: { ...held, createdAt: 1_800_000_000, lastUsedAt: null },
-      },
-    ]);
+  const restores = (
+    phone: ReturnType<typeof phoneWithRows>,
+    from: readonly (typeof rows)[number][]
+  ) =>
+    from.map((workout) => ({
+      method: 'strength.restoreWorkout',
+      params: { ...held, id: workout.id, createdAt: workout.createdAt, lastUsedAt: null },
+    }));
+
+  it('deletes the selection as one edit with one toast, and one undo restores every workout', async () => {
+    const phone = phoneWithRows();
+    const { root, toasts, message, undo } = await deleteAll(phone);
+    expect(phone.callsOf('strength.deleteWorkout').map((call) => call.params)).toEqual(
+      rows.map(({ id }) => ({ id }))
+    );
+    expect(toasts).toHaveLength(1);
+    expect(message).toBe('connectPage.workouts.deleted');
+    await undo();
+    expect(phone.callsOf('strength.restoreWorkout')).toEqual(restores(phone, rows));
+    root.unmount();
+  });
+
+  it('reads every workout before the first delete, because a delete leaves nothing to restore from', async () => {
+    const phone = phoneWithRows();
+    const { root } = await deleteAll(phone);
+    const order = phone.calls.map((call) => call.method);
+    const firstDelete = order.indexOf('strength.deleteWorkout');
+    expect(
+      order.slice(0, firstDelete).filter((method) => method === 'strength.workout')
+    ).toHaveLength(rows.length);
+    root.unmount();
+  });
+
+  it('stops at a refused delete, names the refusal and restores only the workouts already deleted', async () => {
+    const phone = phoneWithRows(2);
+    const { root, toasts, message, undo } = await deleteAll(phone);
+    expect(phone.callsOf('strength.deleteWorkout')).toHaveLength(2);
+    expect(toasts).toHaveLength(1);
+    expect(message).toBe('connectPage.notice.phoneLocked');
+    await undo();
+    expect(phone.callsOf('strength.restoreWorkout')).toEqual(restores(phone, rows.slice(0, 1)));
+    root.unmount();
+  });
+
+  it('offers no undo when the first delete is refused', async () => {
+    const phone = phoneWithRows(1);
+    const { root, toasts, undoButton } = await deleteAll(phone);
+    expect(phone.callsOf('strength.deleteWorkout')).toHaveLength(1);
+    expect(toasts).toHaveLength(0);
+    expect(undoButton).toBeUndefined();
+    expect(root.root.findByProps({ title: 'connectPage.notice.phoneLocked' })).toBeTruthy();
+    expect(phone.callsOf('strength.restoreWorkout')).toEqual([]);
     root.unmount();
   });
 });

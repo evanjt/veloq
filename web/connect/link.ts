@@ -136,14 +136,29 @@ function lengthPrefixed(...parts: string[]): Uint8Array<ArrayBuffer> {
   return out;
 }
 
-/** The room a paired browser and phone meet in: a hash of both fingerprints. */
-export async function roomFor(browser: string, phone: string): Promise<string> {
+/**
+ * The room a paired browser and phone meet in: an HMAC of both fingerprints
+ * under the secret from pairing. The secret is what keeps a third party who
+ * holds both fingerprints from computing it.
+ */
+export async function roomFor(
+  secret: Uint8Array<ArrayBuffer>,
+  browser: string,
+  phone: string
+): Promise<string> {
   const prefix = encoder.encode('veloq link room');
   const body = lengthPrefixed(browser, phone);
   const bytes = new Uint8Array(prefix.length + body.length);
   bytes.set(prefix);
   bytes.set(body, prefix.length);
-  return base64url(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)));
+  const key = await crypto.subtle.importKey(
+    'raw',
+    secret,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  return base64url(new Uint8Array(await crypto.subtle.sign('HMAC', key, bytes)));
 }
 
 /** One side's proof that it holds the secret, over its role and both fingerprints. */
@@ -547,6 +562,8 @@ export interface Reply {
   event?: unknown;
   generation?: unknown;
   reason?: unknown;
+  minProtocol?: unknown;
+  maxProtocol?: unknown;
 }
 
 /**
@@ -586,6 +603,8 @@ export const FRAME_HEADER_BYTES = 10;
 export const FRAME_VERSION = 1;
 export const FLAG_GZIP = 1;
 export const FLAG_LAST = 2;
+/** The frames' bytes, joined, are a file range: neither JSON nor gzip. */
+export const FLAG_RAW = 4;
 
 /** The first protocol version whose replies are binary frames; before it, one text message each. */
 export const FRAMED_FROM = 3;
@@ -644,6 +663,45 @@ export function cancelMessage(id: number): string {
  */
 export class UnreadableReply extends Error {}
 
+/** The error the engine answers a request with when it does not speak the version named. */
+export const VERSION_ERROR = 'version';
+
+/** The error the engine answers an ask whose id no frame can carry, as one text reply. */
+export const BAD_ID_ERROR = 'bad id';
+
+/**
+ * Why an ask was rejected: the engine does not speak the version it names. It
+ * names its own range, so the page can tell whether an older build of itself
+ * speaks the phone.
+ */
+export class VersionRefused extends Error {
+  readonly minProtocol: number;
+  readonly maxProtocol: number;
+
+  constructor(minProtocol: number, maxProtocol: number) {
+    super(VERSION_ERROR);
+    this.name = 'VersionRefused';
+    this.minProtocol = minProtocol;
+    this.maxProtocol = maxProtocol;
+  }
+}
+
+/**
+ * The hello the page acts on when the phone refused the page's hello: the
+ * phone's own range, and no methods, since the phone lists none. The state
+ * machine reads it as any other hello, so a phone outside the page's range
+ * shows the update state, or the older build that speaks it.
+ */
+export function refusedHello(refused: VersionRefused): Extract<Event, { type: 'hello' }> {
+  return {
+    type: 'hello',
+    protocol: refused.maxProtocol,
+    minProtocol: refused.minProtocol,
+    maxProtocol: refused.maxProtocol,
+    methods: [],
+  };
+}
+
 type Waiting = {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
@@ -651,11 +709,20 @@ type Waiting = {
   slot?: string;
 };
 
-type Held = { next: number; gzip: boolean; chunks: Uint8Array[] };
+type Held = { next: number; gzip: boolean; raw: boolean; chunks: Uint8Array[] };
 
 async function inflate(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
   const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
   return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+/** Whether a text message is the refusal of an id no frame carries. */
+function isBadIdRefusal(text: string): boolean {
+  try {
+    return (JSON.parse(text) as { error?: unknown } | null)?.error === BAD_ID_ERROR;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -741,7 +808,13 @@ export class Replies {
     if (!waiting) return;
     clearTimeout(waiting.timer);
     this.forget(reply.id);
-    if (reply.error !== undefined) waiting.reject(new Error(String(reply.error)));
+    if (
+      reply.error === VERSION_ERROR &&
+      typeof reply.minProtocol === 'number' &&
+      typeof reply.maxProtocol === 'number'
+    ) {
+      waiting.reject(new VersionRefused(reply.minProtocol, reply.maxProtocol));
+    } else if (reply.error !== undefined) waiting.reject(new Error(String(reply.error)));
     else waiting.resolve(reply.result);
   }
 
@@ -777,11 +850,13 @@ export class Replies {
    * binary frames from it. Until a version is agreed the shape of the message
    * decides, since the hello itself is answered before the page knows. A
    * message in the other shape than the agreed version's fails every ask in
-   * flight with `UnreadableReply`, since the phone speaks another format.
+   * flight with `UnreadableReply`, since the phone speaks another format. The
+   * one text message a framed phone sends is the refusal of an id no frame
+   * carries, which is settled by its id like any other reply.
    */
   async take(message: unknown, asked: (id: number) => boolean): Promise<Reply | undefined> {
     if (typeof message === 'string') {
-      if (this.agreed !== null && this.agreed >= FRAMED_FROM) {
+      if (this.agreed !== null && this.agreed >= FRAMED_FROM && !isBadIdRefusal(message)) {
         return this.unreadable('the phone sent a text reply');
       }
       return this.takeText(message, asked);
@@ -841,7 +916,12 @@ export class Replies {
       return this.unreadable(`the phone sent a reply frame of version ${version}`);
     }
     if (!asked(id)) return undefined;
-    const held = this.held.get(id) ?? { next: 0, gzip: (flags & FLAG_GZIP) !== 0, chunks: [] };
+    const held = this.held.get(id) ?? {
+      next: 0,
+      gzip: (flags & FLAG_GZIP) !== 0,
+      raw: (flags & FLAG_RAW) !== 0,
+      chunks: [],
+    };
     if (seq !== held.next) {
       this.held.delete(id);
       return { id, error: 'a reply frame arrived out of order' };
@@ -859,6 +939,7 @@ export class Replies {
       body.set(chunk, at);
       at += chunk.length;
     }
+    if (held.raw) return { id, result: body };
     try {
       const raw = held.gzip ? await inflate(body) : body;
       const parsed: unknown = JSON.parse(new TextDecoder().decode(raw));
@@ -885,6 +966,12 @@ export type FeedFilter = {
   needle: string;
   oldestTs?: number | null;
   newestTs?: number | null;
+  /** Inclusive distance bounds in metres, unbounded when absent. */
+  minDistance?: number | null;
+  maxDistance?: number | null;
+  /** Inclusive moving time bounds in seconds, unbounded when absent. */
+  minMovingTime?: number | null;
+  maxMovingTime?: number | null;
 };
 
 export type SportFamily = Methods['feed.page']['params']['sportFamilies'][number];
@@ -898,6 +985,12 @@ export function feedPageAsk(filter: FeedFilter, offset: number): Methods['feed.p
     sportFamilies: filter.families,
     oldestTs: filter.oldestTs ?? null,
     newestTs: filter.newestTs ?? null,
+    minDistance: filter.minDistance ?? null,
+    maxDistance: filter.maxDistance ?? null,
+    minMovingTime: filter.minMovingTime ?? null,
+    maxMovingTime: filter.maxMovingTime ?? null,
+    sort: null,
+    lean: false,
   };
 }
 
@@ -919,7 +1012,8 @@ export function feedRows<Row extends { id: string }>(
 /**
  * The chips under the cards of a page, as the engine worded them: every id of
  * the page gets a row, empty when it holds none, and the rows held for other
- * pages stay.
+ * pages stay as they were. A label the bundle names for an id outside `ids` is
+ * not added to a row another page holds.
  */
 export function feedChips(
   held: Readonly<Record<string, string[]>>,
@@ -929,11 +1023,10 @@ export function feedChips(
     indicators: readonly { activityId: string; label: string }[];
   }
 ): Record<string, string[]> {
-  const next: Record<string, string[]> = { ...held };
-  for (const id of ids) next[id] = [];
-  for (const route of bundle.routeHighlights) next[route.activityId]?.push(route.label);
-  for (const indicator of bundle.indicators) next[indicator.activityId]?.push(indicator.label);
-  return next;
+  const page = new Map<string, string[]>(ids.map((id) => [id, []]));
+  for (const route of bundle.routeHighlights) page.get(route.activityId)?.push(route.label);
+  for (const indicator of bundle.indicators) page.get(indicator.activityId)?.push(indicator.label);
+  return { ...held, ...Object.fromEntries(page) };
 }
 
 /**
@@ -969,13 +1062,26 @@ export function wallSeconds(nowMs: number, zoneOffsetMinutes: number): number {
 export const PHONE_LOCKED = 'phone locked';
 
 /**
- * The key of the notice to show for a write that failed, or nothing when the
- * failure is not the phone being locked. The edit was not made, so the page
- * changes nothing it holds.
+ * The key of the notice to show for a refused ask, or nothing when the page
+ * has no words of its own for the refusal and the engine's text stands. The
+ * edit was not made, so the page changes nothing it holds.
  */
 export function writeNotice(error: unknown): ParseKeys | undefined {
   const text = error instanceof Error ? error.message : String(error);
-  return text === PHONE_LOCKED ? 'connectPage.notice.phoneLocked' : undefined;
+  if (text === PHONE_LOCKED) return 'connectPage.notice.phoneLocked';
+  if (text === BAD_ID_ERROR) return 'connectPage.notice.badId';
+  return undefined;
+}
+
+/**
+ * The words to show for a refused ask: the page's own notice when it has one,
+ * else the engine's text. Every refusal the page shows goes through here, so a
+ * wire token never reaches the athlete as it came off the phone.
+ */
+export function refusalText(error: unknown, translate: (key: ParseKeys) => string): string {
+  const notice = writeNotice(error);
+  if (notice) return translate(notice);
+  return error instanceof Error ? error.message : String(error);
 }
 
 /** The settings the page shows, in the order the phone's settings list has them. */

@@ -18,7 +18,15 @@
 // worktree installed for native builds, there is nothing to do and it says so.
 
 import { execFileSync } from 'node:child_process';
-import { lstatSync, readdirSync, symlinkSync, realpathSync } from 'node:fs';
+import {
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readlinkSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+} from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 // `cwd` does not decide which repository git reads: a hook exports GIT_DIR and
@@ -84,11 +92,28 @@ if (!lstatSafe(there)?.isDirectory()) {
 const linked = [];
 for (const entry of readdirSync(there)) {
   if (entry === OWN) continue;
+  // npm's record of what it installed: linked, an install here would write the
+  // main checkout's copy.
+  if (entry === '.package-lock.json') continue;
+  const source = join(there, entry);
   const target = join(here, entry);
+  if (isContainer(entry) && lstatSafe(source)?.isDirectory()) {
+    // A scope or `.bin` is where npm moves packages and command links in and
+    // out, so linked whole it would do that inside the main checkout's install.
+    // Here it is a directory of its own holding one link per entry.
+    if (lstatSafe(target)?.isSymbolicLink()) rmSync(target);
+    mkdirSync(target, { recursive: true });
+    for (const child of readdirSync(source)) {
+      const childTarget = join(target, child);
+      if (lstatSafe(childTarget)) continue;
+      const childSource = join(source, child);
+      symlinkSync(entry === '.bin' ? readlinkSync(childSource) : childSource, childTarget);
+      linked.push(`${entry}/${child}`);
+    }
+    continue;
+  }
   if (lstatSafe(target)) continue;
-  // A scope directory (`@ubjs`) is linked whole, the same as a package: the
-  // worktree set is one link per entry of the main checkout's top level.
-  symlinkSync(join(there, entry), target);
+  symlinkSync(source, target);
   linked.push(entry);
 }
 
@@ -125,6 +150,10 @@ function applyInstallPatches() {
       { cwd: root }
     );
   }
+}
+
+function isContainer(entry) {
+  return entry.startsWith('@') || entry === '.bin';
 }
 
 function flag(name) {

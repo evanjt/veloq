@@ -10,7 +10,9 @@ use crate::net::source::{Source, SourceWrites};
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::{ActivityHistorySummary, ParsedStreams, StreamDto};
 use chrono::{DateTime, Utc};
-use wire::{ActivityRecord, AthleteRecord, ListedActivity, ManualActivityBody};
+use wire::{
+    ActivityRecord, AthleteRecord, ListedActivity, ManualActivityBody, RemoteActivitySummary,
+};
 
 /// The intervals.icu API root every request is built on.
 pub(crate) const BASE_URL: &str = "https://intervals.icu/api/v1";
@@ -158,6 +160,38 @@ impl Source for IntervalsSession {
             dispatch,
         )
         .await
+    }
+
+    fn searches(&self) -> bool {
+        true
+    }
+
+    async fn search_activities(
+        &self,
+        query: &str,
+        limit: u32,
+        dispatch: Dispatch,
+    ) -> Result<Option<Vec<RemoteActivitySummary>>, NetError> {
+        endpoints::search_activities(&self.transport, &self.athlete_id, query, limit, dispatch)
+            .await
+            .map(Some)
+    }
+
+    async fn activity_summaries(
+        &self,
+        oldest: &str,
+        newest: &str,
+        dispatch: Dispatch,
+    ) -> Result<Option<Vec<RemoteActivitySummary>>, NetError> {
+        endpoints::list_activity_summaries(
+            &self.transport,
+            &self.athlete_id,
+            oldest,
+            newest,
+            dispatch,
+        )
+        .await
+        .map(Some)
     }
 
     async fn activity_body(&self, upstream: &str, dispatch: Dispatch) -> Result<String, NetError> {

@@ -706,6 +706,9 @@ impl Transport {
             self.governor.note_garmin_success();
             return;
         }
+        if let Some(line) = first_pair_record(budget) {
+            log::info!("veloqrs: [transport] {line}");
+        }
         if self.governor.note_success(budget, self.governor.now()) {
             crate::net::resume::cooldown_cleared();
         }
@@ -878,6 +881,45 @@ fn refusal_record(status: u16, headers: &reqwest::header::HeaderMap, body: &[u8]
         .join("; ");
     let body = String::from_utf8_lossy(&body[..body.len().min(REFUSAL_BODY_LOG_BYTES)]);
     format!("status {status}, headers [{headers}], body {body:?}")
+}
+
+use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
+
+/// Whether the pair's first arrival, and its first absence, are logged.
+struct PairLogged {
+    arrived: AtomicBool,
+    absent: AtomicBool,
+}
+
+static PAIR_LOGGED: PairLogged = PairLogged {
+    arrived: AtomicBool::new(false),
+    absent: AtomicBool::new(false),
+};
+
+/// The line to log for a success's budget pair, once per process for each of
+/// its two outcomes: the first response that carries the pair, with its
+/// figures, and the first that carries none. One shared log then settles
+/// whether the pair arrives at all.
+fn first_pair_record(budget: &RateBudget) -> Option<String> {
+    pair_record(&PAIR_LOGGED, budget)
+}
+
+fn pair_record(logged: &PairLogged, budget: &RateBudget) -> Option<String> {
+    match budget.remaining {
+        Some(left) => (!logged.arrived.swap(true, Relaxed)).then(|| {
+            format!(
+                "first budget pair seen, remaining {} in 15 minutes and {} today, limit {}",
+                left.fifteen_minutes,
+                left.daily,
+                budget.limit.map_or_else(
+                    || "not sent".to_string(),
+                    |l| format!("{} and {}", l.fifteen_minutes, l.daily)
+                ),
+            )
+        }),
+        None => (!logged.absent.swap(true, Relaxed))
+            .then(|| "first success without a budget pair".to_string()),
+    }
 }
 
 #[cfg(test)]
@@ -1073,10 +1115,14 @@ mod tests {
         assert_eq!(write.calls(), 2);
     }
 
-    fn budgeted_at(base: String, clock: fn() -> DateTime<Utc>) -> (Transport, Arc<Governor>) {
+    fn budgeted_at(
+        base: String,
+        clock: fn() -> DateTime<Utc>,
+        jitter: fn() -> f64,
+    ) -> (Transport, Arc<Governor>) {
         let gov = Arc::new(
             Governor::new(1000, Box::new(NoopPolicy))
-                .with_budget(governor::Budget::new(0), None, || 0.0)
+                .with_budget(governor::Budget::new(0), None, jitter)
                 .with_clock(clock),
         );
         let t = Transport::with_governor(base, AuthMethod::ApiKey("k"), gov.clone()).unwrap();
@@ -1089,9 +1135,16 @@ mod tests {
             .with_timezone(&Utc)
     }
 
-    /// Put the transport into a cooldown, then send a user request as its
-    /// probe and have it refused. Returns the deferral the probe reports.
-    fn refuse_the_probe(server: &MockServer, t: &Transport) -> DateTime<Utc> {
+    /// Put the transport into a cooldown, move the clock past the
+    /// `Retry-After` it carried with `after_the_ask`, then send a user request
+    /// as its probe and have it refused with `probe_retry_after` as its
+    /// `Retry-After`, or none. Returns the deferral the probe reports.
+    fn refuse_the_probe(
+        server: &MockServer,
+        t: &Transport,
+        probe_retry_after: Option<&str>,
+        after_the_ask: impl Fn(),
+    ) -> DateTime<Utc> {
         server.mock(|when, then| {
             when.method(GET).path("/quota");
             then.status(429)
@@ -1100,11 +1153,24 @@ mod tests {
         });
         let probe = server.mock(|when, then| {
             when.method(GET).path("/probe");
-            then.status(429).header("retry-after", "1");
+            match probe_retry_after {
+                Some(secs) => {
+                    then.status(429).header("retry-after", secs);
+                }
+                None => {
+                    then.status(429);
+                }
+            }
         });
         let res: Result<serde_json::Value, _> =
             crate::runtime::block_on(t.get_json("/quota", &[], Lane::Backfill));
         assert!(matches!(res, Err(NetError::Deferred { .. })));
+
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/probe", &[], Lane::Interactive));
+        assert!(matches!(res, Err(NetError::Deferred { .. })), "{res:?}");
+        assert_eq!(probe.calls(), 0, "a probe was sent inside the Retry-After");
+        after_the_ask();
 
         let res: Result<serde_json::Value, _> =
             crate::runtime::block_on(t.get_json("/probe", &[], Lane::Interactive));
@@ -1120,17 +1186,21 @@ mod tests {
         until
     }
 
-    /// Expected behaviour: inside a cooldown a user request goes as the one
-    /// probe, is not retried inline when refused, and its refusal holds every
-    /// intent until the next midnight; a probe that answers ends the cooldown.
+    /// Expected behaviour: inside a cooldown a user request waits out the
+    /// `Retry-After`, then goes as the one probe, is not retried inline when
+    /// refused, and its refusal with no `Retry-After` holds every intent until
+    /// the next midnight; a probe that answers ends the cooldown.
     #[test]
-    fn a_probe_is_sent_once_and_its_refusal_holds_until_midnight() {
-        fn morning() -> DateTime<Utc> {
-            utc("2026-03-04T10:00:00Z")
+    fn a_probe_is_sent_once_and_its_headerless_refusal_holds_until_midnight() {
+        static NOW: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+        fn clock() -> DateTime<Utc> {
+            DateTime::from_timestamp(NOW.load(std::sync::atomic::Ordering::SeqCst), 0).unwrap()
         }
+        let set = |at: &str| NOW.store(utc(at).timestamp(), std::sync::atomic::Ordering::SeqCst);
+        set("2026-03-04T10:00:00Z");
         let server = MockServer::start();
-        let (t, gov) = budgeted_at(server.base_url(), morning);
-        let until = refuse_the_probe(&server, &t);
+        let (t, gov) = budgeted_at(server.base_url(), clock, || 1.0);
+        let until = refuse_the_probe(&server, &t, None, || set("2026-03-04T10:01:00Z"));
         assert_eq!(until, utc("2026-03-05T00:00:00Z"));
 
         gov.note_success(&RateBudget::default(), gov.now());
@@ -1138,6 +1208,40 @@ mod tests {
             when.method(GET).path("/ok");
             then.status(200).json_body(json!({}));
         });
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/ok", &[], Lane::Backfill));
+        assert!(res.is_ok(), "{res:?}");
+        assert_eq!(ok.calls(), 1);
+    }
+
+    /// Scenario: the probe after a cooldown is refused with a `Retry-After` of
+    /// 480 seconds.
+    /// Expected behaviour: that `Retry-After` sets the hold, which ends 480
+    /// seconds after the probe, and the next request after it goes.
+    #[test]
+    fn a_probe_refused_with_its_own_retry_after_holds_for_that_long() {
+        static NOW: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+        fn clock() -> DateTime<Utc> {
+            DateTime::from_timestamp(NOW.load(std::sync::atomic::Ordering::SeqCst), 0).unwrap()
+        }
+        let set = |at: &str| NOW.store(utc(at).timestamp(), std::sync::atomic::Ordering::SeqCst);
+        set("2026-03-04T10:00:00Z");
+        let server = MockServer::start();
+        let (t, _gov) = budgeted_at(server.base_url(), clock, || 0.0);
+        let until = refuse_the_probe(&server, &t, Some("480"), || set("2026-03-04T10:01:00Z"));
+        assert_eq!(until, utc("2026-03-04T10:09:00Z"));
+
+        let ok = server.mock(|when, then| {
+            when.method(GET).path("/ok");
+            then.status(200).json_body(json!({}));
+        });
+        set("2026-03-04T10:08:59Z");
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/ok", &[], Lane::Backfill));
+        assert!(matches!(res, Err(NetError::Deferred { .. })), "{res:?}");
+        assert_eq!(ok.calls(), 0, "a request inside the hold was sent");
+
+        set("2026-03-04T10:09:00Z");
         let res: Result<serde_json::Value, _> =
             crate::runtime::block_on(t.get_json("/ok", &[], Lane::Backfill));
         assert!(res.is_ok(), "{res:?}");
@@ -1157,8 +1261,8 @@ mod tests {
         let set = |at: &str| NOW.store(utc(at).timestamp(), std::sync::atomic::Ordering::SeqCst);
         set("2026-03-04T23:57:30Z");
         let server = MockServer::start();
-        let (t, _gov) = budgeted_at(server.base_url(), clock);
-        let until = refuse_the_probe(&server, &t);
+        let (t, _gov) = budgeted_at(server.base_url(), clock, || 1.0);
+        let until = refuse_the_probe(&server, &t, None, || set("2026-03-04T23:58:30Z"));
         assert_eq!(until, utc("2026-03-05T00:00:00Z"));
 
         let ok = server.mock(|when, then| {
@@ -1174,6 +1278,61 @@ mod tests {
             crate::runtime::block_on(t.get_json("/ok", &[], Lane::Backfill));
         assert!(res.is_ok(), "{res:?}");
         assert_eq!(ok.calls(), 1);
+    }
+
+    /// Expected behaviour: the pair a success carries reaches the shared
+    /// governor's snapshot, and a success without one leaves it unseen.
+    #[test]
+    fn the_pair_a_success_carries_reaches_the_snapshot() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/low");
+            then.status(200)
+                .header("x-ratelimit-limit", "2500,8000")
+                .header("x-ratelimit-remaining", "300,100")
+                .json_body(json!({}));
+        });
+        server.mock(|when, then| {
+            when.method(GET).path("/bare");
+            then.status(200).json_body(json!({}));
+        });
+        let (bare, bare_gov) = budgeted(server.base_url());
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(bare.get_json("/bare", &[], Lane::Interactive));
+        assert!(res.is_ok());
+        let seen = bare_gov.budget_snapshot(chrono::Utc::now()).unwrap();
+        assert_eq!(seen.pool, None);
+        let (t, gov) = budgeted(server.base_url());
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/low", &[], Lane::Interactive));
+        assert!(res.is_ok());
+        let seen = gov.budget_snapshot(chrono::Utc::now()).unwrap();
+        let pool = seen.pool.expect("the pair");
+        assert_eq!(pool.remaining.daily, 100);
+        assert_eq!(pool.limit.daily, 8_000);
+        assert!(seen.pool_hold_until.is_some());
+    }
+
+    /// Expected behaviour: each outcome is logged once per process, the
+    /// first time only.
+    #[test]
+    fn the_first_arrival_of_the_pair_and_of_its_absence_is_logged_once() {
+        let with = RateBudget {
+            remaining: Some(governor::RateWindows {
+                fifteen_minutes: 300,
+                daily: 100,
+            }),
+            ..RateBudget::default()
+        };
+        let logged = PairLogged {
+            arrived: AtomicBool::new(false),
+            absent: AtomicBool::new(false),
+        };
+        let first = pair_record(&logged, &with).expect("first pair is logged");
+        assert!(first.contains("300") && first.contains("100"), "{first}");
+        assert_eq!(pair_record(&logged, &with), None);
+        assert!(pair_record(&logged, &RateBudget::default()).is_some());
+        assert_eq!(pair_record(&logged, &RateBudget::default()), None);
     }
 
     /// Expected behaviour: a success whose budget pair is low holds the

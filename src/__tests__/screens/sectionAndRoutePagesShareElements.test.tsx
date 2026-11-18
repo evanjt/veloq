@@ -94,7 +94,12 @@ jest.mock('@/shared/ui/withScreenBoundary', () => ({
 }));
 jest.mock('@/features/settings', () => ({
   useDebugStore: (select: (state: { enabled: boolean }) => unknown) => select({ enabled: false }),
-  useGpxExport: () => ({ exportGpx: jest.fn(), exporting: false }),
+  useGpxExport: () => ({
+    exportGpx: jest.fn(),
+    exportRouteGpx: jest.fn(),
+    exportSectionGpx: jest.fn(),
+    exporting: false,
+  }),
   InfoButton: () => null,
 }));
 jest.mock('@/features/routes/components/RouteDetailMap', () => ({ RouteDetailMap: () => null }));
@@ -183,12 +188,26 @@ const binCounts = attempts.reduce<number[]>((counts, a) => {
 
 const withHr = attempts.filter((a) => a.avgHr != null);
 
+/** The engine's forward average over every traversal, which the direction averages line draws. */
+const forwardStats = {
+  avgTime: attempts.reduce((sum, a) => sum + a.time, 0) / attempts.length,
+  avgSpeed: attempts.reduce((sum, a) => sum + a.distance / a.time, 0) / attempts.length,
+  lastActivity: attempts[attempts.length - 1].date,
+  count: attempts.length,
+  outsideBandCount: 0,
+};
+
 /** The one read both pages draw, over the demo route's rides. */
 const demoRead: FfiSectionPerformanceData = {
   sportType: 'Ride',
   sportCounts: [{ sportType: 'Ride', count: attempts.length }],
   calendarSummary: calendarOf(),
-  performances: { records: [], bestForwardIsPr: false, bestReverseIsPr: false },
+  performances: {
+    records: [],
+    bestForwardIsPr: false,
+    bestReverseIsPr: false,
+    forwardStats,
+  },
   chartData: {
     points: chartPoints,
     minSpeed: Math.min(...chartPoints.map((p) => p.speed)),
@@ -446,6 +465,7 @@ const SHARED: SharedElement[] = [
   },
   { element: 'calendar', section: 'section-calendar', route: 'section-calendar' },
   { element: 'GPX export', section: 'section-export-gpx', route: 'route-export-gpx' },
+  { element: 'FIT export', section: 'section-export-fit', route: 'route-export-fit' },
   { element: 'data range footer', section: 'data-range-footer', route: 'data-range-footer' },
 ];
 

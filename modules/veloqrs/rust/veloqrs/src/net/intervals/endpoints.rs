@@ -464,8 +464,9 @@ pub struct BulkActivityBodies {
     /// What `GET /activity/{id}` answers: the item with its interval fields
     /// left out, every other field as sent and in the order sent.
     pub detail: String,
-    /// What `GET /activity/{id}/intervals` answers, or `None` when the item
-    /// carried no `icu_intervals` or a null one.
+    /// What `GET /activity/{id}/intervals` answers. A null `icu_intervals` is
+    /// that answer and is kept; `None` only when the item has no
+    /// `icu_intervals` field at all.
     pub intervals: Option<String>,
 }
 
@@ -559,14 +560,13 @@ impl OrderedFields<'_> {
                 .iter()
                 .filter(|(key, _)| !INTERVAL_ONLY_FIELDS.contains(&key.as_str())),
         );
-        let intervals = match self.field("icu_intervals") {
-            Some(raw) if raw.get().trim() != "null" => {
-                Some(object_text(INTERVAL_BODY_FIELDS.iter().filter_map(
-                    |name| self.0.iter().find(|(key, _)| key == name),
-                )))
-            }
-            _ => None,
-        };
+        let intervals = self.field("icu_intervals").map(|_| {
+            object_text(
+                INTERVAL_BODY_FIELDS
+                    .iter()
+                    .filter_map(|name| self.0.iter().find(|(key, _)| key == name)),
+            )
+        });
         Ok(BulkActivityBodies {
             id,
             detail,
@@ -790,6 +790,51 @@ pub async fn list_activities_between(
     .await
 }
 
+/// The most rows the name search answers in one request; the server refuses a
+/// larger `limit`.
+pub const SEARCH_LIMIT: u32 = 200;
+
+/// `GET /athlete/{id}/activities/search` for the activities whose name holds
+/// `query` (case-insensitive), newest first, at most `limit` of them.
+pub async fn search_activities(
+    t: &Transport,
+    athlete_id: &str,
+    query: &str,
+    limit: u32,
+    dispatch: impl Into<Dispatch>,
+) -> Result<Vec<RemoteActivitySummary>, NetError> {
+    t.get_json(
+        &format!("/athlete/{}/activities/search", athlete_id),
+        &[("q", query), ("limit", &limit.to_string())],
+        dispatch,
+    )
+    .await
+}
+
+/// `GET /athlete/{id}/activities` between two local dates, inclusive, asking
+/// only for the fields a row of the remote search draws.
+pub async fn list_activity_summaries(
+    t: &Transport,
+    athlete_id: &str,
+    oldest: &str,
+    newest: &str,
+    dispatch: impl Into<Dispatch>,
+) -> Result<Vec<RemoteActivitySummary>, NetError> {
+    t.get_json(
+        &format!("/athlete/{}/activities", athlete_id),
+        &[
+            ("oldest", oldest),
+            ("newest", newest),
+            (
+                "fields",
+                "id,name,type,start_date_local,distance,moving_time",
+            ),
+        ],
+        dispatch,
+    )
+    .await
+}
+
 /// Best-effort id from a create response, which comes back as either the
 /// activity object or a one-element list of them.
 fn created_activity_id(body: &[u8]) -> Option<String> {
@@ -815,6 +860,95 @@ mod tests {
     fn fast_transport(base: String) -> Transport {
         let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
         Transport::with_governor(base, AuthMethod::ApiKey("k"), gov).unwrap()
+    }
+
+    /// Expected behaviour: the name search sends the name and the cap as query
+    /// parameters, and reads the fields a row draws, tolerating a null name.
+    #[test]
+    fn the_name_search_sends_the_name_and_cap_and_reads_each_row() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/activities/search")
+                .query_param("q", "harbour")
+                .query_param("limit", "200");
+            then.status(200).json_body(json!([
+                {"id": "i5", "name": "Harbour loop", "type": "Ride",
+                 "start_date_local": "2024-03-02T08:00:00",
+                 "distance": 40000.5, "moving_time": 5400},
+                {"id": "i6", "name": null, "type": "Run"}
+            ]));
+        });
+        let t = fast_transport(server.base_url());
+
+        let rows = crate::runtime::block_on(search_activities(
+            &t,
+            "i1",
+            "harbour",
+            SEARCH_LIMIT,
+            crate::governor::Lane::Interactive,
+        ))
+        .unwrap();
+
+        mock.assert();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].name, "Harbour loop");
+        assert_eq!(rows[0].moving_time, Some(5400.0));
+        assert_eq!(rows[1].name, "");
+        assert_eq!(rows[1].distance, None);
+    }
+
+    /// Expected behaviour: a refused limit is the HTTP error, not an empty list.
+    #[test]
+    fn a_refused_search_is_an_http_error() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/activities/search");
+            then.status(422).body("Max limit is 200");
+        });
+        let t = fast_transport(server.base_url());
+
+        let refused = crate::runtime::block_on(search_activities(
+            &t,
+            "i1",
+            "harbour",
+            201,
+            crate::governor::Lane::Interactive,
+        ));
+
+        assert!(matches!(refused, Err(NetError::Http { status: 422, .. })));
+    }
+
+    /// Expected behaviour: the dated listing asks for the fields a row draws
+    /// and nothing else.
+    #[test]
+    fn the_dated_listing_asks_for_the_fields_a_row_draws() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/activities")
+                .query_param("oldest", "2024-03-01")
+                .query_param("newest", "2024-03-31")
+                .query_param(
+                    "fields",
+                    "id,name,type,start_date_local,distance,moving_time",
+                );
+            then.status(200)
+                .json_body(json!([{"id": "i5", "type": "Ride"}]));
+        });
+        let t = fast_transport(server.base_url());
+
+        let rows = crate::runtime::block_on(list_activity_summaries(
+            &t,
+            "i1",
+            "2024-03-01",
+            "2024-03-31",
+            crate::governor::Lane::Interactive,
+        ))
+        .unwrap();
+
+        mock.assert();
+        assert_eq!(rows[0].id, "i5");
     }
 
     /// Expected behaviour: the original file is asked for on its own path, and
@@ -943,18 +1077,39 @@ mod tests {
         );
     }
 
+    /// Expected behaviour: an item with no `icu_intervals` field is a stub the
+    /// single interval request settles, so it carries no interval body here.
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
-    fn an_item_with_no_intervals_or_a_null_carries_no_interval_body() {
-        let answer =
-            r#"[{"id":"i1","type":"Run"},{"id":"i2","icu_intervals":null,"icu_groups":null}]"#;
+    fn an_item_with_no_intervals_field_carries_no_interval_body() {
+        let answer = r#"[{"id":"i1","type":"Run"}]"#;
 
         let items = split_bulk_activities(answer.as_bytes()).unwrap();
 
         assert_eq!(items[0].intervals, None);
         assert_eq!(items[0].detail, r#"{"id":"i1","type":"Run"}"#);
-        assert_eq!(items[1].intervals, None);
-        assert_eq!(items[1].detail, r#"{"id":"i2"}"#);
+    }
+
+    /// Expected behaviour: a null `icu_intervals` is the server's answer, the
+    /// one the single endpoint gives, so the item carries that body as sent
+    /// and the detail keeps every field but the interval ones.
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn a_null_intervals_field_is_the_answer_and_carries_its_interval_body() {
+        let answer = r#"[{"id":"i2","analyzed":"2025-03-01T08:00:00.000+00:00","type":"Run","icu_intervals":null,"icu_groups":null}]"#;
+
+        let items = split_bulk_activities(answer.as_bytes()).unwrap();
+
+        assert_eq!(
+            items[0].intervals.as_deref(),
+            Some(
+                r#"{"id":"i2","analyzed":"2025-03-01T08:00:00.000+00:00","icu_intervals":null,"icu_groups":null}"#
+            )
+        );
+        assert_eq!(
+            items[0].detail,
+            r#"{"id":"i2","analyzed":"2025-03-01T08:00:00.000+00:00","type":"Run"}"#
+        );
     }
 
     #[test]

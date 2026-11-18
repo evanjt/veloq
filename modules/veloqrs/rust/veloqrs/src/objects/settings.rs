@@ -192,6 +192,63 @@ impl SettingsManager {
         })?
     }
 
+    /// The GPX file for a section's stored line, read by its id with the
+    /// elevation of each point and the name the section is shown under. `None`
+    /// when the export privacy trim leaves too little to be a track.
+    fn build_section_gpx_file(
+        &self,
+        section_id: String,
+        sport: Option<String>,
+    ) -> Result<Option<crate::persistence::export::GpxFile>, VeloqError> {
+        with_reader(|conn| {
+            crate::persistence::export::section_gpx_file_from(conn, &section_id, sport.as_deref())
+                .map_err(|msg| VeloqError::Database { msg })
+        })?
+    }
+
+    /// The GPX file for a route's representative track, read by the route's
+    /// id with the elevation of each point and the name the route is shown
+    /// under. `None` when the export privacy trim leaves too little to be a
+    /// track.
+    fn build_route_gpx_file(
+        &self,
+        group_id: String,
+        sport: Option<String>,
+    ) -> Result<Option<crate::persistence::export::GpxFile>, VeloqError> {
+        with_reader(|conn| {
+            crate::persistence::export::route_gpx_file_from(conn, &group_id, sport.as_deref())
+                .map_err(|msg| VeloqError::Database { msg })
+        })?
+    }
+
+    /// The FIT course file for a section's stored line, read by its id with
+    /// the elevation of each point. `None` when the export privacy trim leaves
+    /// too little to be a line.
+    fn build_section_fit_course(
+        &self,
+        section_id: String,
+        sport: Option<String>,
+    ) -> Result<Option<crate::persistence::export::FitCourseFile>, VeloqError> {
+        with_reader(|conn| {
+            crate::persistence::export::section_fit_course_from(conn, &section_id, sport.as_deref())
+                .map_err(|msg| VeloqError::Database { msg })
+        })?
+    }
+
+    /// The FIT course file for a route's representative track, read by the
+    /// route's id. `None` when the export privacy trim leaves too little to
+    /// be a line.
+    fn build_route_fit_course(
+        &self,
+        group_id: String,
+        sport: Option<String>,
+    ) -> Result<Option<crate::persistence::export::FitCourseFile>, VeloqError> {
+        with_reader(|conn| {
+            crate::persistence::export::route_fit_course_from(conn, &group_id, sport.as_deref())
+                .map_err(|msg| VeloqError::Database { msg })
+        })?
+    }
+
     /// The current engine install, moved by every wipe, restore and reopen.
     fn engine_install(&self) -> f64 {
         crate::persistence::engine_install() as f64

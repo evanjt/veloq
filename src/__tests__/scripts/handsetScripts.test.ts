@@ -161,6 +161,33 @@ describe('upgrade-test.sh', () => {
       expect(call).not.toContain(OTHER_HANDSET);
     }
   });
+
+  /**
+   * Scenario: an upgrade run with no `FROM_APK` fetches the released build it
+   * upgrades from, and that is the last shipped release.
+   *
+   * Expected behaviour: the default is the release before the candidate, the
+   * build athletes last installed, so the run tests the upgrade they take.
+   */
+  vaultIt('fetches the last shipped release when FROM_APK is unset', () => {
+    const dir = fakes([TEST_HANDSET]);
+    fs.writeFileSync(
+      path.join(dir, 'bin/gh'),
+      `#!/usr/bin/env bash\necho "$*" >> "${dir}/gh.log"\nexit 1\n`,
+      { mode: 0o755 }
+    );
+    const result = run(dir, 'scripts/upgrade-test.sh', [], {
+      ANDROID_SERIAL: TEST_HANDSET,
+      ANDROID_HOME: path.join(dir, 'sdk'),
+      NEW_APK: path.join(dir, 'new.apk'),
+      WORK: path.join(dir, 'work'),
+    });
+
+    expect(result.status).not.toBe(0);
+    expect(lines(result.dir, 'gh.log')).toEqual([
+      expect.stringMatching(/^release download 0\.4\.1 /),
+    ]);
+  });
 });
 
 /**

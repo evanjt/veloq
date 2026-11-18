@@ -87,6 +87,7 @@ const mockDetail = {
   prSectionIds: new Set<string>(),
   customSections: [],
   encounters: [],
+  memberships: [],
   highlights: [],
   routeGroups: [],
   activityCount: 1,

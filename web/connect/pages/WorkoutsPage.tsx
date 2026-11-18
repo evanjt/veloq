@@ -7,11 +7,15 @@ import type { ParseKeys } from 'i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { go, write, type Route } from '../router';
+import { refusalText } from '../link';
+import { go, replaceRoute, write, type Route } from '../router';
 import type { ReadError } from '../query';
 import { usePageName } from '../shell/pageName';
 import { ReadNotice } from '../shell/StatePanes';
 import { useTableLabels } from '../tableLabels';
+import { filterCount, readFilterText, withFilterText } from '../ui/filterText';
+import { useFilterDraft, useLastAnswered } from '../useFilterDraft';
+import { useBatch } from '../useBatch';
 import { useQueries, useRead, useWrite } from '../useRead';
 import type { Methods } from '../schema';
 import { settledNow, wallSeconds } from '../fitness';
@@ -23,7 +27,6 @@ import {
   DataTable,
   EmptyState,
   ErrorState,
-  SearchField,
   Select,
   SplitPane,
   TextField,
@@ -63,10 +66,10 @@ type Workouts = Methods['strength.workouts']['result']['workouts'];
 type Workout = Workouts[number];
 type Picker = Methods['strength.picker']['result'];
 
-/** How long typing pauses before the search is asked of the phone. */
-const SEARCH_PAUSE_MS = 250;
-
 const NO_ROWS: Picker['rows'] = [];
+
+/** The reads a workout write changes. */
+const WORKOUT_READS = ['strength.workouts', 'strength.workout'];
 
 /** The fields of a set, in the order Enter and Tab move through them. */
 const SET_FIELDS = [
@@ -150,13 +153,13 @@ export function WorkoutsPage({ route }: { route: Route }) {
   const { t } = useTranslation();
   const { run: sendWrite } = useWrite();
   const queries = useQueries();
+  const batch = useBatch(queries, t('connectPage.workouts.failed'), WORKOUT_READS);
   const labels = useTableLabels();
   const editing = route.screen === 'workout' ? route.id : null;
   // Held for the visit, so the picker's key does not move on every render.
   const now = useMemo(() => Math.floor(wallSeconds(settledNow())), []);
   const [draft, setDraft] = useState<Draft>(blankDraft);
   const [picker, setPicker] = useState<PickerState>(openingPicker);
-  const [typed, setTyped] = useState('');
   const [saving, setSaving] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
   const [adding, setAdding] = useState<{ category: number; name: number | null } | null>(null);
@@ -164,6 +167,12 @@ export function WorkoutsPage({ route }: { route: Route }) {
   const [over, setOver] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<readonly Workout[]>([]);
   const focusAfter = useRef<string | null>(null);
+  // A refused delete shows where the other refusals do, once, when the batch reports it.
+  const [seenRefusal, setSeenRefusal] = useState<string | null>(null);
+  if (batch.refusal !== seenRefusal) {
+    setSeenRefusal(batch.refusal);
+    if (batch.refusal !== null) setRefused(batch.refusal);
+  }
   usePageName(editing === null ? null : draft.name.trim() || null);
 
   const workouts = useLoaded<Workouts>(
@@ -176,8 +185,15 @@ export function WorkoutsPage({ route }: { route: Route }) {
     { nowWallSeconds: now },
     (answer: { groups: Groups }) => answer.groups
   );
-  const asked = pickerAsk(picker, draft, now);
+  const filterText = readFilterText(route);
+  const [typedFilter, setTypedFilter] = useFilterDraft(filterText, (text) =>
+    replaceRoute(withFilterText(route, text))
+  );
+  const asked = pickerAsk({ ...picker, query: filterText.trim() }, draft, now);
   const list = useLoaded<Picker>('strength.picker', asked);
+  // A new filter's rows are on their way: the table, and the field in its toolbar, stay mounted
+  // with the rows already held, so typing is not interrupted.
+  const shownList = useLastAnswered(list.value ?? undefined);
   // The whole catalogue is read once so a loaded exercise has its name.
   const catalogue = useLoaded<Picker>('strength.picker', {
     equipment: [],
@@ -185,15 +201,6 @@ export function WorkoutsPage({ route }: { route: Route }) {
     nowWallSeconds: now,
   });
   const names = useMemo(() => namesOf(catalogue.value?.rows ?? NO_ROWS), [catalogue.value]);
-
-  useEffect(() => {
-    if (typed === picker.query) return undefined;
-    const typing = setTimeout(
-      () => setPicker((held) => ({ ...held, query: typed })),
-      SEARCH_PAUSE_MS
-    );
-    return () => clearTimeout(typing);
-  }, [typed, picker.query]);
 
   // Opening a workout from the address starts the draft from it. The page is
   // keyed by the address, so a different workout is a fresh page.
@@ -243,7 +250,7 @@ export function WorkoutsPage({ route }: { route: Route }) {
       });
       go({ screen: 'workout', id: result.id, query: [] });
     } catch (error) {
-      setRefused(error instanceof Error ? error.message : String(error));
+      setRefused(refusalText(error, t));
     } finally {
       setSaving(false);
     }
@@ -259,52 +266,42 @@ export function WorkoutsPage({ route }: { route: Route }) {
         { invalidates: ['strength.workouts', 'strength.workout'] }
       );
     } catch (error) {
-      setRefused(error instanceof Error ? error.message : String(error));
+      setRefused(refusalText(error, t));
     }
   };
 
   const remove = async (rows: readonly Workout[]) => {
     setDeleting([]);
-    for (const row of rows) {
-      try {
-        // What the phone holds is read before the delete, because the delete leaves nothing to restore from.
-        const held = (await queries.fetch('strength.workout', { id: row.id })).workout;
-        await sendWrite(
-          'strength.deleteWorkout',
-          { id: row.id },
-          {
-            invalidates: ['strength.workouts', 'strength.workout'],
-            optimistic: [
-              {
-                method: 'strength.workouts',
-                args: {},
-                update: (held: { workouts: Workouts }) => ({
-                  workouts: held.workouts.filter((workout) => workout.id !== row.id),
-                }),
-              },
-            ],
-            ...(held
-              ? {
-                  notice: 'connectPage.undo.workoutDeleted' as const,
-                  undo: () => ({
-                    method: 'strength.restoreWorkout',
-                    params: restoreAsk(row, held),
-                    invalidates: ['strength.workouts', 'strength.workout'],
-                  }),
-                }
-              : {}),
-          }
-        );
-      } catch (error) {
-        setRefused(error instanceof Error ? error.message : String(error));
-        return;
-      }
-      if (editing === row.id) go({ screen: 'workouts', id: null, query: [] });
+    setRefused(null);
+    // What the phone holds is read before any delete, because a delete leaves nothing to restore from.
+    let held: Methods['strength.workout']['result']['workout'][];
+    try {
+      held = await Promise.all(
+        rows.map(async (row) => (await queries.fetch('strength.workout', { id: row.id })).workout)
+      );
+    } catch (error) {
+      setRefused(refusalText(error, t));
+      return;
+    }
+    const deleted = await batch.run(
+      rows.map((row) => ({ method: 'strength.deleteWorkout', params: { id: row.id } })),
+      t('connectPage.workouts.deleted', { count: rows.length }),
+      // The accepted deletes are the first answers, and a workout the phone no longer held has nothing to restore.
+      (answers) =>
+        rows.flatMap((row, at) => {
+          const content = held[at];
+          return at < answers.length && content
+            ? [{ method: 'strength.restoreWorkout' as const, params: restoreAsk(row, content) }]
+            : [];
+        }),
+      t('connectPage.workouts.undo')
+    );
+    if (deleted && editing !== null && rows.some((row) => row.id === editing)) {
+      go({ screen: 'workouts', id: null, query: [] });
     }
   };
 
   const sources = (groups.value ?? []).map((group) => ({ exercises: group.exercises }));
-  const open = (id: string) => go({ screen: 'workout', id, query: [] });
 
   const savedColumns: Column<Workout>[] = [
     { key: 'name', header: t('connectPage.columns.name'), clip: true, cell: (row) => row.name },
@@ -385,8 +382,8 @@ export function WorkoutsPage({ route }: { route: Route }) {
                 rows={workouts.value ?? []}
                 rowKey={(row) => row.id}
                 selectedKey={editing}
+                rowAction="open"
                 href={(row) => write({ screen: 'workout', id: row.id, query: [] })}
-                onOpen={(row) => open(row.id)}
                 selectable
                 bulkActions={[
                   {
@@ -583,15 +580,8 @@ export function WorkoutsPage({ route }: { route: Route }) {
             </div>
 
             <aside className="workouts-picker" aria-label={t('connectPage.workouts.picker')}>
-              <SearchField
-                id="workout-search"
-                label={t('connectPage.workouts.search')}
-                clearLabel={t('connectPage.workouts.clearSearch')}
-                value={typed}
-                onChange={setTyped}
-              />
               <ChipGroup label={t('connectPage.workouts.equipment')}>
-                {(list.value?.equipment ?? []).map((slug) => (
+                {(shownList?.equipment ?? []).map((slug) => (
                   <Chip
                     key={slug}
                     selected={picker.equipment.includes(slug)}
@@ -606,8 +596,20 @@ export function WorkoutsPage({ route }: { route: Route }) {
                 label={t('connectPage.workouts.picker')}
                 tableId="workout-picker"
                 labels={labels}
+                filter={{
+                  id: 'workout-search',
+                  label: t('connectPage.filter.exercises'),
+                  clearLabel: t('connectPage.filter.clear'),
+                  value: typedFilter,
+                  onChange: setTypedFilter,
+                  count:
+                    shownList === undefined || catalogue.value === null
+                      ? null
+                      : filterCount(shownList.rows.length, catalogue.value.rows.length),
+                  countText: (count) => t('connectPage.filter.count', count),
+                }}
                 columns={pickerColumns}
-                rows={list.value?.rows ?? NO_ROWS}
+                rows={shownList?.rows ?? NO_ROWS}
                 rowKey={(row) => exerciseKey(row.category, row.name)}
                 onRowClick={(row) => void add(row.category, row.name)}
                 onOpen={(row) => void add(row.category, row.name)}

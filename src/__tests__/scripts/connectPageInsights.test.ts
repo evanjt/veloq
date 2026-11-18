@@ -138,7 +138,7 @@ function reply(): InsightsReply {
     ],
     hasStrengthData: false,
     strengthSeries: null,
-    form: { ctl: 40, atl: 55, date: '2026-01-10' },
+    form: { ctl: 40, atl: 55, date: '2026-01-10', form: -15, formAsPercent: false },
     weekOverWeek: {
       metric: 'tss',
       current: 120,

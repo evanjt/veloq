@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { refusalText } from '../link';
 import { ReadNotice } from '../shell/StatePanes';
 import { useQueries, useRead } from '../useRead';
 import { Button, Card, DataTable, EmptyState, ErrorState, SplitPane, TextField } from '../ui';
@@ -49,10 +50,10 @@ export function LivePage({ nowSeconds = () => Date.now() / 1000 }: { nowSeconds?
           { invalidates: ['strength.live'] }
         );
       } catch (error) {
-        setRefused(error instanceof Error ? error.message : String(error));
+        setRefused(refusalText(error, t));
       }
     },
-    [queries]
+    [queries, t]
   );
 
   // Each cell's last text sent or shown, so Enter then the blur it causes sends once.

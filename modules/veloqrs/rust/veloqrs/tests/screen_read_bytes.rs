@@ -222,6 +222,7 @@ fn activity_detail(v: FfiActivityDetailData) -> Lowered {
         matched_sections => |v: &FfiActivityDetailData| v.matched_sections.len(),
         custom_sections => |v: &FfiActivityDetailData| v.custom_sections.len(),
         encounters => |v: &FfiActivityDetailData| v.encounters.len(),
+        memberships => |v: &FfiActivityDetailData| v.memberships.len(),
         highlights,
         section_traces => |v: &FfiActivityDetailData| v.section_traces.len(),
         pr_section_ids => |v: &FfiActivityDetailData| v.pr_section_ids.len(),
@@ -346,6 +347,7 @@ fn startup(v: FfiStartupData) -> Lowered {
         summary_card,
         preview_tracks => |v: &FfiStartupData| v.preview_tracks.len(),
         sparklines,
+        remote_search,
     )
 }
 
@@ -362,6 +364,7 @@ fn fitness(v: FfiFitnessScreenData) -> Lowered {
         running_lthr,
         decoupling_sources,
         load_dots => |v: &FfiFitnessScreenData| v.load_dots.len(),
+        load_trend,
         weekly_hours => |v: &FfiFitnessScreenData| v.weekly_hours.len(),
         heatmap => |v: &FfiFitnessScreenData| v.heatmap.len(),
         calendar_first_day,
@@ -484,7 +487,16 @@ fn reads() -> Vec<(&'static str, Shape, Read)> {
         ("startup_data", Shape::Listing, |e, _| {
             let ids: Vec<String> = (0..5).map(|i| format!("a{i}")).collect();
             measure(
-                || e.startup_data(NOW - 7 * DAY, NOW, NOW - 14 * DAY, NOW - 7 * DAY, &ids),
+                || {
+                    e.startup_data(
+                        NOW - 7 * DAY,
+                        NOW,
+                        NOW - 14 * DAY,
+                        NOW - 7 * DAY,
+                        &ids,
+                        false,
+                    )
+                },
                 startup,
             )
         }),
@@ -539,6 +551,11 @@ fn reads() -> Vec<(&'static str, Shape, Read)> {
                         sport_families: vec![],
                         offset: 0,
                         limit: None,
+                        min_distance: None,
+                        max_distance: None,
+                        min_moving_time: None,
+                        max_moving_time: None,
+                        sort: None,
                     })
                     .expect("feed cards")
                 },

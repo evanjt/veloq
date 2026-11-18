@@ -1195,7 +1195,7 @@ impl PersistentEngine {
         // until the run ends, so a regroup scheduled meanwhile leaves the
         // question of what is still owed to this run's apply.
         let regroup_claim = if needs_group_recompute {
-            super::super::regroup::claim_regroup()
+            super::super::regroup::claim_regroup(&self.db_path)
         } else {
             None
         };

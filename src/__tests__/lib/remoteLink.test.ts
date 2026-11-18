@@ -49,6 +49,9 @@ class FakeSocket implements RelaySocket {
   }
 }
 
+const flush = () =>
+  new Promise<void>((resolve) => jest.requireActual('timers').setImmediate(resolve));
+
 function harness(rooms: string[], switchedOn = true, diagnose?: (line: string) => void) {
   const opened: FakeSocket[] = [];
   const toggle = { on: switchedOn };
@@ -56,7 +59,7 @@ function harness(rooms: string[], switchedOn = true, diagnose?: (line: string) =
   const engine: RemoteLinkEngine & { rooms: string[] } = {
     rooms,
     linkedRooms: jest.fn(() => engine.rooms),
-    acceptOffer: jest.fn((offer: string) => {
+    acceptOffer: jest.fn(async (offer: string) => {
       if (offer.includes('stranger')) throw new Error('not linked');
       return JSON.stringify({ type: 'answer', sdp: 'v=0 answer' });
     }),
@@ -128,26 +131,29 @@ describe('remote link', () => {
     expect(opened).toHaveLength(1);
   });
 
-  it('answers a linked browser and sends nothing to one the engine refuses', () => {
+  it('answers a linked browser and sends nothing to one the engine refuses', async () => {
     const { engine, link, live } = harness([ROOM_A]);
     link.foreground();
     const [socket] = live();
     const offer = JSON.stringify({ type: 'offer', sdp: 'v=0 linked' });
     socket.receive(offer);
     expect(engine.acceptOffer).toHaveBeenCalledWith(offer);
+    await flush();
     expect(socket.sent).toEqual([JSON.stringify({ type: 'answer', sdp: 'v=0 answer' })]);
 
     socket.receive(JSON.stringify({ type: 'offer', sdp: 'v=0 stranger' }));
     socket.receive('not json');
     socket.receive(JSON.stringify({ type: 'ice' }));
+    await flush();
     expect(socket.sent).toHaveLength(1);
   });
 
-  vaultIt('reports why an offer was refused instead of dropping it silently', () => {
+  vaultIt('reports why an offer was refused instead of dropping it silently', async () => {
     const lines: string[] = [];
     const { link, live } = harness([ROOM_A], true, (line) => lines.push(line));
     link.foreground();
     live()[0].receive(JSON.stringify({ type: 'offer', sdp: 'v=0 stranger' }));
+    await flush();
     expect(lines).toEqual(['offer refused: not linked']);
   });
 

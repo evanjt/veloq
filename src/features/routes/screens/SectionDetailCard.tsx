@@ -57,6 +57,7 @@ import { useMapSheetStop } from '@/shared/app/mapSheetStop';
 import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
 import { returnTo } from '@/shared/app/navigation';
 import { sectionOpenRange } from '@/shared/app/sectionOrigin';
+import { isWatchLinkEnabled, sendSectionGuide } from '@/shared/native/watchLink';
 import { useReadRetry } from '@/shared/native/useEngineSubscription';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { Button, EmptyState, ErrorState, HeroStatsRow, useBottomClearance } from '@/shared/ui';
@@ -64,7 +65,6 @@ import { Icon } from '@/shared/ui/Icon';
 import { usePagerPageScrollProps } from '@/shared/ui/pagerPageScroll';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
 import { colors, darkColors, iconSize, spacing, themePalette } from '@/theme';
-import type { RoutePoint } from '@/types';
 import type {
   FfiSectionChartPoint,
   FfiSectionCorrelation,
@@ -132,8 +132,9 @@ function SectionDetailCardContent({
   const cacheDays = useCacheDays(detail?.activityCount);
   const debugEnabled = useDebugStore((s) => s.enabled);
   const { getPageMetrics } = useFFITimer();
-  const { exportGpx, exporting: gpxExporting } = useGpxExport();
+  const { exportSectionGpx, exportSectionFit, exporting: gpxExporting } = useGpxExport();
   const exportAnchor = useRef<ViewInstance>(null);
+  const fitExportAnchor = useRef<ViewInstance>(null);
 
   // Nearby sections and merge candidates
   const mergeCandidates = detail?.mergeCandidates ?? [];
@@ -298,6 +299,16 @@ function SectionDetailCardContent({
   // The header floats over the map the sheet leaves, named after the section. Its overflow menu
   // holds the section's actions, Show on map first, then Edit bounds.
   const sectionType = section?.sectionType;
+  const sectionLine = section?.polyline;
+  // The switch lives in settings, so it is read again whenever this page comes back into focus.
+  const [watchLinkOn, setWatchLinkOn] = useState(isWatchLinkEnabled);
+  useFocusEffect(useCallback(() => setWatchLinkOn(isWatchLinkEnabled()), []));
+  const sendToWatch = useMemo(() => {
+    if (!sectionLine || sectionLine.length === 0 || !watchLinkOn) return undefined;
+    return () => {
+      void sendSectionGuide({ name: heroTitle ?? '', polyline: sectionLine });
+    };
+  }, [sectionLine, heroTitle, watchLinkOn]);
   const headerOptions = useMemo(() => {
     const options = overMapHeaderOptions({ title: heroTitle, isDark });
     if (sectionType === undefined) return { ...options, headerRight: () => null };
@@ -314,6 +325,7 @@ function SectionDetailCardContent({
           onRematch={handleRematchActivities}
           onShowOnMap={showOnMap}
           onEditBounds={startTrim}
+          onSendToWatch={sendToWatch}
           tint={options.headerTintColor}
         />
       ),
@@ -329,6 +341,7 @@ function SectionDetailCardContent({
     handleToggleDisable,
     handleRematchActivities,
     showOnMap,
+    sendToWatch,
     startTrim,
   ]);
   useMapSheetHostHeader(headerOptions);
@@ -501,15 +514,22 @@ function SectionDetailCardContent({
               loading={gpxExporting}
               icon={{ chrome: 'share' }}
               onPress={() =>
-                exportGpx({
-                  name: section.name || 'Section',
-                  points: section.polyline.map((p: RoutePoint) => ({
-                    latitude: p.lat,
-                    longitude: p.lng,
-                  })),
-                  sport: effectiveSportType,
-                  anchor: exportAnchor,
-                })
+                exportSectionGpx(id, { sport: effectiveSportType, anchor: exportAnchor })
+              }
+              disabled={gpxExporting}
+              style={styles.exportGpxButton}
+            />
+          )}
+          {section.polyline?.length > 0 && (
+            <Button
+              ref={fitExportAnchor}
+              testID="section-export-fit"
+              variant="secondary"
+              label={t('export.fit')}
+              loading={gpxExporting}
+              icon={{ chrome: 'share' }}
+              onPress={() =>
+                exportSectionFit(id, { sport: effectiveSportType, anchor: fitExportAnchor })
               }
               disabled={gpxExporting}
               style={styles.exportGpxButton}

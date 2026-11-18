@@ -25,7 +25,6 @@ import {
   detectionEngineOf,
 } from '@/features/routes/lib/detectionRun';
 import { scalePercent } from '@/features/routes/lib/scalePercent';
-import { reportTrackFetchRun } from '@/features/routes/lib/trackFetchNotice';
 import {
   abandonDownload,
   pollDownloadProgress,
@@ -502,12 +501,9 @@ export function useGpsDataFetcher() {
         return ending('no-result');
       }
 
-      // A route whose GPS never arrives is the athlete's symptom and the
-      // retries have already run out, so the run says so on screen. The warning
-      // beside it is for a developer: Babel strips every console call but
-      // `error` from a release build, which is why this was the only record and
-      // was not there.
-      reportTrackFetchRun(result);
+      // Which tracks the engine has given up on is read from the engine by the
+      // notice. This warning is for a developer only: Babel strips every
+      // console call but `error` from a release build.
       if (result.failedIds.length > 0) {
         console.warn(
           `[fetchApiGps] ${result.failedIds.length} GPS download(s) still failing: ` +

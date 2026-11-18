@@ -2732,6 +2732,39 @@ pub(crate) mod pooled {
         )
     }
 
+    /// Every route group this activity has a match row in, with whether the
+    /// athlete excluded it from that route. The group's own member list keeps
+    /// an excluded activity, so the match row is the one record of it.
+    pub(crate) fn activity_route_memberships(
+        conn: &Connection,
+        activity_id: &str,
+    ) -> Vec<crate::FfiActivityMembership> {
+        let rows: Vec<(String, bool)> = conn
+            .prepare(
+                "SELECT am.route_id, MAX(am.excluded) = 1 FROM activity_matches am
+                 JOIN route_groups g ON g.id = am.route_id
+                 WHERE am.activity_id = ? GROUP BY am.route_id ORDER BY am.route_id",
+            )
+            .and_then(|mut stmt| {
+                stmt.query_map(params![activity_id], |row| Ok((row.get(0)?, row.get(1)?)))?
+                    .collect::<SqlResult<_>>()
+            })
+            .unwrap_or_else(|error| {
+                log::warn!("[routes] memberships of {activity_id}: {error:?}");
+                Vec::new()
+            });
+        let ids: Vec<&str> = rows.iter().map(|(id, _)| id.as_str()).collect();
+        let mut names = route_names_for(conn, &ids);
+        rows.into_iter()
+            .map(|(id, excluded)| crate::FfiActivityMembership {
+                kind: "route".to_string(),
+                name: names.remove(&id),
+                id,
+                excluded,
+            })
+            .collect()
+    }
+
     /// The activities the athlete took out of a route group.
     pub(crate) fn excluded_route_activity_ids(conn: &Connection, route_id: &str) -> Vec<String> {
         let mut stmt = match conn.prepare(
@@ -3470,6 +3503,6 @@ mod regroup_signature_reads {
             "the second regroup read row by row"
         );
         assert_eq!(again, grouped, "the same library grouped differently");
-        crate::test_trace::untrace(&engine.db);
+        crate::test_trace::untrace(&mut engine.db);
     }
 }

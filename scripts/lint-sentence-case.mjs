@@ -80,7 +80,6 @@ const EXEMPT_PREFIXES = ['activityTypes.'];
 // routes already named carry. The connect page's key list names its tabs as
 // the rail writes them.
 const EXEMPT_KEYS = new Set([
-  'connectPage.keys.tabs',
   'fitnessScreen.linkTSBManagement',
   'fitnessScreen.linkTrainingLoad',
   'routes.placeLoop',

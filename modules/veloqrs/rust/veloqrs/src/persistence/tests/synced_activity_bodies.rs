@@ -111,6 +111,11 @@ fn test_feed_page_answers_the_row_key_for_a_synced_upload() {
             sport_families: Vec::new(),
             offset: 0,
             limit: None,
+            min_distance: None,
+            max_distance: None,
+            min_moving_time: None,
+            max_moving_time: None,
+            sort: None,
         },
     )
     .expect("page");

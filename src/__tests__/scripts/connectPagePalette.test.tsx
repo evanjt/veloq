@@ -4,7 +4,7 @@
  *
  * Expected behaviour: typing a section's name and pressing Enter navigates to
  * that section's address; pages and actions are found by name; the shortcuts
- * overlay lists exactly the keys registered, so it follows what is wired.
+ * dialog lists exactly the keys registered, so it follows what is wired.
  */
 
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
@@ -40,7 +40,10 @@ const phone = () =>
         sections: SECTIONS.sections.filter((section) => has(section.name, ask.sectionSearch)),
       };
     }
-    if (method === 'feed.page') return { cards: [], more: false };
+    if (method === 'feed.page') return { cards: [], more: false, matchedCount: 0 };
+    if (method === 'strength.picker') return { rows: [], equipment: [], muscles: [] };
+    if (method === 'strength.workouts') return { workouts: [] };
+    if (method === 'recordings.list') return { recordings: [] };
     throw new Error(`unexpected read ${method}`);
   });
 
@@ -109,6 +112,80 @@ describe('the command palette', () => {
   });
 });
 
+describe('the palette groups', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  const headings = (root: ReactTestRenderer) =>
+    root.root
+      .findAll((node) => node.type === 'li' && node.props.role === 'presentation')
+      .map((node) => node.props['data-group']);
+
+  it('lists the pages and the actions when nothing is typed', async () => {
+    let root!: ReactTestRenderer;
+    await act(async () => {
+      root = create(
+        phone().wrap(
+          <CommandPalette
+            open
+            onClose={() => {}}
+            navigate={() => {}}
+            actions={[{ id: 'theme', label: 'Toggle theme', run: () => {} }]}
+          />
+        )
+      );
+    });
+    expect(headings(root)).toEqual(['page', 'action']);
+    root.unmount();
+  });
+
+  it('shows five routes of seven and a row that opens the list with the text', async () => {
+    const navigate = jest.fn();
+    const many = fakePhone((method: string) => {
+      if (method === 'routes.screen') {
+        return {
+          groups: Array.from({ length: 7 }, (_, at) => ({
+            groupId: `g${at}`,
+            customName: `Lake loop ${at}`,
+            distanceMeters: 1,
+            activityCount: 2,
+          })),
+          sections: [],
+        };
+      }
+      if (method === 'feed.page') return { cards: [], more: false, matchedCount: 0 };
+      if (method === 'strength.picker') return { rows: [], equipment: [], muscles: [] };
+      if (method === 'strength.workouts') return { workouts: [] };
+      return { recordings: [] };
+    });
+    let root!: ReactTestRenderer;
+    await act(async () => {
+      root = create(
+        many.wrap(<CommandPalette open onClose={() => {}} navigate={navigate} actions={[]} />)
+      );
+    });
+    await act(async () => {
+      input(root).props.onChange({ currentTarget: { value: 'lake loop' } });
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+    await settle();
+    expect(headings(root)).toEqual(['route']);
+    const options = root.root.findAll((node) => node.type === 'li' && node.props.role === 'option');
+    expect(options).toHaveLength(6);
+    await act(async () => {
+      options[5]?.props.onClick();
+    });
+    expect(navigate).toHaveBeenCalledWith({
+      screen: 'routes',
+      id: null,
+      query: [['q', 'lake loop']],
+    });
+    root.unmount();
+  });
+});
+
 describe('ranking', () => {
   const items = [{ label: 'Activities' }, { label: 'Fitness' }, { label: 'Fit file import' }];
 
@@ -137,7 +214,7 @@ describe('palette keys', () => {
   });
 });
 
-describe('the shortcuts overlay', () => {
+describe('the shortcuts dialog', () => {
   it('lists every key registered and drops one when it is unregistered', async () => {
     const off = registerShortcut({
       keys: ['x', 'y'],
@@ -146,7 +223,7 @@ describe('the shortcuts overlay', () => {
     });
     let root!: ReactTestRenderer;
     await act(async () => {
-      root = create(<KeysPane />);
+      root = create(<KeysPane open onClose={() => {}} />);
     });
     const text = () => JSON.stringify(root.toJSON());
     expect(

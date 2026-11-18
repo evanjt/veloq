@@ -43,6 +43,34 @@ describe('the FFI docstring matches the generated bindings', () => {
     expect(bindingDocs(exports, bindings()).size).toBe(exports.length);
   });
 
+  it('keeps a doc block above a plain comment and an attribute', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-ffi-src-'));
+    try {
+      fs.writeFileSync(
+        path.join(dir, 'lib.rs'),
+        [
+          '#[uniffi::export]',
+          'impl Widget {',
+          '    /// Counts the ticks',
+          '    /// since the last reset.',
+          '    // Takes each field as its own argument.',
+          '    #[allow(clippy::too_many_arguments)]',
+          '    fn tick_count(&self) -> u32 {',
+          '        0',
+          '    }',
+          '}',
+          '',
+        ].join('\n')
+      );
+
+      expect(extractFfiExports(dir).map((e) => e.docs)).toEqual([
+        'Counts the ticks since the last reset.',
+      ]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('reads the same docstrings the Rust source carries', () => {
     const drift = docDrift(extractFfiExports(), bindings());
     if (drift.length > 0) {

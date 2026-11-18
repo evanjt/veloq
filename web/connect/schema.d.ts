@@ -41,6 +41,7 @@ export type AthleteProfile = {
   /**
    * The athlete's weight in kilograms: `icu_weight`, which is where the body
    * sends it, else `weight`. Absent unless positive.
+   * Unit: kilogram.
    */
   weightKg: number | null;
   /**
@@ -61,6 +62,14 @@ export type AthleteProfile = {
 export type BackgroundJob = string;
 
 /**
+ * Why the phone ends a connection, which it tells the browser before it
+ * hangs up so the page can say so at once. The farewell line carries it in
+ * camelCase.
+ */
+export type DisconnectReason =
+  'background' | 'switchedOff' | 'removed' | 'disconnected' | 'declined';
+
+/**
  * Direction of the ratio's trend over matched section efforts.
  */
 export type EfficiencyDirection = 'improving' | 'flat' | 'worsening';
@@ -69,7 +78,13 @@ export type EfficiencyDirection = 'improving' | 'flat' | 'worsening';
  * A relative target converted by the threshold the plan carries.
  */
 export type FfiAbsoluteTarget = {
+  /**
+   * Unit: FfiAbsoluteUnits.
+   */
   low: number;
+  /**
+   * Unit: FfiAbsoluteUnits.
+   */
   high: number;
   units: FfiAbsoluteUnits;
 };
@@ -78,6 +93,39 @@ export type FfiAbsoluteTarget = {
  * The unit a relative target converts to.
  */
 export type FfiAbsoluteUnits = 'watts' | 'bpm';
+
+/**
+ * The activities whose tracks pass under a point on the map, grouped by route.
+ */
+export type FfiActivitiesUnderPoint = {
+  /**
+   * Every activity that passes under the point, before the cap.
+   * Unit: count.
+   */
+  total: number;
+  /**
+   * The cap left some of them out of `groups`.
+   */
+  truncated: boolean;
+  /**
+   * The most traces the map draws for one group under the point, so the
+   * sheet can say how many of a group are drawn. Zero when nothing is under
+   * the point.
+   * Unit: count.
+   */
+  traceCap: number;
+  /**
+   * One group per route the activities belong to, the biggest first, then
+   * the group of activities in no route.
+   */
+  groups: FfiUnderPointGroup[];
+  /**
+   * Every activity the groups list, each once, newest first, without the
+   * grouping. A shared activity is listed here once, where the groups list
+   * it under both.
+   */
+  activities: FfiUnderPointActivity[];
+};
 
 /**
  * All data needed to paint the activity detail screen in one call.
@@ -94,6 +142,7 @@ export type FfiActivityDetailData = {
   fitnessImpact: FfiActivityFitnessImpact | null;
   /**
    * Total activities held by the engine
+   * Unit: count.
    */
   activityCount: number;
   /**
@@ -104,6 +153,7 @@ export type FfiActivityDetailData = {
   hasGpsTrack: boolean;
   /**
    * Total sections held by the engine
+   * Unit: count.
    */
   sectionCount: number;
   /**
@@ -137,6 +187,12 @@ export type FfiActivityDetailData = {
    */
   encounters: FfiSectionEncounter[];
   /**
+   * Every route and visible section this activity matched, with whether the
+   * athlete took it out of that one. The matched lists above leave an
+   * excluded pass out, so this is the only place one still shows.
+   */
+  memberships: FfiActivityMembership[];
+  /**
    * Section indicators and route highlights for this activity
    */
   highlights: FfiActivityHighlightsBundle;
@@ -152,6 +208,7 @@ export type FfiActivityDetailData = {
    * The max HR this activity's heart rate is read against: the top of its
    * own zones, then the sport setting for its type, then 190. The stat card
    * and the zones chart both divide by it.
+   * Unit: beat_per_minute.
    */
   maxHr: number;
   /**
@@ -215,15 +272,26 @@ export type FfiActivityDetailData = {
  * An activity's contribution against a rest day, before display rounding.
  */
 export type FfiActivityFitnessImpact = {
+  /**
+   * Unit: tss.
+   */
   fitness: number;
+  /**
+   * Unit: tss.
+   */
   fatigue: number;
+  /**
+   * Unit: tss_or_percent.
+   */
   form: number;
   /**
    * The fitness time constant in days in effect on the activity's date
+   * Unit: day.
    */
   fitnessDays: number;
   /**
    * The fatigue time constant in days in effect on the activity's date
+   * Unit: day.
    */
   fatigueDays: number;
 };
@@ -277,9 +345,13 @@ export type FfiActivityIndicator = {
   targetId: string;
   targetName: string;
   direction: string;
+  /**
+   * Unit: second.
+   */
   lapTime: number;
   /**
    * -1=declining, 0=stable, 1=improving
+   * Unit: code.
    */
   trend: number;
   /**
@@ -292,36 +364,57 @@ export type FfiActivityIndicator = {
  * One lap of an activity.
  */
 export type FfiActivityInterval = {
+  /**
+   * Unit: identifier.
+   */
   id: number;
   kind: FfiIntervalKind;
   /**
    * The training zone the server placed a work interval in, from 1.
+   * Unit: index.
    */
   zone: number | null;
   /**
    * Elapsed seconds from the activity start. Index-free, so it survives a
    * reduction of the streams, which the indices below do not. Every body
    * measured carries them; the indices place a lap that comes without.
+   * Unit: second.
    */
   startTime: number | null;
+  /**
+   * Unit: second.
+   */
   endTime: number | null;
   /**
    * Positions in the server's own streams.
+   * Unit: index.
    */
   startIndex: number;
+  /**
+   * Unit: index.
+   */
   endIndex: number;
+  /**
+   * Unit: watt.
+   */
   averageWatts: number | null;
+  /**
+   * Unit: beat_per_minute.
+   */
   averageHeartrate: number | null;
   /**
    * Metres per second.
+   * Unit: metre_per_second.
    */
   averageSpeed: number | null;
   /**
    * Seconds.
+   * Unit: second.
    */
   movingTime: number | null;
   /**
    * Metres.
+   * Unit: metre.
    */
   distance: number | null;
   /**
@@ -376,6 +469,28 @@ export type FfiActivityLedgerChange = {
 };
 
 /**
+ * A route or section an activity matched, and whether the athlete excluded
+ * the activity from it.
+ */
+export type FfiActivityMembership = {
+  /**
+   * `"route"` or `"section"`.
+   */
+  kind: string;
+  id: string;
+  /**
+   * The name it is shown under, `None` while it has none.
+   */
+  name: string | null;
+  /**
+   * For a route, the match row's flag. For a section, whether no counted
+   * pass remains: an activity with only some laps excluded is not
+   * excluded, that state is per lap.
+   */
+  excluded: boolean;
+};
+
+/**
  * Activity metrics for FFI
  */
 export type FfiActivityMetrics = {
@@ -383,30 +498,37 @@ export type FfiActivityMetrics = {
   name: string;
   /**
    * Unix timestamp (seconds since epoch)
+   * Unit: epoch_second.
    */
   date: number;
   /**
    * Distance in meters
+   * Unit: metre.
    */
   distance: number;
   /**
    * Moving time in seconds
+   * Unit: second.
    */
   movingTime: number;
   /**
    * Elapsed time in seconds
+   * Unit: second.
    */
   elapsedTime: number;
   /**
    * Total elevation gain in meters
+   * Unit: metre.
    */
   elevationGain: number;
   /**
    * Average heart rate (optional)
+   * Unit: beat_per_minute.
    */
   avgHr: number | null;
   /**
    * Average power in watts (optional)
+   * Unit: watt.
    */
   avgPower: number | null;
   /**
@@ -415,10 +537,12 @@ export type FfiActivityMetrics = {
   sportType: string;
   /**
    * Training load / TSS (optional)
+   * Unit: tss.
    */
   trainingLoad: number | null;
   /**
    * FTP used for this activity (optional)
+   * Unit: watt.
    */
   ftp: number | null;
 };
@@ -433,6 +557,7 @@ export type FfiActivityName = {
   name: string;
   /**
    * Start time as epoch seconds, so a caller can order what it draws.
+   * Unit: epoch_second.
    */
   date: number;
 };
@@ -445,14 +570,17 @@ export type FfiActivityNewGround = {
   activityId: string;
   /**
    * `new_tiles` over `tiles`, from 0 to 1.
+   * Unit: ratio.
    */
   fraction: number;
   /**
    * Tiles the activity touches.
+   * Unit: count.
    */
   tiles: number;
   /**
    * Tiles no earlier activity touched.
+   * Unit: count.
    */
   newTiles: number;
 };
@@ -490,50 +618,81 @@ export type FfiActivityRecord = {
   deviceName: string | null;
   /**
    * Seconds.
+   * Unit: second.
    */
   movingTime: number;
   /**
    * Metres.
+   * Unit: metre.
    */
   distance: number;
   /**
    * Metres climbed.
+   * Unit: metre.
    */
   elevationGain: number;
   /**
    * Beats per minute.
+   * Unit: beat_per_minute.
    */
   avgHr: number | null;
+  /**
+   * Unit: beat_per_minute.
+   */
   maxHr: number | null;
   /**
    * Watts.
+   * Unit: watt.
    */
   avgPower: number | null;
+  /**
+   * Unit: watt.
+   */
   maxPower: number | null;
   /**
    * Kilocalories.
+   * Unit: kilocalorie.
    */
   calories: number | null;
+  /**
+   * Unit: tss.
+   */
   trainingLoad: number | null;
   /**
    * Intensity factor as a percentage.
+   * Unit: percent.
    */
   intensity: number | null;
   /**
    * The FTP the activity was scored against, and the eFTP it estimated.
+   * Unit: watt.
    */
   ftp: number | null;
+  /**
+   * Unit: watt.
+   */
   eftp: number | null;
+  /**
+   * Unit: trimp.
+   */
   trimp: number | null;
+  /**
+   * Unit: point.
+   */
   strainScore: number | null;
   /**
    * Heart rate recovery, the drop in beats per minute.
+   * Unit: beat_per_minute.
    */
   hrRecovery: number | null;
+  /**
+   * Unit: ratio.
+   */
   efficiencyFactor: number | null;
   /**
    * Aerobic decoupling in percent, `None` when intervals.icu stored no
    * finite value.
+   * Unit: percent.
    */
   decoupling: number | null;
   /**
@@ -549,18 +708,22 @@ export type FfiActivityRecord = {
   hasWeather: boolean;
   /**
    * Degrees Celsius from the weather.
+   * Unit: degree_celsius.
    */
   weatherTemp: number | null;
   /**
    * Degrees Celsius from the device's own sensor.
+   * Unit: degree_celsius.
    */
   sensorTemp: number | null;
   /**
    * Degrees Celsius, from whichever of its names the body carries.
+   * Unit: degree_celsius.
    */
   feelsLike: number | null;
   /**
    * Metres a second.
+   * Unit: metre_per_second.
    */
   windSpeed: number | null;
   /**
@@ -582,17 +745,20 @@ export type FfiActivityRouteHighlight = {
   isPr: boolean;
   /**
    * -1=slower than preceding avg, 0=neutral, 1=faster
+   * Unit: code.
    */
   trend: number;
   /**
    * Seconds between this activity's moving time and the route PR's moving
    * time. Negative = ahead of PR, positive = behind PR. None when there is
    * no PR comparison available (e.g. first attempt).
+   * Unit: second.
    */
   timeDeltaSeconds: number | null;
   /**
    * When is_pr: seconds faster than the previous best attempt. None when
    * this is the only timed attempt, when times tie, or when not a PR.
+   * Unit: second.
    */
   prImprovementSeconds: number | null;
   /**
@@ -640,23 +806,28 @@ export type FfiActivityStreams = {
 export type FfiActivitySummary = {
   /**
    * Moving time in seconds
+   * Unit: second.
    */
   movingTime: number | null;
   /**
    * Elapsed time in seconds, pauses and stops included
+   * Unit: second.
    */
   elapsedTime: number | null;
   /**
    * Average speed in m/s
+   * Unit: metre_per_second.
    */
   averageSpeed: number | null;
   /**
    * Max speed in m/s
+   * Unit: metre_per_second.
    */
   maxSpeed: number | null;
   /**
    * Average cadence in `cadence_unit`: steps a minute on foot, where
    * intervals.icu stores strides
+   * Unit: FfiCadenceUnit.
    */
   averageCadence: number | null;
   /**
@@ -686,23 +857,35 @@ export type FfiActivitySyncFailure = {
  * and the last bin is closed.
  */
 export type FfiAttemptHistogram = {
+  /**
+   * Unit: second.
+   */
   startSecs: number;
+  /**
+   * Unit: second.
+   */
   binWidthSecs: number;
+  /**
+   * Unit: count.
+   */
   counts: number[];
   /**
    * A section's speed in m/s over each bin edge, `counts.len() + 1` values,
    * so the axis is labelled in the scatter's unit. `None` for a route,
    * whose attempts differ in length and whose scatter plots time. An edge
    * at zero seconds reads 0.
+   * Unit: metre_per_second.
    */
   edgeSpeeds: number[] | null;
   /**
    * Attempts in the bins.
+   * Unit: count.
    */
   binned: number;
   /**
    * Route attempts the scatter draws that the bins leave out for lying
    * outside the distance band. Zero for a section.
+   * Unit: count.
    */
   unbinnedOutsideBand: number;
 };
@@ -730,6 +913,7 @@ export type FfiBackgroundJobsData = {
   /**
    * Stored activities no detect has seen. `None` when it cannot be counted,
    * which must not read as nothing left to do.
+   * Unit: count.
    */
   detectionAwaiting: number | null;
   /**
@@ -740,11 +924,13 @@ export type FfiBackgroundJobsData = {
    * Whole days the stream backfill's daily allowance takes to draw what it
    * owes, when that is more than one day. `None` when the queue fits in a
    * day, is empty, or cannot be counted.
+   * Unit: day.
    */
   streamDaysToFinish: number | null;
   /**
    * The activities the backfill draws in one budget day, the figure
    * `stream_days_to_finish` counts against. `None` when it has no daily cap.
+   * Unit: count.
    */
   backfillDayShare: number | null;
   /**
@@ -755,13 +941,13 @@ export type FfiBackgroundJobsData = {
    * When the elevation and stream downloads may next be asked again, in
    * epoch milliseconds, while a refusal's cooldown or the request budget
    * holds them. `None` when nothing holds them.
+   * Unit: epoch_millisecond.
    */
   downloadsHeldUntilMs: number | null;
   /**
-   * Whether intervals.icu asked for that wait, rather than this install's
-   * own request budget.
+   * Who asked for that wait. `None` when nothing holds them.
    */
-  downloadsHeldByUpstream: boolean;
+  downloadsHeldCause: FfiHoldCause | null;
   /**
    * What the backfill has drawn of today's allowance and when it resets.
    * `None` where the governor only paces.
@@ -787,16 +973,19 @@ export type FfiBackupScreenData = {
   /**
    * History rows the latest restore left in its backup file because no
    * section here covers their ground.
+   * Unit: count.
    */
   notRestored: number;
   /**
    * Route names the latest restore gave up on because the grouping here
    * merged their routes into one that already took a restored name.
+   * Unit: count.
    */
   namesNotRestored: number;
   /**
    * The running record backup's id, for `cancel_run`, or nothing running.
    * Read from the job, not the database: a backup is single-flight.
+   * Unit: identifier.
    */
   recordBackupRun: number | null;
 };
@@ -805,20 +994,24 @@ export type FfiBestEffort = {
   kind: FfiBestEffortKind;
   /**
    * Seconds for power, metres for pace.
+   * Unit: metre.
    */
   checkpoint: number;
   /**
    * Watts for power, metres per second for pace. Empty when the curve
    * holds no sample within tolerance of the checkpoint.
+   * Unit: watt.
    */
   value: number | null;
   /**
    * Seconds taken to cover the distance, for pace only.
+   * Unit: second.
    */
   time: number | null;
   activityId: string | null;
   /**
    * Watts per kilogram for power, from the curve's own per-kilogram series.
+   * Unit: watt_per_kilogram.
    */
   wattsPerKg: number | null;
   /**
@@ -879,6 +1072,7 @@ export type FfiBoundaryReason = {
   /**
    * How much of the drawn line a seam clip took off, in metres; absent on
    * every other reason.
+   * Unit: metre.
    */
   clippedMetres: number | null;
 };
@@ -887,17 +1081,36 @@ export type FfiBoundaryReason = {
  * A bounding box in degrees.
  */
 export type FfiBounds = {
+  /**
+   * Unit: degree.
+   */
   minLat: number;
+  /**
+   * Unit: degree.
+   */
   maxLat: number;
+  /**
+   * Unit: degree.
+   */
   minLng: number;
+  /**
+   * Unit: degree.
+   */
   maxLng: number;
 };
 
 export type FfiCacheScreenData = {
+  /**
+   * Unit: day.
+   */
   streamRetentionDays: number;
+  /**
+   * Unit: byte.
+   */
   streamStoreBytes: number;
   /**
    * Bytes the kept originals take, deflated, as the originals owner counts them.
+   * Unit: byte.
    */
   originalStoreBytes: number;
   activityYearCounts: FfiYearCount[];
@@ -914,14 +1127,17 @@ export type FfiCadenceUnit = 'rpm' | 'stepsPerMinute' | 'strokesPerMinute';
 export type FfiCalendarDirectionBest = {
   /**
    * Number of traversals in this direction
+   * Unit: count.
    */
   count: number;
   /**
    * Best time in seconds
+   * Unit: second.
    */
   bestTime: number;
   /**
    * Best pace in m/s
+   * Unit: metre_per_second.
    */
   bestPace: number;
   /**
@@ -940,14 +1156,17 @@ export type FfiCalendarDirectionBest = {
 export type FfiCalendarMonthSummary = {
   /**
    * Month number (1-12)
+   * Unit: month.
    */
   month: number;
   /**
    * Total traversals in this month (both directions), one per lap
+   * Unit: count.
    */
   traversalCount: number;
   /**
    * Distinct activities those traversals came from
+   * Unit: count.
    */
   activityCount: number;
   /**
@@ -978,6 +1197,7 @@ export type FfiCalendarSummary = {
   reversePr: FfiCalendarDirectionBest | null;
   /**
    * Section distance in meters
+   * Unit: metre.
    */
   sectionDistance: number;
 };
@@ -988,14 +1208,17 @@ export type FfiCalendarSummary = {
 export type FfiCalendarYearSummary = {
   /**
    * Calendar year
+   * Unit: year.
    */
   year: number;
   /**
    * Total traversals in this year, one per lap
+   * Unit: count.
    */
   traversalCount: number;
   /**
    * Distinct activities those traversals came from
+   * Unit: count.
    */
   activityCount: number;
   /**
@@ -1018,10 +1241,23 @@ export type FfiCalendarYearSummary = {
  */
 export type FfiCatalogueEmptyReason =
   | 'noGpsActivities'
-  | { notYetRun: { awaiting: number } }
-  | { running: { phase: string; percent: number } }
+  | {
+      notYetRun: {
+        /** Unit: count. */ awaiting: number;
+      };
+    }
+  | {
+      running: {
+        phase: string;
+        /** Unit: percent. */ percent: number;
+      };
+    }
   | { held: { hold: FfiDetectionHold } }
-  | { noneFound: { minActivities: number } };
+  | {
+      noneFound: {
+        /** Unit: count. */ minActivities: number;
+      };
+    };
 
 /**
  * One boundary record, reduced to its counts. `count` of `of` is the share
@@ -1031,10 +1267,17 @@ export type FfiCatalogueEmptyReason =
  */
 export type FfiChangeReason = {
   kind: string;
+  /**
+   * Unit: count.
+   */
   count: number | null;
+  /**
+   * Unit: count.
+   */
   of: number | null;
   /**
    * Metres a trim removed or a seam clip shortened.
+   * Unit: metre.
    */
   metres: number | null;
   /**
@@ -1056,17 +1299,25 @@ export type FfiClaimBasis = {
   baseline: string;
   /**
    * The earlier readings inside the window.
+   * Unit: count.
    */
   population: number;
 };
 
 export type FfiClimbBest = {
   label: string;
+  /**
+   * Unit: second.
+   */
   windowS: number;
   /**
    * Vertical metres per hour. Empty when no activity measured the window.
+   * Unit: metre_per_hour.
    */
   vam: number | null;
+  /**
+   * Unit: watt_per_kilogram.
+   */
   wattsPerKg: number | null;
   activityId: string | null;
   /**
@@ -1083,11 +1334,13 @@ export type FfiClimbBests = {
   sport: string;
   /**
    * Activities in the period whose climb rows are still being computed.
+   * Unit: count.
    */
   owed: number;
   /**
    * Activities in the period holding climb rows whose elevation is not the
    * corrected series, so they are left out of the bests.
+   * Unit: count.
    */
   sourceExcluded: number;
   /**
@@ -1101,10 +1354,32 @@ export type FfiClimbBests = {
  * be read off a state that has none.
  */
 export type FfiCorrelation =
-  | { tooFew: { n: number } }
-  | { undefined: { n: number } }
-  | { inconclusive: { r: number; n: number; low: number; high: number } }
-  | { mover: { r: number; n: number; low: number; high: number } };
+  | {
+      tooFew: {
+        /** Unit: count. */ n: number;
+      };
+    }
+  | {
+      undefined: {
+        /** Unit: count. */ n: number;
+      };
+    }
+  | {
+      inconclusive: {
+        /** Unit: ratio. */ r: number;
+        /** Unit: count. */ n: number;
+        /** Unit: ratio. */ low: number;
+        /** Unit: ratio. */ high: number;
+      };
+    }
+  | {
+      mover: {
+        /** Unit: ratio. */ r: number;
+        /** Unit: count. */ n: number;
+        /** Unit: ratio. */ low: number;
+        /** Unit: ratio. */ high: number;
+      };
+    };
 
 /**
  * A catalogue row as the old-versus-new map draws it, hidden rows included.
@@ -1122,10 +1397,12 @@ export type FfiCurrentMapSection = {
   supersededBy: string | null;
   /**
    * Its stored length.
+   * Unit: metre.
    */
   distanceMeters: number;
   /**
    * Traversals, one per pass.
+   * Unit: count.
    */
   visitCount: number;
   /**
@@ -1140,9 +1417,21 @@ export type FfiCurrentMapSection = {
 export type FfiCurveActivity = {
   id: string;
   name: string;
+  /**
+   * Unit: metre.
+   */
   distance: number;
+  /**
+   * Unit: second.
+   */
   movingTime: number;
+  /**
+   * Unit: tss.
+   */
   trainingLoad: number;
+  /**
+   * Unit: kilogram.
+   */
   weight: number;
   startDateLocal: string;
   race: boolean;
@@ -1156,14 +1445,17 @@ export type FfiCurveActivity = {
 export type FfiDailyLimit = {
   /**
    * Requests the backfill has drawn in this budget day.
+   * Unit: count.
    */
   used: number;
   /**
    * The backfill's requests for a budget day.
+   * Unit: count.
    */
   perDay: number;
   /**
    * When this install's daily count next resets.
+   * Unit: epoch_millisecond.
    */
   resetsAtMs: number;
 };
@@ -1174,15 +1466,18 @@ export type FfiDailyLimit = {
 export type FfiDayLoad = {
   /**
    * Local date, `YYYY-MM-DD`.
+   * Unit: iso_date.
    */
   date: string;
   status: FfiDayLoadStatus;
   /**
    * Sum of the recorded loads, absent when none is recorded.
+   * Unit: tss.
    */
   total: number | null;
   /**
    * Activities on the day, loaded or not.
+   * Unit: count.
    */
   activityCount: number;
 };
@@ -1205,6 +1500,7 @@ export type FfiDecouplingSource = {
   startDateLocal: string;
   /**
    * Percentage, as intervals.icu computed it.
+   * Unit: percent.
    */
   decoupling: number;
 };
@@ -1216,6 +1512,9 @@ export type FfiDecouplingSource = {
 export type FfiDepartedRide = {
   activityId: string;
   name: string;
+  /**
+   * Unit: epoch_second.
+   */
   date: number;
 };
 
@@ -1223,7 +1522,14 @@ export type FfiDepartedRide = {
  * What is refusing a detect that is owed.
  */
 export type FfiDetectionHold =
-  'elevationPaused' | 'elevationRunning' | { elevationWaiting: { remaining: number } } | 'cutover';
+  | 'elevationPaused'
+  | 'elevationRunning'
+  | {
+      elevationWaiting: {
+        /** Unit: count. */ remaining: number;
+      };
+    }
+  | 'cutover';
 
 /**
  * One direction's laps measured against its reference, on an axis running
@@ -1244,6 +1550,7 @@ export type FfiDirectionDeltas = {
   /**
    * The largest number of seconds any of `laps` is behind or ahead of the
    * reference, 0 when none has a finite delta.
+   * Unit: second.
    */
   peakDeltaSecs: number;
   /**
@@ -1277,6 +1584,7 @@ export type FfiDirectionDeltas = {
 export type FfiDirectionStats = {
   /**
    * Average time across counted traversals in this direction (seconds)
+   * Unit: second.
    */
   avgTime: number | null;
   /**
@@ -1285,14 +1593,17 @@ export type FfiDirectionStats = {
   lastActivity: WholeNumber | null;
   /**
    * Number of traversals in this direction
+   * Unit: count.
    */
   count: number;
   /**
    * Counted distance over counted time in this direction (m/s).
+   * Unit: metre_per_second.
    */
   avgSpeed: number | null;
   /**
    * Timed route attempts outside the distance band, absent from the averages.
+   * Unit: count.
    */
   outsideBandCount: number;
 };
@@ -1304,19 +1615,23 @@ export type FfiDirectionStats = {
 export type FfiEfficiencyPoint = {
   /**
    * Unix timestamp of the activity
+   * Unit: epoch_second.
    */
   date: number;
   /**
    * Pace in seconds per km
+   * Unit: second_per_kilometre.
    */
   paceSecsPerKm: number;
   /**
    * Average heart rate during this traversal
+   * Unit: beat_per_minute.
    */
   avgHr: number;
   /**
    * Heart rate per unit of speed: avg_hr * pace_secs_per_km. Lower is
    * fewer beats for the same speed, which is more efficient.
+   * Unit: beat_second_per_kilometre.
    */
   hrPaceRatio: number;
 };
@@ -1346,6 +1661,7 @@ export type FfiEfficiencyTrend = {
   points: FfiEfficiencyPoint[];
   /**
    * Linear regression slope of the ratio over time (negative = improving)
+   * Unit: ratio.
    */
   trendSlope: number;
   /**
@@ -1356,16 +1672,19 @@ export type FfiEfficiencyTrend = {
    * The ratio's own change over the observed range, restated in bpm at the
    * mean pace. Not a measured heart rate delta: an effort set that only
    * changed pace moves it too.
+   * Unit: beat_per_minute.
    */
   hrChangeBpm: number;
   /**
    * Efforts the regression used: both signals present and a plausible pace
+   * Unit: count.
    */
   effortCount: number;
   /**
    * The newest effort's ratio against the mean of the series, in the
    * series' own standard deviations. Absent where the series has no spread
    * to measure against.
+   * Unit: standard_deviation.
    */
   signalDelta: number | null;
 };
@@ -1380,14 +1699,17 @@ export type FfiEftpChange = {
   activityId: string;
   /**
    * Activity start (Unix timestamp seconds).
+   * Unit: epoch_second.
    */
   date: number;
   /**
    * The accepted eFTP after the activity, in watts.
+   * Unit: watt.
    */
   eftp: number;
   /**
    * What the activity moved it by, with its sign.
+   * Unit: watt.
    */
   delta: number;
   activityName: string;
@@ -1404,8 +1726,17 @@ export type FfiExerciseContribution = {
    * "primary" | "secondary"
    */
   role: string;
+  /**
+   * Unit: count.
+   */
   sets: number;
+  /**
+   * Unit: count.
+   */
   reps: number;
+  /**
+   * Unit: kilogram.
+   */
   volumeKg: number;
 };
 
@@ -1413,6 +1744,9 @@ export type FfiExerciseContribution = {
  * The sessions and estimated one-rep-max trend for one exercise category.
  */
 export type FfiExerciseDetailData = {
+  /**
+   * Unit: identifier.
+   */
   exerciseCategory: number;
   exerciseName: string;
   sessions: FfiExerciseHistorySession[];
@@ -1423,11 +1757,15 @@ export type FfiExerciseDetailData = {
  */
 export type FfiExerciseGroup = {
   name: string;
+  /**
+   * Unit: identifier.
+   */
   exerciseCategory: number;
   sets: FfiExerciseSet[];
   bestSet: FfiExerciseSet | null;
   /**
    * Rest after each preceding active set, when both timestamps are known.
+   * Unit: second.
    */
   restSeconds: number[];
 };
@@ -1438,8 +1776,14 @@ export type FfiExerciseGroup = {
 export type FfiExerciseHistorySession = {
   activityId: string;
   activityName: string;
+  /**
+   * Unit: epoch_second.
+   */
   date: number;
   bestSet: FfiExerciseSet;
+  /**
+   * Unit: kilogram.
+   */
   estimatedOneRepMaxKg: number | null;
 };
 
@@ -1456,7 +1800,13 @@ export type FfiExercisePickerData = {
  * One exercise in the picker's list.
  */
 export type FfiExercisePickerRow = {
+  /**
+   * Unit: identifier.
+   */
   category: number;
+  /**
+   * Unit: identifier.
+   */
   name: number;
   labelKey: string;
   /**
@@ -1466,6 +1816,7 @@ export type FfiExercisePickerRow = {
   equipment: string;
   /**
    * Whole days since the athlete last did it, `None` when never.
+   * Unit: day.
    */
   lastDoneDays: number | null;
   /**
@@ -1486,16 +1837,24 @@ export type FfiExerciseSession = {
    * Active sets grouped by consecutive exercise name, in recorded order.
    */
   groups: FfiExerciseGroup[];
+  /**
+   * Unit: count.
+   */
   activeSetCount: number;
   /**
    * Distinct exercise names among the active sets.
+   * Unit: count.
    */
   exerciseCount: number;
   /**
    * Weight times repetitions over active sets. A set with no repetitions
    * counts as one and a set with no weight as zero.
+   * Unit: kilogram.
    */
   totalVolumeKg: number;
+  /**
+   * Unit: second.
+   */
   totalDurationSecs: number;
 };
 
@@ -1504,8 +1863,17 @@ export type FfiExerciseSession = {
  */
 export type FfiExerciseSet = {
   activityId: string;
+  /**
+   * Unit: identifier.
+   */
   setOrder: number;
+  /**
+   * Unit: identifier.
+   */
   exerciseCategory: number;
+  /**
+   * Unit: identifier.
+   */
   exerciseName: number | null;
   /**
    * Human-readable exercise name, pre-resolved in Rust.
@@ -1513,11 +1881,24 @@ export type FfiExerciseSet = {
   displayName: string;
   /**
    * 0=active, 1=rest, 2=warmup, 3=cooldown
+   * Unit: code.
    */
   setType: number;
+  /**
+   * Unit: count.
+   */
   repetitions: number | null;
+  /**
+   * Unit: kilogram.
+   */
   weightKg: number | null;
+  /**
+   * Unit: second.
+   */
   durationSecs: number | null;
+  /**
+   * Unit: epoch_second.
+   */
   startTime: number | null;
 };
 
@@ -1531,22 +1912,27 @@ export type FfiExerciseSummary = {
   exerciseName: string;
   /**
    * FIT exercise category ID (pass back for drill-down query)
+   * Unit: identifier.
    */
   exerciseCategory: number;
   /**
    * Sets credited to this muscle across all activities
+   * Unit: count.
    */
   totalSets: number;
   /**
    * Reps credited to this muscle
+   * Unit: count.
    */
   totalReps: number;
   /**
    * Total volume load in kg (weight × reps)
+   * Unit: kilogram.
    */
   volumeKg: number;
   /**
    * Number of distinct activities containing this exercise
+   * Unit: count.
    */
   activityCount: number;
   /**
@@ -1564,6 +1950,9 @@ export type FfiFamilyHours = {
    * `strength` or `other`.
    */
   family: string;
+  /**
+   * Unit: hour.
+   */
   hours: number;
 };
 
@@ -1600,24 +1989,33 @@ export type FfiFeedCard = {
   startDateLocal: string;
   /**
    * Metres.
+   * Unit: metre.
    */
   distance: number | null;
   /**
    * Seconds.
+   * Unit: second.
    */
   movingTime: number | null;
   /**
    * Metres climbed.
+   * Unit: metre.
    */
   elevationGain: number | null;
   /**
    * Beats per minute.
+   * Unit: beat_per_minute.
    */
   avgHr: number | null;
   /**
    * Watts.
+   * Unit: watt.
    */
   avgPower: number | null;
+  /**
+   * Training load, in TSS.
+   * Unit: tss.
+   */
   trainingLoad: number | null;
   /**
    * `veloq` when `training_load` was worked out on the phone from the
@@ -1626,11 +2024,13 @@ export type FfiFeedCard = {
   metricsSource: string | null;
   /**
    * Kilocalories.
+   * Unit: kilocalorie.
    */
   calories: number | null;
   hasWeather: boolean;
   /**
    * Degrees Celsius.
+   * Unit: degree_celsius.
    */
   averageWeatherTemp: number | null;
   /**
@@ -1656,7 +2056,70 @@ export type FfiFeedCard = {
    * the card offers for it.
    */
   stub: FfiStubVerdict;
+  /**
+   * Whether the athlete hid the activity from the heatmap. The detail
+   * record carries the same flag; a list that offers a bulk hide marks the
+   * rows it hid from this one.
+   */
+  heatmapHidden: boolean;
 };
+
+/**
+ * The span of the library the feed's filter bars draw across: the first and
+ * last start, and the shortest and longest distance and moving time. Every
+ * field is absent when nothing answers it, so an empty library draws no bar.
+ *
+ * The dates reach every stored activity. A distance or a time bound takes
+ * only the positive values, so a session with neither (a strength session,
+ * say) does not pull a minimum to zero.
+ */
+export type FfiFeedFilterBounds = {
+  /**
+   * Epoch seconds of the earliest stored start.
+   * Unit: epoch_second.
+   */
+  oldestTs: number | null;
+  /**
+   * Epoch seconds of the latest stored start.
+   * Unit: epoch_second.
+   */
+  newestTs: number | null;
+  /**
+   * Metres, over the activities with a positive distance.
+   * Unit: metre.
+   */
+  minDistance: number | null;
+  /**
+   * Metres, over the activities with a positive distance.
+   * Unit: metre.
+   */
+  maxDistance: number | null;
+  /**
+   * Seconds, over the activities with a positive moving time.
+   * Unit: second.
+   */
+  minMovingTime: number | null;
+  /**
+   * Seconds, over the activities with a positive moving time.
+   * Unit: second.
+   */
+  maxMovingTime: number | null;
+};
+
+/**
+ * A column and a direction. A row with no value in the column comes last
+ * whichever way it runs.
+ */
+export type FfiFeedSort = {
+  key: FfiFeedSortKey;
+  descending: boolean;
+};
+
+/**
+ * The column a feed read orders by.
+ */
+export type FfiFeedSortKey =
+  'date' | 'distance' | 'movingTime' | 'elevationGain' | 'trainingLoad' | 'name';
 
 /**
  * Everything the fitness tab paints with that stays fixed while it is
@@ -1690,19 +2153,23 @@ export type FfiFitnessScreenData = {
   sportMix: FfiSportMix;
   /**
    * The fitness time constant in days in effect today
+   * Unit: day.
    */
   fitnessDays: number;
   /**
    * The fatigue time constant in days in effect today
+   * Unit: day.
    */
   fatigueDays: number;
   /**
    * The cycling FTP the athlete set, in watts, else the one the newest
    * cycling activity was analysed against.
+   * Unit: watt.
    */
   cyclingFtpSetting: number | null;
   /**
    * The running LTHR the athlete set, in bpm.
+   * Unit: beat_per_minute.
    */
   runningLthr: number | null;
   /**
@@ -1714,6 +2181,11 @@ export type FfiFitnessScreenData = {
    * strip under the fitness plot.
    */
   loadDots: FfiLoadDot[];
+  /**
+   * The least-squares line through `load_dots` by day, which the strip's
+   * scatter draws. Absent for fewer than two dots or dots on one day.
+   */
+  loadTrend: FfiLoadTrend | null;
   /**
    * Moving hours per week and sport family over the twelve weeks ending at
    * the latest week that holds an activity, oldest first. A week with
@@ -1735,6 +2207,7 @@ export type FfiFitnessScreenData = {
   /**
    * The activities from the cap to the day before `calendar_first_day`
    * that the account holds and the device has not downloaded.
+   * Unit: count.
    */
   calendarOlderOwed: number;
   /**
@@ -1758,6 +2231,7 @@ export type FfiFitnessScreenData = {
   /**
    * The imported rides the server's figures leave out: shown as rides, and
    * in no curve, best effort or fitness day. Zero for a Garmin-only library.
+   * Unit: count.
    */
   uncountedImports: number;
 };
@@ -1791,6 +2265,7 @@ export type FfiFitnessScreenWindows = {
   /**
    * The instant the weekly card's periods run to, in the wall-clock seconds
    * an activity's date is recorded in.
+   * Unit: epoch_second.
    */
   nowWallSeconds: number;
 };
@@ -1801,9 +2276,21 @@ export type FfiFloat32Array = Base64;
  * A neighbouring exercise, shown small beside the current one.
  */
 export type FfiFocusNeighbour = {
+  /**
+   * Unit: identifier.
+   */
   exerciseCategory: number;
+  /**
+   * Unit: identifier.
+   */
   exerciseName: number | null;
+  /**
+   * Unit: count.
+   */
   setsDone: number;
+  /**
+   * Unit: count.
+   */
   setCount: number;
 };
 
@@ -1817,14 +2304,22 @@ export type FfiFocusPhase = 'set' | 'rest' | 'finished';
  * per second on a section, seconds on a route.
  */
 export type FfiFocusRange = {
+  /**
+   * Unit: varies.
+   */
   low: number;
+  /**
+   * Unit: varies.
+   */
   high: number;
   /**
    * Points drawn past the slow end.
+   * Unit: count.
    */
   slowCount: number;
   /**
    * Points drawn past the fast end.
+   * Unit: count.
    */
   fastCount: number;
 };
@@ -1833,29 +2328,54 @@ export type FfiFocusRange = {
  * The set to do, with its place in its exercise.
  */
 export type FfiFocusSet = {
+  /**
+   * Unit: identifier.
+   */
   exerciseCategory: number;
+  /**
+   * Unit: identifier.
+   */
   exerciseName: number | null;
   /**
    * One-based, so a screen can say "set 2 of 3".
+   * Unit: index.
    */
   setNumber: number;
+  /**
+   * Unit: count.
+   */
   setCount: number;
+  /**
+   * Unit: count.
+   */
   reps: number | null;
+  /**
+   * Unit: kilogram.
+   */
   weightKg: number | null;
   /**
    * The weight as the athlete reads it, in `weight_unit`, to one decimal.
+   * Unit: varies.
    */
   displayWeight: number | null;
   weightUnit: FfiWeightUnit;
   /**
    * One tap of the weight stepper, in `weight_unit`.
+   * Unit: varies.
    */
   weightStep: number;
   /**
    * The stored kilograms after one tap down and one tap up; an unset weight steps from zero.
+   * Unit: kilogram.
    */
   weightDownKg: number;
+  /**
+   * Unit: kilogram.
+   */
   weightUpKg: number;
+  /**
+   * Unit: second.
+   */
   durationSecs: number | null;
   warmUp: boolean;
 };
@@ -1870,11 +2390,16 @@ export type FfiFocusState = {
   next: FfiFocusNeighbour | null;
   /**
    * Epoch seconds the running rest began.
+   * Unit: epoch_second.
    */
   restStartedAt: number | null;
+  /**
+   * Unit: second.
+   */
   restSecs: number | null;
   /**
    * Epoch seconds the running rest ends.
+   * Unit: epoch_second.
    */
   restEndsAt: number | null;
 };
@@ -1888,19 +2413,23 @@ export type FfiFocusState = {
 export type FfiFtpTrend = {
   /**
    * eFTP of the newest day carrying one
+   * Unit: watt.
    */
   latestFtp: number | null;
   /**
    * That day's epoch (Unix timestamp seconds)
+   * Unit: epoch_second.
    */
   latestDate: number | null;
   /**
    * eFTP of the newest day on or before `lookback_days` earlier than
    * `latest_date`. It may equal `latest_ftp`
+   * Unit: watt.
    */
   previousFtp: number | null;
   /**
    * That day's epoch (Unix timestamp seconds)
+   * Unit: epoch_second.
    */
   previousDate: number | null;
   /**
@@ -1908,6 +2437,7 @@ export type FfiFtpTrend = {
    * Derived here so a screen, a widget and a notification cannot each
    * subtract and round their own way. `None` when there is nothing to
    * compare against.
+   * Unit: watt.
    */
   deltaWatts: number | null;
   /**
@@ -1920,12 +2450,14 @@ export type FfiFtpTrend = {
    * The window in days `delta_watts` was measured across, carried so a
    * caption names the window of the step it shows rather than the range of
    * the chart it sits on, which can be longer.
+   * Unit: day.
    */
   lookbackDays: number;
   /**
    * Days carrying an estimate from the one compared against to the newest,
    * inclusive. The insight ranker weighs a claim by what it stands on, and
    * a step measured off three days is not the one measured off thirty.
+   * Unit: count.
    */
   sampleCount: number;
   /**
@@ -1934,6 +2466,12 @@ export type FfiFtpTrend = {
    * milestone card draws the run-up to the step it names.
    */
   history: FfiSeriesPoint[];
+  /**
+   * Beside `history`, one per point: the day it is the estimate of,
+   * `YYYY-MM-DD`. The points are stamped at midnight UTC of that day, so a
+   * page reads the day here and does not convert the stamp to a local one.
+   */
+  historyDays: string[];
   /**
    * Every activity that moved the accepted eFTP, oldest first, whatever the
    * window: the fitness plot marks them over its own range.
@@ -1961,6 +2499,7 @@ export type FfiGarminPull = {
   halt: FfiGarminHalt | null;
   /**
    * Originals this device has stored from Garmin.
+   * Unit: count.
    */
   stored: number;
   /**
@@ -1992,11 +2531,15 @@ export type FfiGroupSort = 'nearby' | 'activities' | 'distance' | 'name';
 export type FfiGroupWithPolyline = {
   groupId: string;
   representativeId: string;
+  /**
+   * Unit: count.
+   */
   activityCount: number;
   customName: string | null;
   bounds: FfiBounds | null;
   /**
    * Distance in meters (from representative activity's metrics)
+   * Unit: metre.
    */
   distanceMeters: number;
   /**
@@ -2010,6 +2553,7 @@ export type FfiGroupWithPolyline = {
   /**
    * Moving time in seconds of the fastest attempt not excluded from the
    * route, `None` when no attempt has a time.
+   * Unit: second.
    */
   bestTime: number | null;
 };
@@ -2024,17 +2568,26 @@ export type FfiHeatmapDay = {
   date: string;
   /**
    * Intensity bracket: 0 (none), 1 (light), 2 (medium-light), 3 (medium), 4 (high)
+   * Unit: code.
    */
   intensity: number;
   /**
    * Longest activity duration in seconds for this day
+   * Unit: second.
    */
   maxDuration: number;
   /**
    * Number of activities on this day
+   * Unit: count.
    */
   activityCount: number;
 };
+
+/**
+ * Who asked for a hold on the downloads, named in the order the engine
+ * decides it.
+ */
+export type FfiHoldCause = 'upstream' | 'pool' | 'budget';
 
 /**
  * One heart rate zone of a saved activity.
@@ -2042,26 +2595,32 @@ export type FfiHeatmapDay = {
 export type FfiHrZoneBand = {
   /**
    * Zone number, from 1
+   * Unit: index.
    */
   zone: number;
   /**
    * Lower edge in bpm, 0 for zone 1
+   * Unit: beat_per_minute.
    */
   minBpm: number;
   /**
    * Upper edge in bpm
+   * Unit: beat_per_minute.
    */
   maxBpm: number;
   /**
    * Seconds spent in the zone
+   * Unit: second.
    */
   seconds: number;
   /**
    * Share of the total time in zones, 0 to 100
+   * Unit: percent.
    */
   percent: number;
   /**
    * The share as a whole percent, the bands' shares totalling 100
+   * Unit: percent.
    */
   share: number;
 };
@@ -2080,18 +2639,29 @@ export type FfiHrvTrend = {
    * `trendingDown` and they are not the same claim.
    */
   reason: string;
+  /**
+   * Unit: millisecond.
+   */
   avg: number;
+  /**
+   * Unit: millisecond.
+   */
   latest: number;
+  /**
+   * Unit: count.
+   */
   dataPoints: number;
   sparkline: FfiSeriesPoint[];
   /**
    * Epoch seconds where the later half of the window starts, the split the
    * `halves` rule judged. Absent for `lastTwoDays`, which judges no split.
+   * Unit: epoch_second.
    */
   windowSplit: number | null;
   /**
    * The latest day against the window's average, in the window's own
    * standard deviations. Absent where the window has no spread.
+   * Unit: standard_deviation.
    */
   signalDelta: number | null;
 };
@@ -2115,12 +2685,24 @@ export type FfiInsightForm = {
   date: string;
   /**
    * Chronic training load, zero when the day carries none
+   * Unit: tss.
    */
   ctl: number;
   /**
    * Acute training load, zero when the day carries none
+   * Unit: tss.
    */
   atl: number;
+  /**
+   * Form in the unit the athlete reads it in, as `FfiWellnessDays::form`
+   * gives it for the same day.
+   * Unit: tss_or_percent.
+   */
+  form: number | null;
+  /**
+   * Whether `form` is a percentage of fitness rather than absolute TSB.
+   */
+  formAsPercent: boolean;
 };
 
 /**
@@ -2170,6 +2752,7 @@ export type FfiInsightsData = {
   recentPrs: FfiRecentPr[];
   /**
    * Sections held by the engine, for the section-readiness check
+   * Unit: count.
    */
   sectionCount: number;
   /**
@@ -2184,15 +2767,30 @@ export type FfiInsightsData = {
    * Every eligible section trend, independent of the ranked-list display limit.
    */
   trendSections: FfiRankedSectionsBySport[];
+  /**
+   * Unit: count.
+   */
   trendFasterCount: number;
+  /**
+   * Unit: count.
+   */
   trendSlowerCount: number;
   /**
    * Every route bucket holding a recent record or an eligible trend, recent
    * records first and then newest attempt. Not capped.
    */
   routeInsights: FfiRouteInsight[];
+  /**
+   * Unit: count.
+   */
   routeRecordCount: number;
+  /**
+   * Unit: count.
+   */
   routeFasterCount: number;
+  /**
+   * Unit: count.
+   */
   routeSlowerCount: number;
   /**
    * Aerobic efficiency trends worth surfacing, already filtered and capped
@@ -2247,26 +2845,32 @@ export type FfiInsightsData = {
 export type FfiInsightsParams = {
   /**
    * Start of the current week, filled by the engine from current_end
+   * Unit: epoch_second.
    */
   currentStart: number;
   /**
    * Current wall-clock second; the engine derives both week windows from it
+   * Unit: epoch_second.
    */
   currentEnd: number;
   /**
    * Start of the previous week, filled by the engine
+   * Unit: epoch_second.
    */
   prevStart: number;
   /**
    * End of the previous elapsed week, filled by the engine
+   * Unit: epoch_second.
    */
   prevEnd: number;
   /**
    * Start of the four-week chronic window, filled by the engine
+   * Unit: epoch_second.
    */
   chronicStart: number;
   /**
    * Start of today
+   * Unit: epoch_second.
    */
   todayStart: number;
   /**
@@ -2275,34 +2879,44 @@ export type FfiInsightsParams = {
   includeSections: boolean;
   /**
    * Ranked sections requested per sport
+   * Unit: count.
    */
   rankedLimit: number;
   /**
    * History points a card carries at most, per section and per trend. The
    * graphic is a strip a few dozen pixels wide, so the read is capped
    * rather than carrying a library of laps across the bridge.
+   * Unit: count.
    */
   historyLimit: number;
   /**
    * Sections last visited beyond this many days get no efficiency trend
+   * Unit: day.
    */
   activeWindowDays: number;
   /**
    * Efficiency candidates taken from each sport's ranked list
+   * Unit: count.
    */
   efficiencyPerSport: number;
   /**
    * Smallest rounded heart-rate change, in bpm, an efficiency trend may report
+   * Unit: beat_per_minute.
    */
   efficiencyMinHrChangeBpm: number;
   /**
    * Efficiency trends to return at most
+   * Unit: count.
    */
   efficiencyLimit: number;
   /**
    * Minimum matched efforts before an efficiency trend counts
+   * Unit: count.
    */
   efficiencyMinEfforts: number;
+  /**
+   * Unit: count.
+   */
   efficiencyDecliningMinEfforts: number;
   /**
    * Trailing month the strength summary covers
@@ -2322,34 +2936,42 @@ export type FfiInsightsParams = {
   wellnessNewest: string;
   /**
    * Trailing days the HRV trend is read over
+   * Unit: day.
    */
   hrvWindowDays: number;
   /**
    * Trailing days the section-change list covers
+   * Unit: day.
    */
   sectionChangeWindowDays: number;
   /**
    * A section unvisited for this many days is stale
+   * Unit: day.
    */
   staleThresholdDays: number;
   /**
    * Fitness has to have risen by this much for a stale section to qualify
+   * Unit: percent.
    */
   staleMinGainPercent: number;
   /**
    * Stale-PR opportunities to return at most
+   * Unit: count.
    */
   staleMaxOpportunities: number;
   /**
    * Fewest traversals a stale section needs to be offered
+   * Unit: count.
    */
   staleMinTraversals: number;
   /**
    * A section record counts as recent when set within this many days
+   * Unit: day.
    */
   recentPrWindowDays: number;
   /**
    * Fewest outings a section needs to hold a recent-record slot
+   * Unit: count.
    */
   recentPrMinOutings: number;
 };
@@ -2379,11 +3001,24 @@ export type FfiJobRun = {
   outcome: RunOutcome;
   /**
    * Items the run took on.
+   * Unit: count.
    */
   handled: number;
+  /**
+   * Unit: count.
+   */
   added: number;
+  /**
+   * Unit: count.
+   */
   changed: number;
+  /**
+   * Unit: count.
+   */
   retired: number;
+  /**
+   * Unit: count.
+   */
   failed: number;
 };
 
@@ -2394,10 +3029,12 @@ export type FfiLapDelta = {
   activityId: string;
   /**
    * Joins the curve to its chart point and lap row.
+   * Unit: index.
    */
   startIndex: number;
   /**
    * Unix seconds
+   * Unit: epoch_second.
    */
   activityDate: number;
   /**
@@ -2419,6 +3056,7 @@ export type FfiLapDelta = {
   /**
    * The delta at the end of the section, only for a lap that covers both
    * of its ends.
+   * Unit: second.
    */
   endDeltaSecs: number | null;
 };
@@ -2428,9 +3066,13 @@ export type FfiLapDelta = {
  */
 export type FfiLapDeltaMissing = {
   activityId: string;
+  /**
+   * Unit: index.
+   */
   startIndex: number;
   /**
    * Unix seconds
+   * Unit: epoch_second.
    */
   activityDate: number;
   reason: FfiLapDeltaMissingReason;
@@ -2476,6 +3118,9 @@ export type FfiLinkActivitySections = {
  * What `fitness.bestEfforts` is asked: a window in days, where 0 is all time.
  */
 export type FfiLinkBestEffortsAsk = {
+  /**
+   * Unit: day.
+   */
   days: number;
 };
 
@@ -2486,10 +3131,51 @@ export type FfiLinkBoundsEdit =
   'trim' | 'reset' | 'expand' | 'setReference' | 'resetReference' | 'revert';
 
 /**
+ * What `section.boundsPreview` answers: the distance and grade the section
+ * would store after the same `trim` or `expand`, read from the line the edit
+ * would write, and the laps the edit re-cuts against it. The grade is null
+ * when the line carries no altitude.
+ */
+export type FfiLinkBoundsPreview = {
+  /**
+   * Unit: metre.
+   */
+  distanceMeters: number;
+  /**
+   * Unit: percent.
+   */
+  avgGradePercent: number | null;
+  /**
+   * Unit: count.
+   */
+  lapsRemeasured: number;
+};
+
+/**
+ * What a client says it is in `link.hello`: a browser sends its user agent,
+ * a computer tool its name and version. The phone shows it as the client's
+ * own claim, never as verified.
+ */
+export type FfiLinkClient = {
+  /**
+   * `browser` or `tool`.
+   */
+  kind: string;
+  userAgent: string | null;
+  tool: string | null;
+  toolVersion: string | null;
+};
+
+/**
  * What `fitness.loads` answers: a load for each day with activities.
  */
 export type FfiLinkDayLoads = {
   days: FfiDayLoad[];
+  /**
+   * The sum of the days' recorded loads, a day with none adding nothing.
+   * Unit: tss.
+   */
+  total: number;
 };
 
 /**
@@ -2523,9 +3209,21 @@ export type FfiLinkDevicesAnswer = {
  * done with, the rest after it and its sets.
  */
 export type FfiLinkDraftExercise = {
+  /**
+   * Unit: identifier.
+   */
   category: number;
+  /**
+   * Unit: identifier.
+   */
   name: number | null;
+  /**
+   * Unit: identifier.
+   */
   groupNo: number | null;
+  /**
+   * Unit: second.
+   */
   restSecs: number | null;
   sets: FfiLinkDraftSet[];
 };
@@ -2534,7 +3232,13 @@ export type FfiLinkDraftExercise = {
  * The rest planned after a group of exercises.
  */
 export type FfiLinkDraftGroup = {
+  /**
+   * Unit: identifier.
+   */
   groupNo: number;
+  /**
+   * Unit: second.
+   */
   restSecs: number | null;
 };
 
@@ -2543,8 +3247,17 @@ export type FfiLinkDraftGroup = {
  * do, with the optional side and warm-up behind the set's "more".
  */
 export type FfiLinkDraftSet = {
+  /**
+   * Unit: count.
+   */
   reps: number | null;
+  /**
+   * Unit: kilogram.
+   */
   weightKg: number | null;
+  /**
+   * Unit: second.
+   */
   durationSecs: number | null;
   side: string | null;
   warmUp: boolean;
@@ -2563,7 +3276,96 @@ export type FfiLinkExcludeAsk = {
  * What `strength.exercise` is asked: the exercise category.
  */
 export type FfiLinkExerciseAsk = {
+  /**
+   * Unit: identifier.
+   */
   exerciseCategory: number;
+};
+
+/**
+ * What `export.begin` is asked: which rides the library export carries.
+ */
+export type FfiLinkExportBeginAsk = {
+  /**
+   * Keep the rides that start at this Unix time or later; the record and the
+   * library tables are written whole whatever this says.
+   * Unit: second.
+   */
+  since: number | null;
+  /**
+   * Write each ride's kept original file as well as its rows.
+   */
+  originals: boolean;
+};
+
+/**
+ * What `export.begin` answers: the id of the spool the export is written to.
+ */
+export type FfiLinkExportBegun = {
+  exportId: string;
+};
+
+/**
+ * What `export.read` answers: not JSON. The reply is binary frames carrying
+ * the bytes of the range under [`FRAME_RAW`], and a failure is a text reply
+ * with an `error`. The record names the one field that describes the frames.
+ */
+export type FfiLinkExportBytes = {
+  /**
+   * Unit: byte.
+   */
+  length: number;
+};
+
+/**
+ * What `export.read` is asked: a range of the finished archive.
+ */
+export type FfiLinkExportReadAsk = {
+  exportId: string;
+  /**
+   * Bytes from the start of the archive, a whole number below 2^53.
+   * Unit: byte.
+   */
+  offset: number;
+  /**
+   * At most 1 MiB, a whole number.
+   * Unit: byte.
+   */
+  length: number;
+};
+
+/**
+ * What `export.status` and `export.done` are asked: which export.
+ */
+export type FfiLinkExportRef = {
+  exportId: string;
+};
+
+/**
+ * What `export.status` answers. `state` is `building`, `ready` or `failed`.
+ * `bytes` is the archive's length once it is ready and what is written so far
+ * before, and `sha256` is the lowercase hex digest of the ready archive.
+ */
+export type FfiLinkExportStatus = {
+  state: string;
+  /**
+   * Bytes, a whole number below 2^53.
+   * Unit: byte.
+   */
+  bytes: number;
+  /**
+   * Unit: count.
+   */
+  rides: number;
+  /**
+   * Unit: count.
+   */
+  ridesDone: number;
+  sha256: string | null;
+  /**
+   * Why a failed export failed.
+   */
+  error: string | null;
 };
 
 /**
@@ -2571,6 +3373,9 @@ export type FfiLinkExerciseAsk = {
  */
 export type FfiLinkFamilyCount = {
   family: FfiSportFamily;
+  /**
+   * Unit: count.
+   */
   count: number;
 };
 
@@ -2586,6 +3391,7 @@ export type FfiLinkFeedPage = {
   cards: FfiFeedCard[];
   /**
    * Every stored activity the query matched, not only this page.
+   * Unit: count.
    */
   matchedCount: number;
   hasMore: boolean;
@@ -2599,6 +3405,10 @@ export type FfiLinkFeedPage = {
    * family with none is absent.
    */
   familyCounts: FfiLinkFamilyCount[];
+  /**
+   * The lean rows of a lean ask, in the order of the cards they replace.
+   */
+  rows: FfiLinkLeanRow[];
 };
 
 /**
@@ -2607,9 +3417,13 @@ export type FfiLinkFeedPage = {
  * chips narrow it.
  */
 export type FfiLinkFeedPageAsk = {
+  /**
+   * Unit: count.
+   */
   offset: number;
   /**
    * None asks for the largest page the phone allows.
+   * Unit: count.
    */
   limit: number | null;
   needle: string;
@@ -2619,12 +3433,43 @@ export type FfiLinkFeedPageAsk = {
   sportFamilies: FfiSportFamily[];
   /**
    * Inclusive start time in epoch seconds; None reaches the oldest.
+   * Unit: epoch_second.
    */
   oldestTs: number | null;
   /**
    * Inclusive start time in epoch seconds; None reaches the newest.
+   * Unit: epoch_second.
    */
   newestTs: number | null;
+  /**
+   * Inclusive lower bound on distance in metres; None is unbounded.
+   * Unit: metre.
+   */
+  minDistance: number | null;
+  /**
+   * Inclusive upper bound on distance in metres; None is unbounded.
+   * Unit: metre.
+   */
+  maxDistance: number | null;
+  /**
+   * Inclusive lower bound on moving time in seconds; None is unbounded.
+   * Unit: second.
+   */
+  minMovingTime: number | null;
+  /**
+   * Inclusive upper bound on moving time in seconds; None is unbounded.
+   * Unit: second.
+   */
+  maxMovingTime: number | null;
+  /**
+   * The order of the whole match before the page is cut; None is newest
+   * first.
+   */
+  sort: FfiFeedSort | null;
+  /**
+   * Answer `rows` in place of cards and previews.
+   */
+  lean: boolean;
 };
 
 /**
@@ -2633,6 +3478,9 @@ export type FfiLinkFeedPageAsk = {
  * card and the year comparison are read over.
  */
 export type FfiLinkFitnessScreenAsk = {
+  /**
+   * Unit: day.
+   */
   spanDays: number[];
   windows: FfiFitnessScreenWindows;
 };
@@ -2652,12 +3500,31 @@ export type FfiLinkGeoSectionAsk = {
 };
 
 /**
+ * What `geo.section` is asked: one section, and how its line comes back. With neither field the
+ * reply is the GeoJSON it has always been.
+ */
+export type FfiLinkGeoSectionLineAsk = {
+  sectionId: string;
+  /**
+   * Cap the line to at most this many points, first and last kept. Absent or zero keeps it
+   * whole.
+   * Unit: count.
+   */
+  maxPoints: number;
+  /**
+   * Answer the line as `packedLine`, one integer array, in place of GeoJSON text.
+   */
+  packed: boolean;
+};
+
+/**
  * What `geo.sectionVersion` is asked: one stored geometry version of one section.
  */
 export type FfiLinkGeoSectionVersionAsk = {
   sectionId: string;
   /**
    * A version number from `section.history`'s geometry versions.
+   * Unit: identifier.
    */
   version: number;
 };
@@ -2667,12 +3534,21 @@ export type FfiLinkGeoSectionVersionAsk = {
  */
 export type FfiLinkGeoText = {
   text: string;
+  /**
+   * The line as one integer array, when the ask was `packed`: then `text` is empty. See
+   * [`pack_line`](crate::persistence::codec::pack_line) for the layout.
+   * Unit: varies.
+   */
+  packedLine: number[] | null;
 };
 
 /**
  * What `strength.groups` is asked: the phone's wall clock in seconds.
  */
 export type FfiLinkGroupsAsk = {
+  /**
+   * Unit: epoch_second.
+   */
   nowWallSeconds: number;
 };
 
@@ -2686,11 +3562,27 @@ export type FfiLinkHeatmapHiddenAsk = {
 };
 
 /**
+ * What `heatmap.setHiddenMany` is asked: the activities and whether the
+ * heatmap leaves them all out. The write is one change: every id takes the
+ * choice or none does.
+ */
+export type FfiLinkHeatmapHiddenManyAsk = {
+  activityIds: string[];
+  hidden: boolean;
+};
+
+/**
  * What `heatmap.progress` answers: the tiles the pass has drawn of the tiles
  * it owes, both 0 while no pass runs.
  */
 export type FfiLinkHeatmapProgress = {
+  /**
+   * Unit: count.
+   */
   processed: number;
+  /**
+   * Unit: count.
+   */
   total: number;
 };
 
@@ -2706,8 +3598,17 @@ export type FfiLinkHeatmapTile = {
  * What `heatmap.tile` is asked: one tile and the base map it is painted for.
  */
 export type FfiLinkHeatmapTileAsk = {
+  /**
+   * Unit: index.
+   */
   z: number;
+  /**
+   * Unit: index.
+   */
   x: number;
+  /**
+   * Unit: index.
+   */
   y: number;
   /**
    * `light`, `dark` or `satellite`.
@@ -2716,14 +3617,43 @@ export type FfiLinkHeatmapTileAsk = {
 };
 
 /**
+ * What `heatmap.underPoint` is asked: the point clicked and the whole zoom
+ * the page's camera is at.
+ */
+export type FfiLinkHeatmapUnderPointAsk = {
+  /**
+   * Unit: degree.
+   */
+  latitude: number;
+  /**
+   * Unit: degree.
+   */
+  longitude: number;
+  /**
+   * Unit: index.
+   */
+  zoom: number;
+};
+
+/**
  * What `link.hello` is asked: the newest protocol the page speaks, the
  * oldest when it speaks more than one, and a name for the page. A page that
  * names no oldest speaks `protocol` alone.
  */
 export type FfiLinkHello = {
+  /**
+   * Unit: identifier.
+   */
   protocol: number;
+  /**
+   * Unit: identifier.
+   */
   minProtocol: number | null;
   page: string;
+  /**
+   * What the client says it is, when it says.
+   */
+  client: FfiLinkClient | null;
 };
 
 /**
@@ -2733,8 +3663,17 @@ export type FfiLinkHello = {
  * one. The name is optional, so a page reads an answer without it.
  */
 export type FfiLinkHelloAnswer = {
+  /**
+   * Unit: identifier.
+   */
   protocol: number;
+  /**
+   * Unit: identifier.
+   */
   minProtocol: number;
+  /**
+   * Unit: identifier.
+   */
   maxProtocol: number;
   app: string;
   methods: string[];
@@ -2756,6 +3695,7 @@ export type FfiLinkImportBeginAsk = {
   name: string;
   /**
    * Bytes, a whole number below 2^53.
+   * Unit: byte.
    */
   size: number;
   sha256: string;
@@ -2767,9 +3707,13 @@ export type FfiLinkImportBeginAsk = {
  * sends only the rest.
  */
 export type FfiLinkImportBegun = {
+  /**
+   * Unit: identifier.
+   */
   importId: number;
   /**
    * Bytes, a whole number below 2^53.
+   * Unit: byte.
    */
   offset: number;
 };
@@ -2779,6 +3723,9 @@ export type FfiLinkImportBegun = {
  * one importer at a time, so the job is named by the import that started it.
  */
 export type FfiLinkImportCommitted = {
+  /**
+   * Unit: identifier.
+   */
   jobId: number;
 };
 
@@ -2795,6 +3742,9 @@ export type FfiLinkImportFailure = {
  * What `import.commit` and `import.cancel` are asked: which import.
  */
 export type FfiLinkImportRef = {
+  /**
+   * Unit: identifier.
+   */
   importId: number;
 };
 
@@ -2807,11 +3757,29 @@ export type FfiLinkImportStatus = {
   state: string;
   stopped: string | null;
   detail: string | null;
+  /**
+   * Unit: count.
+   */
   seen: number;
+  /**
+   * Unit: count.
+   */
   stored: number;
+  /**
+   * Unit: count.
+   */
   alreadyStored: number;
+  /**
+   * Unit: count.
+   */
   failed: number;
+  /**
+   * Unit: count.
+   */
   otherFormat: number;
+  /**
+   * Unit: count.
+   */
   skipped: number;
   current: string | null;
   failures: FfiLinkImportFailure[];
@@ -2824,6 +3792,9 @@ export type FfiLinkImportStatus = {
 export type FfiLinkLapAsk = {
   id: string;
   activityId: string;
+  /**
+   * Unit: index.
+   */
   startIndex: number;
 };
 
@@ -2833,6 +3804,7 @@ export type FfiLinkLapAsk = {
 export type FfiLinkLastTime = {
   /**
    * Whole days from that session to now.
+   * Unit: day.
    */
   daysAgo: number;
   sets: FfiLinkDraftSet[];
@@ -2850,9 +3822,46 @@ export type FfiLinkLastTimeAnswer = {
  * in seconds.
  */
 export type FfiLinkLastTimeAsk = {
+  /**
+   * Unit: identifier.
+   */
   category: number;
+  /**
+   * Unit: identifier.
+   */
   name: number | null;
+  /**
+   * Unit: epoch_second.
+   */
   nowWallSeconds: number;
+};
+
+/**
+ * One activity as a client that does not draw cards reads it: the fields of
+ * the card a list or a ranking needs, built from the card itself.
+ */
+export type FfiLinkLeanRow = {
+  id: string;
+  startDateLocal: string;
+  sportType: string | null;
+  name: string;
+  /**
+   * Unit: metre.
+   */
+  distance: number | null;
+  /**
+   * Unit: second.
+   */
+  movingTime: number | null;
+  /**
+   * Unit: metre.
+   */
+  elevationGain: number | null;
+  /**
+   * Unit: tss.
+   */
+  trainingLoad: number | null;
+  hasTrack: boolean;
 };
 
 /**
@@ -2876,7 +3885,13 @@ export type FfiLinkLiveEditAsk = {
  * What `fitness.loads` is asked: an inclusive window of wall-clock seconds.
  */
 export type FfiLinkLoadsAsk = {
+  /**
+   * Unit: epoch_second.
+   */
   startTs: number;
+  /**
+   * Unit: epoch_second.
+   */
   endTs: number;
 };
 
@@ -2885,7 +3900,13 @@ export type FfiLinkLoadsAsk = {
  * epoch seconds, as the phone reads it; an empty `sportTypes` keeps every sport.
  */
 export type FfiLinkMapAsk = {
+  /**
+   * Unit: epoch_second.
+   */
   startDate: number;
+  /**
+   * Unit: epoch_second.
+   */
   endDate: number;
   sportTypes: string[];
   distanceBand: MapDistanceBand;
@@ -2903,11 +3924,13 @@ export type FfiLinkMapScreen = {
   /**
    * The route group generation the route-line layer is built from; `None`
    * while there is no layer.
+   * Unit: identifier.
    */
   routeGeneration: number | null;
   /**
    * The database state the section layer is read in; `None` when the read
    * cannot vouch for one.
+   * Unit: identifier.
    */
   sectionStamp: number | null;
 };
@@ -2923,10 +3946,15 @@ export type FfiLinkMergeAsk = {
 
 /**
  * What `section.mergePreview` answers: the rides a merge would leave out of
- * the kept section.
+ * the kept section, and the laps it measures on the kept line for the rides
+ * it takes in.
  */
 export type FfiLinkMergePreview = {
   dropped: FfiMergeDropped[];
+  /**
+   * Unit: count.
+   */
+  lapsRemeasured: number;
 };
 
 /**
@@ -2936,6 +3964,39 @@ export type FfiLinkMergePreview = {
 export type FfiLinkMuscleAsk = {
   activityId: string;
   muscleSlug: string;
+};
+
+/**
+ * What `nearby.places` is asked: the point and sport, the route followed, and how each line
+ * comes back.
+ */
+export type FfiLinkNearbyAsk = {
+  /**
+   * Unit: degree.
+   */
+  latitude: number;
+  /**
+   * Unit: degree.
+   */
+  longitude: number;
+  sport: string;
+  followedRouteId: string | null;
+  /**
+   * Cap each line to at most this many points. Absent or zero keeps the read's default.
+   * Unit: count.
+   */
+  maxPoints: number;
+  /**
+   * Carry each line as `packedLine` in place of `encodedCoords`.
+   */
+  packed: boolean;
+};
+
+/**
+ * The routes and sections near a point, nearest first.
+ */
+export type FfiLinkNearbyPlaces = {
+  places: FfiNearbyPlace[];
 };
 
 /**
@@ -2959,6 +4020,9 @@ export type FfiLinkPaceCurve = {
  */
 export type FfiLinkPaceCurveAsk = {
   sport: string;
+  /**
+   * Unit: day.
+   */
   days: number;
   gap: boolean;
 };
@@ -2970,6 +4034,9 @@ export type FfiLinkPaceCurveAsk = {
  */
 export type FfiLinkPerformanceAsk = {
   id: string;
+  /**
+   * Unit: day.
+   */
   timeRangeDays: number;
   sportFilter: string | null;
   highlightActivityId: string | null;
@@ -2985,8 +4052,17 @@ export type FfiLinkPickerAsk = {
   region: string | null;
   muscle: string | null;
   query: string;
+  /**
+   * Unit: identifier.
+   */
   afterCategory: number | null;
+  /**
+   * Unit: identifier.
+   */
   afterName: number | null;
+  /**
+   * Unit: epoch_second.
+   */
   nowWallSeconds: number;
 };
 
@@ -3003,7 +4079,13 @@ export type FfiLinkPlannedEvents = {
  * seconds, as the phone's calendar read takes it.
  */
 export type FfiLinkPlannedEventsAsk = {
+  /**
+   * Unit: epoch_second.
+   */
   oldestTs: number;
+  /**
+   * Unit: epoch_second.
+   */
   newestTs: number;
 };
 
@@ -3021,6 +4103,9 @@ export type FfiLinkPowerCurve = {
  */
 export type FfiLinkPowerCurveAsk = {
   sport: string;
+  /**
+   * Unit: day.
+   */
   days: number;
 };
 
@@ -3061,7 +4146,13 @@ export type FfiLinkRestoreWorkoutAsk = {
   name: string;
   exercises: FfiLinkDraftExercise[];
   groups: FfiLinkDraftGroup[];
+  /**
+   * Unit: epoch_second.
+   */
   createdAt: number;
+  /**
+   * Unit: epoch_second.
+   */
   lastUsedAt: number | null;
 };
 
@@ -3110,6 +4201,58 @@ export type FfiLinkSectionAsk = {
 };
 
 /**
+ * One attempt on a section: the activity, when it was ridden, its time and
+ * which way it ran.
+ */
+export type FfiLinkSectionAttempt = {
+  activityId: string;
+  activityName: string;
+  /**
+   * Unix seconds.
+   */
+  date: WholeNumber;
+  /**
+   * Unit: second.
+   */
+  timeSecs: number;
+  /**
+   * Metres per second.
+   * Unit: metre_per_second.
+   */
+  speed: number;
+  /**
+   * "same" or "reverse".
+   */
+  direction: string;
+};
+
+/**
+ * A best time with the activity and date that set it. `is_record` is the
+ * section's record: the best over the whole included history.
+ */
+export type FfiLinkSectionBest = {
+  activityId: string;
+  activityName: string;
+  /**
+   * Unix seconds.
+   */
+  date: WholeNumber;
+  /**
+   * Unit: second.
+   */
+  timeSecs: number;
+  isRecord: boolean;
+};
+
+/**
+ * The quickest attempt in each direction over the range.
+ */
+export type FfiLinkSectionBests = {
+  forward: FfiLinkSectionBest | null;
+  reverse: FfiLinkSectionBest | null;
+};
+
+/**
  * What `section.editBounds` is asked: the section, the edit and the
  * parameters that edit reads. `trim` reads both indices, `expand` reads the
  * activity and both indices, `setReference` the activity and `revert` the
@@ -3120,8 +4263,17 @@ export type FfiLinkSectionBoundsAsk = {
   id: string;
   edit: FfiLinkBoundsEdit;
   activityId: string | null;
+  /**
+   * Unit: index.
+   */
   startIndex: number | null;
+  /**
+   * Unit: index.
+   */
   endIndex: number | null;
+  /**
+   * Unit: identifier.
+   */
   version: number | null;
 };
 
@@ -3131,7 +4283,13 @@ export type FfiLinkSectionBoundsAsk = {
  */
 export type FfiLinkSectionCreateAsk = {
   activityId: string;
+  /**
+   * Unit: index.
+   */
   startIndex: number;
+  /**
+   * Unit: index.
+   */
   endIndex: number;
   sport: string;
   name: string | null;
@@ -3142,6 +4300,31 @@ export type FfiLinkSectionCreateAsk = {
  */
 export type FfiLinkSectionCreated = {
   sectionId: string;
+};
+
+/**
+ * How one direction's counted attempts in the window have moved: how many,
+ * their mean time, and the trend curve's first and last times.
+ */
+export type FfiLinkSectionDirectionTrend = {
+  /**
+   * Unit: count.
+   */
+  count: number;
+  /**
+   * Unit: second.
+   */
+  avgTimeSecs: number | null;
+  /**
+   * The trend curve's time at the window's first attempt.
+   * Unit: second.
+   */
+  trendStartSecs: number | null;
+  /**
+   * The trend curve's time at the window's last attempt.
+   * Unit: second.
+   */
+  trendEndSecs: number | null;
 };
 
 /**
@@ -3168,7 +4351,13 @@ export type FfiLinkSectionExcluded = {
 export type FfiLinkSectionExtension = {
   activityId: string;
   encodedTrack: Base64;
+  /**
+   * Unit: index.
+   */
   sectionStartIdx: number;
+  /**
+   * Unit: index.
+   */
   sectionEndIdx: number;
 };
 
@@ -3180,15 +4369,29 @@ export type FfiLinkSectionExtension = {
 export type FfiLinkSectionHistory = {
   history: FfiSectionHistoryEvent[];
   geometryVersions: FfiSectionGeometryVersion[];
+  /**
+   * Unit: identifier.
+   */
   pinnedVersion: number | null;
   names: FfiActivityName[];
 };
 
 /**
- * What `section.unaccept` is asked: the sections to hand back to detection.
+ * What `section.unaccept` and `section.acceptMany` are asked: the sections to
+ * hand back to detection, or to accept.
  */
 export type FfiLinkSectionIdsAsk = {
   ids: string[];
+};
+
+/**
+ * What `section.setEnabledMany` is asked: the sections and whether they are
+ * all shown or all hidden. The write is one change: every id takes the choice
+ * or none does.
+ */
+export type FfiLinkSectionIdsEnabledAsk = {
+  ids: string[];
+  enabled: boolean;
 };
 
 /**
@@ -3209,8 +4412,70 @@ export type FfiLinkSectionRenameAsk = {
 };
 
 /**
- * What `section.acceptAll` answers: the sections the call accepted, which are
- * the ones `section.unaccept` takes back.
+ * What `section.standing` answers: where one section stands, in a few
+ * kilobytes.
+ */
+export type FfiLinkSectionStanding = {
+  id: string;
+  name: string | null;
+  /**
+   * The sport the answer is for.
+   */
+  sportType: string | null;
+  /**
+   * Unit: metre.
+   */
+  distanceMeters: number;
+  /**
+   * Unit: metre.
+   */
+  elevationGainM: number | null;
+  /**
+   * Counted traversals over the whole record, whatever the window.
+   * Unit: count.
+   */
+  traversalCount: number;
+  best: FfiLinkSectionBests;
+  /**
+   * Attempts inside the window, newest first, at most one page.
+   */
+  recent: FfiLinkSectionAttempt[];
+  trend: FfiLinkSectionTrend;
+};
+
+/**
+ * What `section.standing` is asked: the section, how many days back the
+ * trend and the attempts reach, the sport, and how many recent attempts to
+ * return (at most one page).
+ */
+export type FfiLinkSectionStandingAsk = {
+  id: string;
+  /**
+   * Unit: day.
+   */
+  timeRangeDays: number;
+  sportFilter: string | null;
+  /**
+   * Unit: count.
+   */
+  recentLimit: number | null;
+};
+
+/**
+ * The trend of each direction over the window.
+ */
+export type FfiLinkSectionTrend = {
+  /**
+   * Unit: day.
+   */
+  windowDays: number;
+  forward: FfiLinkSectionDirectionTrend | null;
+  reverse: FfiLinkSectionDirectionTrend | null;
+};
+
+/**
+ * What `section.acceptAll` and `section.acceptMany` answer: the sections the
+ * call accepted, which are the ones `section.unaccept` takes back.
  */
 export type FfiLinkSectionsAccepted = {
   ok: boolean;
@@ -3254,6 +4519,9 @@ export type FfiLinkSettingsAsk = {
  * What `feed.sparklines` is asked: how many days the series reach back.
  */
 export type FfiLinkSparklinesAsk = {
+  /**
+   * Unit: day.
+   */
   days: number;
 };
 
@@ -3271,7 +4539,13 @@ export type FfiLinkStreamsAsk = {
  * of days the period reads, as the strength tab picks it.
  */
 export type FfiLinkStrengthAsk = {
+  /**
+   * Unit: epoch_second.
+   */
   nowWallSeconds: number;
+  /**
+   * Unit: day.
+   */
   periodDays: number;
 };
 
@@ -3281,9 +4555,13 @@ export type FfiLinkStrengthAsk = {
  */
 export type FfiLinkStrengthGroup = {
   signature: string;
+  /**
+   * Unit: count.
+   */
   times: number;
   /**
    * The day of the latest session of the group, in wall-clock seconds.
+   * Unit: epoch_second.
    */
   lastDone: number;
   latestActivityId: string;
@@ -3305,7 +4583,13 @@ export type FfiLinkStrengthGroups = {
  * far apart the two ends may be, in metres.
  */
 export type FfiLinkStrictness = {
+  /**
+   * Unit: percent.
+   */
   minMatchPct: number;
+  /**
+   * Unit: metre.
+   */
   endpointThreshold: number;
 };
 
@@ -3314,6 +4598,9 @@ export type FfiLinkStrictness = {
  * which the engine resolves this week and the one before.
  */
 export type FfiLinkSummaryAsk = {
+  /**
+   * Unit: epoch_second.
+   */
   nowWallSeconds: number;
 };
 
@@ -3325,6 +4612,9 @@ export type FfiLinkSummaryAsk = {
 export type FfiLinkThresholdAsk = {
   sport: string;
   field: FfiThresholdField;
+  /**
+   * Unit: varies.
+   */
   value: number | null;
 };
 
@@ -3374,9 +4664,21 @@ export type FfiLinkWorkoutRenameAsk = {
 export type FfiLinkWorkoutRow = {
   id: string;
   name: string;
+  /**
+   * Unit: count.
+   */
   exerciseCount: number;
+  /**
+   * Unit: count.
+   */
   setCount: number;
+  /**
+   * Unit: epoch_second.
+   */
   lastUsedAt: number | null;
+  /**
+   * Unit: epoch_second.
+   */
   createdAt: number;
 };
 
@@ -3400,6 +4702,9 @@ export type FfiLinkWorkoutSections = {
  */
 export type FfiLinkWorkoutSectionsAsk = {
   sportType: string;
+  /**
+   * Unit: count.
+   */
   limit: number;
 };
 
@@ -3424,7 +4729,13 @@ export type FfiLinkWriteDone = {
 export type FfiLinkZonesAsk = {
   sportType: string;
   zoneType: string;
+  /**
+   * Unit: epoch_second.
+   */
   startTs: number;
+  /**
+   * Unit: epoch_second.
+   */
   endTs: number;
 };
 
@@ -3439,15 +4750,18 @@ export type FfiLinkedDevice = {
   name: string;
   /**
    * Unix seconds when it was linked.
+   * Unit: epoch_second.
    */
   createdAt: number;
   /**
    * Unix seconds of its last connection, none before the first.
+   * Unit: epoch_second.
    */
   lastSeenAt: number | null;
   /**
    * Unix seconds when its current connection came up, none while it is not
    * connected.
+   * Unit: epoch_second.
    */
   connectedSince: number | null;
 };
@@ -3464,12 +4778,33 @@ export type FfiLinkedDevice = {
  */
 export type FfiLiveEdit = {
   kind: FfiLiveEditKind;
+  /**
+   * Unit: index.
+   */
   exercise: number | null;
+  /**
+   * Unit: index.
+   */
   set: number | null;
+  /**
+   * Unit: index.
+   */
   to: number | null;
+  /**
+   * Unit: identifier.
+   */
   groupNo: number | null;
+  /**
+   * Unit: identifier.
+   */
   category: number | null;
+  /**
+   * Unit: identifier.
+   */
   name: number | null;
+  /**
+   * Unit: varies.
+   */
   value: number | null;
   text: string | null;
   flag: boolean | null;
@@ -3508,7 +4843,13 @@ export type FfiLiveEditKind =
  * One exercise of the live strength session, named and classed by the catalogue.
  */
 export type FfiLiveStrengthExercise = {
+  /**
+   * Unit: identifier.
+   */
   category: number;
+  /**
+   * Unit: identifier.
+   */
   name: number | null;
   /**
    * The catalogue's key for the exercise; empty for a pair the catalogue does not name.
@@ -3519,10 +4860,12 @@ export type FfiLiveStrengthExercise = {
   oneSided: boolean;
   /**
    * The group the exercise is done with, by number.
+   * Unit: identifier.
    */
   groupNo: number | null;
   /**
    * The rest planned after the exercise on its own, in seconds.
+   * Unit: second.
    */
   restSecs: number | null;
   sets: FfiLiveStrengthSet[];
@@ -3532,7 +4875,13 @@ export type FfiLiveStrengthExercise = {
  * The rest planned after a group of exercises.
  */
 export type FfiLiveStrengthGroup = {
+  /**
+   * Unit: identifier.
+   */
   groupNo: number;
+  /**
+   * Unit: second.
+   */
   restSecs: number | null;
 };
 
@@ -3543,6 +4892,7 @@ export type FfiLiveStrengthOutcome = {
   session: FfiLiveStrengthSession;
   /**
    * For an exercise added with sets from an earlier session, the whole days since it.
+   * Unit: day.
    */
   prefilledDaysAgo: number | null;
 };
@@ -3560,16 +4910,24 @@ export type FfiLiveStrengthSession = {
    * The session has begun; before that it is being prepared.
    */
   begun: boolean;
+  /**
+   * Unit: epoch_second.
+   */
   startedAt: number | null;
   exercises: FfiLiveStrengthExercise[];
   groups: FfiLiveStrengthGroup[];
   /**
    * The set the session is at, by exercise and set index.
+   * Unit: index.
    */
   currentExercise: number | null;
+  /**
+   * Unit: index.
+   */
   currentSet: number | null;
   /**
    * When the rest in progress began, if one is.
+   * Unit: epoch_second.
    */
   restStartedAt: number | null;
   /**
@@ -3583,12 +4941,22 @@ export type FfiLiveStrengthSession = {
  * One set of an exercise in the live strength session.
  */
 export type FfiLiveStrengthSet = {
+  /**
+   * Unit: count.
+   */
   reps: number | null;
+  /**
+   * Unit: kilogram.
+   */
   weightKg: number | null;
   /**
    * The weight as the athlete reads it, in the session's `weight_unit`, to one decimal.
+   * Unit: varies.
    */
   displayWeight: number | null;
+  /**
+   * Unit: second.
+   */
   durationSecs: number | null;
   /**
    * Which side of a one-sided exercise, when the athlete said.
@@ -3606,19 +4974,27 @@ export type FfiLoadDot = {
   name: string;
   sportType: string;
   /**
+   * The sport's family, lower case as `FfiFamilyHours` names it: `ride`,
+   * `winter`, `run`, `water`, `foot`, `strength` or `other`.
+   */
+  family: string;
+  /**
    * Wall-clock start, `YYYY-MM-DDTHH:MM:SS`.
    */
   startDateLocal: string;
   /**
    * Seconds.
+   * Unit: second.
    */
   movingTime: number;
   /**
    * Metres.
+   * Unit: metre.
    */
   distance: number;
   /**
    * The recorded training load, zero when none is recorded.
+   * Unit: tss.
    */
   load: number;
 };
@@ -3630,8 +5006,37 @@ export type FfiLoadDot = {
  */
 export type FfiLoadMetric = 'tss' | 'duration';
 
+/**
+ * A least-squares line of load against day, with the spread of the points
+ * about it.
+ */
+export type FfiLoadTrend = {
+  /**
+   * The day the line is anchored on, `YYYY-MM-DD`: the first point's day.
+   */
+  originDay: string;
+  /**
+   * The change in load per day.
+   * Unit: tss_per_day.
+   */
+  slopePerDay: number;
+  /**
+   * The line's load on `origin_day`.
+   * Unit: tss.
+   */
+  intercept: number;
+  /**
+   * The standard deviation of the points about the line, zero for two.
+   * Unit: tss.
+   */
+  spread: number;
+};
+
 export type FfiMapCategoryCount = {
   family: FfiSportFamily;
+  /**
+   * Unit: count.
+   */
   count: number;
 };
 
@@ -3641,9 +5046,22 @@ export type FfiMapCategoryCount = {
  */
 export type FfiMapEmptyReason =
   | 'noActivities'
-  | { filtered: { mapped: number } }
-  | { tracksPending: { activities: number; pending: number } }
-  | { noGps: { activities: number } };
+  | {
+      filtered: {
+        /** Unit: count. */ mapped: number;
+      };
+    }
+  | {
+      tracksPending: {
+        /** Unit: count. */ activities: number;
+        /** Unit: count. */ pending: number;
+      };
+    }
+  | {
+      noGps: {
+        /** Unit: count. */ activities: number;
+      };
+    };
 
 /**
  * Everything the map tab paints with in one call.
@@ -3651,6 +5069,7 @@ export type FfiMapEmptyReason =
 export type FfiMapScreenData = {
   /**
    * Total activities held by the engine, before the date and sport filters
+   * Unit: count.
    */
   activityCount: number;
   /**
@@ -3668,6 +5087,7 @@ export type FfiMapScreenData = {
   /**
    * Routes the map can draw: groups of at least two activities with a
    * stored line. Zero while the route-line layer is stale.
+   * Unit: count.
    */
   routeCount: number;
   /**
@@ -3677,6 +5097,7 @@ export type FfiMapScreenData = {
   routeLines: FfiRouteLineLayer | null;
   /**
    * Visible sections, regardless of whether the overlay was requested
+   * Unit: count.
    */
   sectionCount: number;
   /**
@@ -3716,8 +5137,12 @@ export type FfiMapSection = {
   sportTypes: string[];
   /**
    * Traversals, one per pass.
+   * Unit: count.
    */
   visitCount: number;
+  /**
+   * Unit: metre.
+   */
   distanceMeters: number;
   /**
    * climb, descent, rolling, flat or loop; None when nothing says. With the
@@ -3727,6 +5152,7 @@ export type FfiMapSection = {
   klass: string | null;
   /**
    * Steepest grade (%) held over 300 m of the slice.
+   * Unit: percent.
    */
   maxGradePercent: number | null;
   /**
@@ -3743,6 +5169,7 @@ export type FfiMapSectionLayer = {
   /**
    * The database state the overlay was read in, passed back to say the
    * caller still holds it. `None` when the read could not vouch for one.
+   * Unit: identifier.
    */
   stamp: number | null;
   /**
@@ -3761,7 +5188,13 @@ export type FfiMapSignature = {
    * Delta+varint encoded coordinates (simplified, max ~100 points)
    */
   encodedCoords: Base64;
+  /**
+   * Unit: degree.
+   */
   centerLat: number;
+  /**
+   * Unit: degree.
+   */
   centerLng: number;
 };
 
@@ -3772,10 +5205,12 @@ export type FfiMapUnmapped = {
   /**
    * No track is owed: no GPS upstream, a track refused for good, or one the
    * download gave up on, as `FfiMapEmptyReason::NoGps` reads it.
+   * Unit: count.
    */
   withoutGps: number;
   /**
    * A track is upstream and the GPS download has still to fetch it.
+   * Unit: count.
    */
   downloading: number;
 };
@@ -3795,9 +5230,21 @@ export type FfiMergeCandidate = {
    * Every sport whose included outings have taken the section, sorted.
    */
   sportTypes: string[];
+  /**
+   * Unit: metre.
+   */
   distanceMeters: number;
+  /**
+   * Unit: count.
+   */
   visitCount: number;
+  /**
+   * Unit: percent.
+   */
   overlapPct: number;
+  /**
+   * Unit: metre.
+   */
   centerDistanceMeters: number;
   /**
    * The candidate's line thinned to what a row thumbnail draws, delta+varint
@@ -3815,6 +5262,7 @@ export type FfiMergeDropped = {
   name: string;
   /**
    * Unix seconds
+   * Unit: epoch_second.
    */
   startDate: number;
 };
@@ -3833,10 +5281,12 @@ export type FfiMergeOutcome = {
 export type FfiMonthlyStats = {
   /**
    * Calendar year, in the athlete's own timezone.
+   * Unit: year.
    */
   year: number;
   /**
    * Calendar month, 1 to 12.
+   * Unit: month.
    */
   month: number;
   /**
@@ -3866,6 +5316,7 @@ export type FfiMuscleGroup = {
   slug: string;
   /**
    * 1 = secondary, 2 = primary
+   * Unit: code.
    */
   intensity: number;
 };
@@ -3878,10 +5329,25 @@ export type FfiMuscleGroup = {
 export type FfiMuscleGroupDetail = {
   slug: string;
   exercises: FfiExerciseContribution[];
+  /**
+   * Unit: count.
+   */
   totalSets: number;
+  /**
+   * Unit: count.
+   */
   totalReps: number;
+  /**
+   * Unit: kilogram.
+   */
   volumeKg: number;
+  /**
+   * Unit: count.
+   */
   primaryExercises: number;
+  /**
+   * Unit: count.
+   */
   secondaryExercises: number;
 };
 
@@ -3895,22 +5361,27 @@ export type FfiMuscleVolume = {
   slug: string;
   /**
    * Number of sets where this muscle is primary target
+   * Unit: count.
    */
   primarySets: number;
   /**
    * Number of sets where this muscle is secondary target
+   * Unit: count.
    */
   secondarySets: number;
   /**
    * Weighted set count: primary=1.0, secondary=0.5
+   * Unit: count.
    */
   weightedSets: number;
   /**
    * Reps targeting this muscle, with secondary work counted at half
+   * Unit: count.
    */
   totalReps: number;
   /**
    * Weight × reps in kg, with secondary work counted at half
+   * Unit: kilogram.
    */
   volumeKg: number;
   /**
@@ -3920,8 +5391,73 @@ export type FfiMuscleVolume = {
   /**
    * Body-diagram shade, 1 (lightest) to `DIAGRAM_SHADES`, against the
    * most trained muscle in the same summary
+   * Unit: code.
    */
   shade: number;
+};
+
+/**
+ * Whether a nearby place is a route or a section.
+ */
+export type FfiNearbyKind = 'route' | 'section';
+
+/**
+ * One route or section near a point, with what a list of them shows.
+ */
+export type FfiNearbyPlace = {
+  kind: FfiNearbyKind;
+  id: string;
+  name: string;
+  sportType: string;
+  /**
+   * The place's own length in metres.
+   * Unit: metre.
+   */
+  distanceMeters: number;
+  /**
+   * Unit: metre.
+   */
+  elevationGainMeters: number | null;
+  /**
+   * Metres from the point to where the place starts.
+   * Unit: metre.
+   */
+  awayMeters: number;
+  /**
+   * Whether the place starts within [`NEARBY_RADIUS_METRES`] of the point. A followed route
+   * beyond it is returned so it can be described, but is not offered.
+   */
+  offered: boolean;
+  /**
+   * Unit: second.
+   */
+  bestTimeSeconds: number | null;
+  /**
+   * Unix seconds of the best attempt.
+   */
+  bestDate: WholeNumber | null;
+  /**
+   * Unit: second.
+   */
+  lastTimeSeconds: number | null;
+  /**
+   * Unix seconds of the latest counted attempt.
+   */
+  lastDate: WholeNumber | null;
+  /**
+   * Unit: count.
+   */
+  passCount: number;
+  /**
+   * The line simplified to at most [`NEARBY_LINE_POINTS`] points, with elevation where stored.
+   */
+  encodedCoords: Base64;
+  /**
+   * The same line as [`pack_line`](crate::persistence::codec::pack_line) writes it, in place of
+   * `encoded_coords`, which is then empty. Present only when the read was asked to pack.
+   * Unit: varies.
+   */
+  packedLine: number[] | null;
 };
 
 /**
@@ -3936,29 +5472,43 @@ export type FfiPaceCurve = {
   sport: string;
   /**
    * Distances, in metres.
+   * Unit: metre.
    */
   distances: number[];
   /**
    * Seconds taken to cover each distance.
+   * Unit: second.
    */
   times: number[];
   /**
    * Metres per second at each distance, zero where the time is.
+   * Unit: metre_per_second.
    */
   pace: number[];
   activityIds: string[] | null;
   activities: Record<string, FfiCurveActivity>;
   /**
    * The critical-speed model's terms, when the server fitted one.
+   * Unit: metre_per_second.
    */
   criticalSpeed: number | null;
+  /**
+   * Unit: metre.
+   */
   dPrime: number | null;
+  /**
+   * Unit: ratio.
+   */
   r2: number | null;
   startDate: string | null;
   endDate: string | null;
+  /**
+   * Unit: day.
+   */
   days: number | null;
   /**
    * Epoch seconds at the fetch that stored the body.
+   * Unit: epoch_second.
    */
   fetchedAt: number;
   /**
@@ -3974,30 +5524,36 @@ export type FfiPaceCurve = {
 export type FfiPaceTrend = {
   /**
    * Most recent critical speed in m/s
+   * Unit: metre_per_second.
    */
   latestPace: number | null;
   /**
    * Date of most recent snapshot (Unix timestamp seconds)
+   * Unit: epoch_second.
    */
   latestDate: number | null;
   /**
    * Previous different critical speed in m/s
+   * Unit: metre_per_second.
    */
   previousPace: number | null;
   /**
    * Date of previous snapshot (Unix timestamp seconds)
+   * Unit: epoch_second.
    */
   previousDate: number | null;
   /**
    * The move from `previous_pace` to `latest_pace` as a percent of the
    * earlier speed, positive for faster. `None` with nothing to compare
    * against.
+   * Unit: percent.
    */
   gainPercent: number | null;
   /**
    * The same move in seconds per unit distance, the unit the sport is
    * paced in: 100 m for swimming, a kilometre otherwise. Positive is
    * seconds saved.
+   * Unit: second.
    */
   deltaSeconds: number | null;
   /**
@@ -4009,6 +5565,7 @@ export type FfiPaceTrend = {
   /**
    * Snapshots the trend was read from, for the same reason as
    * `FfiFtpTrend::sample_count`.
+   * Unit: count.
    */
   sampleCount: number;
   /**
@@ -4031,19 +5588,23 @@ export type FfiPeriodComparison = {
   metric: FfiLoadMetric;
   /**
    * The later period's total, in TSS or in seconds.
+   * Unit: varies.
    */
   current: number;
   /**
    * The earlier period's total, on the same metric.
+   * Unit: varies.
    */
   previous: number;
   /**
    * `current / previous - 1`, so 0.28 is 28% more than the period before.
+   * Unit: ratio.
    */
   ratio: number;
   /**
    * Epoch seconds where the later period starts, the week the verdict is
    * about, so a graphic of the weekly totals can mark it.
+   * Unit: epoch_second.
    */
   comparedStart: number;
 };
@@ -4054,18 +5615,22 @@ export type FfiPeriodComparison = {
 export type FfiPeriodStats = {
   /**
    * Number of activities
+   * Unit: count.
    */
   count: number;
   /**
    * Total moving time in seconds
+   * Unit: second.
    */
   totalDuration: number;
   /**
    * Total distance in meters
+   * Unit: metre.
    */
   totalDistance: number;
   /**
    * Total training load (TSS)
+   * Unit: tss.
    */
   totalTss: number;
 };
@@ -4084,9 +5649,13 @@ export type FfiPickerMuscle = {
 export type FfiPlanLine = {
   kind: FfiPlanLineKind;
   text: string;
+  /**
+   * Unit: second.
+   */
   durationSeconds: number | null;
   /**
    * A prescribed distance. Any duration beside it is an estimate, not a countdown.
+   * Unit: metre.
    */
   distanceMetres: number | null;
   targets: FfiStepTarget[];
@@ -4113,6 +5682,7 @@ export type FfiPlannedCategory = 'workout' | 'race' | 'note' | 'target' | 'seaso
 export type FfiPlannedEvent = {
   /**
    * The upstream event id.
+   * Unit: identifier.
    */
   id: number;
   name: string;
@@ -4128,8 +5698,12 @@ export type FfiPlannedEvent = {
   target: FfiPlanTarget | null;
   /**
    * The planned moving time, in seconds.
+   * Unit: second.
    */
   movingTime: number | null;
+  /**
+   * Unit: tss.
+   */
   trainingLoad: number | null;
   /**
    * The workout's steps as the lines the athlete follows. Empty for an
@@ -4148,6 +5722,7 @@ export type FfiPlannedEvent = {
 export type FfiPoolLength = {
   /**
    * The length's place in the file, from zero, rests counted.
+   * Unit: index.
    */
   index: number;
   /**
@@ -4156,6 +5731,7 @@ export type FfiPoolLength = {
   active: boolean;
   /**
    * The FIT SwimStroke number. None for a rest or an unrecorded stroke.
+   * Unit: code.
    */
   stroke: number | null;
   /**
@@ -4165,16 +5741,22 @@ export type FfiPoolLength = {
   strokeKey: string | null;
   /**
    * Seconds from the push-off to the wall, or the rest's duration.
+   * Unit: second.
    */
   elapsedSecs: number | null;
+  /**
+   * Unit: count.
+   */
   strokes: number | null;
   /**
    * Metres per second over the pool length. None for a rest.
+   * Unit: metre_per_second.
    */
   speedMps: number | null;
   /**
    * Elapsed seconds plus strokes. None for a rest or a length with no
    * stroke count or no time.
+   * Unit: swolf.
    */
   swolf: number | null;
 };
@@ -4183,20 +5765,32 @@ export type FfiPoolLength = {
  * One stroke's share of a pool swim, over its active lengths.
  */
 export type FfiPoolStrokeTotal = {
+  /**
+   * Unit: code.
+   */
   stroke: number | null;
   strokeKey: string;
+  /**
+   * Unit: count.
+   */
   lengths: number;
   /**
    * Lengths times the pool length. None when the pool length is unknown.
+   * Unit: metre.
    */
   distanceM: number | null;
+  /**
+   * Unit: second.
+   */
   elapsedSecs: number;
   /**
    * Distance over time. None when either is unknown or zero.
+   * Unit: metre_per_second.
    */
   speedMps: number | null;
   /**
    * The mean SWOLF of the lengths that have one.
+   * Unit: swolf.
    */
   avgSwolf: number | null;
 };
@@ -4208,6 +5802,7 @@ export type FfiPoolSwim = {
   state: FfiPoolSwimState;
   /**
    * The pool length in metres, whichever unit the device showed.
+   * Unit: metre.
    */
   poolLengthM: number | null;
   /**
@@ -4244,12 +5839,17 @@ export type FfiPowerCurve = {
   sport: string;
   /**
    * Durations, in seconds.
+   * Unit: second.
    */
   secs: number[];
   /**
    * The best watts held for each duration.
+   * Unit: watt.
    */
   watts: number[];
+  /**
+   * Unit: watt_per_kilogram.
+   */
   wattsPerKg: number[] | null;
   activityIds: string[] | null;
   /**
@@ -4258,6 +5858,7 @@ export type FfiPowerCurve = {
   wkgActivityIds: string[] | null;
   /**
    * The athlete's weight the per-kilogram series was divided by.
+   * Unit: kilogram.
    */
   weight: number | null;
   /**
@@ -4270,9 +5871,13 @@ export type FfiPowerCurve = {
   activities: Record<string, FfiCurveActivity>;
   startDate: string | null;
   endDate: string | null;
+  /**
+   * Unit: day.
+   */
   days: number | null;
   /**
    * Epoch seconds at the fetch that stored the body.
+   * Unit: epoch_second.
    */
   fetchedAt: number;
   /**
@@ -4290,14 +5895,22 @@ export type FfiPowerModel = {
    * `MS_2P`, `MORTON_3P`, `FFT_CURVES` or `ECP`.
    */
   kind: string;
+  /**
+   * Unit: watt.
+   */
   criticalPower: number;
   /**
    * W prime, joules above critical power.
+   * Unit: joule.
    */
   wPrime: number;
+  /**
+   * Unit: watt.
+   */
   ftp: number;
   /**
    * The three-parameter models' peak, absent on the two-parameter fit.
+   * Unit: watt.
    */
   pMax: number | null;
 };
@@ -4308,26 +5921,32 @@ export type FfiPowerModel = {
 export type FfiPowerZoneBand = {
   /**
    * Zone number, from 1
+   * Unit: index.
    */
   zone: number;
   /**
    * Lower edge in watts, 0 for zone 1
+   * Unit: watt.
    */
   minWatts: number;
   /**
    * Upper edge in watts, absent for the open top zone
+   * Unit: watt.
    */
   maxWatts: number | null;
   /**
    * Seconds spent in the zone
+   * Unit: second.
    */
   seconds: number;
   /**
    * Share of the total time in zones, 0 to 100
+   * Unit: percent.
    */
   percent: number;
   /**
    * The share as a whole percent, the bands' shares totalling 100
+   * Unit: percent.
    */
   share: number;
 };
@@ -4350,27 +5969,56 @@ export type FfiPreviewTrack = {
 export type FfiRankedSection = {
   sectionId: string;
   sectionName: string;
+  /**
+   * Unit: point.
+   */
   relevanceScore: number;
+  /**
+   * Unit: point.
+   */
   recencyScore: number;
+  /**
+   * Unit: point.
+   */
   improvementScore: number;
   /**
    * Signed fraction the athlete got faster by before the score clamps it,
    * +0.14 for 14% faster and -1.5 for 150% slower. Absent with fewer than
    * three efforts or a nonpositive earlier time, never an invented zero.
+   * Unit: ratio.
    */
   improvementChange: number | null;
   /**
    * What `improvement_change` compares, absent when it is.
    */
   improvementBasis: FfiImprovementBasis | null;
+  /**
+   * Unit: point.
+   */
   anomalyScore: number;
+  /**
+   * Unit: point.
+   */
   engagementScore: number;
+  /**
+   * Unit: count.
+   */
   traversalCount: number;
+  /**
+   * Unit: second.
+   */
   bestTimeSecs: number;
+  /**
+   * Unit: second.
+   */
   medianRecentSecs: number;
+  /**
+   * Unit: day.
+   */
   daysSinceLast: number;
   /**
    * -1 = declining, 0 = stable, 1 = improving
+   * Unit: code.
    */
   trend: number;
   /**
@@ -4401,7 +6049,13 @@ export type FfiRankedSectionsBySport = {
 export type FfiRecentPr = {
   sectionId: string;
   sectionName: string;
+  /**
+   * Unit: second.
+   */
   bestTime: number;
+  /**
+   * Unit: day.
+   */
   daysAgo: number;
   /**
    * The sport the record was set in. Shared ground holds a record in each
@@ -4415,21 +6069,31 @@ export type FfiRecentPr = {
    * and one set over fifty are different claims, and the ranker has no other
    * way to tell them apart. It counted the section's own traversals until
    * 2026-09-20, so three runs on a much-ridden climb claimed the rides.
+   * Unit: count.
    */
   traversalCount: number;
   /**
    * Timed, eligible laps in the record's direction.
+   * Unit: count.
    */
   standingCount: number;
   /**
    * Percent of other counted laps slower than the record, when at least three count.
+   * Unit: percent.
    */
   percentileFaster: number | null;
   /**
    * The next fastest counted lap in the record's direction.
+   * Unit: second.
    */
   previousBestTime: number | null;
+  /**
+   * Unit: epoch_second.
+   */
   previousBestDate: number | null;
+  /**
+   * Unit: second.
+   */
   deltaSeconds: number | null;
   /**
    * The last efforts on the section, oldest first, capped by
@@ -4457,7 +6121,13 @@ export type FfiRecentPr = {
 export type FfiRecordMove = {
   sport: string | null;
   direction: string | null;
+  /**
+   * Unit: second.
+   */
   from: number | null;
+  /**
+   * Unit: second.
+   */
   to: number | null;
 };
 
@@ -4479,23 +6149,28 @@ export type FfiRecordStep = {
   lapId: string;
   /**
    * Unix seconds.
+   * Unit: epoch_second.
    */
   activityDate: number;
   /**
    * Seconds.
+   * Unit: second.
    */
   sectionTime: number;
   /**
    * Metres per second.
+   * Unit: metre_per_second.
    */
   speed: number;
   /**
    * Seconds faster than the step before. `None` on the first step.
+   * Unit: second.
    */
   improvementSecs: number | null;
   /**
    * Metres per second faster than the step before. `None` on the first
    * step.
+   * Unit: metre_per_second.
    */
   improvementSpeed: number | null;
 };
@@ -4522,19 +6197,42 @@ export type FfiRecordingEntry = {
   name: string;
   /**
    * Milliseconds since the epoch, when the ride started.
+   * Unit: epoch_millisecond.
    */
   startTime: number;
+  /**
+   * Unit: second.
+   */
   durationSeconds: number;
+  /**
+   * Unit: metre.
+   */
   distanceMeters: number;
+  /**
+   * Unit: metre.
+   */
   elevationGain: number | null;
+  /**
+   * Unit: beat_per_minute.
+   */
   avgHeartrate: number | null;
+  /**
+   * Unit: identifier.
+   */
   pairedEventId: number | null;
   /**
    * Milliseconds since the epoch, when the recording was saved.
+   * Unit: epoch_millisecond.
    */
   createdAt: number;
   uploadStatus: string;
+  /**
+   * Unit: count.
+   */
   retryCount: number;
+  /**
+   * Unit: epoch_millisecond.
+   */
   lastAttemptAt: number | null;
   lastError: string | null;
   intervalsActivityId: string | null;
@@ -4562,6 +6260,7 @@ export type FfiRecordingEntry = {
   /**
    * The effort from 1 to 10 the athlete set on the review screen, `None`
    * when the slider was never moved.
+   * Unit: point.
    */
   rpe: number | null;
   /**
@@ -4601,6 +6300,7 @@ export type FfiRetiredMapPair = {
   link: FfiRetiredPairLink;
   /**
    * The larger of the two coverage fractions, for a `Ground` pair only.
+   * Unit: ratio.
    */
   overlap: number | null;
 };
@@ -4649,11 +6349,13 @@ export type FfiRetiredSection = {
   name: string | null;
   /**
    * Its length when it left, else its newest stored line's.
+   * Unit: metre.
    */
   distanceMeters: number | null;
   /**
    * How many passes it had when it left: its retirement event's count,
    * else the newest archived state's. `None` when neither recorded one.
+   * Unit: count.
    */
   visitCount: number | null;
   /**
@@ -4674,6 +6376,7 @@ export type FfiRetiredSection = {
 export type FfiRouteDetailData = {
   /**
    * Total activities held by the engine
+   * Unit: count.
    */
   activityCount: number;
   /**
@@ -4684,12 +6387,14 @@ export type FfiRouteDetailData = {
   /**
    * The representative activity's distance in meters, the figure the routes
    * list shows and sorts on. Zero when the route is unknown.
+   * Unit: metre.
    */
   distanceMeters: number;
   /**
    * The representative activity's elevation gain in meters, the climbing
    * the route hero shows beside its distance. Zero when the route is
    * unknown.
+   * Unit: metre.
    */
   elevationGainMeters: number;
   /**
@@ -4720,8 +6425,17 @@ export type FfiRouteGroup = {
   activityIds: string[];
   bounds: FfiBounds | null;
   customName: string | null;
+  /**
+   * Unit: second.
+   */
   bestTime: number | null;
+  /**
+   * Unit: second.
+   */
   avgTime: number | null;
+  /**
+   * Unit: metre_per_second.
+   */
   bestPace: number | null;
   bestActivityId: string | null;
 };
@@ -4744,25 +6458,30 @@ export type FfiRouteInsight = {
   /**
    * -1 slower, 0 stable or too few attempts, 1 faster, on the median
    * window rule sections use.
+   * Unit: code.
    */
   trend: number;
   /**
    * The trend's size: the recent median moving time minus the previous
    * median, in seconds, negative faster. `None` where `trend` is 0.
+   * Unit: second.
    */
   trendSeconds: number | null;
   /**
    * The fastest counted attempt's moving time, in seconds.
+   * Unit: second.
    */
   bestTime: number;
   /**
    * Whole days from the newest counted attempt to the end of the current
    * week.
+   * Unit: day.
    */
   daysSinceLast: number;
   /**
    * Counted attempts: timed, not excluded, not partial, inside the
    * distance band.
+   * Unit: count.
    */
   attemptCount: number;
   /**
@@ -4776,6 +6495,7 @@ export type FfiRouteLine = {
   routeId: string;
   /**
    * The number the route is shown under, absent until one is minted
+   * Unit: identifier.
    */
   routeNumber: number | null;
   /**
@@ -4785,11 +6505,13 @@ export type FfiRouteLine = {
   name: string;
   /**
    * The activities in the route
+   * Unit: count.
    */
   activityCount: number;
   /**
    * The representative's distance in metres, the figure the route list
    * shows, read when the map is
+   * Unit: metre.
    */
   distanceMeters: number;
   /**
@@ -4806,12 +6528,14 @@ export type FfiRouteLineLayer = {
   /**
    * The route group generation the lines were built from. Declared as a
    * double, which holds every generation a library reaches exactly.
+   * Unit: identifier.
    */
   generation: number;
   /**
    * The database state the layer was read in, which the caller passes back
    * to say it still holds these lines. `None` when the read could not vouch
    * for one.
+   * Unit: identifier.
    */
   stamp: number | null;
   /**
@@ -4833,30 +6557,37 @@ export type FfiRoutePerformance = {
   date: WholeNumber;
   /**
    * Speed in m/s (distance / moving_time)
+   * Unit: metre_per_second.
    */
   speed: number;
   /**
    * Elapsed time in seconds
+   * Unit: second.
    */
   duration: number;
   /**
    * Moving time in seconds
+   * Unit: second.
    */
   movingTime: number;
   /**
    * Distance in meters
+   * Unit: metre.
    */
   distance: number;
   /**
    * Elevation gain in meters
+   * Unit: metre.
    */
   elevationGain: number;
   /**
    * Average heart rate (optional)
+   * Unit: beat_per_minute.
    */
   avgHr: number | null;
   /**
    * Average power in watts (optional)
+   * Unit: watt.
    */
   avgPower: number | null;
   /**
@@ -4869,6 +6600,7 @@ export type FfiRoutePerformance = {
   direction: string;
   /**
    * Match percentage (0-100), None if no match data available
+   * Unit: percent.
    */
   matchPercentage: number | null;
   /**
@@ -4924,15 +6656,18 @@ export type FfiRoutePerformanceResult = {
   reverseStats: FfiDirectionStats | null;
   /**
    * Current activity's standing, with rank one reserved for a strict record.
+   * Unit: index.
    */
   currentRank: number | null;
   /**
    * Timed comparable attempts in the current direction.
+   * Unit: count.
    */
   attemptCount: number;
   /**
    * Share of those attempts slower than the current one, 0 to 100.
    * `None` for a lone attempt or an activity that is not on the route.
+   * Unit: percent.
    */
   percentileRank: number | null;
   /**
@@ -4951,15 +6686,28 @@ export type FfiRoutePerformanceResult = {
  * Supports pagination via limit/offset for groups and sections.
  */
 export type FfiRoutesScreenData = {
+  /**
+   * Unit: count.
+   */
   activityCount: number;
   /**
    * How many routes the minimum activity count leaves, before the search and
    * the sport narrow them. A group ridden once is not a route, so it is not
    * counted here.
+   * Unit: count.
    */
   groupCount: number;
+  /**
+   * Unit: count.
+   */
   sectionCount: number;
+  /**
+   * Unit: epoch_second.
+   */
   oldestDate: number | null;
+  /**
+   * Unit: epoch_second.
+   */
   newestDate: number | null;
   groups: FfiGroupWithPolyline[];
   sections: FfiSectionWithPolyline[];
@@ -4988,24 +6736,29 @@ export type FfiRoutesScreenData = {
    * How many groups the minimum activity count, the sport and the search
    * leave. This is what the page is taken out of, and what `has_more_groups`
    * is measured against. `group_count` is the scope it is taken out of.
+   * Unit: count.
    */
   filteredGroupCount: number;
   /**
    * How many sections the search and the hidden filters leave.
+   * Unit: count.
    */
   filteredSectionCount: number;
   /**
    * Auto sections the athlete has not accepted, over the whole catalogue and
    * not the page, because this is the "N to review" figure.
+   * Unit: count.
    */
   unacceptedAutoCount: number;
   /**
    * Auto sections the athlete has accepted, over the whole catalogue.
+   * Unit: count.
    */
   acceptedAutoCount: number;
   /**
    * Custom sections over the whole catalogue. The chip beside it filters the
    * catalogue, so a page-sized tally would be a lower bound nothing labels.
+   * Unit: count.
    */
   customCount: number;
   /**
@@ -5014,6 +6767,7 @@ export type FfiRoutesScreenData = {
    * this figure is the count for and which hides them by default. Distinct
    * from `ledger_retired_count`: a disabled row is still in the catalogue,
    * a ledger retirement has left it.
+   * Unit: count.
    */
   removedCount: number;
   /**
@@ -5021,6 +6775,7 @@ export type FfiRoutesScreenData = {
    * hold a ledger, the graveyard the retired screen lists, a record
    * restore's pending states included. This is what the entry points to the
    * graveyard gate on, and it is not the `removed_count` of disabled rows.
+   * Unit: count.
    */
   ledgerRetiredCount: number;
   /**
@@ -5028,6 +6783,7 @@ export type FfiRoutesScreenData = {
    * record restore's pending state. A later detect that dissolves a section
    * leaves no archived row, so a library with no cutover reads zero here,
    * which is what the "your matching changed" card gates on.
+   * Unit: count.
    */
   archivedRetiredCount: number;
   /**
@@ -5054,10 +6810,25 @@ export type FfiRoutesScreenData = {
  * not of the library.
  */
 export type FfiRoutesScreenQuery = {
+  /**
+   * Unit: count.
+   */
   groupLimit: number;
+  /**
+   * Unit: count.
+   */
   groupOffset: number;
+  /**
+   * Unit: count.
+   */
   sectionLimit: number;
+  /**
+   * Unit: count.
+   */
   sectionOffset: number;
+  /**
+   * Unit: count.
+   */
   minGroupActivityCount: number;
   groupSort: FfiGroupSort;
   /**
@@ -5080,7 +6851,13 @@ export type FfiRoutesScreenQuery = {
    * within-sport percentile rather than the pooled one.
    */
   sectionSportType: string | null;
+  /**
+   * Unit: degree.
+   */
   userLat: number;
+  /**
+   * Unit: degree.
+   */
   userLng: number;
 };
 
@@ -5106,6 +6883,9 @@ export type FfiSection = {
    */
   sportTypes: string[];
   encodedPolyline: Base64;
+  /**
+   * Unit: metre.
+   */
   distanceMeters: number;
   representativeActivityId: string | null;
   activityIds: string[];
@@ -5114,16 +6894,43 @@ export type FfiSection = {
    * carries these, so the database path sends an empty list.
    */
   activityPortions: FfiSectionPortion[];
+  /**
+   * Unit: count.
+   */
   visitCount: number;
+  /**
+   * Unit: ratio.
+   */
   confidence: number | null;
+  /**
+   * Unit: count.
+   */
   observationCount: number | null;
+  /**
+   * Unit: ratio.
+   */
   averageSpread: number | null;
+  /**
+   * Unit: count.
+   */
   pointDensity: number[] | null;
   scale: string | null;
   isUserDefined: boolean;
+  /**
+   * Unit: ratio.
+   */
   stability: number | null;
+  /**
+   * Unit: metre.
+   */
   elevationGainM: number | null;
+  /**
+   * Unit: percent.
+   */
   avgGradePercent: number | null;
+  /**
+   * Unit: identifier.
+   */
   version: number | null;
   updatedAt: string | null;
   createdAt: string;
@@ -5132,15 +6939,33 @@ export type FfiSection = {
    */
   routeIds: string[] | null;
   sourceActivityId: string | null;
+  /**
+   * Unit: index.
+   */
   startIndex: number | null;
+  /**
+   * Unit: index.
+   */
   endIndex: number | null;
   disabled: boolean;
   supersededBy: string | null;
+  /**
+   * Unit: metre.
+   */
   elevationLossM: number | null;
+  /**
+   * Unit: percent.
+   */
   maxGradePercent: number | null;
   klass: string | null;
   isLift: boolean;
+  /**
+   * Unit: point.
+   */
   rankScore: number | null;
+  /**
+   * Unit: point.
+   */
   sportRankScore: number | null;
 };
 
@@ -5153,12 +6978,20 @@ export type FfiSectionActivityRow = {
   sportType: string;
   /**
    * Unix seconds, as stored by the engine.
+   * Unit: epoch_second.
    */
   startTime: number;
+  /**
+   * Unit: metre.
+   */
   distance: number;
+  /**
+   * Unit: second.
+   */
   movingTime: number;
   /**
    * Metres per second; zero when moving time is zero.
+   * Unit: metre_per_second.
    */
   averageSpeed: number;
 };
@@ -5190,10 +7023,12 @@ export type FfiSectionChange = {
 export type FfiSectionChangeSummary = {
   /**
    * The line's length in metres in the version before, when one is stored.
+   * Unit: metre.
    */
   lengthBefore: number | null;
   /**
    * The line's length in metres in the row's version.
+   * Unit: metre.
    */
   lengthAfter: number | null;
   /**
@@ -5203,6 +7038,7 @@ export type FfiSectionChangeSummary = {
   moved: string | null;
   /**
    * For a split, the distance along the line in metres where it was cut.
+   * Unit: metre.
    */
   atMetres: number | null;
   /**
@@ -5217,6 +7053,7 @@ export type FfiSectionChangeSummary = {
   records: FfiRecordMove[];
   /**
    * On a record row folded onto a re-cut, the id of that re-cut's row.
+   * Unit: identifier.
    */
   foldedInto: number | null;
 };
@@ -5228,11 +7065,18 @@ export type FfiSectionChangeSummary = {
  */
 export type FfiSectionChartData = {
   points: FfiSectionChartPoint[];
+  /**
+   * Unit: metre_per_second.
+   */
   minSpeed: number;
+  /**
+   * Unit: metre_per_second.
+   */
   maxSpeed: number;
   hasReverseRuns: boolean;
   /**
    * The quickest lap in the section's own direction.
+   * Unit: second.
    */
   bestTimeSecs: number | null;
   /**
@@ -5242,9 +7086,16 @@ export type FfiSectionChartData = {
   bestTimeEstimated: boolean;
   /**
    * The oldest point's date, unix seconds.
+   * Unit: epoch_second.
    */
   firstActivityDate: number | null;
+  /**
+   * Unit: epoch_second.
+   */
   lastActivityDate: number | null;
+  /**
+   * Unit: count.
+   */
   totalActivities: number;
 };
 
@@ -5258,16 +7109,22 @@ export type FfiSectionChartPoint = {
   activityName: string;
   /**
    * Unix seconds
+   * Unit: epoch_second.
    */
   activityDate: number;
   /**
    * m/s
+   * Unit: metre_per_second.
    */
   speed: number;
   /**
    * Section time for this lap (seconds)
+   * Unit: second.
    */
   sectionTime: number;
+  /**
+   * Unit: metre.
+   */
   sectionDistance: number;
   /**
    * "same" | "reverse"
@@ -5283,6 +7140,7 @@ export type FfiSectionChartPoint = {
   /**
    * The lap's stored mean watts. `None` for a lap with no power stream and
    * for a record without laps, which has no single lap to read it from.
+   * Unit: watt.
    */
   avgPower: number | null;
   /**
@@ -5294,6 +7152,7 @@ export type FfiSectionChartPoint = {
   /**
    * How much of the route the attempt matched, 0 to 100. `None` on a
    * section, and on a route attempt with no stored match.
+   * Unit: percent.
    */
   matchPercentage: number | null;
   /**
@@ -5306,11 +7165,13 @@ export type FfiSectionChartPoint = {
    * Seconds behind the direction's record: zero for the record holder,
    * positive for a slower attempt. `None` for an excluded attempt, one
    * outside a route's distance band, and in a direction with no record.
+   * Unit: second.
    */
   recordGapSecs: number | null;
   /**
    * Metres per second behind the direction's record, signed as
    * `record_gap_secs` is: positive is slower. `None` where it is.
+   * Unit: metre_per_second.
    */
   recordGapSpeed: number | null;
   /**
@@ -5325,10 +7186,25 @@ export type FfiSectionChartPoint = {
  * Section config for FFI
  */
 export type FfiSectionConfig = {
+  /**
+   * Unit: metre.
+   */
   proximityThreshold: number;
+  /**
+   * Unit: metre.
+   */
   minSectionLength: number;
+  /**
+   * Unit: metre.
+   */
   maxSectionLength: number;
+  /**
+   * Unit: count.
+   */
   minActivities: number;
+  /**
+   * Unit: metre.
+   */
   divergenceThreshold: number;
 };
 
@@ -5349,6 +7225,7 @@ export type FfiSectionCorrelation = {
    * Variables of this direction that carried an estimate: the family the
    * mover label was Holm-adjusted across. The same on every row of a
    * direction, and 0 when none of them had enough pairs.
+   * Unit: count.
    */
   familySize: number;
 };
@@ -5359,6 +7236,7 @@ export type FfiSectionCorrelation = {
 export type FfiSectionDetailData = {
   /**
    * Total activities held by the engine
+   * Unit: count.
    */
   activityCount: number;
   /**
@@ -5404,6 +7282,7 @@ export type FfiSectionDetailData = {
   geometryVersions: FfiSectionGeometryVersion[];
   /**
    * The pinned version, or `None` when the section follows the newest cut
+   * Unit: identifier.
    */
   pinnedVersion: number | null;
 };
@@ -5417,18 +7296,24 @@ export type FfiSectionEncounter = {
   sectionType: string;
   sectionName: string;
   direction: string;
+  /**
+   * Unit: metre.
+   */
   distanceMeters: number;
   /**
    * Where this activity's track first enters the section in this direction.
    * Encounters come back ordered by it.
+   * Unit: index.
    */
   startIndex: number;
   /**
    * This activity's time on this section in this direction
+   * Unit: second.
    */
   lapTime: number;
   /**
    * This activity's pace on this section in this direction
+   * Unit: metre_per_second.
    */
   lapPace: number;
   /**
@@ -5443,14 +7328,17 @@ export type FfiSectionEncounter = {
    * Podium place, 1 to 3, among the other outings on this (section,
    * direction); `None` for fourth and below, a fragment or a lone outing.
    * `is_pr` is exactly `rank == Some(1)`.
+   * Unit: index.
    */
   rank: number | null;
   /**
    * How many total traversals exist for this (section, direction)
+   * Unit: count.
    */
   visitCount: number;
   /**
    * Historical lap times for sparkline (chronological, all activities in this direction)
+   * Unit: second.
    */
   historyTimes: number[];
   /**
@@ -5460,6 +7348,7 @@ export type FfiSectionEncounter = {
   /**
    * Start of each activity in history_times, Unix seconds, so the sparkline
    * can place each outing at its date
+   * Unit: epoch_second.
    */
   historyDates: number[];
 };
@@ -5476,6 +7365,7 @@ export type FfiSectionEraRecord = {
   direction: string | null;
   /**
    * Seconds.
+   * Unit: second.
    */
   time: number;
 };
@@ -5503,8 +7393,12 @@ export type FfiSectionEventDetails = {
   /**
    * A re-based record's time before and after, within `pr_sport` and
    * `pr_direction`.
+   * Unit: second.
    */
   prFrom: number | null;
+  /**
+   * Unit: second.
+   */
   prTo: number | null;
   prSport: string | null;
   /**
@@ -5516,6 +7410,9 @@ export type FfiSectionEventDetails = {
    * The sections a split left behind, in line order.
    */
   siblings: string[];
+  /**
+   * Unit: identifier.
+   */
   version: number | null;
   /**
    * The activity a re-anchor moved the line off, and the one it moved to.
@@ -5563,6 +7460,9 @@ export type FfiSectionFilters = {
  * One stored geometry version of a section.
  */
 export type FfiSectionGeometryVersion = {
+  /**
+   * Unit: identifier.
+   */
   version: number;
   createdAt: string;
   milestone: boolean;
@@ -5573,6 +7473,9 @@ export type FfiSectionGeometryVersion = {
  * One ledger row of a section.
  */
 export type FfiSectionHistoryEvent = {
+  /**
+   * Unit: identifier.
+   */
   id: number;
   at: string;
   /**
@@ -5586,6 +7489,9 @@ export type FfiSectionHistoryEvent = {
    * row stored none or stored something unreadable.
    */
   details: FfiSectionEventDetails | null;
+  /**
+   * Unit: identifier.
+   */
   geometryVersion: number | null;
 };
 
@@ -5597,14 +7503,17 @@ export type FfiSectionLap = {
   activityId: string;
   /**
    * Lap time in seconds
+   * Unit: second.
    */
   time: number;
   /**
    * Pace in m/s
+   * Unit: metre_per_second.
    */
   pace: number;
   /**
    * Distance in meters
+   * Unit: metre.
    */
   distance: number;
   /**
@@ -5613,22 +7522,27 @@ export type FfiSectionLap = {
   direction: string;
   /**
    * Start index in the activity's GPS track
+   * Unit: index.
    */
   startIndex: number;
   /**
    * End index in the activity's GPS track
+   * Unit: index.
    */
   endIndex: number;
   /**
    * Mean heart rate over the lap, when the activity carried a stream.
+   * Unit: beat_per_minute.
    */
   avgHr: number | null;
   /**
    * Mean watts over the lap, when the activity carried a power stream.
+   * Unit: watt.
    */
   avgPower: number | null;
   /**
    * Share of the section this lap spans, `None` until it is measured.
+   * Unit: ratio.
    */
   coverage: number | null;
   /**
@@ -5645,6 +7559,7 @@ export type FfiSectionLap = {
   /**
    * How much of the route a route attempt matched, 0 to 100. `None` for a
    * section lap.
+   * Unit: percent.
    */
   matchPercentage: number | null;
   /**
@@ -5666,14 +7581,17 @@ export type FfiSectionLap = {
 export type FfiSectionLapCurves = {
   /**
    * Metres between two points of a lap's `delta_secs`.
+   * Unit: metre.
    */
   gridStepM: number;
   /**
    * Metres each of a lap's `split_delta_secs` spans; the last is short.
+   * Unit: metre.
    */
   splitStepM: number;
   /**
    * The section's line length the grid runs over.
+   * Unit: metre.
    */
   sectionLengthM: number;
   forward: FfiDirectionDeltas | null;
@@ -5756,6 +7674,7 @@ export type FfiSectionPerformanceData = {
   /**
    * Complete pairs a variable needed before its correlation carries a
    * figure: the floor every `TooFew` above fell short of.
+   * Unit: count.
    */
   correlationFloor: number;
   /**
@@ -5805,22 +7724,27 @@ export type FfiSectionPerformanceRecord = {
   laps: FfiSectionLap[];
   /**
    * Number of times this section was traversed
+   * Unit: count.
    */
   lapCount: number;
   /**
    * Best (fastest) lap time in seconds
+   * Unit: second.
    */
   bestTime: number;
   /**
    * Best pace in m/s
+   * Unit: metre_per_second.
    */
   bestPace: number;
   /**
    * Best eligible forward lap time.
+   * Unit: second.
    */
   bestForwardTime: number | null;
   /**
    * Best eligible reverse lap time.
+   * Unit: second.
    */
   bestReverseTime: number | null;
   /**
@@ -5830,10 +7754,12 @@ export type FfiSectionPerformanceRecord = {
   bestEstimated: boolean;
   /**
    * Average lap time in seconds
+   * Unit: second.
    */
   avgTime: number;
   /**
    * Average pace in m/s
+   * Unit: metre_per_second.
    */
   avgPace: number;
   /**
@@ -5842,6 +7768,7 @@ export type FfiSectionPerformanceRecord = {
   direction: string;
   /**
    * Section distance in meters
+   * Unit: metre.
    */
   sectionDistance: number;
 };
@@ -5887,8 +7814,17 @@ export type FfiSectionPerformanceResult = {
  */
 export type FfiSectionPortion = {
   activityId: string;
+  /**
+   * Unit: index.
+   */
   startIndex: number;
+  /**
+   * Unit: index.
+   */
   endIndex: number;
+  /**
+   * Unit: metre.
+   */
   distanceMeters: number;
   direction: string;
 };
@@ -5925,6 +7861,7 @@ export type FfiSectionSportCount = {
   sportType: string;
   /**
    * Laps the chart would plot under this sport, not activities.
+   * Unit: count.
    */
   count: number;
 };
@@ -5975,9 +7912,21 @@ export type FfiSectionWithPolyline = {
   id: string;
   sectionType: string;
   name: string | null;
+  /**
+   * Unit: count.
+   */
   visitCount: number;
+  /**
+   * Unit: metre.
+   */
   distanceMeters: number;
+  /**
+   * Unit: count.
+   */
   activityCount: number;
+  /**
+   * Unit: ratio.
+   */
   confidence: number;
   scale: string | null;
   bounds: FfiBounds | null;
@@ -5992,13 +7941,31 @@ export type FfiSectionWithPolyline = {
   isUserDefined: boolean;
   disabled: boolean;
   supersededBy: string | null;
+  /**
+   * Unit: metre.
+   */
   elevationGainM: number | null;
+  /**
+   * Unit: metre.
+   */
   elevationLossM: number | null;
+  /**
+   * Unit: percent.
+   */
   avgGradePercent: number | null;
+  /**
+   * Unit: percent.
+   */
   maxGradePercent: number | null;
   klass: string | null;
   isLift: boolean;
+  /**
+   * Unit: point.
+   */
   rankScore: number | null;
+  /**
+   * Unit: point.
+   */
   sportRankScore: number | null;
   /**
    * The section's record was set on its most recent outing. The feed card
@@ -6008,6 +7975,7 @@ export type FfiSectionWithPolyline = {
   latestIsRecord: boolean;
   /**
    * Faster or slower in the selected sport, or the sport with most visits.
+   * Unit: code.
    */
   trend: number | null;
 };
@@ -6022,9 +7990,13 @@ export type FfiSectionWithPolyline = {
  * eFTP against its day, a critical speed against its snapshot.
  */
 export type FfiSeriesPoint = {
+  /**
+   * Unit: varies.
+   */
   value: number;
   /**
    * Epoch seconds.
+   * Unit: epoch_second.
    */
   date: number;
   /**
@@ -6041,6 +8013,7 @@ export type FfiSeriesPoint = {
 export type FfiSpanDecoupling = {
   /**
    * The span's length in days, back from today.
+   * Unit: day.
    */
   days: number;
   /**
@@ -6062,6 +8035,7 @@ export type FfiSplitSummary = {
   /**
    * The laps with a finite delta over each split, which its figures come
    * from.
+   * Unit: index.
    */
   laps: number[];
 };
@@ -6082,6 +8056,9 @@ export type FfiSportLoad = {
    * The sport the entry stands for, as the API spells it ("Ride", "Run").
    */
   sportGroup: string | null;
+  /**
+   * Unit: tss.
+   */
   load: number | null;
 };
 
@@ -6089,8 +8066,17 @@ export type FfiSportLoad = {
  * The latest activities by the three sports the fitness tab draws.
  */
 export type FfiSportMix = {
+  /**
+   * Unit: count.
+   */
   rides: number;
+  /**
+   * Unit: count.
+   */
   runs: number;
+  /**
+   * Unit: count.
+   */
   swims: number;
   /**
    * "Cycling", "Running" or "Swimming", whichever counts the most. `None`
@@ -6115,6 +8101,7 @@ export type FfiSportThresholds = {
   /**
    * The upper edge of each power zone as a percent of FTP, empty when the
    * sport settings list none.
+   * Unit: percent.
    */
   powerZones: number[];
 };
@@ -6124,11 +8111,18 @@ export type FfiSportThresholds = {
  * the tracks the download can ask about.
  */
 export type FfiStagedHistory = {
+  /**
+   * Unit: count.
+   */
   done: number;
+  /**
+   * Unit: count.
+   */
   total: number;
   /**
    * The whole days the tracks still owed take on the daily backfill share,
    * or `None` when they fit in one day.
+   * Unit: day.
    */
   daysToFinish: number | null;
 };
@@ -6142,19 +8136,35 @@ export type FfiStagedHistory = {
 export type FfiStalePrOpportunity = {
   sectionId: string;
   sectionName: string;
+  /**
+   * Unit: second.
+   */
   bestTimeSecs: number;
+  /**
+   * Unit: count.
+   */
   traversalCount: number;
   /**
    * Days since the last traversal. The insight gates on this, so it has to
    * travel with the opportunity rather than be recovered downstream.
+   * Unit: day.
    */
   daysSinceLast: number;
   /**
    * "power" for cycling (FTP), "pace" for running/swimming (critical speed)
    */
   fitnessMetric: string;
+  /**
+   * Unit: varies.
+   */
   currentValue: number;
+  /**
+   * Unit: varies.
+   */
   previousValue: number;
+  /**
+   * Unit: percent.
+   */
   gainPercent: number;
   /**
    * "W" for power, "/km" for running, "/100m" for swimming
@@ -6179,22 +8189,26 @@ export type FfiStalePrOpportunity = {
   /**
    * When the record was set, epoch seconds. `previous_value` is the
    * fitness on this day.
+   * Unit: epoch_second.
    */
   prDate: number;
   /**
    * The record effort's mean power in watts, for a cycling section whose
    * record carried a power stream. Absent otherwise, never a zero.
+   * Unit: watt.
    */
   prPower: number | null;
   /**
    * The record effort's mean speed in m/s, for a running or swimming
    * section. Absent for cycling.
+   * Unit: metre_per_second.
    */
   prSpeed: number | null;
   /**
    * The record effort as a percent of the fitness held that day: power
    * over eFTP for cycling, speed over critical speed for running and
    * swimming. Absent when the effort is.
+   * Unit: percent.
    */
   prSharePercent: number | null;
   /**
@@ -6217,11 +8231,13 @@ export type FfiStatTrend = {
   /**
    * The size of the move in whole percent of the earlier total, absent for
    * a move inside the deadband.
+   * Unit: percent.
    */
   percent: number | null;
   /**
    * The signed move in percent of the earlier total, unrounded, for a card
    * that prints its own precision.
+   * Unit: percent.
    */
   change: number;
 };
@@ -6232,12 +8248,14 @@ export type FfiStatTrend = {
 export type FfiStepBlock = {
   /**
    * The width the block takes, in seconds of the plan.
+   * Unit: second.
    */
   seconds: number;
   /**
    * The athlete's training zone, 1 to 7, that the step's target falls in.
    * `None` for a rest step and for a step with no target a zone can be
    * worked out from.
+   * Unit: index.
    */
   zone: number | null;
   rest: boolean;
@@ -6248,7 +8266,13 @@ export type FfiStepBlock = {
  */
 export type FfiStepTarget = {
   metric: FfiTargetMetric;
+  /**
+   * Unit: FfiTargetMetric.
+   */
   low: number;
+  /**
+   * Unit: FfiTargetMetric.
+   */
   high: number;
   /**
    * The units as the plan wrote them: `%ftp`, `w`, `power_zone` and so on.
@@ -6277,8 +8301,12 @@ export type FfiStrengthBalancePair = {
   rightSlug: string;
   /**
    * Weighted sets on each side, rounded to one decimal, as the verdict saw them
+   * Unit: count.
    */
   leftWeightedSets: number;
+  /**
+   * Unit: count.
+   */
   rightWeightedSets: number;
   /**
    * The heavier side, or `None` when the two are equal
@@ -6287,6 +8315,7 @@ export type FfiStrengthBalancePair = {
   /**
    * Heavier over lighter. `None` when either side is untrained, where a
    * ratio is not a number: `status` carries that case.
+   * Unit: ratio.
    */
   ratio: number | null;
   /**
@@ -6307,14 +8336,17 @@ export type FfiStrengthCardSummary = {
   settled: boolean;
   /**
    * Rest, warmup and cooldown sets are not counted.
+   * Unit: count.
    */
   activeSetCount: number;
   /**
    * Distinct exercise names among the active sets.
+   * Unit: count.
    */
   exerciseCount: number;
   /**
    * Weight times repetitions over active sets.
+   * Unit: kilogram.
    */
   totalVolumeKg: number;
   /**
@@ -6349,13 +8381,24 @@ export type FfiStrengthProgression = {
    * Weighted sets for each week of `weekly`, oldest first, rounded to one
    * decimal before the averages below are taken. The order matters: the
    * reader rounded first and an average of unrounded weeks disagrees.
+   * Unit: count.
    */
   weeklyWeightedSets: number[];
+  /**
+   * Unit: count.
+   */
   recentAverage: number;
+  /**
+   * Unit: count.
+   */
   baselineAverage: number;
+  /**
+   * Unit: count.
+   */
   peakWeightedSets: number;
   /**
    * `None` when the baseline is zero, which has no percentage to report.
+   * Unit: percent.
    */
   changePct: number | null;
   /**
@@ -6366,6 +8409,7 @@ export type FfiStrengthProgression = {
    * How far the recent average sits from the baseline, in standard
    * deviations of the weekly series. `None` when the series is flat or
    * shorter than two weeks.
+   * Unit: standard_deviation.
    */
   signalDelta: number | null;
 };
@@ -6395,6 +8439,7 @@ export type FfiStrengthScreenData = {
   /**
    * Strength activities in the period with no FIT outcome yet, whose sets
    * are owed rather than absent.
+   * Unit: count.
    */
   owedCount: number;
 };
@@ -6405,6 +8450,7 @@ export type FfiStrengthScreenData = {
 export type FfiStrengthSummary = {
   /**
    * Start of the summary's range in Unix seconds, or zero for an undated aggregate.
+   * Unit: epoch_second.
    */
   startTs: number;
   /**
@@ -6413,10 +8459,12 @@ export type FfiStrengthSummary = {
   muscleVolumes: FfiMuscleVolume[];
   /**
    * Number of WeightTraining activities in the period
+   * Unit: count.
    */
   activityCount: number;
   /**
    * Total active sets across all activities
+   * Unit: count.
    */
   totalSets: number;
   /**
@@ -6426,6 +8474,7 @@ export type FfiStrengthSummary = {
   /**
    * The most trained muscle's weighted sets, the top of the diagram's
    * scale, or zero when nothing was trained
+   * Unit: count.
    */
   maxWeightedSets: number;
 };
@@ -6533,17 +8582,28 @@ export type FfiSyncErrorReason =
  */
 export type FfiSyncStatus = {
   state: SyncState;
+  /**
+   * Unit: count.
+   */
   inFlight: number;
+  /**
+   * Unit: count.
+   */
   completed: number;
+  /**
+   * Unit: count.
+   */
   total: number;
   /**
    * Activities the running per-activity step has handled, of
    * `step_items_total`. Both are zero for a step that is not a walk over
    * activities, and between steps.
+   * Unit: count.
    */
   stepItemsDone: number;
   /**
    * Activities the running per-activity step owes, read when it began.
+   * Unit: count.
    */
   stepItemsTotal: number;
   /**
@@ -6568,6 +8628,7 @@ export type FfiSyncStatus = {
    * When the work the last run left owed is asked for again, as epoch
    * milliseconds, when it ended on a refusal or a deferral from the
    * request budget. The engine resumes it itself at this time.
+   * Unit: epoch_millisecond.
    */
   retryAtMs: number | null;
   /**
@@ -6582,6 +8643,7 @@ export type FfiSyncStatus = {
    * How many activities the last download newly marked as held back by
    * intervals.icu, which it serves as empty stubs. Zero before any download
    * and after one that found none.
+   * Unit: count.
    */
   heldBackInLastDownload: number;
 };
@@ -6625,6 +8687,9 @@ export type FfiThresholdField = 'ftp' | 'thresholdHr' | 'maxHr' | 'restingHr' | 
  */
 export type FfiThresholdFigure = {
   field: FfiThresholdField;
+  /**
+   * Unit: varies.
+   */
   value: number | null;
   source: FfiThresholdSource | null;
 };
@@ -6642,6 +8707,7 @@ export type FfiThresholdsScreenData = {
   /**
    * The upper edge of each heart rate zone, as a percent of maximum heart
    * rate, used when the athlete's sport settings list no zones of their own.
+   * Unit: percent.
    */
   hrZoneDefaultPercents: number[];
 };
@@ -6650,7 +8716,13 @@ export type FfiThresholdsScreenData = {
  * Inclusive Unix-second range used for batched summary requests.
  */
 export type FfiTimestampRange = {
+  /**
+   * Unit: epoch_second.
+   */
   startTs: number;
+  /**
+   * Unit: epoch_second.
+   */
   endTs: number;
 };
 
@@ -6662,28 +8734,32 @@ export type FfiTrackStage = {
   /**
    * Items the step has handled, of `total`: tracks for the download, tiles
    * for the heatmap, the current phase's items for detection.
+   * Unit: count.
    */
   completed: number;
   /**
    * Zero while the step has not counted its work yet.
+   * Unit: count.
    */
   total: number;
   /**
    * The step's own progress, 0 to 100. Detection weights its phases, so
    * this is not always `completed` of `total`.
+   * Unit: percent.
    */
   percent: number;
   /**
    * When a held download starts again, as epoch milliseconds. `None` for
    * every other step. The counts beside it are zero: the window's own
    * coverage says how many tracks are still owed.
+   * Unit: epoch_millisecond.
    */
   resumesAtMs: number | null;
   /**
-   * Whether intervals.icu asked for the wait, rather than this install's
-   * own request budget. False for every other step.
+   * Who asked for the wait, when the step is `Held`. `None` for every other
+   * step.
    */
-  heldByUpstream: boolean;
+  heldCause: FfiHoldCause | null;
 };
 
 /**
@@ -6700,12 +8776,114 @@ export type FfiTrackStep = 'downloading' | 'analysing' | 'drawingHeatmap' | 'hel
 export type FfiTrendBandPoint = {
   /**
    * Unix seconds
+   * Unit: epoch_second.
    */
   time: number;
+  /**
+   * Unit: second.
+   */
   value: number;
+  /**
+   * Unit: second.
+   */
   upper: number;
+  /**
+   * Unit: second.
+   */
   lower: number;
 };
+
+/**
+ * One activity under the point.
+ */
+export type FfiUnderPointActivity = {
+  id: string;
+  name: string;
+  sportType: string;
+  /**
+   * Unix seconds.
+   * Unit: epoch_second.
+   */
+  date: number;
+  /**
+   * Metres.
+   * Unit: metre.
+   */
+  distance: number;
+  /**
+   * Moving time in seconds.
+   * Unit: second.
+   */
+  duration: number;
+  /**
+   * How close the track comes to the point, in metres.
+   * Unit: metre.
+   */
+  nearestM: number;
+};
+
+/**
+ * The activities under a point that belong to one route or one section, or
+ * to no route.
+ */
+export type FfiUnderPointGroup = {
+  /**
+   * What the group collects.
+   */
+  kind: FfiUnderPointKind;
+  /**
+   * The route or the section, `None` for the activities in no route.
+   */
+  id: string | null;
+  /**
+   * The name the athlete gave the route or the section.
+   */
+  name: string | null;
+  /**
+   * The number an unnamed route is shown under.
+   * Unit: count.
+   */
+  number: number | null;
+  /**
+   * How many activities of this group pass under the point, before the cap.
+   * Unit: count.
+   */
+  count: number;
+  /**
+   * The sports of a route's attempts, or the section's sport. Empty for the activities in no
+   * route.
+   */
+  sportTypes: string[];
+  /**
+   * The route's representative's length, or the section's, in metres. Zero for no route.
+   * Unit: metre.
+   */
+  distanceM: number;
+  /**
+   * A route's counted attempts, a section's visit count. Zero for no route.
+   * Unit: count.
+   */
+  passes: number;
+  /**
+   * Moving time in seconds of the fastest counted attempt.
+   * Unit: second.
+   */
+  bestTime: number | null;
+  /**
+   * Unix seconds of the latest counted attempt.
+   * Unit: epoch_second.
+   */
+  lastDate: number | null;
+  /**
+   * The group's activities that fit under the cap, newest first.
+   */
+  activities: FfiUnderPointActivity[];
+};
+
+/**
+ * What an under-point group collects the activities of.
+ */
+export type FfiUnderPointKind = 'route' | 'section' | 'noRoute';
 
 /**
  * One week's moving hours, by the sport families that have any.
@@ -6728,6 +8906,7 @@ export type FfiWeeklyHours = {
 export type FfiWeeklyTotal = {
   /**
    * Epoch seconds of the week's first instant.
+   * Unit: epoch_second.
    */
   start: number;
   stats: FfiPeriodStats;
@@ -6753,20 +8932,64 @@ export type FfiWeightUnit = 'kilogram' | 'pound';
 export type FfiWellnessDay = {
   /**
    * ISO-8601 YYYY-MM-DD
+   * Unit: iso_date.
    */
   date: string;
+  /**
+   * Chronic training load.
+   * Unit: tss.
+   */
   ctl: number | null;
+  /**
+   * Acute training load.
+   * Unit: tss.
+   */
   atl: number | null;
+  /**
+   * Change in `ctl` over the week to the day.
+   * Unit: tss_per_week.
+   */
   rampRate: number | null;
+  /**
+   * Heart rate variability.
+   * Unit: millisecond.
+   */
   hrv: number | null;
+  /**
+   * Unit: beat_per_minute.
+   */
   restingHr: number | null;
+  /**
+   * Unit: kilogram.
+   */
   weight: number | null;
+  /**
+   * Unit: second.
+   */
   sleepSecs: number | null;
+  /**
+   * Unit: point.
+   */
   sleepScore: number | null;
+  /**
+   * Unit: point.
+   */
   soreness: number | null;
+  /**
+   * Unit: point.
+   */
   fatigue: number | null;
+  /**
+   * Unit: point.
+   */
   stress: number | null;
+  /**
+   * Unit: point.
+   */
   mood: number | null;
+  /**
+   * Unit: point.
+   */
   motivation: number | null;
   /**
    * Empty for a day synced before the body column existed, and for a day
@@ -6792,6 +9015,26 @@ export type FfiWellnessDays = {
    */
   days: FfiWellnessDay[];
   coverage: RangeCoverage;
+  /**
+   * Beside `days`, one per day: form in the unit the athlete reads it in,
+   * rounded fitness less rounded fatigue, or that as a percentage of
+   * rounded fitness under `form_as_percent`. Absent on a day missing a
+   * load, and under the percentage on a day whose fitness rounds to zero.
+   * Unit: tss_or_percent.
+   */
+  form: (number | null)[];
+  /**
+   * Whether `form` is a percentage of fitness rather than absolute TSB,
+   * from the athlete's `icu_form_as_percent`.
+   */
+  formAsPercent: boolean;
+  /**
+   * Where the form zones change in either unit, lowest first: below the
+   * first is high risk, then optimal, grey zone, fresh, and from the last
+   * transition.
+   * Unit: percent.
+   */
+  formZoneEdges: number[];
 };
 
 /**
@@ -6800,10 +9043,25 @@ export type FfiWellnessDays = {
  * Empty arrays mean "not enough data" (TS renders `undefined` / skips).
  */
 export type FfiWellnessSparklines = {
+  /**
+   * Unit: tss.
+   */
   fitness: number[];
+  /**
+   * Unit: tss.
+   */
   fatigue: number[];
+  /**
+   * Unit: tss_or_percent.
+   */
   form: number[];
+  /**
+   * Unit: millisecond.
+   */
   hrv: number[];
+  /**
+   * Unit: beat_per_minute.
+   */
   rhr: number[];
   /**
    * Beside `hrv`, one per day: whether that day had a reading of its own
@@ -6818,11 +9076,13 @@ export type FfiWellnessSparklines = {
   rhrRead: boolean[];
   /**
    * Last plotted fitness minus the first. `None` under two values.
+   * Unit: tss.
    */
   fitnessDelta: number | null;
   /**
    * Indices into `fitness` of the days fitness rose over the day before by
    * more than one CTL point.
+   * Unit: index.
    */
   fitnessRiseDays: number[];
 };
@@ -6840,33 +9100,79 @@ export type FfiWellnessSparklines = {
  * with no baseline row carries no previous value and no date.
  */
 export type FfiWellnessSummary = {
+  /**
+   * Unit: tss.
+   */
   fitness: number | null;
   fitnessTrend: string | null;
+  /**
+   * Unit: tss_or_percent.
+   */
   form: number | null;
   formTrend: string | null;
+  /**
+   * Unit: millisecond.
+   */
   hrv: number | null;
   hrvTrend: string | null;
+  /**
+   * Unit: beat_per_minute.
+   */
   rhr: number | null;
   rhrTrend: string | null;
+  /**
+   * Unit: kilogram.
+   */
   weight: number | null;
   weightTrend: string | null;
   /**
    * The newest row's fatigue, rounded as `fitness` is. It has no arrow of its own.
+   * Unit: tss.
    */
   fatigue: number | null;
+  /**
+   * Unit: tss.
+   */
   fitnessPrevious: number | null;
+  /**
+   * Unit: epoch_second.
+   */
   fitnessPreviousDate: number | null;
   fitnessBasis: FfiClaimBasis | null;
+  /**
+   * Unit: tss_or_percent.
+   */
   formPrevious: number | null;
+  /**
+   * Unit: epoch_second.
+   */
   formPreviousDate: number | null;
   formBasis: FfiClaimBasis | null;
+  /**
+   * Unit: millisecond.
+   */
   hrvPrevious: number | null;
+  /**
+   * Unit: epoch_second.
+   */
   hrvPreviousDate: number | null;
   hrvBasis: FfiClaimBasis | null;
+  /**
+   * Unit: beat_per_minute.
+   */
   rhrPrevious: number | null;
+  /**
+   * Unit: epoch_second.
+   */
   rhrPreviousDate: number | null;
   rhrBasis: FfiClaimBasis | null;
+  /**
+   * Unit: kilogram.
+   */
   weightPrevious: number | null;
+  /**
+   * Unit: epoch_second.
+   */
   weightPreviousDate: number | null;
   weightBasis: FfiClaimBasis | null;
 };
@@ -6879,23 +9185,43 @@ export type FfiWellnessSummary = {
 export type FfiWorkoutSection = {
   id: string;
   name: string;
+  /**
+   * Unit: second.
+   */
   prTimeSecs: number | null;
   /**
    * Second-best time (prior PR before current best)
+   * Unit: second.
    */
   previousBestTimeSecs: number | null;
+  /**
+   * Unit: second.
+   */
   lastTimeSecs: number | null;
+  /**
+   * Unit: day.
+   */
   daysSinceLast: number | null;
+  /**
+   * Unit: day.
+   */
   prDaysAgo: number | null;
   /**
    * -1 = declining, 0 = stable, 1 = improving. None when there is not
    * enough history to say.
+   * Unit: code.
    */
   trend: number | null;
 };
 
 export type FfiYearCount = {
+  /**
+   * Unit: year.
+   */
   year: number;
+  /**
+   * Unit: count.
+   */
   count: number;
 };
 
@@ -6904,6 +9230,9 @@ export type FfiYearCount = {
  * default they are percents of maximum heart rate.
  */
 export type FfiZoneBounds = {
+  /**
+   * Unit: varies.
+   */
   upper: number[];
   source: FfiZoneSource;
 };
@@ -6914,11 +9243,13 @@ export type FfiZoneBounds = {
 export type FfiZoneDistribution = {
   /**
    * Seconds per zone, lowest zone first. Empty for an unknown zone type.
+   * Unit: second.
    */
   seconds: number[];
   /**
    * Each zone's share of the time as a whole percent, beside `seconds`,
    * totalling 100 when any zone holds time and all zero when none does.
+   * Unit: percent.
    */
   shares: number[];
   /**
@@ -6947,18 +9278,22 @@ export type FfiZoneSource = 'sportSettings' | 'default';
 export type LibraryCoverage = {
   /**
    * Activities the server says the account holds.
+   * Unit: count.
    */
   upstream: number;
   /**
    * Of those, the ones stored locally at the version the census names.
+   * Unit: count.
    */
   fetched: number;
   /**
    * Activities the server says carry a GPS track.
+   * Unit: count.
    */
   tracksUpstream: number;
   /**
    * Of those, the ones whose track is on the device.
+   * Unit: count.
    */
   tracksStored: number;
 };
@@ -6989,11 +9324,16 @@ export type MapActivityComplete = {
    * Where the ride began, for the marker. `None` leaves the caller the
    * bounds centre, which is where every marker used to start out before the
    * signatures finished loading and moved it.
+   * Unit: degree.
    */
   startLat: number | null;
+  /**
+   * Unit: degree.
+   */
   startLng: number | null;
   /**
    * Start date as Unix timestamp (seconds since epoch)
+   * Unit: epoch_second.
    */
   date: number;
   /**
@@ -7002,10 +9342,12 @@ export type MapActivityComplete = {
   name: string;
   /**
    * Total distance in meters
+   * Unit: metre.
    */
   distance: number;
   /**
    * Total duration in seconds (moving time)
+   * Unit: second.
    */
   duration: number;
 };
@@ -7033,14 +9375,22 @@ export type RunOutcome = string;
  * A home the athlete can confirm, and how sure the guess is.
  */
 export type SuggestedHome = {
+  /**
+   * Unit: degree.
+   */
   latitude: number;
+  /**
+   * Unit: degree.
+   */
   longitude: number;
   /**
    * Rides whose first or last fix falls in the cluster.
+   * Unit: count.
    */
   activityCount: number;
   /**
    * Endpoints in the cluster, of every endpoint in the library.
+   * Unit: ratio.
    */
   endpointShare: number;
 };
@@ -7063,6 +9413,7 @@ export type Methods = {
   'feed.summary': { params: FfiLinkSummaryAsk; result: FfiSummaryCardData };
   'feed.sparklines': { params: FfiLinkSparklinesAsk; result: FfiWellnessSparklines };
   'feed.highlights': { params: FfiLinkHighlightsAsk; result: FfiActivityHighlightsBundle };
+  'feed.filterBounds': { params: FfiLinkNoAsk; result: FfiFeedFilterBounds };
   'activity.summary': { params: FfiLinkActivityAsk; result: FfiActivitySummary };
   'activity.detail': { params: FfiLinkActivityAsk; result: FfiActivityDetailData };
   'activity.record': { params: FfiLinkActivityAsk; result: FfiLinkActivityRecord };
@@ -7079,6 +9430,7 @@ export type Methods = {
   'route.attempts': { params: FfiLinkRouteAttemptsAsk; result: FfiRoutePerformanceResult };
   'section.detail': { params: FfiLinkActivityAsk; result: FfiSectionDetailData };
   'section.performance': { params: FfiLinkPerformanceAsk; result: FfiSectionPerformanceData };
+  'section.standing': { params: FfiLinkSectionStandingAsk; result: FfiLinkSectionStanding };
   'section.history': { params: FfiLinkActivityAsk; result: FfiLinkSectionHistory };
   'section.extensionTrack': { params: FfiLinkActivityAsk; result: FfiLinkSectionExtension };
   'section.excluded': { params: FfiLinkActivityAsk; result: FfiLinkSectionExcluded };
@@ -7109,11 +9461,13 @@ export type Methods = {
   'geo.route': { params: FfiLinkGeoGroupAsk; result: FfiLinkGeoText };
   'geo.routeLatest': { params: FfiLinkGeoGroupAsk; result: FfiLinkGeoText };
   'geo.routeAttempts': { params: FfiLinkGeoGroupAsk; result: FfiLinkGeoText };
-  'geo.section': { params: FfiLinkGeoSectionAsk; result: FfiLinkGeoText };
+  'geo.section': { params: FfiLinkGeoSectionLineAsk; result: FfiLinkGeoText };
   'geo.sectionVersion': { params: FfiLinkGeoSectionVersionAsk; result: FfiLinkGeoText };
   'geo.sectionPasses': { params: FfiLinkGeoSectionAsk; result: FfiLinkGeoText };
+  'nearby.places': { params: FfiLinkNearbyAsk; result: FfiLinkNearbyPlaces };
   'heatmap.tile': { params: FfiLinkHeatmapTileAsk; result: FfiLinkHeatmapTile };
   'heatmap.progress': { params: FfiLinkNoAsk; result: FfiLinkHeatmapProgress };
+  'heatmap.underPoint': { params: FfiLinkHeatmapUnderPointAsk; result: FfiActivitiesUnderPoint };
   'settings.get': { params: FfiLinkSettingsAsk; result: FfiLinkSettingsAnswer };
   'settings.profile': { params: FfiLinkNoAsk; result: AthleteProfile };
   'settings.thresholds': { params: FfiLinkNoAsk; result: FfiThresholdsScreenData };
@@ -7126,15 +9480,19 @@ export type Methods = {
   'section.rename': { params: FfiLinkSectionRenameAsk; result: FfiLinkWriteDone };
   'section.setLift': { params: FfiLinkSectionLiftAsk; result: FfiLinkWriteDone };
   'section.accept': { params: FfiLinkSectionAsk; result: FfiLinkWriteDone };
+  'section.acceptMany': { params: FfiLinkSectionIdsAsk; result: FfiLinkSectionsAccepted };
   'section.acceptAll': { params: FfiLinkNoAsk; result: FfiLinkSectionsAccepted };
   'section.unaccept': { params: FfiLinkSectionIdsAsk; result: FfiLinkWriteDone };
   'section.enable': { params: FfiLinkSectionAsk; result: FfiLinkWriteDone };
   'section.disable': { params: FfiLinkSectionAsk; result: FfiLinkWriteDone };
+  'section.setEnabledMany': { params: FfiLinkSectionIdsEnabledAsk; result: FfiLinkWriteDone };
+  'section.delete': { params: FfiLinkSectionAsk; result: FfiLinkSectionEdited };
   'section.excludeActivity': { params: FfiLinkExcludeAsk; result: FfiLinkWriteDone };
   'section.includeActivity': { params: FfiLinkExcludeAsk; result: FfiLinkWriteDone };
   'section.excludeLap': { params: FfiLinkLapAsk; result: FfiLinkWriteDone };
   'section.includeLap': { params: FfiLinkLapAsk; result: FfiLinkWriteDone };
   'section.editBounds': { params: FfiLinkSectionBoundsAsk; result: FfiLinkSectionEdited };
+  'section.boundsPreview': { params: FfiLinkSectionBoundsAsk; result: FfiLinkBoundsPreview };
   'section.create': { params: FfiLinkSectionCreateAsk; result: FfiLinkSectionCreated };
   'section.mergePreview': { params: FfiLinkMergeAsk; result: FfiLinkMergePreview };
   'section.merge': { params: FfiLinkMergeAsk; result: FfiMergeOutcome };
@@ -7145,6 +9503,7 @@ export type Methods = {
   'route.setReference': { params: FfiLinkExcludeAsk; result: FfiLinkWriteDone };
   'route.resetReference': { params: FfiLinkRouteAsk; result: FfiLinkWriteDone };
   'heatmap.setHidden': { params: FfiLinkHeatmapHiddenAsk; result: FfiLinkWriteDone };
+  'heatmap.setHiddenMany': { params: FfiLinkHeatmapHiddenManyAsk; result: FfiLinkWriteDone };
   'detection.settings': { params: FfiLinkNoAsk; result: FfiLinkDetectionSettings };
   'detection.setEnabled': { params: FfiLinkDetectionEnabledAsk; result: FfiLinkWriteDone };
   'detection.setStrictness': { params: FfiLinkStrictness; result: FfiLinkWriteDone };
@@ -7159,5 +9518,9 @@ export type Methods = {
   'import.begin': { params: FfiLinkImportBeginAsk; result: FfiLinkImportBegun };
   'import.commit': { params: FfiLinkImportRef; result: FfiLinkImportCommitted };
   'import.cancel': { params: FfiLinkImportRef; result: FfiLinkWriteDone };
+  'export.begin': { params: FfiLinkExportBeginAsk; result: FfiLinkExportBegun };
+  'export.status': { params: FfiLinkExportRef; result: FfiLinkExportStatus };
+  'export.read': { params: FfiLinkExportReadAsk; result: FfiLinkExportBytes };
+  'export.done': { params: FfiLinkExportRef; result: FfiLinkWriteDone };
   'import.status': { params: FfiLinkNoAsk; result: FfiLinkImportStatus };
 };

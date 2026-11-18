@@ -374,13 +374,13 @@ impl PersistentEngine {
     }
 
     /// Store an activity's interval body, without the null fields of its intervals and groups.
-    pub fn set_interval_body(&self, activity_id: &str, raw: &str) -> SqlResult<()> {
+    pub fn set_interval_body(&mut self, activity_id: &str, raw: &str) -> SqlResult<()> {
         self.set_interval_bodies(&[(activity_id.to_owned(), raw.to_owned())])
     }
 
     /// Store several activities' interval bodies in one transaction, each without the
     /// null fields of its intervals and groups.
-    pub fn set_interval_bodies(&self, rows: &[(String, String)]) -> SqlResult<()> {
+    pub fn set_interval_bodies(&mut self, rows: &[(String, String)]) -> SqlResult<()> {
         if rows.is_empty() {
             return Ok(());
         }
@@ -398,7 +398,9 @@ impl PersistentEngine {
                 upsert.execute(params![activity_id, raw.as_ref()])?;
             }
         }
-        transaction.commit()
+        transaction.commit()?;
+        self.recheck_file_tracks(rows);
+        Ok(())
     }
 
     /// An activity's stored interval body, or `None` if never fetched.
@@ -1601,7 +1603,7 @@ mod tests {
 
     #[test]
     fn interval_bodies_round_trip() {
-        let (_dir, engine) = engine();
+        let (_dir, mut engine) = engine();
         assert!(engine.get_interval_body("a1").unwrap().is_none());
 
         engine.set_interval_body("a1", r#"{"id":"a1"}"#).unwrap();
@@ -1655,7 +1657,7 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn interval_bodies_are_stored_without_their_null_fields() {
-        let (_dir, engine) = engine();
+        let (_dir, mut engine) = engine();
         let fixture: serde_json::Value = serde_json::from_str(FETCHED_BODIES).unwrap();
         for (name, body) in fixture.as_object().unwrap() {
             let fetched = serde_json::to_string(body).unwrap();
@@ -1681,7 +1683,7 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_interval_body_with_nothing_to_drop_is_stored_as_given() {
-        let (_dir, engine) = engine();
+        let (_dir, mut engine) = engine();
         for raw in [
             r#"{"icu_intervals":[]}"#,
             r#"{"icu_intervals":[{"id":1,"start_index":0,"end_index":9}],"icu_groups":[]}"#,
@@ -2270,11 +2272,11 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn storing_a_stream_body_is_one_commit() {
-        let (_dir, engine) = engine();
+        let (_dir, mut engine) = engine();
         let raw = r#"[{"type":"watts","data":[100,200]},
                       {"type":"heartrate","data":[140,150]},
                       {"type":"cadence","data":[80,82]}]"#;
-        let commits = super::super::commit_counter::watch(&engine);
+        let commits = super::super::commit_counter::watch(&mut engine);
 
         engine
             .set_stream_body("a1", "watts,heartrate,cadence", raw)
@@ -2287,11 +2289,11 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_second_body_for_the_same_activity_is_one_commit() {
-        let (_dir, engine) = engine();
+        let (_dir, mut engine) = engine();
         let raw = r#"[{"type":"watts","data":[100,200]}]"#;
         engine.set_stream_body("a1", "watts", raw).unwrap();
 
-        let commits = super::super::commit_counter::watch(&engine);
+        let commits = super::super::commit_counter::watch(&mut engine);
         engine.set_stream_body("a1", "watts", raw).unwrap();
 
         assert_eq!(super::super::commit_counter::count(&commits), 1);
@@ -2302,8 +2304,8 @@ mod tests {
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_unparseable_body_is_one_commit_and_still_cached() {
-        let (_dir, engine) = engine();
-        let commits = super::super::commit_counter::watch(&engine);
+        let (_dir, mut engine) = engine();
+        let commits = super::super::commit_counter::watch(&mut engine);
 
         engine.set_stream_body("a1", "watts", "not json").unwrap();
 

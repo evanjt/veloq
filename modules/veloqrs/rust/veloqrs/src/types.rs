@@ -99,24 +99,32 @@ pub struct RoutePerformance {
     /// Unix timestamp
     pub date: WholeNumber,
     /// Speed in m/s (distance / moving_time)
+    /// Unit: metre_per_second.
     pub speed: f64,
     /// Elapsed time in seconds
+    /// Unit: second.
     pub duration: u32,
     /// Moving time in seconds
+    /// Unit: second.
     pub moving_time: u32,
     /// Distance in meters
+    /// Unit: metre.
     pub distance: f64,
     /// Elevation gain in meters
+    /// Unit: metre.
     pub elevation_gain: f64,
     /// Average heart rate (optional)
+    /// Unit: beat_per_minute.
     pub avg_hr: Option<u16>,
     /// Average power in watts (optional)
+    /// Unit: watt.
     pub avg_power: Option<u16>,
     /// Is this the current activity being viewed
     pub is_current: bool,
     /// Match direction: "same", "reverse", or "partial"
     pub direction: String,
     /// Match percentage (0-100), None if no match data available
+    /// Unit: percent.
     pub match_percentage: Option<f64>,
     /// True when the recorded distance sits outside the band around the
     /// route's usual distance, so the attempt holds no record and is not
@@ -169,26 +177,34 @@ pub struct SectionLap {
     #[serde(alias = "activity_id")]
     pub activity_id: String,
     /// Lap time in seconds
+    /// Unit: second.
     pub time: f64,
     /// Pace in m/s
+    /// Unit: metre_per_second.
     pub pace: f64,
     /// Distance in meters
+    /// Unit: metre.
     pub distance: f64,
     /// Direction: "same", "reverse" or "partial"
     pub direction: String,
     /// Start index in the activity's GPS track
+    /// Unit: index.
     #[serde(alias = "start_index")]
     pub start_index: u32,
     /// End index in the activity's GPS track
+    /// Unit: index.
     #[serde(alias = "end_index")]
     pub end_index: u32,
     /// Mean heart rate over the lap, when the activity carried a stream.
+    /// Unit: beat_per_minute.
     #[serde(default, alias = "avg_hr")]
     pub avg_hr: Option<f64>,
     /// Mean watts over the lap, when the activity carried a power stream.
+    /// Unit: watt.
     #[serde(default, alias = "avg_power")]
     pub avg_power: Option<f64>,
     /// Share of the section this lap spans, `None` until it is measured.
+    /// Unit: ratio.
     #[serde(default)]
     pub coverage: Option<f64>,
     /// The athlete excluded this traversal. Only a read that asked for
@@ -202,6 +218,7 @@ pub struct SectionLap {
     pub outside_distance_band: bool,
     /// How much of the route a route attempt matched, 0 to 100. `None` for a
     /// section lap.
+    /// Unit: percent.
     #[serde(default)]
     pub match_percentage: Option<f64>,
     /// This lap holds the section's record in its direction. Set by the
@@ -244,18 +261,23 @@ pub struct SectionPerformanceRecord {
     /// All laps for this activity on this section
     pub laps: Vec<SectionLap>,
     /// Number of times this section was traversed
+    /// Unit: count.
     #[serde(alias = "lap_count")]
     pub lap_count: u32,
     /// Best (fastest) lap time in seconds
+    /// Unit: second.
     #[serde(alias = "best_time")]
     pub best_time: f64,
     /// Best pace in m/s
+    /// Unit: metre_per_second.
     #[serde(alias = "best_pace")]
     pub best_pace: f64,
     /// Best eligible forward lap time.
+    /// Unit: second.
     #[serde(default)]
     pub best_forward_time: Option<f64>,
     /// Best eligible reverse lap time.
+    /// Unit: second.
     #[serde(default)]
     pub best_reverse_time: Option<f64>,
     /// `best_time` is an estimate: every eligible lap of the direction it was
@@ -263,14 +285,17 @@ pub struct SectionPerformanceRecord {
     #[serde(default)]
     pub best_estimated: bool,
     /// Average lap time in seconds
+    /// Unit: second.
     #[serde(alias = "avg_time")]
     pub avg_time: f64,
     /// Average pace in m/s
+    /// Unit: metre_per_second.
     #[serde(alias = "avg_pace")]
     pub avg_pace: f64,
     /// Primary direction: "same" or "reverse"
     pub direction: String,
     /// Section distance in meters
+    /// Unit: metre.
     #[serde(alias = "section_distance")]
     pub section_distance: f64,
 }
@@ -281,15 +306,19 @@ pub struct SectionPerformanceRecord {
 #[uniffi(name = "FfiDirectionStats")]
 pub struct DirectionStats {
     /// Average time across counted traversals in this direction (seconds)
+    /// Unit: second.
     pub avg_time: Option<f64>,
     /// Unix timestamp of most recent traversal in this direction
     pub last_activity: Option<WholeNumber>,
     /// Number of traversals in this direction
+    /// Unit: count.
     pub count: u32,
     /// Counted distance over counted time in this direction (m/s).
+    /// Unit: metre_per_second.
     #[serde(default)]
     pub avg_speed: Option<f64>,
     /// Timed route attempts outside the distance band, absent from the averages.
+    /// Unit: count.
     #[serde(default)]
     pub outside_band_count: u32,
 }
@@ -328,10 +357,13 @@ pub struct SectionPerformanceResult {
 #[uniffi(name = "FfiCalendarDirectionBest")]
 pub struct CalendarDirectionBest {
     /// Number of traversals in this direction
+    /// Unit: count.
     pub count: u32,
     /// Best time in seconds
+    /// Unit: second.
     pub best_time: f64,
     /// Best pace in m/s
+    /// Unit: metre_per_second.
     pub best_pace: f64,
     /// Activity ID of best traversal
     pub best_activity_id: String,
@@ -345,10 +377,13 @@ pub struct CalendarDirectionBest {
 #[uniffi(name = "FfiCalendarMonthSummary")]
 pub struct CalendarMonthSummary {
     /// Month number (1-12)
+    /// Unit: month.
     pub month: u32,
     /// Total traversals in this month (both directions), one per lap
+    /// Unit: count.
     pub traversal_count: u32,
     /// Distinct activities those traversals came from
+    /// Unit: count.
     #[serde(default)]
     pub activity_count: u32,
     /// Best forward/same direction performance (None if no forward traversals)
@@ -363,10 +398,13 @@ pub struct CalendarMonthSummary {
 #[uniffi(name = "FfiCalendarYearSummary")]
 pub struct CalendarYearSummary {
     /// Calendar year
+    /// Unit: year.
     pub year: i32,
     /// Total traversals in this year, one per lap
+    /// Unit: count.
     pub traversal_count: u32,
     /// Distinct activities those traversals came from
+    /// Unit: count.
     #[serde(default)]
     pub activity_count: u32,
     /// Best forward/same direction performance this year
@@ -389,5 +427,6 @@ pub struct CalendarSummary {
     /// The reverse record's outing, absent when no outing holds the record
     pub reverse_pr: Option<CalendarDirectionBest>,
     /// Section distance in meters
+    /// Unit: metre.
     pub section_distance: f64,
 }

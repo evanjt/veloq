@@ -13,9 +13,11 @@
  */
 
 import React from 'react';
+import { Text } from 'react-native';
 import { render } from '@testing-library/react-native';
 
 import { SyncProgressBanner } from '@/features/maps/components/timeline/SyncProgressBanner';
+import { useSyncPillYielded } from '@/shared/ui/syncPillYield';
 import { getEngine } from '@/shared/native/engine';
 import { initialiseI18n } from '@/i18n';
 import { SyncState, TrackStep, type SyncStatus, type TrackStage } from 'veloqrs';
@@ -108,7 +110,6 @@ it('shows a GPS pass the engine is running after the sync itself has settled', (
     completed: 3,
     total: 12,
     percent: 25,
-    heldByUpstream: false,
   });
 
   const screen = renderBanner();
@@ -119,13 +120,52 @@ it('shows a GPS pass the engine is running after the sync itself has settled', (
   expect(screen.getByText('3/12')).toBeTruthy();
 });
 
+function YieldProbe() {
+  return <Text testID="pill-yield">{String(useSyncPillYielded())}</Text>;
+}
+
+it('steps the sync pill aside while the track work shows in the banner', () => {
+  engineReporting({
+    step: TrackStep.Downloading,
+    completed: 3,
+    total: 12,
+    percent: 25,
+  });
+
+  const screen = render(
+    <>
+      <SyncProgressBanner />
+      <YieldProbe />
+    </>
+  );
+
+  expect(screen.getByTestId('pill-yield').props.children).toBe('true');
+});
+
+it('leaves the sync pill in front when the banner is not visible', () => {
+  engineReporting({
+    step: TrackStep.Downloading,
+    completed: 3,
+    total: 12,
+    percent: 25,
+  });
+
+  const screen = render(
+    <>
+      <SyncProgressBanner visible={false} />
+      <YieldProbe />
+    </>
+  );
+
+  expect(screen.getByTestId('pill-yield').props.children).toBe('false');
+});
+
 it('names detection with its own percent and no count', () => {
   engineReporting({
     step: TrackStep.Analysing,
     completed: 40,
     total: 90,
     percent: 62,
-    heldByUpstream: false,
   });
 
   const screen = renderBanner();
@@ -140,7 +180,6 @@ it('prints one figure during the heatmap pass', () => {
     completed: 40,
     total: 100,
     percent: 40,
-    heldByUpstream: false,
   });
 
   const line = bannerLine();

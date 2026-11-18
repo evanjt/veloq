@@ -132,6 +132,7 @@ fn every_class_is_used_and_the_record_set_is_named() {
             "strength_session_sets",
             "strength_session_groups",
             "strength_session_rests",
+            "strength_session_heart_rate",
         ],
         "the record set changed, which changes what a backup has to carry"
     );

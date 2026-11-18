@@ -435,6 +435,12 @@ export function factsOfDetail(
     sections: [...sections.values()],
     passes: passesOf(detail, activityId),
     standing: standingOf(detail, movingTime),
+    memberships: (detail?.memberships ?? []).map((member) => ({
+      kind: member.kind === 'route' ? 'route' : 'section',
+      id: member.id,
+      name: member.name ?? member.id,
+      excluded: member.excluded,
+    })),
     routes: (detail?.routeGroups ?? []).map((group) => ({
       id: group.groupId,
       name: group.customName ?? group.groupId,

@@ -1,6 +1,6 @@
 // Small controls the pages draw through the kit so no page renders a bare
-// button or input: a text field, a checkbox, a sort header button, a chip-shaped
-// disclosure button and a heat map day cell.
+// button or input: a text field, a checkbox, a switch, a sort header button, a
+// chip-shaped disclosure button and a heat map day cell.
 
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, Ref } from 'react';
 
@@ -40,6 +40,28 @@ export function Checkbox(
       className="ui-checkbox"
       onChange={(event) => onChange(event.currentTarget.checked)}
     />
+  );
+}
+
+/** An on and off setting: a labelled checkbox read out as a switch. */
+export function Switch(
+  props: Omit<InputHTMLAttributes<HTMLInputElement>, 'className' | 'type' | 'role' | 'onChange'> & {
+    label: string;
+    onChange: (on: boolean) => void;
+  }
+) {
+  const { label, onChange, ...rest } = props;
+  return (
+    <label className="ui-switch">
+      <input
+        {...rest}
+        type="checkbox"
+        role="switch"
+        className="ui-checkbox"
+        onChange={(event) => onChange(event.currentTarget.checked)}
+      />
+      <span>{label}</span>
+    </label>
   );
 }
 

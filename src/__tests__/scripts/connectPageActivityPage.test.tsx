@@ -3,8 +3,8 @@
  * streams and the engine's detail, and an activity with no GPS.
  *
  * Expected behaviour: the shared detail header names the date and time, the
- * sport and where the data came from, and carries the export, the heatmap
- * switch and the link to intervals.icu; hovering a chart places the map's marker
+ * sport and where the data came from, and carries the section cutter and the
+ * link to intervals.icu, with the export and Manage in a menu; hovering a chart places the map's marker
  * at the same sample and hovering the track moves the chart's crosshair; a brush
  * on the charts is passed to the map and read out as averages; the stream chips
  * choose the lanes; the track is coloured by grade when asked; an activity with
@@ -149,20 +149,24 @@ describe('the shared detail header', () => {
     expect(hosts(header, 'svg').some((svg) => svg.props['data-sport'] === 'ride')).toBe(true);
   });
 
-  it('carries the export, the heatmap switch and the link to intervals.icu as its actions', async () => {
+  it('carries the section cutter and the link to intervals.icu as its actions, and the export in its menu', async () => {
     const root = await mount();
     const header = byId(root, 'activity-header')[0]!;
     const labels = hosts(header, 'button').map(textOf);
-    expect(labels).toContain('connectPage.activity.exportGpx');
+    expect(labels).toContain('connectPage.activity.createSection');
+    expect(labels).not.toContain('connectPage.activity.exportGpx');
     const link = hosts(header, 'a').find(
       (a) => textOf(a) === 'connectPage.activity.openOnIntervals'
     );
     expect(link?.props.href).toBe('https://intervals.icu/activities/i4242');
     expect(link?.props.target).toBe('_blank');
     expect(link?.props.rel).toContain('noopener');
+    expect(hosts(header, 'button').filter((b) => b.props['aria-haspopup'] === 'menu')).toHaveLength(
+      1
+    );
   });
 
-  it('offers no link to intervals.icu for an activity it holds no id there for, and no export without a track', async () => {
+  it('offers no link to intervals.icu for an activity it holds no id there for, and no section cutter without a track', async () => {
     const root = await mount({
       detailData: {
         ...DETAIL,
@@ -172,7 +176,7 @@ describe('the shared detail header', () => {
     });
     const header = byId(root, 'activity-header')[0]!;
     expect(hosts(header, 'a').map(textOf)).not.toContain('connectPage.activity.openOnIntervals');
-    expect(hosts(header, 'button').map(textOf)).not.toContain('connectPage.activity.exportGpx');
+    expect(hosts(header, 'button').map(textOf)).not.toContain('connectPage.activity.createSection');
   });
 });
 
@@ -434,6 +438,26 @@ describe('the tabs under the charts', () => {
     await openTab(root, 'sections');
     expect(rowsOf(root).map((row) => row.props['data-row'])).toEqual(['col', 'ford']);
     expect(textOf(rowsOf(root)[0]!)).toContain('4:10');
+  });
+
+  it('marks a section the activity is excluded from as left out, after the passes, and offers the tab for it alone', async () => {
+    const memberships = [
+      { kind: 'route' as const, id: 'loop', name: 'Lake loop', excluded: true },
+      { kind: 'section' as const, id: 'hill', name: 'Hill', excluded: true },
+      { kind: 'section' as const, id: 'col', name: 'Col', excluded: false },
+    ];
+    const root = await mount({ facts: { passes: PASSES, memberships } });
+    await openTab(root, 'sections');
+    expect(rowsOf(root).map((row) => row.props['data-row'])).toEqual(['col', 'ford', 'hill']);
+    expect(rowsOf(root).map((row) => row.props['data-excluded'])).toEqual([
+      undefined,
+      undefined,
+      'true',
+    ]);
+
+    const alone = await mount({ facts: { memberships } });
+    expect(tabsOf(alone)).toEqual(['tab-sections']);
+    expect(tabsOf(await mount({ facts: { memberships: [memberships[2]!] } }))).toEqual([]);
   });
 
   it('colours each interval row by the zone band it carries, and leaves a row with none uncoloured', async () => {

@@ -99,7 +99,7 @@ fn test_attach_tail_leaves_regroup_for_worker() {
         catalogue(&settled)
     );
     resume.send(()).unwrap();
-    assert!(wait_for_regroup(WAIT));
+    assert!(wait_for_every_regroup(WAIT));
     let groups = with_persistent_engine(|engine| engine.groups.clone()).expect("engine");
     for member in ["a", "b", "c", "d"] {
         assert!(holder(&groups, member).is_some(), "{member} is in no route");
@@ -134,7 +134,7 @@ fn test_index_tail_leaves_regroup_for_worker() {
         catalogue(&settled)
     );
     resume.send(()).unwrap();
-    assert!(wait_for_regroup(WAIT));
+    assert!(wait_for_every_regroup(WAIT));
     let groups = with_persistent_engine(|engine| engine.groups.clone()).expect("engine");
     assert!(holder(&groups, "a").is_some());
     crate::persistence::clear_persistent_engine();
@@ -162,7 +162,7 @@ fn test_regroup_held_in_its_compute_leaves_the_lock_to_readers() {
     assert!(crate::persistence::groups_dirty_for_readers());
 
     resume.send(()).unwrap();
-    assert!(wait_for_regroup(WAIT));
+    assert!(wait_for_every_regroup(WAIT));
 
     let (groups, dirty) =
         with_persistent_engine(|engine| (engine.groups.clone(), engine.groups_are_dirty()))
@@ -202,7 +202,7 @@ fn test_store_during_a_pass_runs_one_more_and_no_third() {
     second.recv_timeout(WAIT).expect("a second pass ran");
     with_persistent_engine(|engine| store(engine, "f", 52.0)).expect("engine");
     resume_second.send(()).unwrap();
-    assert!(wait_for_regroup(WAIT));
+    assert!(wait_for_every_regroup(WAIT));
 
     assert_eq!(
         generation(&path),
@@ -239,7 +239,7 @@ fn test_swap_against_a_replaced_install_changes_nothing() {
     with_persistent_engine(|engine| store(engine, "y", 64.0)).expect("engine");
 
     resume.send(()).unwrap();
-    assert!(wait_for_regroup(WAIT));
+    assert!(wait_for_every_regroup(WAIT));
 
     let (groups, dirty) =
         with_persistent_engine(|engine| (engine.groups.clone(), engine.groups_are_dirty()))
@@ -273,7 +273,7 @@ fn test_detection_with_owed_groups_and_a_schedule_write_once() {
     let (state, _) = detection.recv_state_with_cache_within(Some(WAIT));
     assert!(!matches!(state, WorkerPoll::Running));
     crate::test_globals::wait_for_detection_workers();
-    assert!(wait_for_regroup(WAIT));
+    assert!(wait_for_every_regroup(WAIT));
 
     assert_eq!(generation(&path), before + 1);
     let (groups, dirty) =
@@ -310,7 +310,7 @@ fn test_detection_started_during_a_pass_leaves_it_the_regroup() {
         "the run regrouped nothing, so the grouping is still owed"
     );
     resume.send(()).unwrap();
-    assert!(wait_for_regroup(WAIT));
+    assert!(wait_for_every_regroup(WAIT));
 
     assert_eq!(generation(&path), before + 1);
     let (groups, dirty) =
@@ -339,7 +339,7 @@ fn test_failed_save_keeps_the_prior_catalogue_and_the_flag() {
     let before = generation(&path);
 
     assert!(schedule());
-    assert!(wait_for_regroup(WAIT));
+    assert!(wait_for_every_regroup(WAIT));
 
     let (groups, dirty) =
         with_persistent_engine(|engine| (engine.groups.clone(), engine.groups_are_dirty()))
@@ -379,7 +379,7 @@ fn test_committed_swap_announces_the_new_groups_once() {
     set_observer(Some(recorder.clone()));
 
     assert!(schedule());
-    assert!(wait_for_regroup(WAIT));
+    assert!(wait_for_every_regroup(WAIT));
     let events = recorder.events();
     set_observer(None);
 
@@ -410,7 +410,7 @@ fn test_swap_of_a_failed_save_announces_nothing() {
     set_observer(Some(recorder.clone()));
 
     assert!(schedule());
-    assert!(wait_for_regroup(WAIT));
+    assert!(wait_for_every_regroup(WAIT));
     let events = recorder.events();
     set_observer(None);
 
@@ -435,7 +435,7 @@ fn test_swap_against_a_replaced_install_announces_nothing() {
     set_observer(Some(recorder.clone()));
 
     resume.send(()).unwrap();
-    assert!(wait_for_regroup(WAIT));
+    assert!(wait_for_every_regroup(WAIT));
     let events = recorder.events();
     set_observer(None);
 
@@ -465,7 +465,7 @@ fn test_swap_clearing_the_flag_a_lock_take_announced_announces_again() {
     let read_on_adopt = with_persistent_engine(|engine| engine.groups_are_dirty()).expect("engine");
     let before_swap = recorder.events();
     resume.send(()).unwrap();
-    assert!(wait_for_regroup(WAIT));
+    assert!(wait_for_every_regroup(WAIT));
     let events = recorder.events();
     set_observer(None);
 
@@ -503,7 +503,7 @@ fn test_swap_leaving_the_flag_owed_announces_no_clear() {
         .expect("the second pass reached its swap");
     let between_passes = recorder.events();
     resume_second.send(()).unwrap();
-    assert!(wait_for_regroup(WAIT));
+    assert!(wait_for_every_regroup(WAIT));
     set_observer(None);
 
     assert!(between_passes.is_empty(), "announced {between_passes:?}");
@@ -610,7 +610,7 @@ fn test_superseded_pass_is_silent_and_its_rerun_announces_once() {
     set_observer(Some(recorder.clone()));
 
     resume.send(()).unwrap();
-    assert!(wait_for_regroup(WAIT));
+    assert!(wait_for_every_regroup(WAIT));
     let events = recorder.events();
     set_observer(None);
 
@@ -671,7 +671,7 @@ fn test_listener_reading_the_engine_when_told_sees_the_adopted_groups() {
     set_observer(Some(reader.clone()));
 
     assert!(schedule());
-    assert!(wait_for_regroup(WAIT));
+    assert!(wait_for_every_regroup(WAIT));
     crate::objects::observer::flush();
     set_observer(None);
 
@@ -714,7 +714,7 @@ fn test_settle_waits_on_the_pass_in_flight_up_to_its_limit() {
 fn test_settle_schedules_what_a_held_slot_left_owed() {
     let _serial = serial_global_state();
     let _dir = init_global_engine("regroup.db");
-    let claim = claim_regroup().expect("the slot is free");
+    let claim = claim_regroup(&open_db_path()).expect("the slot is free");
     let (install, _) = grouped_library(&[("t", 40.0)]);
     assert!(!schedule(), "the held slot takes the schedule");
 
@@ -768,7 +768,11 @@ fn reopen(path: &std::path::Path) {
 /// Whether the open left a regroup in flight. The open takes the slot before
 /// it returns, so a free slot here is a regroup it never scheduled.
 fn open_scheduled_a_regroup() -> bool {
-    claim_regroup().is_none()
+    claim_regroup(&open_db_path()).is_none()
+}
+
+fn open_db_path() -> String {
+    with_persistent_engine(|engine| engine.db_path.clone()).expect("engine")
 }
 
 /// Scenario: a library is opened with an activity stored after its last
@@ -785,7 +789,7 @@ fn test_open_schedules_the_regroup_its_load_finds_owed() {
 
     reopen(&path);
     assert!(open_scheduled_a_regroup());
-    assert!(wait_for_regroup(WAIT));
+    assert!(wait_for_every_regroup(WAIT));
 
     let (groups, dirty) =
         with_persistent_engine(|engine| (engine.groups.clone(), engine.groups_are_dirty()))
@@ -868,4 +872,29 @@ fn test_open_of_a_settled_library_schedules_no_regroup() {
     assert!(!open_scheduled_a_regroup());
     assert!(!with_persistent_engine(|engine| engine.groups_are_dirty()).expect("engine"));
     crate::persistence::clear_persistent_engine();
+}
+
+#[test]
+fn a_regroup_in_flight_on_one_library_does_not_hold_another_back() {
+    let first_dir = tempfile::tempdir().unwrap();
+    let second_dir = tempfile::tempdir().unwrap();
+    let mut first = PersistentEngine::new(first_dir.path().join("first.db").to_str().unwrap())
+        .expect("first engine");
+    let mut second = PersistentEngine::new(second_dir.path().join("second.db").to_str().unwrap())
+        .expect("second engine");
+    store(&mut first, "a", 46.0);
+    store(&mut second, "b", 47.0);
+    first.set_groups_dirty(true);
+    second.set_groups_dirty(true);
+
+    let held = first.schedule_regroup();
+    assert!(held.is_some(), "the first library takes its regroup");
+    assert!(
+        second.schedule_regroup().is_some(),
+        "a regroup on another library must not wait on the first"
+    );
+    assert!(
+        first.schedule_regroup().is_none(),
+        "one library holds one regroup at a time"
+    );
 }

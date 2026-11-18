@@ -45,6 +45,38 @@ pub struct WellnessRow {
     pub raw: Option<String>,
 }
 
+/// Where the form zones change, lowest first, on the intervals.icu boundaries.
+/// They apply to whichever number the athlete reads form as, absolute TSB or a
+/// share of fitness, so the same four edges serve both units.
+pub(crate) const FORM_ZONE_EDGES: [f64; 4] = {
+    let [a, b, c, d] = crate::widget_snapshot::FORM_ZONE_BOUNDS;
+    [a as f64, b as f64, c as f64, d as f64]
+};
+
+/// One day's form in the unit the athlete reads it in: rounded fitness less
+/// rounded fatigue, so the figure agrees with the two printed beside it, and
+/// under the percentage setting that over rounded fitness. A day missing a
+/// load has none, and a percentage needs a fitness to divide by, so a day
+/// whose fitness rounds to zero has none under that setting rather than the
+/// absolute number beside a zone of another unit.
+pub(crate) fn form_in_unit(ctl: Option<f64>, atl: Option<f64>, as_percent: bool) -> Option<f64> {
+    let fitness = ctl.filter(|v| v.is_finite())?.round();
+    let fatigue = atl.filter(|v| v.is_finite())?.round();
+    let tsb = fitness - fatigue;
+    if !as_percent {
+        return Some(tsb);
+    }
+    (fitness != 0.0).then(|| tsb / fitness * 100.0)
+}
+
+/// Whether the athlete reads form as a share of fitness, from the stored
+/// profile; absent reads as absolute TSB.
+pub(crate) fn reads_form_as_percent(conn: &rusqlite::Connection) -> bool {
+    super::settings::athlete_profile(conn)
+        .and_then(|profile| profile.form_as_percent)
+        .unwrap_or(false)
+}
+
 /// Today in the athlete's own timezone, which is the day their wellness rows
 /// are stamped with.
 pub(crate) fn today_iso() -> String {
@@ -434,9 +466,18 @@ pub(crate) mod pooled {
         oldest: &str,
         newest: &str,
     ) -> SqlResult<crate::FfiWellnessDays> {
+        let days = wellness_days(conn, oldest, newest)?;
+        let form_as_percent = super::reads_form_as_percent(conn);
+        let form = days
+            .iter()
+            .map(|day| super::form_in_unit(day.ctl, day.atl, form_as_percent))
+            .collect();
         Ok(crate::FfiWellnessDays {
-            days: wellness_days(conn, oldest, newest)?,
+            days,
             coverage: coverage(conn, oldest, newest),
+            form,
+            form_as_percent,
+            form_zone_edges: super::FORM_ZONE_EDGES.to_vec(),
         })
     }
 
@@ -711,10 +752,13 @@ pub(crate) mod pooled {
 
         let ctl = row.1.unwrap_or(0.0);
         let atl = row.2.unwrap_or(0.0);
+        let form_as_percent = super::reads_form_as_percent(conn);
         Some(crate::FfiInsightForm {
             date: row.0,
             ctl,
             atl,
+            form: super::form_in_unit(Some(ctl), Some(atl), form_as_percent),
+            form_as_percent,
         })
     }
 
@@ -968,6 +1012,10 @@ pub(crate) mod pooled {
             .find_map(|w| w.ramp_rate)
     }
 }
+
+#[cfg(test)]
+#[path = "tests/form_unit.rs"]
+mod form_unit_tests;
 
 #[cfg(test)]
 mod tests {

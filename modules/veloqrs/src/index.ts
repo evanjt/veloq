@@ -207,7 +207,7 @@ export type {
 
 // Delegate-shaped bundles returned by the façade
 export type { ActivityHighlightsBundle } from './delegates/activities';
-export type { RouteDetailData, NearbyRoute } from './delegates/routes';
+export type { RouteDetailData, NearbyPlace } from './delegates/routes';
 export { isRouteNameTakenError } from './delegates/routes';
 
 // Re-export types with shorter names for convenience

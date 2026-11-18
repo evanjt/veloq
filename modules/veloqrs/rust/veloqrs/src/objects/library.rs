@@ -16,11 +16,15 @@
 #[serde(rename_all = "camelCase")]
 pub struct LibraryCoverage {
     /// Activities the server says the account holds.
+    /// Unit: count.
     pub upstream: u32,
     /// Of those, the ones stored locally at the version the census names.
+    /// Unit: count.
     pub fetched: u32,
     /// Activities the server says carry a GPS track.
+    /// Unit: count.
     pub tracks_upstream: u32,
     /// Of those, the ones whose track is on the device.
+    /// Unit: count.
     pub tracks_stored: u32,
 }

@@ -1,8 +1,10 @@
-//! Scenario: the record screen draws and lists the saved routes around the athlete's fix.
+//! Scenario: the record screen and the watch list the saved routes and sections around the
+//! athlete's fix.
 //!
-//! Expected behaviour: the read returns the routes of the sport's family whose bounding box lies
-//! within the radius, nearest first, each with its length, best time and line, capped at the
-//! limit; an empty library returns nothing.
+//! Expected behaviour: the read returns the routes and sections of the sport's family whose start
+//! lies within the radius, nearest start first, each with its length, best time and line, capped
+//! at the limit; the followed route comes back wherever it lies; an empty library returns
+//! nothing.
 
 use std::hint::black_box;
 use std::sync::Mutex;
@@ -11,7 +13,9 @@ use rusqlite::params;
 use tracematch::GpsPoint;
 
 use crate::persistence::PersistentEngine;
-use crate::persistence::nearby_routes::{NEARBY_LIMIT, pooled::recording_nearby_routes};
+use crate::persistence::nearby_routes::{
+    ALL_KINDS, LineAsk, NEARBY_LIMIT, NearbyKind, NearbyPlace, pooled::nearby_places,
+};
 
 const FIX_LAT: f64 = 46.0;
 const FIX_LNG: f64 = 7.0;
@@ -104,8 +108,16 @@ fn add_route_of(
         .expect("insert group");
 }
 
-fn read(engine: &PersistentEngine, sport: &str) -> Vec<crate::ffi_types::FfiNearbyRoute> {
-    recording_nearby_routes(&engine.db, FIX_LAT, FIX_LNG, sport, None)
+fn read(engine: &PersistentEngine, sport: &str) -> Vec<NearbyPlace> {
+    nearby_places(
+        &engine.db,
+        FIX_LAT,
+        FIX_LNG,
+        sport,
+        ALL_KINDS,
+        None,
+        LineAsk::default(),
+    )
 }
 
 static STATEMENTS: Mutex<usize> = Mutex::new(0);
@@ -114,11 +126,11 @@ fn count(_sql: &str) {
     *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner()) += 1;
 }
 
-fn statements_of_read(engine: &PersistentEngine) -> usize {
+fn statements_of_read(engine: &mut PersistentEngine) -> usize {
     *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner()) = 0;
     crate::test_trace::trace_statements!(engine.db, count);
     black_box(read(engine, "Ride"));
-    crate::test_trace::untrace(&engine.db);
+    crate::test_trace::untrace(&mut engine.db);
     *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner())
 }
 
@@ -153,7 +165,7 @@ fn routes_within_the_radius_come_nearest_first_and_the_far_one_is_left_out() {
 
     let routes = read(&engine, "Ride");
 
-    let ids: Vec<&str> = routes.iter().map(|r| r.group_id.as_str()).collect();
+    let ids: Vec<&str> = routes.iter().map(|r| r.id.as_str()).collect();
     assert_eq!(ids, ["near", "mid"]);
     assert!(routes[0].away_meters < routes[1].away_meters);
     assert!((routes[1].away_meters - 800.0).abs() < 5.0);
@@ -195,14 +207,11 @@ fn only_routes_of_the_sports_family_are_returned() {
     let runs = read(&engine, "Run");
 
     assert_eq!(
-        rides
-            .iter()
-            .map(|r| r.group_id.as_str())
-            .collect::<Vec<_>>(),
+        rides.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(),
         ["ride"]
     );
     assert_eq!(
-        runs.iter().map(|r| r.group_id.as_str()).collect::<Vec<_>>(),
+        runs.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(),
         ["run"]
     );
 }
@@ -224,7 +233,51 @@ fn the_read_stops_at_the_limit() {
     let routes = read(&engine, "Ride");
 
     assert_eq!(routes.len(), NEARBY_LIMIT);
-    assert_eq!(routes[0].group_id, "r00");
+    assert_eq!(routes[0].id, "r00");
+}
+
+#[test]
+fn the_limit_counts_only_the_kinds_asked_for() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    for i in 0..NEARBY_LIMIT {
+        add_route(
+            &mut engine,
+            &format!("r{i:02}"),
+            800.0 + i as f64 * 50.0,
+            "Ride",
+            [1_800, 1_700],
+        );
+    }
+    for (i, north) in [100.0, 200.0, 300.0].into_iter().enumerate() {
+        add_section(
+            &mut engine,
+            &format!("climb{i}"),
+            north,
+            &[(80.0, 1_695_000_000)],
+        );
+    }
+
+    let routes = nearby_places(
+        &engine.db,
+        FIX_LAT,
+        FIX_LNG,
+        "Ride",
+        &[NearbyKind::Route],
+        None,
+        LineAsk::default(),
+    );
+    assert_eq!(routes.len(), NEARBY_LIMIT);
+    assert!(routes.iter().all(|r| r.kind == NearbyKind::Route));
+    assert_eq!(routes[0].id, "r00");
+
+    let both = read(&engine, "Ride");
+    assert_eq!(both.len(), NEARBY_LIMIT);
+    assert_eq!(
+        both.iter()
+            .filter(|p| p.kind == NearbyKind::Section)
+            .count(),
+        3
+    );
 }
 
 #[test]
@@ -242,17 +295,68 @@ fn the_followed_route_is_returned_beyond_the_radius_and_past_the_limit() {
     }
     add_route(&mut engine, "faraway", 9_000.0, "Ride", [1_500, 1_400]);
 
-    let without = recording_nearby_routes(&engine.db, FIX_LAT, FIX_LNG, "Ride", None);
-    let with = recording_nearby_routes(&engine.db, FIX_LAT, FIX_LNG, "Ride", Some("faraway"));
+    let without = nearby_places(
+        &engine.db,
+        FIX_LAT,
+        FIX_LNG,
+        "Ride",
+        ALL_KINDS,
+        None,
+        LineAsk::default(),
+    );
+    let with = nearby_places(
+        &engine.db,
+        FIX_LAT,
+        FIX_LNG,
+        "Ride",
+        ALL_KINDS,
+        Some("faraway"),
+        LineAsk::default(),
+    );
 
-    assert!(without.iter().all(|r| r.group_id != "faraway"));
+    assert!(without.iter().all(|r| r.id != "faraway"));
     assert_eq!(with.len(), NEARBY_LIMIT + 1);
     let followed = with.last().unwrap();
-    assert_eq!(followed.group_id, "faraway");
+    assert_eq!(followed.id, "faraway");
     assert_eq!(followed.best_time_seconds, Some(1_400));
     assert!(followed.away_meters > 5_000.0);
     assert!(!followed.offered);
     assert!(with[..NEARBY_LIMIT].iter().all(|r| r.offered));
+}
+
+#[test]
+fn a_section_that_starts_nearer_than_a_route_comes_first_and_both_are_offered() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    // The box of this route reaches the fix, its start is 1.5 km south of it.
+    add_long_route(&mut engine, "long", -1_500.0, 100.0);
+    add_section(&mut engine, "climb", 300.0, &[(80.0, 1_695_000_000)]);
+
+    let places = read(&engine, "Ride");
+
+    let ids: Vec<&str> = places.iter().map(|p| p.id.as_str()).collect();
+    assert_eq!(ids, ["climb", "long"]);
+    assert!(places.iter().all(|p| p.offered));
+}
+
+#[test]
+fn the_followed_route_is_not_offered_when_it_starts_beyond_the_radius_by_its_start() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    // The box reaches the fix, the start is 5 km south of it.
+    add_long_route(&mut engine, "long", -5_000.0, 100.0);
+
+    assert!(read(&engine, "Ride").is_empty());
+    let followed = nearby_places(
+        &engine.db,
+        FIX_LAT,
+        FIX_LNG,
+        "Ride",
+        ALL_KINDS,
+        Some("long"),
+        LineAsk::default(),
+    );
+    assert_eq!(followed.len(), 1);
+    assert_eq!(followed[0].id, "long");
+    assert!(!followed[0].offered);
 }
 
 #[test]
@@ -261,7 +365,15 @@ fn a_followed_route_that_is_not_there_adds_nothing() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
     add_route(&mut engine, "near", 0.0, "Ride", [1_800, 1_700]);
 
-    let routes = recording_nearby_routes(&engine.db, FIX_LAT, FIX_LNG, "Ride", Some("gone"));
+    let routes = nearby_places(
+        &engine.db,
+        FIX_LAT,
+        FIX_LNG,
+        "Ride",
+        ALL_KINDS,
+        Some("gone"),
+        LineAsk::default(),
+    );
 
     assert_eq!(routes.len(), 1);
 }
@@ -273,11 +385,271 @@ const GROUP_LEVEL_SLACK: usize = 10;
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_statements_of_a_read_do_not_grow_with_the_attempts_of_each_route() {
-    let few = statements_of_read(&library(2));
-    let many = statements_of_read(&library(50));
+    let few = statements_of_read(&mut library(2));
+    let many = statements_of_read(&mut library(50));
 
     assert!(
         many <= few + GROUP_LEVEL_SLACK,
         "a read over routes of 50 attempts issued {many} statements, against {few} over routes of 2"
     );
+}
+
+/// A library of the nearest [`NEARBY_LIMIT`] sections, each with `passes` passes.
+fn section_library(passes: usize) -> PersistentEngine {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    for i in 0..NEARBY_LIMIT {
+        let laps = vec![(1_800.0, 1_700_000_000i64); passes];
+        add_section(&mut engine, &format!("s{i:02}"), i as f64 * 50.0, &laps);
+    }
+    engine
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_statements_of_a_read_do_not_grow_with_the_passes_of_each_section() {
+    let few = statements_of_read(&mut section_library(2));
+    let many = statements_of_read(&mut section_library(50));
+
+    assert!(
+        many <= few + GROUP_LEVEL_SLACK,
+        "a read over sections of 50 passes issued {many} statements, against {few} over sections of 2"
+    );
+}
+
+/// A route whose line runs from `start_north` to `end_north` metres north of the fix, so its box
+/// reaches the fix while its start does not.
+fn add_long_route(engine: &mut PersistentEngine, id: &str, start_north: f64, end_north: f64) {
+    let members = [format!("{id}-000"), format!("{id}-001")];
+    let lat0 = FIX_LAT + start_north / METRES_PER_DEGREE;
+    let lat1 = FIX_LAT + end_north / METRES_PER_DEGREE;
+    let line: Vec<GpsPoint> = (0..=20)
+        .map(|i| GpsPoint {
+            latitude: lat0 + (lat1 - lat0) * f64::from(i) / 20.0,
+            longitude: FIX_LNG,
+            elevation: Some(400.0 + f64::from(i)),
+        })
+        .collect();
+    for (member, time) in members.iter().zip([1_900u32, 1_700]) {
+        engine
+            .add_activity(member.clone(), line.clone(), "Ride".to_string())
+            .expect("add activity");
+        let mut m = metrics(member, "Ride", 5_000.0, time);
+        m.date = if time == 1_900 {
+            1_700_000_000
+        } else {
+            1_700_500_000
+        };
+        m.elevation_gain = 20.0;
+        engine.set_activity_metrics(vec![m]).expect("metrics");
+    }
+    engine
+        .db
+        .execute(
+            "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
+                                       activity_count, bounds_min_lat, bounds_max_lat,
+                                       bounds_min_lng, bounds_max_lng)
+             VALUES (?1, ?2, ?3, 'Ride', 2, ?4, ?5, ?6, ?6)",
+            params![
+                id,
+                members[0],
+                serde_json::to_string(&members).unwrap(),
+                lat0.min(lat1),
+                lat0.max(lat1),
+                FIX_LNG
+            ],
+        )
+        .expect("insert group");
+}
+
+/// A section whose line starts `north_metres` north of the fix, passed once per `laps` entry
+/// as (seconds, date).
+fn add_section(engine: &mut PersistentEngine, id: &str, north_metres: f64, laps: &[(f64, i64)]) {
+    let lat = FIX_LAT + north_metres / METRES_PER_DEGREE;
+    let line: Vec<GpsPoint> = (0..20)
+        .map(|i| GpsPoint {
+            latitude: lat + f64::from(i) * 0.0001,
+            longitude: FIX_LNG,
+            elevation: Some(500.0 + f64::from(i)),
+        })
+        .collect();
+    engine
+        .db
+        .execute(
+            "INSERT INTO sections (id, section_type, name, sport_type, polyline_blob,
+                                   distance_meters, elevation_gain_m, visit_count,
+                                   bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+             VALUES (?1, 'auto', ?2, 'Ride', ?3, 210.0, 19.0, ?4, ?5, ?6, ?7, ?7)",
+            params![
+                id,
+                format!("{id} climb"),
+                crate::persistence::codec::serialize_track_points(&line),
+                laps.len() as i64,
+                lat,
+                lat + 0.0019,
+                FIX_LNG
+            ],
+        )
+        .expect("insert section");
+    for (i, &(seconds, date)) in laps.iter().enumerate() {
+        let activity = format!("{id}-act-{i}");
+        engine
+            .add_activity(activity.clone(), line.clone(), "Ride".to_string())
+            .expect("add activity");
+        let mut m = metrics(&activity, "Ride", 10_000.0, 3_000);
+        m.date = date;
+        engine.set_activity_metrics(vec![m]).expect("metrics");
+        engine
+            .db
+            .execute(
+                "INSERT INTO section_activities (section_id, activity_id, start_index, end_index,
+                                                 distance_meters, lap_time)
+                 VALUES (?1, ?2, 0, 19, 210.0, ?3)",
+                params![id, activity, seconds],
+            )
+            .expect("insert lap");
+    }
+}
+
+#[test]
+fn places_come_nearest_start_first_and_carry_best_and_last() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    // The box of this route reaches the fix, its start is 1.5 km south of it.
+    add_long_route(&mut engine, "long", -1_500.0, 100.0);
+    add_section(
+        &mut engine,
+        "climb",
+        300.0,
+        &[
+            (95.0, 1_690_000_000),
+            (80.0, 1_695_000_000),
+            (90.0, 1_699_000_000),
+        ],
+    );
+
+    let places = read(&engine, "Ride");
+
+    let ids: Vec<(&NearbyKind, &str)> = places.iter().map(|p| (&p.kind, p.id.as_str())).collect();
+    assert_eq!(
+        ids,
+        [
+            (&NearbyKind::Section, "climb"),
+            (&NearbyKind::Route, "long")
+        ]
+    );
+    assert!((places[0].away_meters - 300.0).abs() < 5.0);
+    assert!((places[1].away_meters - 1_500.0).abs() < 5.0);
+
+    let section = &places[0];
+    assert_eq!(section.name, "climb climb");
+    assert_eq!(section.pass_count, 3);
+    assert_eq!(section.best_time_seconds, Some(80));
+    assert_eq!(section.best_date, Some(crate::WholeNumber(1_695_000_000)));
+    assert_eq!(section.last_time_seconds, Some(90));
+    assert_eq!(section.last_date, Some(crate::WholeNumber(1_699_000_000)));
+    assert_eq!(section.elevation_gain_meters, Some(19.0));
+
+    let route = &places[1];
+    assert_eq!(route.pass_count, 2);
+    assert_eq!(route.best_time_seconds, Some(1_700));
+    assert_eq!(route.last_time_seconds, Some(1_700));
+    assert_eq!(route.last_date, Some(crate::WholeNumber(1_700_500_000)));
+    assert_eq!(route.elevation_gain_meters, Some(20.0));
+}
+
+#[test]
+fn a_place_line_is_capped_and_keeps_its_elevation() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    add_section(&mut engine, "climb", 0.0, &[(80.0, 1_695_000_000)]);
+
+    let place = read(&engine, "Ride").remove(0);
+    let line = crate::persistence::codec::decode_polyline(&place.encoded_coords).expect("line");
+
+    assert!(line.len() >= 2);
+    assert!(line.iter().all(|p| p.elevation.is_some()));
+    assert_eq!(line.first().unwrap().elevation, Some(500.0));
+    assert_eq!(line.last().unwrap().elevation, Some(519.0));
+}
+
+#[test]
+fn a_section_beyond_the_radius_by_its_start_is_left_out() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    add_section(&mut engine, "far", 5_000.0, &[(80.0, 1_695_000_000)]);
+
+    assert!(read(&engine, "Ride").is_empty());
+}
+
+#[test]
+fn the_watch_reply_lists_the_section_first_with_its_best_and_last_time() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    add_long_route(&mut engine, "long", -1_500.0, 100.0);
+    add_section(
+        &mut engine,
+        "climb",
+        300.0,
+        &[(80.0, 1_695_000_000), (90.0, 1_699_000_000)],
+    );
+
+    let text = crate::persistence::nearby_routes::pooled::watch_nearby_json(
+        &engine.db, FIX_LAT, FIX_LNG, "Ride",
+    );
+
+    let reply: serde_json::Value = serde_json::from_str(&text).expect("reply is JSON");
+    assert!(reply["error"].is_null(), "{text}");
+    let places = reply["result"]["places"].as_array().expect("places");
+    assert_eq!(places[0]["kind"], "section");
+    assert_eq!(places[0]["id"], "climb");
+    assert_eq!(places[0]["bestTimeSeconds"], 80);
+    assert_eq!(places[0]["lastTimeSeconds"], 90);
+    assert_eq!(places[1]["id"], "long");
+}
+
+#[test]
+fn the_watch_reply_over_an_empty_library_is_an_empty_list() {
+    let engine = PersistentEngine::in_memory().expect("engine");
+
+    let text = crate::persistence::nearby_routes::pooled::watch_nearby_json(
+        &engine.db, FIX_LAT, FIX_LNG, "Ride",
+    );
+
+    let reply: serde_json::Value = serde_json::from_str(&text).expect("reply is JSON");
+    assert_eq!(reply["result"]["places"], serde_json::json!([]));
+}
+
+/// A library of 1,600 activities, ten routes of 160 attempts: the read's work is the statements
+/// it issues, and it must stay at the count a library of two attempts per route costs.
+#[test]
+fn the_watch_read_over_sixteen_hundred_activities_issues_no_more_statements() {
+    let few = statements_of_read(&mut library(2));
+    let many = statements_of_read(&mut library(160));
+
+    assert!(
+        many <= few + GROUP_LEVEL_SLACK,
+        "a read over 1,600 activities issued {many} statements, against {few} over 20"
+    );
+}
+
+/// Scenario: a watch asks for each nearby line capped and packed.
+///
+/// Expected behaviour: with a cap and `packed`, each place carries `packed_line` decoding to at
+/// most the cap and an empty `encoded_coords`; with the default ask the polyline is carried as
+/// before and nothing is packed.
+#[test]
+fn a_nearby_line_is_capped_and_packed_when_asked() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    add_route(&mut engine, "near", 100.0, "Ride", [1000, 1100]);
+
+    let asked = LineAsk {
+        max_points: 5,
+        packed: true,
+    };
+    let places = nearby_places(&engine.db, FIX_LAT, FIX_LNG, "Ride", ALL_KINDS, None, asked);
+    assert_eq!(places.len(), 1);
+    assert!(places[0].encoded_coords.is_empty());
+    let line = crate::persistence::codec::unpack_line(places[0].packed_line.as_ref().unwrap())
+        .expect("a packed line");
+    assert!(!line.is_empty() && line.len() <= 5, "{}", line.len());
+
+    let plain = read(&engine, "Ride");
+    assert!(plain[0].packed_line.is_none());
+    assert!(!plain[0].encoded_coords.is_empty());
 }

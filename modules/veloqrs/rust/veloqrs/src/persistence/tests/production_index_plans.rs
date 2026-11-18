@@ -33,7 +33,7 @@ fn plans_of(
     STATEMENTS.lock().unwrap_or_else(|e| e.into_inner()).clear();
     crate::test_trace::trace_statements!(engine.db, record);
     read(engine);
-    crate::test_trace::untrace(&engine.db);
+    crate::test_trace::untrace(&mut engine.db);
     let issued: Vec<String> = STATEMENTS
         .lock()
         .unwrap_or_else(|e| e.into_inner())

@@ -14,6 +14,7 @@
 
 import zlib from 'zlib';
 
+import { NOT_CONNECTED } from '../../../web/connect/connection';
 import { createClient, type Channel } from '../../../web/connect/client';
 import {
   PAGE_MIN_PROTOCOL,
@@ -65,6 +66,12 @@ describe('connect page protocol client', () => {
       sportFamilies: [],
       oldestTs: null,
       newestTs: null,
+      minDistance: null,
+      maxDistance: null,
+      minMovingTime: null,
+      maxMovingTime: null,
+      sort: null,
+      lean: false,
     });
     const second = client.askPairing('pair.status');
     expect(sent.map((message) => message.id)).toEqual([1, 2]);
@@ -77,6 +84,12 @@ describe('connect page protocol client', () => {
         sportFamilies: [],
         oldestTs: null,
         newestTs: null,
+        minDistance: null,
+        maxDistance: null,
+        minMovingTime: null,
+        maxMovingTime: null,
+        sort: null,
+        lean: false,
       },
     });
     expect(sent[1]).toMatchObject({ method: 'pair.status', params: {} });
@@ -165,6 +178,12 @@ describe('connect page protocol client', () => {
         sportFamilies: [],
         oldestTs: null,
         newestTs: null,
+        minDistance: null,
+        maxDistance: null,
+        minMovingTime: null,
+        maxMovingTime: null,
+        sort: null,
+        lean: false,
       }),
       client.askPairing('pair.status'),
     ];
@@ -190,8 +209,14 @@ describe('connect page protocol client', () => {
         sportFamilies: [],
         oldestTs: null,
         newestTs: null,
+        minDistance: null,
+        maxDistance: null,
+        minMovingTime: null,
+        maxMovingTime: null,
+        sort: null,
+        lean: false,
       })
-    ).rejects.toThrow('not connected');
+    ).rejects.toThrow(NOT_CONNECTED);
     expect(sent).toEqual([]);
   });
 
@@ -208,8 +233,14 @@ describe('connect page protocol client', () => {
           sportFamilies: [],
           oldestTs: null,
           newestTs: null,
+          minDistance: null,
+          maxDistance: null,
+          minMovingTime: null,
+          maxMovingTime: null,
+          sort: null,
+          lean: false,
         })
-      ).rejects.toThrow('not connected');
+      ).rejects.toThrow(NOT_CONNECTED);
       expect(sent).toEqual([]);
     }
   );
@@ -234,6 +265,12 @@ describe('connect page protocol client', () => {
       sportFamilies: [],
       oldestTs: null,
       newestTs: null,
+      minDistance: null,
+      maxDistance: null,
+      minMovingTime: null,
+      maxMovingTime: null,
+      sort: null,
+      lean: false,
     });
     const whole = text({ id: 1, result: { cards: [{ id: 'a1' }] } });
     const half = Math.floor(whole.length / 2);
@@ -252,6 +289,12 @@ describe('connect page protocol client', () => {
       sportFamilies: [],
       oldestTs: null,
       newestTs: null,
+      minDistance: null,
+      maxDistance: null,
+      minMovingTime: null,
+      maxMovingTime: null,
+      sort: null,
+      lean: false,
     });
     const cards = Array.from({ length: 500 }, (_, k) => ({ id: `a${k}` }));
     const packed = new Uint8Array(zlib.gzipSync(text({ id: 1, result: { cards } })));
@@ -343,6 +386,7 @@ describe('connect page against a phone on each supported version', () => {
         protocol: PAGE_PROTOCOL,
         minProtocol: PAGE_MIN_PROTOCOL,
         page: 'test',
+        client: null,
       });
       await client.settle(respond(sent[0]));
       const answer = await hello;
@@ -372,6 +416,12 @@ describe('connect page against a phone on each supported version', () => {
         sportFamilies: [],
         oldestTs: null,
         newestTs: null,
+        minDistance: null,
+        maxDistance: null,
+        minMovingTime: null,
+        maxMovingTime: null,
+        sort: null,
+        lean: false,
       });
       expect(sent[1].protocol).toBe(version);
       await client.settle(respond(sent[1]));

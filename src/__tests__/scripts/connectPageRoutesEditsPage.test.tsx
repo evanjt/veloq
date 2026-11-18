@@ -1,5 +1,5 @@
 /**
- * Scenario: the section and route panes and the activity's heatmap switch
+ * Scenario: the section and route panes and the activity's Manage panel
  * offer the engine's edits against a fake link.
  *
  * Expected behaviour: each affordance sends its write method with the params
@@ -9,7 +9,7 @@
 
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
-import { HeatmapSwitch } from '../../../web/connect/pages/ActivityPage';
+import { ManageActivity } from '../../../web/connect/pages/ActivityPage';
 import { RoutesPage } from '../../../web/connect/pages/RoutesPage';
 import type { Route } from '../../../web/connect/router';
 import { WriteToasts } from '../../../web/connect/shell/WriteToasts';
@@ -130,9 +130,17 @@ function fakeSession(refuse?: string, hold = false) {
   return { phone, reads, writes, held };
 }
 
-/** The heatmap switch given the phone the way the activity page gives it. */
+/** The Manage panel given the phone the way the activity page gives it. */
 function Switch() {
-  return <HeatmapSwitch id="a1" />;
+  return <ManageActivity id="a1" onClose={() => undefined} />;
+}
+
+/** Turns the heatmap switch of the Manage panel off. */
+async function hideFromHeatmap(root: ReactTestRenderer) {
+  await act(async () => {
+    root.root.findByType('input').props.onChange({ currentTarget: { checked: false } });
+  });
+  await settle();
 }
 
 async function settle() {
@@ -297,18 +305,18 @@ describe('the route pane edits', () => {
   });
 });
 
-describe('the activity heatmap switch', () => {
+describe('the activity Manage panel heatmap switch', () => {
   it('hides the activity then reads its state again, and shows a refusal', async () => {
     const { phone, reads, writes } = fakeSession();
     const root = await mount(phone.wrap(<Switch />));
-    await press(root, 'connectPage.activity.hideFromHeatmap');
+    await hideFromHeatmap(root);
     expect(writes).toEqual([['heatmap.setHidden', { activityId: 'a1', hidden: true }]]);
     expect(count(reads, 'activity.detail')).toBe(2);
     root.unmount();
 
     const refused = fakeSession('not now');
     const again = await mount(refused.phone.wrap(<Switch />));
-    await press(again, 'connectPage.activity.hideFromHeatmap');
+    await hideFromHeatmap(again);
     expect(
       again.root.findAll((n) => n.props.role === 'alert').map((n) => n.children)
     ).toContainEqual(['not now']);
@@ -325,7 +333,7 @@ describe('the activity heatmap switch', () => {
         </WriteToasts>
       )
     );
-    await press(root, 'connectPage.activity.hideFromHeatmap');
+    await hideFromHeatmap(root);
     const toasts = () =>
       root.root.findAll(
         (node) => node.type === 'span' && node.children.includes('connectPage.undo.hidden')

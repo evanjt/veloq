@@ -8,7 +8,7 @@
 
 #library > #summary,
 #library > #filters,
-#library > .notice {
+#library > [data-read-error] {
   grid-column: 1 / -1;
 }
 
@@ -24,6 +24,22 @@
 
 #feed-scroll {
   min-width: 0;
+}
+
+.feed-table .ui-table :is(th, td)[data-clip] {
+  min-width: var(--web-layout-name-column);
+}
+
+/* Below this content width the list takes the full pane and its detail follows it. */
+@container content (max-width: 1100px) {
+  #library > #list-pane,
+  #library > #detail-pane {
+    grid-column: 1 / -1;
+  }
+
+  #library > #detail-pane {
+    position: static;
+  }
 }
 
 .feed-table .ui-table td {
@@ -115,31 +131,6 @@
   font-size: var(--web-type-body-size);
 }
 
-#summary {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-lg);
-}
-
-#summary .tile-label,
-#summary .tile-note {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--web-type-caption-size);
-}
-
-#summary .tile-value {
-  margin: var(--space-xs) 0;
-  font-size: var(--web-type-display-size);
-  font-weight: var(--web-type-display-weight);
-}
-
-#summary-spark {
-  width: 100%;
-  height: 32px;
-  color: var(--primary);
-}
-
 #filters {
   display: flex;
   flex-wrap: wrap;
@@ -147,8 +138,25 @@
   gap: var(--space-md);
 }
 
-#filters .ui-search {
-  margin-left: auto;
+#filters .bound-pair {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+#filters .bound-pair legend {
+  float: left;
+  padding: 0;
+  margin-inline-end: var(--space-sm);
+  color: var(--text-muted);
+  font-size: var(--web-type-body-size);
+}
+
+#filters .bound-pair .ui-input {
+  inline-size: 6em;
 }
 
 #feed-more {
@@ -167,7 +175,7 @@
   border-collapse: collapse;
 }
 
-#compare-table td:first-child {
+#compare-table .ui-table td:first-child {
   text-align: left;
   color: var(--text-muted);
   font-weight: normal;
@@ -179,19 +187,19 @@
 }
 
 #compare-table th.compare-line-0 {
-  border-bottom: var(--stroke-3) solid var(--line-0);
+  border-bottom: var(--stroke-3) solid var(--colour-chart-series);
 }
 
 #compare-table th.compare-line-1 {
-  border-bottom: var(--stroke-3) solid var(--line-1);
+  border-bottom: var(--stroke-3) solid var(--colour-stream-speed);
 }
 
 #compare-table th.compare-line-2 {
-  border-bottom: var(--stroke-3) solid var(--line-2);
+  border-bottom: var(--stroke-3) solid var(--colour-sport-foot);
 }
 
 #compare-table th.compare-line-3 {
-  border-bottom: var(--stroke-3) solid var(--line-3);
+  border-bottom: var(--stroke-3) solid var(--colour-sport-ride);
 }
 
 #list-pane,
@@ -240,8 +248,14 @@
     grid-column: 1 / -1;
     position: static;
   }
+}
 
-  #summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.summary-spark {
+  width: 100%;
+  height: 32px;
+}
+
+.summary-spark polyline {
+  stroke: var(--primary);
+  stroke-width: 1.5;
 }

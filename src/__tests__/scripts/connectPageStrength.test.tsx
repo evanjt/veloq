@@ -56,7 +56,7 @@ describe('the address', () => {
     expect(parse('#/strength?period=3m').query).toEqual([['period', '3m']]);
     expect(tabOf(parse('#/strength'))).toBe('insights');
     expect(pageFor(parse('#/strength')).key).toBe('strength');
-    expect(parse('#/strength/7').screen).toBe('feed');
+    expect(parse('#/strength/7').screen).toBe('activities');
   });
 });
 
@@ -212,6 +212,43 @@ describe('a muscle over the period', () => {
     const primary = group.exercises.filter((e) => e.isPrimary).length;
     expect(split.props['data-primary']).toBe(primary);
     expect(split.props['data-secondary']).toBe(group.exercises.length - primary);
+    root.unmount();
+  });
+
+  it('narrows the exercise table to the filter text in the address and shows it in the field', async () => {
+    const screen = results['strength.screen'] as {
+      exercises: { exercises: { exerciseCategory: number; exerciseName: string }[] }[];
+    };
+    const names = new Map(
+      screen.exercises.flatMap((group) =>
+        group.exercises.map((e) => [e.exerciseCategory, e.exerciseName] as const)
+      )
+    );
+    const [category, name] = [...names][0]!;
+    const phone = demoPhone();
+    let root!: ReactTestRenderer;
+    await act(async () => {
+      root = create(
+        phone.wrap(
+          <StrengthPage {...strengthProps(`#/strength?period=3m&q=${encodeURIComponent(name)}`)} />
+        )
+      );
+    });
+    await settle();
+    const rows = root.root.findAll(
+      (node) =>
+        node.type === 'tr' &&
+        typeof node.props['data-row'] === 'string' &&
+        String(node.props.id).startsWith('strength-exercises-row-')
+    );
+    const expected = [...names.values()].filter((other) =>
+      other.toLowerCase().includes(name.toLowerCase())
+    );
+    expect(rows.length).toBe(expected.length);
+    expect(rows.length).toBeLessThan(names.size);
+    expect(rows.some((row) => String(row.props.id).endsWith(String(category)))).toBe(true);
+    expect(root.root.findAllByProps({ role: 'search' }).length).toBeGreaterThan(0);
+    expect(root.root.findAllByType('input').some((input) => input.props.value === name)).toBe(true);
     root.unmount();
   });
 });

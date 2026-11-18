@@ -449,6 +449,17 @@ pub(crate) mod work {
         static WALKS: Cell<usize> = const { Cell::new(0) };
         static PEAK_DECODED: Cell<usize> = const { Cell::new(0) };
         static BUFFERS: Cell<usize> = const { Cell::new(0) };
+        static FIGURES: Cell<usize> = const { Cell::new(0) };
+    }
+
+    /// A route's or a section's row figures were read.
+    pub(crate) fn figures_read() {
+        FIGURES.with(|c| c.set(c.get() + 1));
+    }
+
+    /// The figure reads since the last call.
+    pub(crate) fn take_figure_reads() -> usize {
+        FIGURES.with(|c| c.replace(0))
     }
 
     /// The load holds `points` decoded GPS points at once.

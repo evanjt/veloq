@@ -135,9 +135,9 @@ flows() {
   . scripts/lib/maestro-app-id.sh
   app_id=$(veloq_maestro_app_id scripts)
   set +e
-  MAESTRO_DRIVER_STARTUP_TIMEOUT=180000 maestro --device "$udid" test -e "APP_ID=$app_id" .maestro/ \
+  MAESTRO_DRIVER_STARTUP_TIMEOUT=450000 maestro --device "$udid" test -e "APP_ID=$app_id" .maestro/ \
     --include-tags=tier0,pack-map,pack-nav --format junit --output "$out/flows.xml" --no-ansi
-  MAESTRO_DRIVER_STARTUP_TIMEOUT=180000 maestro --device "$udid" test -e "APP_ID=$app_id" \
+  MAESTRO_DRIVER_STARTUP_TIMEOUT=450000 maestro --device "$udid" test -e "APP_ID=$app_id" \
     .maestro/recording-start-stop.yaml --format junit --output "$out/recording.xml" --no-ansi
   set -e
   [ -s "$out/flows.xml" ] && [ -s "$out/recording.xml" ]

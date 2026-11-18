@@ -180,6 +180,7 @@ const mockDetail: { encounters: SectionEncounter[]; [key: string]: unknown } = {
   prSectionIds: new Set<string>(),
   customSections: [],
   encounters: [],
+  memberships: [],
   highlights: [],
   routeGroups: [],
   activityCount: 1,

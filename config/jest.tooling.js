@@ -22,6 +22,7 @@ const toolingSuites = [
   'src/__tests__/bugs/commitGateExitCode.test.ts',
   'src/__tests__/bugs/commitIndexGuard.test.ts',
   'src/__tests__/bugs/conflictedMergeRunsMergeGates.test.ts',
+  'src/__tests__/bugs/connectScreenshotsLint.test.ts',
   'src/__tests__/bugs/detectorOrderingLintExitCode.test.ts',
   'src/__tests__/bugs/e2eGateShards.test.ts',
   'src/__tests__/bugs/expoLocationAltitudeGuard.test.ts',

@@ -4,7 +4,7 @@
 import { useTranslation } from 'react-i18next';
 
 import { clock, km, localDateTime } from '../format';
-import { go, write, type Route } from '../router';
+import { go, replaceRoute, write, type Route } from '../router';
 import {
   nextOrder,
   orderRows,
@@ -18,6 +18,8 @@ import { useSportName, useUploadStatusName } from '../names';
 import { knownStatus, uploadTone } from '../recordingStatus';
 import { Reading } from '../shell/StatePanes';
 import { Badge, DataTable, EmptyState, type Column } from '../ui';
+import { filterCount, matchesFilter, readFilterText, withFilterText } from '../ui/filterText';
+import { useFilterDraft } from '../useFilterDraft';
 import { useTableLabels } from '../tableLabels';
 import { useRead } from '../useRead';
 
@@ -38,6 +40,18 @@ function RecordingsTable({ rows, route }: { rows: Recording[]; route: Route }) {
   const sportName = useSportName();
   const statusName = useUploadStatusName();
   const order = readTableOrder(route, 'recordings', COLUMNS, DEFAULT);
+  const text = readFilterText(route);
+  const [draft, setDraft] = useFilterDraft(text, (next) =>
+    replaceRoute(withFilterText(route, next))
+  );
+  const shown = rows.filter((row) =>
+    matchesFilter(text, [
+      row.name,
+      sportName(row.activityType),
+      statusName(row.uploadStatus),
+      row.lastError,
+    ])
+  );
   const values: Record<RecordingColumn, (row: Recording) => OrderValue> = {
     name: (row) => row.name,
     started: (row) => row.startTime,
@@ -102,9 +116,19 @@ function RecordingsTable({ rows, route }: { rows: Recording[]; route: Route }) {
       label={t('connectPage.recordings.heading')}
       tableId="recordings"
       labels={labels}
+      filter={{
+        id: 'search',
+        label: t('connectPage.filter.recordings'),
+        clearLabel: t('connectPage.filter.clear'),
+        value: draft,
+        onChange: setDraft,
+        count: filterCount(shown.length, rows.length),
+        countText: (count) => t('connectPage.filter.count', count),
+      }}
       columns={columns}
-      rows={orderRows(rows, order, (row, column) => values[column](row))}
+      rows={orderRows(shown, order, (row, column) => values[column](row))}
       rowKey={(row) => row.id}
+      rowAction="open"
       href={(row) => write({ screen: 'recording', id: row.id, query: [] })}
       sort={sortProp(order)}
       onSort={(key) =>

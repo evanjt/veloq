@@ -1,15 +1,14 @@
 //! The engine's side of the remote link: its certificate, which peers it
 //! admits, and the connections it is serving.
 
-use std::collections::HashSet;
-use std::net::{IpAddr, Ipv4Addr, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use str0m::config::DtlsCert;
 
 use super::DisconnectReason;
-use super::pairing::{self, Invitation, Pairing, PairingRefusal};
+use super::pairing::{self, Invitation, Pairing, PairingRefusal, SpentSecrets};
 use super::peer::{self, Gate, Peer, Refusal};
 use crate::persistence::{linked_devices, read_pool, settings_conn};
 
@@ -20,6 +19,13 @@ static PEERS: Mutex<Vec<(Option<String>, Peer)>> = Mutex::new(Vec::new());
 /// order they came up.
 static CONNECTED: Mutex<Vec<(String, i64)>> = Mutex::new(Vec::new());
 
+/// The history row of each connection that is up, under the fingerprint it
+/// presented, in the order they came up.
+static OPEN_ROWS: Mutex<Vec<(String, i64)>> = Mutex::new(Vec::new());
+
+/// Set once this process has ended the rows a past process left open.
+static STALE_CLOSED: AtomicBool = AtomicBool::new(false);
+
 /// Whether the app is in front. A linked browser's write is answered only
 /// while it is; reads are answered either way. True until the app says
 /// otherwise, so a build with no app around it behaves as before.
@@ -28,10 +34,7 @@ static IN_FRONT: AtomicBool = AtomicBool::new(true);
 /// The one pairing in progress, from a scan until the next scan or a cancel.
 static PAIRING: Mutex<Option<Pairing>> = Mutex::new(None);
 
-/// Every pairing secret used in this process, so none is used twice.
-static SPENT: Mutex<Option<HashSet<[u8; 32]>>> = Mutex::new(None);
-
-pub(super) fn now() -> i64 {
+pub(crate) fn now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |since| since.as_secs() as i64)
@@ -146,6 +149,9 @@ impl Gate for EngineGate {
                     .to_string(),
             };
         }
+        if method == "link.hello" {
+            keep_client(presented, &parsed);
+        }
         let athlete = crate::objects::sync::signed_in_athlete_id();
         let connections = connections();
         let caller = super::protocol::Caller {
@@ -159,10 +165,38 @@ impl Gate for EngineGate {
             })
     }
 
-    fn connected(&self, fingerprint: &str) {
+    fn answer_bytes(&self, presented: &str, local: &str, request: &str) -> super::protocol::Answer {
+        let parsed: serde_json::Value = serde_json::from_str(request).unwrap_or_default();
+        let method = parsed["method"].as_str().unwrap_or_default();
+        if linked(presented)
+            && IN_FRONT.load(Ordering::Acquire)
+            && super::protocol::is_spool_bytes(method)
+        {
+            return super::protocol::answer_spool_bytes(presented, request);
+        }
+        super::protocol::Answer::Text(self.answer(presented, local, request))
+    }
+
+    fn connected(&self, fingerprint: &str, from: Option<SocketAddr>, local: SocketAddr) {
         let now = now();
-        let _ =
-            settings_conn::with_settings_conn(|conn| linked_devices::touch(conn, fingerprint, now));
+        let _ = settings_conn::with_settings_conn(|conn| {
+            linked_devices::touch(conn, fingerprint, now)?;
+            if !STALE_CLOSED.swap(true, Ordering::AcqRel) {
+                linked_devices::close_open_connections(conn, now)?;
+            }
+            if let Some(from) = from
+                && let Some(row) = linked_devices::open_connection(
+                    conn,
+                    fingerprint,
+                    from.ip(),
+                    (!local.ip().is_unspecified()).then_some(local.ip()),
+                    now,
+                )?
+            {
+                lock(&OPEN_ROWS).push((fingerprint.to_owned(), row));
+            }
+            Ok::<(), rusqlite::Error>(())
+        });
         lock(&CONNECTED).push((fingerprint.to_owned(), now));
     }
 
@@ -171,15 +205,67 @@ impl Gate for EngineGate {
     }
 
     fn frame(&self, presented: &str, bytes: &[u8]) {
-        super::import::frame(presented, bytes);
+        // A browser unlinked while its import is open writes nothing more.
+        if linked(presented) {
+            super::import::frame(presented, bytes);
+        }
     }
 
-    fn disconnected(&self, fingerprint: &str) {
+    fn disconnected(&self, fingerprint: &str, reason: Option<DisconnectReason>) {
         let mut connected = lock(&CONNECTED);
         if let Some(at) = connected.iter().position(|(f, _)| f == fingerprint) {
             connected.remove(at);
         }
+        drop(connected);
+        let row = {
+            let mut open = lock(&OPEN_ROWS);
+            open.iter()
+                .position(|(f, _)| f == fingerprint)
+                .map(|at| open.remove(at).1)
+        };
+        if let Some(row) = row {
+            let now = now();
+            let _ = settings_conn::with_settings_conn(|conn| {
+                linked_devices::close_connection(conn, row, end_reason(reason), now)
+            });
+        }
     }
+}
+
+/// The word the history keeps for why a connection ended. A connection the
+/// phone did not end is `closed`.
+pub(super) fn end_reason(reason: Option<DisconnectReason>) -> &'static str {
+    match reason {
+        None => "closed",
+        Some(DisconnectReason::Background) => "backgrounded",
+        Some(DisconnectReason::SwitchedOff) => "switched_off",
+        Some(DisconnectReason::Removed) => "removed",
+        Some(DisconnectReason::Disconnected) => "disconnected",
+        Some(DisconnectReason::Declined) => "refused",
+    }
+}
+
+/// Keep what the client at `fingerprint` said it is in its hello on its
+/// open connection's row. A hello with no description keeps nothing.
+fn keep_client(fingerprint: &str, request: &serde_json::Value) {
+    let Ok(client) = serde_json::from_value::<super::protocol::FfiLinkClient>(
+        request["params"]["client"].clone(),
+    ) else {
+        return;
+    };
+    let Some(client) = super::client::describe(&client) else {
+        return;
+    };
+    let Some(row) = lock(&OPEN_ROWS)
+        .iter()
+        .rev()
+        .find(|(f, _)| f == fingerprint)
+        .map(|(_, row)| *row)
+    else {
+        return;
+    };
+    let _ =
+        settings_conn::with_settings_conn(|conn| linked_devices::set_client(conn, row, &client));
 }
 
 /// The connection the library's stamp is read on: one of this module's own,
@@ -213,23 +299,61 @@ fn linked(fingerprint: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// The key a spent pairing secret is recorded under: its SHA-256, so the
+/// library never holds a secret itself.
+fn spent_key(secret: &[u8; 32]) -> [u8; 32] {
+    super::digest::sha256(&[&secret[..]])
+}
+
+/// The library's record of spent pairing secrets, written through the
+/// settings connection. A secret whose record cannot be written is refused.
+struct LibrarySpent<'a>(&'a rusqlite::Connection);
+
+impl SpentSecrets for LibrarySpent<'_> {
+    fn spend(&mut self, secret: &[u8; 32], expires_at: i64, now: i64) -> bool {
+        linked_devices::spend_secret(self.0, &spent_key(secret), expires_at, now).unwrap_or(false)
+    }
+}
+
+/// Stands in for the record on a method that spends no secret. A secret
+/// offered to it is refused.
+struct NothingSpent;
+
+impl SpentSecrets for NothingSpent {
+    fn spend(&mut self, _: &[u8; 32], _: i64, _: i64) -> bool {
+        false
+    }
+}
+
 fn pairing_answer(presented: &str, local: &str, request: &serde_json::Value) -> String {
     let id = request["id"].clone();
     let mut pairing = lock(&PAIRING);
     let Some(pairing) = pairing.as_mut().filter(|p| p.admits(presented, now())) else {
+        // The pairing closes when the athlete accepts, so a browser polling
+        // after that is answered from its link.
+        if request["method"].as_str() == Some("pair.status") && linked(presented) {
+            return serde_json::json!({ "id": id, "result": "confirmed" }).to_string();
+        }
         return serde_json::json!({ "id": id, "error": "no pairing open" }).to_string();
     };
-    let mut spent = lock(&SPENT);
-    let spent = spent.get_or_insert_with(HashSet::new);
     let method = request["method"].as_str().unwrap_or_default();
-    match pairing.answer(
-        presented,
-        local,
-        method,
-        request["params"].clone(),
-        now(),
-        spent,
-    ) {
+    let params = request["params"].clone();
+    let answered = if method == "pair.prove" {
+        settings_conn::with_settings_conn(|conn| {
+            pairing.answer(
+                presented,
+                local,
+                method,
+                params,
+                now(),
+                &mut LibrarySpent(conn),
+            )
+        })
+        .unwrap_or_else(|| Err("engine not initialised".into()))
+    } else {
+        pairing.answer(presented, local, method, params, now(), &mut NothingSpent)
+    };
+    match answered {
         Ok(result) => serde_json::json!({ "id": id, "result": result }),
         Err(error) => serde_json::json!({ "id": id, "error": error }),
     }
@@ -240,10 +364,13 @@ fn pairing_answer(presented: &str, local: &str, request: &serde_json::Value) -> 
 /// room the browser waits in.
 pub fn begin_pairing(qr: &str) -> Result<String, PairingRefusal> {
     let invitation = Invitation::parse(qr, now())?;
-    if lock(&SPENT)
-        .as_ref()
-        .is_some_and(|spent| spent.contains(&invitation.secret))
-    {
+    // An unreadable record refuses the secret: whether it was spent is unknown.
+    let spent = read_pool::with_read_conn(|conn| {
+        linked_devices::secret_spent(conn, &spent_key(&invitation.secret))
+    })
+    .and_then(Result::ok)
+    .unwrap_or(true);
+    if spent {
         return Err(PairingRefusal::Spent);
     }
     let room = invitation.room.clone();
@@ -261,22 +388,25 @@ pub fn pairing_request() -> Option<String> {
 /// The athlete's answer to the prompt. Accepting links the browser; declining
 /// ends its connection. Returns whether a browser was linked.
 pub fn confirm_pairing(accept: bool) -> Result<bool, String> {
-    let (decision, browser) = {
+    let (decision, browser, secret) = {
         let mut pairing = lock(&PAIRING);
         let Some(pairing) = pairing.as_mut() else {
             return Ok(false);
         };
         let browser = pairing.invitation.browser.clone();
-        (pairing.confirm(accept), browser)
+        let secret = pairing.invitation.secret;
+        (pairing.confirm(accept), browser, secret)
     };
     match decision {
         Some((name, fingerprint)) => {
             let now = now();
-            settings_conn::with_settings_conn(|conn| {
-                linked_devices::add(conn, &name, &fingerprint, now)
+            let stored = settings_conn::with_settings_conn(|conn| {
+                linked_devices::add(conn, &name, &fingerprint, Some(&secret), now)
             })
-            .ok_or("engine not initialised")?
-            .map_err(|error| error.to_string())?;
+            .ok_or_else(|| "engine not initialised".to_owned())
+            .and_then(|added| added.map(drop).map_err(|error| error.to_string()));
+            close_pairing_for(&fingerprint);
+            stored?;
             Ok(true)
         }
         None => {
@@ -286,6 +416,72 @@ pub fn confirm_pairing(accept: bool) -> Result<bool, String> {
             Ok(false)
         }
     }
+}
+
+/// Unlink the device with row `id` and end its connection, if it has one.
+/// Written on the connection no engine lock stands in front of. Returns
+/// whether a device was removed.
+pub fn unlink(id: &str) -> Result<bool, crate::objects::error::VeloqError> {
+    use crate::objects::error::{VeloqError, engine_refused};
+    let (fingerprint, removed) = settings_conn::with_settings_conn(|conn| {
+        let fingerprint = linked_devices::fingerprint_of(conn, id)?;
+        linked_devices::remove(conn, id).map(|removed| (fingerprint, removed))
+    })
+    .ok_or_else(engine_refused)?
+    .map_err(|error| VeloqError::Database {
+        msg: error.to_string(),
+    })?;
+    if let Some(fingerprint) = fingerprint {
+        forget(&fingerprint);
+        disconnect(Some(&fingerprint), DisconnectReason::Removed);
+    }
+    Ok(removed)
+}
+
+/// End the connection of the device with row `id`, keeping its link. Returns
+/// whether the device exists.
+pub fn disconnect_device(id: &str) -> Result<bool, crate::objects::error::VeloqError> {
+    use crate::objects::error::{VeloqError, engine_refused};
+    let fingerprint =
+        settings_conn::with_settings_conn(|conn| linked_devices::fingerprint_of(conn, id))
+            .ok_or_else(engine_refused)?
+            .map_err(|error| VeloqError::Database {
+                msg: error.to_string(),
+            })?;
+    let Some(fingerprint) = fingerprint else {
+        return Ok(false);
+    };
+    disconnect(Some(&fingerprint), DisconnectReason::Disconnected);
+    Ok(true)
+}
+
+/// Give the device with row `id` a new name. Returns whether it exists.
+pub fn rename_device(id: &str, name: &str) -> Result<bool, crate::objects::error::VeloqError> {
+    use crate::objects::error::{VeloqError, engine_refused};
+    settings_conn::with_settings_conn(|conn| linked_devices::rename(conn, id, name))
+        .ok_or_else(engine_refused)?
+        .map_err(|error| VeloqError::Database {
+            msg: error.to_string(),
+        })
+}
+
+/// Close the open pairing when it is for `browser`, whatever its stage.
+fn close_pairing_for(browser: &str) {
+    let mut open = lock(&PAIRING);
+    if open
+        .as_ref()
+        .is_some_and(|pairing| pairing.invitation.browser == browser)
+    {
+        *open = None;
+    }
+}
+
+/// Drop what a browser holds on the phone beside its link row: a pairing open
+/// for it and the imports it has in progress.
+pub fn forget(browser: &str) {
+    close_pairing_for(browser);
+    super::import::forget_browser(browser);
+    super::export::forget_device(browser);
 }
 
 /// Close the open pairing and end the connection it admitted, if not linked.
@@ -303,24 +499,59 @@ pub fn cancel_pairing() {
 
 /// Answer a linked browser's offer and serve it. Returns the answer.
 pub fn accept_offer(offer: &str) -> Result<String, Refusal> {
+    accept_offer_with(offer, Arc::new(EngineGate), || {
+        super::import::sweep_stale();
+        super::export::sweep_stale();
+        let cert = certificate().map_err(Refusal::Engine)?;
+        let address = local_address().map_err(Refusal::Network)?;
+        let stun = super::stun::Stun::resolve_default(address.is_ipv6());
+        Ok((cert, address, stun))
+    })
+    .inspect_err(|refusal| {
+        if matches!(refusal, Refusal::NotPinned) {
+            let now = now();
+            let _ =
+                settings_conn::with_settings_conn(|conn| linked_devices::count_refusal(conn, now));
+        }
+    })
+}
+
+/// Serve an offer from a pinned browser. `prepare` does the disk and network
+/// work an answer needs, and runs only once the offer's browser is pinned.
+pub(crate) fn accept_offer_with<G: Gate>(
+    offer: &str,
+    gate: Arc<G>,
+    prepare: impl FnOnce() -> Result<(DtlsCert, IpAddr, Option<super::stun::Stun>), Refusal>,
+) -> Result<String, Refusal> {
+    peer::check_pinned(offer, gate.as_ref())?;
     let fingerprint = serde_json::from_str::<serde_json::Value>(offer)
         .ok()
         .and_then(|value| value.get("sdp")?.as_str().map(peer::offered_fingerprint))
         .flatten();
-    super::import::sweep_stale();
-    let cert = certificate().map_err(Refusal::Engine)?;
-    let address = local_address().map_err(Refusal::Network)?;
-    let stun = super::stun::Stun::resolve_default(address.is_ipv6());
-    let (answer, served) = peer::accept(offer, cert, address, Arc::new(EngineGate), stun)?;
-    let mut peers = lock(&PEERS);
-    peers.retain(|(_, peer)| !peer.is_finished());
-    peers.push((fingerprint, served));
+    let (cert, address, stun) = prepare()?;
+    let (answer, served) = peer::accept(offer, cert, address, gate, stun)?;
+    let replaced: Vec<Peer> = {
+        let mut peers = lock(&PEERS);
+        peers.retain(|(_, peer)| !peer.is_finished());
+        let (old, keeping) =
+            std::mem::take(&mut *peers)
+                .into_iter()
+                .partition(|(presented, peer)| {
+                    fingerprint.is_some() && *presented == fingerprint && peer.is_pending()
+                });
+        *peers = keeping;
+        peers.push((fingerprint, served));
+        old.into_iter().map(|(_, peer)| peer).collect()
+    };
+    for peer in replaced {
+        peer.stop(DisconnectReason::Disconnected);
+    }
     Ok(answer)
 }
 
 /// The rooms the phone waits in while open, one for each linked browser.
 pub fn linked_rooms() -> Result<Vec<String>, String> {
-    let browsers = read_pool::with_read_conn(linked_devices::fingerprints)
+    let browsers = read_pool::with_read_conn(linked_devices::room_keys)
         .ok_or("engine not initialised")?
         .map_err(|error| error.to_string())?;
     if browsers.is_empty() {
@@ -329,14 +560,18 @@ pub fn linked_rooms() -> Result<Vec<String>, String> {
     Ok(rooms_for(&browsers, &certificate()?.certificate))
 }
 
-/// The room of each pinned browser, for the phone whose certificate is
-/// `certificate`. The one place the phone's side of a room is derived, from the
-/// same certificate every answer presents.
-fn rooms_for(browsers: &[String], certificate: &[u8]) -> Vec<String> {
+/// The room of each pinned browser that holds a pairing secret, for the phone
+/// whose certificate is `certificate`. The one place the phone's side of a room is derived, from the
+/// same certificate every answer presents. A browser with no secret has no room,
+/// so it must pair again.
+fn rooms_for(browsers: &[(String, Option<Vec<u8>>)], certificate: &[u8]) -> Vec<String> {
     let phone = pairing::fingerprint_of(certificate);
     browsers
         .iter()
-        .map(|browser| pairing::room_for(browser, &phone))
+        .filter_map(|(browser, secret)| {
+            let secret = secret.as_ref()?;
+            Some(pairing::room_for(secret, browser, &phone))
+        })
         .collect()
 }
 
@@ -372,6 +607,122 @@ pub fn connections() -> Vec<(String, i64)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn every_way_a_connection_ends_has_a_word_and_an_unforced_end_is_closed() {
+        assert_eq!(end_reason(None), "closed");
+        assert_eq!(
+            end_reason(Some(DisconnectReason::Background)),
+            "backgrounded"
+        );
+        assert_eq!(end_reason(Some(DisconnectReason::Removed)), "removed");
+        assert_eq!(end_reason(Some(DisconnectReason::Declined)), "refused");
+    }
+
+    #[test]
+    fn ending_one_fingerprint_leaves_another_connection_up() {
+        let _serial = crate::test_globals::serial_global_state();
+        let (a, b) = ("sha-256 AA:AA", "sha-256 BB:BB");
+        {
+            let mut peers = lock(&PEERS);
+            peers.clear();
+            peers.push((Some(a.to_owned()), Peer::idle()));
+            peers.push((Some(b.to_owned()), Peer::idle()));
+        }
+
+        disconnect(Some("sha-256 CC:CC"), DisconnectReason::Disconnected);
+        assert_eq!(lock(&PEERS).len(), 2, "an unknown fingerprint ends nothing");
+
+        disconnect(Some(a), DisconnectReason::Disconnected);
+        let mut peers = lock(&PEERS);
+        let left: Vec<_> = peers.iter().map(|(f, _)| f.clone()).collect();
+        assert_eq!(left, vec![Some(b.to_owned())]);
+        assert!(!peers[0].1.is_finished(), "the other peer is still up");
+        for (_, peer) in std::mem::take(&mut *peers) {
+            peer.stop(DisconnectReason::Disconnected);
+        }
+    }
+
+    #[test]
+    fn disconnecting_a_device_by_id_ends_only_its_connection_and_keeps_its_link() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("disconnect.db");
+        assert!(
+            crate::persistence::persistent_engine_ffi::persistent_engine_init_without_owed_work(
+                path.to_str().unwrap().to_string()
+            )
+        );
+        let (a, b) = ("sha-256 AA:AA", "sha-256 BB:BB");
+        let id = crate::objects::error::with_engine(|engine| {
+            let id = linked_devices::add(&engine.db, "Laptop", a, None, 1).unwrap();
+            linked_devices::add(&engine.db, "Tablet", b, None, 1).unwrap();
+            id
+        })
+        .unwrap();
+        {
+            let mut peers = lock(&PEERS);
+            peers.clear();
+            peers.push((Some(a.to_owned()), Peer::idle()));
+            peers.push((Some(b.to_owned()), Peer::idle()));
+        }
+
+        assert!(disconnect_device(&id).unwrap());
+        assert!(!disconnect_device("999").unwrap());
+        assert!(!disconnect_device("not a number").unwrap());
+
+        let mut peers = lock(&PEERS);
+        let left: Vec<_> = peers.iter().map(|(f, _)| f.clone()).collect();
+        assert_eq!(left, vec![Some(b.to_owned())]);
+        assert!(!peers[0].1.is_finished());
+        for (_, peer) in std::mem::take(&mut *peers) {
+            peer.stop(DisconnectReason::Disconnected);
+        }
+        drop(peers);
+        let still_linked = crate::objects::error::with_engine(|engine| {
+            linked_devices::is_pinned(&engine.db, a).unwrap()
+        })
+        .unwrap();
+        assert!(still_linked);
+    }
+
+    #[test]
+    fn renaming_a_device_by_id_changes_its_name_and_only_its_name() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("rename.db");
+        assert!(
+            crate::persistence::persistent_engine_ffi::persistent_engine_init_without_owed_work(
+                path.to_str().unwrap().to_string()
+            )
+        );
+        let (id, other) = crate::objects::error::with_engine(|engine| {
+            (
+                linked_devices::add(&engine.db, "Laptop", "sha-256 AA:AA", None, 1).unwrap(),
+                linked_devices::add(&engine.db, "Tablet", "sha-256 BB:BB", None, 1).unwrap(),
+            )
+        })
+        .unwrap();
+
+        assert!(rename_device(&id, "  Desk  ").unwrap());
+        assert!(!rename_device("999", "Ghost").unwrap());
+        assert!(
+            !rename_device(&other, "   ").unwrap(),
+            "a blank name is refused"
+        );
+
+        let names = crate::objects::error::with_engine(|engine| {
+            linked_devices::list(&engine.db, &[])
+                .unwrap()
+                .into_iter()
+                .map(|d| (d.id, d.name))
+                .collect::<Vec<_>>()
+        })
+        .unwrap();
+        assert!(names.contains(&(id, "Desk".to_owned())));
+        assert!(names.contains(&(other, "Tablet".to_owned())));
+    }
 
     #[test]
     fn a_kept_certificate_reads_back_whole() {
@@ -422,8 +773,25 @@ mod tests {
             .expect("the answer names a fingerprint");
 
         assert_eq!(
-            rooms_for(&[browser.into()], &kept.certificate),
-            vec![pairing::room_for(browser, &answered)]
+            rooms_for(&[(browser.into(), Some(vec![5; 32]))], &kept.certificate),
+            vec![pairing::room_for(&[5; 32], browser, &answered)]
+        );
+    }
+
+    #[test]
+    fn a_browser_linked_without_a_secret_is_offered_no_room() {
+        let cert = [1u8, 2, 3];
+        let phone = pairing::fingerprint_of(&cert);
+        let rooms = rooms_for(
+            &[
+                ("sha-256 AA:BB".into(), None),
+                ("sha-256 CC:DD".into(), Some(vec![5; 32])),
+            ],
+            &cert,
+        );
+        assert_eq!(
+            rooms,
+            vec![pairing::room_for(&[5; 32], "sha-256 CC:DD", &phone)]
         );
     }
 
@@ -449,7 +817,7 @@ mod tests {
                     [],
                 )
                 .unwrap();
-            linked_devices::add(&engine.db, "Laptop", "sha-256 AA:BB", 1).unwrap();
+            linked_devices::add(&engine.db, "Laptop", "sha-256 AA:BB", None, 1).unwrap();
         })
         .unwrap();
         let rename = r#"{"id":1,"method":"section.rename","params":{"id":"s_a","name":"Col"}}"#;
@@ -493,7 +861,7 @@ mod tests {
                     [],
                 )
                 .unwrap();
-            linked_devices::add(&engine.db, "Laptop", "sha-256 AA:BB", 1).unwrap();
+            linked_devices::add(&engine.db, "Laptop", "sha-256 AA:BB", None, 1).unwrap();
         })
         .unwrap();
         let rename = r#"{"id":1,"method":"section.rename","params":{"id":"s_a","name":"Col"}}"#;
@@ -518,6 +886,81 @@ mod tests {
         let done = EngineGate.answer("sha-256 AA:BB", "local", rename);
         assert!(done.contains(r#""ok":true"#), "{done}");
         assert_eq!(name().as_deref(), Some("Col"));
+    }
+
+    fn invitation_qr(browser: &str, secret: [u8; 32]) -> String {
+        serde_json::json!({
+            "v": 1,
+            "room": "remote-spent-room-0000000000",
+            "secret": pairing::encode_secret(&secret),
+            "fp": browser,
+            "exp": now() + 100,
+        })
+        .to_string()
+    }
+
+    fn prove_request(browser: &str, phone: &str, secret: [u8; 32]) -> String {
+        use base64::Engine as _;
+        let proof = pairing::proof(&secret, pairing::Role::Browser, browser, phone);
+        serde_json::json!({
+            "id": 1,
+            "method": "pair.prove",
+            "params": {
+                "proof": base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(proof),
+                "name": "Tablet",
+            },
+        })
+        .to_string()
+    }
+
+    /// Scenario: a pairing secret is spent, the process restarts inside the
+    /// invitation's two minutes, and the same QR code is scanned again.
+    /// Expected behaviour: the restarted engine refuses the spent secret, and
+    /// a fresh invitation still opens a pairing.
+    #[test]
+    fn a_secret_spent_before_a_restart_is_refused_after_it() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("restart.db").to_str().unwrap().to_string();
+        assert!(
+            crate::persistence::persistent_engine_ffi::persistent_engine_init_without_owed_work(
+                path.clone()
+            )
+        );
+
+        let browser = "sha-256 AA:BB:CC:21";
+        let phone = "sha-256 DD:EE:FF:21";
+        let spent = invitation_qr(browser, [4u8; 32]);
+        begin_pairing(&spent).expect("the first scan opens a pairing");
+        let proved = EngineGate.answer(browser, phone, &prove_request(browser, phone, [4u8; 32]));
+        assert!(proved.contains("phoneProof"), "{proved}");
+        let held_as_secret: i64 = crate::objects::error::with_engine(|engine| {
+            engine
+                .db
+                .query_row(
+                    "SELECT COUNT(*) FROM remote_spent WHERE digest = ?1",
+                    [&[4u8; 32][..]],
+                    |row| row.get(0),
+                )
+                .unwrap()
+        })
+        .unwrap();
+        assert_eq!(
+            held_as_secret, 0,
+            "the library must not hold the secret itself"
+        );
+
+        // The process goes: its open pairing is dropped, and the library is
+        // opened again from its file.
+        *lock(&PAIRING) = None;
+        assert!(
+            crate::persistence::persistent_engine_ffi::persistent_engine_init_without_owed_work(
+                path
+            )
+        );
+
+        assert_eq!(begin_pairing(&spent), Err(PairingRefusal::Spent));
+        assert!(begin_pairing(&invitation_qr(browser, [5u8; 32])).is_ok());
     }
 
     fn zip_of_one_ride() -> Vec<u8> {
@@ -559,8 +1002,8 @@ mod tests {
             )
         );
         crate::objects::error::with_engine(|engine| {
-            linked_devices::add(&engine.db, "Laptop", "sha-256 AA:BB", 1).unwrap();
-            linked_devices::add(&engine.db, "Tablet", "sha-256 CC:DD", 1).unwrap();
+            linked_devices::add(&engine.db, "Laptop", "sha-256 AA:BB", None, 1).unwrap();
+            linked_devices::add(&engine.db, "Tablet", "sha-256 CC:DD", None, 1).unwrap();
         })
         .unwrap();
         let archive = zip_of_one_ride();
@@ -626,6 +1069,170 @@ mod tests {
         assert_eq!(seen["state"], "done", "{seen}");
         assert_eq!(seen["stored"], 1, "{seen}");
         assert_eq!(seen["failed"], 0, "{seen}");
+    }
+
+    fn pairing_qr(browser: &str, secret: u8) -> String {
+        format!(
+            r#"{{"v":1,"room":"room-0123456789abcdefghij","secret":"{}","fp":"{}","exp":{}}}"#,
+            pairing::encode_secret(&[secret; 32]),
+            browser,
+            now() + 60
+        )
+    }
+
+    /// Scan, prove and accept a pairing for `browser` under the invitation
+    /// secret `secret`, which is then linked as a row of `linked_devices`.
+    /// Each test uses its own secret, since a spent one is refused.
+    fn link_by_pairing(browser: &str, phone: &str, secret: u8) -> String {
+        begin_pairing(&pairing_qr(browser, secret)).expect("a pairing opens");
+        let proof = pairing::proof(&[secret; 32], pairing::Role::Browser, browser, phone);
+        let proved = EngineGate.answer(
+            browser,
+            phone,
+            &serde_json::json!({
+                "id": 1,
+                "method": "pair.prove",
+                "params": { "proof": pairing::encode_secret(&proof), "name": "Laptop" },
+            })
+            .to_string(),
+        );
+        assert!(proved.contains("phoneProof"), "{proved}");
+        assert_eq!(pairing_request().as_deref(), Some("Laptop"));
+        assert_eq!(confirm_pairing(true), Ok(true));
+        let id = crate::objects::error::with_engine(|engine| {
+            linked_devices::id_of(&engine.db, browser).unwrap()
+        })
+        .unwrap();
+        id.expect("the accepted browser is stored")
+    }
+
+    fn status_of(browser: &str, phone: &str) -> String {
+        EngineGate.answer(
+            browser,
+            phone,
+            r#"{"id":5,"method":"pair.status","params":null}"#,
+        )
+    }
+
+    #[test]
+    fn a_browser_that_polls_after_the_athlete_accepts_reads_confirmed() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("confirmed.db");
+        assert!(
+            crate::persistence::persistent_engine_ffi::persistent_engine_init_without_owed_work(
+                path.to_str().unwrap().to_string()
+            )
+        );
+        let (browser, phone) = ("sha-256 AA:AA", "sha-256 BB:BB");
+
+        link_by_pairing(browser, phone, 11);
+
+        assert!(status_of(browser, phone).contains(r#""result":"confirmed""#));
+        assert!(EngineGate.is_pinned(browser));
+        assert!(!EngineGate.is_pinned("sha-256 CC:CC"));
+        let proved_again = EngineGate.answer(
+            browser,
+            phone,
+            r#"{"id":6,"method":"pair.prove","params":{"proof":"AAAA","name":""}}"#,
+        );
+        assert!(proved_again.contains("no pairing open"), "{proved_again}");
+    }
+
+    #[test]
+    fn a_removed_browser_is_shut_out_and_its_import_is_dropped() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("removed.db");
+        assert!(
+            crate::persistence::persistent_engine_ffi::persistent_engine_init_without_owed_work(
+                path.to_str().unwrap().to_string()
+            )
+        );
+        let (browser, phone) = ("sha-256 AA:AA", "sha-256 BB:BB");
+        let id = link_by_pairing(browser, phone, 12);
+        begin_pairing(&pairing_qr(browser, 14)).expect("a second pairing opens");
+        let archive = [1u8; 20];
+        let digest: String = super::super::digest::sha256(&[&archive])
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        let request = |id: u32, method: &str, params: serde_json::Value| {
+            serde_json::json!({ "id": id, "method": method, "params": params }).to_string()
+        };
+        let begun = result_of(&EngineGate.answer(
+            browser,
+            phone,
+            &request(
+                2,
+                "import.begin",
+                serde_json::json!({ "name": "rides.fit", "size": archive.len(), "sha256": digest }),
+            ),
+        ));
+        let import = begun["importId"].as_u64().unwrap() as u32;
+        EngineGate.frame(browser, &inbound_frame(import, 0, &archive[..10]));
+        let spool = dir.path().join("imports").join(format!("{digest}.part"));
+        assert_eq!(std::fs::metadata(&spool).unwrap().len(), 10);
+
+        assert!(unlink(&id).unwrap());
+
+        assert!(!EngineGate.is_pinned(browser));
+        assert!(status_of(browser, phone).contains("no pairing open"));
+        assert!(pairing_request().is_none());
+        assert!(!spool.exists());
+        EngineGate.frame(browser, &inbound_frame(import, 1, &archive[10..]));
+        let commit = EngineGate.answer(
+            browser,
+            phone,
+            &request(
+                3,
+                "import.commit",
+                serde_json::json!({ "importId": import }),
+            ),
+        );
+        assert!(commit.contains("not linked"), "{commit}");
+        assert!(!spool.exists());
+    }
+
+    #[test]
+    fn a_frame_from_a_browser_unlinked_under_an_open_import_is_not_written() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("unlinked.db");
+        assert!(
+            crate::persistence::persistent_engine_ffi::persistent_engine_init_without_owed_work(
+                path.to_str().unwrap().to_string()
+            )
+        );
+        let (browser, phone) = ("sha-256 AA:AA", "sha-256 BB:BB");
+        let id = link_by_pairing(browser, phone, 13);
+        let archive = [2u8; 20];
+        let digest: String = super::super::digest::sha256(&[&archive])
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        let begun = result_of(
+            &EngineGate.answer(
+                browser,
+                phone,
+                &serde_json::json!({
+                    "id": 2,
+                    "method": "import.begin",
+                    "params": { "name": "rides.fit", "size": archive.len(), "sha256": digest },
+                })
+                .to_string(),
+            ),
+        );
+        let import = begun["importId"].as_u64().unwrap() as u32;
+        let spool = dir.path().join("imports").join(format!("{digest}.part"));
+
+        crate::objects::error::with_engine(|engine| {
+            linked_devices::remove(&engine.db, &id).unwrap();
+        })
+        .unwrap();
+        EngineGate.frame(browser, &inbound_frame(import, 0, &archive[..10]));
+
+        assert_eq!(std::fs::metadata(&spool).unwrap().len(), 0);
     }
 
     #[test]

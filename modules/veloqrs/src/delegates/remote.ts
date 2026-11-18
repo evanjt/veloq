@@ -3,7 +3,12 @@
  * another device.
  */
 
-import type { DisconnectReason, FfiLinkedDevice, FfiRemoteWrite } from '../generated/veloqrs';
+import type {
+  DisconnectReason,
+  FfiLinkedDevice,
+  FfiLinkedDevicesScreen,
+  FfiRemoteWrite,
+} from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
 /** Every linked browser, most recently linked first. */
@@ -22,17 +27,47 @@ export function recentWrites(
   return host.timed('recentWrites', () => host.engine.remote().recentWrites(deviceId, limit));
 }
 
+/**
+ * The linked-devices screen in one read: each browser with its recent changes
+ * and connections, and how many offers from an unlinked certificate were
+ * refused today.
+ */
+export function linkedDevicesScreen(
+  host: DelegateHost,
+  writesLimit: number,
+  connectionsLimit: number
+): FfiLinkedDevicesScreen {
+  if (!host.ready) return { browsers: [], refusedToday: 0 };
+  return host.timed('linkedDevicesScreen', () =>
+    host.engine.remote().linkedDevicesScreen(writesLimit, connectionsLimit)
+  );
+}
+
 /** Unlink a browser so it can never reconnect. False when none had that id. */
 export function removeLinkedDevice(host: DelegateHost, id: string): boolean {
   if (!host.ready) throw new Error('Engine not initialised');
   return host.timed('removeLinkedDevice', () => host.engine.remote().removeLinkedDevice(id));
 }
 
+/** End one browser's connection now, keeping its link. False when none had that id. */
+export function disconnectLinkedDevice(host: DelegateHost, id: string): boolean {
+  if (!host.ready) throw new Error('Engine not initialised');
+  return host.timed('disconnectLinkedDevice', () =>
+    host.engine.remote().disconnectLinkedDevice(id)
+  );
+}
+
+/** Give a linked browser a new name. False for a blank name or an id none has. */
+export function renameLinkedDevice(host: DelegateHost, id: string, name: string): boolean {
+  if (!host.ready) throw new Error('Engine not initialised');
+  return host.timed('renameLinkedDevice', () => host.engine.remote().renameLinkedDevice(id, name));
+}
+
 /**
  * Answer a linked browser's connection offer. Throws when the browser is not
  * linked or the offer does not parse.
  */
-export function acceptOffer(host: DelegateHost, offer: string): string {
+export function acceptOffer(host: DelegateHost, offer: string): Promise<string> {
   if (!host.ready) throw new Error('Engine not initialised');
   return host.timed('acceptOffer', () => host.engine.remote().acceptOffer(offer));
 }

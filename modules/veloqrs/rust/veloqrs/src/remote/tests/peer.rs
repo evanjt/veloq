@@ -59,10 +59,10 @@ impl Gate for TestGate {
         self.answered.fetch_add(1, Ordering::SeqCst);
         reply
     }
-    fn connected(&self, _fingerprint: &str) {
+    fn connected(&self, _fingerprint: &str, _from: Option<SocketAddr>, _local: SocketAddr) {
         self.connected.fetch_add(1, Ordering::SeqCst);
     }
-    fn disconnected(&self, _fingerprint: &str) {
+    fn disconnected(&self, _fingerprint: &str, _reason: Option<DisconnectReason>) {
         self.disconnected.fetch_add(1, Ordering::SeqCst);
     }
     fn changed(&self) -> Option<u64> {
@@ -138,15 +138,20 @@ struct Browser {
     texts: Vec<String>,
     /// Binary messages sent once the channel opens, before any ask.
     uploads: Vec<Vec<u8>>,
+    /// The channel the phone opened, once it has.
+    channel: Option<ChannelId>,
 }
 
 impl Browser {
     fn new() -> (Self, String) {
+        Self::with_certificate(certificate())
+    }
+
+    /// A browser presenting `cert`, so a second connection can be the same device.
+    fn with_certificate(cert: DtlsCert) -> (Self, String) {
         crate::remote::install_crypto();
         let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
-        let mut rtc = RtcConfig::new()
-            .set_dtls_cert(certificate())
-            .build(Instant::now());
+        let mut rtc = RtcConfig::new().set_dtls_cert(cert).build(Instant::now());
         rtc.add_local_candidate(Candidate::host(socket.local_addr().unwrap(), "udp").unwrap());
         let mut change = rtc.sdp_api();
         change.add_channel("library".into());
@@ -163,6 +168,7 @@ impl Browser {
                 fingerprint,
                 texts: Vec::new(),
                 uploads: Vec::new(),
+                channel: None,
             },
             offer,
         )
@@ -212,6 +218,7 @@ impl Browser {
                 }
                 Output::Event(Event::ChannelOpen(id, _)) => {
                     opened = true;
+                    self.channel = Some(id);
                     open_at = Some((id, Instant::now()));
                     for upload in &self.uploads {
                         self.rtc.channel(id).unwrap().write(true, upload).unwrap();
@@ -280,6 +287,9 @@ impl Browser {
     }
 }
 
+#[path = "export_link.rs"]
+mod export_link;
+
 fn loopback() -> IpAddr {
     "127.0.0.1".parse().unwrap()
 }
@@ -342,6 +352,7 @@ fn stop_ends_a_read_that_would_otherwise_never_return() {
     Peer {
         stop: Arc::new(AtomicBool::new(false)),
         reason: Arc::new(Mutex::new(None)),
+        up: Arc::new(AtomicBool::new(false)),
         thread: Some(thread),
         wake,
     }
@@ -377,6 +388,7 @@ fn stop_returns_on_a_connection_whose_poll_is_an_hour() {
         gate.clone(),
         None,
         Duration::from_secs(3600),
+        Duration::from_secs(3600),
     )
     .expect("accepted");
     browser.take_answer(&answer);
@@ -407,6 +419,47 @@ fn a_request_with_no_protocol_gets_a_text_reply_and_a_current_one_gets_frames() 
     assert!(opened);
     assert_eq!(browser.texts, vec![format!("answered {ASK_OLDER}")]);
     assert_eq!(joined(&frames)[&0], format!("answered {ASK}"));
+    peer.stop(DisconnectReason::Disconnected);
+}
+
+/// Scenario: a page asks in a version this phone does not speak, then in one it does.
+/// Expected behaviour: the first is answered at once as one text error naming the
+/// phone's range and is never run; the second is run and answered as usual.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn an_ask_in_a_version_outside_the_window_is_refused_as_text_and_never_run() {
+    let (mut browser, offer) = Browser::new();
+    let gate = TestGate::pinning(Some(&browser.fingerprint));
+    let (answer, peer) =
+        accept(&offer, certificate(), loopback(), gate.clone(), None).expect("accepted");
+    browser.take_answer(&answer);
+
+    let refused = r#"{"id":3,"method":"feed.page","protocol":9}"#;
+    let (opened, _) = browser.run_asks(
+        &[refused.to_string(), ASK.to_string()],
+        2,
+        Duration::from_secs(10),
+    );
+    assert!(opened);
+    let texts: Vec<serde_json::Value> = browser
+        .texts
+        .iter()
+        .map(|text| serde_json::from_str(text).expect("a JSON reply"))
+        .collect();
+    assert_eq!(
+        texts,
+        vec![serde_json::json!({
+            "id": 3,
+            "error": protocol::VERSION,
+            "minProtocol": protocol::MIN_PROTOCOL_VERSION,
+            "maxProtocol": protocol::PROTOCOL_VERSION,
+        })]
+    );
+    assert_eq!(
+        gate.answered.load(Ordering::SeqCst),
+        1,
+        "only the valid ask ran"
+    );
     peer.stop(DisconnectReason::Disconnected);
 }
 
@@ -656,6 +709,154 @@ fn an_ask_past_sixteen_outstanding_is_answered_busy() {
     peer.stop(DisconnectReason::Disconnected);
 }
 
+/// Scenario: an ask arrives under an id no frame can carry. Expected behaviour:
+/// it is refused as one text reply under the id it sent, and it is never run.
+/// No binary frame is written, so none lands under the id events use.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn an_ask_under_an_id_a_frame_cannot_carry_is_refused_as_text_and_not_run() {
+    let (mut browser, _gate, peer, _held) = linked();
+    let past = u64::from(u32::MAX) + 1;
+
+    let (_opened, messages) = browser.run(&echo(past), Duration::from_secs(10));
+    assert!(messages.is_empty(), "a frame was written for the refusal");
+    assert_eq!(
+        browser.texts,
+        vec![serde_json::json!({ "id": past, "error": "bad id" }).to_string()]
+    );
+    peer.stop(DisconnectReason::Disconnected);
+}
+
+/// A channel id, which str0m hands out only for a channel it opened.
+fn some_channel() -> ChannelId {
+    let mut rtc = RtcConfig::new().build(Instant::now());
+    let mut change = rtc.sdp_api();
+    let id = change.add_channel("library".into());
+    let _ = change.apply();
+    id
+}
+
+/// Scenario: a browser asks for large replies and never reads them, so every
+/// reply waits in the phone's send queue. Expected behaviour: asks whose
+/// replies are still unsent count as outstanding, so the seventeenth is
+/// refused, and one is admitted again once a reply's last frame is written.
+#[test]
+fn an_ask_whose_reply_is_unsent_still_counts_as_outstanding() {
+    let _held = WORKERS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let gate = TestGate::pinning(None);
+    let (asks, replies) = Conn::new(gate, "presented", "local");
+    let pool = Pool::shared().expect("a pool");
+    let channel = some_channel();
+    for id in 1..=16u64 {
+        assert!(asks.submit(&pool, channel, Some(id), &echo(id)));
+    }
+    let mut held = Vec::new();
+    while held.len() < 16 {
+        held.push(
+            replies
+                .recv_timeout(Duration::from_secs(10))
+                .expect("a reply"),
+        );
+    }
+    assert!(
+        !asks.submit(&pool, channel, Some(17), &echo(17)),
+        "sixteen replies are waiting to be written"
+    );
+    asks.release(1);
+    assert!(asks.submit(&pool, channel, Some(17), &echo(17)));
+    asks.close();
+}
+
+/// Scenario: a browser asks sixteen large reads and never reads a reply, so
+/// the outbox's channel never drains. Expected behaviour: every reply waits in
+/// the outbox and none is released, the seventeenth ask is refused so it is
+/// answered busy, and the outbox holds no more than sixteen replies' bytes.
+#[test]
+fn an_outbox_behind_a_channel_that_never_drains_stays_within_sixteen_replies() {
+    const SIZE: usize = 256 * 1024;
+    let _held = WORKERS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let gate = TestGate::pinning(None);
+    let (asks, replies) = Conn::new(gate, "presented", "local");
+    let admitted = Admitted {
+        fingerprint: "presented".into(),
+        asks: Arc::clone(&asks),
+        replies,
+    };
+    let pool = Pool::shared().expect("a pool");
+    let channel = some_channel();
+    let mut outbox = Outbox::default();
+    for id in 1..=16u64 {
+        assert!(asks.submit(&pool, channel, Some(id), &blob(id, SIZE, "noise")));
+    }
+    let queued = |outbox: &Outbox| outbox.frames.iter().filter(|(_, _, last)| *last).count();
+    for _ in 0..4000 {
+        if queued(&outbox) == 16 {
+            break;
+        }
+        admitted.collect(&mut outbox);
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(queued(&outbox), 16, "replies never came");
+    assert_eq!(outbox.take_released(), 0, "nothing was written");
+
+    assert!(
+        !asks.submit(&pool, channel, Some(17), &blob(17, SIZE, "noise")),
+        "the seventeenth ask is refused while sixteen replies are unsent"
+    );
+    outbox.push(channel, &protocol::busy(Some(17)));
+    let busy = outbox.frames.back().expect("a busy reply");
+    assert!(String::from_utf8_lossy(&busy.1.bytes).contains("\"error\":\"busy\""));
+
+    let cap = 16 * (SIZE + 4 * FRAME_BYTES);
+    assert!(
+        outbox.queued_bytes() >= 16 * SIZE / 2,
+        "the replies are queued whole"
+    );
+    assert!(
+        outbox.queued_bytes() < cap,
+        "{} bytes queued",
+        outbox.queued_bytes()
+    );
+    asks.close();
+}
+
+/// Scenario: replies sit in the outbox and the browser withdraws one.
+/// Expected behaviour: the outbox reports each reply it drops unwritten, so
+/// the connection stops counting that ask, and a message the phone sends
+/// unasked is never reported.
+#[test]
+fn the_outbox_reports_each_reply_it_drops_unwritten() {
+    let channel = some_channel();
+    let mut outbox = Outbox::default();
+    outbox.push_in(channel, &echo_reply(1), 3);
+    outbox.push_in(channel, &echo_reply(2), 3);
+    outbox.push(channel, &announcement(7));
+    outbox.drop_reply(1);
+    assert_eq!(outbox.take_released(), 1);
+    assert_eq!(outbox.take_released(), 0);
+}
+
+fn echo_reply(id: u64) -> String {
+    serde_json::json!({ "id": id, "result": "echoed" }).to_string()
+}
+
+/// Scenario: a change event is queued under id 0, the id events share, and
+/// the browser cancels id 0. Expected behaviour: no ask holds id 0, so the
+/// cancel drops nothing and the queued event still goes out.
+#[test]
+fn a_cancel_for_id_zero_drops_no_event() {
+    let channel = some_channel();
+    let mut outbox = Outbox::default();
+    outbox.push(channel, &announcement(7));
+    outbox.drop_reply(0);
+    assert_eq!(outbox.frames.len(), 1);
+    assert_eq!(outbox.take_released(), 0);
+}
+
 /// Scenario: both workers are held by slow asks, a third ask waits in the
 /// queue and is cancelled, and a fourth follows. Expected behaviour: the third
 /// is never run and never answered, the fourth is.
@@ -834,4 +1035,54 @@ fn a_stop_before_any_channel_opens_ends_without_a_farewell() {
     let (answer, peer) = accept(&offer, certificate(), loopback(), gate, None).expect("accepted");
     browser.take_answer(&answer);
     peer.stop(DisconnectReason::Removed);
+}
+
+/// Scenario: a client offers with no candidates and never sends a check.
+/// Expected behaviour: the peer ends once the setup deadline passes.
+#[test]
+fn an_offer_that_never_connects_ends_at_the_setup_deadline() {
+    let (_browser, offer) = Browser::new();
+    let gate = TestGate::pinning(Some(&_browser.fingerprint));
+    let (_answer, peer) = accept_polling(
+        &offer,
+        certificate(),
+        loopback(),
+        gate,
+        None,
+        Duration::from_secs(3600),
+        Duration::from_millis(300),
+    )
+    .expect("accepted");
+    assert!(peer.is_pending());
+    let until = Instant::now() + Duration::from_secs(5);
+    while !peer.is_finished() && Instant::now() < until {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(peer.is_finished());
+}
+
+#[test]
+fn an_unpinned_offer_is_refused_before_any_network_or_disk_work() {
+    let (_browser, offer) = Browser::new();
+    let gate = TestGate::pinning(Some("sha-256 00:11"));
+    let prepared = AtomicUsize::new(0);
+    let refused = crate::remote::service::accept_offer_with(&offer, gate, || {
+        prepared.fetch_add(1, Ordering::Relaxed);
+        Err(Refusal::Network("not reached".into()))
+    });
+    assert_eq!(refused.err(), Some(Refusal::NotPinned));
+    assert_eq!(prepared.load(Ordering::Relaxed), 0);
+}
+
+#[test]
+fn a_pinned_offer_runs_the_preparation_once() {
+    let (browser, offer) = Browser::new();
+    let gate = TestGate::pinning(Some(&browser.fingerprint));
+    let prepared = AtomicUsize::new(0);
+    let refused = crate::remote::service::accept_offer_with(&offer, gate, || {
+        prepared.fetch_add(1, Ordering::Relaxed);
+        Err(Refusal::Network("stop here".into()))
+    });
+    assert_eq!(refused.err(), Some(Refusal::Network("stop here".into())));
+    assert_eq!(prepared.load(Ordering::Relaxed), 1);
 }

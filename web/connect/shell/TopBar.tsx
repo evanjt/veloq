@@ -1,4 +1,4 @@
-// The top bar: the screen's title with the pages above it, a search entry, the
+// The top bar: the screen's title with the pages above it, the one search, the
 // link's status and the account menu.
 
 import { useTranslation } from 'react-i18next';
@@ -25,6 +25,8 @@ export function TopBar({
   theme,
   onTheme,
   onPalette,
+  shortcuts,
+  onShortcuts,
 }: {
   session: Session;
   state: State;
@@ -40,6 +42,9 @@ export function TopBar({
   theme: ThemeChoice;
   onTheme: (choice: ThemeChoice) => void;
   onPalette: () => void;
+  /** Whether the single-key shortcuts are on. */
+  shortcuts: boolean;
+  onShortcuts: (on: boolean) => void;
 }) {
   const { t } = useTranslation();
   const title = page ? (page.named && name ? name : t(page.title)) : 'Veloq';
@@ -65,19 +70,13 @@ export function TopBar({
         <h1>{title}</h1>
       </div>
       {connected ? (
-        <Button id="topbar-palette" variant="secondary" size="sm" onClick={onPalette}>
-          {t('connectPage.palette.open')} <kbd>{t('connectPage.keys.control')} K</kbd>
-        </Button>
-      ) : null}
-      {connected ? (
-        <Button
-          id="topbar-search"
-          variant="secondary"
-          size="sm"
-          disabled={!page?.search}
-          onClick={() => document.getElementById('search')?.focus()}
-        >
-          {t('connectPage.nav.search')} <kbd>/</kbd>
+        <Button id="topbar-search" variant="secondary" size="sm" aria-haspopup="dialog" onClick={onPalette}>
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+            <circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" strokeWidth={1.75} />
+            <path d="M16 16l4 4" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" />
+          </svg>
+          <span className="topbar-search-text">{t('connectPage.nav.search')}</span>
+          <kbd>{t('connectPage.keys.control')} K</kbd>
         </Button>
       ) : null}
       <ConnectionChip session={session} state={state} failed={failed} since={since} />
@@ -86,6 +85,8 @@ export function TopBar({
         onLanguage={onLanguage}
         theme={theme}
         onTheme={onTheme}
+        shortcuts={shortcuts}
+        onShortcuts={onShortcuts}
         onRetry={canRetry(state) ? session.retry : null}
         onUnlink={pairing ? null : session.unlink}
       />

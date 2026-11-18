@@ -10,6 +10,7 @@ use super::observer;
 use super::observer::Announcement;
 use super::sync;
 use crate::fit;
+use crate::governor::Intent;
 use crate::http::ActivityFetcher;
 use crate::net::Source;
 use crate::net::transport::NetError;
@@ -448,6 +449,7 @@ impl StrengthManager {
         info!("[Strength] Fetching FIT file for {}", activity_id);
         sync::spawn_once(
             JobKey::new("fit", &[&activity_id]),
+            Intent::User,
             move |install, session| async move {
                 let fetcher = ActivityFetcher::with_session(session);
                 let Some(upstream) = sync::upstream_id(install, &activity_id).await else {
@@ -501,6 +503,7 @@ impl StrengthManager {
 
         sync::spawn_once(
             JobKey::new("fit", &["batch"]),
+            Intent::Backfill,
             move |install, session| async move {
                 let athlete_id = session.account().to_string();
                 let fetcher = ActivityFetcher::with_session(session);

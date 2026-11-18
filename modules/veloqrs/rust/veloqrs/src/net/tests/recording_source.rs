@@ -6,7 +6,8 @@
 use crate::governor::Dispatch;
 use crate::net::endpoints::{BulkActivityBodies, UploadDetails};
 use crate::net::intervals::wire::{
-    ActivityRecord, AthleteRecord, ListedActivity, ManualActivityBody, WellnessRecord,
+    ActivityRecord, AthleteRecord, ListedActivity, ManualActivityBody, RemoteActivitySummary,
+    WellnessRecord,
 };
 use crate::net::source::{Source, SourceWrites};
 use crate::net::transport::{NetError, Transport};
@@ -45,6 +46,10 @@ pub(crate) struct RecordingSource {
     pub original_file: Vec<u8>,
     pub created: Option<String>,
     pub listed: Vec<ListedActivity>,
+    /// What the search and the dated listing answer, `None` for a source with no search.
+    pub remote: Option<Vec<RemoteActivitySummary>>,
+    /// An HTTP status both of them refuse with instead.
+    pub remote_refusal: Option<u16>,
     transport: Transport,
     calls: Arc<Mutex<Vec<Asked>>>,
 }
@@ -64,6 +69,8 @@ impl RecordingSource {
             original_file: Vec::new(),
             created: Some("a9".into()),
             listed: Vec::new(),
+            remote: Some(Vec::new()),
+            remote_refusal: None,
             transport: unreachable_transport(),
             calls: Arc::new(Mutex::new(Vec::new())),
         }
@@ -71,6 +78,16 @@ impl RecordingSource {
 
     pub fn calls(&self) -> Vec<Asked> {
         self.calls.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+
+    fn remote_answer(&self) -> Result<Option<Vec<RemoteActivitySummary>>, NetError> {
+        match self.remote_refusal {
+            Some(status) => Err(NetError::Http {
+                status,
+                body: "refused".into(),
+            }),
+            None => Ok(self.remote.clone()),
+        }
     }
 
     fn note(&self, method: &'static str, args: &[&str], dispatch: Dispatch) {
@@ -163,6 +180,30 @@ impl Source for RecordingSource {
     ) -> Result<Vec<(ActivityRecord, String)>, NetError> {
         self.note("activities", &[oldest, newest], dispatch);
         Ok(Vec::new())
+    }
+
+    fn searches(&self) -> bool {
+        self.remote.is_some() || self.remote_refusal.is_some()
+    }
+
+    async fn search_activities(
+        &self,
+        query: &str,
+        limit: u32,
+        dispatch: Dispatch,
+    ) -> Result<Option<Vec<RemoteActivitySummary>>, NetError> {
+        self.note("search_activities", &[query, &limit.to_string()], dispatch);
+        self.remote_answer()
+    }
+
+    async fn activity_summaries(
+        &self,
+        oldest: &str,
+        newest: &str,
+        dispatch: Dispatch,
+    ) -> Result<Option<Vec<RemoteActivitySummary>>, NetError> {
+        self.note("activity_summaries", &[oldest, newest], dispatch);
+        self.remote_answer()
     }
 
     async fn activity_body(&self, upstream: &str, dispatch: Dispatch) -> Result<String, NetError> {

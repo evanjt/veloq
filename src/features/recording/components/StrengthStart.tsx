@@ -95,6 +95,10 @@ function GroupCard({
   );
 }
 
+function readStart() {
+  return strength.getStrengthStartData(Date.now() / 1000);
+}
+
 /**
  * Where a strength session begins: the sessions the athlete has done the same way before, the
  * saved workouts and an empty start. What each offers is the engine's read of the library; a tap
@@ -107,7 +111,12 @@ export function StrengthStart({ start, refused, plan }: StrengthStartProps) {
   const bottomClearance = useBottomClearance();
   const { data: athlete } = useAthlete();
   const gender = athlete?.sex === 'F' ? 'female' : 'male';
-  const [data] = useState(() => strength.getStrengthStartData(Date.now() / 1000));
+  const [data, setData] = useState(readStart);
+
+  const restore = (id: string) => {
+    strength.recoverStrengthWorkout(id);
+    setData(readStart());
+  };
 
   return (
     <ScrollView
@@ -173,6 +182,34 @@ export function StrengthStart({ start, refused, plan }: StrengthStartProps) {
                   })}
                 </Text>
               </View>
+            </Card>
+          ))}
+        </>
+      ) : null}
+
+      {data.removed.length > 0 ? (
+        <>
+          <SectionTitle style={styles.heading}>
+            {t('strength.recorder.removedWorkouts')}
+          </SectionTitle>
+          {data.removed.map((workout, index) => (
+            <Card key={workout.id} variant="flat" padding="sm" style={styles.card}>
+              <View style={styles.cardText}>
+                <Text style={[styles.names, { color: palette.textPrimary }]}>{workout.name}</Text>
+                <Text style={[styles.caption, { color: palette.textSecondary }]}>
+                  {t('strength.recorder.workoutSummary', {
+                    exercises: workout.exerciseCount,
+                    sets: workout.setCount,
+                  })}
+                </Text>
+              </View>
+              <Button
+                testID={`strength-start-removed-restore-${index}`}
+                size="sm"
+                variant="secondary"
+                label={t('strength.recorder.restoreWorkout')}
+                onPress={() => restore(workout.id)}
+              />
             </Card>
           ))}
         </>

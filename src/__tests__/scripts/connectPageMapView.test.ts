@@ -19,7 +19,6 @@ import {
   boxFromCorners,
   boundsOfFeatures,
   inView,
-  activitiesUnder,
   familyChipOn,
   mapHash,
   readMapQuery,
@@ -315,14 +314,6 @@ describe('the age colour', () => {
     expect(recencyAge(now - YEAR / 2, now)).toBeCloseTo(0.5);
     expect(recencyAge(now - 3 * YEAR, now)).toBe(1);
     expect(recencyAge(now + 100, now)).toBe(0);
-  });
-});
-
-describe('what lies under a point on the heatmap', () => {
-  it('lists the activities whose bounds hold the point', () => {
-    const held = activitiesUnder([7.1, 46.1], activities);
-    expect(held.map((a) => a.activityId)).toEqual(['in', 'around']);
-    expect(activitiesUnder([20, 20], activities)).toEqual([]);
   });
 });
 

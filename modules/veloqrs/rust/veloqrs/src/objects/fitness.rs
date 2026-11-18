@@ -317,6 +317,7 @@ impl FitnessManager {
         // does not hold the first screen the athlete sees.
         let params = with_week_bounds(params);
         let install = crate::persistence::engine_install();
+        let remote_search = crate::objects::sync::SYNC_SERVICE.remote_search_offered();
         let (data, refilled) = with_reader(|conn| {
             crate::persistence::screens::pooled::startup_data_refilling(
                 conn,
@@ -325,6 +326,7 @@ impl FitnessManager {
                 params.prev_start as i64,
                 params.prev_end as i64,
                 &preview_activity_ids,
+                remote_search,
             )
         })?;
         crate::persistence::activities::persist_refilled_signatures(install, &refilled);

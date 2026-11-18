@@ -84,10 +84,6 @@ jest.mock('@/features/routes/lib/timeStreamBackfill', () => ({
   timeStreamsProgress: jest.fn(),
 }));
 
-jest.mock('@/features/routes/lib/trackFetchNotice', () => ({
-  reportTrackFetchRun: jest.fn(),
-}));
-
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
   isRouteMatchingEnabled: () => true,
 }));

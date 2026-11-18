@@ -5,10 +5,10 @@
  * the engine reports.
  */
 
-import { formatTrackStage } from '@/features/maps/lib/syncProgressFormat';
+import { formatTrackProgressParts, formatTrackStage } from '@/features/maps/lib/syncProgressFormat';
 import { tilePassProgress } from '@/features/routes/lib/tilePass';
 import { i18n, initialiseI18n } from '@/i18n';
-import { TrackStep, type TrackStage } from 'veloqrs';
+import { FfiHoldCause, TrackStep, type TrackStage } from 'veloqrs';
 
 import type { TFunction } from 'i18next';
 
@@ -18,11 +18,11 @@ const t = ((key: string, opts?: Record<string, unknown>) =>
   opts ? `${key}:${JSON.stringify(opts)}` : key) as unknown as TFunction;
 
 function stage(step: TrackStep, completed: number, total: number, percent: number): TrackStage {
-  return { step, completed, total, percent, heldByUpstream: false };
+  return { step, completed, total, percent };
 }
 
-function held(resumesAtMs: number, heldByUpstream: boolean): TrackStage {
-  return { step: TrackStep.Held, completed: 0, total: 0, percent: 0, resumesAtMs, heldByUpstream };
+function held(resumesAtMs: number, heldCause: FfiHoldCause): TrackStage {
+  return { step: TrackStep.Held, completed: 0, total: 0, percent: 0, resumesAtMs, heldCause };
 }
 
 describe('formatTrackStage', () => {
@@ -63,12 +63,17 @@ describe('formatTrackStage', () => {
 
   it('renders nothing for a download the request budget holds back', () => {
     const resumesAt = new Date('2026-10-27T05:15:00Z').getTime();
-    expect(formatTrackStage(held(resumesAt, false), t)).toBeNull();
+    expect(formatTrackStage(held(resumesAt, FfiHoldCause.Budget), t)).toBeNull();
   });
 
   vaultIt('renders nothing for a wait intervals.icu asked for either', () => {
     const resumesAt = new Date('2026-10-27T05:15:00Z').getTime();
-    expect(formatTrackStage(held(resumesAt, true), t)).toBeNull();
+    expect(formatTrackStage(held(resumesAt, FfiHoldCause.Upstream), t)).toBeNull();
+  });
+
+  vaultIt('renders nothing for a wait the shared pool asked for', () => {
+    const resumesAt = new Date('2026-10-27T05:15:00Z').getTime();
+    expect(formatTrackStage(held(resumesAt, FfiHoldCause.Pool), t)).toBeNull();
   });
 
   vaultIt('shows the heatmap pass with no count', () => {
@@ -123,5 +128,24 @@ describe('the banner line in real copy', () => {
     expect(tilePassProgress(100, 100, i18n.t).percent).toBe(100);
     expect(tilePassProgress(250, 100, i18n.t).percent).toBe(100);
     expect(tilePassProgress(50, 100, i18n.t, 50, 100).percent).toBe(75);
+  });
+});
+
+describe('formatTrackProgressParts', () => {
+  test('splits the download into its label and its count', () => {
+    expect(formatTrackProgressParts(stage(TrackStep.Downloading, 120, 148, 81), t)).toEqual({
+      label: 'routesScreen.downloadingGps',
+      counts: '120/148',
+    });
+  });
+
+  test('has no line for a download that has not counted its tracks', () => {
+    expect(formatTrackProgressParts(stage(TrackStep.Downloading, 0, 0, 0), t)).toBeNull();
+  });
+
+  test('has no line for a held download or for the other steps', () => {
+    expect(formatTrackProgressParts(held(1_700_000_000_000, FfiHoldCause.Upstream), t)).toBeNull();
+    expect(formatTrackProgressParts(stage(TrackStep.Analysing, 40, 100, 40), t)).toBeNull();
+    expect(formatTrackProgressParts(stage(TrackStep.DrawingHeatmap, 3, 9, 33), t)).toBeNull();
   });
 });

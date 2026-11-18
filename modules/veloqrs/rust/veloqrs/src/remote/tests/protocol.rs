@@ -51,6 +51,11 @@ fn the_feed_page_is_the_feed_read_itself() {
         sport_families: Vec::new(),
         offset: 0,
         limit: Some(1),
+        min_distance: None,
+        max_distance: None,
+        min_moving_time: None,
+        max_moving_time: None,
+        sort: None,
     };
     let page =
         crate::persistence::activities::pooled::feed_card_page(&engine.db, &query).expect("page");
@@ -62,6 +67,82 @@ fn the_feed_page_is_the_feed_read_itself() {
     assert_eq!(got["result"]["matchedCount"], 2);
     assert_eq!(got["result"]["hasMore"], true);
     assert_eq!(got["result"]["cards"][0]["id"], "i2");
+}
+
+fn engine_with_distances() -> PersistentEngine {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    let body = |id: &str, distance: f64, name: &str| {
+        format!(
+            r#"{{"id":"{id}","type":"Ride","name":"{name}","distance":{distance},"moving_time":{},"total_elevation_gain":{},"icu_training_load":{},"stream_types":["latlng"]}}"#,
+            distance / 10.0,
+            distance / 100.0,
+            distance / 1000.0
+        )
+    };
+    engine
+        .upsert_activity_bodies_with_metrics(&[
+            ("a".into(), 1_700_000_000, body("a", 120_000.0, "Long one")),
+            ("b".into(), 1_700_100_000, body("b", 30_000.0, "Short one")),
+            ("c".into(), 1_700_200_000, body("c", 60_000.0, "Middle one")),
+        ])
+        .expect("bodies");
+    engine
+}
+
+/// Scenario: the longest activity is the oldest, and the shortest is not the
+/// newest.
+///
+/// Expected behaviour: a sort orders the whole match before the page is cut,
+/// in either direction, and a lean ask answers the nine-field row.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_feed_page_sorts_the_whole_match_before_it_is_cut() {
+    let engine = engine_with_distances();
+    let ask = |params: &str| {
+        reply(
+            &engine,
+            &format!(r#"{{"id":1,"method":"feed.page","params":{params}}}"#),
+        )
+    };
+    let longest = ask(r#"{"limit":1,"sort":{"key":"distance","descending":true}}"#);
+    assert_eq!(longest["result"]["cards"][0]["id"], "a");
+    assert_eq!(longest["result"]["matchedCount"], 3);
+    assert_eq!(longest["result"]["hasMore"], true);
+    let shortest = ask(r#"{"limit":1,"sort":{"key":"distance","descending":false}}"#);
+    assert_eq!(shortest["result"]["cards"][0]["id"], "b");
+    let unsorted = ask(r#"{"limit":1}"#);
+    assert_eq!(unsorted["result"]["cards"][0]["id"], "c");
+    let second = ask(r#"{"limit":1,"offset":1,"sort":{"key":"distance","descending":true}}"#);
+    assert_eq!(second["result"]["cards"][0]["id"], "c");
+    let by_name = ask(r#"{"limit":1,"sort":{"key":"name","descending":false}}"#);
+    assert_eq!(by_name["result"]["cards"][0]["id"], "a");
+    let by_load = ask(r#"{"limit":1,"sort":{"key":"trainingLoad","descending":true}}"#);
+    assert_eq!(by_load["result"]["cards"][0]["id"], "a");
+    let by_date = ask(r#"{"limit":1,"sort":{"key":"date","descending":false}}"#);
+    assert_eq!(by_date["result"]["cards"][0]["id"], "a");
+
+    let lean = ask(r#"{"limit":1,"lean":true,"sort":{"key":"distance","descending":true}}"#);
+    let row = lean["result"]["rows"][0].as_object().expect("row");
+    let mut fields: Vec<&str> = row.keys().map(String::as_str).collect();
+    fields.sort_unstable();
+    assert_eq!(
+        fields,
+        [
+            "distance",
+            "elevationGain",
+            "hasTrack",
+            "id",
+            "movingTime",
+            "name",
+            "sportType",
+            "startDateLocal",
+            "trainingLoad"
+        ]
+    );
+    assert_eq!(row["id"], "a");
+    assert_eq!(row["hasTrack"], true);
+    assert_eq!(lean["result"]["cards"], json!([]));
+    assert_eq!(lean["result"]["matchedCount"], 3);
 }
 
 /// Scenario: a page holding an outdoor ride with a stored track and an
@@ -106,6 +187,33 @@ fn the_feed_page_carries_each_gps_cards_preview_line() {
     let previews = got["result"]["previews"].as_array().expect("previews");
     assert_eq!(previews.len(), 1);
     assert_eq!(previews[0], serde_json::to_value(&phone).unwrap());
+}
+
+/// Scenario: the site's activities table marks the rows hidden from the
+/// heatmap, and one ride is hidden.
+///
+/// Expected behaviour: the page's card for that ride reads `heatmapHidden`
+/// true on the wire and the other card reads false.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_feed_page_marks_the_cards_hidden_from_the_heatmap() {
+    let mut engine = engine_with_rides();
+    engine.set_heatmap_hidden("i1", true).expect("hide");
+    let got = reply(
+        &engine,
+        r#"{"id":3,"method":"feed.page","params":{"limit":10}}"#,
+    );
+    let cards = got["result"]["cards"].as_array().expect("cards");
+    let hidden: Vec<(&str, bool)> = cards
+        .iter()
+        .map(|c| {
+            (
+                c["id"].as_str().unwrap(),
+                c["heatmapHidden"].as_bool().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(hidden, vec![("i2", false), ("i1", true)]);
 }
 
 #[test]
@@ -179,7 +287,7 @@ fn engine_with_a_section() -> PersistentEngine {
             )
             .expect("insert the section");
     }
-    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, 1_700_000_000)
+    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, None, 1_700_000_000)
         .expect("link the browser");
     engine
 }
@@ -409,10 +517,13 @@ fn the_write_table_is_exactly_these_methods() {
             "section.rename",
             "section.setLift",
             "section.accept",
+            "section.acceptMany",
             "section.acceptAll",
             "section.unaccept",
             "section.enable",
             "section.disable",
+            "section.setEnabledMany",
+            "section.delete",
             "section.excludeActivity",
             "section.includeActivity",
             "section.excludeLap",
@@ -427,6 +538,7 @@ fn the_write_table_is_exactly_these_methods() {
             "route.setReference",
             "route.resetReference",
             "heatmap.setHidden",
+            "heatmap.setHiddenMany",
             "detection.setEnabled",
             "detection.setStrictness",
             "detection.setSectionConfig",
@@ -440,6 +552,10 @@ fn the_write_table_is_exactly_these_methods() {
             "import.begin",
             "import.commit",
             "import.cancel",
+            "export.begin",
+            "export.status",
+            "export.read",
+            "export.done",
         ]
     );
     for name in writes {
@@ -456,6 +572,7 @@ fn sample_params(method: &str) -> &'static str {
         "feed.summary" => r#"{"nowWallSeconds":1737050000}"#,
         "feed.sparklines" => r#"{"days":30}"#,
         "feed.highlights" => r#"{"ids":["i1"]}"#,
+        "feed.filterBounds" => "{}",
         "activity.summary"
         | "activity.detail"
         | "activity.record"
@@ -484,21 +601,24 @@ fn sample_params(method: &str) -> &'static str {
         "section.accept" | "section.enable" | "section.disable" => r#"{"id":"s1"}"#,
         "section.acceptAll" => "{}",
         "section.unaccept" => r#"{"ids":["s1"]}"#,
+        "section.setEnabledMany" => r#"{"ids":["s2"],"enabled":false}"#,
+        "section.acceptMany" => r#"{"ids":["s2"]}"#,
         "section.excludeActivity" | "section.includeActivity" => r#"{"id":"s1","activityId":"r1"}"#,
         "section.excludeLap" | "section.includeLap" => {
             r#"{"id":"s1","activityId":"r1","startIndex":0}"#
         }
-        "section.editBounds" => {
+        "section.editBounds" | "section.boundsPreview" => {
             r#"{"id":"s1","edit":"expand","activityId":"r1","startIndex":0,"endIndex":10}"#
         }
         "section.create" => r#"{"activityId":"r1","startIndex":5,"endIndex":20,"sport":"Ride"}"#,
         "section.mergePreview" | "section.merge" => r#"{"primaryId":"s1","secondaryId":"s2"}"#,
-        "section.restore" => r#"{"id":"s1"}"#,
+        "section.delete" | "section.restore" => r#"{"id":"s1"}"#,
         "route.rename" => r#"{"id":"g1","name":"Valley loop"}"#,
         "route.setReference" => r#"{"id":"g1","activityId":"r2"}"#,
         "route.resetReference" => r#"{"id":"g1"}"#,
         "route.excludeActivity" | "route.includeActivity" => r#"{"id":"g1","activityId":"r1"}"#,
         "heatmap.setHidden" => r#"{"activityId":"r1","hidden":true}"#,
+        "heatmap.setHiddenMany" => r#"{"activityIds":["r1","r2"],"hidden":true}"#,
         "detection.settings" => "{}",
         "detection.setEnabled" => r#"{"enabled":false}"#,
         "detection.setStrictness" => r#"{"minMatchPct":60.0,"endpointThreshold":200.0}"#,
@@ -513,7 +633,9 @@ fn sample_params(method: &str) -> &'static str {
         "geo.route" | "geo.routeLatest" | "geo.routeAttempts" => r#"{"groupId":"g1"}"#,
         "geo.section" | "geo.sectionPasses" => r#"{"sectionId":"s1"}"#,
         "geo.sectionVersion" => r#"{"sectionId":"s1","version":1}"#,
+        "nearby.places" => r#"{"latitude":46.0,"longitude":7.0,"sport":"Ride"}"#,
         "heatmap.tile" => r#"{"z":3,"x":1,"y":2,"base":"dark"}"#,
+        "heatmap.underPoint" => r#"{"latitude":46.2,"longitude":7.35,"zoom":14}"#,
         "fitness.screen" => {
             r#"{"spanDays":[42],"windows":{"heatmapFirstDay":"2025-01-01","heatmapLastDay":"2025-12-31","months":{"startTs":0,"endTs":86400},"yearCurrent":{"startTs":0,"endTs":86400},"yearPrevious":{"startTs":0,"endTs":86400},"monthCurrent":{"startTs":0,"endTs":86400},"monthPrevious":{"startTs":0,"endTs":86400},"nowWallSeconds":86400}}"#
         }
@@ -546,6 +668,7 @@ fn sample_params(method: &str) -> &'static str {
         "route.performance" => r#"{"id":"g1","timeRangeDays":365}"#,
         "section.detail" | "section.history" | "section.excluded" => r#"{"id":"s1"}"#,
         "section.performance" => r#"{"id":"s1","timeRangeDays":365}"#,
+        "section.standing" => r#"{"id":"s1","timeRangeDays":365}"#,
         other => panic!("no sample ask for {other}"),
     }
 }
@@ -584,14 +707,12 @@ fn hello_carries_the_phones_name_only_when_it_has_one() {
 }
 
 #[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
-fn hello_answers_a_page_on_another_protocol_with_the_phones_own() {
-    let engine = engine_with_rides();
-    let got = reply(
-        &engine,
-        r#"{"id":1,"method":"link.hello","params":{"protocol":4,"page":"newer page"}}"#,
-    );
-    assert_eq!(got["result"]["protocol"], PROTOCOL_VERSION);
+fn hello_from_a_page_on_a_newer_protocol_alone_is_refused_with_the_phones_range() {
+    let got =
+        refused(r#"{"id":1,"method":"link.hello","params":{"protocol":4,"page":"newer page"}}"#);
+    assert_eq!(got["error"], VERSION);
+    assert_eq!(got["minProtocol"], MIN_PROTOCOL_VERSION);
+    assert_eq!(got["maxProtocol"], PROTOCOL_VERSION);
 }
 
 #[test]
@@ -620,16 +741,81 @@ fn hello_from_a_page_built_for_the_previous_version_alone_answers_that_version()
     assert_eq!(listed.len(), METHODS.len());
 }
 
+/// The reply a request is refused with, read back as JSON.
+fn refused(request: &str) -> Value {
+    let reply = refusal(request).expect("a refusal");
+    serde_json::from_str(&reply).expect("a JSON reply")
+}
+
 #[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
-fn hello_from_a_page_below_the_range_answers_the_phones_own_range() {
-    let engine = engine_with_rides();
-    let got = reply(
-        &engine,
-        r#"{"id":1,"method":"link.hello","params":{"protocol":1,"page":"ancient page"}}"#,
+fn a_hello_whose_range_does_not_meet_this_builds_is_refused_with_the_range() {
+    let got = refused(
+        r#"{"id":7,"method":"link.hello","params":{"protocol":6,"minProtocol":5,"page":"newer page"}}"#,
     );
-    assert_eq!(got["result"]["protocol"], PROTOCOL_VERSION);
-    assert_eq!(got["result"]["minProtocol"], MIN_PROTOCOL_VERSION);
+    assert_eq!(got["id"], 7);
+    assert_eq!(got["error"], VERSION);
+    assert_eq!(got["minProtocol"], MIN_PROTOCOL_VERSION);
+    assert_eq!(got["maxProtocol"], PROTOCOL_VERSION);
+}
+
+#[test]
+fn a_hello_from_a_page_below_the_range_is_refused_with_the_range() {
+    for params in [
+        r#"{"protocol":1,"page":"p"}"#,
+        r#"{"protocol":0,"minProtocol":0,"page":"p"}"#,
+    ] {
+        let got = refused(&format!(
+            r#"{{"id":1,"method":"link.hello","params":{params}}}"#
+        ));
+        assert_eq!(got["error"], VERSION, "{params}");
+        assert_eq!(got["maxProtocol"], PROTOCOL_VERSION, "{params}");
+    }
+}
+
+#[test]
+fn a_hello_whose_range_meets_this_builds_is_not_refused() {
+    for params in [
+        r#"{"protocol":2,"page":"p"}"#,
+        r#"{"protocol":3,"page":"p"}"#,
+        r#"{"protocol":3,"minProtocol":2,"page":"p"}"#,
+        r#"{"protocol":9,"minProtocol":2,"page":"p"}"#,
+    ] {
+        let request = format!(r#"{{"id":1,"method":"link.hello","params":{params}}}"#);
+        assert!(refusal(&request).is_none(), "{params}");
+    }
+}
+
+#[test]
+fn a_hello_whose_minimum_is_above_its_maximum_is_refused() {
+    let got = refused(
+        r#"{"id":1,"method":"link.hello","params":{"protocol":2,"minProtocol":3,"page":"p"}}"#,
+    );
+    assert_eq!(got["error"], VERSION);
+}
+
+#[test]
+fn an_ask_naming_a_version_outside_the_window_is_refused() {
+    for version in [0, 1, 4, 9] {
+        let got = refused(&format!(
+            r#"{{"id":5,"method":"feed.page","protocol":{version}}}"#
+        ));
+        assert_eq!(got["id"], 5);
+        assert_eq!(got["error"], VERSION, "protocol {version}");
+        assert_eq!(got["minProtocol"], MIN_PROTOCOL_VERSION);
+        assert_eq!(got["maxProtocol"], PROTOCOL_VERSION);
+    }
+}
+
+#[test]
+fn an_ask_naming_a_version_inside_the_window_or_none_is_not_refused() {
+    for request in [
+        r#"{"id":1,"method":"feed.page"}"#,
+        r#"{"id":1,"method":"feed.page","protocol":2}"#,
+        r#"{"id":1,"method":"feed.page","protocol":3}"#,
+        "not json",
+    ] {
+        assert!(refusal(request).is_none(), "{request}");
+    }
 }
 
 #[test]
@@ -653,8 +839,6 @@ fn a_request_with_no_protocol_is_answered_in_the_oldest_format() {
     assert_eq!(wire_of("not json"), MIN_PROTOCOL_VERSION);
     assert_eq!(wire_of(r#"{"id":1,"protocol":3}"#), 3);
     assert_eq!(wire_of(r#"{"id":1,"protocol":2}"#), 2);
-    assert_eq!(wire_of(r#"{"id":1,"protocol":99}"#), PROTOCOL_VERSION);
-    assert_eq!(wire_of(r#"{"id":1,"protocol":0}"#), MIN_PROTOCOL_VERSION);
 }
 
 #[test]
@@ -686,7 +870,8 @@ fn every_listed_method_answers_a_well_formed_ask() {
     add_a_second_section(&sections);
     sections.reload_groups_from_db();
     let retired = retire_a_section(&mut sections);
-    crate::persistence::linked_devices::add(&sections.db, "Laptop", BROWSER, 1_700_000_000)
+    let made = create_a_section(&mut sections, 5, 30);
+    crate::persistence::linked_devices::add(&sections.db, "Laptop", BROWSER, None, 1_700_000_000)
         .expect("link the browser");
     sections
         .save_strength_draft(None, "Seed", Vec::new(), Vec::new(), 1)
@@ -704,6 +889,8 @@ fn every_listed_method_answers_a_well_formed_ask() {
         }
         let params = if method.name == "section.restore" {
             format!(r#"{{"id":"{retired}"}}"#)
+        } else if method.name == "section.delete" {
+            format!(r#"{{"id":"{made}"}}"#)
         } else if method.name == "section.extensionTrack" {
             format!(r#"{{"id":"{cut}"}}"#)
         } else {
@@ -749,6 +936,30 @@ fn the_page_schema_input_is_the_rendered_table() {
     );
 }
 
+/// The published reference quotes each method's doc string, so a row without
+/// one, or with the same sentence as another, is a gap in it.
+#[test]
+fn every_method_has_its_own_doc_string() {
+    let mut seen = std::collections::HashSet::new();
+    for method in METHODS {
+        assert!(
+            !method.doc.trim().is_empty(),
+            "{} has no doc string",
+            method.name
+        );
+        assert!(
+            method.doc.trim_end().ends_with('.'),
+            "{}'s doc string is not a sentence",
+            method.name
+        );
+        assert!(
+            seen.insert(method.doc),
+            "{} repeats another method's doc string",
+            method.name
+        );
+    }
+}
+
 /// The wire format each protocol version was cut for, oldest first. Append a
 /// pin when the wire format changes and `PROTOCOL_VERSION` bumps with it; a pin
 /// already written is never edited.
@@ -759,7 +970,8 @@ const WIRE_PINS: &[(u32, &str)] = &[(
 
 /// The wire format as a fingerprint: every constant a page reads from a reply
 /// frame, and the columns of each row of the method table. The version is not
-/// in it, so a pin pairs the two.
+/// in it, so a pin pairs the two. The doc string is prose for the published
+/// reference and is not on the wire, so it is not a column here.
 fn wire_fingerprint() -> String {
     let table: Value = serde_json::from_str(&methods_json()).expect("the table is JSON");
     let mut columns: Vec<&str> = table["methods"][0]
@@ -767,6 +979,7 @@ fn wire_fingerprint() -> String {
         .expect("a row of the table")
         .keys()
         .map(String::as_str)
+        .filter(|column| *column != "doc")
         .collect();
     columns.sort_unstable();
     let text = format!(
@@ -1122,6 +1335,38 @@ fn a_busy_reply_names_the_ask_it_refuses() {
     assert_eq!(got, json!({ "id": 17, "error": "busy" }));
 }
 
+/// Scenario: an ask carries an id a frame cannot hold, zero or one past the
+/// 32-bit range. Expected behaviour: the ask is refused, and the largest id a
+/// frame holds is still answered.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn an_ask_id_a_frame_cannot_carry_is_refused() {
+    let past = u64::from(u32::MAX) + 1;
+    assert_eq!(
+        incoming(&format!(r#"{{"id":{past},"method":"feed.page"}}"#)),
+        Incoming::Refuse(past)
+    );
+    assert_eq!(
+        incoming(r#"{"id":0,"method":"feed.page"}"#),
+        Incoming::Refuse(0)
+    );
+    assert_eq!(
+        incoming(&format!(r#"{{"id":{},"method":"feed.page"}}"#, u32::MAX)),
+        Incoming::Ask(Some(u64::from(u32::MAX)))
+    );
+}
+
+/// Scenario: a refused ask. Expected behaviour: the error names the id the ask
+/// sent in full, past the 32 bits a frame header holds, so the text reply can
+/// be matched to it.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_refused_ask_names_the_id_it_was_sent_under() {
+    let past = u64::from(u32::MAX) + 1;
+    let got: Value = serde_json::from_str(&super::super::protocol::refused(past)).unwrap();
+    assert_eq!(got, json!({ "id": past, "error": BAD_ID }));
+}
+
 const POWER_BODY: &str = r#"{"list":[{"secs":[1,60,300],"values":[900,420,310],"activity_id":["i1","i1","i1"],"days":42}],"activities":{"i1":{"id":"i1","name":"Morning loop"}}}"#;
 
 fn engine_with_fitness() -> PersistentEngine {
@@ -1230,6 +1475,8 @@ fn loads_and_zones_are_their_reads() {
         2_000_000_000,
     );
     assert_eq!(loads["days"], serde_json::to_value(&read).unwrap());
+    let summed: f64 = read.iter().filter_map(|day| day.total).sum();
+    assert_eq!(loads["total"], json!(summed));
 
     let zones = result_of(
         &engine,
@@ -1734,8 +1981,8 @@ fn each_status_is_the_read_the_phone_screen_makes() {
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_linked_devices_mark_the_browser_that_asked() {
     let engine = engine_with_rides();
-    crate::persistence::linked_devices::add(&engine.db, "Laptop", "sha-256 AA", 10).unwrap();
-    crate::persistence::linked_devices::add(&engine.db, "Desk", "sha-256 BB", 20).unwrap();
+    crate::persistence::linked_devices::add(&engine.db, "Laptop", "sha-256 AA", None, 10).unwrap();
+    crate::persistence::linked_devices::add(&engine.db, "Desk", "sha-256 BB", None, 20).unwrap();
     let connections = vec![("sha-256 BB".to_string(), 30)];
     let caller = Caller {
         browser: "sha-256 BB",
@@ -2491,6 +2738,88 @@ fn an_unknown_route_or_section_is_an_error_naming_it() {
     }
 }
 
+/// Scenario: a click on the page's heatmap asks what lies under the point,
+/// with the heatmap on and with it off, and a zoom outside the heatmap's.
+///
+/// Expected behaviour: the answer is the record the phone's own under-point
+/// read returns for the same point and zoom, serialised as the page reads it:
+/// the activity whose track passes the point is listed and the one whose box
+/// holds the point but whose track does not is not. A heatmap that is off
+/// answers the empty record; a zoom outside 1 to 17 and a point that is not a
+/// coordinate are errors.
+#[test]
+fn the_under_point_answer_is_the_phones_own_read() {
+    use crate::test_globals::{init_global_engine, serial_global_state};
+    use tracematch::GpsPoint;
+
+    let _serial = serial_global_state();
+    let _tmp = init_global_engine("link-under-point.db");
+    let line = |lng: f64| -> Vec<GpsPoint> {
+        (0..40)
+            .map(|i| GpsPoint::new(46.18 + 0.04 * f64::from(i) / 39.0, lng))
+            .collect()
+    };
+    let ring = vec![
+        GpsPoint::new(46.19, 7.34),
+        GpsPoint::new(46.19, 7.36),
+        GpsPoint::new(46.21, 7.36),
+        GpsPoint::new(46.21, 7.34),
+        GpsPoint::new(46.19, 7.34),
+    ];
+    crate::persistence::with_persistent_engine(|e| {
+        for (id, track) in [("near", line(7.35)), ("ring", ring)] {
+            e.add_activity(id.into(), track, "Ride".into())
+                .expect("activity");
+            e.set_activity_metrics(vec![crate::ActivityMetrics {
+                activity_id: id.into(),
+                name: format!("ride {id}"),
+                date: 1_700_000_000,
+                distance: 10_000.0,
+                moving_time: 1_800,
+                elapsed_time: 1_900,
+                elevation_gain: 0.0,
+                avg_hr: None,
+                avg_power: None,
+                sport_type: "Ride".into(),
+                training_load: None,
+                ftp: None,
+                power_zone_times: None,
+                hr_zone_times: None,
+            }])
+            .expect("metrics");
+        }
+        crate::persistence::tiles::serve_engine_for_test(e);
+    })
+    .expect("engine");
+    let engine = engine_with_rides();
+    let ask = |latitude: f64, longitude: f64, zoom: u32| {
+        reply(
+            &engine,
+            &format!(
+                r#"{{"id":1,"method":"heatmap.underPoint","params":{{"latitude":{latitude},"longitude":{longitude},"zoom":{zoom}}}}}"#
+            ),
+        )
+    };
+
+    let open = ask(46.2, 7.35, 14);
+    let too_deep = ask(46.2, 7.35, 18);
+    let world = ask(46.2, 7.35, 0);
+    let off_the_globe = ask(146.2, 7.35, 14);
+    let phone = crate::persistence::under_point::activities_under_point(46.2, 7.35, 14)
+        .expect("the phone's read");
+    crate::persistence::tiles::serve_heatmap_dir_for_test(None);
+    let closed = ask(46.2, 7.35, 14);
+
+    assert_eq!(open["result"], serde_json::to_value(&phone).unwrap());
+    assert_eq!(phone.total, 1);
+    assert_eq!(phone.groups[0].activities[0].id, "near");
+    assert!(closed["result"]["groups"].as_array().unwrap().is_empty());
+    assert_eq!(closed["result"]["total"], json!(0));
+    for refused in [&too_deep, &world, &off_the_globe] {
+        assert!(refused["error"].is_string(), "answered {refused}");
+    }
+}
+
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn heatmap_progress_is_zero_while_no_pass_runs() {
@@ -2800,7 +3129,8 @@ fn the_route_attempts_are_every_members_stored_track() {
 /// that holds no track.
 ///
 /// Expected behaviour: one `LineString` per pass with a track, sliced at the
-/// stored track's positions `start_index` to `end_index` inclusive, with the
+/// stored track's positions `start_index` to `end_index` inclusive and thinned
+/// to the collection tolerance, with the
 /// activity id, direction and distance; the pass with no track is left out
 /// and counted in the collection's `withoutTrack`.
 #[test]
@@ -2843,7 +3173,8 @@ fn section_passes_are_sliced_from_each_stored_track() {
         .zip([("r1", 0usize, 40usize), ("r2", 10, 20)])
     {
         let track = engine.get_gps_track(activity).unwrap();
-        let slice = crate::basemap::line_feature(&track[from..=to]);
+        let slice =
+            crate::basemap::line_feature(&crate::basemap::for_collection(&track[from..=to]));
         let want: Value = serde_json::from_str(&slice).unwrap();
         assert_eq!(feature["geometry"], want["geometry"]);
         assert_eq!(feature["properties"]["activityId"], activity);
@@ -2874,6 +3205,82 @@ fn the_section_line_carries_its_identity() {
             serde_json::from_str(&geo_text(&engine, method, r#"{"sectionId":"nope"}"#)).unwrap();
         assert_eq!(got["features"], empty["features"], "{method}");
     }
+}
+
+/// Scenario: a watch asks for one section's line, capped and packed, because it holds a few
+/// hundred points at most and parses a message with no decompression.
+///
+/// Expected behaviour: asked with `maxPoints` and `packed`, the reply carries the line as one
+/// integer array that decodes to the same number of points as the line strided to the same cap,
+/// each within 1e-5 degree and 1 m of it, in no more bytes than the cap packs to at worst; asked
+/// with neither, the reply is the GeoJSON it has always been, with no packed line.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_packed_section_line_is_capped_and_small() {
+    let engine = engine_with_a_route_and_a_section();
+    // A riding-pace climb, about 8 m a point: 5.7 m north, 5.7 m east and 0.8 m up each step.
+    let climb: Vec<[f64; 3]> = (0..720)
+        .map(|i| {
+            let i = f64::from(i);
+            [46.0 + i * 0.0000508, 7.0 + i * 0.0000732, 400.0 + i * 0.8]
+        })
+        .collect();
+    engine
+        .db
+        .execute(
+            "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                distance_meters, disabled, version, source_activity_id)
+             VALUES ('climb', 'auto', 'Long climb', 'Ride', ?1, 2400.0, 0, 1, NULL)",
+            [serde_json::to_string(&climb).unwrap()],
+        )
+        .expect("a 720-point section");
+
+    let got = reply(
+        &engine,
+        r#"{"id":1,"method":"geo.section","params":{"sectionId":"climb","maxPoints":64,"packed":true}}"#,
+    );
+    let packed = got["result"]["packedLine"]
+        .as_array()
+        .unwrap_or_else(|| panic!("geo.section answered {got}"));
+    let ints: Vec<i32> = packed
+        .iter()
+        .map(|v| i32::try_from(v.as_i64().unwrap()).unwrap())
+        .collect();
+    // The worst the 64-point cap packs to: the header `[64,1`, the absolute first point at its
+    // widest (lat 4600000, lng 700000, elevation 400), then 63 points of three deltas, each value
+    // a comma, a sign and up to four digits.
+    let worst = "[64,1,4600000,700000,400".len() + 189 * ",-9999".len() + "]".len();
+    let bytes = serde_json::to_string(packed).unwrap().len();
+    assert!(bytes <= worst, "{bytes} bytes, past the worst of {worst}");
+
+    let decoded = crate::persistence::codec::unpack_line(&ints).expect("a packed line");
+    let line: Vec<crate::GpsPoint> = climb
+        .iter()
+        .map(|p| crate::GpsPoint {
+            latitude: p[0],
+            longitude: p[1],
+            elevation: Some(p[2]),
+        })
+        .collect();
+    let want = crate::persistence::screens::capped_line(&line, 64);
+    assert_eq!(decoded.len(), want.len());
+    for (d, w) in decoded.iter().zip(&want) {
+        assert!((d.latitude - w.latitude).abs() <= 1e-5);
+        assert!((d.longitude - w.longitude).abs() <= 1e-5);
+        assert!((d.elevation.unwrap() - w.elevation.unwrap()).abs() <= 1.0);
+    }
+
+    let plain = reply(
+        &engine,
+        r#"{"id":1,"method":"geo.section","params":{"sectionId":"s1"}}"#,
+    );
+    assert!(plain["result"].get("packedLine").is_none());
+    assert!(
+        plain["result"]["text"]
+            .as_str()
+            .unwrap()
+            .contains("FeatureCollection")
+    );
 }
 
 /// Scenario: the page draws one stored geometry version of a section under the section.
@@ -3016,7 +3423,7 @@ fn the_extension_track_is_the_references_track_with_the_lines_range_on_it() {
 /// second named route, and one route attempt under the first route.
 fn engine_for_edits() -> PersistentEngine {
     let engine = engine_with_a_route_and_a_section();
-    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, 1_700_000_000)
+    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, None, 1_700_000_000)
         .expect("link the browser");
     engine
         .db
@@ -3099,6 +3506,92 @@ fn accepting_a_section_pins_it_and_accepting_all_pins_the_rest() {
     assert!(section_of(&engine, "s2").is_user_defined);
 }
 
+/// Three more rows beside `s1` and `s2`: two detected and one the athlete drew.
+fn engine_with_five_sections() -> PersistentEngine {
+    let engine = engine_for_edits();
+    for (id, kind) in [("s3", "auto"), ("s4", "auto"), ("s5", "custom")] {
+        engine
+            .db
+            .execute(
+                "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                    distance_meters, disabled, version, source_activity_id)
+                 VALUES (?1, ?2, 'Spur', 'Ride', '[[46.0,7.0],[46.001,7.0]]', 800.0, 0, 1, NULL)",
+                rusqlite::params![id, kind],
+            )
+            .expect("more sections");
+    }
+    engine
+}
+
+#[test]
+fn accepting_many_sections_accepts_those_and_leaves_the_rest_for_accept_all() {
+    let mut engine = engine_with_five_sections();
+    let got = send(
+        &mut engine,
+        "section.acceptMany",
+        r#"{"ids":["s1","s3","s4"]}"#,
+    );
+    assert_eq!(
+        got["result"],
+        json!({ "ok": true, "ids": ["s1", "s3", "s4"] })
+    );
+    for id in ["s1", "s3", "s4"] {
+        assert!(section_of(&engine, id).is_user_defined, "{id} is accepted");
+    }
+    assert!(!section_of(&engine, "s2").is_user_defined);
+    let rest = send(&mut engine, "section.acceptAll", "{}");
+    assert_eq!(rest["result"], json!({ "ok": true, "ids": ["s2"] }));
+}
+
+#[test]
+fn accepting_many_is_refused_whole_when_one_is_drawn_accepted_or_missing() {
+    for (second, text) in [
+        ("s5", "Section was not detected: s5"),
+        ("s2", "Section is already accepted: s2"),
+        ("nope", "Section not found: nope"),
+    ] {
+        let mut engine = engine_with_five_sections();
+        send(&mut engine, "section.accept", r#"{"id":"s2"}"#);
+        let before = logged(&engine).len();
+        let got = send(
+            &mut engine,
+            "section.acceptMany",
+            &format!(r#"{{"ids":["s1","{second}"]}}"#),
+        );
+        assert_eq!(got["error"], text);
+        assert!(
+            !section_of(&engine, "s1").is_user_defined,
+            "s1 is left alone when {second} is refused"
+        );
+        assert_eq!(
+            logged(&engine).len(),
+            before,
+            "a refused call is not logged"
+        );
+    }
+}
+
+#[test]
+fn accepting_many_names_the_sections_it_accepted_so_unaccept_takes_them_back() {
+    let mut engine = engine_with_five_sections();
+    let got = send(&mut engine, "section.acceptMany", r#"{"ids":["s3","s4"]}"#);
+    let ids = got["result"]["ids"].clone();
+    send(
+        &mut engine,
+        "section.unaccept",
+        &json!({ "ids": ids }).to_string(),
+    );
+    assert!(!section_of(&engine, "s3").is_user_defined);
+    assert!(!section_of(&engine, "s4").is_user_defined);
+}
+
+#[test]
+fn accepting_no_sections_is_a_no_op() {
+    let mut engine = engine_with_five_sections();
+    let got = send(&mut engine, "section.acceptMany", r#"{"ids":[]}"#);
+    assert_eq!(got["result"], json!({ "ok": true, "ids": [] }));
+}
+
 #[test]
 fn unaccepting_returns_exactly_the_sections_that_accepting_all_changed() {
     let mut engine = engine_for_edits();
@@ -3161,6 +3654,56 @@ fn disabling_a_section_then_enabling_it_leaves_it_as_it_began() {
     assert!(section_of(&engine, "s1").disabled);
     send(&mut engine, "section.enable", r#"{"id":"s1"}"#);
     assert!(!section_of(&engine, "s1").disabled);
+}
+
+#[test]
+fn hiding_many_sections_is_one_write_the_same_write_undoes() {
+    let mut engine = engine_with_five_sections();
+    let ask = |enabled: bool| format!(r#"{{"ids":["s1","s3","s4"],"enabled":{enabled}}}"#);
+    let hidden = send(&mut engine, "section.setEnabledMany", &ask(false));
+    assert_eq!(hidden["result"], json!({ "ok": true }));
+    for id in ["s1", "s3", "s4"] {
+        assert!(section_of(&engine, id).disabled, "{id} is hidden");
+    }
+    for id in ["s2", "s5"] {
+        assert!(!section_of(&engine, id).disabled, "{id} is left alone");
+    }
+    let rows = logged(&engine);
+    assert_eq!(rows.len(), 1, "three sections were logged as {rows:?}");
+    assert_eq!(rows[0].method, "section.setEnabledMany");
+    assert_eq!(rows[0].summary, "Disabled 3 sections");
+
+    send(&mut engine, "section.setEnabledMany", &ask(true));
+    for id in ["s1", "s3", "s4"] {
+        assert!(!section_of(&engine, id).disabled, "{id} is shown again");
+    }
+    let rows = logged(&engine);
+    assert_eq!(rows.len(), 2);
+    assert!(rows.iter().any(|row| row.summary == "Enabled 3 sections"));
+}
+
+#[test]
+fn hiding_many_sections_is_refused_whole_when_one_is_missing() {
+    let mut engine = engine_with_five_sections();
+    let got = send(
+        &mut engine,
+        "section.setEnabledMany",
+        r#"{"ids":["s1","nope"],"enabled":false}"#,
+    );
+    assert_eq!(got["error"], "Section not found: nope");
+    assert!(!section_of(&engine, "s1").disabled);
+    assert!(logged(&engine).is_empty(), "a refused call is not logged");
+}
+
+#[test]
+fn hiding_one_section_in_the_many_write_reads_as_one_section() {
+    let mut engine = engine_with_five_sections();
+    send(
+        &mut engine,
+        "section.setEnabledMany",
+        r#"{"ids":["s1"],"enabled":false}"#,
+    );
+    assert_eq!(logged(&engine)[0].summary, "Disabled 1 section");
 }
 
 #[test]
@@ -3268,6 +3811,69 @@ fn hiding_an_activity_from_the_heatmap_lists_it_and_showing_it_takes_it_off() {
 }
 
 #[test]
+fn hiding_many_activities_from_the_heatmap_is_one_write_the_same_write_undoes() {
+    let mut engine = engine_for_edits();
+    let listed = |engine: &PersistentEngine| -> Vec<String> {
+        let mut ids: Vec<String> = crate::persistence::tiles::heatmap_hidden_listing(&engine.db)
+            .into_iter()
+            .map(|row| row.activity_id)
+            .collect();
+        ids.sort_unstable();
+        ids
+    };
+    let hidden = send(
+        &mut engine,
+        "heatmap.setHiddenMany",
+        r#"{"activityIds":["r1","r2"],"hidden":true}"#,
+    );
+    assert_eq!(hidden["result"]["ok"], true);
+    assert_eq!(listed(&engine), ["r1", "r2"]);
+    let rows = logged(&engine);
+    assert_eq!(rows.len(), 1, "two activities were logged as {rows:?}");
+    assert_eq!(rows[0].method, "heatmap.setHiddenMany");
+    assert_eq!(rows[0].summary, "Hid 2 activities from the heatmap");
+
+    send(
+        &mut engine,
+        "heatmap.setHiddenMany",
+        r#"{"activityIds":["r1","r2"],"hidden":false}"#,
+    );
+    assert!(listed(&engine).is_empty());
+    let rows = logged(&engine);
+    assert_eq!(rows.len(), 2);
+    assert!(
+        rows.iter()
+            .any(|row| row.summary == "Showed 2 activities on the heatmap")
+    );
+}
+
+#[test]
+fn hiding_one_activity_in_the_many_write_reads_as_one_activity() {
+    let mut engine = engine_for_edits();
+    send(
+        &mut engine,
+        "heatmap.setHiddenMany",
+        r#"{"activityIds":["r1"],"hidden":true}"#,
+    );
+    assert_eq!(
+        logged(&engine)[0].summary,
+        "Hid 1 activity from the heatmap"
+    );
+}
+
+#[test]
+fn hiding_no_activities_is_refused_and_logs_nothing() {
+    let mut engine = engine_for_edits();
+    let got = send(
+        &mut engine,
+        "heatmap.setHiddenMany",
+        r#"{"activityIds":[],"hidden":true}"#,
+    );
+    assert!(got.get("error").is_some(), "answered {got}");
+    assert!(logged(&engine).is_empty());
+}
+
+#[test]
 fn every_edit_leaves_one_row_naming_its_target() {
     let mut engine = engine_for_edits();
     let edits = [
@@ -3334,6 +3940,10 @@ fn each_edit_announces_the_channel_a_screen_re_reads() {
         ("route.excludeActivity", r#"{"id":"g1","activityId":"r1"}"#),
         ("route.rename", r#"{"id":"g1","name":"Valley loop"}"#),
         ("heatmap.setHidden", r#"{"activityId":"r1","hidden":true}"#),
+        (
+            "heatmap.setHiddenMany",
+            r#"{"activityIds":["r1","r2"],"hidden":true}"#,
+        ),
     ] {
         let request = format!(r#"{{"id":1,"method":"{method}","params":{params}}}"#);
         answer_write(&mut engine, BROWSER, &request).announce();
@@ -3348,6 +3958,7 @@ fn each_edit_announces_the_channel_a_screen_re_reads() {
             "remote_wrote:groups",
             "remote_wrote:groups",
             "remote_wrote:activities",
+            "remote_wrote:activities",
         ]
     );
 }
@@ -3356,7 +3967,7 @@ fn each_edit_announces_the_channel_a_screen_re_reads() {
 /// owed and a section config can change.
 fn engine_with_no_catalogue() -> PersistentEngine {
     let engine = PersistentEngine::in_memory().expect("engine");
-    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, 1_700_000_000)
+    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, None, 1_700_000_000)
         .expect("link the browser");
     engine
 }
@@ -3532,7 +4143,7 @@ fn a_detection_write_announces_the_settings_channel() {
 
 fn linked_strength_engine() -> PersistentEngine {
     let engine = engine_with_strength();
-    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, 1_700_000_000)
+    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, None, 1_700_000_000)
         .expect("link the browser");
     engine
 }
@@ -3811,6 +4422,40 @@ fn a_deleted_workout_comes_back_through_restore_with_its_place_in_the_list() {
 
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_workout_deleted_through_the_link_is_listed_and_recovered_on_the_phone() {
+    let mut engine = linked_strength_engine();
+    let id = saved_id(&mut engine, PUSH_WORKOUT);
+    let deleted = written(
+        &mut engine,
+        &write_request("strength.deleteWorkout", &format!(r#"{{"id":"{id}"}}"#)),
+    );
+    assert!(deleted.get("error").is_none(), "{deleted}");
+
+    let after_delete = crate::objects::strength_live::start_data(&engine.db, NOW_WALL).unwrap();
+    assert!(after_delete.workouts.is_empty());
+    assert_eq!(after_delete.removed.len(), 1);
+    assert_eq!(after_delete.removed[0].id, id);
+    assert_eq!(after_delete.removed[0].name, "Push");
+    assert_eq!(after_delete.removed[0].exercise_count, 2);
+    assert_eq!(after_delete.removed[0].set_count, 3);
+
+    crate::objects::strength_live::recover_workout(&mut engine, &id).unwrap();
+
+    let after_recover = crate::objects::strength_live::start_data(&engine.db, NOW_WALL).unwrap();
+    assert!(after_recover.removed.is_empty());
+    assert_eq!(after_recover.workouts.len(), 1);
+    assert_eq!(after_recover.workouts[0].id, id);
+    assert_eq!(after_recover.workouts[0].exercise_count, 2);
+    assert_eq!(after_recover.workouts[0].set_count, 3);
+    let workout =
+        result_of(&engine, "strength.workout", &format!(r#"{{"id":"{id}"}}"#))["workout"].clone();
+    assert_eq!(workout["exercises"].as_array().map(Vec::len), Some(2));
+
+    assert!(crate::objects::strength_live::recover_workout(&mut engine, &id).is_err());
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_workout_saves_while_a_session_is_live_and_the_live_session_is_untouched() {
     use crate::persistence::strength_live::StartFrom;
     let mut engine = linked_strength_engine();
@@ -4015,7 +4660,7 @@ fn retire_a_section(engine: &mut PersistentEngine) -> String {
 #[test]
 fn a_custom_section_is_cut_from_the_range_of_a_ride() {
     let mut engine = engine_with_a_route_and_a_section();
-    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, 1_700_000_000)
+    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, None, 1_700_000_000)
         .expect("link the browser");
     let id = create_a_section(&mut engine, 5, 20);
     let line = polyline_of(&engine, &id);
@@ -4120,6 +4765,63 @@ fn a_reference_edit_marks_the_section_user_defined_and_resets() {
     assert_eq!(got["result"]["ok"], true, "{got}");
 }
 
+/// Scenario: the page sets a ride as a custom section's reference, then offers a ride
+/// that never covers the section, then hands the reference back.
+///
+/// Expected behaviour: the ride that covers the line becomes the reference, a ride that is
+/// not a pass of the section is refused and leaves the line as it was, and the reset puts
+/// back the line the section had before its reference was set.
+#[test]
+fn a_reference_is_refused_for_a_ride_that_is_not_a_pass_and_reset_restores_the_line() {
+    let mut engine = engine_with_a_route_and_a_section();
+    let far_track = (0..60)
+        .map(|i| crate::GpsPoint {
+            latitude: 47.0 + f64::from(i) * 0.001,
+            longitude: 8.0,
+            elevation: None,
+        })
+        .collect();
+    engine
+        .add_activity("r3".into(), far_track, "Ride".into())
+        .expect("activity");
+    let id = create_a_section(&mut engine, 5, 30);
+    let drawn = polyline_of(&engine, &id);
+
+    let refused = written(
+        &mut engine,
+        &format!(
+            r#"{{"id":2,"method":"section.editBounds","params":{{"id":"{id}","edit":"setReference","activityId":"r3"}}}}"#
+        ),
+    );
+    assert!(refused.get("error").is_some(), "{refused}");
+    assert_eq!(polyline_of(&engine, &id), drawn);
+
+    let unknown = written(
+        &mut engine,
+        &format!(
+            r#"{{"id":3,"method":"section.editBounds","params":{{"id":"{id}","edit":"setReference","activityId":"nobody"}}}}"#
+        ),
+    );
+    assert!(unknown.get("error").is_some(), "{unknown}");
+    assert_eq!(polyline_of(&engine, &id), drawn);
+
+    let set = written(
+        &mut engine,
+        &format!(
+            r#"{{"id":4,"method":"section.editBounds","params":{{"id":"{id}","edit":"setReference","activityId":"r2"}}}}"#
+        ),
+    );
+    assert_eq!(set["result"]["ok"], true, "{set}");
+    let reset = written(
+        &mut engine,
+        &format!(
+            r#"{{"id":5,"method":"section.editBounds","params":{{"id":"{id}","edit":"resetReference"}}}}"#
+        ),
+    );
+    assert_eq!(reset["result"]["ok"], true, "{reset}");
+    assert_eq!(polyline_of(&engine, &id), drawn);
+}
+
 /// Expected behaviour: an edit missing what it needs, or naming one the
 /// protocol does not carry, is refused and the line is unchanged.
 #[test]
@@ -4168,6 +4870,52 @@ fn a_revert_puts_a_stored_version_back() {
     assert_eq!(polyline_of(&engine, &id).len(), 26 * 2);
 }
 
+/// Scenario: the editor asks what a trim would measure, then saves it.
+///
+/// Expected behaviour: the preview writes nothing and its distance and grade
+/// are the ones the section reports after the same trim; an edit that takes no
+/// range is refused.
+#[test]
+fn a_bounds_preview_reports_what_the_trim_then_stores() {
+    let mut engine = engine_with_a_route_and_a_section();
+    let id = create_a_section(&mut engine, 5, 30);
+    let ask = format!(r#"{{"id":"{id}","edit":"trim","startIndex":0,"endIndex":10}}"#);
+    let before = row_counts(&engine);
+    let line_before = polyline_of(&engine, &id);
+
+    let got = reply(
+        &engine,
+        &format!(r#"{{"id":1,"method":"section.boundsPreview","params":{ask}}}"#),
+    );
+    let preview = got["result"].clone();
+    assert!(preview["distanceMeters"].as_f64().unwrap() > 0.0, "{got}");
+    assert!(preview["lapsRemeasured"].is_u64(), "{got}");
+    assert_eq!(row_counts(&engine), before);
+    assert_eq!(polyline_of(&engine, &id), line_before);
+    assert!(!is_write("section.boundsPreview"));
+
+    let refused = reply(
+        &engine,
+        &format!(
+            r#"{{"id":2,"method":"section.boundsPreview","params":{{"id":"{id}","edit":"reset"}}}}"#
+        ),
+    );
+    assert!(refused.get("error").is_some(), "{refused}");
+
+    written(
+        &mut engine,
+        &format!(r#"{{"id":3,"method":"section.editBounds","params":{ask}}}"#),
+    );
+    let detail = reply(
+        &engine,
+        &format!(r#"{{"id":4,"method":"section.detail","params":{{"id":"{id}"}}}}"#),
+    );
+    assert_eq!(
+        detail["result"]["section"]["distanceMeters"], preview["distanceMeters"],
+        "{detail}"
+    );
+}
+
 /// Scenario: the page previews a merge of two sections, then merges them.
 ///
 /// Expected behaviour: the preview writes nothing and names the rides the
@@ -4186,6 +4934,7 @@ fn a_merge_keeps_the_primary_and_a_preview_writes_nothing() {
         &format!(r#"{{"id":1,"method":"section.mergePreview","params":{ask}}}"#),
     );
     assert_eq!(got["result"]["dropped"], json!([]), "{got}");
+    assert!(got["result"]["lapsRemeasured"].is_u64(), "{got}");
     assert_eq!(row_counts(&engine), before);
     assert!(is_write("section.merge") && !is_write("section.mergePreview"));
 
@@ -4236,6 +4985,59 @@ fn a_retired_section_is_restored_and_a_live_one_is_refused() {
     assert!(got.get("error").is_some(), "{got}");
 }
 
+fn retirement_row_exists(engine: &PersistentEngine, id: &str) -> bool {
+    crate::persistence::sections::history::pooled::retirement_of(&engine.db, id).is_some()
+}
+
+/// Scenario: the page's Remove on a section the athlete made, which the phone
+/// offers as Delete behind a confirmation.
+///
+/// Expected behaviour: the delete is the phone's own. A section with an
+/// archived state goes to the retired list, where Restore brings it back; one
+/// without is gone. A detected section is refused and stays, and so does one
+/// that is not there.
+#[test]
+fn a_made_section_is_deleted_as_the_phone_does_and_a_detected_one_is_refused() {
+    let mut engine = engine_with_a_route_and_a_section();
+    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, None, 1_700_000_000)
+        .expect("link the browser");
+    assert!(is_write("section.delete"));
+    let delete = |engine: &mut PersistentEngine, id: &str| {
+        written(
+            engine,
+            &format!(r#"{{"id":2,"method":"section.delete","params":{{"id":"{id}"}}}}"#),
+        )
+    };
+
+    let got = delete(&mut engine, "s1");
+    assert!(got.get("error").is_some(), "a detected section: {got}");
+    assert!(exists(&engine, "s1"));
+    assert!(!retirement_row_exists(&engine, "s1"));
+    let got = delete(&mut engine, "never-existed");
+    assert!(got.get("error").is_some(), "{got}");
+
+    let drawn = create_a_section(&mut engine, 5, 30);
+    let got = delete(&mut engine, &drawn);
+    assert_eq!(got["result"]["ok"], true, "{got}");
+    assert!(!exists(&engine, &drawn));
+    assert!(
+        !retirement_row_exists(&engine, &drawn),
+        "nothing was archived to restore"
+    );
+
+    let kept = retire_a_section(&mut engine);
+    let got = written(
+        &mut engine,
+        &format!(r#"{{"id":5,"method":"section.restore","params":{{"id":"{kept}"}}}}"#),
+    );
+    assert_eq!(got["result"]["ok"], true, "{got}");
+    assert!(exists(&engine, &kept));
+    let got = delete(&mut engine, &kept);
+    assert_eq!(got["result"]["ok"], true, "{got}");
+    assert!(!exists(&engine, &kept));
+    assert!(retirement_row_exists(&engine, &kept));
+}
+
 fn representative_of(engine: &PersistentEngine, route: &str) -> String {
     engine
         .db
@@ -4253,7 +5055,7 @@ fn representative_of(engine: &PersistentEngine, route: &str) -> String {
 fn a_route_reference_is_set_and_reset_as_the_phone_does() {
     let mut engine = engine_with_a_route_and_a_section();
     engine.reload_groups_from_db();
-    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, 1_700_000_000)
+    crate::persistence::linked_devices::add(&engine.db, "Laptop", BROWSER, None, 1_700_000_000)
         .expect("link the browser");
     let got = written(
         &mut engine,
@@ -4279,13 +5081,13 @@ fn a_route_reference_is_set_and_reset_as_the_phone_does() {
 }
 
 /// Expected behaviour: a delete-shaped method is unknown on both channels,
-/// whatever its name.
+/// whatever its name. `section.delete` is the one exception, a section the
+/// athlete made, deleted as the phone does.
 #[test]
 fn a_delete_shaped_method_is_still_refused() {
     let mut engine = engine_with_a_route_and_a_section();
     let before = row_counts(&engine);
     for method in [
-        "section.delete",
         "section.remove",
         "section.deleteCustom",
         "route.delete",
@@ -4440,4 +5242,263 @@ fn every_writable_setting_is_a_readable_one() {
     for key in WRITABLE_SETTINGS.iter().map(|setting| setting.key) {
         assert!(SETTING_KEYS.contains(&key), "{key}");
     }
+}
+
+/// Scenario: the fitness page prints the period's total load beside its bars.
+///
+/// Expected behaviour: the total is the sum of the days' recorded loads, with a
+/// day that records none adding nothing and an empty window totalling zero.
+#[test]
+fn the_loads_total_is_the_sum_of_the_days_recorded_loads() {
+    let day = |date: &str, total: Option<f64>| crate::FfiDayLoad {
+        date: date.into(),
+        status: crate::FfiDayLoadStatus::Complete,
+        total,
+        activity_count: 1,
+    };
+
+    let reply = FfiLinkDayLoads::of(vec![
+        day("2026-09-01", Some(40.0)),
+        day("2026-09-02", None),
+        day("2026-09-03", Some(25.5)),
+    ]);
+    assert_eq!(reply.total, 65.5);
+    assert_eq!(reply.days.len(), 3);
+    assert_eq!(FfiLinkDayLoads::of(Vec::new()).total, 0.0);
+}
+
+/// A ridden section with `count` traversals a day apart, oldest first. The
+/// quickest is the one at `fastest`, never the newest.
+fn engine_with_a_climb_ridden(count: usize, fastest: usize) -> PersistentEngine {
+    let mut engine = engine_with_rides();
+    let day = 86_400i64;
+    let start = 1_700_000_000i64;
+    let ids: Vec<String> = (0..count).map(|i| format!("c{i}")).collect();
+    let metrics: Vec<crate::types::ActivityMetrics> = ids
+        .iter()
+        .enumerate()
+        .map(|(i, id)| crate::types::ActivityMetrics {
+            activity_id: id.clone(),
+            name: format!("Ride {i}"),
+            date: start + day * i as i64,
+            distance: 1000.0,
+            moving_time: 300,
+            elapsed_time: 300,
+            elevation_gain: 0.0,
+            avg_hr: None,
+            avg_power: None,
+            sport_type: "Ride".into(),
+            training_load: None,
+            ftp: None,
+            power_zone_times: None,
+            hr_zone_times: None,
+        })
+        .collect();
+    for id in &ids {
+        let track = (0..60)
+            .map(|i| crate::GpsPoint {
+                latitude: 46.0 + f64::from(i) * 0.001,
+                longitude: 7.0,
+                elevation: None,
+            })
+            .collect();
+        engine
+            .add_activity(id.clone(), track, "Ride".into())
+            .expect("activity");
+    }
+    engine.set_activity_metrics(metrics).expect("metrics");
+    engine
+        .db
+        .execute(
+            "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                distance_meters, disabled, version, source_activity_id, elevation_gain_m)
+             VALUES ('s1', 'auto', 'Lake climb', 'Ride', '[[46.0,7.0],[46.001,7.0]]', 800.0, 0, 1, NULL, 95.0)",
+            [],
+        )
+        .expect("section");
+    for (i, id) in ids.iter().enumerate() {
+        let lap_time = if i == fastest {
+            150.0f64
+        } else {
+            200.0 + i as f64
+        };
+        engine
+            .db
+            .execute(
+                "INSERT INTO section_activities (section_id, activity_id, direction,
+                     start_index, end_index, distance_meters, lap_time, lap_pace, excluded)
+                 VALUES ('s1', ?1, 'same', 0, 40, 800.0, ?2, ?3, 0)",
+                rusqlite::params![id, lap_time, 800.0 / lap_time],
+            )
+            .expect("traversal");
+    }
+    engine
+}
+
+fn reply_bytes(engine: &PersistentEngine, method: &str, params: &str) -> usize {
+    let request = format!(r#"{{"id":1,"method":"{method}","params":{params}}}"#);
+    let caller = Caller::default();
+    reply_from(engine, &caller, &request).to_string().len()
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_sections_standing_is_its_best_its_newest_attempts_and_its_count_in_a_few_kilobytes() {
+    let engine = engine_with_a_climb_ridden(40, 12);
+    let got = result_of(
+        &engine,
+        "section.standing",
+        r#"{"id":"s1","timeRangeDays":36500}"#,
+    );
+    assert_eq!(got["id"], "s1");
+    assert_eq!(got["name"], "Lake climb");
+    assert_eq!(got["distanceMeters"], 800.0);
+    assert_eq!(got["elevationGainM"], 95.0);
+    assert_eq!(got["traversalCount"], 40);
+    assert_eq!(got["best"]["forward"]["activityId"], "c12");
+    assert_eq!(got["best"]["forward"]["timeSecs"], 150.0);
+    assert_eq!(
+        got["best"]["forward"]["date"].as_f64(),
+        Some((1_700_000_000i64 + 12 * 86_400) as f64)
+    );
+    assert!(got["best"]["reverse"].is_null());
+
+    let recent = got["recent"].as_array().expect("recent attempts");
+    assert_eq!(recent.len(), 40);
+    assert_eq!(recent[0]["activityId"], "c39");
+    assert_eq!(recent[1]["activityId"], "c38");
+    assert_eq!(recent[0]["timeSecs"], 239.0);
+
+    let standing = reply_bytes(
+        &engine,
+        "section.standing",
+        r#"{"id":"s1","timeRangeDays":36500}"#,
+    );
+    let whole = reply_bytes(
+        &engine,
+        "section.performance",
+        r#"{"id":"s1","timeRangeDays":36500}"#,
+    );
+    assert!(standing < 8 * 1024, "standing is {standing} bytes");
+    assert!(whole > 70 * 1024, "performance is {whole} bytes");
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_standings_attempts_are_capped_at_a_page_and_a_limit_narrows_them() {
+    let engine = engine_with_a_climb_ridden(120, 3);
+    let all = result_of(
+        &engine,
+        "section.standing",
+        r#"{"id":"s1","timeRangeDays":36500,"recentLimit":500}"#,
+    );
+    assert_eq!(
+        all["recent"].as_array().map(Vec::len),
+        Some(MAX_PAGE as usize)
+    );
+    assert_eq!(all["traversalCount"], 120);
+    let two = result_of(
+        &engine,
+        "section.standing",
+        r#"{"id":"s1","timeRangeDays":36500,"recentLimit":2}"#,
+    );
+    assert_eq!(two["recent"].as_array().map(Vec::len), Some(2));
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_standings_trend_covers_the_window_the_caller_names() {
+    let engine = engine_with_a_climb_ridden(40, 12);
+    let wide = result_of(
+        &engine,
+        "section.standing",
+        r#"{"id":"s1","timeRangeDays":36500}"#,
+    );
+    assert_eq!(wide["trend"]["forward"]["count"], 40);
+    assert!(wide["trend"]["forward"]["avgTimeSecs"].as_f64().is_some());
+    // The newest attempt is from 2023, so a one-day window holds none.
+    let narrow = result_of(
+        &engine,
+        "section.standing",
+        r#"{"id":"s1","timeRangeDays":1}"#,
+    );
+    assert_eq!(narrow["traversalCount"], 40);
+    assert!(narrow["trend"]["forward"].is_null());
+    assert_eq!(narrow["recent"].as_array().map(Vec::len), Some(0));
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_section_nobody_has_ridden_answers_its_own_fields_and_an_unknown_id_is_an_error() {
+    let engine = engine_with_a_climb_ridden(0, 0);
+    let got = result_of(
+        &engine,
+        "section.standing",
+        r#"{"id":"s1","timeRangeDays":365}"#,
+    );
+    assert_eq!(got["name"], "Lake climb");
+    assert_eq!(got["traversalCount"], 0);
+    assert!(got["best"]["forward"].is_null());
+    assert_eq!(got["recent"], json!([]));
+    assert!(
+        error_of(
+            &engine,
+            "section.standing",
+            r#"{"id":"nope","timeRangeDays":365}"#
+        )
+        .contains("unknown section")
+    );
+}
+
+#[test]
+fn raw_frames_carry_the_bytes_under_the_raw_flag_and_never_gzip() {
+    let bytes: Vec<u8> = (0..3 * (FRAME_BYTES - FRAME_HEADER_BYTES) + 7)
+        .map(|n| (n % 251) as u8)
+        .collect();
+    let frames = raw_frames(9, &bytes);
+    assert_eq!(frames.len(), 4);
+    let mut joined = Vec::new();
+    for (seq, frame) in frames.iter().enumerate() {
+        assert!(frame.len() <= FRAME_BYTES);
+        assert_eq!(frame[0], FRAME_VERSION);
+        let last = seq == frames.len() - 1;
+        assert_eq!(frame[1], FRAME_RAW | if last { FRAME_LAST } else { 0 });
+        assert_eq!(frame[1] & FRAME_GZIP, 0);
+        assert_eq!(u32::from_be_bytes(frame[2..6].try_into().unwrap()), 9);
+        assert_eq!(
+            u32::from_be_bytes(frame[6..10].try_into().unwrap()),
+            seq as u32
+        );
+        joined.extend_from_slice(&frame[FRAME_HEADER_BYTES..]);
+    }
+    assert_eq!(joined, bytes);
+}
+
+#[test]
+fn a_raw_answer_needs_framed_protocol_and_older_pages_get_an_error_text() {
+    let answer = Answer::Raw {
+        id: 4,
+        bytes: vec![1, 2, 3],
+    };
+    let framed = answer.messages(FRAMED_FROM);
+    assert!(framed.iter().all(|message| message.binary));
+    let older = answer.messages(FRAMED_FROM - 1);
+    assert_eq!(older.len(), 1);
+    assert!(!older[0].binary);
+    assert!(String::from_utf8_lossy(&older[0].bytes).contains("error"));
+}
+
+#[test]
+fn export_read_is_a_spool_write_and_the_other_export_methods_are_too() {
+    for name in [
+        "export.begin",
+        "export.status",
+        "export.read",
+        "export.done",
+    ] {
+        assert!(is_write(name), "{name}");
+        assert!(is_spool(name), "{name}");
+    }
+    assert!(is_spool_bytes("export.read"));
+    assert!(!is_spool_bytes("export.status"));
 }

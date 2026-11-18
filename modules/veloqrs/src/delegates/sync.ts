@@ -28,6 +28,9 @@ import {
   RangeCoverage,
   type LibraryCoverage,
   type FfiSyncStatus,
+  type FfiRemoteActivitySearch,
+  type FfiActivityBodiesQuery,
+  FfiRemoteSearchStatus,
   type FfiImportProgress,
   FfiImportPhase,
 } from '../generated/veloqrs';
@@ -55,6 +58,14 @@ export function setSyncCredentials(
 /** Forget the credential (logout). */
 export function clearSyncCredentials(host: DelegateHost): void {
   host.write('clearSyncCredentials', () => host.engine.sync().clearCredentials());
+}
+
+/**
+ * Lift or restore the backfill's daily cap. The engine refuses a session that
+ * is not a personal key, and the refusal reaches the caller.
+ */
+export function setBackfillCapLifted(host: DelegateHost, lifted: boolean): void {
+  host.write('setBackfillCapLifted', () => host.engine.sync().setBackfillCapLifted(lifted));
 }
 
 /** Ask Garmin whether a pasted Personal key works, holding it in the engine
@@ -310,6 +321,39 @@ export async function readyActivityBodies(
   return host.timedAsync('readyActivityBodies', () =>
     host.engine.sync().readyActivityBodies(activityId)
   );
+}
+
+/** What a search of the athlete's account takes: the feed's own filter. */
+export type RemoteActivityQuery = Pick<
+  FfiActivityBodiesQuery,
+  | 'needle'
+  | 'sportFamilies'
+  | 'oldestTs'
+  | 'newestTs'
+  | 'minDistance'
+  | 'maxDistance'
+  | 'minMovingTime'
+  | 'maxMovingTime'
+>;
+
+/**
+ * Search the athlete's account for the activities the library does not hold,
+ * under the feed's filter. Resolves `Unavailable` before the engine opens, and
+ * `Failed` rather than throwing when the request does not complete.
+ */
+export async function searchRemoteActivities(
+  host: DelegateHost,
+  query: RemoteActivityQuery
+): Promise<FfiRemoteActivitySearch> {
+  const none = { rows: [], fetched: 0, capped: false };
+  if (!host.ready) return { status: FfiRemoteSearchStatus.Unavailable, ...none };
+  try {
+    return await host.timedAsync('searchRemoteActivities', () =>
+      host.engine.sync().searchRemoteActivities({ ...query, offset: 0 })
+    );
+  } catch {
+    return { status: FfiRemoteSearchStatus.Failed, ...none };
+  }
 }
 
 /** Ask Rust to fetch the `time` streams the section maths needs. Activities

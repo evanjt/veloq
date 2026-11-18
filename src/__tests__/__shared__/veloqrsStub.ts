@@ -158,6 +158,13 @@ export enum EfficiencyDirection {
   Worsening,
 }
 
+/** `FfiHoldCause` as generated, who asked for a hold on the downloads. */
+export enum FfiHoldCause {
+  Upstream,
+  Pool,
+  Budget,
+}
+
 /** `FfiOffScale` as generated, where a scatter point lies against its focus range. */
 export enum FfiOffScale {
   None,
@@ -165,11 +172,32 @@ export enum FfiOffScale {
   Fast,
 }
 
+/** `FfiUnderPointKind` as generated, what an under-point group collects. */
+export enum FfiUnderPointKind {
+  Route,
+  Section,
+  NoRoute,
+}
+
+/** `FfiRemoteSearchStatus` as generated, how a search of the athlete's account ended. */
+export enum FfiRemoteSearchStatus {
+  Found,
+  NoQuery,
+  Unavailable,
+  Failed,
+}
+
 /** `FfiFollowStatus` as generated, where a fix lies against the followed route. */
 export enum FfiFollowStatus {
   NotJoined,
   OnRoute,
   OffRoute,
+}
+
+/** `FfiNearbyKind` as generated, whether a nearby place is a route or a section. */
+export enum FfiNearbyKind {
+  Route,
+  Section,
 }
 
 /** `FfiFollowDirection` as generated, which way the ride goes along the followed route. */
@@ -555,6 +583,10 @@ export const settings = {
   getThresholdsScreenData: jest.fn(() => undefined),
   setThresholdOverride: jest.fn(),
   getExperimentalExamples: jest.fn(() => undefined),
+  buildRouteGpxFile: jest.fn(),
+  buildSectionGpxFile: jest.fn(),
+  buildRouteFitCourse: jest.fn(),
+  buildSectionFitCourse: jest.fn(),
 };
 
 export const connectivity = {
@@ -622,6 +654,7 @@ export const strength = {
   getExerciseDetailData: jest.fn(),
   getExercisePickerData: jest.fn(),
   getStrengthStartData: jest.fn(),
+  recoverStrengthWorkout: jest.fn(),
   getLiveStrengthSession: jest.fn(),
   getLiveFocusState: jest.fn(),
   getStrengthSessionFit: jest.fn(),
@@ -648,7 +681,7 @@ export const routes = {
   setRouteName: jest.fn(),
   getRepresentativeRoute: jest.fn(),
   liveRouteOverlaps: jest.fn(),
-  getNearbyRoutesForRecording: jest.fn(() => []),
+  getNearbyPlaces: jest.fn(() => []),
   getRoutePerformances: jest.fn(),
   excludeActivityFromRoute: jest.fn(),
   includeActivityInRoute: jest.fn(),
@@ -678,7 +711,10 @@ export const detection = {
 export const remote = {
   listLinkedDevices: jest.fn(() => []),
   removeLinkedDevice: jest.fn(() => false),
+  disconnectLinkedDevice: jest.fn(() => false),
+  renameLinkedDevice: jest.fn(() => false),
   recentWrites: jest.fn(() => []),
+  linkedDevicesScreen: jest.fn(() => ({ browsers: [], refusedToday: 0 })),
   linkedRooms: jest.fn(() => []),
   acceptOffer: jest.fn(),
   disconnectAll: jest.fn(),
@@ -689,6 +725,11 @@ export const remote = {
   pairingRequest: jest.fn(() => null),
   confirmPairing: jest.fn(() => false),
   cancelPairing: jest.fn(),
+};
+
+/** The activity delegates a screen test feeds its own answer through `withOverrides`. */
+export const activities = {
+  getFeedFilterBounds: jest.fn(),
 };
 
 /** The section delegates a screen test feeds its own answer through `withOverrides`. */
@@ -800,7 +841,11 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     EfficiencyDirection,
     FfiOffScale,
     FfiFollowStatus,
+    FfiRemoteSearchStatus,
+    FfiUnderPointKind,
+    FfiHoldCause,
     FfiFollowDirection,
+    FfiNearbyKind,
     SectionSort,
     LoadMetric,
     DayLoadStatus,
@@ -857,6 +902,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     strength,
     routes,
     detection,
+    activities,
     sections,
     remote,
     preview,

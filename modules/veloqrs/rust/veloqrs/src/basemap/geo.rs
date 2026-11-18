@@ -18,6 +18,8 @@ use rusqlite::Connection;
 use crate::GpsPoint;
 use crate::persistence::codec;
 use crate::persistence::route_lines::pooled::layer_with_generation;
+use crate::persistence::routes::follower::METRES_PER_DEGREE;
+use crate::persistence::under_point::Group;
 
 /// A path that is not `<kind>/<key>` with a key in the id alphabet.
 pub const BAD_PATH: u16 = 400;
@@ -66,12 +68,20 @@ pub fn geo_answer(path: &str) -> Result<Vec<u8>, u16> {
 /// The group the activities in no route are asked for under.
 const NO_ROUTE_GROUP: &str = "_";
 
-/// A tap and the group asked for under it, from `<lat_e6>_<lng_e6>_<zoom>_<group>`.
+/// What a route id follows in a group, so a route and a section of one id are
+/// two groups.
+const ROUTE_GROUP_PREFIX: &str = "route_";
+
+/// What a section id follows in a group.
+const SECTION_GROUP_PREFIX: &str = "section_";
+
+/// A tap and the group asked for under it, from `<lat_e6>_<lng_e6>_<zoom>_<group>`,
+/// where the group is `_`, `route_<id>` or `section_<id>`.
 struct UnderPointKey<'a> {
     latitude: f64,
     longitude: f64,
     zoom: u8,
-    group: Option<&'a str>,
+    group: Group<'a>,
 }
 
 /// The deepest zoom a tap is accepted at.
@@ -79,15 +89,24 @@ const MAX_TAP_ZOOM: u8 = 24;
 
 impl<'a> UnderPointKey<'a> {
     /// `None` for a key of another shape, a position off the globe, or a zoom
-    /// past [`MAX_TAP_ZOOM`]. A route id may hold underscores, so the group is
-    /// everything after the third one.
+    /// past [`MAX_TAP_ZOOM`]. A route or section id may hold underscores, so the
+    /// group is everything after the third one.
     fn parse(key: &'a str) -> Option<Self> {
         let mut parts = key.splitn(4, '_');
         let micro = |part: &str| part.parse::<i64>().ok();
         let latitude = micro(parts.next()?)?;
         let longitude = micro(parts.next()?)?;
         let zoom: u8 = parts.next()?.parse().ok()?;
-        let group = parts.next().filter(|group| !group.is_empty())?;
+        let group = parts.next()?;
+        let group = if group == NO_ROUTE_GROUP {
+            Group::NoRoute
+        } else if let Some(id) = group.strip_prefix(ROUTE_GROUP_PREFIX) {
+            Group::Route(Some(id).filter(|id| !id.is_empty())?)
+        } else if let Some(id) = group.strip_prefix(SECTION_GROUP_PREFIX) {
+            Group::Section(Some(id).filter(|id| !id.is_empty())?)
+        } else {
+            return None;
+        };
         if latitude.abs() > 90_000_000 || longitude.abs() > 180_000_000 || zoom > MAX_TAP_ZOOM {
             return None;
         }
@@ -95,7 +114,7 @@ impl<'a> UnderPointKey<'a> {
             latitude: latitude as f64 / MICRO,
             longitude: longitude as f64 / MICRO,
             zoom,
-            group: (group != NO_ROUTE_GROUP).then_some(group),
+            group,
         })
     }
 }
@@ -209,7 +228,8 @@ pub(crate) fn route_lines_collection(conn: &Connection) -> rusqlite::Result<Stri
 /// Each carries the section's `id`, `name` or null, `visitCount`,
 /// `distanceMeters` and `palette`, the colour key the routes use too, which
 /// the page reduces modulo its section palette. A section whose polyline does
-/// not decode, or that is left under two finite points, is left out.
+/// not decode, or that is left under two finite points, is left out. Each line
+/// is thinned by [`for_collection`]; a section's own read keeps the full one.
 pub(crate) fn sections_collection(conn: &Connection) -> String {
     sections_features(crate::persistence::screens::pooled::map_section_list(conn).iter())
 }
@@ -227,6 +247,7 @@ pub(crate) fn sections_features<'a>(
         if !has_line(&points) {
             continue;
         }
+        let points = for_collection(&points);
         if written > 0 {
             out.push(',');
         }
@@ -249,6 +270,35 @@ pub(crate) fn sections_features<'a>(
     }
     out.push_str("]}");
     out
+}
+
+/// The most a line drawn in a whole-collection layer may stray from the stored
+/// one, in metres: the order of the spacing between a route signature's
+/// vertices, so a section drawn among hundreds reads as the line it is.
+pub(crate) const COLLECTION_TOLERANCE_M: f64 = 10.0;
+
+/// The line a whole-collection layer draws for `points`: the finite points
+/// thinned by Douglas-Peucker to [`COLLECTION_TOLERANCE_M`], the first and last
+/// kept. The stored line stays the one a single section's detail draws.
+pub(crate) fn for_collection(points: &[GpsPoint]) -> Vec<GpsPoint> {
+    let finite: Vec<&GpsPoint> = finite(points).collect();
+    let Some(first) = finite.first() else {
+        return Vec::new();
+    };
+    let metres_per_lng = METRES_PER_DEGREE * first.latitude.to_radians().cos();
+    let laid_out: Vec<[f64; 2]> = finite
+        .iter()
+        .map(|p| {
+            [
+                (p.longitude - first.longitude) * metres_per_lng,
+                (p.latitude - first.latitude) * METRES_PER_DEGREE,
+            ]
+        })
+        .collect();
+    crate::persistence::line_simplify::simplify_indices(&laid_out, COLLECTION_TOLERANCE_M)
+        .into_iter()
+        .map(|index| finite[index].clone())
+        .collect()
 }
 
 /// The colours the page's section palette holds; a section's `colorIndex` is
@@ -520,7 +570,8 @@ pub(crate) fn section_version_feature(conn: &Connection, section_id: &str, versi
 /// activity's stored track at the portion's `start_index` to `end_index`
 /// inclusive, in the portion order the section detail lists them.
 ///
-/// Each carries `activityId`, `direction` and `distanceMeters`. A portion
+/// Each carries `activityId`, `direction` and `distanceMeters`, and its line is
+/// thinned by [`for_collection`]. A portion
 /// whose activity holds no track, or whose range does not lie in it, is left
 /// out and counted in the collection's `withoutTrack`. An unknown section is
 /// the empty collection.
@@ -539,6 +590,7 @@ pub(crate) fn section_passes_collection(conn: &Connection, section_id: &str) -> 
             without_track += 1;
             continue;
         };
+        let pass = for_collection(&pass);
         if written > 0 {
             features.push(',');
         }
@@ -735,6 +787,122 @@ mod tests {
             line_feature(&[GpsPoint::new(1.0, 2.0), GpsPoint::new(f64::NAN, 2.0)]),
             EMPTY_COLLECTION
         );
+    }
+
+    /// Metres to a degree of latitude, to place a fixture's points in metres.
+    const FIXTURE_METRES_PER_DEGREE: f64 = 111_320.0;
+
+    /// 300 points 10 m apart running north for 150 steps, then north-east for
+    /// 150, each with a 1 m sideways wobble: a 3 km line with one bend.
+    fn bent_line() -> Vec<GpsPoint> {
+        let origin = (46.2_f64, 7.3_f64);
+        let metres_per_lng = FIXTURE_METRES_PER_DEGREE * origin.0.to_radians().cos();
+        let (mut north, mut east) = (0.0_f64, 0.0_f64);
+        (0..300)
+            .map(|i| {
+                let wobble = if i % 2 == 0 { 0.5 } else { -0.5 };
+                let point = GpsPoint::new(
+                    origin.0 + north / FIXTURE_METRES_PER_DEGREE,
+                    origin.1 + (east + wobble) / metres_per_lng,
+                );
+                if i < 149 {
+                    north += 10.0;
+                } else {
+                    north += 10.0 * std::f64::consts::FRAC_1_SQRT_2;
+                    east += 10.0 * std::f64::consts::FRAC_1_SQRT_2;
+                }
+                point
+            })
+            .collect()
+    }
+
+    fn map_section(id: &str, points: &[GpsPoint]) -> crate::FfiMapSection {
+        crate::FfiMapSection {
+            id: id.into(),
+            name: None,
+            sport_types: vec!["Ride".into()],
+            visit_count: 3,
+            distance_meters: 3000.0,
+            klass: None,
+            max_grade_percent: None,
+            encoded_polyline: codec::encode_polyline(points),
+        }
+    }
+
+    fn metres_between(a: &GpsPoint, b: &GpsPoint) -> f64 {
+        let dy = (a.latitude - b.latitude) * FIXTURE_METRES_PER_DEGREE;
+        let dx =
+            (a.longitude - b.longitude) * FIXTURE_METRES_PER_DEGREE * a.latitude.to_radians().cos();
+        dx.hypot(dy)
+    }
+
+    /// Scenario: a section stored as 300 points along a 3 km line with one
+    /// bend, drawn in the whole-collection layer.
+    ///
+    /// Expected behaviour: at most a tenth of the vertices are written, the
+    /// end points and a vertex at the bend are kept, and the layer is under a
+    /// quarter of the bytes the full line takes.
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn the_section_collection_draws_a_simplified_line_that_keeps_ends_and_bend() {
+        let line = bent_line();
+        let text = sections_features([map_section("s_1", &line)].iter());
+
+        let value: serde_json::Value = serde_json::from_str(&text).expect("JSON");
+        let drawn: Vec<Vec<f64>> =
+            serde_json::from_value(value["features"][0]["geometry"]["coordinates"].clone())
+                .expect("positions");
+        assert!(drawn.len() <= 30, "{} vertices", drawn.len());
+        assert!(drawn.len() >= 3, "{} vertices", drawn.len());
+        let at = |p: &Vec<f64>| GpsPoint::new(p[1], p[0]);
+        assert!(metres_between(&at(&drawn[0]), &line[0]) < 0.5);
+        assert!(metres_between(&at(drawn.last().unwrap()), &line[299]) < 0.5);
+        assert!(
+            drawn
+                .iter()
+                .any(|p| metres_between(&at(p), &line[149]) <= COLLECTION_TOLERANCE_M),
+            "no vertex near the bend"
+        );
+
+        let full = line_feature(&line);
+        assert!(
+            text.len() * 4 < full.len(),
+            "{} against {}",
+            text.len(),
+            full.len()
+        );
+    }
+
+    /// Scenario: the line simplified for the collection is drawn again from
+    /// the cached list the phone also reads.
+    ///
+    /// Expected behaviour: simplifying a line already simplified changes
+    /// nothing, so the list and the layer agree.
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn simplifying_a_collection_line_twice_changes_nothing() {
+        let once = for_collection(&bent_line());
+        assert!(once.len() < 40);
+        let twice =
+            for_collection(&codec::decode_polyline(&codec::encode_polyline(&once)).unwrap());
+        assert_eq!(
+            codec::encode_polyline(&once),
+            codec::encode_polyline(&twice)
+        );
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn a_collection_line_of_two_points_or_a_straight_run_keeps_its_ends() {
+        assert!(for_collection(&[]).is_empty());
+        let two = [GpsPoint::new(46.2, 7.3), GpsPoint::new(46.21, 7.31)];
+        assert_eq!(for_collection(&two).len(), 2);
+        let with_nan = [
+            GpsPoint::new(46.2, 7.3),
+            GpsPoint::new(f64::NAN, 7.3),
+            GpsPoint::new(46.21, 7.31),
+        ];
+        assert_eq!(for_collection(&with_nan).len(), 2);
     }
 
     fn route<'a>(

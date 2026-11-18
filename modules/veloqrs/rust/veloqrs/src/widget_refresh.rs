@@ -112,6 +112,31 @@ fn refresh_snapshot_within(
     refresh_open_engine(deadline)
 }
 
+/// A watch's nearby ask, answered with no JavaScript: the link's reply text for the read at the
+/// watch's own fix. The engine is opened when closed, and only over a database file that exists,
+/// so a phone that never ran the app answers None rather than an empty library. None also when
+/// the engine will not open, and the watch then keeps the last answer it holds.
+pub fn watch_nearby_native(
+    db_path: &str,
+    latitude: f64,
+    longitude: f64,
+    sport: &str,
+) -> Option<String> {
+    if !std::path::Path::new(db_path).is_file() {
+        log::warn!("[watch] a nearby ask found no database");
+        return None;
+    }
+    if let Err(e) = open_native_engine(db_path) {
+        log::warn!("[watch] a nearby ask could not open the engine: {e}");
+        return None;
+    }
+    crate::persistence::read_pool::with_read_conn(|conn| {
+        crate::persistence::nearby_routes::pooled::watch_nearby_json(
+            conn, latitude, longitude, sport,
+        )
+    })
+}
+
 /// Open the engine and set the credential, leaving both alone where the app
 /// already holds them.
 ///

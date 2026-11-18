@@ -22,6 +22,8 @@ export type {
 } from './Button';
 export { DirectionSwitch } from './DirectionSwitch';
 export type { DirectionSwitchProps, SwitchDirection } from './DirectionSwitch';
+export { SegmentedSwitch } from './SegmentedSwitch';
+export type { SegmentedSwitchOption, SegmentedSwitchProps } from './SegmentedSwitch';
 export { SelectButton, selectLabel } from './SelectButton';
 export type { SelectButtonProps, SelectOption } from './SelectButton';
 export {

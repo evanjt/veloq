@@ -6,8 +6,8 @@
 import type { MapSurfaceSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
 
 import type { LatLng } from '../fit';
-import type { PageBase } from './style';
-import { COMPARE_COLOURS, type LngLat } from './activityLayers';
+import { pagePalette, type PageBase } from './style';
+import { compareColoursOn, type LngLat } from './activityLayers';
 import type { Span } from '../sectionBounds';
 import { sectionDetailSpec } from './routeLayers';
 
@@ -35,6 +35,7 @@ const ROUND = { 'line-cap': 'round', 'line-join': 'round' } as const;
 
 /** The spec with each stored version's line drawn dashed beneath the section's own line. */
 function withVersions(
+  base: PageBase,
   spec: MapSurfaceSpec,
   sectionId: string,
   versions: readonly number[]
@@ -54,7 +55,7 @@ function withVersions(
       source: id,
       layout: { ...ROUND },
       paint: {
-        'line-color': COMPARE_COLOURS['line-1'] ?? '#3a86ff',
+        'line-color': compareColoursOn(base)['line-1'],
         'line-width': 4,
         'line-opacity': 0.8,
         'line-dasharray': [1, 1.5],
@@ -81,6 +82,7 @@ export function sectionMapSpec(
   versions: readonly number[] = []
 ): MapSurfaceSpec {
   const spec = withVersions(
+    base,
     sectionDetailSpec(base, sectionId, hoveredActivity, selected),
     sectionId,
     versions
@@ -100,7 +102,7 @@ export function sectionMapSpec(
         source: 'candidates',
         layout: { ...ROUND },
         paint: {
-          'line-color': COMPARE_COLOURS['line-3'] ?? '#66a182',
+          'line-color': compareColoursOn(base)['line-3'],
           'line-width': 3,
           'line-opacity': 0.8,
           'line-dasharray': [2, 1],
@@ -112,7 +114,7 @@ export function sectionMapSpec(
         source: 'candidates',
         layout: { ...ROUND },
         filter: ['==', ['get', 'id'], litCandidate ?? ''],
-        paint: { 'line-color': COMPARE_COLOURS['line-2'] ?? '#edae49', 'line-width': 6 },
+        paint: { 'line-color': compareColoursOn(base)['line-2'], 'line-width': 6 },
       },
     ],
     interactiveLayers: [...(spec.interactiveLayers ?? []), 'candidates'],
@@ -150,7 +152,11 @@ const lineOf = (positions: readonly LngLat[]): GeoJSON.FeatureCollection => ({
  * The spec with the editor's lines over it: the track the ends can reach, faint, and the part
  * they keep, strong. The section's own line and its passes stay beneath them.
  */
-export function boundsEditorSpec(spec: MapSurfaceSpec, view: BoundsEditorView): MapSurfaceSpec {
+export function boundsEditorSpec(
+  spec: MapSurfaceSpec,
+  view: BoundsEditorView,
+  base: PageBase
+): MapSurfaceSpec {
   return {
     ...spec,
     sources: {
@@ -165,14 +171,14 @@ export function boundsEditorSpec(spec: MapSurfaceSpec, view: BoundsEditorView): 
         type: 'line',
         source: 'bounds-window',
         layout: { ...ROUND },
-        paint: { 'line-color': '#888888', 'line-width': 4, 'line-opacity': 0.7 },
+        paint: { 'line-color': pagePalette(base).muted, 'line-width': 4, 'line-opacity': 0.7 },
       },
       {
         id: 'bounds-kept',
         type: 'line',
         source: 'bounds-kept',
         layout: { ...ROUND },
-        paint: { 'line-color': COMPARE_COLOURS['line-0'] ?? '#d1495b', 'line-width': 6 },
+        paint: { 'line-color': compareColoursOn(base)['line-0'], 'line-width': 6 },
       },
     ],
   };

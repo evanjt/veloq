@@ -188,6 +188,7 @@ describe('ciAreas', () => {
   it.each([
     'widget/ios/Widget.swift',
     'push/android/Receiver.kt',
+    'watch/ios/Shell.swift',
     'ios/Podfile',
     'src/plugins/withLantern.js',
   ])('reads %s as native', (path) => {

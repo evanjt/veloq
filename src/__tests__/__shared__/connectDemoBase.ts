@@ -6,6 +6,8 @@
 
 import { deflateSync } from 'node:zlib';
 
+import { mapPalette, type MapBase } from '@/theme/palette';
+
 import type { Methods } from '../../../web/connect/schema';
 
 export type Result<M extends keyof Methods> = Methods[M]['result'];
@@ -265,9 +267,16 @@ function crc32(data: Buffer): number {
   return ~crc >>> 0;
 }
 
-/** A 256 px tile of soft orange blotches on transparency, which the heatmap layer overlays. */
-export function heatTilePng(): string {
+/** The colour of a `#RRGGBB` token as its three bytes. */
+function bytesOf(hex: string): [number, number, number] {
+  const value = Number.parseInt(hex.slice(1), 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+
+/** A 256 px tile of soft blotches on transparency, painted in the heat ramp of `base`, which the heatmap layer overlays. */
+export function heatTilePng(base: MapBase): string {
   const size = 256;
+  const ramp = mapPalette(base).heat.map(bytesOf);
   const raw = Buffer.alloc(size * (1 + size * 4));
   const spots = [
     [70, 90, 60],
@@ -283,10 +292,15 @@ export function heatTilePng(): string {
         heat = Math.max(heat, 1 - Math.hypot(x - cx, y - cy) / (r as number));
       }
       const at = row + 1 + x * 4;
-      raw[at] = 255;
-      raw[at + 1] = Math.round(120 + 100 * heat);
-      raw[at + 2] = 40;
-      raw[at + 3] = heat > 0 ? Math.round(200 * heat) : 0;
+      if (heat > 0) {
+        const [red, green, blue] = ramp[
+          Math.min(ramp.length - 1, Math.floor(heat * ramp.length))
+        ] as [number, number, number];
+        raw[at] = red;
+        raw[at + 1] = green;
+        raw[at + 2] = blue;
+        raw[at + 3] = Math.round(200 * heat);
+      }
     }
   }
   const chunk = (type: string, data: Buffer) => {
@@ -313,7 +327,7 @@ export function heatTilePng(): string {
 
 export const withTrack = ACTIVITIES.filter((a) => a.route !== null);
 
-function card(a: DemoActivity): Result<'feed.page'>['cards'][number] {
+export function card(a: DemoActivity): Result<'feed.page'>['cards'][number] {
   return {
     id: a.id,
     intervalsWebId: a.id,
@@ -335,10 +349,18 @@ function card(a: DemoActivity): Result<'feed.page'>['cards'][number] {
     hasAltitude: a.sport.gps,
     syncFailure: null,
     stub: 'notStub',
+    heatmapHidden: false,
   };
 }
 
 export const newestFirst = [...ACTIVITIES].reverse();
+
+/** The track preview the feed draws beside a card, none for an activity with no route. */
+export function previewOf(a: DemoActivity): Result<'feed.page'>['previews'][number] | null {
+  return a.route === null
+    ? null
+    : { activityId: a.id, encodedCoords: encodeTrack(LOOPS[a.route] ?? []) };
+}
 
 export const FEED: Result<'feed.page'> = {
   cards: newestFirst.slice(0, 60).map(card),
@@ -346,8 +368,9 @@ export const FEED: Result<'feed.page'> = {
   hasMore: ACTIVITIES.length > 60,
   previews: newestFirst
     .slice(0, 60)
-    .filter((a) => a.route !== null)
-    .map((a) => ({ activityId: a.id, encodedCoords: encodeTrack(LOOPS[a.route as number] ?? []) })),
+    .map(previewOf)
+    .filter((preview) => preview !== null),
+  rows: [],
   familyCounts: (['ride', 'run', 'water', 'foot', 'strength'] as const)
     .map((family) => ({
       family,
@@ -438,6 +461,7 @@ export const SUMMARY: Result<'feed.summary'> = {
     lookbackDays: 90,
     sampleCount: 2,
     history: [],
+    historyDays: [],
     changes: [],
   },
   runPaceTrend: emptyPace(),
@@ -470,32 +494,35 @@ const SPARKS: Result<'feed.sparklines'> = {
   fitnessRiseDays: [],
 };
 
-/** The points of an activity's track: its route's loop, nudged a little so no two passes overlap exactly. */
+/** How many samples an activity's streams and its track hold. */
+const sampleCount = (a: DemoActivity) => (LOOPS[a.route ?? 0] ?? []).length * 4;
+
+/** The points of an activity's track, one for each stream sample: its route's loop, nudged a little so no two passes overlap exactly. */
 export function trackOf(a: DemoActivity): [number, number][] {
   const line = LOOPS[a.route ?? 0] ?? [];
   const nudge = (Number(a.id.slice(1)) % 7) - 3;
-  return line.map(([la, lo]) => [la + nudge * 0.00004, lo - nudge * 0.00005]);
-}
-
-/** The streams of one activity: a lap of its route with the effort rising and falling. */
-export function streams(a: DemoActivity): Result<'activity.streams'> {
-  const line = trackOf(a);
-  const count = line.length * 4;
-  const at = (index: number) => {
+  const count = sampleCount(a);
+  return Array.from({ length: count }, (_, index) => {
     const t = index / (count - 1);
     const p = (t * (line.length - 1)) | 0;
     const q = Math.min(line.length - 1, p + 1);
     const f = t * (line.length - 1) - p;
     const [la, lo] = line[p] as [number, number];
     const [lb, lc] = line[q] as [number, number];
-    return [la + (lb - la) * f, lo + (lc - lo) * f] as [number, number];
-  };
+    return [la + (lb - la) * f + nudge * 0.00004, lo + (lc - lo) * f - nudge * 0.00005];
+  });
+}
+
+/** The streams of one activity: a lap of its route with the effort rising and falling. */
+export function streams(a: DemoActivity): Result<'activity.streams'> {
+  const track = trackOf(a);
+  const count = track.length;
   const series = (fn: (t: number) => number) =>
     doubles(Array.from({ length: count }, (_, i) => fn(i / (count - 1))));
   const outdoor = a.sport.gps;
   const speed = a.distance / Math.max(1, a.seconds);
   return {
-    latlng: outdoor ? encodeTrack(Array.from({ length: count }, (_, i) => at(i))) : '',
+    latlng: outdoor ? encodeTrack(track) : '',
     time: series((t) => t * a.seconds),
     altitude: outdoor
       ? series((t) => 420 + 90 * Math.sin(t * Math.PI * 4) + 30 * Math.sin(t * 17))
@@ -609,6 +636,12 @@ export function routeGroups(): Result<'routes.screen'>['groups'] {
   }));
 }
 
+/** The auto sections the athlete has not accepted yet: the last loops, which the review queue holds. */
+const AWAITING_REVIEW = 3;
+
+/** Whether the athlete has accepted the auto section at `index`; an accepted one is user-defined. */
+const isAccepted = (index: number) => index < LOOPS.length - AWAITING_REVIEW;
+
 export function sectionRows(): Result<'routes.screen'>['sections'] {
   return LOOPS.map((line, index) => {
     const part = line.slice(10, 40);
@@ -624,7 +657,7 @@ export function sectionRows(): Result<'routes.screen'>['sections'] {
       bounds: bounds(part),
       encodedPolyline: encodeTrack(part),
       sportTypes: [ROUTE_SPORT[index] ?? 'Ride'],
-      isUserDefined: false,
+      isUserDefined: isAccepted(index),
       disabled: false,
       supersededBy: null,
       elevationGainM: 40 + index * 25,
@@ -655,8 +688,8 @@ const ROUTES: Result<'routes.screen'> = {
   groupsHold: null,
   filteredGroupCount: LOOPS.length,
   filteredSectionCount: LOOPS.length,
-  unacceptedAutoCount: 0,
-  acceptedAutoCount: LOOPS.length,
+  unacceptedAutoCount: AWAITING_REVIEW,
+  acceptedAutoCount: LOOPS.length - AWAITING_REVIEW,
   customCount: 0,
   removedCount: 0,
   ledgerRetiredCount: 0,
@@ -751,6 +784,9 @@ function fitnessScreen(): Result<'fitness.screen'> {
         date: Math.floor((LIBRARY_END - (89 - n) * DAY) / 1000),
         value: 240 + Math.round(12 * (n / 89) + 3 * Math.sin(n / 5)),
       })),
+      historyDays: Array.from({ length: 90 }, (_, n) =>
+        new Date(LIBRARY_END - (89 - n) * DAY).toISOString().slice(0, 10)
+      ),
     },
     ftpTrendCoverage: 'loaded',
     runPaceTrend: emptyPace(),
@@ -783,11 +819,13 @@ function fitnessScreen(): Result<'fitness.screen'> {
       activityId: a.id,
       name: a.name,
       sportType: a.sport.type,
+      family: a.sport.family,
       startDateLocal: isoLocal(a.start),
       movingTime: a.seconds,
       distance: a.distance,
       load: a.load,
     })),
+    loadTrend: null,
     weeklyHours: demoWeeklyHours(),
     heatmap: LOADS.map((day) => {
       const inside = ACTIVITIES.filter((a) => isoLocal(a.start).startsWith(day.date));
@@ -837,30 +875,48 @@ function powerCurve(): Result<'fitness.powerCurve'> {
   };
 }
 
+/** Every day of wellness the library holds: a slow trend under a day's own scatter, with sleep and weight that vary. */
+function wellnessDays(): Result<'fitness.wellness'>['days'] {
+  const noise = generator(20_261_108);
+  const scatter = (spread: number) => (noise.next() - 0.5) * 2 * spread;
+  return LOADS.map((day, at) => ({
+    date: day.date,
+    ctl: day.fitness,
+    atl: day.fatigue,
+    rampRate: at > 7 ? day.fitness - (LOADS[at - 7] as (typeof LOADS)[number]).fitness : null,
+    hrv: 58 + (at / LOADS.length) * 6 + Math.sin(at / 9) * 3 + scatter(5),
+    restingHr: 49 - (at / LOADS.length) * 3 + Math.cos(at / 11) * 1.5 + scatter(1.8),
+    weight: 72.4 - (at / LOADS.length) * 1.1 + scatter(0.35),
+    sleepSecs: Math.round((7.1 + scatter(0.9) + (day.load > 100 ? 0.3 : 0)) * 3600),
+    sleepScore: Math.round(78 + scatter(9)),
+    soreness: null,
+    fatigue: null,
+    stress: null,
+    mood: null,
+    motivation: null,
+    sportLoad: [],
+    source: null,
+  }));
+}
+
+/** What the engine sends for form: rounded fitness less rounded fatigue, in absolute TSB. */
+const formOfDay = (day: { ctl: number | null; atl: number | null }) =>
+  day.ctl === null || day.atl === null ? null : Math.round(day.ctl) - Math.round(day.atl);
+
+const WELLNESS_DAYS = wellnessDays();
+
+export const WELLNESS = {
+  days: WELLNESS_DAYS,
+  coverage: 'loaded',
+  form: WELLNESS_DAYS.map(formOfDay),
+  formAsPercent: false,
+  formZoneEdges: [-30, -10, 5, 25],
+} satisfies Result<'fitness.wellness'>;
+
 function fitnessAnswers() {
   return {
     'fitness.screen': fitnessScreen(),
-    'fitness.wellness': {
-      days: LOADS.map((day, at) => ({
-        date: day.date,
-        ctl: day.fitness,
-        atl: day.fatigue,
-        rampRate: at > 7 ? day.fitness - (LOADS[at - 7] as (typeof LOADS)[number]).fitness : null,
-        hrv: 60 + Math.sin(at / 5) * 7,
-        restingHr: 47 + Math.cos(at / 6) * 2,
-        weight: 71.4,
-        sleepSecs: 7.2 * 3600,
-        sleepScore: 80,
-        soreness: null,
-        fatigue: null,
-        stress: null,
-        mood: null,
-        motivation: null,
-        sportLoad: [],
-        source: null,
-      })),
-      coverage: 'loaded',
-    } satisfies Result<'fitness.wellness'>,
+    'fitness.wellness': WELLNESS,
     'fitness.loads': {
       days: LOADS.map((day) => ({
         date: day.date,
@@ -868,6 +924,7 @@ function fitnessAnswers() {
         total: day.load > 0 ? day.load : null,
         activityCount: ACTIVITIES.filter((a) => isoLocal(a.start).startsWith(day.date)).length,
       })),
+      total: LOADS.reduce((sum, day) => sum + day.load, 0),
     } satisfies Result<'fitness.loads'>,
     'fitness.zones': {
       seconds: [41_000, 118_000, 52_000, 21_000, 8_000, 2_000, 600],
@@ -965,7 +1022,13 @@ function insights(): Result<'insights.data'> {
     efficiencyTrends: [],
     hasStrengthData: false,
     strengthSeries: null,
-    form: { date: lastDay.date, ctl: lastDay.fitness, atl: lastDay.fatigue },
+    form: {
+      date: lastDay.date,
+      ctl: lastDay.fitness,
+      atl: lastDay.fatigue,
+      form: formOfDay({ ctl: lastDay.fitness, atl: lastDay.fatigue }),
+      formAsPercent: false,
+    },
     weekOverWeek: {
       metric: 'tss',
       current: week.totalTss,
@@ -990,8 +1053,8 @@ export function baseResults() {
     'feed.summary': SUMMARY,
     'feed.sparklines': SPARKS,
     'map.screen': MAP,
-    'geo.routeLines': { text: routeLines() },
-    'geo.sections': { text: sectionLines() },
+    'geo.routeLines': { text: routeLines(), packedLine: null },
+    'geo.sections': { text: sectionLines(), packedLine: null },
     'heatmap.progress': { processed: ACTIVITIES.length, total: ACTIVITIES.length },
     'routes.screen': ROUTES,
     'settings.get': SETTINGS,
@@ -1047,7 +1110,7 @@ export function baseResults() {
       backfillDayShare: null,
       garminPull: null,
       downloadsHeldUntilMs: null,
-      downloadsHeldByUpstream: false,
+      downloadsHeldCause: null,
       dailyLimit: null,
       passRecountRunning: false,
       stagedHistory: null,

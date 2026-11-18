@@ -155,6 +155,7 @@ const START: StrengthStartData = {
     },
   ],
   workouts: [{ id: 'saved-1', name: 'Push day', exerciseCount: 4, setCount: 12 }],
+  removed: [],
 };
 
 const BENCH_AND_ROW = session([
@@ -212,6 +213,31 @@ describe('the start screen', () => {
       { kind: 'Workout', id: 'saved-1' },
       expect.any(Number)
     );
+  });
+
+  it('lists a removed workout and restores it once, then shows it among the saved ones', () => {
+    const removedRow = { id: 'gone-1', name: 'Legs', exerciseCount: 3, setCount: 9 };
+    strength.getStrengthStartData
+      .mockReturnValueOnce({ ...START, workouts: [], removed: [removedRow] })
+      .mockReturnValueOnce({ ...START, workouts: [removedRow], removed: [] });
+    renderRecorder();
+
+    expect(screen.getByText('strength.recorder.removedWorkouts')).toBeTruthy();
+    expect(screen.getByText('Legs')).toBeTruthy();
+    expect(screen.queryByTestId('strength-start-workout-0')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('strength-start-removed-restore-0'));
+
+    expect(strength.recoverStrengthWorkout).toHaveBeenCalledTimes(1);
+    expect(strength.recoverStrengthWorkout).toHaveBeenCalledWith('gone-1');
+    expect(screen.queryByText('strength.recorder.removedWorkouts')).toBeNull();
+    expect(screen.getByTestId('strength-start-workout-0')).toBeTruthy();
+  });
+
+  it('offers no removed section when nothing was removed', () => {
+    renderRecorder();
+
+    expect(screen.queryByText('strength.recorder.removedWorkouts')).toBeNull();
   });
 
   it('starts empty from the blank button', () => {

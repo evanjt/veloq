@@ -43,7 +43,7 @@ if [ -z "${VELOQ_DEVICE_LOCK_HELD:-}" ]; then
 fi
 
 
-FROM_RELEASE="${FROM_RELEASE:-0.3.8}"
+FROM_RELEASE="${FROM_RELEASE:-0.4.1}"
 REPO="${REPO:-evanjt/veloq}"
 NEW_APK="${NEW_APK:-}"
 APP_ID="${APP_ID:-com.veloq.app}"

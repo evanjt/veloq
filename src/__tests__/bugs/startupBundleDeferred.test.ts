@@ -8,7 +8,8 @@
  * Expected behaviour: no engine call happens during render, several events
  * arriving before the deferred read runs cost one call rather than one each,
  * the last bundle stays on screen while the next read is pending, and the
- * record carries the summary card, preview tracks, sparklines and ring state.
+ * record carries the summary card, preview tracks, sparklines and the search
+ * offer, which is each thing the feed draws from it.
  */
 
 import { act, renderHook } from '@testing-library/react-native';
@@ -43,6 +44,7 @@ function bundle(previewIds: string[]) {
   return {
     summaryCard: SUMMARY_CARD,
     previewTracks: previewIds.map((id) => ({ activityId: id, encodedCoords: new Uint8Array([1]) })),
+    remoteSearch: false,
   };
 }
 
@@ -131,18 +133,22 @@ describe('useStartupData', () => {
     expect(result.current.data).toBe(first);
   });
 
-  vaultIt('carries the summary card, preview tracks and sparklines, and nothing else', async () => {
-    const { result } = await renderHook(() => useStartupData([]));
-    await flushInteractions();
+  vaultIt(
+    'carries the summary card, preview tracks, sparklines and the search offer, and nothing else',
+    async () => {
+      const { result } = await renderHook(() => useStartupData([]));
+      await flushInteractions();
 
-    expect(engine.getStartupData).toHaveBeenCalledTimes(1);
-    expect(result.current.data?.previewTracks.size).toBe(0);
-    expect(Object.keys(result.current.data ?? {}).sort()).toEqual([
-      'previewTracks',
-      'sparklines',
-      'summaryCardData',
-    ]);
-  });
+      expect(engine.getStartupData).toHaveBeenCalledTimes(1);
+      expect(result.current.data?.previewTracks.size).toBe(0);
+      expect(Object.keys(result.current.data ?? {}).sort()).toEqual([
+        'previewTracks',
+        'remoteSearch',
+        'sparklines',
+        'summaryCardData',
+      ]);
+    }
+  );
 
   vaultIt('makes no engine call once the feed has unmounted', async () => {
     const { unmount } = await renderHook(() => useStartupData(['a']));

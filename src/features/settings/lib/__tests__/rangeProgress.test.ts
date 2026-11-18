@@ -19,7 +19,7 @@ const t = ((key: string, opts?: Record<string, unknown>) =>
   opts ? `${key}:${JSON.stringify(opts)}` : key) as unknown as TFunction;
 
 function stage(step: TrackStep, percent: number, resumesAtMs?: number): TrackStage {
-  const base = { step, completed: 0, total: 0, percent, heldByUpstream: false };
+  const base = { step, completed: 0, total: 0, percent };
   return resumesAtMs === undefined ? base : { ...base, resumesAtMs };
 }
 

@@ -79,7 +79,10 @@ pub(crate) mod deep_tiles;
 pub(crate) mod empty_reason;
 pub(crate) mod export;
 pub(crate) mod file_lock;
+pub mod file_track_checks;
+pub use file_track_checks::FileTrackCheck;
 pub mod garmin_link;
+pub mod library_export;
 pub mod originals;
 pub use export::{
     BulkExportFormat, BulkExportResult, ExportPrivacyPreview, GeoJsonFeature, SuggestedHome,
@@ -92,6 +95,8 @@ pub mod linked_devices;
 pub mod memory;
 pub mod open_run;
 pub(crate) use memory::release_connection_memory;
+pub mod guide_payload;
+pub(crate) mod line_simplify;
 #[cfg(feature = "lock-trace")]
 pub mod lock_trace;
 pub(crate) mod nearby_routes;
@@ -289,15 +294,20 @@ pub struct MapActivityComplete {
     /// Where the ride began, for the marker. `None` leaves the caller the
     /// bounds centre, which is where every marker used to start out before the
     /// signatures finished loading and moved it.
+    /// Unit: degree.
     pub start_lat: Option<f64>,
+    /// Unit: degree.
     pub start_lng: Option<f64>,
     /// Start date as Unix timestamp (seconds since epoch)
+    /// Unit: epoch_second.
     pub date: f64,
     /// Activity name
     pub name: String,
     /// Total distance in meters
+    /// Unit: metre.
     pub distance: f64,
     /// Total duration in seconds (moving time)
+    /// Unit: second.
     pub duration: u32,
 }
 
@@ -907,6 +917,30 @@ pub fn walk_cache_size_background(base_path: String, walk: fn(&str) -> u64) -> C
     CacheSizeHandle { receiver: rx }
 }
 
+/// Handle for a background library export.
+pub struct LibraryExportHandle {
+    receiver: mpsc::Receiver<Result<library_export::LibraryExportResult, String>>,
+}
+
+impl LibraryExportHandle {
+    /// Block until the export finishes, returning its outcome.
+    pub fn recv_blocking(&self) -> Option<Result<library_export::LibraryExportResult, String>> {
+        self.receiver.recv().ok()
+    }
+
+    /// The outcome when the export has finished, `None` while it runs. A
+    /// thread that died without one is a failure.
+    pub fn try_result(&self) -> Option<Result<library_export::LibraryExportResult, String>> {
+        match self.receiver.try_recv() {
+            Ok(outcome) => Some(outcome),
+            Err(mpsc::TryRecvError::Empty) => None,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                Some(Err("Export thread died without a result".to_owned()))
+            }
+        }
+    }
+}
+
 /// Handle for a background bulk export.
 pub struct BulkExportHandle {
     receiver: mpsc::Receiver<Result<export::BulkExportResult, String>>,
@@ -1068,6 +1102,18 @@ fn current_sweep_scope() -> SweepScope {
 
 static NEXT_TILE_SWEEP_ID: AtomicU64 = AtomicU64::new(0);
 
+#[cfg(test)]
+thread_local! {
+    static SWEEPS_REGISTERED_HERE: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// How many sweeps the calling thread has registered, so a test counts the
+/// sweeps its own call took while other tests run beside it.
+#[cfg(test)]
+pub(crate) fn sweeps_registered_on_this_thread() -> u64 {
+    SWEEPS_REGISTERED_HERE.with(std::cell::Cell::get)
+}
+
 /// One sweep's place in [`TILE_SWEEPS`]. Dropping it takes that sweep's
 /// registration and leaves every sibling's, so a sweep that ends cannot make
 /// another unstoppable.
@@ -1094,6 +1140,8 @@ impl Drop for TileSweepRegistration {
 /// Register a sweep about to start. Hold the registration for as long as the
 /// sweep runs.
 pub fn register_tile_sweep() -> TileSweepRegistration {
+    #[cfg(test)]
+    SWEEPS_REGISTERED_HERE.with(|count| count.set(count.get() + 1));
     let id = NEXT_TILE_SWEEP_ID.fetch_add(1, Ordering::SeqCst);
     let token = CancelToken::new();
     if let Ok(mut sweeps) = TILE_SWEEPS.lock() {
@@ -4346,6 +4394,10 @@ fn whole_points(name: &str, coords: &[f64]) -> Result<(), VeloqError> {
 mod garmin_only_library_tests;
 
 #[cfg(test)]
+#[path = "tests/held_upstream_ids.rs"]
+mod held_upstream_ids_tests;
+
+#[cfg(test)]
 #[path = "tests/backfill_activity_metadata.rs"]
 mod backfill_activity_metadata_tests;
 
@@ -4390,6 +4442,10 @@ mod routes_screen_best_time;
 mod nearby_routes_tests;
 
 #[cfg(test)]
+#[path = "tests/guide_payload.rs"]
+mod guide_payload_tests;
+
+#[cfg(test)]
 #[path = "tests/nearby_routes_cost.rs"]
 mod nearby_routes_cost;
 
@@ -4404,6 +4460,10 @@ mod production_index_plans;
 #[cfg(test)]
 #[path = "tests/blocking_engine.rs"]
 mod blocking_engine;
+
+#[cfg(test)]
+#[path = "tests/library_export.rs"]
+mod library_export_tests;
 
 #[cfg(test)]
 mod tests {
@@ -5735,7 +5795,7 @@ pub(crate) mod commit_counter {
 
     use super::PersistentEngine;
 
-    pub(crate) fn watch(engine: &PersistentEngine) -> Arc<AtomicUsize> {
+    pub(crate) fn watch(engine: &mut PersistentEngine) -> Arc<AtomicUsize> {
         let commits = Arc::new(AtomicUsize::new(0));
         let seen = Arc::clone(&commits);
         engine

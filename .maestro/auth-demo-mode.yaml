@@ -41,6 +41,15 @@ tags:
     direction: DOWN
     timeout: 10000
 
+# Expanding the key section scrolls the card down, leaving the demo button
+# clipped at the top edge. Scroll back up until it is fully on screen.
+- scrollUntilVisible:
+    element:
+      id: "login-demo-button"
+    direction: UP
+    visibilityPercentage: 100
+    timeout: 10000
+
 # Test: Enter demo mode
 - tapOn:
     id: "login-demo-button"

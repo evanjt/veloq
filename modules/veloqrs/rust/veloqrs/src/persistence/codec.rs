@@ -591,6 +591,77 @@ pub fn encode_polyline(points: &[crate::GpsPoint]) -> Vec<u8> {
     out
 }
 
+/// Degrees to whole units in a packed line: 1e-5 degree, about 1.1 m.
+const PACKED_LINE_SCALE: f64 = 1e5;
+
+/// A line as one integer array for a client that parses a message and cannot decompress one:
+/// the point count, then 1 when elevation follows or 0 when it does not, then per point the
+/// latitude, longitude and, with elevation, the elevation in whole metres. The first point is
+/// absolute and every later one is its difference from the point before. A point with no
+/// elevation in a line that has some repeats the elevation before it.
+pub fn pack_line(points: &[crate::GpsPoint]) -> Vec<i32> {
+    let with_elevation = points.iter().any(|p| known_elevation(p).is_some());
+    let mut out = Vec::with_capacity(2 + points.len() * if with_elevation { 3 } else { 2 });
+    out.push(i32::try_from(points.len()).unwrap_or(i32::MAX));
+    out.push(i32::from(with_elevation));
+    let (mut lat, mut lng, mut ele) = (0i64, 0i64, 0i64);
+    for p in points {
+        let next_lat = (p.latitude * PACKED_LINE_SCALE).round() as i64;
+        let next_lng = (p.longitude * PACKED_LINE_SCALE).round() as i64;
+        out.push(packed_value(next_lat - lat));
+        out.push(packed_value(next_lng - lng));
+        (lat, lng) = (next_lat, next_lng);
+        if with_elevation {
+            let next_ele = known_elevation(p).map_or(ele, |e| e.round() as i64);
+            out.push(packed_value(next_ele - ele));
+            ele = next_ele;
+        }
+    }
+    out
+}
+
+// The packed line crosses the FFI as plain numbers, and a 64-bit integer would reach
+// TypeScript as a bigint, which JSON.stringify refuses. Coordinates at this scale and
+// metre elevations stay far inside 32 bits.
+fn packed_value(value: i64) -> i32 {
+    i32::try_from(value).unwrap_or(if value < 0 { i32::MIN } else { i32::MAX })
+}
+
+/// Read [`pack_line`] output back. `None` when the array is not one: a short header, a count
+/// that the values do not match, or a flag that is neither 0 nor 1.
+pub fn unpack_line(packed: &[i32]) -> Option<Vec<crate::GpsPoint>> {
+    let (&count, rest) = packed.split_first()?;
+    let (&flag, values) = rest.split_first()?;
+    let count = usize::try_from(count).ok()?;
+    let width = match flag {
+        0 => 2,
+        1 => 3,
+        _ => return None,
+    };
+    if values.len() != count.checked_mul(width)? {
+        return None;
+    }
+    let (mut lat, mut lng, mut ele) = (0i64, 0i64, 0i64);
+    Some(
+        values
+            .chunks_exact(width)
+            .map(|delta| {
+                lat = lat.saturating_add(i64::from(delta[0]));
+                lng = lng.saturating_add(i64::from(delta[1]));
+                let elevation = (width == 3).then(|| {
+                    ele = ele.saturating_add(i64::from(delta[2]));
+                    ele as f64
+                });
+                crate::GpsPoint {
+                    latitude: lat as f64 / PACKED_LINE_SCALE,
+                    longitude: lng as f64 / PACKED_LINE_SCALE,
+                    elevation,
+                }
+            })
+            .collect(),
+    )
+}
+
 /// Whether a stored track blob carries elevation on any point, read from the
 /// header of a quantised track without decoding a point. `None` for a
 /// container whose header does not say (a legacy one), which the caller
@@ -801,6 +872,55 @@ mod tests {
             longitude: lng,
             elevation: ele,
         }
+    }
+
+    /// Expected behaviour: a packed line reads back to the points within 1e-5 degree and 1 m,
+    /// a line with no elevation packs two values a point, a missing elevation repeats the one
+    /// before it, an empty line packs its header alone, and a foreign array reads as `None`.
+    #[test]
+    fn a_packed_line_reads_back_and_a_foreign_array_does_not() {
+        let line = [
+            pt(46.00001, 7.00002, Some(400.4)),
+            pt(46.00040, 6.99990, None),
+            pt(46.00100, 7.00100, Some(412.0)),
+        ];
+        let packed = pack_line(&line);
+        assert_eq!(&packed[..2], &[3, 1]);
+        let back = unpack_line(&packed).expect("a packed line");
+        assert_eq!(back.len(), 3);
+        for (b, l) in back.iter().zip(&line) {
+            assert!((b.latitude - l.latitude).abs() <= 1e-5);
+            assert!((b.longitude - l.longitude).abs() <= 1e-5);
+        }
+        assert_eq!(back[0].elevation, Some(400.0));
+        assert_eq!(back[1].elevation, Some(400.0));
+        assert_eq!(back[2].elevation, Some(412.0));
+
+        let flat = pack_line(&[pt(46.0, 7.0, None), pt(46.1, 7.1, None)]);
+        assert_eq!(flat.len(), 2 + 2 * 2);
+        assert!(
+            unpack_line(&flat)
+                .expect("a flat line")
+                .iter()
+                .all(|p| p.elevation.is_none())
+        );
+
+        assert_eq!(pack_line(&[]), vec![0, 0]);
+        assert_eq!(unpack_line(&[0, 0]).map(|p| p.len()), Some(0));
+
+        assert!(unpack_line(&[]).is_none());
+        assert!(unpack_line(&[1]).is_none());
+        assert!(
+            unpack_line(&[2, 0, 1, 1]).is_none(),
+            "count beyond the values"
+        );
+        assert!(
+            unpack_line(&[1, 0, 1, 1, 9]).is_none(),
+            "values beyond the count"
+        );
+        assert!(unpack_line(&[1, 2, 1, 1]).is_none(), "an unknown flag");
+        assert!(unpack_line(&[-1, 0]).is_none(), "a negative count");
+        assert!(unpack_line(&[i32::MAX, 1]).is_none(), "an absurd count");
     }
 
     /// Scenario: the store moves to the quantised codec while rows written by

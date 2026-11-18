@@ -180,6 +180,15 @@ fn drafted_workout(
 /// The saved workouts on any connection, last started first, then the ones
 /// never started, newest first, so a screen can read them on a pooled reader.
 pub(crate) fn saved_workouts(conn: &Connection) -> SqlResult<Vec<SavedWorkout>> {
+    workouts_of_kind(conn, SessionKind::Saved)
+}
+
+/// The removed workouts on any connection, in the order the saved ones list.
+pub(crate) fn removed_workouts(conn: &Connection) -> SqlResult<Vec<SavedWorkout>> {
+    workouts_of_kind(conn, SessionKind::Removed)
+}
+
+fn workouts_of_kind(conn: &Connection, kind: SessionKind) -> SqlResult<Vec<SavedWorkout>> {
     let mut statement = conn.prepare(
         "SELECT s.id, s.name, s.last_used_at, s.created_at,
                 (SELECT count(*) FROM strength_session_exercises e
@@ -187,12 +196,12 @@ pub(crate) fn saved_workouts(conn: &Connection) -> SqlResult<Vec<SavedWorkout>> 
                 (SELECT count(*) FROM strength_session_sets t
                   WHERE t.session_id = s.id)
          FROM strength_sessions s
-         WHERE s.kind = 'saved'
+         WHERE s.kind = ?1
          ORDER BY s.last_used_at IS NULL, s.last_used_at DESC,
                   s.created_at DESC, s.id",
     )?;
     statement
-        .query_map([], |row| {
+        .query_map([kind.as_str()], |row| {
             Ok(SavedWorkout {
                 id: row.get(0)?,
                 name: row.get::<_, Option<String>>(1)?.unwrap_or_default(),
@@ -306,8 +315,10 @@ impl PersistentEngine {
         let name = clean_name(name)?;
         known_exercises(&exercises)?;
         in_write_txn(&self.db, |_| {
-            if self.get_strength_session(id)?.is_some() {
-                return Ok(Err(SavedError::WorkoutExists(id.to_string())));
+            match self.get_strength_session(id)? {
+                Some(held) if held.kind == SessionKind::Removed => self.erase_session(id)?,
+                Some(_) => return Ok(Err(SavedError::WorkoutExists(id.to_string()))),
+                None => {}
             }
             let workout = drafted_workout(
                 id.to_string(),
@@ -359,23 +370,53 @@ impl PersistentEngine {
         })?
     }
 
-    /// Delete one saved workout and nothing else.
+    fn erase_session(&self, id: &str) -> SqlResult<()> {
+        for table in &SESSION_TABLES[1..] {
+            self.db
+                .execute(&format!("DELETE FROM {table} WHERE session_id = ?1"), [id])?;
+        }
+        self.db
+            .execute("DELETE FROM strength_sessions WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    /// Delete one saved workout and nothing else. The rows stay, marked
+    /// removed, so [`Self::recover_strength_workout`] brings it back.
     pub fn delete_strength_workout(&self, id: &str) -> Result<RemovedWorkout, SavedError> {
         in_write_txn(&self.db, |_| {
             let workout = match self.saved_workout(id) {
                 Ok(workout) => workout,
                 Err(error) => return Ok(Err(error)),
             };
-            for table in &SESSION_TABLES[1..] {
-                self.db
-                    .execute(&format!("DELETE FROM {table} WHERE session_id = ?1"), [id])?;
-            }
-            self.db
-                .execute("DELETE FROM strength_sessions WHERE id = ?1", [id])?;
+            self.db.execute(
+                "UPDATE strength_sessions SET kind = ?2 WHERE id = ?1",
+                rusqlite::params![id, SessionKind::Removed.as_str()],
+            )?;
             Ok(Ok(RemovedWorkout {
                 exercise_count: workout.exercises.len() as u32,
                 set_count: workout.exercises.iter().map(|e| e.sets.len() as u32).sum(),
             }))
+        })?
+    }
+
+    /// The deleted workouts the phone can still recover, as the start screen
+    /// lists saved ones.
+    pub fn removed_strength_workouts(&self) -> Result<Vec<SavedWorkout>, SavedError> {
+        Ok(removed_workouts(&self.db)?)
+    }
+
+    /// Bring a deleted workout back as it was, with its place in the list.
+    pub fn recover_strength_workout(&self, id: &str) -> Result<(), SavedError> {
+        in_write_txn(&self.db, |_| {
+            match self.get_strength_session(id)? {
+                Some(found) if found.kind == SessionKind::Removed => {}
+                _ => return Ok(Err(SavedError::NoSuchWorkout(id.to_string()))),
+            }
+            self.db.execute(
+                "UPDATE strength_sessions SET kind = ?2 WHERE id = ?1",
+                rusqlite::params![id, SessionKind::Saved.as_str()],
+            )?;
+            Ok(Ok(()))
         })?
     }
 }
@@ -461,6 +502,54 @@ mod tests {
             .save_strength_session(&finished("done-1", "local-1"))
             .unwrap();
         engine
+    }
+
+    #[test]
+    fn a_deleted_workout_is_recovered_on_the_phone_without_a_client_copy() {
+        let dir = TempDir::new().unwrap();
+        let engine = seeded(&dir);
+        let saved = engine
+            .save_strength_workout("done-1", "Leg day", NOW + 1)
+            .unwrap();
+        let before = engine.get_strength_session(&saved.id).unwrap().unwrap();
+        engine.delete_strength_workout(&saved.id).unwrap();
+        assert!(engine.list_strength_workouts().unwrap().is_empty());
+        assert_eq!(engine.removed_strength_workouts().unwrap().len(), 1);
+
+        engine.recover_strength_workout(&saved.id).unwrap();
+
+        assert_eq!(
+            engine.get_strength_session(&saved.id).unwrap().unwrap(),
+            before
+        );
+        assert_eq!(engine.list_strength_workouts().unwrap().len(), 1);
+        assert!(engine.removed_strength_workouts().unwrap().is_empty());
+        assert_eq!(
+            engine.recover_strength_workout(&saved.id).unwrap_err(),
+            SavedError::NoSuchWorkout(saved.id.clone())
+        );
+    }
+
+    #[test]
+    fn a_client_copy_restores_over_a_removed_workout() {
+        let dir = TempDir::new().unwrap();
+        let engine = seeded(&dir);
+        let saved = engine
+            .save_strength_workout("done-1", "Leg day", NOW + 1)
+            .unwrap();
+        engine.delete_strength_workout(&saved.id).unwrap();
+        engine
+            .restore_strength_workout(
+                &saved.id,
+                "Leg day",
+                saved.exercises.clone(),
+                saved.groups.clone(),
+                saved.created_at,
+                saved.last_used_at,
+            )
+            .unwrap();
+        assert_eq!(engine.list_strength_workouts().unwrap().len(), 1);
+        assert!(engine.removed_strength_workouts().unwrap().is_empty());
     }
 
     #[test]
@@ -808,23 +897,16 @@ mod tests {
                 set_count: 4
             }
         );
-        assert_eq!(engine.get_strength_session(&a.id).unwrap(), None);
+        assert_eq!(
+            engine.get_strength_session(&a.id).unwrap().unwrap().kind,
+            SessionKind::Removed
+        );
+        assert_eq!(engine.list_strength_workouts().unwrap().len(), 1);
         assert_eq!(engine.get_strength_session(&b.id).unwrap(), Some(b));
         assert_eq!(
             engine.get_strength_session("done-1").unwrap(),
             Some(finished("done-1", "local-1"))
         );
-        for table in &SESSION_TABLES[1..] {
-            let orphans: i64 = engine
-                .db
-                .query_row(
-                    &format!("SELECT count(*) FROM {table} WHERE session_id = ?1"),
-                    [&a.id],
-                    |r| r.get(0),
-                )
-                .unwrap();
-            assert_eq!(orphans, 0, "{table}");
-        }
         assert_eq!(
             engine.delete_strength_workout("done-1").unwrap_err(),
             SavedError::NoSuchWorkout("done-1".to_string())

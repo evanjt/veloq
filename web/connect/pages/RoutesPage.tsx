@@ -15,6 +15,8 @@ import { RoutesMap } from "../map/RoutesMap";
 import { HOVER_TRACK_MS, withAsked } from "../map/routeLayers";
 import { PassTable, type PassTableRow } from "../PassTable";
 import { useTableLabels } from "../tableLabels";
+import { filterCount } from "../ui/filterText";
+import { useFilterDraft, useLastAnswered } from "../useFilterDraft";
 import { pointsOf, sportMark, THUMB, trackShape } from "../preview";
 import {
   Button,
@@ -23,7 +25,6 @@ import {
   ChipGroup,
   DataTable,
   EmptyState,
-  SearchField,
   Select,
   Skeleton,
   type Column,
@@ -51,7 +52,7 @@ import {
   performanceAsk,
 } from "../routesDetail";
 import { useEdit } from "../useEdit";
-import { formatOrder, go, parseOrder, type Ordering, type Route } from "../router";
+import { formatOrder, go, parseOrder, write, type Ordering, type Route } from "../router";
 import { usePageName } from "../shell/pageName";
 import { useQueries, useReads } from "../useRead";
 import type { ReadError } from "../query";
@@ -94,9 +95,6 @@ const ACTIONS: Record<ListState["kind"], ParseKeys[]> = {
   routes: [],
   sections: ["connectPage.routes.actionMerge", "connectPage.routes.actionTrim"],
 };
-
-/** How long typing pauses before the search is asked of the phone. */
-const SEARCH_PAUSE_MS = 250;
 
 const DEFAULT_ORDER = { column: "date", descending: true } as const;
 
@@ -164,28 +162,20 @@ function ListColumn({
   onHover,
 }: {
   state: ListState;
-  read: { value: Screen | null; failed: boolean; error: ReadError | null };
+  read: { value: Screen | null; failed: boolean; error: ReadError | null; retry: () => void };
   onChange: (next: Partial<ListState>) => void;
   onHover: (id: string | null) => void;
 }) {
   const { t } = useTranslation();
   const tableLabels = useTableLabels();
   const sections = state.kind === "sections";
-  const [text, setText] = useState(state.search);
-
-  useEffect(() => {
-    if (text === state.search) return undefined;
-    const typing = setTimeout(
-      () => onChange({ search: text, selected: null }),
-      SEARCH_PAUSE_MS,
-    );
-    return () => clearTimeout(typing);
-    // `onChange` is a new function each render; the text and the address say what to write.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.search, text]);
+  const [draft, setDraft] = useFilterDraft(state.search, (search) =>
+    onChange({ search, selected: null })
+  );
+  const answered = useLastAnswered(read.value ?? undefined);
 
   const rows: Row[] = sections
-    ? (read.value?.sections ?? []).map((row) => ({
+    ? (answered?.sections ?? []).map((row) => ({
         id: row.id,
         name: row.name ?? t("connectPage.routes.unnamedSection"),
         distance: km(row.distanceMeters),
@@ -194,7 +184,7 @@ function ListColumn({
         sports: row.sportTypes.join(", "),
         polyline: row.encodedPolyline,
       }))
-    : (read.value?.groups ?? []).map((row) => ({
+    : (answered?.groups ?? []).map((row) => ({
         id: row.groupId,
         name: row.customName ?? t("connectPage.routes.unnamedRoute"),
         distance: km(row.distanceMeters),
@@ -203,12 +193,9 @@ function ListColumn({
         sports: row.sportTypes.join(", "),
         polyline: row.encodedPolyline,
       }));
-  const total = sections
-    ? read.value?.filteredSectionCount
-    : read.value?.filteredGroupCount;
-  const more = sections
-    ? read.value?.hasMoreSections
-    : read.value?.hasMoreGroups;
+  const total = sections ? answered?.filteredSectionCount : answered?.filteredGroupCount;
+  const held = sections ? answered?.sectionCount : answered?.groupCount;
+  const more = sections ? answered?.hasMoreSections : answered?.hasMoreGroups;
   const countSort = sections ? "visits" : "activities";
   const label = sections
     ? t("connectPage.routes.sections")
@@ -266,17 +253,6 @@ function ListColumn({
     <div id={`${state.kind}-list`} className="pane">
       <Card label={label}>
         <div className="filter-bar">
-          <SearchField
-            label={
-              sections
-                ? t("connectPage.routes.searchSections")
-                : t("connectPage.routes.searchRoutes")
-            }
-            clearLabel={t("connectPage.routes.searchHint")}
-            placeholder={t("connectPage.routes.searchHint")}
-            value={text}
-            onChange={setText}
-          />
           <Select
             label={t("connectPage.routes.sort")}
             value={state.sort}
@@ -303,16 +279,33 @@ function ListColumn({
           <Refused
             error={read.error}
             title={t("connectPage.routes.listFailed")}
+            onRetry={read.retry}
           />
-        ) : !read.value ? (
+        ) : !answered ? (
           <Skeleton label={t("connectPage.routes.reading")} />
-        ) : rows.length === 0 ? (
+        ) : rows.length === 0 && state.search.trim() === "" ? (
           <EmptyState title={t("connectPage.routes.shown", { count: 0 })} />
         ) : (
           <DataTable
             label={label}
             tableId={`${state.kind}-list`}
             labels={tableLabels}
+            filter={{
+              id: "search",
+              label: t(
+                sections
+                  ? "connectPage.filter.sections"
+                  : "connectPage.filter.routes",
+              ),
+              clearLabel: t("connectPage.filter.clear"),
+              value: draft,
+              onChange: setDraft,
+              count:
+                total === undefined || held === undefined
+                  ? null
+                  : filterCount(total, held),
+              countText: (count) => t("connectPage.filter.count", count),
+            }}
             marker={{
               header: null,
               cell: (row) => (
@@ -328,15 +321,17 @@ function ListColumn({
             }}
             onSort={(key) => onChange({ sort: key, selected: null })}
             selectedKey={state.selected}
-            onRowClick={(row) => onChange({ selected: row.id })}
+            rowAction="open"
+            href={(row) =>
+              write({
+                screen: sections ? "section" : "route",
+                id: row.id,
+                query: [],
+              })
+            }
             onRowHover={(row) => onHover(row?.id ?? null)}
           />
         )}
-        {total != null ? (
-          <p className="meta">
-            {t("connectPage.routes.shown", { count: total })}
-          </p>
-        ) : null}
         {more ? <p className="meta">{t("connectPage.routes.more")}</p> : null}
       </Card>
     </div>
@@ -616,6 +611,7 @@ function SectionPane({
       <Refused
         error={read.error}
         title={t("connectPage.routes.sectionFailed")}
+        onRetry={read.retry}
       />
     );
   if (!detail) return <Skeleton label={t("connectPage.routes.reading")} />;
@@ -835,7 +831,7 @@ function SectionHistoryPane({
       <Refused
         error={read.error}
         title={t("connectPage.routes.historyFailed")}
-        plain
+        onRetry={read.retry}
       />
     );
   if (!read.value) return null;

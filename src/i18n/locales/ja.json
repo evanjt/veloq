@@ -619,7 +619,7 @@
     "tracksMissing": {
       "title_one": "{{count}}件のルートを取得できませんでした",
       "title_other": "{{count}}件のルートを取得できませんでした",
-      "detail": "地図に表示されず、区間との照合もされていません。次の更新で再試行します。"
+      "detail": "ダウンロードを複数回試しましたが、完了しませんでした。「再試行」でもう一度取得します。"
     },
     "startupError": {
       "title": "アプリの一部を読み込めませんでした",
@@ -796,7 +796,9 @@
     "bulkExporting": "{{format}}生成中…",
     "bulkSharing": "共有シートを開いています…",
     "error": "GPXファイルのエクスポートに失敗しました。",
+    "fitError": "FITファイルのエクスポートに失敗しました。",
     "exporting": "エクスポート中…",
+    "fit": "FITをエクスポート",
     "gpx": "GPXをエクスポート",
     "gpxTrimmedAway": "エクスポートするものがありません。自宅付近のトリミングで、トラックがほとんど残りませんでした。",
     "failedTitle": "エクスポートに失敗しました",
@@ -807,6 +809,16 @@
     "shareUnavailable": "このデバイスではファイルを共有できません。"
   },
   "feed": {
+    "remote": {
+      "offer": "intervals.icuを検索",
+      "searching": "intervals.icuを検索中",
+      "heading": "intervals.icuにあり、この端末にはありません",
+      "notOnDevice": "この端末にはありません",
+      "none": "intervals.icuにこれ以上ありません",
+      "failed": "intervals.icuを検索できませんでした",
+      "capped": "名前での検索がintervals.icuの上限に達したため、ほかにも一致する項目がある可能性があります。名前を絞り込むと表示できます。",
+      "rowLabel": "{{name}}、{{facts}}、この端末にはありません"
+    },
     "activitiesCount_one": "{{count}}件のアクティビティ",
     "activitiesCount_other": "{{count}}件のアクティビティ",
     "failedToLoad": "アクティビティの読み込みに失敗しました",
@@ -816,6 +828,20 @@
       "last90Days": "過去90日",
       "thisYear": "今年",
       "lastYear": "昨年"
+    },
+    "filter": {
+      "show": "フィルターを表示",
+      "hide": "フィルターを隠す",
+      "clear": "{{filter}}を解除",
+      "date": "日付",
+      "dateFrom": "開始日",
+      "dateTo": "終了日",
+      "distance": "距離",
+      "distanceFrom": "最短距離",
+      "distanceTo": "最長距離",
+      "duration": "所要時間",
+      "durationFrom": "最短時間",
+      "durationTo": "最長時間"
     },
     "emptyLibrary": {
       "pausedTitle": "同期は一時停止中です",
@@ -1293,6 +1319,8 @@
     "oauthInterrupted": "サインインが中断されました。もう一度お試しください。",
     "oauthNeedsNetwork": "intervals.icu でのサインインにはネットワーク接続が必要です。接続してからもう一度お試しいただくか、後でサインインできる API キーをご利用ください。",
     "oauthProxyRefused": "サインインサービスがリクエストを受け付けませんでした。しばらくしてからもう一度お試しください。",
+    "intervalsBusy": "intervals.icu は現在混み合っています。{{time}} 以降にもう一度お試しください。",
+    "intervalsBusyShortly": "intervals.icu は現在混み合っています。しばらくしてからもう一度お試しください。",
     "oauthUnreachable": "サインインサービスに接続できませんでした。接続を確認して、もう一度お試しください。",
     "oauthInvalidCallback": "無効なOAuthコールバックURL",
     "oauthNotConfigured": "OAuthが設定されていません。代わりにAPIキーでログインしてください。",
@@ -1347,7 +1375,6 @@
     "emptyNoGpsHint": "室内、トレーナー、プールのセッションには描くルートがありません。",
     "loadingHeatmap": "ヒートマップを読み込んでいます…",
     "panelFold": "パネルを折りたたむ",
-    "panelOpen": "アクティビティパネルを開く",
     "panelBack": "一覧に戻る",
     "timelineFrom": "開始",
     "timelineTo": "終了"
@@ -1418,7 +1445,11 @@
     },
     "underPointRoute": "ルート {{number}}",
     "underPointNoRoute": "ルートなし",
-    "underPointDrawn": "{{total}}件中{{drawn}}件を描画"
+    "underPointDrawn": "{{total}}件中{{drawn}}件を描画",
+    "underPointCount": "タップ位置に{{count}}件",
+    "underPointFilterAll": "すべて",
+    "underPointOpenRoute": "ルート{{name}}を開く",
+    "underPointOpenSection": "セクション{{name}}を開く"
   },
   "metrics": {
     "activityCount": "アクティビティ",
@@ -1957,6 +1988,7 @@
     "setAsReferenceConfirm": "このアクティビティを基準にしますか？ラインはこのアクティビティに従い、「先行または遅れ」の表示はこれに対して時間を測ります。すべてのアクティビティとの一致が再計算され、一部が追加または削除される場合があります。",
     "setReferenceError": "リファレンスの設定に失敗しました。セクションまたはアクティビティが変更された可能性があります。もう一度お試しください。",
     "editBounds": "範囲を編集",
+    "sendToWatch": "ウォッチに送信",
     "showOnMap": "地図に表示",
     "pointsCount_one": "{{count}}ポイント",
     "pointsCount_other": "{{count}}ポイント",
@@ -2226,6 +2258,8 @@
     "storageOther": "その他",
     "mapCache": "マップキャッシュ",
     "sizeAtLeast": "{{size}}以上",
+    "watchLink": "ウォッチガイド",
+    "watchLinkDescription": "このスマートフォンからウォッチにセクションを送れます。ウォッチは指示を通知として表示します。",
     "permissions": "権限",
     "heatmapGeneration": "ヒートマップ",
     "heatmapDescription": "ヒートマップをこのデバイスに保存し、そのために容量を使用します。オフにすると、その容量が空きになります。",
@@ -2837,6 +2871,8 @@
       "startEmpty": "空のセッションを開始",
       "previousSessions": "過去のセッション",
       "savedWorkouts": "保存済みのワークアウト",
+      "removedWorkouts": "削除したワークアウト",
+      "restoreWorkout": "復元",
       "noHistory": "記録または同期したセッションがここに表示され、そこから開始できます。",
       "workoutSummary": "{{exercises}}種目、{{sets}}セット",
       "startFrom": "{{name}}から開始",
@@ -3127,6 +3163,7 @@
     "retryNow": "今すぐ再試行",
     "heldByUpstream": "intervals.icu から {{time}} まで待つよう求められています",
     "heldByBudget": "リクエスト上限に達しました。{{time}} まで待機します",
+    "heldForPool": "全員の同期を続けるため追いつき取得を一時停止中、{{time}} に再開",
     "pacedOnCaps_one": "intervals.icu の 1 日の上限により、完了まで{{count}}日以上",
     "pacedOnCaps_other": "intervals.icu の 1 日の上限により、完了まで{{count}}日以上",
     "headerRunning_one": "バックグラウンド処理 {{count}} 件を実行中",
@@ -3448,16 +3485,44 @@
     "notConnected": "未接続",
     "noChanges": "まだ変更はありません",
     "wrote": "{{browser}}: {{summary}}",
-    "manage": "リンク済みデバイスを管理"
+    "manage": "リンク済みデバイスを管理",
+    "howTitle": "Connectの仕組み",
+    "howLinked": "コードをスキャンすると、ブラウザは一度だけリンクされます。ブラウザは自分の鍵を保持し、Veloqが開いている間は自動で再接続します。",
+    "howPrivate": "データはこの電話からブラウザへ直接、エンドツーエンドで送られます。サーバーには保存されません。",
+    "howRelay": "リレーが中継するのは接続の設定だけです。データは通りません。",
+    "refusedToday_one": "連携していないブラウザからの接続要求を今日は{{count}}件拒否しました。",
+    "refusedToday_other": "連携していないブラウザからの接続要求を今日は{{count}}件拒否しました。",
+    "howAccess": "リンクは削除するまで続きます。リンク済みのブラウザはライブラリを読み取り、そのページに一覧された変更を行えます。",
+    "linkedOn": "{{date}}にリンク",
+    "connectedNow": "接続中",
+    "scope": "ライブラリを読み取り、下に一覧された変更を行えます。",
+    "connectionsTitle": "接続",
+    "noConnections": "接続はまだありません",
+    "thisNetwork": "このネットワーク",
+    "internet": "インターネット",
+    "changesTitle": "変更",
+    "kindTool": "コンピューターツール",
+    "clientOn": "{{os}}の{{browser}}",
+    "endReason": {
+      "closed": "終了",
+      "backgrounded": "Veloqがバックグラウンドに移動",
+      "switched_off": "オフにしました",
+      "removed": "削除済み",
+      "disconnected": "電話から切断",
+      "refused": "拒否"
+    },
+    "rename": "名前を変更",
+    "renameLabel": "名前"
   },
   "connectPage": {
     "undo": {
       "hidden": "ヒートマップから非表示にしました",
       "shown": "ヒートマップに表示しました",
+      "sectionsHidden": "区間を非表示にしました",
+      "sectionsShown": "区間を表示しました",
       "excluded": "アクティビティを除外しました",
       "included": "アクティビティを再び含めました",
-      "renamed": "名前を変更しました",
-      "workoutDeleted": "ワークアウトを削除しました"
+      "renamed": "名前を変更しました"
     },
     "title": "Veloq Connect",
     "language": "言語",
@@ -3478,7 +3543,8 @@
       "declined": "スマートフォンでリンクが拒否されました。",
       "removed": "このブラウザーはスマートフォンで削除されました。新しいコードをスキャンして、もう一度リンクしてください。",
       "unreachable": "ここからスマートフォンに接続できませんでした。両方を同じWi-Fiに接続し、新しいコードをスキャンしてください。",
-      "phoneLocked": "スマートフォンのロックを解除し、Veloqを開いて変更してください"
+      "phoneLocked": "スマートフォンのロックを解除し、Veloqを開いて変更してください",
+      "badId": "スマートフォンがそのリクエストを受け付けませんでした。もう一度お試しください。"
     },
     "screens": {
       "fitness": "フィットネス",
@@ -3495,7 +3561,8 @@
       "expand": "サイドバーを開く",
       "breadcrumb": "現在の位置",
       "search": "検索",
-      "account": "アカウント"
+      "account": "アカウント",
+      "skipToContent": "コンテンツへスキップ"
     },
     "yourPhone": "お使いのスマートフォン",
     "laterScreen": "この画面はまだブラウザーにありません。スマートフォンで開いてください。",
@@ -3521,23 +3588,20 @@
     },
     "update": {
       "heading": "スマートフォンのVeloqを更新してください",
-      "body": "このページとスマートフォンのVeloqで、リンクのバージョンが一致していません。スマートフォンのVeloqを更新してから、このページを開き直してください。",
-      "screen": "表示するには、スマートフォンの Veloq を更新してください"
+      "body": "このページとスマートフォンのVeloqで、リンクのバージョンが一致していません。スマートフォンのVeloqを更新してから、このページを開き直してください。"
     },
     "keys": {
-      "heading": "キー",
-      "tabs": "フィード、フィットネス、インサイト、マップ、設定",
-      "search": "フィードを検索",
+      "heading": "キーボードショートカット",
+      "search": "検索を開く",
       "close": "アクティビティを閉じる",
       "list": "この一覧",
-      "range": "1〜5",
       "control": "Ctrl",
       "shell": "すべての画面",
       "page": "このページ",
       "palette": "コマンドパレットを開く",
-      "chord": "ページへ移動: フィード、マップ、ルート、区間、フィットネス、インサイト、筋トレ、ワークアウト、記録、設定",
       "step": "前後のアクティビティ",
-      "open": "選択したアクティビティを開く"
+      "open": "選択したアクティビティを開く",
+      "pages": "ページに移動"
     },
     "library": {
       "activities": "アクティビティ",
@@ -3546,6 +3610,12 @@
       "pick": "アクティビティを選択",
       "loadMore": "さらに読み込む",
       "sportLabel": "スポーツ",
+      "distance": "距離 ({{unit}})",
+      "distanceMin": "最短距離 ({{unit}})",
+      "distanceMax": "最長距離 ({{unit}})",
+      "duration": "所要時間",
+      "durationMin": "最短所要時間（分）",
+      "durationMax": "最長所要時間（分）",
       "summary": "サマリー",
       "fitnessTrend": "過去30日間のフィットネス",
       "range": "期間",
@@ -3617,11 +3687,14 @@
       "sections": "セクション",
       "routes": "ルート",
       "intervals": "インターバル",
-      "hideFromHeatmap": "ヒートマップから非表示",
       "showOnHeatmap": "ヒートマップに表示",
       "actions": "アクティビティの操作",
       "exportGpx": "GPX を書き出す",
       "openOnIntervals": "intervals.icu で開く",
+      "more": "その他",
+      "manage": "管理",
+      "manageHeatmap": "ヒートマップ",
+      "manageHint": "ルートまたはセクションをオフにすると、このアクティビティが対象から外れます。元に戻すと戻ります。",
       "noTrack": "このアクティビティには GPS トラックがありません。",
       "colourBy": "トラックの色分けの基準",
       "colourNone": "単色",
@@ -3661,7 +3734,16 @@
         "energy": "エネルギー",
         "conditions": "条件",
         "newGround": "新しい道"
-      }
+      },
+      "createSection": "区間を作成",
+      "createHint": "グラフ上で範囲を選択するか、地図上でコースに沿って両端をドラッグするか、距離を入力します。Esc で取り消します。",
+      "createStart": "開始 ({{unit}})",
+      "createEnd": "終了 ({{unit}})",
+      "createStartHandle": "新しい区間の開始",
+      "createEndHandle": "新しい区間の終了",
+      "createSave": "作成",
+      "created": "区間を作成しました",
+      "createdNamed": "区間 {{name}} を作成しました"
     },
     "chart": {
       "elevation": "標高",
@@ -3675,7 +3757,8 @@
       "gap": "勾配補正ペース",
       "time": "時間",
       "axis": "横軸",
-      "reset": "ズームをリセット"
+      "reset": "ズームをリセット",
+      "pace": "ペース"
     },
     "fitness": {
       "range": "期間",
@@ -3893,7 +3976,8 @@
         "notifications": "通知",
         "recording": "記録",
         "experimental": "試験的な機能",
-        "summaryCard": "サマリーカード"
+        "summaryCard": "サマリーカード",
+        "singleKeys": "1キーのショートカット"
       },
       "options": {
         "system": "システム",
@@ -3922,8 +4006,7 @@
       },
       "toast": {
         "saved": "保存しました",
-        "undo": "元に戻す",
-        "dismiss": "閉じる"
+        "undo": "元に戻す"
       },
       "displayNote": "テーマ、単位、メインのスポーツはスマートフォンに保存されます。言語とウェルネスの平滑化はスマートフォンで変更します。",
       "thresholds": {
@@ -3954,8 +4037,8 @@
           "zone": "ゾーン",
           "upper": "上限",
           "bpm": "{{value}} bpm",
-          "percentOfMaxHr": "最大心拍数の {{value}} %",
-          "percentOfFtp": "FTP の {{value}} %",
+          "percentOfMaxHr": "最大心拍数の {{percent}}",
+          "percentOfFtp": "FTP の {{percent}}",
           "openTop": "上限なし",
           "name": "ゾーン {{n}}",
           "note": "intervals.icu のスポーツ設定にゾーンがないスポーツは、既定の境界を表示します。"
@@ -3969,6 +4052,15 @@
       "deltaToBest": "ベストとの差",
       "passTable": "比較するものを最大 {{max}} 件選択",
       "fact": "項目"
+    },
+    "filter": {
+      "activities": "アクティビティを絞り込む",
+      "routes": "ルートを絞り込む",
+      "sections": "区間を絞り込む",
+      "exercises": "種目を絞り込む",
+      "recordings": "記録を絞り込む",
+      "count": "{{shown}} / {{total}}",
+      "clear": "絞り込みをクリア"
     },
     "table": {
       "count_one": "{{count}}行",
@@ -3999,9 +4091,6 @@
       "unnamedRoute": "名前のないルート",
       "sections": "区間",
       "routes": "ルート",
-      "searchHint": "検索 (/)",
-      "searchSections": "区間を検索",
-      "searchRoutes": "ルートを検索",
       "sort": "並べ替え",
       "show": "表示",
       "listFailed": "スマートフォンからこのリストの応答がありませんでした。",
@@ -4074,7 +4163,8 @@
       "viewSpread": "ばらつき",
       "viewTime": "時系列",
       "views": "パフォーマンス表示",
-      "axisBin": "各範囲の開始からの所要時間"
+      "axisBin": "各範囲の開始からの所要時間",
+      "attemptsMenu": "試行の操作"
     },
     "columns": {
       "date": "日付",
@@ -4150,6 +4240,18 @@
       "alreadyStored": "すでにライブラリにあります",
       "failedCount": "失敗"
     },
+    "export": {
+      "title": "ライブラリをエクスポート",
+      "note": "ライブラリのすべてのアクティビティを1つのZIPファイルとして保存します。書き込みと送信の間は、スマートフォンを開いたまま前面に表示しておいてください。",
+      "since": "この日以降のアクティビティ",
+      "originals": "元のファイルを含める",
+      "start": "すべてエクスポート",
+      "building": "スマートフォンがアーカイブを書き込んでいます: {{done}} / {{rides}} 件",
+      "reading": "{{done}} / {{size}} MB を保存しました",
+      "waiting": "接続を再開しました。{{done}} / {{size}} MB から続けます",
+      "finished": "エクスポートを保存しました",
+      "failed": "エクスポートに失敗しました"
+    },
     "read": {
       "loading": "スマートフォンから読み込んでいます",
       "timeout": "スマートフォンから応答がありませんでした",
@@ -4157,19 +4259,26 @@
       "retry": "再試行"
     },
     "palette": {
-      "open": "移動",
-      "title": "移動",
-      "label": "ページ、アクティビティ、ルート、区間を検索",
+      "title": "検索",
+      "label": "ページ、設定、アクティビティ、ルート、区間、種目、ワークアウト、記録を検索",
       "placeholder": "名前を入力",
       "none": "一致する項目はありません",
-      "page": "ページ",
-      "action": "操作",
-      "activity": "アクティビティ",
-      "route": "ルート",
-      "section": "区間",
       "toggleSidebar": "サイドバーを折りたたむ、または展開する",
       "toggleTheme": "テーマを切り替え",
-      "showKeys": "キーボードショートカットを表示"
+      "showKeys": "キーボードショートカットを表示",
+      "showAll": "{{total}}件をすべて表示",
+      "groups": {
+        "recent": "最近",
+        "page": "ページ",
+        "action": "操作",
+        "setting": "設定",
+        "activity": "アクティビティ",
+        "route": "ルート",
+        "section": "区間",
+        "exercise": "種目",
+        "workout": "ワークアウト",
+        "recording": "記録"
+      }
     },
     "sections": {
       "acceptAll": "すべて承認",
@@ -4187,12 +4296,10 @@
       "best": "ベスト",
       "cancel": "キャンセル",
       "changed": "変更あり",
-      "clearSearch": "検索をクリア",
       "close": "閉じる",
       "curvesPending": "スマートフォンでこれらの曲線を計算しています。",
       "deltaChart": "区間に沿った基準との先行・遅れの秒数。直近のラップごとに1本の線",
       "direction": "方向",
-      "dismiss": "閉じる",
       "excludeActivities": "アクティビティを除外",
       "excludeLaps": "ラップを除外",
       "faster": "速い",
@@ -4265,18 +4372,46 @@
       "unflagLift": "リフトのフラグを解除しますか？",
       "unflagLiftBody": "検出機能はこれをリフト地形として判定しました。フラグの解除は元に戻せません。",
       "view": "表示",
-      "views": "この区間の表示"
+      "views": "この区間の表示",
+      "hideFromMap": "地図から非表示",
+      "showOnMap": "地図に表示",
+      "boundsBeyond": "両端の外側",
+      "boundsEnd": "区間の終了",
+      "boundsHint": "両端をラインに沿ってドラッグするか、端を選択して矢印キーを押します。Esc で取り消します。",
+      "boundsLine": "区間のライン",
+      "boundsNoTrack": "この区間の切り出し元のライドは保存されていないため、両端はライン上でのみ動かせます。",
+      "boundsReset": "境界をリセット",
+      "boundsResetDone": "{{name}} の境界をリセットしました",
+      "boundsSave": "保存",
+      "boundsSaved": "{{name}} の境界を保存しました: {{length}}",
+      "boundsShow": "両端の移動範囲",
+      "boundsStart": "区間の開始",
+      "boundsTooShort": "区間は少なくとも 5 点を保持します。",
+      "editBounds": "境界を編集",
+      "lapMenu": "ラップの操作",
+      "referenceReset": "基準を検出に戻しました",
+      "referenceSet": "基準を {{name}} に設定しました",
+      "resetReference": "基準を検出に戻す",
+      "useAsReference": "このライドを基準にする",
+      "mergeDone": "{{name}} をこの区間に統合しました",
+      "mergeKept": "保持: {{name}}、{{length}}、{{count}} 回通過",
+      "boundsDiscard": "変更を破棄",
+      "boundsDiscardBody": "動かした両端はまだ保存されていません。",
+      "boundsDiscardTitle": "新しい両端を破棄しますか？",
+      "boundsKeepEditing": "編集を続ける",
+      "boundsLaps": "保存時に計測し直すラップ: {{count}}。",
+      "mergeLaps": "保持するラインで計測したラップ: {{count}}。"
     },
     "workouts": {
       "open": "ワークアウトを作成",
       "heading": "ワークアウト",
-      "start": "開始元",
       "blank": "空のワークアウト",
       "saved": "保存済みのワークアウト",
       "noneSaved": "保存済みのワークアウトはありません",
       "failed": "スマートフォンから応答がありませんでした",
-      "counts": "{{exercises}}種目、{{sets}}セット",
       "delete": "削除",
+      "deleted": "削除したワークアウト: {{count}}",
+      "undo": "元に戻す",
       "recent": "最近のセッション",
       "times": "{{times}}回実施",
       "building": "作成中",
@@ -4295,8 +4430,6 @@
       "removeExercise": "種目を削除",
       "save": "ワークアウトを保存",
       "picker": "種目",
-      "search": "種目を検索",
-      "clearSearch": "検索をクリア",
       "equipment": "器具",
       "daysAgo": "{{days}}日前",
       "confirmDelete": "{{name}}を削除しますか？",

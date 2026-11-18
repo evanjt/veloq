@@ -289,6 +289,52 @@ it('does nothing in the main checkout', () => {
   expect(count(npmLog())).toBe(0);
 });
 
+describe('the main checkout’s install against its lockfile', () => {
+  const lockfile = (ajv: string) =>
+    `${JSON.stringify({
+      lockfileVersion: 3,
+      packages: { 'node_modules/ajv': { version: ajv } },
+    })}\n`;
+
+  it('refuses to link an install that holds another version than the lockfile pins', () => {
+    const { main, first } = fixture();
+    write(main, 'package-lock.json', lockfile('8.20.0'));
+    write(first, 'package-lock.json', lockfile('8.20.0'));
+    write(main, 'node_modules/.package-lock.json', lockfile('6.15.0'));
+
+    const { status, output } = provision(first);
+
+    expect(status).not.toBe(0);
+    expect(output).toContain('ajv');
+    expect(output).toContain('6.15.0');
+    expect(output).toContain('8.20.0');
+    expect(existsSync(join(first, 'node_modules'))).toBe(false);
+    expect(count(npmLog())).toBe(0);
+  });
+
+  it('links an install whose nested copy differs from its hoisted one, when each matches the lockfile', () => {
+    const { main, first } = fixture();
+    const nested = JSON.stringify({
+      lockfileVersion: 3,
+      packages: {
+        'node_modules/ajv': { version: '8.20.0' },
+        'node_modules/eslint/node_modules/ajv': { version: '6.15.0' },
+      },
+    });
+    write(main, 'package-lock.json', `${nested}\n`);
+    write(first, 'package-lock.json', `${nested}\n`);
+    write(main, 'node_modules/.package-lock.json', `${nested}\n`);
+
+    const { status, output } = provision(first);
+
+    expect(output).not.toMatch(/fatal/);
+    expect(status).toBe(0);
+    expect(readlinkSync(join(first, 'node_modules/left-pad'))).toBe(
+      join(main, 'node_modules/left-pad')
+    );
+  });
+});
+
 describe('a tree an earlier job used', () => {
   const engineHead = (tree: string) => git(join(tree, ENGINE), 'rev-parse', 'HEAD').trim();
   const pin = (tree: string) => git(tree, 'ls-tree', 'HEAD', '--', ENGINE).split(/\s+/)[2];
@@ -354,12 +400,20 @@ describe('a tree an earlier job used', () => {
     expect(output).not.toMatch(/fatal/);
     expect(status).toBe(0);
     const entries = readdirSync(join(first, 'node_modules')).sort();
-    expect(entries).toEqual(readdirSync(join(main, 'node_modules')).sort());
-    for (const entry of entries.filter((name) => name !== 'veloqrs')) {
+    expect(entries).toEqual(
+      readdirSync(join(main, 'node_modules'))
+        .filter((name) => name !== '.package-lock.json')
+        .sort()
+    );
+    for (const entry of entries.filter((name) => !['veloqrs', '@scope'].includes(name))) {
       expect(readlinkSync(join(first, 'node_modules', entry))).toBe(
         join(main, 'node_modules', entry)
       );
     }
+    expect(lstatSync(join(first, 'node_modules/@scope')).isDirectory()).toBe(true);
+    expect(readlinkSync(join(first, 'node_modules/@scope/late'))).toBe(
+      join(main, 'node_modules/@scope/late')
+    );
     expect(readlinkSync(join(first, 'node_modules/veloqrs'))).toBe(join(first, 'modules/veloqrs'));
     expect(readFileSync(join(second, 'node_modules/left-pad/index.js'), 'utf8')).toContain('0');
     expect(count(npmLog())).toBe(0);

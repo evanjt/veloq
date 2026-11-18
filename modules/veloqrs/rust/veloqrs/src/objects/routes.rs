@@ -174,23 +174,29 @@ impl RouteManager {
         }))
     }
 
-    /// The saved routes of `sport`'s family near the fix, nearest first: each with its name,
-    /// length, best time and simplified line, for the record screen's map and list. The
-    /// route being followed comes back too, wherever it lies.
-    fn get_nearby_for_recording(
+    /// The routes and sections of `sport`'s family, of the `kinds` asked for, that start near the
+    /// point, nearest start first, each with its best and latest time, passes, elevation gain and
+    /// a thinned line. The followed route comes back too, wherever it starts. The line ask caps
+    /// each line, zero `max_points` keeping the default cap, and `packed` carries it as integers
+    /// in place of a polyline.
+    fn get_nearby_places(
         &self,
         latitude: f64,
         longitude: f64,
         sport: String,
+        kinds: Vec<crate::persistence::nearby_routes::NearbyKind>,
         followed_route_id: Option<String>,
-    ) -> Result<Vec<crate::ffi_types::FfiNearbyRoute>, VeloqError> {
+        line_ask: crate::persistence::nearby_routes::LineAsk,
+    ) -> Result<Vec<crate::persistence::nearby_routes::NearbyPlace>, VeloqError> {
         with_reader(|conn| {
-            crate::persistence::nearby_routes::pooled::recording_nearby_routes(
+            crate::persistence::nearby_routes::pooled::nearby_places(
                 conn,
                 latitude,
                 longitude,
                 &sport,
+                &kinds,
                 followed_route_id.as_deref(),
+                line_ask,
             )
         })
     }
@@ -445,7 +451,7 @@ mod tests {
         );
 
         crate::persistence::with_persistent_engine(|engine| {
-            crate::test_trace::untrace(&engine.db);
+            crate::test_trace::untrace(&mut engine.db);
         })
         .expect("engine");
     }

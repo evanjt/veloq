@@ -1,21 +1,12 @@
-import type { ReactElement } from 'react';
 import { Skia, PaintStyle, ClipOp, type SkPath, type SkPicture } from '@shopify/react-native-skia';
-import type { BodyPart, ExtendedBodyPart } from 'react-native-body-highlighter';
-import { bodyFront } from 'react-native-body-highlighter/dist/assets/bodyFront';
-import { bodyBack } from 'react-native-body-highlighter/dist/assets/bodyBack';
-import { bodyFemaleFront } from 'react-native-body-highlighter/dist/assets/bodyFemaleFront';
-import { bodyFemaleBack } from 'react-native-body-highlighter/dist/assets/bodyFemaleBack';
-import { SvgMaleWrapper } from 'react-native-body-highlighter/dist/components/SvgMaleWrapper';
-import { SvgFemaleWrapper } from 'react-native-body-highlighter/dist/components/SvgFemaleWrapper';
+import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 
-export type BodyGender = 'male' | 'female';
-export type BodySide = 'front' | 'back';
+import { bodyFills, type BodyFill, type BodyGender, type BodySide } from './bodyFills';
+import { BODY_DRAWINGS } from './bodyPaths.generated';
 
-/** One filled shape of a diagram, in the drawing's own coordinates. */
-export interface BodyFill {
-  d: string;
-  fill: string;
-}
+export { bodyFills };
+
+export type { BodyFill, BodyGender, BodySide };
 
 /** The region of the drawing's coordinates one diagram shows. */
 export interface BodyViewBox {
@@ -25,98 +16,23 @@ export interface BodyViewBox {
   height: number;
 }
 
-const ASSETS: Record<BodyGender, Record<BodySide, BodyPart[]>> = {
-  male: { front: bodyFront, back: bodyBack },
-  female: { front: bodyFemaleFront, back: bodyFemaleBack },
-};
-
 /** The diagram's layout box at scale 1, as the library sizes it. */
 export const BODY_BOX = { width: 200, height: 400 };
 
 /** The outline's stroke in layout points, whatever the drawing's scale. */
 const OUTLINE_WIDTH = 2;
 
-/**
- * The library's wrapper for a body, which holds the view box and the outline.
- * It is a plain function of its props, so calling it reads them without
- * mounting anything.
- */
-function wrapperElement(gender: BodyGender, side: BodySide): ReactElement<WrapperNodeProps> {
-  const Wrapper = gender === 'male' ? SvgMaleWrapper : SvgFemaleWrapper;
-  return Wrapper({
-    side,
-    scale: 1,
-    border: 'outline',
-    children: null,
-  }) as ReactElement<WrapperNodeProps>;
-}
-
-interface WrapperNodeProps {
-  viewBox?: string;
-  d?: string;
-  stroke?: string;
-  children?: unknown;
-}
-
-function findOutline(node: unknown): string | null {
-  if (Array.isArray(node)) {
-    for (const child of node) {
-      const found = findOutline(child);
-      if (found) return found;
-    }
-    return null;
-  }
-  if (!node || typeof node !== 'object' || !('props' in node)) return null;
-  const props = (node as ReactElement<WrapperNodeProps>).props;
-  if (props.stroke === 'outline' && typeof props.d === 'string') return props.d;
-  return findOutline(props.children);
-}
-
 /** The view box the library draws one diagram in. */
 export function bodyViewBox(gender: BodyGender, side: BodySide): BodyViewBox {
-  const [x = 0, y = 0, width = 0, height = 0] = String(wrapperElement(gender, side).props.viewBox)
+  const [x = 0, y = 0, width = 0, height = 0] = BODY_DRAWINGS[gender][side].viewBox
     .split(' ')
     .map(Number);
   return { x, y, width, height };
 }
 
-/** The body's outline path, or null when the library draws none for that side. */
+/** The body's outline path. */
 export function bodyOutline(gender: BodyGender, side: BodySide): string | null {
-  return findOutline(wrapperElement(gender, side).props.children);
-}
-
-/**
- * Every shape of one diagram with the colour it is filled with, in the order
- * the library paints them. A trained part takes its own fill, then its own
- * colour, then the colour its intensity picks from `colors`; an untrained one,
- * or the half of a part trained only on the other side, keeps the drawing's
- * own colour.
- */
-export function bodyFills(
-  muscles: readonly ExtendedBodyPart[],
-  gender: BodyGender,
-  side: BodySide,
-  colors: readonly string[]
-): BodyFill[] {
-  const trained = new Map<string, ExtendedBodyPart>();
-  for (const muscle of muscles) if (muscle.slug) trained.set(muscle.slug, muscle);
-
-  const fills: BodyFill[] = [];
-  for (const part of ASSETS[gender][side]) {
-    const own = part.color ?? '';
-    const muscle = part.slug ? trained.get(part.slug) : undefined;
-    const fill =
-      muscle?.styles?.fill ??
-      muscle?.color ??
-      (muscle?.intensity && muscle.intensity > 0 ? colors[muscle.intensity - 1] : undefined) ??
-      own;
-    for (const d of part.path?.common ?? []) fills.push({ d, fill });
-    for (const d of part.path?.left ?? [])
-      fills.push({ d, fill: muscle?.side === 'right' ? own : fill });
-    for (const d of part.path?.right ?? [])
-      fills.push({ d, fill: muscle?.side === 'left' ? own : fill });
-  }
-  return fills;
+  return BODY_DRAWINGS[gender][side].outline;
 }
 
 /**

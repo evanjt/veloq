@@ -18,8 +18,9 @@ const FEED_TEST_IDS: Record<FeedGroup, { testID: string }> = {
 interface FeedFilterChipsProps {
   selected: ReadonlySet<FeedGroup>;
   onSelect: (group: FeedGroup) => void;
-  selectedRange: FeedRangePreset | null;
-  onSelectRange: (preset: FeedRangePreset) => void;
+  /** The preset chips follow the sport chips in the row when a handler is given. */
+  selectedRange?: FeedRangePreset | null;
+  onSelectRange?: (preset: FeedRangePreset) => void;
 }
 
 export function FeedFilterChips({
@@ -28,7 +29,6 @@ export function FeedFilterChips({
   selectedRange,
   onSelectRange,
 }: FeedFilterChipsProps) {
-  const { t } = useTranslation();
   return (
     <SportChipRow
       chips={FEED_GROUPS.map((group) => ({
@@ -39,6 +39,22 @@ export function FeedFilterChips({
       selected={selected}
       onToggle={(key) => onSelect(key as FeedGroup)}
     >
+      {onSelectRange ? (
+        <RangePresetChips selectedRange={selectedRange ?? null} onSelectRange={onSelectRange} />
+      ) : null}
+    </SportChipRow>
+  );
+}
+
+interface RangePresetProps {
+  selectedRange: FeedRangePreset | null;
+  onSelectRange: (preset: FeedRangePreset) => void;
+}
+
+function RangePresetChips({ selectedRange, onSelectRange }: RangePresetProps) {
+  const { t } = useTranslation();
+  return (
+    <>
       {FEED_RANGE_PRESETS.map((preset) => (
         <ToggleButton
           key={preset}
@@ -48,6 +64,15 @@ export function FeedFilterChips({
           onPress={() => onSelectRange(preset)}
         />
       ))}
+    </>
+  );
+}
+
+/** The date presets as quick taps, one row of the same chips. */
+export function FeedRangePresets(props: RangePresetProps) {
+  return (
+    <SportChipRow chips={[]} selected={new Set()} onToggle={() => {}}>
+      <RangePresetChips {...props} />
     </SportChipRow>
   );
 }

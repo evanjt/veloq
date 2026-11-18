@@ -81,6 +81,78 @@ provision_submodules() {
   done < <(git -C "$TREE" config -f .gitmodules --get-regexp '^submodule\..*\.path$' || true)
 }
 
+# A directory npm writes into as it adds or removes a package: a scope, whose
+# packages it moves in and out, and `.bin`, where it keeps a link per command.
+# Linked whole, an `npm install` in this tree would move the main checkout's
+# packages into staging directories and leave their places empty.
+is_container() {
+  case $1 in
+    @* | .bin) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# `dst` is a link to `src`, replacing whatever else is there.
+link_entry() {
+  local src=$1 dst=$2
+  if [ -L "$dst" ] && [ "$(readlink "$dst")" = "$src" ]; then
+    return 0
+  fi
+  rm -rf "${dst:?}"
+  ln -s "$src" "$dst"
+}
+
+# `dst` is a real directory of its own holding one link per entry of `src`, and
+# nothing `src` lacks. A `.bin` entry is a relative link into a package, which
+# resolves here through that package's link, so it is copied as it is.
+link_container() {
+  local src=$1 dst=$2 entry name
+  if [ -L "$dst" ] || { [ -e "$dst" ] && [ ! -d "$dst" ]; }; then
+    rm -rf "${dst:?}"
+  fi
+  mkdir -p "$dst"
+  for entry in "$dst"/* "$dst"/.[!.]*; do
+    [ -e "$entry" ] || [ -L "$entry" ] || continue
+    name=$(basename "$entry")
+    [ -e "$src/$name" ] || [ -L "$src/$name" ] || rm -rf "${dst:?}/$name"
+  done
+  for entry in "$src"/* "$src"/.[!.]*; do
+    [ -e "$entry" ] || [ -L "$entry" ] || continue
+    name=$(basename "$entry")
+    if [ "$(basename "$src")" = .bin ] && [ -L "$entry" ]; then
+      link_entry "$(readlink "$entry")" "$dst/$name"
+    else
+      link_entry "$entry" "$dst/$name"
+    fi
+  done
+}
+
+# npm records each installed package's version in `.package-lock.json`. An
+# install whose record disagrees with the lockfile serves every tree linked to
+# it the wrong packages, so the link is refused before anything moves. A
+# record-less install is taken as it is, because nothing records what it holds.
+require_current_install() {
+  local lock="$MAIN/package-lock.json" record="$MAIN/node_modules/.package-lock.json" stale
+  [ -f "$lock" ] && [ -f "$record" ] || return 0
+  stale=$(node -e '
+    const fs = require("fs");
+    const pinned = JSON.parse(fs.readFileSync(process.argv[1], "utf8")).packages || {};
+    const installed = JSON.parse(fs.readFileSync(process.argv[2], "utf8")).packages || {};
+    for (const [path, entry] of Object.entries(installed)) {
+      if (!entry.version) continue;
+      const locked = (pinned[path] || {}).version;
+      if (locked !== entry.version) {
+        console.log(`${path} installed ${entry.version}, lockfile ${locked || "has none"}`);
+        process.exit(1);
+      }
+    }
+  ' "$lock" "$record") || {
+    say "the main checkout's install does not match its lockfile: $stale"
+    say "run npm ci in $MAIN, then provision again."
+    return 1
+  }
+}
+
 # One link per package of the main checkout's install, so nothing is installed
 # or patched here, and `veloqrs` pointed at this tree's own module, so `tsc` and
 # the bindings check read the candidate. A whole-directory link would make that
@@ -101,6 +173,7 @@ provision_modules() {
   if [ ! -L "$here" ] && [ -f "$here/.package-lock.json" ] && [ ! -L "$here/.package-lock.json" ]; then
     return 0
   fi
+  require_current_install || exit 1
   if [ -L "$here" ]; then
     rm "$here"
   fi
@@ -115,12 +188,19 @@ provision_modules() {
     [ -e "$entry" ] || [ -L "$entry" ] || continue
     entry=$(basename "$entry")
     [ "$entry" != veloqrs ] || continue
-    if [ -L "$here/$entry" ] && [ "$(readlink "$here/$entry")" = "$there/$entry" ]; then
-      continue
+    # npm's own record of what it installed. Linked, a later install here would
+    # write the main checkout's copy of it.
+    [ "$entry" != .package-lock.json ] || continue
+    if [ -d "$there/$entry" ] && [ ! -L "$there/$entry" ] && is_container "$entry"; then
+      link_container "$there/$entry" "$here/$entry"
+    else
+      link_entry "$there/$entry" "$here/$entry"
     fi
-    rm -rf "${here:?}/$entry"
-    ln -s "$there/$entry" "$here/$entry"
   done
+  # A link left by an earlier provisioning, before the record was kept out.
+  if [ -L "$here/.package-lock.json" ]; then
+    rm "$here/.package-lock.json"
+  fi
   if [ -d "$TREE/modules/veloqrs" ] &&
     [ "$(readlink "$here/veloqrs" 2>/dev/null)" != "$TREE/modules/veloqrs" ]; then
     rm -rf "$here/veloqrs"

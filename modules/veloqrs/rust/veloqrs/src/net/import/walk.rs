@@ -27,7 +27,9 @@ use std::path::Path;
 /// athlete recorded.
 pub(super) const MAX_ENTRY_BYTES: u64 = 32 * 1024 * 1024;
 
-/// The most a nested archive may take in memory.
+/// The most the nested archives of one walk may hold in memory at once, at
+/// every depth together. An inner archive is read whole while the archive that
+/// holds it is still held, so a cap per level alone would multiply by depth.
 const MAX_NESTED_ARCHIVE_BYTES: u64 = 256 * 1024 * 1024;
 
 /// Archives inside archives, counting the outermost.
@@ -113,6 +115,10 @@ struct Walk<'a> {
     index: u64,
     resume_at: u64,
     visit: &'a mut dyn FnMut(u64, Entry) -> ControlFlow<()>,
+    /// What nested archives may hold at once, and what they hold now.
+    budget: u64,
+    held: u64,
+    peak: u64,
 }
 
 impl Walk<'_> {
@@ -154,8 +160,16 @@ impl Walk<'_> {
         if depth >= MAX_DEPTH {
             return Ok(self.emit(|| failed(name, "archives nest deeper than the import reads")));
         }
-        match read_capped(reader, MAX_NESTED_ARCHIVE_BYTES) {
-            Ok(Some(bytes)) => self.archive(name, Cursor::new(bytes), depth + 1),
+        let room = self.budget - self.held;
+        match read_capped(reader, room) {
+            Ok(Some(bytes)) => {
+                let charged = bytes.len() as u64;
+                self.held += charged;
+                self.peak = self.peak.max(self.held);
+                let flow = self.archive(name, Cursor::new(bytes), depth + 1);
+                self.held -= charged;
+                flow
+            }
             Ok(None) => {
                 Ok(self.emit(|| failed(name, "the archive is larger than the import reads")))
             }
@@ -237,7 +251,7 @@ impl Walk<'_> {
                     continue;
                 }
             };
-            if file.size() > MAX_NESTED_ARCHIVE_BYTES {
+            if file.size() > self.budget {
                 let flow =
                     self.emit(|| failed(&entry_name, "the entry is larger than the import reads"));
                 if flow.is_break() {
@@ -363,12 +377,27 @@ pub(super) fn walk(
     resume_at: u64,
     visit: &mut dyn FnMut(u64, Entry) -> ControlFlow<()>,
 ) -> Result<ControlFlow<()>, WalkError> {
-    Walk {
+    walk_within(root, resume_at, MAX_NESTED_ARCHIVE_BYTES, visit).0
+}
+
+/// [`walk`] under a given nested-archive budget, with the most bytes the
+/// nested archives held at once.
+pub(super) fn walk_within(
+    root: &Path,
+    resume_at: u64,
+    budget: u64,
+    visit: &mut dyn FnMut(u64, Entry) -> ControlFlow<()>,
+) -> (Result<ControlFlow<()>, WalkError>, u64) {
+    let mut walk = Walk {
         index: 0,
         resume_at,
         visit,
-    }
-    .path(root, 0)
+        budget,
+        held: 0,
+        peak: 0,
+    };
+    let flow = walk.path(root, 0);
+    (flow, walk.peak)
 }
 
 /// What the collection is, so a checkpoint is read back only against the same

@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
+import { FfiHoldCause } from 'veloqrs';
 
 import { BackgroundJobsActivityBar } from '@/features/settings/components/BackgroundJobsActivityBar';
 import type { BackgroundJob } from '@/features/settings/hooks/useBackgroundJobs';
@@ -303,7 +304,7 @@ describe('BackgroundJobsActivityBar', () => {
           state: 'waiting',
           remaining: 12,
           resumesAt: until,
-          held: { until, byUpstream: true },
+          held: { until, cause: FfiHoldCause.Upstream },
         }),
       ]);
       const tree = await render(<BackgroundJobsActivityBar />);
@@ -319,6 +320,29 @@ describe('BackgroundJobsActivityBar', () => {
     });
 
     vaultIt(
+      'names the shared pool, not this install or intervals.icu, when the pool is holding back',
+      async () => {
+        const until = Date.now() + 5 * 60_000;
+        mockUseBackgroundJobs.mockReturnValue([
+          job('streamBackfill', {
+            state: 'partial',
+            remaining: 12,
+            held: { until, cause: FfiHoldCause.Pool },
+          }),
+        ]);
+        const tree = await render(<BackgroundJobsActivityBar />);
+
+        expect(tree.getByTestId('background-job-streamBackfill-retry')).toBeDisabled();
+        const detail = tree.getByTestId('background-job-streamBackfill-detail');
+        expect(detail).toHaveTextContent(
+          `12 activities · Catch-up paused so everyone's sync keeps going, back at ${formatClockOrDate(until)}`
+        );
+        expect(detail).not.toHaveTextContent(/Request limit/);
+        expect(detail).not.toHaveTextContent(/intervals\.icu asked/);
+      }
+    );
+
+    vaultIt(
       'names the request limit, not intervals.icu, when the install is the one holding back',
       async () => {
         const until = Date.now() + 5 * 60_000;
@@ -326,7 +350,7 @@ describe('BackgroundJobsActivityBar', () => {
           job('streamBackfill', {
             state: 'partial',
             remaining: 12,
-            held: { until, byUpstream: false },
+            held: { until, cause: FfiHoldCause.Budget },
           }),
         ]);
         const tree = await render(<BackgroundJobsActivityBar />);

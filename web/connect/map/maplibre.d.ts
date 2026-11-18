@@ -120,7 +120,11 @@ declare namespace maplibregl {
     removeFeatureState(target: FeatureTarget, key?: string): void;
     fitBounds(
       bounds: [[number, number], [number, number]],
-      options?: { padding?: number; duration?: number; maxZoom?: number }
+      options?: {
+        padding?: number | { top: number; right: number; bottom: number; left: number };
+        duration?: number;
+        maxZoom?: number;
+      }
     ): this;
     jumpTo(options: { center?: LngLat; zoom?: number }): this;
     getZoom(): number;

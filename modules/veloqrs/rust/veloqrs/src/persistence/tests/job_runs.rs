@@ -9,7 +9,7 @@
 use super::{BackgroundJob, JobRun, RunOutcome, job_runs, record_job_run};
 use crate::FfiBackgroundJobsData;
 use crate::persistence::PersistentEngine;
-use crate::persistence::screens::background_jobs_data;
+use crate::persistence::screens::{background_jobs_data, background_jobs_data_under};
 
 fn detection_run(finished_at: i64, handled: u32, added: u32, changed: u32) -> JobRun {
     JobRun {
@@ -330,6 +330,35 @@ fn a_library_owing_more_than_a_day_reports_the_days_it_takes() {
         .execute("DELETE FROM gps_tracks", [])
         .expect("the queue empties");
     assert_eq!(read(&engine).stream_days_to_finish, None);
+}
+
+/// Scenario: a personal key lifts the backfill's day cap, and the athlete opens the
+/// jobs screen while 2,000 streams are owed.
+///
+/// Expected behaviour: the read names no day figure, since no daily allowance
+/// holds, so the days, the share and the day count it would count against are
+/// all `None`. With the cap in place the same queue reads three days at 800 a day.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_lifted_day_cap_reads_no_day_figure_for_the_owed_queue() {
+    use crate::governor::Budget;
+
+    let engine = PersistentEngine::in_memory().unwrap();
+    owe_streams(&engine, 2_000);
+    let now = chrono::Utc::now();
+
+    let mut lifted = Budget::new(0);
+    lifted.set_backfill_cap_lifted(true);
+    lifted.set_key_session(true);
+    let lifted = lifted.snapshot(now).backfill;
+    let data = background_jobs_data_under(&engine.db, lifted, lifted.per_day).unwrap();
+    assert_eq!(data.stream_days_to_finish, None);
+    assert_eq!(data.backfill_day_share, None);
+
+    let capped = Budget::new(0).snapshot(now).backfill;
+    let data = background_jobs_data_under(&engine.db, capped, capped.per_day).unwrap();
+    assert_eq!(data.stream_days_to_finish, Some(3));
+    assert_eq!(data.backfill_day_share, Some(800));
 }
 
 /// Scenario: the range confirm needs the days a widened range takes before any

@@ -36,6 +36,7 @@ pub(crate) use engine::{cancel_stoppable_run, next_stoppable_run, record_backup_
 pub use error::VeloqError;
 pub use init::{FfiInitOutcome, FfiStorageShortfall};
 pub use library::LibraryCoverage;
+pub use maps::MapManager;
 pub use preview::SectionPreview;
 pub use quarantine::{FfiQuarantineReport, take_quarantine_report};
 pub use run::{FfiRunProgress, FfiRunState};

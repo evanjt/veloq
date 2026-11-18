@@ -97,7 +97,7 @@ it.each([
     'the planned strength follow',
     { type: 'WeightTraining', pairedEventId: '7' },
     'activityTypes.WeightTraining',
-    'strength-follow',
+    null,
   ],
 ])('gives %s the native header titled with the sport', async (_label, params, title, testID) => {
   mockParams = params;

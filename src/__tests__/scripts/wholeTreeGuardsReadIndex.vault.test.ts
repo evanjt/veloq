@@ -280,6 +280,49 @@ const CASES: Record<string, Case> = {
     clean: 'set -u\necho ok\n',
     violation: 'set -u\necho "${items[@]}"\n',
   },
+  'lint-connect-page-titles': {
+    guard: 'lint-connect-page-titles.mjs',
+    tree: {},
+    target: 'web/connect/pages/Page.tsx',
+    clean: "export function Page() {\n  return <h3>{t('connectPage.screens.insights')}</h3>;\n}\n",
+    violation:
+      "export function Page() {\n  return <h2>{t('connectPage.screens.insights')}</h2>;\n}\n",
+  },
+  'lint-connect-bare-controls': {
+    guard: 'lint-connect-bare-controls.mjs',
+    tree: { 'scripts/connect-bare-controls-baseline.json': '{}\n' },
+    target: 'web/connect/pages/Page.tsx',
+    clean: 'export function Page() {\n  return <p>x</p>;\n}\n',
+    violation: 'export function Page() {\n  return <button>x</button>;\n}\n',
+  },
+  'lint-connect-theme-subset': {
+    guard: 'lint-connect-theme-subset.mjs',
+    tree: {},
+    target: 'web/connect/theme.ts',
+    clean: 'export const a = 1;\n',
+    violation: "import { View } from 'react-native';\nexport const a = View;\n",
+  },
+  'check-export-compliance': {
+    guard: 'check-export-compliance.mjs',
+    tree: {},
+    target: 'app.json',
+    clean: `${JSON.stringify({
+      expo: {
+        ios: {
+          infoPlist: { ITSAppUsesNonExemptEncryption: false },
+          config: { usesNonExemptEncryption: false },
+        },
+      },
+    })}\n`,
+    violation: `${JSON.stringify({
+      expo: {
+        ios: {
+          infoPlist: { ITSAppUsesNonExemptEncryption: true },
+          config: { usesNonExemptEncryption: false },
+        },
+      },
+    })}\n`,
+  },
 };
 
 const roots: string[] = [];

@@ -50,11 +50,30 @@
   min-width: 0;
 }
 
+/* Below this content width the list or the section's body sits over its map, which
+   cannot stay sticky over the content it shares a column with. */
+@container content (max-width: 1100px) {
+  #sections-page,
+  #section-page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #sections-map,
+  #section-map {
+    position: static;
+  }
+
+  #section-body {
+    grid-column: 1;
+    grid-row: 2;
+  }
+}
+
 #sections-selection {
   position: absolute;
   top: var(--space-md);
   right: var(--space-md);
-  z-index: 1;
+  z-index: var(--layer-raised);
   width: min(var(--web-layout-selection-panel), calc(100% - 2 * var(--space-md)));
 }
 
@@ -144,8 +163,14 @@
 }
 
 .section-stats {
+  width: 100%;
   border-collapse: collapse;
   font-size: var(--web-type-small-size);
+}
+
+.section-stats th {
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 .section-stats :is(th, td) {

@@ -39,6 +39,11 @@ mod migration_exercise_usage;
 #[path = "../migration_linked_devices.rs"]
 mod migration_linked_devices;
 
+#[path = "../migration_file_track_checks.rs"]
+mod migration_file_track_checks;
+#[path = "../migration_remote_spent.rs"]
+mod migration_remote_spent;
+
 #[path = "../migration_local_curves.rs"]
 mod migration_local_curves;
 

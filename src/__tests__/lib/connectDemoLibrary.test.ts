@@ -14,7 +14,7 @@ import {
   demoResults,
   demoScript,
 } from '../__shared__/connectDemoLibrary';
-import { answerAsk } from '../__shared__/connectPhoneShim';
+import { answerAsk, keepWrite } from '../__shared__/connectPhoneShim';
 
 const names = (methods as { methods: { name: string }[] }).methods.map((m) => m.name);
 const script = demoScript({
@@ -22,6 +22,32 @@ const script = demoScript({
   phoneProof: 'b',
   phoneFingerprint: 'c',
 });
+
+const freshPhone = () =>
+  demoScript({ browserFingerprint: 'a', phoneProof: 'b', phoneFingerprint: 'c' });
+
+/** A save as the builder sends it: one exercise of one set, with the invented category 3. */
+const draft = (name: string) => ({
+  id: null,
+  name,
+  exercises: [
+    {
+      category: 3,
+      name: null,
+      groupNo: null,
+      restSecs: 60,
+      sets: [{ reps: 8, weightKg: 20, durationSecs: null, side: null, warmUp: false }],
+    },
+  ],
+  groups: [],
+});
+
+/** Saves an ask on a phone the way the page does: the answer, then what the phone keeps of it. */
+function save(phone: ReturnType<typeof freshPhone>, ask: ReturnType<typeof draft>) {
+  const answer = answerAsk(phone, 'strength.saveWorkout', ask).result as { id: string };
+  keepWrite(phone, 'strength.saveWorkout', ask, answer);
+  return answer.id;
+}
 
 /** The methods whose ask names one activity, and whose rows the phone keys by its id. */
 const PER_ACTIVITY = [
@@ -127,5 +153,56 @@ describe('the demo library', () => {
         expect(point.value).toBeLessThanOrEqual(point.upper);
       }
     }
+  });
+
+  it('counts the auto sections it has not accepted, and flags each of them on its row', () => {
+    const screen = demoResults()['routes.screen'];
+    const auto = screen.sections.filter((section) => section.sectionType === 'auto');
+    const awaiting = auto.filter((section) => !section.isUserDefined && !section.disabled);
+    expect(awaiting.length).toBeGreaterThan(0);
+    expect(screen.unacceptedAutoCount).toBe(awaiting.length);
+    expect(screen.acceptedAutoCount).toBe(auto.length - awaiting.length);
+  });
+});
+
+describe('the workouts the demo phone keeps', () => {
+  it('reads back a saved workout under the id the save answered with, as it was sent', () => {
+    const phone = freshPhone();
+    const ask = draft('Mobility');
+    const id = save(phone, ask);
+    expect(answerAsk(phone, 'strength.workout', { id })).toEqual({
+      result: { workout: { id, name: 'Mobility', exercises: ask.exercises, groups: [] } },
+    });
+  });
+
+  it('lists a saved workout beside the library’s, with its exercise and set counts', () => {
+    const phone = freshPhone();
+    const listed = () =>
+      (answerAsk(phone, 'strength.workouts', {}).result as { workouts: { id: string }[] }).workouts;
+    const before = listed().length;
+    const id = save(phone, draft('Mobility'));
+    const rows = listed();
+    expect(rows).toHaveLength(before + 1);
+    expect(rows).toContainEqual(
+      expect.objectContaining({ id, name: 'Mobility', exerciseCount: 1, setCount: 1 })
+    );
+    expect(answerAsk(phone, 'strength.workout', { id: 'workout-1' })).toMatchObject({
+      result: { workout: { id: 'workout-1' } },
+    });
+  });
+
+  it('reads a renamed workout back under its new name, in the read and in the list', () => {
+    const phone = freshPhone();
+    const id = save(phone, draft('Mobility'));
+    keepWrite(phone, 'strength.renameWorkout', { id, name: 'Hips' }, {});
+    expect(answerAsk(phone, 'strength.workout', { id })).toMatchObject({
+      result: { workout: { name: 'Hips' } },
+    });
+    const rows = (
+      answerAsk(phone, 'strength.workouts', {}).result as {
+        workouts: { id: string; name: string }[];
+      }
+    ).workouts;
+    expect(rows.filter((row) => row.id === id).map((row) => row.name)).toEqual(['Hips']);
   });
 });

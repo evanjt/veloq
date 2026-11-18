@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 import { ScreenSafeAreaView, ScreenScrollView } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing } from '@/theme';
-import { NotificationSection } from '@/features/settings';
+import { NotificationSection, WatchLinkRow } from '@/features/settings';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 function NotificationSettingsScreenContent() {
@@ -18,6 +18,7 @@ function NotificationSettingsScreenContent() {
         contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: spacing.xl }}
       >
         <NotificationSection />
+        <WatchLinkRow />
       </ScreenScrollView>
     </ScreenSafeAreaView>
   );

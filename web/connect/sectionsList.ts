@@ -14,6 +14,7 @@ import {
   type Query,
 } from './routesList';
 import { queryValue, type Route } from './router';
+import { FILTER_KEY, readFilterText } from './ui/filterText';
 import type { Methods } from './schema';
 
 export type Screen = Methods['routes.screen']['result'];
@@ -45,7 +46,7 @@ export function viewOf(route: Route): SectionsView {
   return {
     sort:
       sort !== null && (SECTION_SORTS as readonly string[]).includes(sort) ? sort : OPENING.sort,
-    search: queryValue(route, 'sq') ?? '',
+    search: readFilterText(route),
     chips: CHIPS.filter((chip) => named.includes(chip)),
     selected: queryValue(route, 'selected'),
     retired: queryValue(route, 'view') === 'retired',
@@ -56,7 +57,7 @@ export function viewOf(route: Route): SectionsView {
 export function routeOf(view: SectionsView): Route {
   const query: [string, string][] = [];
   if (view.sort !== OPENING.sort) query.push(['ssort', view.sort]);
-  if (view.search !== '') query.push(['sq', view.search]);
+  if (view.search !== '') query.push([FILTER_KEY, view.search]);
   if (view.chips.length > 0) {
     query.push(['chips', CHIPS.filter((chip) => view.chips.includes(chip)).join(',')]);
   }
@@ -87,15 +88,20 @@ export type ListRow = {
   status: Status[];
 };
 
-/** The statuses the engine reports of a section; a record is on the list's rows only. */
+/**
+ * The statuses the engine reports of a section; a record is on the list's rows only. Custom
+ * is a section whose type is custom: an accepted auto section is user-defined too, and is
+ * still an auto section.
+ */
 export function statusOf(row: {
+  sectionType: string;
   isUserDefined: boolean;
   disabled: boolean;
   isLift: boolean;
   latestIsRecord?: boolean;
 }): Status[] {
   return [
-    ...(row.isUserDefined ? (['custom'] as const) : []),
+    ...(row.sectionType === 'custom' ? (['custom'] as const) : []),
     ...(row.disabled ? (['removed'] as const) : []),
     ...(row.isLift ? (['lift'] as const) : []),
     ...(row.latestIsRecord ? (['record'] as const) : []),

@@ -188,6 +188,13 @@ pub fn has_link_proof() -> bool {
         .is_some_and(|at| at.elapsed().is_ok_and(|age| age < LINK_PROOF_WINDOW))
 }
 
+/// Forget the last response to a request outside the elevation pass, so the
+/// next failed ask is judged without it. For a caller that shares the process
+/// with others and must not inherit another's proof.
+pub fn forget_link_proof() {
+    *LINK_PROOF.lock().unwrap_or_else(|e| e.into_inner()) = None;
+}
+
 /// Forget everything pushed, returning the process to its never-pushed state.
 #[cfg(test)]
 pub fn reset() {

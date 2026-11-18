@@ -70,9 +70,18 @@ describe('the preview key', () => {
 
 describe('the current catalogue before a run', () => {
   vaultIt('takes each section its own palette colour rather than one grey', () => {
-    const line = buildPreviewLayers(palette, false, false).find((l) => l.id === 'current-line');
-    const colour = line?.paint?.['line-color'];
+    const colour = buildPreviewLayers(palette, false, false).find((l) => l.id === 'current-line')
+      ?.paint?.['line-color'] as unknown[];
+    // ['case', ['has', 'colorIndex'], ['match', ['get', 'colorIndex'], 0, colourA, ..., fallback], grey]
+    const slotColour = (colorIndex: number): string => {
+      const match = colour[2] as unknown[];
+      const at = match.indexOf(colorIndex, 2);
+      return (at === -1 ? match[match.length - 1] : match[at + 1]) as string;
+    };
+    const slots = palette.layer.sections.map((_, i) => slotColour(i));
 
-    expect(JSON.stringify(colour)).toContain('"color"');
+    expect(slots).toEqual([...palette.layer.sections]);
+    expect(new Set(slots).size).toBe(palette.layer.sections.length);
+    expect(colour[3]).toBe(palette.layer.current);
   });
 });

@@ -21,10 +21,12 @@
 
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer';
 
+import { Histogram } from '../../../web/connect/charts/Histogram';
 import { SectionMap, type BoundsEditor } from '../../../web/connect/map/SectionMap';
+import { km } from '../../../web/connect/format';
 import { pointsOf } from '../../../web/connect/preview';
 import { lngLatOf } from '../../../web/connect/sectionBounds';
-import { ContextMenu } from '../../../web/connect/ui';
+import { ContextMenu, ToastProvider } from '../../../web/connect/ui';
 import { SectionDetailPage } from '../../../web/connect/pages/SectionDetailPage';
 import { SectionsPage } from '../../../web/connect/pages/SectionsPage';
 import type { Route } from '../../../web/connect/router';
@@ -45,6 +47,8 @@ const WRITES = new Set([
   'section.editBounds',
   'section.merge',
   'section.restore',
+  'section.disable',
+  'section.delete',
 ]);
 
 const ACCEPTED_BY_ALL = ['section-3', 'section-5'];
@@ -79,7 +83,7 @@ async function settle() {
 async function mount(element: React.ReactElement) {
   let root!: ReactTestRenderer;
   await act(async () => {
-    root = create(element);
+    root = create(<ToastProvider dismissLabel="dismiss">{element}</ToastProvider>);
   });
   await settle();
   return root;
@@ -201,6 +205,27 @@ describe('the section page laps', () => {
   });
 });
 
+describe('the section page spread', () => {
+  beforeEach(() => addressIs('#/section/section-0?tab=spread'));
+
+  it('draws the engine bins through Histogram', async () => {
+    const { phone } = demoPhone();
+    const root = await mount(
+      phone.wrap(
+        <SectionDetailPage
+          route={{ screen: 'section', id: 'section-0', query: [['tab', 'spread']] }}
+        />
+      )
+    );
+    const drawn = root.root.findAllByType(Histogram);
+    expect(drawn).toHaveLength(1);
+    const bins = drawn[0]?.props.binned as { low: number; high: number; count: number }[];
+    expect(bins.length).toBeGreaterThan(0);
+    expect(bins.every((bin) => bin.high > bin.low)).toBe(true);
+    await unmount(root);
+  });
+});
+
 describe('accepting one section', () => {
   const detailRoute: Route = { screen: 'section', id: 'section-0', query: [] };
 
@@ -224,6 +249,75 @@ describe('accepting one section', () => {
     });
     await settle();
     expect(writes[1]).toEqual(['section.unaccept', { ids: ['section-0'] }]);
+    await unmount(root);
+  });
+});
+
+describe('removing one section', () => {
+  const detailRoute: Route = { screen: 'section', id: 'section-0', query: [] };
+
+  beforeEach(() => addressIs('#/section/section-0'));
+
+  const withOrigin = (isUserDefined: boolean) => {
+    const detail = SCRIPT.results['section.detail'] as { section: object };
+    return demoPhone({
+      'section.detail': { ...detail, section: { ...detail.section, isUserDefined } },
+    });
+  };
+  const labels = (root: ReactTestRenderer) =>
+    root.root
+      .findAll((node) => node.type === 'button')
+      .flatMap((node) => node.findAll((n) => typeof n.children[0] === 'string'))
+      .map((node) => node.children[0]);
+
+  it('offers a detected section Remove, which disables it', async () => {
+    const { phone, writes } = withOrigin(false);
+    const root = await mount(phone.wrap(<SectionDetailPage route={detailRoute} />));
+    expect(labels(root)).not.toContain('sections.deleteSection');
+    await act(async () => {
+      button(root, 'connectPage.sections.remove').props.onClick({});
+    });
+    await settle();
+    expect(writes).toEqual([['section.disable', { id: 'section-0' }]]);
+    await unmount(root);
+  });
+
+  it('offers a section the athlete made Delete, and sends it only once confirmed', async () => {
+    const { phone, writes } = withOrigin(true);
+    const root = await mount(phone.wrap(<SectionDetailPage route={detailRoute} />));
+    expect(labels(root)).not.toContain('connectPage.sections.remove');
+
+    await act(async () => {
+      button(root, 'sections.deleteSection').props.onClick({});
+    });
+    await settle();
+    expect(writes).toEqual([]);
+    const dialog = root.root.findAll((node) => node.props.role === 'dialog')[0];
+    expect(
+      JSON.stringify(
+        dialog.findAll((n) => typeof n.children[0] === 'string').map((n) => n.children)
+      )
+    ).toContain('sections.deleteSectionConfirm');
+
+    await act(async () => {
+      button(root, 'common.delete').props.onClick({});
+    });
+    await settle();
+    expect(writes).toEqual([['section.delete', { id: 'section-0' }]]);
+    await unmount(root);
+  });
+
+  it('sends nothing when the confirmation is cancelled', async () => {
+    const { phone, writes } = withOrigin(true);
+    const root = await mount(phone.wrap(<SectionDetailPage route={detailRoute} />));
+    await act(async () => {
+      button(root, 'sections.deleteSection').props.onClick({});
+    });
+    await act(async () => {
+      button(root, 'connectPage.sections.cancel').props.onClick({});
+    });
+    await settle();
+    expect(writes).toEqual([]);
     await unmount(root);
   });
 });
@@ -285,7 +379,8 @@ describe('the sections list', () => {
   });
 
   it('offers no accept all when nothing is waiting for review', async () => {
-    const { phone } = demoPhone();
+    const screen = { ...(SCRIPT.results['routes.screen'] as object), unacceptedAutoCount: 0 };
+    const { phone } = demoPhone({ 'routes.screen': screen });
     const root = await mount(phone.wrap(<SectionsPage route={listRoute} />));
     expect(button(root, 'connectPage.sections.acceptAllCount').props.disabled).toBe(true);
     await unmount(root);
@@ -366,6 +461,60 @@ describe("editing a section's ends", () => {
     const editor = editorOf(root);
     expect(editor?.view.span).toEqual({ start: 0, end: line.length - 1 });
     expect(editor?.view.path).toEqual(line);
+    await unmount(root);
+  });
+
+  const textOf = (root: ReactTestRenderer, id: string) =>
+    root.root
+      .findAll((node) => node.props.id === id)[0]
+      ?.findAll((node) => typeof node.children[0] === 'string')
+      .flatMap((node) => node.children)
+      .join('');
+
+  it("shows the engine's measure of the ends being dragged, with no approximation sign", async () => {
+    const preview = { distanceMeters: 1234, avgGradePercent: 3.2, lapsRemeasured: 4 };
+    const { phone } = demoPhone({ 'section.boundsPreview': preview });
+    const root = await mount(phone.wrap(<SectionDetailPage route={route} />));
+    await open(root);
+    expect(phone.callsOf('section.boundsPreview')).toEqual([]);
+    expect(textOf(root, 'bounds-laps')).toBeUndefined();
+
+    await drag(root, 'end', near(line[20] as [number, number]));
+    await settle();
+
+    expect(phone.callsOf('section.boundsPreview').map((call) => call.params)).toEqual([
+      {
+        id: 'section-0',
+        edit: 'trim',
+        activityId: null,
+        startIndex: 0,
+        endIndex: 20,
+        version: null,
+      },
+    ]);
+    expect(textOf(root, 'bounds-length')).toBe(km(1234));
+    expect(textOf(root, 'bounds-grade')).toBe('3.2 %');
+    expect(textOf(root, 'bounds-laps')).toContain('connectPage.sections.boundsLaps');
+    await unmount(root);
+  });
+
+  it('shows no figure for ends the engine has not measured yet rather than an estimate', async () => {
+    const { phone } = demoPhone({ 'section.boundsPreview': new Promise(() => undefined) });
+    const root = await mount(phone.wrap(<SectionDetailPage route={route} />));
+    await open(root);
+    await drag(root, 'end', near(line[20] as [number, number]));
+    expect(textOf(root, 'bounds-length')).toBe('–');
+    expect(textOf(root, 'bounds-grade')).toBe('–');
+    await unmount(root);
+  });
+
+  it('asks for no preview of ends too close together to save', async () => {
+    const { phone } = demoPhone();
+    const root = await mount(phone.wrap(<SectionDetailPage route={route} />));
+    await open(root);
+    await drag(root, 'end', line[0] as [number, number]);
+    await settle();
+    expect(phone.callsOf('section.boundsPreview')[0]?.params).toMatchObject({ endIndex: 4 });
     await unmount(root);
   });
 
@@ -635,7 +784,9 @@ describe('merging a section with a neighbour', () => {
 
   it('names the rides the merge leaves out before it is sent, then offers an undo that restores the merged section', async () => {
     const dropped = [{ activityId: 'a-7', name: 'Dawn loop', startDate: 1_700_000_000 }];
-    const { phone, writes } = demoPhone({ 'section.mergePreview': { dropped } });
+    const { phone, writes } = demoPhone({
+      'section.mergePreview': { dropped, lapsRemeasured: 5 },
+    });
     const root = await mount(phone.wrap(<SectionDetailPage route={mergeRoute} />));
     await act(async () => {
       button(root, 'connectPage.sections.merge').props.onClick({
@@ -650,6 +801,7 @@ describe('merging a section with a neighbour', () => {
     );
     expect(text).toContain('Dawn loop');
     expect(text).toContain('connectPage.sections.mergeKept');
+    expect(text).toContain('connectPage.sections.mergeLaps');
 
     await act(async () => {
       const confirm = dialog.findAll(
@@ -671,5 +823,47 @@ describe('merging a section with a neighbour', () => {
     await settle();
     expect(writes[1]).toEqual(['section.restore', { id: 'section-1' }]);
     await unmount(root);
+  });
+});
+
+describe('the over-time chart', () => {
+  const DAY_SECONDS = 86_400;
+  beforeEach(() => addressIs('#/section/section-0'));
+
+  it("draws the engine's speed trend band for the direction shown, with no fit of its own", async () => {
+    const base = SCRIPT.results['section.performance'] as never as {
+      chartData: { points: { activityDate: number }[] };
+    };
+    const first = Math.min(...base.chartData.points.map((point) => point.activityDate));
+    const speedBand = [0, 1, 2, 3, 4].map((day) => ({
+      time: first + day * DAY_SECONDS,
+      value: 5 + day * 0.1,
+      lower: 4.5 + day * 0.1,
+      upper: 5.5 + day * 0.1,
+    }));
+    const { phone } = demoPhone({
+      'section.performance': {
+        ...base,
+        trendCurves: {
+          forwardSpeed: speedBand,
+          forwardTime: null,
+          reverseSpeed: null,
+          reverseTime: null,
+        },
+      },
+    });
+    const root = await mount(
+      phone.wrap(<SectionDetailPage route={{ screen: 'section', id: 'section-0', query: [] }} />)
+    );
+
+    const curves = root.root.findAll(
+      (node) => node.type === 'path' && node.props.className === 'curve-line'
+    );
+    expect(curves).toHaveLength(1);
+    expect(String(curves[0]!.props.d).match(/[ML]/g)).toHaveLength(speedBand.length);
+    expect(
+      root.root.findAll((node) => node.type === 'line' && node.props.className === 'trend-line')
+    ).toHaveLength(0);
+    root.unmount();
   });
 });

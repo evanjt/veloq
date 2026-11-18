@@ -179,11 +179,7 @@ fn rows(db: &Connection, table: &str, filter: &str) -> Result<Vec<RecordRow>, St
         .unwrap_or("*");
     let sql = format!("SELECT {columns} FROM {table} WHERE {filter}");
     let mut statement = db.prepare(&sql).map_err(|e| e.to_string())?;
-    let columns: Vec<String> = statement
-        .column_names()
-        .iter()
-        .map(|s| (*s).to_string())
-        .collect();
+    let columns: Vec<String> = statement.column_names().map(str::to_string).collect();
     let results = statement
         .query_map([], |row| {
             let mut values = Map::new();

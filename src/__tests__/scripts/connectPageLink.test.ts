@@ -8,15 +8,20 @@
  * certificate than the one paired is refused, and the page pairs afresh.
  */
 
+import { readFileSync } from 'fs';
+import path from 'path';
+import type { ParseKeys } from 'i18next';
 import zlib from 'zlib';
 
 import {
+  BAD_ID_ERROR,
   INVITATION_TTL_SECS,
   PAGE_MIN_PROTOCOL,
   PAGE_PROTOCOL,
   REPLY_TIMEOUT_MS,
   Replies,
   UnreadableReply,
+  VersionRefused,
   answerFingerprint,
   bytesOf,
   farewellOf,
@@ -32,6 +37,7 @@ import {
   floatsOf,
   invitation,
   negotiate,
+  refusedHello,
   isChanged,
   normaliseFingerprint,
   olderPage,
@@ -43,6 +49,8 @@ import {
   strengthPeriodDays,
   wallSeconds,
   withoutHiddenCandidates,
+  PHONE_LOCKED,
+  refusalText,
   writeNotice,
   type State,
 } from '../../../web/connect/link';
@@ -68,18 +76,60 @@ function connected(): State {
   };
 }
 
+const vectors = JSON.parse(
+  readFileSync(
+    path.join(__dirname, '../../../modules/veloqrs/rust/veloqrs/examples/link/vectors.json'),
+    'utf8'
+  )
+) as {
+  inputs: {
+    browserFingerprint: string;
+    phoneFingerprint: string;
+    secretHex: string;
+    shortReply: string;
+    longReply: string;
+  };
+  outputs: {
+    room: string;
+    browserProof: string;
+    phoneProof: string;
+    shortFrames: string[];
+    longFrames: string[];
+  };
+};
+const fromHex = (hex: string) => new Uint8Array(Buffer.from(hex, 'hex'));
+
 describe('the derivations the engine repeats', () => {
-  vaultIt('meets the phone in the room the engine derives for the pair', async () => {
-    expect(await roomFor(BROWSER, PHONE)).toBe('lD6s7KZ5brFE6GjE1k-PwiGY80A1aFGhYeKG78_Kp9k');
+  const { inputs, outputs } = vectors;
+  const secret = fromHex(inputs.secretHex);
+
+  it('meets the phone in the room the engine derives under the pairing secret', async () => {
+    expect(await roomFor(secret, inputs.browserFingerprint, inputs.phoneFingerprint)).toBe(
+      outputs.room
+    );
   });
 
-  vaultIt('makes the proofs the engine verifies and sends', async () => {
-    expect(await proof(SEVENS, 'browser', BROWSER, PHONE)).toBe(
-      '16ciA_4XJnU5nHLUTkHePDq2ZbfrfHrQgx0jCQaPd9I'
+  it('makes the proofs the engine verifies and sends', async () => {
+    const browser = await proof(
+      secret,
+      'browser',
+      inputs.browserFingerprint,
+      inputs.phoneFingerprint
     );
-    expect(await proof(SEVENS, 'phone', BROWSER, PHONE)).toBe(
-      'TlDbU8Ohyd2tEY4OwpeJtKbwygW0gtVBurQ8TdghUk8'
-    );
+    const phone = await proof(secret, 'phone', inputs.browserFingerprint, inputs.phoneFingerprint);
+    expect(Buffer.from(browser, 'base64url').toString('hex')).toBe(outputs.browserProof);
+    expect(Buffer.from(phone, 'base64url').toString('hex')).toBe(outputs.phoneProof);
+  });
+
+  it('reads the frames the engine writes back into the reply', async () => {
+    const short = new Replies();
+    const [only] = outputs.shortFrames;
+    expect(await short.take(fromHex(only), () => true)).toEqual(JSON.parse(inputs.shortReply));
+
+    const long = new Replies();
+    let reply: unknown;
+    for (const frames of outputs.longFrames) reply = await long.take(fromHex(frames), () => true);
+    expect(reply).toEqual(JSON.parse(inputs.longReply));
   });
 
   vaultIt('spells a fingerprint the way pins are kept', () => {
@@ -574,6 +624,22 @@ describe('the page learns what the phone speaks before it asks for anything', ()
     expect(doing(next)).toEqual(['hangUp']);
   });
 
+  it('shows the update state when the phone refuses the page version, from the range it names', () => {
+    const refused = new VersionRefused(PAGE_PROTOCOL + 2, PAGE_PROTOCOL + 3);
+    const next = step(opened(), refusedHello(refused));
+    expect(next.state).toEqual({ name: 'update', phone: PHONE });
+    expect(doing(next)).toEqual(['hangUp']);
+  });
+
+  it('asks for an older build when the phone refuses a version below the page range', () => {
+    const next = step(opened(), refusedHello(new VersionRefused(1, PAGE_MIN_PROTOCOL - 1)));
+    expect(next.state).toEqual({ name: 'update', phone: PHONE });
+    expect(next.effects).toEqual([
+      { do: 'hangUp' },
+      { do: 'redirect', protocol: PAGE_MIN_PROTOCOL - 1 },
+    ]);
+  });
+
   it('shows the update state when the phone lacks the feed the page opens with', () => {
     const next = step(opened(), {
       type: 'hello',
@@ -771,6 +837,20 @@ describe('the page puts framed replies back together', () => {
   );
 
   vaultIt(
+    'settles the ask a framed phone refuses by id, since no frame can carry its id',
+    async () => {
+      const replies = new Replies();
+      replies.speak(3);
+      const waiting = replies.wait(5);
+      const refusal = await replies.take('{"id":5,"error":"bad id"}', (id) => id === 5);
+      expect(refusal).toEqual({ id: 5, error: 'bad id' });
+      replies.settle(refusal!);
+      await expect(waiting).rejects.toThrow('bad id');
+      expect(await replies.take('{"id":6,"error":"bad id"}', (id) => id === 5)).toBeUndefined();
+    }
+  );
+
+  vaultIt(
     'fails every ask in flight on binary frames once the page speaks the text version',
     async () => {
       const replies = new Replies();
@@ -843,6 +923,15 @@ describe('an ask waits for its reply only so long', () => {
     const waiting = replies.wait(4);
     replies.settle({ id: 4, error: 'unknown method: x' });
     await expect(waiting).rejects.toThrow('unknown method: x');
+  });
+
+  it('rejects a version the phone refuses with the range the phone names', async () => {
+    const replies = new Replies();
+    const waiting = replies.wait(4);
+    replies.settle({ id: 4, error: 'version', minProtocol: 2, maxProtocol: 3 });
+    const error = await waiting.catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(VersionRefused);
+    expect(error).toMatchObject({ minProtocol: 2, maxProtocol: 3 });
   });
 
   vaultIt('rejects every ask when the connection ends', async () => {
@@ -940,6 +1029,12 @@ describe('the feed screen asks the phone for a filtered page', () => {
       sportFamilies: [],
       oldestTs: null,
       newestTs: null,
+      minDistance: null,
+      maxDistance: null,
+      minMovingTime: null,
+      maxMovingTime: null,
+      sort: null,
+      lean: false,
     });
   });
 
@@ -951,6 +1046,19 @@ describe('the feed screen asks the phone for a filtered page', () => {
   vaultIt('asks the page within the chosen span of start times', () => {
     const ask = feedPageAsk({ families: [], needle: '', oldestTs: 100, newestTs: 200 }, 100);
     expect(ask).toMatchObject({ offset: 100, limit: FEED_PAGE_SIZE, oldestTs: 100, newestTs: 200 });
+  });
+
+  vaultIt('asks the page within the chosen distance and moving time bounds', () => {
+    const ask = feedPageAsk(
+      { ...none, minDistance: 5000, maxDistance: 10000, minMovingTime: 600, maxMovingTime: 3600 },
+      0
+    );
+    expect(ask).toMatchObject({
+      minDistance: 5000,
+      maxDistance: 10000,
+      minMovingTime: 600,
+      maxMovingTime: 3600,
+    });
   });
 
   vaultIt('drops the old rows when the first page answers, and appends a later page', () => {
@@ -979,6 +1087,28 @@ describe('the feed chips are the labels the phone read holds', () => {
     });
     expect(chips).toEqual({ old: ['Kept'], a: ['Lake loop PR', 'Hill ↑'], b: [] });
   });
+
+  it('gives a label only to the page it was read for, and leaves held pages untouched', () => {
+    const held = { a: ['Lake loop PR'] };
+    const chips = feedChips(held, ['b'], {
+      routeHighlights: [
+        { activityId: 'a', label: 'Lake loop PR' },
+        { activityId: 'b', label: 'Hill loop PR' },
+      ],
+      indicators: [{ activityId: 'a', label: 'Hill ↑' }],
+    });
+    expect(chips).toEqual({ a: ['Lake loop PR'], b: ['Hill loop PR'] });
+    expect(held).toEqual({ a: ['Lake loop PR'] });
+  });
+
+  it('reads the same page twice to the same labels', () => {
+    const bundle = {
+      routeHighlights: [{ activityId: 'a', label: 'Lake loop PR' }],
+      indicators: [],
+    };
+    const once = feedChips({}, ['a'], bundle);
+    expect(feedChips(once, ['a'], bundle)).toEqual({ a: ['Lake loop PR'] });
+  });
 });
 
 describe('the page explains a write the locked phone refused', () => {
@@ -993,6 +1123,28 @@ describe('the page explains a write the locked phone refused', () => {
     replies.settle(reply!);
     const error = await write.catch((e: unknown) => e);
     expect(writeNotice(error)).toBe('connectPage.notice.phoneLocked');
+  });
+
+  vaultIt('shows the page notice for the refusal of an id no frame carries', async () => {
+    const replies = new Replies();
+    const write = replies.wait(4);
+    const reply = await replies.take(JSON.stringify({ id: 4, error: BAD_ID_ERROR }), (id) =>
+      replies.has(id)
+    );
+    replies.settle(reply!);
+    const error = await write.catch((e: unknown) => e);
+    expect(writeNotice(error)).toBe('connectPage.notice.badId');
+  });
+
+  vaultIt('keeps the engine text for a refusal the page has no words for', () => {
+    const translate = (key: ParseKeys) => `translated:${key}`;
+    expect(refusalText(new Error('unknown method: section.rename'), translate)).toBe(
+      'unknown method: section.rename'
+    );
+    expect(refusalText(new Error(PHONE_LOCKED), translate)).toBe(
+      'translated:connectPage.notice.phoneLocked'
+    );
+    expect(refusalText('plain', translate)).toBe('plain');
   });
 
   vaultIt('shows nothing for any other failure', () => {
@@ -1411,13 +1563,14 @@ describe('the page tells the athlete how long the phone has been waited for', ()
  * peer connection's data channel is open from the start, so each state is
  * reached by the event that moves it.
  */
-function standInSession(phone: string) {
+function standInSession(phone: string, withSecret = true) {
   const kept = new Map<string, unknown>([
     [
       'certificate',
       { expires: 1e12, getFingerprints: () => [{ algorithm: 'sha-256', value: 'AA:AA' }] },
     ],
     ['phone', phone],
+    ...(withSecret ? [['roomSecret', new Uint8Array(32).fill(9)] as const] : []),
   ]);
   const sockets: { sent: string[]; onopen: (() => void) | null }[] = [];
 
@@ -1488,7 +1641,7 @@ function standInSession(phone: string) {
     debug: false,
   };
 
-  return { session: createSession(env), sockets };
+  return { session: createSession(env), sockets, kept };
 }
 
 /** Waits for the browser's own asynchronous steps to finish, up to a bound. */
@@ -1518,6 +1671,14 @@ describe('the session holds the page once the link has connected', () => {
     await settle(() => sockets.length === 1);
     expect(session.get().state.name).toBe('waiting');
     expect(session.get().held).toBe(false);
+  });
+
+  it('pairs afresh when the kept phone has no pairing secret, and opens an invitation', async () => {
+    const { session, kept } = standInSession(PHONE, false);
+    await session.start();
+    await settle(() => session.get().state.name !== 'unpaired');
+    expect(session.get().state.name).toBe('inviting');
+    expect(kept.has('phone')).toBe(false);
   });
 
   it('holds from connected, through a drop and its retry, and releases on forget', async () => {

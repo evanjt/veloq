@@ -16,11 +16,12 @@ import { initFixtureRepo, gitFreeEnv } from '../__shared__/gitFixture';
 const SCRIPT = join(__dirname, '../../../scripts/lint-connect-css.mjs');
 const roots: string[] = [];
 
-function run(css: string, generated?: string): { status: number; output: string } {
+function run(css: string, generated?: string, script?: string): { status: number; output: string } {
   const root = mkdtempSync(join(tmpdir(), 'connect-css-'));
   roots.push(root);
   mkdirSync(join(root, 'web/connect'), { recursive: true });
   writeFileSync(join(root, 'web/connect/page.css'), css);
+  if (script !== undefined) writeFileSync(join(root, 'web/connect/layer.ts'), script);
   if (generated !== undefined)
     writeFileSync(join(root, 'web/connect/tokens.generated.css'), generated);
   initFixtureRepo(root);
@@ -135,6 +136,102 @@ it('accepts a pixel height outside the .ui- kit and a token height inside it', (
   const { status } = run(
     '.chart {\n  height: 12px;\n}\n.ui-button {\n  min-height: var(--web-size-control);\n}\n',
     ':root {\n  --web-size-control: 30px;\n}\n'
+  );
+
+  expect(status).toBe(0);
+});
+
+describe('colours written in TypeScript', () => {
+  it.each([
+    ["const a = '#ff7a00';", 'a colour literal'],
+    ["const a = 'rgb(1, 2, 3)';", 'a colour literal'],
+    ["const a = 'oklch(0.7 0.1 50)';", 'a colour literal'],
+    ["const a = 'lab(50 20 30)';", 'a colour literal'],
+    ["const a = 'color(display-p3 1 0 0)';", 'a colour literal'],
+    ["const paint = { 'line-color': 'orange' };", 'a named colour'],
+  ])('refuses %s', (script, message) => {
+    const { status, output } = run('.a {\n  display: block;\n}\n', undefined, `${script}\n`);
+
+    expect(status).toBe(1);
+    expect(output).toContain(`web/connect/layer.ts:1 ${message}`);
+  });
+
+  it('refuses a token name the generated file does not define', () => {
+    const { status, output } = run(
+      '.a {\n  gap: var(--space-sm);\n}\n',
+      ':root {\n  --colour-known: #336699;\n  --space-sm: 8px;\n}\n',
+      "const a = 'var(--colour-known)';\nconst b = 'var(--colour-missing)';\n"
+        .replace('var(--colour-known)', '--colour-known')
+        .replace('var(--colour-missing)', '--colour-missing')
+    );
+
+    expect(status).toBe(1);
+    expect(output).toContain('web/connect/layer.ts:2 reads --colour-missing');
+    expect(output).not.toContain('web/connect/layer.ts:1');
+  });
+
+  it('accepts a comment that names a colour and a token read', () => {
+    const { status } = run(
+      '.a {\n  gap: var(--space-sm);\n}\n',
+      ':root {\n  --colour-known: #336699;\n  --space-sm: 8px;\n}\n',
+      "// the brush is #ff7a00 on the phone\nconst a = 'var(--colour-known)';\n"
+    );
+
+    expect(status).toBe(0);
+  });
+});
+
+describe('every declaration on a stylesheet line', () => {
+  it('refuses a colour literal after the first declaration', () => {
+    const { status, output } = run(
+      '.a { gap: var(--space-sm); color: #fff; }\n',
+      ':root {\n  --space-sm: 8px;\n}\n'
+    );
+
+    expect(status).toBe(1);
+    expect(output).toContain('web/connect/page.css:1 a colour literal');
+  });
+
+  it.each(['oklch(0.7 0.1 50)', 'lab(50 20 30)', 'lch(50 20 30)', 'color(srgb 1 0 0)', 'tomato'])(
+    'refuses %s',
+    (value) => {
+      const { status } = run(`.a {\n  color: ${value};\n}\n`);
+
+      expect(status).toBe(1);
+    }
+  );
+
+  it('accepts a mix of tokens', () => {
+    const { status } = run(
+      '.a {\n  color: color-mix(in srgb, var(--c) 60%, transparent);\n}\n',
+      ':root {\n  --c: #336699;\n}\n'
+    );
+
+    expect(status).toBe(0);
+  });
+});
+
+it('refuses a z-index literal, which a stacking rung would replace', () => {
+  const { status, output } = run('.ui-table th {\n  z-index: 1;\n}\n');
+
+  expect(status).toBe(1);
+  expect(output).toContain('web/connect/page.css:2 a z-index literal');
+});
+
+it('refuses a z-index whose var() fallback is a literal', () => {
+  const { status, output } = run(
+    '.a {\n  z-index: var(--layer-sticky, 10);\n}\n',
+    ':root {\n  --layer-sticky: 10;\n}\n'
+  );
+
+  expect(status).toBe(1);
+  expect(output).toContain('web/connect/page.css:2 a z-index literal');
+});
+
+it('accepts a z-index that reads a layer token', () => {
+  const { status } = run(
+    '.a {\n  z-index: var(--layer-sticky);\n}\n',
+    ':root {\n  --layer-sticky: 10;\n}\n'
   );
 
   expect(status).toBe(0);

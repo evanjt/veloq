@@ -19,7 +19,7 @@
 
 import React from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
-import { FlatList, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { getEngine } from '@/shared/native/engine';
@@ -130,27 +130,12 @@ async function renderFeed(fontScale = 1) {
     </QueryClientProvider>
   );
   const cards = StyleSheet.flatten(screen.getByTestId('home-head-cards').props.style);
-  const search = StyleSheet.flatten(screen.getByTestId('home-filter-section').props.style);
-  return {
-    cardsBottom: cards.paddingBottom ?? 0,
-    searchTop: search.paddingTop ?? 0,
-    searchBottom: search.paddingBottom ?? 0,
-  };
+  return { cardsBottom: cards.paddingBottom ?? 0 };
 }
 
 describe('feed gap under the head cards', () => {
-  vaultIt(
-    'leaves the card spacing above the first card when the filter section is hidden',
-    async () => {
-      const { cardsBottom } = await renderFeed();
-      expect(cardsBottom).toBe(CARD_MARGIN);
-    }
-  );
-
-  vaultIt('leaves the card spacing between a shown filter section and the head cards', async () => {
-    const { cardsBottom, searchTop, searchBottom } = await renderFeed();
-    expect(searchTop).toBe(0);
-    expect(searchBottom).toBe(CARD_MARGIN);
+  vaultIt('leaves the card spacing above the first card', async () => {
+    const { cardsBottom } = await renderFeed();
     expect(cardsBottom).toBe(CARD_MARGIN);
   });
 });
@@ -192,30 +177,55 @@ describe.each([1, 2])('feed head cards at font scale %s', (fontScale) => {
     expect(within(list).getByTestId('home-head-cards')).toBeTruthy();
   });
 
-  vaultIt('draws the cards below the filter section', async () => {
+  vaultIt('opens the list at its first card with nothing scrolled past', async () => {
     await renderFeed(fontScale);
+    expect(screen.getByTestId('home-activity-list').props.contentOffset).toBeUndefined();
+  });
+
+  vaultIt('draws no filter panel while nothing is set and it is shut', async () => {
+    await renderFeed(fontScale);
+    expect(screen.queryByTestId('home-filter-panel')).toBeNull();
+  });
+
+  vaultIt('pins the filter panel above the list, outside it', async () => {
+    await renderFeed(fontScale);
+    await fireEvent.press(screen.getByTestId('home-filter-button'));
+
+    const panel = screen.getByTestId('home-filter-panel');
+    const list = screen.getByTestId('home-activity-list');
+    expect(within(list).queryByTestId('home-filter-panel')).toBeNull();
     const order = drawOrder();
-    expect(order.indexOf('home-filter-section')).toBeGreaterThanOrEqual(0);
-    expect(order.indexOf('home-filter-section')).toBeLessThan(order.indexOf('home-head-cards'));
+    expect(order.indexOf('home-filter-panel')).toBeLessThan(order.indexOf('home-activity-list'));
+    expect(panel).toBeTruthy();
   });
 
-  it('opens scrolled past the filter section alone', async () => {
-    const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
+  vaultIt('opens the panel when the search field takes focus', async () => {
     await renderFeed(fontScale);
-    await fireEvent(screen.getByTestId('home-filter-section'), 'layout', {
-      nativeEvent: { layout: { x: 0, y: 0, width: 430, height: 86 } },
-    });
-    expect(scrollToOffset).toHaveBeenLastCalledWith({ offset: 86, animated: false });
+    await fireEvent(screen.getByTestId('native-header-search'), 'focus');
+    expect(screen.getByTestId('home-filter-panel')).toBeTruthy();
   });
 
-  it('opens a search typed into the header at the filter section', async () => {
-    const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
+  vaultIt('collapses the open panel to chips once the list is dragged', async () => {
     await renderFeed(fontScale);
-    await fireEvent(screen.getByTestId('home-filter-section'), 'layout', {
-      nativeEvent: { layout: { x: 0, y: 0, width: 430, height: 42 } },
-    });
-    await fireEvent.changeText(screen.getByTestId('native-header-search'), 'ride');
-    expect(scrollToOffset).toHaveBeenLastCalledWith({ offset: 0, animated: false });
+    await fireEvent.press(screen.getByTestId('home-filter-button'));
+    await fireEvent.press(screen.getByTestId('home-filter-run'));
+    expect(screen.getByTestId('home-filter-run')).toBeTruthy();
+
+    await fireEvent(screen.getByTestId('home-activity-list'), 'scrollBeginDrag');
+
+    expect(screen.queryByTestId('home-filter-run')).toBeNull();
+    expect(screen.getByTestId('home-filter-chip-sport-run')).toBeTruthy();
+  });
+
+  vaultIt('clears one filter from its chip and drops the panel once none is left', async () => {
+    await renderFeed(fontScale);
+    await fireEvent.press(screen.getByTestId('home-filter-button'));
+    await fireEvent.press(screen.getByTestId('home-filter-run'));
+    await fireEvent.press(screen.getByTestId('home-filter-panel-close'));
+
+    await fireEvent.press(screen.getByTestId('home-filter-chip-sport-run-clear'));
+
+    expect(screen.queryByTestId('home-filter-panel')).toBeNull();
   });
 });
 

@@ -13,13 +13,18 @@
 //! `{"method": "cancel", "params": {"id": n}}`, which has no reply of its own:
 //! an ask still queued is never run, and the reply of one already running is
 //! dropped. A connection with [`MAX_OUTSTANDING`] asks outstanding answers the
-//! next with the error [`BUSY`]. None of these is a row of the table below: the
-//! table is the reads and writes, and a cancel is not one. A method
-//! not in the table is `unknown method`, which is how a phone-only operation
-//! (credentials, sign-out, clearing the library, backup, restore, linked
-//! devices, pairing, experimental and debug switches, deletes) is refused: it
-//! is never added. A screen that shows a phone-only operation's state is a
-//! read and is answered; the operation itself is not.
+//! next with the error [`BUSY`]. An ask whose id is zero or past 32 bits is
+//! refused with [`BAD_ID`] as one text reply under the id it sent, since a
+//! frame cannot carry that id. None of these is a
+//! row of the table below: the table is the reads and writes, and a cancel is
+//! not one. A method not in the table is `unknown method`, which is how a
+//! phone-only operation (credentials, sign-out, clearing the library, backup,
+//! restore, linked devices, pairing, experimental and debug switches) is
+//! refused: it is never added. The deletes the table does carry are
+//! recoverable on the phone: a section is retired and a saved workout is
+//! marked removed, and the phone lists and restores either. No delete removes
+//! rows outright. A screen that shows a phone-only operation's state is a read
+//! and is answered; the operation itself is not.
 
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -38,6 +43,9 @@ pub const MAX_OUTSTANDING: usize = 16;
 /// The error a connection answers an ask with when [`MAX_OUTSTANDING`] are
 /// already outstanding.
 pub const BUSY: &str = "busy";
+
+/// The error an ask is refused with when its id is not one a frame can carry.
+pub const BAD_ID: &str = "bad id";
 
 /// The settings a linked browser may read, by key: the preferences the
 /// settings screens show. A key not listed here is refused by name and its
@@ -123,9 +131,52 @@ pub fn negotiate(min: u32, max: u32) -> Option<u32> {
     (min <= max && highest >= MIN_PROTOCOL_VERSION.max(min)).then_some(highest)
 }
 
-/// The version a request asks its reply in: its `protocol` field, held to this
-/// build's range. A request with none comes from a page built before the field
-/// existed, which reads the oldest format.
+/// The error a request is answered with when it names a protocol version this
+/// build does not speak.
+pub const VERSION: &str = "version";
+
+/// Whether `version` is one this build speaks.
+fn in_window(version: u64) -> bool {
+    (u64::from(MIN_PROTOCOL_VERSION)..=u64::from(PROTOCOL_VERSION)).contains(&version)
+}
+
+/// The reply to a request this build cannot speak, or `None` for one it can.
+/// A hello whose range does not meet this build's is refused, and so is an ask
+/// whose `protocol` is present and is not a version in the window. The reply
+/// names this build's range, so the page can tell whether an older build of
+/// itself speaks the phone. It is one text message whatever the request named,
+/// since the page may read no other format from a build it does not speak.
+pub fn refusal(request: &str) -> Option<String> {
+    let value = serde_json::from_str::<Value>(request).ok()?;
+    let refused = if value["method"] == "link.hello" {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Range {
+            protocol: u32,
+            min_protocol: Option<u32>,
+        }
+        let range: Range = serde_json::from_value(value["params"].clone()).ok()?;
+        negotiate(range.min_protocol.unwrap_or(range.protocol), range.protocol).is_none()
+    } else {
+        value
+            .get("protocol")
+            .filter(|named| !named.is_null())
+            .is_some_and(|named| !named.as_u64().is_some_and(in_window))
+    };
+    refused.then(|| {
+        json!({
+            "id": value["id"],
+            "error": VERSION,
+            "minProtocol": MIN_PROTOCOL_VERSION,
+            "maxProtocol": PROTOCOL_VERSION,
+        })
+        .to_string()
+    })
+}
+
+/// The version a request asks its reply in: its `protocol` field when it names
+/// one in the window. A request with none, or one `refusal` turns away, is
+/// answered in the oldest format.
 pub fn wire_of(request: &str) -> u32 {
     #[derive(Deserialize)]
     struct Asked {
@@ -134,9 +185,8 @@ pub fn wire_of(request: &str) -> u32 {
     serde_json::from_str::<Asked>(request)
         .ok()
         .and_then(|asked| asked.protocol)
-        .map_or(MIN_PROTOCOL_VERSION, |version| {
-            version.clamp(MIN_PROTOCOL_VERSION, PROTOCOL_VERSION)
-        })
+        .filter(|version| in_window(u64::from(*version)))
+        .unwrap_or(MIN_PROTOCOL_VERSION)
 }
 
 /// What `link.hello` is asked: the newest protocol the page speaks, the
@@ -145,10 +195,31 @@ pub fn wire_of(request: &str) -> u32 {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkHello {
+    /// Unit: identifier.
     pub protocol: u32,
+    /// Unit: identifier.
     #[serde(default)]
     pub min_protocol: Option<u32>,
     pub page: String,
+    /// What the client says it is, when it says.
+    #[serde(default)]
+    pub client: Option<FfiLinkClient>,
+}
+
+/// What a client says it is in `link.hello`: a browser sends its user agent,
+/// a computer tool its name and version. The phone shows it as the client's
+/// own claim, never as verified.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkClient {
+    /// `browser` or `tool`.
+    pub kind: String,
+    #[serde(default)]
+    pub user_agent: Option<String>,
+    #[serde(default)]
+    pub tool: Option<String>,
+    #[serde(default)]
+    pub tool_version: Option<String>,
 }
 
 /// What `link.hello` answers: the protocol the two will speak (the phone's own
@@ -158,8 +229,11 @@ pub struct FfiLinkHello {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkHelloAnswer {
+    /// Unit: identifier.
     pub protocol: u32,
+    /// Unit: identifier.
     pub min_protocol: u32,
+    /// Unit: identifier.
     pub max_protocol: u32,
     pub app: String,
     pub methods: Vec<String>,
@@ -173,9 +247,11 @@ pub struct FfiLinkHelloAnswer {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkFeedPageAsk {
+    /// Unit: count.
     #[serde(default)]
     pub offset: u32,
     /// None asks for the largest page the phone allows.
+    /// Unit: count.
     pub limit: Option<u32>,
     #[serde(default)]
     pub needle: String,
@@ -183,11 +259,72 @@ pub struct FfiLinkFeedPageAsk {
     #[serde(default)]
     pub sport_families: Vec<crate::FfiSportFamily>,
     /// Inclusive start time in epoch seconds; None reaches the oldest.
+    /// Unit: epoch_second.
     #[serde(default)]
     pub oldest_ts: Option<f64>,
     /// Inclusive start time in epoch seconds; None reaches the newest.
+    /// Unit: epoch_second.
     #[serde(default)]
     pub newest_ts: Option<f64>,
+    /// Inclusive lower bound on distance in metres; None is unbounded.
+    #[serde(default)]
+    /// Unit: metre.
+    pub min_distance: Option<f64>,
+    /// Inclusive upper bound on distance in metres; None is unbounded.
+    #[serde(default)]
+    /// Unit: metre.
+    pub max_distance: Option<f64>,
+    /// Inclusive lower bound on moving time in seconds; None is unbounded.
+    #[serde(default)]
+    /// Unit: second.
+    pub min_moving_time: Option<u32>,
+    /// Inclusive upper bound on moving time in seconds; None is unbounded.
+    #[serde(default)]
+    /// Unit: second.
+    pub max_moving_time: Option<u32>,
+    /// The order of the whole match before the page is cut; None is newest
+    /// first.
+    #[serde(default)]
+    pub sort: Option<crate::FfiFeedSort>,
+    /// Answer `rows` in place of cards and previews.
+    #[serde(default)]
+    pub lean: bool,
+}
+
+/// One activity as a client that does not draw cards reads it: the fields of
+/// the card a list or a ranking needs, built from the card itself.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkLeanRow {
+    pub id: String,
+    pub start_date_local: String,
+    pub sport_type: Option<String>,
+    pub name: String,
+    /// Unit: metre.
+    pub distance: Option<f64>,
+    /// Unit: second.
+    pub moving_time: Option<f64>,
+    /// Unit: metre.
+    pub elevation_gain: Option<f64>,
+    /// Unit: tss.
+    pub training_load: Option<f64>,
+    pub has_track: bool,
+}
+
+impl From<&crate::FfiFeedCard> for FfiLinkLeanRow {
+    fn from(card: &crate::FfiFeedCard) -> Self {
+        Self {
+            id: card.id.clone(),
+            start_date_local: card.start_date_local.clone(),
+            sport_type: card.sport_type.clone(),
+            name: card.name.clone(),
+            distance: card.distance,
+            moving_time: card.moving_time,
+            elevation_gain: card.elevation_gain,
+            training_load: card.training_load,
+            has_track: card.has_gps,
+        }
+    }
 }
 
 /// What `feed.page` answers: the feed read the phone's own list draws, and the
@@ -201,6 +338,7 @@ pub struct FfiLinkFeedPageAsk {
 pub struct FfiLinkFeedPage {
     pub cards: Vec<crate::FfiFeedCard>,
     /// Every stored activity the query matched, not only this page.
+    /// Unit: count.
     pub matched_count: u32,
     pub has_more: bool,
     /// One per card with GPS and a stored track; a card with none is absent.
@@ -209,6 +347,9 @@ pub struct FfiLinkFeedPage {
     /// whatever families it names, so a chip counts what it would add. A
     /// family with none is absent.
     pub family_counts: Vec<FfiLinkFamilyCount>,
+    /// The lean rows of a lean ask, in the order of the cards they replace.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub rows: Vec<FfiLinkLeanRow>,
 }
 
 /// One sport family and how many stored activities fall in it.
@@ -216,6 +357,7 @@ pub struct FfiLinkFeedPage {
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkFamilyCount {
     pub family: crate::FfiSportFamily,
+    /// Unit: count.
     pub count: u32,
 }
 
@@ -224,6 +366,7 @@ pub struct FfiLinkFamilyCount {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkSummaryAsk {
+    /// Unit: epoch_second.
     pub now_wall_seconds: f64,
 }
 
@@ -231,6 +374,7 @@ pub struct FfiLinkSummaryAsk {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkSparklinesAsk {
+    /// Unit: day.
     pub days: u32,
 }
 
@@ -282,6 +426,7 @@ pub struct FfiLinkSettingSetAsk {
 pub struct FfiLinkThresholdAsk {
     pub sport: String,
     pub field: crate::FfiThresholdField,
+    /// Unit: varies.
     #[serde(deserialize_with = "Option::deserialize")]
     pub value: Option<f64>,
 }
@@ -308,7 +453,9 @@ pub struct FfiLinkDevicesAnswer {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkMapAsk {
+    /// Unit: epoch_second.
     pub start_date: f64,
+    /// Unit: epoch_second.
     pub end_date: f64,
     #[serde(default)]
     pub sport_types: Vec<String>,
@@ -328,9 +475,11 @@ pub struct FfiLinkMapScreen {
     pub screen: crate::FfiMapScreenData,
     /// The route group generation the route-line layer is built from; `None`
     /// while there is no layer.
+    /// Unit: identifier.
     pub route_generation: Option<f64>,
     /// The database state the section layer is read in; `None` when the read
     /// cannot vouch for one.
+    /// Unit: identifier.
     pub section_stamp: Option<f64>,
 }
 
@@ -339,6 +488,11 @@ pub struct FfiLinkMapScreen {
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkGeoText {
     pub text: String,
+    /// The line as one integer array, when the ask was `packed`: then `text` is empty. See
+    /// [`pack_line`](crate::persistence::codec::pack_line) for the layout.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Unit: varies.
+    pub packed_line: Option<Vec<i32>>,
 }
 
 /// What `geo.route`, `geo.routeLatest` and `geo.routeAttempts` are asked: one route group.
@@ -355,12 +509,57 @@ pub struct FfiLinkGeoSectionAsk {
     pub section_id: String,
 }
 
+/// What `geo.section` is asked: one section, and how its line comes back. With neither field the
+/// reply is the GeoJSON it has always been.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkGeoSectionLineAsk {
+    pub section_id: String,
+    /// Cap the line to at most this many points, first and last kept. Absent or zero keeps it
+    /// whole.
+    #[serde(default)]
+    /// Unit: count.
+    pub max_points: u32,
+    /// Answer the line as `packedLine`, one integer array, in place of GeoJSON text.
+    #[serde(default)]
+    pub packed: bool,
+}
+
+/// What `nearby.places` is asked: the point and sport, the route followed, and how each line
+/// comes back.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkNearbyAsk {
+    /// Unit: degree.
+    pub latitude: f64,
+    /// Unit: degree.
+    pub longitude: f64,
+    pub sport: String,
+    #[serde(default)]
+    pub followed_route_id: Option<String>,
+    /// Cap each line to at most this many points. Absent or zero keeps the read's default.
+    #[serde(default)]
+    /// Unit: count.
+    pub max_points: u32,
+    /// Carry each line as `packedLine` in place of `encodedCoords`.
+    #[serde(default)]
+    pub packed: bool,
+}
+
+/// The routes and sections near a point, nearest first.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkNearbyPlaces {
+    pub places: Vec<crate::persistence::nearby_routes::NearbyPlace>,
+}
+
 /// What `geo.sectionVersion` is asked: one stored geometry version of one section.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkGeoSectionVersionAsk {
     pub section_id: String,
     /// A version number from `section.history`'s geometry versions.
+    /// Unit: identifier.
     pub version: f64,
 }
 
@@ -368,8 +567,11 @@ pub struct FfiLinkGeoSectionVersionAsk {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkHeatmapTileAsk {
+    /// Unit: index.
     pub z: u32,
+    /// Unit: index.
     pub x: u32,
+    /// Unit: index.
     pub y: u32,
     /// `light`, `dark` or `satellite`.
     pub base: String,
@@ -389,8 +591,23 @@ pub struct FfiLinkHeatmapTile {
 #[derive(Debug, Clone, Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkHeatmapProgress {
+    /// Unit: count.
     pub processed: u32,
+    /// Unit: count.
     pub total: u32,
+}
+
+/// What `heatmap.underPoint` is asked: the point clicked and the whole zoom
+/// the page's camera is at.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkHeatmapUnderPointAsk {
+    /// Unit: degree.
+    pub latitude: f64,
+    /// Unit: degree.
+    pub longitude: f64,
+    /// Unit: index.
+    pub zoom: u32,
 }
 
 /// What a method that reads one activity is asked.
@@ -452,11 +669,117 @@ pub struct FfiLinkRouteAttemptsAsk {
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkPerformanceAsk {
     pub id: String,
+    /// Unit: day.
     pub time_range_days: u32,
     #[serde(default)]
     pub sport_filter: Option<String>,
     #[serde(default)]
     pub highlight_activity_id: Option<String>,
+}
+
+/// What `section.standing` is asked: the section, how many days back the
+/// trend and the attempts reach, the sport, and how many recent attempts to
+/// return (at most one page).
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionStandingAsk {
+    pub id: String,
+    /// Unit: day.
+    pub time_range_days: u32,
+    #[serde(default)]
+    pub sport_filter: Option<String>,
+    /// Unit: count.
+    #[serde(default)]
+    pub recent_limit: Option<u32>,
+}
+
+/// One attempt on a section: the activity, when it was ridden, its time and
+/// which way it ran.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionAttempt {
+    pub activity_id: String,
+    pub activity_name: String,
+    /// Unix seconds.
+    pub date: crate::WholeNumber,
+    /// Unit: second.
+    pub time_secs: f64,
+    /// Metres per second.
+    /// Unit: metre_per_second.
+    pub speed: f64,
+    /// "same" or "reverse".
+    pub direction: String,
+}
+
+/// The quickest attempt in each direction over the range.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionBests {
+    pub forward: Option<FfiLinkSectionBest>,
+    pub reverse: Option<FfiLinkSectionBest>,
+}
+
+/// A best time with the activity and date that set it. `is_record` is the
+/// section's record: the best over the whole included history.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionBest {
+    pub activity_id: String,
+    pub activity_name: String,
+    /// Unix seconds.
+    pub date: crate::WholeNumber,
+    /// Unit: second.
+    pub time_secs: f64,
+    pub is_record: bool,
+}
+
+/// How one direction's counted attempts in the window have moved: how many,
+/// their mean time, and the trend curve's first and last times.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionDirectionTrend {
+    /// Unit: count.
+    pub count: u32,
+    /// Unit: second.
+    pub avg_time_secs: Option<f64>,
+    /// The trend curve's time at the window's first attempt.
+    /// Unit: second.
+    pub trend_start_secs: Option<f64>,
+    /// The trend curve's time at the window's last attempt.
+    /// Unit: second.
+    pub trend_end_secs: Option<f64>,
+}
+
+/// The trend of each direction over the window.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionTrend {
+    /// Unit: day.
+    pub window_days: u32,
+    pub forward: Option<FfiLinkSectionDirectionTrend>,
+    pub reverse: Option<FfiLinkSectionDirectionTrend>,
+}
+
+/// What `section.standing` answers: where one section stands, in a few
+/// kilobytes.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionStanding {
+    pub id: String,
+    pub name: Option<String>,
+    /// The sport the answer is for.
+    pub sport_type: Option<String>,
+    /// Unit: metre.
+    pub distance_meters: f64,
+    /// Unit: metre.
+    pub elevation_gain_m: Option<f64>,
+    /// Counted traversals over the whole record, whatever the window.
+    /// Unit: count.
+    pub traversal_count: u32,
+    pub best: FfiLinkSectionBests,
+    /// Attempts inside the window, newest first, at most one page.
+    pub recent: Vec<FfiLinkSectionAttempt>,
+    pub trend: FfiLinkSectionTrend,
 }
 
 /// What `section.excluded` answers: the activities whose every traversal of
@@ -475,6 +798,7 @@ pub struct FfiLinkSectionExcluded {
 pub struct FfiLinkSectionHistory {
     pub history: Vec<crate::FfiSectionHistoryEvent>,
     pub geometry_versions: Vec<crate::FfiSectionGeometryVersion>,
+    /// Unit: identifier.
     pub pinned_version: Option<f64>,
     pub names: Vec<crate::FfiActivityName>,
 }
@@ -487,7 +811,9 @@ pub struct FfiLinkSectionExtension {
     pub activity_id: String,
     #[serde(with = "crate::remote::bytes")]
     pub encoded_track: Vec<u8>,
+    /// Unit: index.
     pub section_start_idx: u32,
+    /// Unit: index.
     pub section_end_idx: u32,
 }
 
@@ -511,15 +837,26 @@ pub struct FfiLinkSectionAsk {
     pub id: String,
 }
 
-/// What `section.unaccept` is asked: the sections to hand back to detection.
+/// What `section.unaccept` and `section.acceptMany` are asked: the sections to
+/// hand back to detection, or to accept.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkSectionIdsAsk {
     pub ids: Vec<String>,
 }
 
-/// What `section.acceptAll` answers: the sections the call accepted, which are
-/// the ones `section.unaccept` takes back.
+/// What `section.setEnabledMany` is asked: the sections and whether they are
+/// all shown or all hidden. The write is one change: every id takes the choice
+/// or none does.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkSectionIdsEnabledAsk {
+    pub ids: Vec<String>,
+    pub enabled: bool,
+}
+
+/// What `section.acceptAll` and `section.acceptMany` answer: the sections the
+/// call accepted, which are the ones `section.unaccept` takes back.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkSectionsAccepted {
@@ -551,6 +888,7 @@ pub struct FfiLinkExcludeAsk {
 pub struct FfiLinkLapAsk {
     pub id: String,
     pub activity_id: String,
+    /// Unit: index.
     pub start_index: u32,
 }
 
@@ -584,10 +922,13 @@ pub struct FfiLinkSectionBoundsAsk {
     pub edit: FfiLinkBoundsEdit,
     #[serde(default)]
     pub activity_id: Option<String>,
+    /// Unit: index.
     #[serde(default)]
     pub start_index: Option<u32>,
+    /// Unit: index.
     #[serde(default)]
     pub end_index: Option<u32>,
+    /// Unit: identifier.
     #[serde(default)]
     pub version: Option<f64>,
 }
@@ -601,13 +942,30 @@ pub struct FfiLinkSectionEdited {
     pub departed: Vec<crate::FfiDepartedRide>,
 }
 
+/// What `section.boundsPreview` answers: the distance and grade the section
+/// would store after the same `trim` or `expand`, read from the line the edit
+/// would write, and the laps the edit re-cuts against it. The grade is null
+/// when the line carries no altitude.
+#[derive(Debug, Clone, Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkBoundsPreview {
+    /// Unit: metre.
+    pub distance_meters: f64,
+    /// Unit: percent.
+    pub avg_grade_percent: Option<f64>,
+    /// Unit: count.
+    pub laps_remeasured: u32,
+}
+
 /// What `section.create` is asked: the stored activity whose track is cut,
 /// the inclusive index range and the sport, with an optional name.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkSectionCreateAsk {
     pub activity_id: String,
+    /// Unit: index.
     pub start_index: u32,
+    /// Unit: index.
     pub end_index: u32,
     pub sport: String,
     #[serde(default)]
@@ -631,11 +989,14 @@ pub struct FfiLinkMergeAsk {
 }
 
 /// What `section.mergePreview` answers: the rides a merge would leave out of
-/// the kept section.
+/// the kept section, and the laps it measures on the kept line for the rides
+/// it takes in.
 #[derive(Debug, Clone, Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkMergePreview {
     pub dropped: Vec<crate::FfiMergeDropped>,
+    /// Unit: count.
+    pub laps_remeasured: u32,
 }
 
 /// What `route.resetReference` is asked: the route.
@@ -663,6 +1024,16 @@ pub struct FfiLinkHeatmapHiddenAsk {
     pub hidden: bool,
 }
 
+/// What `heatmap.setHiddenMany` is asked: the activities and whether the
+/// heatmap leaves them all out. The write is one change: every id takes the
+/// choice or none does.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkHeatmapHiddenManyAsk {
+    pub activity_ids: Vec<String>,
+    pub hidden: bool,
+}
+
 /// What `detection.setEnabled` is asked: whether route matching is on.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
@@ -676,7 +1047,9 @@ pub struct FfiLinkDetectionEnabledAsk {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkStrictness {
+    /// Unit: percent.
     pub min_match_pct: f64,
+    /// Unit: metre.
     pub endpoint_threshold: f64,
 }
 
@@ -695,7 +1068,9 @@ pub struct FfiLinkDetectionSettings {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkStrengthAsk {
+    /// Unit: epoch_second.
     pub now_wall_seconds: f64,
+    /// Unit: day.
     pub period_days: u32,
 }
 
@@ -703,6 +1078,7 @@ pub struct FfiLinkStrengthAsk {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkExerciseAsk {
+    /// Unit: identifier.
     pub exercise_category: u16,
 }
 
@@ -757,10 +1133,13 @@ pub struct FfiLinkPickerAsk {
     pub muscle: Option<String>,
     #[serde(default)]
     pub query: String,
+    /// Unit: identifier.
     #[serde(default)]
     pub after_category: Option<u16>,
+    /// Unit: identifier.
     #[serde(default)]
     pub after_name: Option<u16>,
+    /// Unit: epoch_second.
     pub now_wall_seconds: f64,
 }
 
@@ -769,9 +1148,12 @@ pub struct FfiLinkPickerAsk {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkLastTimeAsk {
+    /// Unit: identifier.
     pub category: u16,
+    /// Unit: identifier.
     #[serde(default)]
     pub name: Option<u16>,
+    /// Unit: epoch_second.
     pub now_wall_seconds: f64,
 }
 
@@ -779,6 +1161,7 @@ pub struct FfiLinkLastTimeAsk {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkGroupsAsk {
+    /// Unit: epoch_second.
     pub now_wall_seconds: f64,
 }
 
@@ -819,10 +1202,13 @@ pub struct FfiLinkWorkoutRenameAsk {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkDraftSet {
+    /// Unit: count.
     #[serde(default)]
     pub reps: Option<u32>,
+    /// Unit: kilogram.
     #[serde(default)]
     pub weight_kg: Option<f64>,
+    /// Unit: second.
     #[serde(default)]
     pub duration_secs: Option<f64>,
     #[serde(default)]
@@ -836,11 +1222,15 @@ pub struct FfiLinkDraftSet {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkDraftExercise {
+    /// Unit: identifier.
     pub category: u16,
+    /// Unit: identifier.
     #[serde(default)]
     pub name: Option<u16>,
+    /// Unit: identifier.
     #[serde(default)]
     pub group_no: Option<u32>,
+    /// Unit: second.
     #[serde(default)]
     pub rest_secs: Option<u32>,
     #[serde(default)]
@@ -851,7 +1241,9 @@ pub struct FfiLinkDraftExercise {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkDraftGroup {
+    /// Unit: identifier.
     pub group_no: u32,
+    /// Unit: second.
     #[serde(default)]
     pub rest_secs: Option<u32>,
 }
@@ -881,7 +1273,9 @@ pub struct FfiLinkRestoreWorkoutAsk {
     pub exercises: Vec<FfiLinkDraftExercise>,
     #[serde(default)]
     pub groups: Vec<FfiLinkDraftGroup>,
+    /// Unit: epoch_second.
     pub created_at: f64,
+    /// Unit: epoch_second.
     #[serde(default)]
     pub last_used_at: Option<f64>,
 }
@@ -898,6 +1292,7 @@ pub struct FfiLinkWorkoutSaved {
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkLastTime {
     /// Whole days from that session to now.
+    /// Unit: day.
     pub days_ago: u32,
     pub sets: Vec<FfiLinkDraftSet>,
 }
@@ -915,8 +1310,10 @@ pub struct FfiLinkLastTimeAnswer {
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkStrengthGroup {
     pub signature: String,
+    /// Unit: count.
     pub times: u32,
     /// The day of the latest session of the group, in wall-clock seconds.
+    /// Unit: epoch_second.
     pub last_done: f64,
     pub latest_activity_id: String,
     pub muscles: Vec<crate::FfiMuscleGroup>,
@@ -937,9 +1334,13 @@ pub struct FfiLinkStrengthGroups {
 pub struct FfiLinkWorkoutRow {
     pub id: String,
     pub name: String,
+    /// Unit: count.
     pub exercise_count: u32,
+    /// Unit: count.
     pub set_count: u32,
+    /// Unit: epoch_second.
     pub last_used_at: Option<f64>,
+    /// Unit: epoch_second.
     pub created_at: f64,
 }
 
@@ -977,6 +1378,75 @@ pub struct FfiLinkWriteDone {
     pub ok: bool,
 }
 
+/// What `export.begin` is asked: which rides the library export carries.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkExportBeginAsk {
+    /// Keep the rides that start at this Unix time or later; the record and the
+    /// library tables are written whole whatever this says.
+    /// Unit: second.
+    pub since: Option<f64>,
+    /// Write each ride's kept original file as well as its rows.
+    #[serde(default)]
+    pub originals: bool,
+}
+
+/// What `export.begin` answers: the id of the spool the export is written to.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkExportBegun {
+    pub export_id: String,
+}
+
+/// What `export.status` and `export.done` are asked: which export.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkExportRef {
+    pub export_id: String,
+}
+
+/// What `export.status` answers. `state` is `building`, `ready` or `failed`.
+/// `bytes` is the archive's length once it is ready and what is written so far
+/// before, and `sha256` is the lowercase hex digest of the ready archive.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkExportStatus {
+    pub state: String,
+    /// Bytes, a whole number below 2^53.
+    /// Unit: byte.
+    pub bytes: f64,
+    /// Unit: count.
+    pub rides: u32,
+    /// Unit: count.
+    pub rides_done: u32,
+    pub sha256: Option<String>,
+    /// Why a failed export failed.
+    pub error: Option<String>,
+}
+
+/// What `export.read` is asked: a range of the finished archive.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkExportReadAsk {
+    pub export_id: String,
+    /// Bytes from the start of the archive, a whole number below 2^53.
+    /// Unit: byte.
+    pub offset: f64,
+    /// At most 1 MiB, a whole number.
+    /// Unit: byte.
+    pub length: f64,
+}
+
+/// What `export.read` answers: not JSON. The reply is binary frames carrying
+/// the bytes of the range under [`FRAME_RAW`], and a failure is a text reply
+/// with an `error`. The record names the one field that describes the frames.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLinkExportBytes {
+    /// Unit: byte.
+    pub length: f64,
+}
+
 /// What `import.begin` is asked: the archive the page will send, by name,
 /// size and the SHA-256 of its bytes in lowercase hex.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
@@ -984,6 +1454,7 @@ pub struct FfiLinkWriteDone {
 pub struct FfiLinkImportBeginAsk {
     pub name: String,
     /// Bytes, a whole number below 2^53.
+    /// Unit: byte.
     pub size: f64,
     pub sha256: String,
 }
@@ -994,8 +1465,10 @@ pub struct FfiLinkImportBeginAsk {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkImportBegun {
+    /// Unit: identifier.
     pub import_id: u32,
     /// Bytes, a whole number below 2^53.
+    /// Unit: byte.
     pub offset: f64,
 }
 
@@ -1003,6 +1476,7 @@ pub struct FfiLinkImportBegun {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkImportRef {
+    /// Unit: identifier.
     pub import_id: u32,
 }
 
@@ -1011,6 +1485,7 @@ pub struct FfiLinkImportRef {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkImportCommitted {
+    /// Unit: identifier.
     pub job_id: u32,
 }
 
@@ -1032,11 +1507,17 @@ pub struct FfiLinkImportStatus {
     pub state: String,
     pub stopped: Option<String>,
     pub detail: Option<String>,
+    /// Unit: count.
     pub seen: u32,
+    /// Unit: count.
     pub stored: u32,
+    /// Unit: count.
     pub already_stored: u32,
+    /// Unit: count.
     pub failed: u32,
+    /// Unit: count.
     pub other_format: u32,
+    /// Unit: count.
     pub skipped: u32,
     pub current: Option<String>,
     pub failures: Vec<FfiLinkImportFailure>,
@@ -1048,6 +1529,7 @@ pub struct FfiLinkImportStatus {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkFitnessScreenAsk {
+    /// Unit: day.
     #[serde(default)]
     pub span_days: Vec<u32>,
     pub windows: crate::FfiFitnessScreenWindows,
@@ -1066,7 +1548,9 @@ pub struct FfiLinkWellnessAsk {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkPlannedEventsAsk {
+    /// Unit: epoch_second.
     pub oldest_ts: f64,
+    /// Unit: epoch_second.
     pub newest_ts: f64,
 }
 
@@ -1084,6 +1568,7 @@ pub struct FfiLinkPlannedEvents {
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkWorkoutSectionsAsk {
     pub sport_type: String,
+    /// Unit: count.
     pub limit: u32,
 }
 
@@ -1098,7 +1583,9 @@ pub struct FfiLinkWorkoutSections {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkLoadsAsk {
+    /// Unit: epoch_second.
     pub start_ts: f64,
+    /// Unit: epoch_second.
     pub end_ts: f64,
 }
 
@@ -1107,6 +1594,18 @@ pub struct FfiLinkLoadsAsk {
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkDayLoads {
     pub days: Vec<crate::FfiDayLoad>,
+    /// The sum of the days' recorded loads, a day with none adding nothing.
+    /// Unit: tss.
+    pub total: f64,
+}
+
+impl FfiLinkDayLoads {
+    /// The days with their total, summed here so the page prints one figure
+    /// the engine stands behind rather than adding its own.
+    pub fn of(days: Vec<crate::FfiDayLoad>) -> Self {
+        let total = days.iter().filter_map(|day| day.total).sum();
+        Self { days, total }
+    }
 }
 
 /// What `fitness.zones` is asked: a sport, a zone kind (`power` or `hr`) and an
@@ -1116,7 +1615,9 @@ pub struct FfiLinkDayLoads {
 pub struct FfiLinkZonesAsk {
     pub sport_type: String,
     pub zone_type: String,
+    /// Unit: epoch_second.
     pub start_ts: f64,
+    /// Unit: epoch_second.
     pub end_ts: f64,
 }
 
@@ -1126,6 +1627,7 @@ pub struct FfiLinkZonesAsk {
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkPowerCurveAsk {
     pub sport: String,
+    /// Unit: day.
     pub days: f64,
 }
 
@@ -1135,6 +1637,7 @@ pub struct FfiLinkPowerCurveAsk {
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkPaceCurveAsk {
     pub sport: String,
+    /// Unit: day.
     pub days: f64,
     #[serde(default)]
     pub gap: bool,
@@ -1160,6 +1663,7 @@ pub struct FfiLinkPaceCurve {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLinkBestEffortsAsk {
+    /// Unit: day.
     pub days: f64,
 }
 
@@ -1173,6 +1677,9 @@ enum Run {
     /// of a collection on its way in, for the browser that made it, and so
     /// runs without the engine lock.
     Spool(fn(&str, Value) -> Result<Value, String>),
+    /// A spool method whose answer is bytes, not JSON, and goes back as raw
+    /// frames.
+    SpoolRaw(fn(&str, Value) -> Result<Vec<u8>, String>),
 }
 
 /// What a write did, for the answer, the log and the announcement.
@@ -1221,6 +1728,8 @@ impl Answered {
 /// are, and the read or write that answers it.
 pub struct Method {
     pub name: &'static str,
+    /// What the method does, in a sentence the published reference quotes.
+    pub doc: &'static str,
     /// The `uniffi::Record` the params deserialise into.
     pub params: &'static str,
     /// The `uniffi::Record` the result serialises from.
@@ -1231,7 +1740,7 @@ pub struct Method {
 impl Method {
     /// Whether the write channel, not the read channel, answers this method.
     pub fn is_write(&self) -> bool {
-        matches!(self.run, Run::Write(_) | Run::Spool(_))
+        matches!(self.run, Run::Write(_) | Run::Spool(_) | Run::SpoolRaw(_))
     }
 }
 
@@ -1244,612 +1753,805 @@ impl Method {
 pub const METHODS: &[Method] = &[
     Method {
         name: "link.hello",
+        doc: "Negotiates the protocol version: the page names the newest and oldest it speaks and the phone answers with the highest both hold, its app version, its device name and the methods it answers. A page sends it first.",
         params: "FfiLinkHello",
         result: "FfiLinkHelloAnswer",
         run: Run::Read(hello),
     },
     Method {
         name: "feed.page",
+        doc: "One page of the activity feed, narrowed by a search, sport families and a span of start times.",
         params: "FfiLinkFeedPageAsk",
         result: "FfiLinkFeedPage",
         run: Run::Read(feed_page),
     },
     Method {
         name: "feed.summary",
+        doc: "The feed's summary card for a span of dates.",
         params: "FfiLinkSummaryAsk",
         result: "FfiSummaryCardData",
         run: Run::Read(feed_summary),
     },
     Method {
         name: "feed.sparklines",
+        doc: "The wellness sparklines the feed shows above its list.",
         params: "FfiLinkSparklinesAsk",
         result: "FfiWellnessSparklines",
         run: Run::Read(feed_sparklines),
     },
     Method {
         name: "feed.highlights",
+        doc: "The highlights bundle the feed shows for a span of dates.",
         params: "FfiLinkHighlightsAsk",
         result: "FfiActivityHighlightsBundle",
         run: Run::Read(feed_highlights),
     },
     Method {
+        name: "feed.filterBounds",
+        doc: "The span of dates, distances and durations the library holds, which the feed filter bars draw.",
+        params: "FfiLinkNoAsk",
+        result: "FfiFeedFilterBounds",
+        run: Run::Read(feed_filter_bounds),
+    },
+    Method {
         name: "activity.summary",
+        doc: "One activity's summary fields.",
         params: "FfiLinkActivityAsk",
         result: "FfiActivitySummary",
         run: Run::Read(activity_summary),
     },
     Method {
         name: "activity.detail",
+        doc: "The activity detail screen's data for one activity.",
         params: "FfiLinkActivityAsk",
         result: "FfiActivityDetailData",
         run: Run::Read(activity_detail),
     },
     Method {
         name: "activity.record",
+        doc: "One activity's stored body typed as the detail screen reads it, or none when nothing is stored.",
         params: "FfiLinkActivityAsk",
         result: "FfiLinkActivityRecord",
         run: Run::Read(activity_record),
     },
     Method {
         name: "activity.streams",
+        doc: "The chart series of one activity as little-endian 64-bit float runs, a gap being NaN, with the track in the engine's own encoding.",
         params: "FfiLinkStreamsAsk",
         result: "FfiActivityStreams",
         run: Run::Read(activity_streams),
     },
     Method {
         name: "activity.intervals",
+        doc: "The laps of one activity, or none when its body was never fetched or will not parse.",
         params: "FfiLinkActivityAsk",
         result: "FfiLinkActivityIntervals",
         run: Run::Read(activity_intervals),
     },
     Method {
         name: "activity.sections",
+        doc: "The visible custom sections that name one activity.",
         params: "FfiLinkActivityAsk",
         result: "FfiLinkActivitySections",
         run: Run::Read(activity_sections),
     },
     Method {
         name: "activity.exerciseSets",
+        doc: "The exercise sets of one strength activity, grouped by exercise.",
         params: "FfiLinkActivityAsk",
         result: "FfiExerciseSession",
         run: Run::Read(activity_exercise_sets),
     },
     Method {
         name: "insights.data",
+        doc: "The insights screen's data for the period and sports asked.",
         params: "FfiInsightsParams",
         result: "FfiInsightsData",
         run: Run::Read(insights_data),
     },
     Method {
         name: "insights.plannedEvents",
+        doc: "The calendar events in an inclusive window of wall-clock seconds, oldest first.",
         params: "FfiLinkPlannedEventsAsk",
         result: "FfiLinkPlannedEvents",
         run: Run::Read(insights_planned_events),
     },
     Method {
         name: "insights.workoutSections",
+        doc: "The ranked sections for a sport, at most the count asked.",
         params: "FfiLinkWorkoutSectionsAsk",
         result: "FfiLinkWorkoutSections",
         run: Run::Read(insights_workout_sections),
     },
     Method {
         name: "routes.screen",
+        doc: "The routes screen's data: the route groups and sections the phone has found, narrowed by the query.",
         params: "FfiRoutesScreenQuery",
         result: "FfiRoutesScreenData",
         run: Run::Read(routes_screen),
     },
     Method {
         name: "route.detail",
+        doc: "One route group's detail screen data.",
         params: "FfiLinkActivityAsk",
         result: "FfiRouteDetailData",
         run: Run::Read(route_detail),
     },
     Method {
         name: "route.performance",
+        doc: "The lap reads of one route over a range of days for one sport, as the section detail reads them.",
         params: "FfiLinkPerformanceAsk",
         result: "FfiSectionPerformanceData",
         run: Run::Read(route_performance),
     },
     Method {
         name: "route.attempts",
+        doc: "The attempts at one route, narrowed by the activity being viewed and a sport, with the route's performance.",
         params: "FfiLinkRouteAttemptsAsk",
         result: "FfiRoutePerformanceResult",
         run: Run::Read(route_attempts),
     },
     Method {
         name: "section.detail",
+        doc: "One section's detail screen data.",
         params: "FfiLinkActivityAsk",
         result: "FfiSectionDetailData",
         run: Run::Read(section_detail),
     },
     Method {
         name: "section.performance",
+        doc: "The lap reads of one section over a range of days for one sport.",
         params: "FfiLinkPerformanceAsk",
         result: "FfiSectionPerformanceData",
         run: Run::Read(section_performance),
     },
     Method {
+        name: "section.standing",
+        doc: "Where one section stands: its trend and a page of recent attempts over a range of days, in a few kilobytes.",
+        params: "FfiLinkSectionStandingAsk",
+        result: "FfiLinkSectionStanding",
+        run: Run::Read(section_standing),
+    },
+    Method {
         name: "section.history",
+        doc: "One section's change ledger oldest first, its stored geometry versions with the pinned one flagged, and the names of the activities the ledger names.",
         params: "FfiLinkActivityAsk",
         result: "FfiLinkSectionHistory",
         run: Run::Read(section_history),
     },
     Method {
         name: "section.extensionTrack",
+        doc: "The activity a section is cut from, its whole stored track and the inclusive indices where the section's line runs on it.",
         params: "FfiLinkActivityAsk",
         result: "FfiLinkSectionExtension",
         run: Run::Read(section_extension_track),
     },
     Method {
         name: "section.excluded",
+        doc: "The activities whose every traversal of one section is excluded.",
         params: "FfiLinkActivityAsk",
         result: "FfiLinkSectionExcluded",
         run: Run::Read(section_excluded),
     },
     Method {
         name: "sections.retired",
+        doc: "The sections the athlete retired, which the phone lists and can restore.",
         params: "FfiLinkNoAsk",
         result: "FfiRetiredMapData",
         run: Run::Read(sections_retired),
     },
     Method {
         name: "fitness.screen",
+        doc: "The fitness screen's data: fitness, fatigue and form over the span asked.",
         params: "FfiLinkFitnessScreenAsk",
         result: "FfiFitnessScreenData",
         run: Run::Read(fitness_screen),
     },
     Method {
         name: "fitness.wellness",
+        doc: "The daily wellness rows over a span of dates.",
         params: "FfiLinkWellnessAsk",
         result: "FfiWellnessDays",
         run: Run::Read(fitness_wellness),
     },
     Method {
         name: "fitness.loads",
+        doc: "The training load of each day over a span of dates.",
         params: "FfiLinkLoadsAsk",
         result: "FfiLinkDayLoads",
         run: Run::Read(fitness_loads),
     },
     Method {
         name: "fitness.zones",
+        doc: "The time spent in each zone over a span of dates.",
         params: "FfiLinkZonesAsk",
         result: "FfiZoneDistribution",
         run: Run::Read(fitness_zones),
     },
     Method {
         name: "fitness.powerCurve",
+        doc: "The best power at each duration over a span of dates.",
         params: "FfiLinkPowerCurveAsk",
         result: "FfiLinkPowerCurve",
         run: Run::Read(fitness_power_curve),
     },
     Method {
         name: "fitness.paceCurve",
+        doc: "The best pace at each distance over a span of dates.",
         params: "FfiLinkPaceCurveAsk",
         result: "FfiLinkPaceCurve",
         run: Run::Read(fitness_pace_curve),
     },
     Method {
         name: "fitness.bestEfforts",
+        doc: "The best efforts screen's data over a window of days, where 0 is all time.",
         params: "FfiLinkBestEffortsAsk",
         result: "FfiBestEffortsData",
         run: Run::Read(fitness_best_efforts),
     },
     Method {
         name: "strength.screen",
+        doc: "The strength screen's data over the weeks asked.",
         params: "FfiLinkStrengthAsk",
         result: "FfiStrengthScreenData",
         run: Run::Read(strength_screen),
     },
     Method {
         name: "strength.exercise",
+        doc: "The detail of one exercise: its history and records.",
         params: "FfiLinkExerciseAsk",
         result: "FfiExerciseDetailData",
         run: Run::Read(strength_exercise),
     },
     Method {
         name: "strength.muscle",
+        doc: "The sets of one muscle group in one activity, grouped by exercise, primary and secondary work classed apart.",
         params: "FfiLinkMuscleAsk",
         result: "FfiMuscleGroupDetail",
         run: Run::Read(strength_muscle),
     },
     Method {
         name: "strength.picker",
+        doc: "The exercise picker's narrowed list and the vocabulary its filters use, for the filters and query asked.",
         params: "FfiLinkPickerAsk",
         result: "FfiExercisePickerData",
         run: Run::Read(strength_picker),
     },
     Method {
         name: "strength.lastTime",
+        doc: "What the athlete did last time for one exercise, or none for an exercise never done.",
         params: "FfiLinkLastTimeAsk",
         result: "FfiLinkLastTimeAnswer",
         run: Run::Read(strength_last_time),
     },
     Method {
         name: "strength.groups",
+        doc: "The recent strength groups, newest first.",
         params: "FfiLinkGroupsAsk",
         result: "FfiLinkStrengthGroups",
         run: Run::Read(strength_groups),
     },
     Method {
         name: "strength.workouts",
+        doc: "The saved strength workouts.",
         params: "FfiLinkNoAsk",
         result: "FfiLinkWorkouts",
         run: Run::Read(strength_workouts),
     },
     Method {
         name: "strength.workout",
+        doc: "One saved strength workout.",
         params: "FfiLinkWorkoutAsk",
         result: "FfiLinkWorkoutAnswer",
         run: Run::Read(strength_workout),
     },
     Method {
         name: "strength.live",
+        doc: "The strength session being recorded and what the focus view shows of it, both none when no session is live.",
         params: "FfiLinkNoAsk",
         result: "FfiLinkLiveAnswer",
         run: Run::Read(strength_live),
     },
     Method {
         name: "recordings.list",
+        doc: "The recordings the signed-in athlete may see, newest first.",
         params: "FfiLinkRecordingsAsk",
         result: "FfiLinkRecordingsAnswer",
         run: Run::ReadAs(recordings_list),
     },
     Method {
         name: "recordings.get",
+        doc: "One recording by id, or none when it is absent or held by another athlete.",
         params: "FfiLinkRecordingAsk",
         result: "FfiLinkRecordingAnswer",
         run: Run::ReadAs(recordings_get),
     },
     Method {
         name: "map.screen",
+        doc: "The map screen's data without its line layers, for the date window in epoch seconds, sports and filters asked, with the revisions of the layers the page fetches by URL.",
         params: "FfiLinkMapAsk",
         result: "FfiLinkMapScreen",
         run: Run::Read(map_screen),
     },
     Method {
         name: "geo.routeLines",
+        doc: "The route lines of every route group, as GeoJSON text.",
         params: "FfiLinkNoAsk",
         result: "FfiLinkGeoText",
         run: Run::Read(geo_route_lines),
     },
     Method {
         name: "geo.track",
+        doc: "One activity's track, as GeoJSON text.",
         params: "FfiLinkActivityAsk",
         result: "FfiLinkGeoText",
         run: Run::Read(geo_track),
     },
     Method {
         name: "geo.activityOverlay",
+        doc: "The overlay drawn over one activity, as GeoJSON text.",
         params: "FfiLinkActivityAsk",
         result: "FfiLinkGeoText",
         run: Run::Read(geo_activity_overlay),
     },
     Method {
         name: "geo.sections",
+        doc: "Every section's line, as GeoJSON text.",
         params: "FfiLinkNoAsk",
         result: "FfiLinkGeoText",
         run: Run::Read(geo_sections),
     },
     Method {
         name: "geo.route",
+        doc: "One route group's reference line, as GeoJSON text.",
         params: "FfiLinkGeoGroupAsk",
         result: "FfiLinkGeoText",
         run: Run::Read(geo_route),
     },
     Method {
         name: "geo.routeLatest",
+        doc: "The latest attempt at one route group, as GeoJSON text.",
         params: "FfiLinkGeoGroupAsk",
         result: "FfiLinkGeoText",
         run: Run::Read(geo_route_latest),
     },
     Method {
         name: "geo.routeAttempts",
+        doc: "Every attempt at one route group, as GeoJSON text.",
         params: "FfiLinkGeoGroupAsk",
         result: "FfiLinkGeoText",
         run: Run::Read(geo_route_attempts),
     },
     Method {
         name: "geo.section",
-        params: "FfiLinkGeoSectionAsk",
+        doc: "One section's line, as GeoJSON text, or packed and capped when asked.",
+        params: "FfiLinkGeoSectionLineAsk",
         result: "FfiLinkGeoText",
         run: Run::Read(geo_section),
     },
     Method {
         name: "geo.sectionVersion",
+        doc: "One earlier version of a section's line, as GeoJSON text.",
         params: "FfiLinkGeoSectionVersionAsk",
         result: "FfiLinkGeoText",
         run: Run::Read(geo_section_version),
     },
     Method {
         name: "geo.sectionPasses",
+        doc: "The passes made of one section, as GeoJSON text.",
         params: "FfiLinkGeoSectionAsk",
         result: "FfiLinkGeoText",
         run: Run::Read(geo_section_passes),
     },
     Method {
+        name: "nearby.places",
+        doc: "Routes and sections near a point, nearest first, each line packed and capped when asked.",
+        params: "FfiLinkNearbyAsk",
+        result: "FfiLinkNearbyPlaces",
+        run: Run::Read(nearby_places),
+    },
+    Method {
         name: "heatmap.tile",
+        doc: "One heatmap tile as a PNG for the base map asked, or none for a tile with no heat or one not yet drawn.",
         params: "FfiLinkHeatmapTileAsk",
         result: "FfiLinkHeatmapTile",
         run: Run::Read(heatmap_tile),
     },
     Method {
         name: "heatmap.progress",
+        doc: "How far the heatmap has been built.",
         params: "FfiLinkNoAsk",
         result: "FfiLinkHeatmapProgress",
         run: Run::Read(heatmap_progress),
     },
     Method {
+        name: "heatmap.underPoint",
+        doc: "The activities whose tracks pass under a point on the heatmap at a whole zoom, grouped by route and by section, newest first, with the figures the phone's sheet shows. A heatmap that is off answers none.",
+        params: "FfiLinkHeatmapUnderPointAsk",
+        result: "FfiActivitiesUnderPoint",
+        run: Run::Read(heatmap_under_point),
+    },
+    Method {
         name: "settings.get",
+        doc: "The values of the listed settings. A key outside the allowed list is refused by name.",
         params: "FfiLinkSettingsAsk",
         result: "FfiLinkSettingsAnswer",
         run: Run::Read(settings_get),
     },
     Method {
         name: "settings.profile",
+        doc: "The signed-in athlete's profile.",
         params: "FfiLinkNoAsk",
         result: "AthleteProfile",
         run: Run::Read(settings_profile),
     },
     Method {
         name: "settings.thresholds",
+        doc: "The thresholds settings screen's data.",
         params: "FfiLinkNoAsk",
         result: "FfiThresholdsScreenData",
         run: Run::Read(settings_thresholds),
     },
     Method {
         name: "status.backgroundJobs",
+        doc: "The background jobs the phone is running and their progress.",
         params: "FfiLinkNoAsk",
         result: "FfiBackgroundJobsData",
         run: Run::Read(status_background_jobs),
     },
     Method {
         name: "status.cache",
+        doc: "The cache screen's data.",
         params: "FfiLinkNoAsk",
         result: "FfiCacheScreenData",
         run: Run::Read(status_cache),
     },
     Method {
         name: "status.backup",
+        doc: "The backup screen's data.",
         params: "FfiLinkNoAsk",
         result: "FfiBackupScreenData",
         run: Run::Read(status_backup),
     },
     Method {
         name: "status.linkedDevices",
+        doc: "Every linked device and the id of the one that asked.",
         params: "FfiLinkNoAsk",
         result: "FfiLinkDevicesAnswer",
         run: Run::ReadAs(status_linked_devices),
     },
     Method {
         name: "status.coverage",
+        doc: "The counts of activities and tracks the library holds against those the sync has seen.",
         params: "FfiLinkNoAsk",
         result: "LibraryCoverage",
         run: Run::Read(status_coverage),
     },
     Method {
         name: "status.sync",
+        doc: "The state of the phone's sync with intervals.icu.",
         params: "FfiLinkNoAsk",
         result: "FfiSyncStatus",
         run: Run::Read(status_sync),
     },
     Method {
         name: "section.rename",
+        doc: "Renames a section.",
         params: "FfiLinkSectionRenameAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(section_rename),
     },
     Method {
         name: "section.setLift",
+        doc: "Sets whether a section is a lift.",
         params: "FfiLinkSectionLiftAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(section_set_lift),
     },
     Method {
         name: "section.accept",
+        doc: "Accepts a suggested section.",
         params: "FfiLinkSectionAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(section_accept),
     },
     Method {
+        name: "section.acceptMany",
+        doc: "Accepts several suggested sections.",
+        params: "FfiLinkSectionIdsAsk",
+        result: "FfiLinkSectionsAccepted",
+        run: Run::Write(section_accept_many),
+    },
+    Method {
         name: "section.acceptAll",
+        doc: "Accepts every suggested section.",
         params: "FfiLinkNoAsk",
         result: "FfiLinkSectionsAccepted",
         run: Run::Write(section_accept_all),
     },
     Method {
         name: "section.unaccept",
+        doc: "Returns accepted sections to suggested.",
         params: "FfiLinkSectionIdsAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(section_unaccept),
     },
     Method {
         name: "section.enable",
+        doc: "Turns a section on.",
         params: "FfiLinkSectionAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(section_enable),
     },
     Method {
         name: "section.disable",
+        doc: "Turns a section off.",
         params: "FfiLinkSectionAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(section_disable),
     },
     Method {
+        name: "section.setEnabledMany",
+        doc: "Turns several sections on or off.",
+        params: "FfiLinkSectionIdsEnabledAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(section_set_enabled_many),
+    },
+    Method {
+        name: "section.delete",
+        doc: "Retires a section. The phone lists it and can restore it.",
+        params: "FfiLinkSectionAsk",
+        result: "FfiLinkSectionEdited",
+        run: Run::Write(section_delete),
+    },
+    Method {
         name: "section.excludeActivity",
+        doc: "Leaves one activity out of a section.",
         params: "FfiLinkExcludeAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(section_exclude_activity),
     },
     Method {
         name: "section.includeActivity",
+        doc: "Counts one activity in a section again.",
         params: "FfiLinkExcludeAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(section_include_activity),
     },
     Method {
         name: "section.excludeLap",
+        doc: "Leaves one traversal of a section out, addressed by the activity and its start index.",
         params: "FfiLinkLapAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(section_exclude_lap),
     },
     Method {
         name: "section.includeLap",
+        doc: "Counts one traversal of a section again, addressed by the activity and its start index.",
         params: "FfiLinkLapAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(section_include_lap),
     },
     Method {
         name: "section.editBounds",
+        doc: "Edits a section's bounds: trim, expand, set the reference activity or revert to a version. It answers the rides the edit left out, which stay in the library.",
         params: "FfiLinkSectionBoundsAsk",
         result: "FfiLinkSectionEdited",
         run: Run::Write(section_edit_bounds),
     },
     Method {
+        name: "section.boundsPreview",
+        doc: "What a section would hold if its bounds were moved, without writing it.",
+        params: "FfiLinkSectionBoundsAsk",
+        result: "FfiLinkBoundsPreview",
+        run: Run::Read(section_bounds_preview),
+    },
+    Method {
         name: "section.create",
+        doc: "Creates a section from an inclusive index range of one stored activity's track, for a sport, with an optional name.",
         params: "FfiLinkSectionCreateAsk",
         result: "FfiLinkSectionCreated",
         run: Run::Write(section_create),
     },
     Method {
         name: "section.mergePreview",
+        doc: "What merging sections would produce, without writing it.",
         params: "FfiLinkMergeAsk",
         result: "FfiLinkMergePreview",
         run: Run::Read(section_merge_preview),
     },
     Method {
         name: "section.merge",
+        doc: "Merges sections into one.",
         params: "FfiLinkMergeAsk",
         result: "FfiMergeOutcome",
         run: Run::Write(section_merge),
     },
     Method {
         name: "section.restore",
+        doc: "Restores a retired section.",
         params: "FfiLinkSectionAsk",
         result: "FfiLinkSectionEdited",
         run: Run::Write(section_restore),
     },
     Method {
         name: "route.rename",
+        doc: "Renames a route group.",
         params: "FfiLinkRouteRenameAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(route_rename),
     },
     Method {
         name: "route.excludeActivity",
+        doc: "Leaves one activity out of a route group.",
         params: "FfiLinkExcludeAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(route_exclude_activity),
     },
     Method {
         name: "route.includeActivity",
+        doc: "Counts one activity in a route group again.",
         params: "FfiLinkExcludeAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(route_include_activity),
     },
     Method {
         name: "route.setReference",
+        doc: "Makes one activity the route group's reference.",
         params: "FfiLinkExcludeAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(route_set_reference),
     },
     Method {
         name: "route.resetReference",
+        doc: "Returns a route group's reference to the one the phone chose.",
         params: "FfiLinkRouteAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(route_reset_reference),
     },
     Method {
         name: "heatmap.setHidden",
+        doc: "Hides or shows one activity on the heatmap.",
         params: "FfiLinkHeatmapHiddenAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(heatmap_set_hidden),
     },
     Method {
+        name: "heatmap.setHiddenMany",
+        doc: "Hides or shows several activities on the heatmap.",
+        params: "FfiLinkHeatmapHiddenManyAsk",
+        result: "FfiLinkWriteDone",
+        run: Run::Write(heatmap_set_hidden_many),
+    },
+    Method {
         name: "detection.settings",
+        doc: "The section and route detection settings.",
         params: "FfiLinkNoAsk",
         result: "FfiLinkDetectionSettings",
         run: Run::Read(detection_settings),
     },
     Method {
         name: "detection.setEnabled",
+        doc: "Turns detection on or off.",
         params: "FfiLinkDetectionEnabledAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(detection_set_enabled),
     },
     Method {
         name: "detection.setStrictness",
+        doc: "Sets how much of a route has to match, in percent, and how far apart the two ends may be, in metres.",
         params: "FfiLinkStrictness",
         result: "FfiLinkWriteDone",
         run: Run::Write(detection_set_strictness),
     },
     Method {
         name: "detection.setSectionConfig",
+        doc: "Sets the section detection configuration.",
         params: "FfiSectionConfig",
         result: "FfiLinkWriteDone",
         run: Run::Write(detection_set_section_config),
     },
     Method {
         name: "settings.set",
+        doc: "Writes one setting. Only a setting the phone's own control offers is accepted, with a value that control offers.",
         params: "FfiLinkSettingSetAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(settings_set),
     },
     Method {
         name: "settings.setThreshold",
+        doc: "Sets one sport's threshold.",
         params: "FfiLinkThresholdAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(settings_set_threshold),
     },
     Method {
         name: "strength.saveWorkout",
+        doc: "Saves a strength workout.",
         params: "FfiLinkSaveWorkoutAsk",
         result: "FfiLinkWorkoutSaved",
         run: Run::Write(strength_save_workout),
     },
     Method {
         name: "strength.renameWorkout",
+        doc: "Renames a saved strength workout.",
         params: "FfiLinkWorkoutRenameAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(strength_rename_workout),
     },
     Method {
         name: "strength.deleteWorkout",
+        doc: "Marks a saved strength workout removed. The phone lists it and can restore it.",
         params: "FfiLinkWorkoutAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(strength_delete_workout),
     },
     Method {
         name: "strength.restoreWorkout",
+        doc: "Restores a removed strength workout.",
         params: "FfiLinkRestoreWorkoutAsk",
         result: "FfiLinkWriteDone",
         run: Run::Write(strength_restore_workout),
     },
     Method {
         name: "strength.liveEdit",
+        doc: "Edits the strength session in progress on the phone.",
         params: "FfiLinkLiveEditAsk",
         result: "FfiLiveStrengthOutcome",
         run: Run::Write(strength_live_edit),
     },
     Method {
         name: "import.begin",
+        doc: "Starts an import of an archive the page will send, named by name, size and the SHA-256 of its bytes. It answers the id the binary frames carry and how many bytes the phone already holds, so a dropped link sends only the rest.",
         params: "FfiLinkImportBeginAsk",
         result: "FfiLinkImportBegun",
         run: Run::Spool(import_begin),
     },
     Method {
         name: "import.commit",
+        doc: "Commits a begun import into the library.",
         params: "FfiLinkImportRef",
         result: "FfiLinkImportCommitted",
         run: Run::Spool(import_commit),
     },
     Method {
         name: "import.cancel",
+        doc: "Discards a begun import.",
         params: "FfiLinkImportRef",
         result: "FfiLinkWriteDone",
         run: Run::Spool(import_cancel),
     },
     Method {
+        name: "export.begin",
+        doc: "Starts writing the library export to a spool on the phone and answers its export id at once. One export builds per device at a time, and a second begin while one builds is refused as busy.",
+        params: "FfiLinkExportBeginAsk",
+        result: "FfiLinkExportBegun",
+        run: Run::Spool(export_begin),
+    },
+    Method {
+        name: "export.status",
+        doc: "How far an export has got: building, ready or failed, its length and rides, and the SHA-256 of the archive once it is ready.",
+        params: "FfiLinkExportRef",
+        result: "FfiLinkExportStatus",
+        run: Run::Spool(export_status),
+    },
+    Method {
+        name: "export.read",
+        doc: "Reads up to 1 MiB of a ready export from a byte offset. The answer is binary frames carrying the bytes under the raw flag, not JSON; a failure is a text reply with an error. A read past the end, or on an export still building, is an error.",
+        params: "FfiLinkExportReadAsk",
+        result: "FfiLinkExportBytes",
+        run: Run::SpoolRaw(export_read),
+    },
+    Method {
+        name: "export.done",
+        doc: "Deletes an export's spool.",
+        params: "FfiLinkExportRef",
+        result: "FfiLinkWriteDone",
+        run: Run::Spool(export_done),
+    },
+    Method {
         name: "import.status",
+        doc: "Where the import job stands and what it has walked: idle, running, done or stopped, with the reason a stopped job gives.",
         params: "FfiLinkNoAsk",
         result: "FfiLinkImportStatus",
         run: Run::Read(import_status),
@@ -1867,7 +2569,12 @@ pub fn is_write(name: &str) -> bool {
 
 /// Whether the write is one on a spool, which runs without the engine lock.
 pub fn is_spool(name: &str) -> bool {
-    method(name).is_some_and(|method| matches!(method.run, Run::Spool(_)))
+    method(name).is_some_and(|method| matches!(method.run, Run::Spool(_) | Run::SpoolRaw(_)))
+}
+
+/// Whether the method is a spool method whose answer is raw bytes.
+pub fn is_spool_bytes(name: &str) -> bool {
+    method(name).is_some_and(|method| matches!(method.run, Run::SpoolRaw(_)))
 }
 
 /// The text of `web/connect/methods.json`: the newest and oldest version and
@@ -1878,6 +2585,7 @@ pub fn methods_json() -> String {
         .map(|method| {
             json!({
                 "name": method.name,
+                "doc": method.doc,
                 "params": method.params,
                 "result": method.result,
                 "write": method.is_write(),
@@ -1917,18 +2625,29 @@ pub const FRAME_GZIP: u8 = 1;
 /// Flag: this is the last frame of its reply.
 pub const FRAME_LAST: u8 = 2;
 
+/// Flag: the reply bytes, joined, are the bytes of a file range and neither
+/// text nor gzip. The archive they come from is deflated already.
+pub const FRAME_RAW: u8 = 4;
+
 /// A reply text longer than this is gzipped before it is cut.
 pub const GZIP_OVER: usize = 4 * 1024;
 
 /// The gzip level a reply is compressed at.
 const GZIP_LEVEL: u32 = 6;
 
+/// The id a frame carries for an ask, or none when a frame cannot hold it. Id 0
+/// is the id of events and of replies to requests that did not parse, and past
+/// 32 bits there is no room in the header. This is the only rule for an id.
+pub fn frame_id(id: u64) -> Option<u32> {
+    u32::try_from(id).ok().filter(|id| *id != 0)
+}
+
 /// A reply as the binary frames that carry it. Requests stay JSON text; every
 /// reply is one or more frames of at most [`FRAME_BYTES`], a [`FRAME_HEADER_BYTES`]
 /// header and then a slice of the reply, which is gzipped first when its text
 /// is over [`GZIP_OVER`]. The request id comes from the reply's own `id`; a
-/// reply with none (a request that did not parse) goes under id 0, which the
-/// page never asks with.
+/// reply with none, or with an id [`frame_id`] cannot hold, goes under id 0,
+/// which the page never asks with.
 pub fn frames(reply: &str) -> Vec<Vec<u8>> {
     #[derive(Deserialize)]
     struct Id {
@@ -1937,7 +2656,7 @@ pub fn frames(reply: &str) -> Vec<Vec<u8>> {
     let id = serde_json::from_str::<Id>(reply)
         .ok()
         .and_then(|reply| reply.id)
-        .and_then(|id| u32::try_from(id).ok())
+        .and_then(frame_id)
         .unwrap_or(0);
 
     let (flags, body) = if reply.len() > GZIP_OVER {
@@ -1975,6 +2694,30 @@ pub fn frames(reply: &str) -> Vec<Vec<u8>> {
         .collect()
 }
 
+/// A reply of raw bytes as the binary frames that carry it, under id `id`,
+/// each flagged [`FRAME_RAW`] and the last also [`FRAME_LAST`]. The bytes are
+/// never compressed.
+pub fn raw_frames(id: u32, bytes: &[u8]) -> Vec<Vec<u8>> {
+    let mut chunks: Vec<&[u8]> = bytes.chunks(FRAME_BYTES - FRAME_HEADER_BYTES).collect();
+    if chunks.is_empty() {
+        chunks.push(&[]);
+    }
+    let last = chunks.len() - 1;
+    chunks
+        .into_iter()
+        .enumerate()
+        .map(|(seq, chunk)| {
+            let mut frame = Vec::with_capacity(FRAME_HEADER_BYTES + chunk.len());
+            frame.push(FRAME_VERSION);
+            frame.push(FRAME_RAW | if seq == last { FRAME_LAST } else { 0 });
+            frame.extend_from_slice(&id.to_be_bytes());
+            frame.extend_from_slice(&(seq as u32).to_be_bytes());
+            frame.extend_from_slice(chunk);
+            frame
+        })
+        .collect()
+}
+
 /// One message to write to the data channel.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Message {
@@ -1996,7 +2739,7 @@ pub fn reply_id(message: &Message) -> Option<u32> {
     serde_json::from_slice::<Replied>(&message.bytes)
         .ok()?
         .id
-        .and_then(|id| u32::try_from(id).ok())
+        .and_then(frame_id)
 }
 
 /// A reply as the messages that carry it in the format of protocol `wire`: the
@@ -2049,19 +2792,17 @@ pub fn set_device_name(name: &str) {
 fn hello(_conn: &Connection, ask: Value) -> Result<Value, String> {
     let ask: FfiLinkHello = params(ask)?;
     let oldest = ask.min_protocol.unwrap_or(ask.protocol);
+    let protocol = negotiate(oldest, ask.protocol).ok_or_else(|| VERSION.to_owned())?;
     let name = DEVICE_NAME
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone();
-    to_result(&hello_answer(
-        &name,
-        negotiate(oldest, ask.protocol).unwrap_or(PROTOCOL_VERSION),
-    ))
+    to_result(&hello_answer(&name, protocol))
 }
 
 /// The hello answer for a phone called `name` speaking `protocol`, which
 /// carries no name when it is blank.
-fn hello_answer(name: &str, protocol: u32) -> FfiLinkHelloAnswer {
+pub(crate) fn hello_answer(name: &str, protocol: u32) -> FfiLinkHelloAnswer {
     let name = name.trim();
     FfiLinkHelloAnswer {
         protocol,
@@ -2108,13 +2849,17 @@ fn map_screen(conn: &Connection, ask: Value) -> Result<Value, String> {
 fn geo_route_lines(conn: &Connection, ask: Value) -> Result<Value, String> {
     let _: FfiLinkNoAsk = params(ask)?;
     let text = crate::basemap::route_lines_collection(conn).map_err(|error| error.to_string())?;
-    to_result(&FfiLinkGeoText { text })
+    to_result(&FfiLinkGeoText {
+        text,
+        packed_line: None,
+    })
 }
 
 /// One activity's stored line as the phone's `veloq-geo` track URL answers it.
 fn geo_track(conn: &Connection, ask: Value) -> Result<Value, String> {
     let ask: FfiLinkActivityAsk = params(ask)?;
     to_result(&FfiLinkGeoText {
+        packed_line: None,
         text: crate::basemap::track_collection(conn, &ask.id),
     })
 }
@@ -2153,6 +2898,7 @@ fn geo_activity_overlay(conn: &Connection, ask: Value) -> Result<Value, String> 
         .collect();
     let pr_ids: Vec<&str> = detail.pr_section_ids.iter().map(String::as_str).collect();
     to_result(&FfiLinkGeoText {
+        packed_line: None,
         text: crate::basemap::activity_overlay_features(&sections, &traces, &encounters, &pr_ids),
     })
 }
@@ -2160,6 +2906,7 @@ fn geo_activity_overlay(conn: &Connection, ask: Value) -> Result<Value, String> 
 fn geo_sections(conn: &Connection, ask: Value) -> Result<Value, String> {
     let _: FfiLinkNoAsk = params(ask)?;
     to_result(&FfiLinkGeoText {
+        packed_line: None,
         text: crate::basemap::sections_collection(conn),
     })
 }
@@ -2167,6 +2914,7 @@ fn geo_sections(conn: &Connection, ask: Value) -> Result<Value, String> {
 fn geo_route(conn: &Connection, ask: Value) -> Result<Value, String> {
     let ask: FfiLinkGeoGroupAsk = params(ask)?;
     to_result(&FfiLinkGeoText {
+        packed_line: None,
         text: crate::basemap::route_feature(conn, &ask.group_id),
     })
 }
@@ -2174,6 +2922,7 @@ fn geo_route(conn: &Connection, ask: Value) -> Result<Value, String> {
 fn geo_route_latest(conn: &Connection, ask: Value) -> Result<Value, String> {
     let ask: FfiLinkGeoGroupAsk = params(ask)?;
     to_result(&FfiLinkGeoText {
+        packed_line: None,
         text: crate::basemap::route_latest_feature(conn, &ask.group_id),
     })
 }
@@ -2181,14 +2930,45 @@ fn geo_route_latest(conn: &Connection, ask: Value) -> Result<Value, String> {
 fn geo_route_attempts(conn: &Connection, ask: Value) -> Result<Value, String> {
     let ask: FfiLinkGeoGroupAsk = params(ask)?;
     to_result(&FfiLinkGeoText {
+        packed_line: None,
         text: crate::basemap::route_attempts_collection(conn, &ask.group_id),
     })
 }
 
 fn geo_section(conn: &Connection, ask: Value) -> Result<Value, String> {
-    let ask: FfiLinkGeoSectionAsk = params(ask)?;
+    let ask: FfiLinkGeoSectionLineAsk = params(ask)?;
+    if !ask.packed {
+        return to_result(&FfiLinkGeoText {
+            text: crate::basemap::section_feature(conn, &ask.section_id),
+            packed_line: None,
+        });
+    }
+    let line = crate::persistence::sections::geometry::stored_line(conn, &ask.section_id)?;
+    let line = crate::persistence::screens::capped_line(&line, ask.max_points as usize);
     to_result(&FfiLinkGeoText {
-        text: crate::basemap::section_feature(conn, &ask.section_id),
+        text: String::new(),
+        packed_line: Some(crate::persistence::codec::pack_line(&line)),
+    })
+}
+
+fn nearby_places(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkNearbyAsk = params(ask)?;
+    if !ask.latitude.is_finite() || !ask.longitude.is_finite() {
+        return Err("the point is not finite".to_owned());
+    }
+    to_result(&FfiLinkNearbyPlaces {
+        places: crate::persistence::nearby_routes::pooled::nearby_places(
+            conn,
+            ask.latitude,
+            ask.longitude,
+            &ask.sport,
+            crate::persistence::nearby_routes::ALL_KINDS,
+            ask.followed_route_id.as_deref(),
+            crate::persistence::nearby_routes::LineAsk {
+                max_points: ask.max_points,
+                packed: ask.packed,
+            },
+        ),
     })
 }
 
@@ -2198,6 +2978,7 @@ fn geo_section_version(conn: &Connection, ask: Value) -> Result<Value, String> {
         return Err("version is not a whole number".to_owned());
     }
     to_result(&FfiLinkGeoText {
+        packed_line: None,
         text: crate::basemap::section_version_feature(
             conn,
             &ask.section_id,
@@ -2209,6 +2990,7 @@ fn geo_section_version(conn: &Connection, ask: Value) -> Result<Value, String> {
 fn geo_section_passes(conn: &Connection, ask: Value) -> Result<Value, String> {
     let ask: FfiLinkGeoSectionAsk = params(ask)?;
     to_result(&FfiLinkGeoText {
+        packed_line: None,
         text: crate::basemap::section_passes_collection(conn, &ask.section_id),
     })
 }
@@ -2232,6 +3014,28 @@ fn heatmap_tile(_conn: &Connection, ask: Value) -> Result<Value, String> {
     })
 }
 
+/// What lies under a click on the heatmap, as the phone's own tap reads it.
+fn heatmap_under_point(_conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkHeatmapUnderPointAsk = params(ask)?;
+    if !HEATMAP_ZOOMS.contains(&ask.zoom) {
+        return Err(format!("zoom {} is outside the heatmap's range", ask.zoom));
+    }
+    if !ask.latitude.is_finite()
+        || !ask.longitude.is_finite()
+        || ask.latitude.abs() > 90.0
+        || ask.longitude.abs() > 180.0
+    {
+        return Err("the point is not a coordinate".to_owned());
+    }
+    let found = crate::persistence::under_point::activities_under_point(
+        ask.latitude,
+        ask.longitude,
+        ask.zoom as u8,
+    )
+    .map_err(|error| error.to_string())?;
+    to_result(&found)
+}
+
 fn heatmap_progress(_conn: &Connection, ask: Value) -> Result<Value, String> {
     let _: FfiLinkNoAsk = params(ask)?;
     let (processed, total) = crate::objects::tiles::tile_generation_progress();
@@ -2247,6 +3051,11 @@ fn feed_page(conn: &Connection, ask: Value) -> Result<Value, String> {
         sport_families: ask.sport_families,
         offset: ask.offset,
         limit: Some(ask.limit.unwrap_or(MAX_PAGE).min(MAX_PAGE)),
+        min_distance: ask.min_distance,
+        max_distance: ask.max_distance,
+        min_moving_time: ask.min_moving_time,
+        max_moving_time: ask.max_moving_time,
+        sort: ask.sort,
     };
     let page = crate::persistence::activities::pooled::feed_card_page(conn, &query)
         .map_err(|error| error.to_string())?;
@@ -2255,6 +3064,16 @@ fn feed_page(conn: &Connection, ask: Value) -> Result<Value, String> {
         .into_iter()
         .map(|(family, count)| FfiLinkFamilyCount { family, count })
         .collect();
+    if ask.lean {
+        return to_result(&FfiLinkFeedPage {
+            rows: page.cards.iter().map(FfiLinkLeanRow::from).collect(),
+            cards: Vec::new(),
+            matched_count: page.matched_count,
+            has_more: page.has_more,
+            previews: Vec::new(),
+            family_counts,
+        });
+    }
     let previews = page
         .cards
         .iter()
@@ -2267,6 +3086,7 @@ fn feed_page(conn: &Connection, ask: Value) -> Result<Value, String> {
         has_more: page.has_more,
         previews,
         family_counts,
+        rows: Vec::new(),
     })
 }
 
@@ -2294,6 +3114,13 @@ fn feed_sparklines(conn: &Connection, ask: Value) -> Result<Value, String> {
     )
     .map_err(|error| error.to_string())?;
     to_result(&lines)
+}
+
+fn feed_filter_bounds(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let _: FfiLinkNoAsk = params(ask)?;
+    let bounds = crate::persistence::screens::pooled::feed_filter_bounds(conn)
+        .map_err(|error| error.to_string())?;
+    to_result(&bounds)
 }
 
 fn feed_highlights(conn: &Connection, ask: Value) -> Result<Value, String> {
@@ -2447,6 +3274,99 @@ fn section_performance(conn: &Connection, ask: Value) -> Result<Value, String> {
             crate::persistence::sections::lap_curves::pooled::CurveRead::Computed,
         ),
     )
+}
+
+/// One section's standing, projected from the performance read the detail
+/// screen makes, so no figure is computed a second time. The lap curves are
+/// not asked for.
+fn section_standing(conn: &Connection, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkSectionStandingAsk = params(ask)?;
+    let section = crate::persistence::sections::queries::pooled::section_raw(conn, &ask.id)
+        .ok_or_else(|| format!("unknown section: {}", ask.id))?;
+    let name = section.name.clone().or_else(|| {
+        crate::persistence::sections::named::pooled::overlay_names_for(conn, &[ask.id.as_str()])
+            .remove(&ask.id)
+    });
+    let data = crate::persistence::screens::pooled::section_detail_performance(
+        conn,
+        &ask.id,
+        ask.time_range_days,
+        ask.sport_filter.as_deref(),
+        None,
+        crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
+    );
+    let limit = ask.recent_limit.unwrap_or(MAX_PAGE).min(MAX_PAGE) as usize;
+    let mut recent: Vec<FfiLinkSectionAttempt> = data
+        .chart_data
+        .points
+        .iter()
+        .map(|point| FfiLinkSectionAttempt {
+            activity_id: point.activity_id.clone(),
+            activity_name: point.activity_name.clone(),
+            date: crate::WholeNumber(crate::ffi_types::int_from_wire(point.activity_date)),
+            time_secs: f64::from(point.section_time),
+            speed: point.speed,
+            direction: point.direction.clone(),
+        })
+        .collect();
+    recent.sort_by_key(|attempt| std::cmp::Reverse(attempt.date));
+    recent.truncate(limit);
+    let best = |record: &Option<crate::SectionPerformanceRecord>, is_record: bool| {
+        record.as_ref().map(|r| FfiLinkSectionBest {
+            activity_id: r.activity_id.clone(),
+            activity_name: r.activity_name.clone(),
+            date: r.activity_date,
+            time_secs: r.best_time,
+            is_record,
+        })
+    };
+    let direction = |stats: &Option<crate::DirectionStats>,
+                     curve: &Option<Vec<crate::FfiTrendBandPoint>>| {
+        let stats = stats.as_ref().filter(|s| s.count > 0)?;
+        Some(FfiLinkSectionDirectionTrend {
+            count: stats.count,
+            avg_time_secs: stats.avg_time,
+            trend_start_secs: curve.as_ref().and_then(|c| c.first()).map(|p| p.value),
+            trend_end_secs: curve.as_ref().and_then(|c| c.last()).map(|p| p.value),
+        })
+    };
+    to_result(&FfiLinkSectionStanding {
+        id: ask.id.clone(),
+        name,
+        sport_type: data.sport_type.clone(),
+        distance_meters: section.distance_meters,
+        elevation_gain_m: section.elevation_gain_m,
+        traversal_count: u32::try_from(
+            data.lap_records
+                .iter()
+                .flat_map(|record| &record.laps)
+                .filter(|lap| !lap.excluded)
+                .count(),
+        )
+        .unwrap_or(u32::MAX),
+        best: FfiLinkSectionBests {
+            forward: best(
+                &data.performances.best_forward_record,
+                data.best_forward_is_record,
+            ),
+            reverse: best(
+                &data.performances.best_reverse_record,
+                data.best_reverse_is_record,
+            ),
+        },
+        recent,
+        trend: FfiLinkSectionTrend {
+            window_days: ask.time_range_days,
+            forward: direction(
+                &data.performances.forward_stats,
+                &data.trend_curves.forward_time,
+            ),
+            reverse: direction(
+                &data.performances.reverse_stats,
+                &data.trend_curves.reverse_time,
+            ),
+        },
+    })
 }
 
 /// The track the section's ends are dragged along: the reference activity's, with the range the
@@ -2621,7 +3541,7 @@ fn fitness_loads(conn: &Connection, ask: Value) -> Result<Value, String> {
     let (start, end) = seconds_window(ask.start_ts, ask.end_ts)?;
     let days =
         crate::persistence::fitness::derivations::pooled::daily_activity_loads(conn, start, end);
-    to_result(&FfiLinkDayLoads { days })
+    to_result(&FfiLinkDayLoads::of(days))
 }
 
 fn fitness_zones(conn: &Connection, ask: Value) -> Result<Value, String> {
@@ -3174,6 +4094,21 @@ pub fn answer_spool(browser: &str, request: &str) -> String {
         Some(Run::Spool(run)) => run(browser, request.params.clone()),
         _ => Err(format!("unknown method: {}", request.method)),
     };
+    if result.is_ok() && request.method == "export.begin" {
+        let logged = crate::persistence::settings_conn::with_settings_conn(|conn| {
+            crate::persistence::linked_devices::record_write(
+                conn,
+                browser,
+                &request.method,
+                "library",
+                "Began an export of the library",
+                super::service::now(),
+            )
+        });
+        if !matches!(logged, Some(Ok(()))) {
+            log::warn!("veloqrs: [remote] a write was made and not logged");
+        }
+    }
     if result.is_ok() && request.method == "import.commit" {
         let target = request.params["importId"].to_string();
         let logged = crate::persistence::settings_conn::with_settings_conn(|conn| {
@@ -3191,6 +4126,110 @@ pub fn answer_spool(browser: &str, request: &str) -> String {
         }
     }
     reply(request.id, result)
+}
+
+/// What a worker answers an ask with: a reply text, or the bytes of a file
+/// range for the request `id`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Answer {
+    Text(String),
+    Raw { id: u32, bytes: Vec<u8> },
+}
+
+impl Answer {
+    /// The messages that carry this answer in the format of protocol `wire`.
+    /// Raw bytes need frames, so an older page is given an error text.
+    pub fn messages(&self, wire: u32) -> Vec<Message> {
+        match self {
+            Self::Text(text) => messages(text, wire),
+            Self::Raw { id, bytes } if wire >= FRAMED_FROM => raw_frames(*id, bytes)
+                .into_iter()
+                .map(|bytes| Message {
+                    binary: true,
+                    bytes,
+                })
+                .collect(),
+            Self::Raw { id, .. } => messages(
+                &reply(
+                    u64::from(*id),
+                    Err("raw replies need protocol 3 or later".to_owned()),
+                ),
+                wire,
+            ),
+        }
+    }
+}
+
+/// Answer an ask of a spool method that returns bytes, from the browser that
+/// presented `browser`: the bytes as an [`Answer::Raw`] under the request's
+/// id, or the error as text. Any other method is answered as [`answer_spool`].
+pub fn answer_spool_bytes(browser: &str, request: &str) -> Answer {
+    let Ok(parsed) = serde_json::from_str::<Request>(request) else {
+        return Answer::Text(malformed());
+    };
+    let Some(Run::SpoolRaw(run)) = method(&parsed.method).map(|method| &method.run) else {
+        return Answer::Text(answer_spool(browser, request));
+    };
+    match (run(browser, parsed.params.clone()), frame_id(parsed.id)) {
+        (Ok(bytes), Some(id)) => Answer::Raw { id, bytes },
+        (Ok(_), None) => Answer::Text(reply(
+            parsed.id,
+            Err("a raw reply needs a request id from 1 to 2^32 - 1".to_owned()),
+        )),
+        (Err(error), _) => Answer::Text(reply(parsed.id, Err(error))),
+    }
+}
+
+fn export_begin(browser: &str, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkExportBeginAsk = params(ask)?;
+    if ask.since.is_some_and(|since| !since.is_finite()) {
+        return Err("since is not a time".into());
+    }
+    let export_id = super::export::begin(
+        browser,
+        crate::persistence::library_export::LibraryExportOptions {
+            since: ask.since,
+            originals: ask.originals,
+        },
+    )?;
+    to_result(&FfiLinkExportBegun { export_id })
+}
+
+fn export_status(browser: &str, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkExportRef = params(ask)?;
+    let status = super::export::status(browser, &ask.export_id)?;
+    to_result(&FfiLinkExportStatus {
+        state: status.state.to_owned(),
+        bytes: status.bytes as f64,
+        rides: status.rides,
+        rides_done: status.rides_done,
+        sha256: status.sha256,
+        error: status.error,
+    })
+}
+
+/// A whole number of bytes from a field that arrives as a float.
+fn whole_bytes(value: f64, name: &str) -> Result<u64, String> {
+    if value.fract() != 0.0 || !(0.0..9_007_199_254_740_992.0).contains(&value) {
+        return Err(format!("{name} is not a whole number of bytes"));
+    }
+    Ok(value as u64)
+}
+
+fn export_read(browser: &str, ask: Value) -> Result<Vec<u8>, String> {
+    let ask: FfiLinkExportReadAsk = params(ask)?;
+    super::export::read(
+        browser,
+        &ask.export_id,
+        whole_bytes(ask.offset, "offset")?,
+        whole_bytes(ask.length, "length")?,
+    )
+}
+
+fn export_done(browser: &str, ask: Value) -> Result<Value, String> {
+    let ask: FfiLinkExportRef = params(ask)?;
+    super::export::done(browser, &ask.export_id)?;
+    to_result(&FfiLinkWriteDone { ok: true })
 }
 
 fn database_error(error: crate::objects::error::VeloqError) -> String {
@@ -3244,12 +4283,26 @@ fn section_accept(
     done("sections", ask.id, format!("Accepted section {shown}"))
 }
 
+fn section_accept_many(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkSectionIdsAsk = params(ask)?;
+    let ids = engine.accept_sections(&ask.ids)?;
+    sections_accepted(ids)
+}
+
 fn section_accept_all(
     engine: &mut crate::persistence::PersistentEngine,
     ask: Value,
 ) -> Result<Written, String> {
     let _: FfiLinkNoAsk = params(ask)?;
     let ids = engine.accept_all_sections_listed()?;
+    sections_accepted(ids)
+}
+
+/// The answer to a write that accepted these sections.
+fn sections_accepted(ids: Vec<String>) -> Result<Written, String> {
     let summary = match ids.len() {
         1 => "Accepted 1 section".to_owned(),
         count => format!("Accepted {count} sections"),
@@ -3294,6 +4347,36 @@ fn section_disable(
     let shown = section_label(engine, &ask.id);
     engine.disable_section(&ask.id)?;
     done("sections", ask.id, format!("Disabled section {shown}"))
+}
+
+fn section_set_enabled_many(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkSectionIdsEnabledAsk = params(ask)?;
+    engine.set_sections_enabled(&ask.ids, ask.enabled)?;
+    let verb = if ask.enabled { "Enabled" } else { "Disabled" };
+    let summary = match ask.ids.len() {
+        1 => format!("{verb} 1 section"),
+        count => format!("{verb} {count} sections"),
+    };
+    done("sections", String::new(), summary)
+}
+
+fn section_delete(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkSectionAsk = params(ask)?;
+    let shown = section_label(engine, &ask.id);
+    engine.delete_user_made_section(&ask.id)?;
+    edited(
+        "sections",
+        ask.id,
+        format!("Deleted section {shown}"),
+        engine,
+        &[],
+    )
 }
 
 fn section_exclude_activity(
@@ -3402,6 +4485,33 @@ fn bounds_edit(
     })
 }
 
+/// What a `trim` or `expand` ask would leave the section measuring, read
+/// without writing. The other edits take a stored line or a reference rather
+/// than a range, and are refused.
+fn section_bounds_preview(conn: &Connection, ask: Value) -> Result<Value, String> {
+    use crate::persistence::sections::editing::pooled::{ProposedLine, bounds_preview};
+    let ask: FfiLinkSectionBoundsAsk = params(ask)?;
+    known_section(conn, &ask.id)?;
+    let proposed = match ask.edit {
+        FfiLinkBoundsEdit::Trim => ProposedLine::Trim {
+            start_index: needed(ask.start_index, "trim", "startIndex")?,
+            end_index: needed(ask.end_index, "trim", "endIndex")?,
+        },
+        FfiLinkBoundsEdit::Expand => ProposedLine::Expand {
+            activity_id: needed(ask.activity_id.as_deref(), "expand", "activityId")?,
+            start_index: needed(ask.start_index, "expand", "startIndex")?,
+            end_index: needed(ask.end_index, "expand", "endIndex")?,
+        },
+        _ => return Err(bad("boundsPreview reads trim and expand")),
+    };
+    let preview = bounds_preview(conn, &ask.id, &proposed)?;
+    to_result(&FfiLinkBoundsPreview {
+        distance_meters: preview.distance_meters,
+        avg_grade_percent: preview.avg_grade_percent,
+        laps_remeasured: preview.laps_remeasured,
+    })
+}
+
 fn section_edit_bounds(
     engine: &mut crate::persistence::PersistentEngine,
     ask: Value,
@@ -3478,13 +4588,17 @@ fn section_merge_preview(conn: &Connection, ask: Value) -> Result<Value, String>
     let ask: FfiLinkMergeAsk = params(ask)?;
     known_section(conn, &ask.primary_id)?;
     known_section(conn, &ask.secondary_id)?;
-    let dropped = crate::persistence::sections::merging::pooled::merge_preview(
-        conn,
-        &ask.primary_id,
-        &ask.secondary_id,
-    )
-    .map_err(|error| error.to_string())?;
-    to_result(&FfiLinkMergePreview { dropped })
+    let (dropped, laps_remeasured) =
+        crate::persistence::sections::merging::pooled::merge_preview_counted(
+            conn,
+            &ask.primary_id,
+            &ask.secondary_id,
+        )
+        .map_err(|error| error.to_string())?;
+    to_result(&FfiLinkMergePreview {
+        dropped,
+        laps_remeasured,
+    })
 }
 
 fn section_merge(
@@ -3615,6 +4729,29 @@ fn heatmap_set_hidden(
         format!("Showed {activity} on the heatmap")
     };
     done("activities", ask.activity_id, summary)
+}
+
+fn heatmap_set_hidden_many(
+    engine: &mut crate::persistence::PersistentEngine,
+    ask: Value,
+) -> Result<Written, String> {
+    let ask: FfiLinkHeatmapHiddenManyAsk = params(ask)?;
+    let distinct: std::collections::HashSet<&str> =
+        ask.activity_ids.iter().map(String::as_str).collect();
+    if distinct.is_empty() {
+        return Err("no activities to hide or show".into());
+    }
+    let count = distinct.len();
+    engine
+        .set_heatmap_hidden_many(&ask.activity_ids, ask.hidden)
+        .map_err(|error| error.to_string())?;
+    let noun = if count == 1 { "activity" } else { "activities" };
+    let summary = if ask.hidden {
+        format!("Hid {count} {noun} from the heatmap")
+    } else {
+        format!("Showed {count} {noun} on the heatmap")
+    };
+    done("activities", String::new(), summary)
 }
 
 fn detection_settings(conn: &Connection, _ask: Value) -> Result<Value, String> {
@@ -3824,8 +4961,16 @@ pub enum Incoming {
     /// An ask to answer, under its id when it has one. A message that is not
     /// a request is an ask too, and is answered `malformed request`.
     Ask(Option<u64>),
+    /// An ask whose id no frame can carry: zero, or past 32 bits. It is refused
+    /// under the id it sent, and never run.
+    Refuse(u64),
     /// A cancel that names no ask.
     Ignore,
+}
+
+/// The reply to an ask refused for its id.
+pub fn refused(id: u64) -> String {
+    json!({ "id": id, "error": BAD_ID }).to_string()
 }
 
 /// Read what a message from a browser is.
@@ -3838,7 +4983,10 @@ pub fn incoming(request: &str) -> Incoming {
             .as_u64()
             .map_or(Incoming::Ignore, Incoming::Cancel);
     }
-    Incoming::Ask(value["id"].as_u64())
+    match value["id"].as_u64() {
+        Some(id) if frame_id(id).is_none() => Incoming::Refuse(id),
+        id => Incoming::Ask(id),
+    }
 }
 
 /// The reply to an ask the connection has no room for.
@@ -3851,7 +4999,7 @@ pub fn failed(id: Option<u64>) -> String {
     json!({ "id": id, "error": "internal error" }).to_string()
 }
 
-fn reply(id: u64, result: Result<Value, String>) -> String {
+pub(crate) fn reply(id: u64, result: Result<Value, String>) -> String {
     match result {
         Ok(result) => json!({ "id": id, "result": result }),
         Err(error) => json!({ "id": id, "error": error }),

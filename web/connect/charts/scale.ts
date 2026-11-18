@@ -69,8 +69,9 @@ export function drawingHeight(width: number, margins: Margins, fixed?: number): 
     plotHeight(Math.max(1, width - margins.left - margins.right)) + margins.top + margins.bottom
   );
 }
-/** Below a lane's plot, before the next lane's title. */
-const LANE_PAD = 8;
+
+/** Below a lane's plot. With the top margin it keeps a lane's lowest tick label clear of the next lane's highest. */
+const LANE_PAD = 12;
 
 /** The width of a string in pixels at the chart's text size. */
 export type Measure = (text: string) => number;
@@ -509,6 +510,30 @@ export function visibleIndexes(
   return [...picked];
 }
 
+// --- Sparklines ------------------------------------------------------------
+
+export type SparkRange = { low: number; high: number };
+
+/**
+ * `values` as points across a `width` by `height` drawing, `inset` pixels from
+ * each edge so a stroke is not cut, with `range.low` at the bottom and
+ * `range.high` at the top. A flat range sits mid-height and one value mid-width.
+ */
+export function sparkPoints(
+  values: readonly number[],
+  width: number,
+  height: number,
+  range: SparkRange,
+  inset: number
+): { x: number; y: number }[] {
+  const span = range.high - range.low;
+  const inner = height - 2 * inset;
+  return values.map((value, i) => ({
+    x: values.length < 2 ? width / 2 : inset + (i / (values.length - 1)) * (width - 2 * inset),
+    y: span <= 0 ? height / 2 : height - inset - ((value - range.low) / span) * inner,
+  }));
+}
+
 // --- The other kinds -------------------------------------------------------
 
 export type Bin = { low: number; high: number; count: number };
@@ -533,30 +558,8 @@ export function histogramBins(values: readonly number[], count: number): Bin[] {
   return bins;
 }
 
+/** A line `intercept + slope * x` with the standard deviation of the points about it. */
 export type Trend = { slope: number; intercept: number; spread: number };
-
-/**
- * The least-squares line through the points and the standard deviation of the
- * points about it, which a scatter draws as a band either side. Null with
- * fewer than two points or one x.
- */
-export function trendBand(xs: readonly number[], ys: readonly number[]): Trend | null {
-  const pairs: [number, number][] = [];
-  xs.forEach((x, i) => {
-    const y = ys[i];
-    if (y !== undefined && Number.isFinite(x) && Number.isFinite(y)) pairs.push([x, y]);
-  });
-  const n = pairs.length;
-  if (n < 2) return null;
-  const mx = pairs.reduce((s, [x]) => s + x, 0) / n;
-  const my = pairs.reduce((s, [, y]) => s + y, 0) / n;
-  const sxx = pairs.reduce((s, [x]) => s + (x - mx) ** 2, 0);
-  if (sxx === 0) return null;
-  const slope = pairs.reduce((s, [x, y]) => s + (x - mx) * (y - my), 0) / sxx;
-  const intercept = my - slope * mx;
-  const residual = pairs.reduce((s, [x, y]) => s + (y - (intercept + slope * x)) ** 2, 0);
-  return { slope, intercept, spread: n > 2 ? Math.sqrt(residual / (n - 2)) : 0 };
-}
 
 /** Round durations in seconds, the ticks of a power curve's axis. */
 export const DURATION_TICKS = [
@@ -573,10 +576,22 @@ export function logTicks(
   return candidates.filter((value) => value >= domain[0] && value <= domain[1]);
 }
 
-/** A log axis' position: the fraction of the way from `low` to `high`. */
-export function logFraction(value: number, low: number, high: number): number {
-  if (low <= 0 || high <= low) return 0;
-  return (Math.log(Math.max(value, low)) - Math.log(low)) / (Math.log(high) - Math.log(low));
+/** A logarithmic x axis over positive `domain`: a value's pixel and a pixel's value. */
+export function logX(domain: [number, number], left: number, right: number): XScale {
+  const [low, high] = domain;
+  const width = right - left;
+  const span = low > 0 && high > low ? Math.log(high) - Math.log(low) : 0;
+  return {
+    domain,
+    left,
+    right,
+    position: (value) =>
+      span === 0 ? left : left + ((Math.log(Math.max(value, low)) - Math.log(low)) / span) * width,
+    value: (pixel) =>
+      span === 0 || width <= 0
+        ? low
+        : Math.exp(Math.log(low) + (Math.min(Math.max(pixel - left, 0), width) / width) * span),
+  };
 }
 
 export type CalendarCell = { date: string; row: number; column: number };
@@ -617,6 +632,9 @@ export function calendarCellSize(width: number, columnCounts: readonly number[])
   const fit = Math.floor((width - CALENDAR_WEEKDAY_ROOM) / longest) - CALENDAR_GAP;
   return Math.max(CALENDAR_MIN_CELL, Math.min(CALENDAR_MAX_CELL, fit));
 }
+
+/** The tooltip's padding on each side, matching its stylesheet. */
+export const TOOLTIP_PAD = 8;
 
 /** The gap between the crosshair and a tooltip beside it. */
 const TOOLTIP_GAP = 10;

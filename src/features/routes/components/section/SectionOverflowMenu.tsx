@@ -19,13 +19,15 @@ export interface SectionOverflowMenuProps {
   onShowOnMap?: (() => void) | undefined;
   /** Enters the bounds tool on the map. Absent for a section with no line to edit. */
   onEditBounds?: (() => void) | undefined;
+  /** Sends the section to the watch guide. Absent when the watch link is not on. */
+  onSendToWatch?: (() => void) | undefined;
   /** The header's tint, so the trigger reads on the map and on the opaque header alike. */
   tint: string;
 }
 
 /**
  * The section page's actions, in the native header's overflow menu: Show on map
- * first, then Edit bounds, then rematch, then delete (custom) or remove and restore
+ * first, then Edit bounds, then send to watch, then rematch, then delete (custom) or remove and restore
  * (detected). The destructive row sits last, and delete asks for confirmation in its
  * handler.
  */
@@ -39,6 +41,7 @@ export function SectionOverflowMenu({
   onRematch,
   onShowOnMap,
   onEditBounds,
+  onSendToWatch,
   tint,
 }: SectionOverflowMenuProps) {
   const { t } = useTranslation();
@@ -60,6 +63,14 @@ export function SectionOverflowMenu({
       label: t('sections.editBounds'),
       icon: 'content-cut',
       onPress: onEditBounds,
+    });
+  }
+  if (onSendToWatch) {
+    entries.push({
+      key: 'send-to-watch',
+      label: t('sections.sendToWatch'),
+      icon: 'watch',
+      onPress: onSendToWatch,
     });
   }
   if (onRematch && !isRematching && !isRematchHeld) {

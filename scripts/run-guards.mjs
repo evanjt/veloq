@@ -90,7 +90,7 @@ const GUARDS = [
   {
     name: 'check:export-compliance',
     kind: 'correctness',
-    paths: ['app.json', 'app.config.js', 'scripts/check-export-compliance.mjs'],
+    paths: ['app.json', 'app.config.js', 'scripts/check-export-compliance.mjs', 'scripts/lib/'],
     cmd: node('check-export-compliance.mjs'),
     catches:
       "a store build that is asked the encryption question at every upload because the declaration is missing, or one declaring non-exempt encryption for standard TLS and DTLS that protect only the app's own traffic",
@@ -286,7 +286,23 @@ const GUARDS = [
     paths: ['web/connect/'],
     cmd: node('lint-connect-css.mjs'),
     catches:
-      'a colour or a spacing, radius, border or font-size length written into the connect page past the generated token file, so the page drifts from the app',
+      'a colour, a spacing, radius, border or font-size length, or a z-index number written into the connect page past the generated token file, so the page drifts from the app and a dialog paints under a sticky header',
+  },
+  {
+    name: 'lint:connect-css-elements',
+    kind: 'style',
+    paths: ['web/connect/', 'scripts/lint-connect-css-elements.mjs', 'scripts/lib/'],
+    cmd: node('lint-connect-css-elements.mjs'),
+    catches:
+      'a page stylesheet naming a bare svg, section, table, td or th, which restyles every such element on the page, so a kit chart stretches to its card and a kit table shrink-wraps',
+  },
+  {
+    name: 'lint:connect-contrast',
+    kind: 'correctness',
+    paths: ['web/connect/', 'scripts/lint-connect-contrast.mjs', 'scripts/lib/'],
+    cmd: node('lint-connect-contrast.mjs'),
+    catches:
+      'a text or link colour under 4.5:1 on a connect ground in either scheme, such as a link that read the button fill and drew 3.8:1 on the dark page',
   },
   {
     name: 'crash:guard',
@@ -485,13 +501,6 @@ const GUARDS = [
   {
     name: 'lint:connect-page-builds',
     kind: 'correctness',
-    paths: [
-      'web/connect/',
-      'src/theme/',
-      'src/features/maps/',
-      'src/shared/',
-      'scripts/build-connect-page.mjs',
-    ],
     cmd: node('lint-connect-page-builds.mjs'),
     catches:
       'a module the connect page bundles importing a name the page theme subset does not export, which stops the page building',
@@ -517,6 +526,13 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('generate-link-schema.mjs', '--check'),
     catches: "a page schema older than the engine's method table or records",
+  },
+  {
+    name: 'check:api-reference',
+    kind: 'correctness',
+    cmd: node('build-api-reference.mjs', '--check'),
+    catches:
+      'a published API reference older than the link schema, or a method added to the engine table without a doc string, so a client reads a method list that is not the phone',
   },
   {
     name: 'lint:link-serialize',
@@ -936,6 +952,13 @@ const GUARDS = [
       'a map layer builder drawing a theme colour, which stays the same over every base map instead of following the palette its surface passes',
   },
   {
+    name: 'lint:chart-colour-roles',
+    kind: 'correctness',
+    cmd: node('lint-chart-colour-roles.mjs'),
+    catches:
+      'a chart reading gold, the direction pair or a wellness colour outside its role, or a retired chart or line alias, so a series takes a colour that means something else',
+  },
+  {
     name: 'lint:engine-client-casts',
     kind: 'correctness',
     cmd: node('lint-engine-client-casts.mjs'),
@@ -1238,7 +1261,7 @@ const GUARDS = [
   {
     name: 'lint:connect-page-titles',
     kind: 'style',
-    paths: ['web/connect/pages/', 'scripts/lint-connect-page-titles.mjs'],
+    paths: ['web/connect/pages/', 'scripts/lint-connect-page-titles.mjs', 'scripts/lib/'],
     cmd: node('lint-connect-page-titles.mjs'),
     catches:
       'a connect page drawing its own screen name as an h1 or h2 under the top bar, which already shows it, so the title appears twice',
@@ -1246,7 +1269,12 @@ const GUARDS = [
   {
     name: 'lint:connect-bare-controls',
     kind: 'style',
-    paths: ['web/connect/'],
+    paths: [
+      'web/connect/',
+      'scripts/connect-bare-controls-baseline.json',
+      'scripts/lint-connect-bare-controls.mjs',
+      'scripts/lib/',
+    ],
     cmd: node('lint-connect-bare-controls.mjs'),
     catches:
       'a bare button, select or input in a connect page file instead of the kit in web/connect/ui, so controls differ page to page',

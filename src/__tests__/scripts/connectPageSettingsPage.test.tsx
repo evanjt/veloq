@@ -91,7 +91,7 @@ const THRESHOLDS = {
 };
 
 const session = { importArchive: async () => undefined } as never;
-const snapshot = { upload: null, writeNotice: null } as never;
+const snapshot = { upload: null, libraryExport: null, writeNotice: null } as never;
 
 async function settle() {
   for (let at = 0; at < 8; at += 1) {

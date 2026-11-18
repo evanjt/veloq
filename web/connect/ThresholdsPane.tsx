@@ -9,6 +9,7 @@ import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ParseKeys } from 'i18next';
 
+import { formatPercent } from '@/shared/format/number';
 import { ReadNotice } from './shell/StatePanes';
 import {
   SOURCE_KEYS,
@@ -66,8 +67,14 @@ export function ThresholdsPane() {
     <div id="thresholds-pane">
       <p className="note">{t('connectPage.settings.thresholds.note')}</p>
       {held.sports.map((entry) => (
-        <table key={entry.sport} className="settings-table" id={`settings-thresholds-${entry.sport}`}>
-          <caption>{t(SPORT_KEYS[entry.sport] ?? 'connectPage.settings.thresholds.otherSport')}</caption>
+        <table
+          key={entry.sport}
+          className="settings-table"
+          id={`settings-thresholds-${entry.sport}`}
+        >
+          <caption>
+            {t(SPORT_KEYS[entry.sport] ?? 'connectPage.settings.thresholds.otherSport')}
+          </caption>
           <thead>
             <tr>
               <th scope="col">{t('connectPage.settings.columns.setting')}</th>
@@ -100,7 +107,9 @@ export function ThresholdsPane() {
                     />
                   </td>
                   <td className="settings-source">
-                    {figure.source ? t(SOURCE_KEYS[figure.source]) : t('connectPage.settings.notSet')}
+                    {figure.source
+                      ? t(SOURCE_KEYS[figure.source])
+                      : t('connectPage.settings.notSet')}
                     {figure.source === 'athlete' ? (
                       <Button
                         id={`threshold-clear-${entry.sport}-${field}`}
@@ -140,11 +149,15 @@ export function ThresholdsPane() {
               <tbody>
                 {entry.hrZones.upper.map((upper, at) => (
                   <tr key={at} data-zone>
-                    <th scope="row">{t('connectPage.settings.thresholds.zones.name', { n: at + 1 })}</th>
+                    <th scope="row">
+                      {t('connectPage.settings.thresholds.zones.name', { n: at + 1 })}
+                    </th>
                     <td>
                       {fromSettings
                         ? t('connectPage.settings.thresholds.zones.bpm', { value: upper })
-                        : t('connectPage.settings.thresholds.zones.percentOfMaxHr', { value: upper })}
+                        : t('connectPage.settings.thresholds.zones.percentOfMaxHr', {
+                            percent: formatPercent(upper),
+                          })}
                     </td>
                     <td className="settings-source">
                       {t(
@@ -159,7 +172,9 @@ export function ThresholdsPane() {
             </table>
             {entry.powerZones.length > 0 ? (
               <table id={`settings-power-zones-${entry.sport}`} className="settings-table">
-                <caption>{t('connectPage.settings.thresholds.zones.powerTitle', { sport })}</caption>
+                <caption>
+                  {t('connectPage.settings.thresholds.zones.powerTitle', { sport })}
+                </caption>
                 <thead>
                   <tr>
                     <th scope="col">{t('connectPage.settings.thresholds.zones.zone')}</th>
@@ -170,11 +185,15 @@ export function ThresholdsPane() {
                 <tbody>
                   {entry.powerZones.map((upper, at) => (
                     <tr key={at} data-power-zone>
-                      <th scope="row">{t('connectPage.settings.thresholds.zones.name', { n: at + 1 })}</th>
+                      <th scope="row">
+                        {t('connectPage.settings.thresholds.zones.name', { n: at + 1 })}
+                      </th>
                       <td>
                         {upper >= POWER_ZONE_OPEN_TOP_PERCENT
                           ? t('connectPage.settings.thresholds.zones.openTop')
-                          : t('connectPage.settings.thresholds.zones.percentOfFtp', { value: upper })}
+                          : t('connectPage.settings.thresholds.zones.percentOfFtp', {
+                              percent: formatPercent(upper),
+                            })}
                       </td>
                       <td className="settings-source">
                         {t('connectPage.settings.thresholds.source.sportSettings')}

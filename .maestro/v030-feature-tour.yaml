@@ -38,6 +38,15 @@ tags:
       # The placeholder ends in an ellipsis character, not three full stops.
       - tapOn: "Search activities…"
 - inputText: "Ride"
+# Focusing the search opens the filter panel, but open it explicitly so the chips
+# do not depend on that focus event.
+- runFlow:
+    when:
+      notVisible:
+        id: "home-filter-ride"
+    commands:
+      - tapOn:
+          id: "home-filter-button"
 - extendedWaitUntil:
     visible:
       id: "home-filter-ride"
@@ -48,6 +57,15 @@ tags:
 - eraseText: 4
 - runFlow:
     file: helpers/dismiss-keyboard.yaml
+
+# The panel stays open over the list, so shut it before the feed scrolls.
+- runFlow:
+    when:
+      visible:
+        id: "home-filter-panel-close"
+    commands:
+      - tapOn:
+          id: "home-filter-panel-close"
 
 # Scroll feed to see multiple cards
 - swipe:
@@ -117,7 +135,12 @@ tags:
 
 # The section is a card over the activity's own sheet, so a link to the activity that
 # is already open leaves the card where it is. Pop the card instead.
+# Back only when the card opened. Without a section to tap, back would pop the
+# activity itself and leave the feed.
 - runFlow:
+    when:
+      visible:
+        id: "section-detail-screen"
     file: helpers/go-back.yaml
 - extendedWaitUntil:
     visible:

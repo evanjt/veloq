@@ -20,7 +20,6 @@ import {
   paddedWindow,
   pathMetres,
   revertWrite,
-  slopePercent,
   snapIndex,
   trimWrite,
 } from '../../../web/connect/sectionBounds';
@@ -113,33 +112,6 @@ describe('paddedWindow', () => {
     const path = northward(200);
     const window = paddedWindow(path, { start: 80, end: 120 });
     expect(pathMetres(path, { start: window.start, end: 80 })).toBeLessThan(2000 + 120);
-  });
-});
-
-describe('slopePercent', () => {
-  const path = northward(11);
-
-  it('is the rise over the path length between the ends', () => {
-    const altitude = path.map((_, at) => at * 5);
-    expect(slopePercent(altitude, path, { start: 2, end: 6 })).toBeCloseTo(
-      (20 / (4 * 111.195)) * 100,
-      1
-    );
-  });
-
-  it('is null without altitude at both ends or with the ends on one vertex', () => {
-    expect(slopePercent(undefined, path, { start: 0, end: 5 })).toBeNull();
-    expect(slopePercent([1, 2], path, { start: 0, end: 5 })).toBeNull();
-    expect(
-      slopePercent(
-        path.map(() => 3),
-        path,
-        { start: 4, end: 4 }
-      )
-    ).toBeNull();
-    expect(
-      slopePercent([NaN, ...path.slice(1).map(() => 3)], path, { start: 0, end: 5 })
-    ).toBeNull();
   });
 });
 

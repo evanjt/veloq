@@ -104,7 +104,7 @@ describe('the exercise picker', () => {
     await fireEvent.press(screen.getByTestId('body-biceps'));
     expect(keys()).toEqual(['barbell_curl', 'dumbbell_curl']);
     expect(screen.getByTestId('picker-filter-line')).toHaveTextContent(
-      'strength.picker.regions.arms › strength.muscles.biceps'
+      'strength.picker.regions.arms · strength.muscles.biceps'
     );
 
     await fireEvent.press(screen.getByTestId('picker-equipment-dumbbell'));

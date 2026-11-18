@@ -99,11 +99,64 @@ interface ShareFileParams {
 }
 
 export async function shareFile({ content, name, kind, anchor }: ShareFileParams): Promise<void> {
+  await writeAndShare(name, kind, anchor, (fileUri) =>
+    FileSystem.writeAsStringAsync(fileUri, content, {
+      encoding: FileSystem.EncodingType.UTF8,
+    })
+  );
+}
+
+interface ShareFileBytesParams {
+  /** The file's bytes, written unchanged. */
+  bytes: ArrayBuffer;
+  /** The file name, with or without the kind's extension. */
+  name: string;
+  kind: ShareKind;
+  anchor?: ShareAnchor | undefined;
+}
+
+/**
+ * Share a binary file, such as a FIT course, under `name`. The bytes are written
+ * as base64, since the file system takes text only.
+ */
+export async function shareFileBytes({
+  bytes,
+  name,
+  kind,
+  anchor,
+}: ShareFileBytesParams): Promise<void> {
+  await writeAndShare(name, kind, anchor, (fileUri) =>
+    FileSystem.writeAsStringAsync(fileUri, bytesToBase64(bytes), {
+      encoding: FileSystem.EncodingType.Base64,
+    })
+  );
+}
+
+/** Write the export under its name in the export folder, then send it. */
+async function writeAndShare(
+  name: string,
+  kind: ShareKind,
+  anchor: ShareAnchor | undefined,
+  write: (fileUri: string) => Promise<void>
+): Promise<void> {
   const fileUri = await exportFileUri(fileNameFor(name, kind));
-  await FileSystem.writeAsStringAsync(fileUri, content, {
-    encoding: FileSystem.EncodingType.UTF8,
-  });
+  await write(fileUri);
   await shareExistingFile(fileUri, kind, { anchor });
+}
+
+/**
+ * Base64 of the bytes. The encoding runs a slice at a time, since a call that
+ * spreads a whole course into `String.fromCharCode` passes one argument per byte
+ * and a long file exceeds the limit on arguments.
+ */
+function bytesToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const SLICE = 0x8000;
+  let binary = '';
+  for (let start = 0; start < bytes.length; start += SLICE) {
+    binary += String.fromCharCode(...bytes.subarray(start, start + SLICE));
+  }
+  return btoa(binary);
 }
 
 /**

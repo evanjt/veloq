@@ -151,6 +151,12 @@ export function go(route: Route): void {
   location.hash = write(route);
 }
 
+/** Point the address at a route without adding a history entry, for a cursor that moves by key. */
+export function replaceRoute(route: Route): void {
+  history.replaceState(null, '', `${location.pathname}${location.search}${write(route)}`);
+  window.dispatchEvent(new HashChangeEvent('hashchange'));
+}
+
 /**
  * What the page shows for a hash. The hash applies only while the link is
  * connected; in any other state the page shows its own pane, and the route
@@ -180,8 +186,8 @@ export type Press = {
 };
 
 export type KeyAction =
-  | { do: 'tab'; tab: Tab }
-  | { do: 'search' }
+  | { do: 'digit'; digit: number }
+  | { do: 'palette' }
   | { do: 'closeDetail' }
   | { do: 'help' }
   | { do: 'step'; step: 'next' | 'previous' }
@@ -196,16 +202,20 @@ export function inField(target: Press['target']): boolean {
 /**
  * What a key does. Nothing at all while a text field has focus, or with a
  * modifier held, so the browser's own shortcuts and typing are left alone.
+ * With `shortcuts` off, a key that types a character does nothing either, so
+ * only Escape, Enter and the arrows act (WCAG 2.1.4).
  */
-export function keyAction(press: Press): KeyAction | null {
+export function keyAction(press: Press, shortcuts = true): KeyAction | null {
   if (press.ctrlKey || press.metaKey || press.altKey || inField(press.target)) return null;
-  const tab = /^[1-5]$/.test(press.key) ? TABS[Number(press.key) - 1] : undefined;
-  if (tab) return { do: 'tab', tab };
-  if (press.key === '/') return { do: 'search' };
   if (press.key === 'Escape') return { do: 'closeDetail' };
-  if (press.key === '?') return { do: 'help' };
-  if (press.key === 'j' || press.key === 'ArrowDown') return { do: 'step', step: 'next' };
-  if (press.key === 'k' || press.key === 'ArrowUp') return { do: 'step', step: 'previous' };
+  if (press.key === 'ArrowDown') return { do: 'step', step: 'next' };
+  if (press.key === 'ArrowUp') return { do: 'step', step: 'previous' };
   if (press.key === 'Enter') return { do: 'open' };
+  if (!shortcuts) return null;
+  if (/^[0-9]$/.test(press.key)) return { do: 'digit', digit: Number(press.key) };
+  if (press.key === '/') return { do: 'palette' };
+  if (press.key === '?') return { do: 'help' };
+  if (press.key === 'j') return { do: 'step', step: 'next' };
+  if (press.key === 'k') return { do: 'step', step: 'previous' };
   return null;
 }

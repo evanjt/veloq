@@ -10,9 +10,10 @@
 //
 // Usage: node scripts/lint-connect-page-titles.mjs [--root DIR]
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { treeView } from './lib/indexedSources.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -22,13 +23,6 @@ const PAGES = 'web/connect/pages';
 
 const HEADING = /<h([12])\b[^>]*>([\s\S]*?)<\/h\1>/g;
 const SCREEN_KEY = /['"`]connectPage\.(?:[\w.]*\.heading|screens\.\w+)['"`]/;
-
-function files(dir) {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name);
-    return statSync(path).isDirectory() ? files(path) : [path];
-  });
-}
 
 export function titleFailures(source) {
   const found = [];
@@ -40,11 +34,19 @@ export function titleFailures(source) {
   return found;
 }
 
+// The pages as the tree records them, so a page another session has open here is not judged.
+const view = treeView(root, [PAGES]);
+const pages = view.files(join(root, PAGES));
+if (pages.length === 0) {
+  console.error(`${PAGES} holds no files in the tree, so no page was checked.`);
+  process.exit(1);
+}
+
 const failures = [];
-for (const path of files(join(root, PAGES))) {
+for (const path of pages) {
   const rel = relative(root, path).split('\\').join('/');
   if (!rel.endsWith('.tsx')) continue;
-  for (const { line, level } of titleFailures(readFileSync(path, 'utf8'))) {
+  for (const { line, level } of titleFailures(view.text(path))) {
     failures.push(
       `${rel}:${line} a page heading at h${level} carries the screen's name, which the top bar already shows. Use a panel title (h3) or drop it.`
     );

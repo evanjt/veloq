@@ -12,6 +12,7 @@
 
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer';
 
+import { Histogram } from '../../../web/connect/charts/Histogram';
 import { RoutesPage } from '../../../web/connect/pages/RoutesPage';
 import type { Route } from '../../../web/connect/router';
 import { ContextMenu, ToastProvider } from '../../../web/connect/ui';
@@ -230,6 +231,26 @@ describe('the attempts table', () => {
     const flat = (id: string) => cells(id).flat();
     expect(flat('p2')).toContain('1');
     expect(flat('p1')).toContain('4');
+    root.unmount();
+  });
+
+  it('draws the spread view through Histogram from the bins the engine gave', async () => {
+    const session = fakeSession();
+    const root = await mount(page(session));
+    const tab = root.root.findAll(
+      (node) => node.type === 'button' && node.props.id === 'tab-spread'
+    )[0];
+    await act(async () => {
+      tab?.props.onClick();
+    });
+    await settle();
+    const drawn = root.root.findAllByType(Histogram);
+    expect(drawn).toHaveLength(1);
+    expect(drawn[0]?.props.binned).toEqual([
+      { low: 600, high: 630, count: 1 },
+      { low: 630, high: 660, count: 1 },
+      { low: 660, high: 690, count: 2 },
+    ]);
     root.unmount();
   });
 

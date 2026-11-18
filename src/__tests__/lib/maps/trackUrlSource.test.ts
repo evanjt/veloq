@@ -20,6 +20,8 @@ import { surfaceRuntimeScript } from '@/features/maps/lib/htmlBuilders/mapSurfac
 import type { MapSurfaceHtmlConfig } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import { createSurfacePatcher, growingLine } from '@/features/maps/lib/mapSurfacePatch';
 import { nativeGeoUrl } from '@/features/maps/lib/tileTransport';
+import { underPointKey } from '@/features/maps/lib/underPoint';
+import { FfiUnderPointKind } from '../../__shared__/veloqrsStub';
 import { mapPalette } from '@/theme';
 
 /** A three-hour ride at one point a second. */
@@ -206,14 +208,30 @@ describe('the page with a URL source', () => {
 
 describe('the traces under a tap as a URL', () => {
   vaultIt('names the tap, the zoom and the group, with the revision as the query', () => {
-    const url = nativeGeoUrl('under-point', '46200000_7350000_14_route-9', 3);
+    const key = underPointKey(46.2, 7.35, 14, { kind: FfiUnderPointKind.Route, id: 'route-9' });
 
-    expect(url).toMatch(/veloq-geo\/under-point\/46200000_7350000_14_route-9\?v=3$/);
+    expect(nativeGeoUrl('under-point', key, 3)).toMatch(
+      /veloq-geo\/under-point\/46200000_7350000_14_route_route-9\?v=3$/
+    );
+  });
+
+  vaultIt('names a section by its own prefix, so a section and a route of one id differ', () => {
+    const section = underPointKey(46.2, 7.35, 14, { kind: FfiUnderPointKind.Section, id: 'a_1' });
+    const route = underPointKey(46.2, 7.35, 14, { kind: FfiUnderPointKind.Route, id: 'a_1' });
+
+    expect(section).toBe('46200000_7350000_14_section_a_1');
+    expect(route).toBe('46200000_7350000_14_route_a_1');
+    expect(nativeGeoUrl('under-point', section, 2)).toMatch(
+      /veloq-geo\/under-point\/46200000_7350000_14_section_a_1\?v=2$/
+    );
   });
 
   vaultIt('names the activities in no route by an underscore', () => {
-    const url = nativeGeoUrl('under-point', '-33871234_151204567_12__', 0);
+    const key = underPointKey(-33.871234, 151.204567, 12, { kind: FfiUnderPointKind.NoRoute });
 
-    expect(url).toMatch(/veloq-geo\/under-point\/-33871234_151204567_12__\?v=0$/);
+    expect(key).toBe('-33871234_151204567_12__');
+    expect(nativeGeoUrl('under-point', key, 0)).toMatch(
+      /veloq-geo\/under-point\/-33871234_151204567_12__\?v=0$/
+    );
   });
 });

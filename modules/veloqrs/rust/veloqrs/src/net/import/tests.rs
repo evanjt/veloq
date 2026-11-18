@@ -347,6 +347,36 @@ fn an_entry_that_inflates_past_the_limit_is_failed_not_read() {
     assert_eq!(progress.stored, 1);
 }
 
+/// Scenario: zips nested three deep, each under the per-level size and
+/// together over the budget a walk may hold.
+///
+/// Expected behaviour: the innermost archive is failed with a reason, and the
+/// nested archives never hold more than the budget at once.
+#[test]
+fn nested_archives_share_one_memory_budget() {
+    let files = TempDir::new().unwrap();
+    let c_inner = zip_of(&[("ride.fit", ride_at(0))]);
+    let b_mid = zip_of(&[("c.zip", c_inner.clone())]);
+    let a_outer = zip_of(&[("b.zip", b_mid.clone())]);
+    let top = zip_of(&[("a.zip", a_outer.clone())]);
+    write(files.path(), "top.zip", &top);
+    let budget = (a_outer.len() + b_mid.len()) as u64;
+
+    let mut entries = Vec::new();
+    let (walked, peak) = walk::walk_within(files.path(), 0, budget, &mut |_, entry| {
+        entries.push(entry);
+        std::ops::ControlFlow::Continue(())
+    });
+
+    assert!(walked.is_ok());
+    assert!(peak <= budget, "peak {peak} over budget {budget}");
+    assert_eq!(entries.len(), 1, "{entries:?}");
+    assert!(
+        matches!(&entries[0], walk::Entry::Fit { bytes: Err(_), .. }),
+        "{entries:?}"
+    );
+}
+
 /// Scenario: the Garmin pass and an import run at once.
 ///
 /// Expected behaviour: one importer at a time, so the second is refused.
@@ -587,6 +617,288 @@ fn a_synced_ride_keeps_the_fuller_file_as_its_original() {
         );
     }
     assert!(keys(install).is_empty());
+}
+
+/// A ride synced from intervals.icu: its body and metrics stored under `id`,
+/// the census saying a track exists upstream, and no track or series held.
+/// The start is the synthetic ride's, on the wall clock.
+fn synced_ride_without_track(install: u64, id: &str, interval_body: Option<&str>) {
+    let start = outdoor_ride().start_unix + 7_200;
+    test_engine(install, |e| {
+        e.record_activity_census(
+            "i1",
+            &[crate::net::types::ActivityCensusEntry {
+                id: id.to_string(),
+                start_date_local: Some("2026-03-14T09:00:00".to_string()),
+                created: Some("2026-03-14T08:00:00Z".to_string()),
+                icu_sync_date: Some("2026-03-14T08:10:00Z".to_string()),
+                has_latlng: true,
+                has_series: true,
+            }],
+        )
+        .unwrap();
+        e.store_synced_activity_bodies(
+            "i1",
+            &[(
+                id.to_string(),
+                start,
+                format!("{{\"id\":\"{id}\",\"type\":\"Ride\"}}"),
+            )],
+            &[id.to_string()],
+            vec![crate::ActivityMetrics {
+                activity_id: id.to_string(),
+                date: start,
+                sport_type: "Ride".to_string(),
+                ..Default::default()
+            }],
+        )
+        .unwrap();
+        if let Some(body) = interval_body {
+            e.set_interval_body(id, body).unwrap();
+        }
+    })
+    .unwrap();
+}
+
+fn track_points(install: u64, id: &str) -> Option<i64> {
+    test_engine(install, |e| {
+        e.db.query_row(
+            "SELECT point_count FROM gps_tracks WHERE activity_id = ?1",
+            [id],
+            |row| row.get(0),
+        )
+        .ok()
+    })
+    .unwrap()
+}
+
+fn series_rows(install: u64, id: &str) -> Vec<String> {
+    test_engine(install, |e| {
+        let mut stmt =
+            e.db.prepare("SELECT kind FROM activity_streams WHERE activity_id = ?1 ORDER BY kind")
+                .unwrap();
+        stmt.query_map([id], |row| row.get::<_, String>(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect()
+    })
+    .unwrap()
+}
+
+fn owed_tracks(install: u64) -> Vec<String> {
+    test_engine(install, |e| {
+        e.gps_fetch_candidates("i1", "2026-01-01", "2026-12-31")
+            .into_iter()
+            .map(|c| c.activity_id)
+            .collect()
+    })
+    .unwrap()
+}
+
+/// Scenario: a ride synced from intervals.icu holds its body and metrics and no
+/// track, and the athlete imports a file of the same start and sport.
+///
+/// Expected behaviour: the file's track, series, time stream and elevation
+/// state are stored under the synced row, so the ride is no longer owed a
+/// track or a series download. The file is also the row's original.
+#[test]
+fn a_file_of_a_synced_ride_supplies_its_track_and_series() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("import_supplies_track.db");
+    let install = crate::persistence::engine_install();
+    synced_ride_without_track(install, "i77", None);
+    assert_eq!(owed_tracks(install), vec!["i77".to_string()]);
+    let files = TempDir::new().unwrap();
+    write(files.path(), "ride.fit", &outdoor_ride().to_fit());
+
+    let progress = run(install, files.path());
+
+    assert_eq!(progress.stored, 0, "{progress:#?}");
+    assert_eq!(progress.already_stored, 1);
+    assert_eq!(track_points(install, "i77"), Some(30));
+    let kinds = series_rows(install, "i77");
+    assert!(kinds.contains(&"heartrate".to_string()), "{kinds:?}");
+    assert!(kinds.contains(&"watts".to_string()), "{kinds:?}");
+    let (time, elevation, missing) = test_engine(install, |e| {
+        (
+            e.db.query_row(
+                "SELECT point_count FROM time_streams WHERE activity_id = 'i77'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .ok(),
+            e.elevation_state_of_track("i77"),
+            e.activities_missing_streams(3).unwrap(),
+        )
+    })
+    .unwrap();
+    assert_eq!(time, Some(30));
+    assert!(elevation.is_some());
+    assert!(missing.is_empty(), "{missing:?}");
+    assert!(owed_tracks(install).is_empty(), "no download is owed");
+    assert_eq!(keys(install).len(), 0, "no second row");
+    assert_eq!(originals_held(install).len(), 1);
+}
+
+/// Scenario: the synced ride already holds a track, from a download, and a file
+/// of the same ride with fewer samples is imported.
+///
+/// Expected behaviour: the stored track and series stay as they were.
+#[test]
+fn a_file_does_not_replace_the_track_a_synced_ride_holds() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("import_keeps_track.db");
+    let install = crate::persistence::engine_install();
+    synced_ride_without_track(install, "i77", None);
+    let files = TempDir::new().unwrap();
+    write(files.path(), "ride.fit", &outdoor_ride().to_fit());
+    run(install, files.path());
+    assert_eq!(track_points(install, "i77"), Some(30));
+    let before = series_rows(install, "i77");
+
+    let mut shorter = outdoor_ride();
+    shorter.samples.truncate(20);
+    write(files.path(), "ride.fit", &shorter.to_fit());
+    run(install, files.path());
+
+    assert_eq!(track_points(install, "i77"), Some(30));
+    assert_eq!(series_rows(install, "i77"), before);
+}
+
+/// Scenario: the synced ride holds an interval body whose laps reach past the
+/// samples of the file, which is then not the recording those laps address.
+///
+/// Expected behaviour: nothing is stored from the file and the track stays
+/// owed, so the laps keep addressing the server's own samples. A last lap that
+/// ends at the file's sample count, the position the server's own last lap ends at, does
+/// not hold the file back.
+#[test]
+fn a_file_the_laps_cannot_address_is_not_stored() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("import_laps_address.db");
+    let install = crate::persistence::engine_install();
+    let laps = |end: u32| {
+        format!(
+            "{{\"icu_intervals\":[{{\"id\":1,\"type\":\"WORK\",\"start_index\":0,\"end_index\":{end}}}]}}"
+        )
+    };
+    synced_ride_without_track(install, "i77", Some(&laps(100)));
+    let files = TempDir::new().unwrap();
+    write(files.path(), "ride.fit", &outdoor_ride().to_fit());
+
+    run(install, files.path());
+
+    assert_eq!(track_points(install, "i77"), None);
+    assert!(series_rows(install, "i77").is_empty());
+    assert_eq!(owed_tracks(install), vec!["i77".to_string()]);
+
+    test_engine(install, |e| e.set_interval_body("i77", &laps(30)).unwrap()).unwrap();
+    let again = TempDir::new().unwrap();
+    write(again.path(), "ride-again.fit", &outdoor_ride().to_fit());
+    run(install, again.path());
+
+    assert_eq!(track_points(install, "i77"), Some(30));
+    assert!(owed_tracks(install).is_empty());
+}
+
+fn laps_to(end: u32) -> String {
+    format!(
+        "{{\"icu_intervals\":[{{\"id\":1,\"type\":\"WORK\",\"start_index\":0,\"end_index\":{end}}}]}}"
+    )
+}
+
+fn check_of(install: u64, id: &str) -> Option<crate::persistence::FileTrackCheck> {
+    test_engine(install, |e| e.file_track_check(id)).unwrap()
+}
+
+/// Scenario: a file of a synced ride is imported before the ride's interval
+/// body arrives, so nothing contradicts it, and the body that arrives then
+/// ends at a record count the file does not hold.
+///
+/// Expected behaviour: the track and series the file supplied are withdrawn,
+/// the ride is owed its download again, the ride keeps its body, and the row
+/// records the file's count against the server's. A body that ends at the
+/// file's count leaves the track in place.
+#[test]
+fn an_interval_body_that_arrives_after_the_file_withdraws_a_track_it_contradicts() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _dir = crate::test_globals::init_global_engine("import_late_laps.db");
+    let install = crate::persistence::engine_install();
+    synced_ride_without_track(install, "i77", None);
+    let files = TempDir::new().unwrap();
+    write(files.path(), "ride.fit", &outdoor_ride().to_fit());
+    run(install, files.path());
+    assert_eq!(track_points(install, "i77"), Some(30));
+    assert_eq!(
+        check_of(install, "i77"),
+        Some(crate::persistence::FileTrackCheck {
+            file_records: 30,
+            server_records: None,
+            supplied: true,
+        })
+    );
+
+    test_engine(install, |e| {
+        e.set_interval_body("i77", &laps_to(30)).unwrap()
+    })
+    .unwrap();
+    assert_eq!(track_points(install, "i77"), Some(30));
+    assert_eq!(check_of(install, "i77").unwrap().server_records, Some(30));
+
+    test_engine(install, |e| {
+        e.set_interval_body("i77", &laps_to(31)).unwrap()
+    })
+    .unwrap();
+
+    assert_eq!(track_points(install, "i77"), None);
+    assert!(series_rows(install, "i77").is_empty());
+    assert!(owed_tracks(install).contains(&"i77".to_string()));
+    assert_eq!(
+        check_of(install, "i77"),
+        Some(crate::persistence::FileTrackCheck {
+            file_records: 30,
+            server_records: Some(31),
+            supplied: false,
+        })
+    );
+    let body_kept = test_engine(install, |e| e.get_activity_body("i77").is_some()).unwrap();
+    assert!(body_kept);
+}
+
+fn assert_file_of_other_count_is_refused(db: &str, server_records: u32) {
+    let _serial = crate::test_globals::serial_global_state();
+    let _dir = crate::test_globals::init_global_engine(db);
+    let install = crate::persistence::engine_install();
+    synced_ride_without_track(install, "i77", Some(&laps_to(server_records)));
+    let files = TempDir::new().unwrap();
+    write(files.path(), "ride.fit", &outdoor_ride().to_fit());
+
+    run(install, files.path());
+
+    assert_eq!(track_points(install, "i77"), None);
+    assert!(series_rows(install, "i77").is_empty());
+    assert_eq!(
+        check_of(install, "i77"),
+        Some(crate::persistence::FileTrackCheck {
+            file_records: 30,
+            server_records: Some(server_records),
+            supplied: false,
+        })
+    );
+}
+
+/// Scenario: the synced ride's interval body ends one record after the file's
+/// count of 30, or one record before it.
+///
+/// Expected behaviour: the file is not used and the row records the mismatch.
+#[test]
+fn a_file_with_fewer_records_than_the_server_is_not_used_and_is_recorded() {
+    assert_file_of_other_count_is_refused("import_fewer_records.db", 31);
+}
+
+#[test]
+fn a_file_with_more_records_than_the_server_is_not_used_and_is_recorded() {
+    assert_file_of_other_count_is_refused("import_more_records.db", 29);
 }
 
 /// Scenario: a collection holds one GPX with heart rate in an extension and

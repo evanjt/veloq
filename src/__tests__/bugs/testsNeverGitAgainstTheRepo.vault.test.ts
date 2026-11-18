@@ -27,8 +27,8 @@ const SHELLS_OUT_TO_GIT = /\b(execFileSync|execSync|spawnSync|spawn|exec)\(\s*['
 /** What a test writes above a spawn whose environment is its subject. */
 const DELIBERATE = 'inherits-git-env: deliberate';
 
-/** Any child-process call at all, whatever it runs. */
-const SPAWNS_A_CHILD = /\b(execFileSync|execSync|spawnSync|spawn|exec)\(/;
+/** Any child-process call. A `.exec(` method is a RegExp, so only a bare `exec(` counts. */
+const SPAWNS_A_CHILD = /\b(execFileSync|execSync|spawnSync|spawn)\(|(?<![.\w$])exec\(/;
 
 /**
  * A file whose fixtures are checkouts, whether it reaches git itself or through
@@ -143,6 +143,12 @@ describe('the spawn check', () => {
       'delete inherited.VELOQ_MERGE_BASE;',
       "execFileSync('bash', [GUARD, '--merge'], { cwd: root, env: { ...gitFreeEnv(inherited) } });",
     ].join('\n');
+
+    expect(unsafeChildSpawns(source)).toEqual([]);
+  });
+
+  it('does not read a RegExp exec as a spawn', () => {
+    const source = 'const name = /^var\\((--[\\w-]+)\\)$/.exec(reference)?.[1];';
 
     expect(unsafeChildSpawns(source)).toEqual([]);
   });

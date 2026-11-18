@@ -56,4 +56,4 @@ appId: ${APP_ID}
     point: "14%,61%"
 - waitForAnimationToEnd:
     timeout: 6000
-- takeScreenshot: "/tmp/t1822-map"
+- takeScreenshot: "screenshots/under-point-map"

@@ -159,6 +159,9 @@ pub mod settings_keys {
     /// the device's use of the shared limits rather than the library, so a
     /// clear leaves them.
     pub const REQUEST_BUDGET_COOLDOWN_UNTIL: &str = "__request_budget_cooldown_until";
+    /// The end of the `Retry-After` the last refusal carried (an RFC 3339
+    /// instant, empty for none).
+    pub const REQUEST_BUDGET_ASKED_UNTIL: &str = "__request_budget_asked_until";
     pub const REQUEST_BUDGET_DAY: &str = "__request_budget_day";
     pub const REQUEST_BUDGET_BACKFILL_TODAY: &str = "__request_budget_backfill_today";
     pub const REQUEST_BUDGET_DAY_OFFSET: &str = "__request_budget_day_offset";
@@ -167,6 +170,9 @@ pub mod settings_keys {
     /// empty for none yet). Rows an earlier release wrote for a one-time burst
     /// are no longer read and are left where they are.
     pub const REQUEST_BUDGET_UPGRADE_DAY: &str = "__request_budget_upgrade_day";
+    /// Whether the athlete lifted the backfill's day cap (`1`, else `0` or
+    /// empty). It lifts nothing unless the held credential is a personal key.
+    pub const REQUEST_BUDGET_BACKFILL_CAP_LIFTED: &str = "__request_budget_backfill_cap_lifted";
 }
 
 /// The request budget the settings rows hold, from any connection. `None`
@@ -188,15 +194,21 @@ pub fn request_budget_from(
     let cooldown_until = setting_from(conn, settings_keys::REQUEST_BUDGET_COOLDOWN_UNTIL)?
         .and_then(|raw| chrono::DateTime::parse_from_rfc3339(&raw).ok())
         .map(|at| at.with_timezone(&chrono::Utc));
+    let asked_until = setting_from(conn, settings_keys::REQUEST_BUDGET_ASKED_UNTIL)?
+        .and_then(|raw| chrono::DateTime::parse_from_rfc3339(&raw).ok())
+        .map(|at| at.with_timezone(&chrono::Utc));
     let upgrade_day = setting_from(conn, settings_keys::REQUEST_BUDGET_UPGRADE_DAY)?
         .and_then(|raw| chrono::NaiveDate::parse_from_str(&raw, "%Y-%m-%d").ok());
     Ok(Some(crate::governor::StoredBudget {
         cooldown_until,
+        asked_until,
         day,
         backfill_today: number(settings_keys::REQUEST_BUDGET_BACKFILL_TODAY)?,
         day_offset_secs: number(settings_keys::REQUEST_BUDGET_DAY_OFFSET)?,
         ladder_step: number(settings_keys::REQUEST_BUDGET_LADDER_STEP)?,
         upgrade_day,
+        backfill_cap_lifted: setting_from(conn, settings_keys::REQUEST_BUDGET_BACKFILL_CAP_LIFTED)?
+            .is_some_and(|raw| raw == "1"),
     }))
 }
 
@@ -212,6 +224,13 @@ pub fn set_request_budget_on(
             settings_keys::REQUEST_BUDGET_COOLDOWN_UNTIL,
             stored
                 .cooldown_until
+                .map(|at| at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
+                .unwrap_or_default(),
+        ),
+        (
+            settings_keys::REQUEST_BUDGET_ASKED_UNTIL,
+            stored
+                .asked_until
                 .map(|at| at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
                 .unwrap_or_default(),
         ),
@@ -237,6 +256,10 @@ pub fn set_request_budget_on(
                 .upgrade_day
                 .map(|day| day.format("%Y-%m-%d").to_string())
                 .unwrap_or_default(),
+        ),
+        (
+            settings_keys::REQUEST_BUDGET_BACKFILL_CAP_LIFTED,
+            u8::from(stored.backfill_cap_lifted).to_string(),
         ),
     ]
     .map(|(key, value)| (key.to_string(), value));
@@ -475,6 +498,7 @@ pub struct AthleteProfile {
     pub form_as_percent: Option<bool>,
     /// The athlete's weight in kilograms: `icu_weight`, which is where the body
     /// sends it, else `weight`. Absent unless positive.
+    /// Unit: kilogram.
     pub weight_kg: Option<f64>,
     /// `icu_garmin_sync_activities`: intervals.icu imports the athlete's Garmin
     /// activities itself.
@@ -725,13 +749,15 @@ mod tests {
 
         let held = StoredBudget {
             cooldown_until: Some(at("2026-03-04T10:10:00Z")),
+            asked_until: Some(at("2026-03-04T10:08:00Z")),
             day: chrono::NaiveDate::from_ymd_opt(2026, 3, 4).unwrap(),
             backfill_today: 412,
             day_offset_secs: 1_234,
             ladder_step: 2,
             upgrade_day: chrono::NaiveDate::from_ymd_opt(2026, 3, 3),
+            backfill_cap_lifted: true,
         };
-        assert_eq!(set_request_budget_on(&engine.db, &held).unwrap(), 6);
+        assert_eq!(set_request_budget_on(&engine.db, &held).unwrap(), 8);
         drop(engine);
 
         let reopened = PersistentEngine::new(path.to_str().unwrap()).unwrap();
@@ -744,10 +770,12 @@ mod tests {
 
         let cleared = StoredBudget {
             cooldown_until: None,
+            asked_until: None,
             backfill_today: 413,
+            backfill_cap_lifted: false,
             ..held
         };
-        assert_eq!(set_request_budget_on(&reopened.db, &cleared).unwrap(), 2);
+        assert_eq!(set_request_budget_on(&reopened.db, &cleared).unwrap(), 4);
         assert_eq!(request_budget_from(&reopened.db).unwrap(), Some(cleared));
     }
 

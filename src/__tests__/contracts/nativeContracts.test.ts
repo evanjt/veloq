@@ -34,6 +34,8 @@ import {
   STUN_SERVER,
 } from '../../../web/connect/link';
 import { VELOQ_TILE_SCHEME, tileExtension } from '@/features/maps/lib/tileTransport';
+import { underPointKey } from '@/features/maps/lib/underPoint';
+import { FfiUnderPointKind } from '../__shared__/veloqrsStub';
 import { PAGE_REVISION_META } from '@/features/maps/lib/htmlBuilders/shared';
 import {
   VELOQ_MAP3D_WEBVIEW_COMPONENT_NAME,
@@ -68,6 +70,7 @@ import {
   ELEVATION_GAIN_HYSTERESIS_M,
   ELEVATION_SMOOTHING_POINTS,
 } from '@/features/recording/lib/elevationChange';
+import { GEO_KINDS } from '../../../web/connect/map/protocol';
 import { pushDataFor } from '../../../oauth-proxy/src/pushMessages';
 import { resolvedLocale } from '../i18n/resolvedLocale';
 
@@ -129,6 +132,18 @@ it('keys the first-use detail streams as the detail screen reads them', () => {
   )?.[1];
   expect(key).toBeDefined();
   expect(key?.replace(/\\\s*/g, '')).toBe(streamTypesKey(DETAIL_STREAM_TYPES));
+});
+
+// The sheet builds a section group's key, and the engine's geo path parses the
+// key by the prefix its own constant names. The key is built here and checked
+// against that prefix read from the engine, so a rename on either side fails.
+it('builds a section group key in the form the engine parses it by', () => {
+  const prefix = read(`${RUST}/basemap/geo.rs`).match(
+    /const SECTION_GROUP_PREFIX: &str = "([^"]*)";/
+  )?.[1];
+  expect(prefix).toBeDefined();
+  const key = underPointKey(46.2, 7.35, 14, { kind: FfiUnderPointKind.Section, id: 'climb' });
+  expect(key).toBe(`46200000_7350000_14_${prefix}climb`);
 });
 
 // The profile hook, the account screens, the calories estimate and the strength
@@ -215,6 +230,7 @@ it('types every field the feed card reads in the engine card record', () => {
       'skylineChartBytes',
       'hasGps',
       'hasAltitude',
+      'heatmapHidden',
     ])
   );
 });
@@ -1251,7 +1267,7 @@ const CONTRACTS: Contract[] = [
       has: /pub load_text: Option<String>,[\s\S]*pub section_prs_text: Option<String>/,
     },
   },
-  ...['veloq_widget_refresh(', 'veloq_push_string_free('].map((name) => ({
+  ...['veloq_widget_refresh(', 'veloq_push_string_free(', 'veloq_watch_nearby('].map((name) => ({
     agree: `the background refresh's ${name.slice(0, -1)} is a symbol Rust exports`,
     a: { file: 'modules/veloq-widget/ios/VeloqWidgetRefreshEngine.h', has: name },
     b: {
@@ -1302,6 +1318,59 @@ const CONTRACTS: Contract[] = [
       file: 'modules/veloq-app-group/ios/VeloqAppGroupModule.swift',
       has: 'AsyncFunction("prepareEngineForSuspension")',
     },
+  },
+  ...['veloq_watch_answer(', 'veloq_watch_hello(', 'veloq_watch_free('].map((name) => ({
+    agree: `VeloqWatchEngine.h declares ${name.slice(0, -1)}, a symbol Rust exports`,
+    a: { file: 'modules/veloq-watch/ios/VeloqWatchEngine.h', has: name },
+    b: {
+      file: `${RUST}/remote/watch.rs`,
+      has: new RegExp(`pub extern "C" fn ${name.slice(0, -1)}\\(`),
+    },
+  })),
+  {
+    agree: 'the watch pod registers the subscriber that activates the session before launch ends',
+    a: {
+      file: 'modules/veloq-watch/expo-module.config.json',
+      has: '"appDelegateSubscribers": ["VeloqWatchSessionSubscriber"]',
+    },
+    b: {
+      file: 'modules/veloq-watch/ios/VeloqWatchSessionSubscriber.swift',
+      has: 'public final class VeloqWatchSessionSubscriber: ExpoAppDelegateSubscriber',
+    },
+  },
+  {
+    agree:
+      'a section travels as the application context under the guide key, as the watch reads it',
+    a: {
+      file: 'modules/veloq-watch/ios/VeloqWatchSession.swift',
+      has: '"guide": Data(reply.utf8)',
+    },
+    b: { file: 'watch/ios/VeloqWatch/WatchSession.swift', has: 'static let guideKey = "guide"' },
+  },
+  {
+    agree: 'a section is not sent as user info, which the watch has no handler for',
+    a: {
+      file: 'modules/veloq-watch/ios/VeloqWatchSession.swift',
+      has: /^(?![\s\S]*transferUserInfo)[\s\S]*$/,
+    },
+    b: {
+      file: 'watch/ios/VeloqWatch/WatchSession.swift',
+      has: /^(?![\s\S]*didReceiveUserInfo)[\s\S]*$/,
+    },
+  },
+  {
+    agree:
+      'a cue carries the default interruption level, since the watch holds no time-sensitive entitlement',
+    a: {
+      file: 'watch/ios/VeloqWatch/GuideLocation.swift',
+      has: /^(?![\s\S]*timeSensitive)[\s\S]*$/,
+    },
+    b: { file: 'src/plugins/with-ios-watch.js', has: /^(?![\s\S]*time-sensitive)[\s\S]*$/ },
+  },
+  {
+    agree: 'the watch pod links WatchConnectivity, which the session imports',
+    a: { file: 'modules/veloq-watch/ios/VeloqWatch.podspec', has: "'WatchConnectivity'" },
+    b: { file: 'modules/veloq-watch/ios/VeloqWatchSession.swift', has: 'import WatchConnectivity' },
   },
   ...[
     'modules/veloq-debug-crash/ios/VeloqDebugCrashModule.swift',
@@ -2524,6 +2593,29 @@ describe('the connect page schema follows the engine', () => {
     expect(PAGE_MIN_PROTOCOL).toBe(methods.minProtocol);
   });
 
+  it('asks every map geo kind with the keys its method takes', () => {
+    const requiredKeys = (type: string) => {
+      const body = new RegExp(`^export type ${type} = \\{\\n([\\s\\S]*?)^\\};`, 'm').exec(
+        schema
+      )?.[1];
+      expect(body).toBeDefined();
+      return [...(body ?? '').matchAll(/^ {2}(\w+)(\??): ([^;]*);/gm)]
+        .filter(([, , optional, type]) => !optional && !/\bnull\b/.test(type ?? ''))
+        .map(([, key]) => key)
+        .sort();
+    };
+    for (const [kind, entry] of Object.entries(GEO_KINDS)) {
+      const method = methods.methods.find((m) => m.name === entry.method);
+      expect(method).toBeDefined();
+      // The section version key is `<version>:<section id>`, the rest are one id.
+      const asked = Object.keys(entry.params(kind === 'section-version' ? '3:probe' : 'probe'));
+      expect({ kind, asked: asked.sort() }).toEqual({
+        kind,
+        asked: requiredKeys(method?.params ?? ''),
+      });
+    }
+  });
+
   it('names only records the generated bindings declare', () => {
     expect(named.size).toBeGreaterThan(0);
     for (const name of named) {
@@ -2574,6 +2666,9 @@ describe('the connect page schema follows the engine', () => {
       'FfiDirectionStats',
       'FfiGarminPull',
       'FfiJobRun',
+      'FfiLinkSectionAttempt',
+      'FfiLinkSectionBest',
+      'FfiNearbyPlace',
       'FfiRetiredSection',
       'FfiRoutePerformance',
       'FfiSectionPerformanceRecord',

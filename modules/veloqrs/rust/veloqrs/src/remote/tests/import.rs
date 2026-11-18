@@ -276,6 +276,38 @@ fn a_frame_from_another_browser_for_the_first_ones_import_is_dropped() {
 }
 
 #[test]
+fn a_forgotten_browser_loses_its_imports_and_their_spools_and_no_other_browsers() {
+    let root = TempDir::new().unwrap();
+    let removed = bytes(2 * MAX_PAYLOAD);
+    let kept = bytes(MAX_PAYLOAD + 5);
+    let mut spools = Spools::default();
+    let gone = spools
+        .begin(root.path(), FIRST, &ask("rides.zip", &removed))
+        .unwrap()
+        .import_id;
+    send(&mut spools, FIRST, gone, &removed[..MAX_PAYLOAD]);
+    let still = spools
+        .begin(root.path(), SECOND, &ask("rides.zip", &kept))
+        .unwrap()
+        .import_id;
+    send(&mut spools, SECOND, still, &kept[..MAX_PAYLOAD]);
+
+    spools.forget(FIRST);
+
+    assert!(!spool_of(root.path(), &removed).exists());
+    assert!(matches!(
+        spools.frame(FIRST, &frame(gone, 1, &removed[MAX_PAYLOAD..])),
+        Frame::Dropped(_)
+    ));
+    assert!(spools.commit(FIRST, gone, |_| Ok(())).is_err());
+    assert_eq!(
+        spools.frame(SECOND, &frame(still, 1, &kept[MAX_PAYLOAD..])),
+        Frame::Appended
+    );
+    assert!(spool_of(root.path(), &kept).exists());
+}
+
+#[test]
 fn a_cancel_deletes_the_spool() {
     let root = TempDir::new().unwrap();
     let data = bytes(2 * MAX_PAYLOAD);
@@ -370,4 +402,181 @@ fn a_spool_nobody_committed_is_swept_after_a_day_and_a_young_one_is_not() {
     assert!(!old.exists());
     assert!(young.exists());
     assert_eq!(sweep(root.path().join("absent").as_path(), now), 0);
+}
+
+#[test]
+fn a_frame_for_another_import_is_appended_while_a_commit_hashes() {
+    use std::sync::mpsc::channel;
+    use std::sync::{Arc, Mutex};
+
+    let root = TempDir::new().unwrap();
+    let first = bytes(2 * MAX_PAYLOAD);
+    let second = bytes(3 * MAX_PAYLOAD + 5);
+    let registry = Arc::new(Mutex::new(Spools::default()));
+    let (first_id, second_id) = {
+        let mut spools = registry.lock().unwrap();
+        let first_id = spools
+            .begin(root.path(), FIRST, &ask("a.zip", &first))
+            .unwrap()
+            .import_id;
+        send(&mut spools, FIRST, first_id, &first);
+        let second_id = spools
+            .begin(root.path(), SECOND, &ask("b.zip", &second))
+            .unwrap()
+            .import_id;
+        (first_id, second_id)
+    };
+
+    let (hashing_tx, hashing_rx) = channel();
+    let (release_tx, release_rx) = channel::<()>();
+    let committer = {
+        let registry = Arc::clone(&registry);
+        std::thread::spawn(move || {
+            commit_shared(
+                &registry,
+                FIRST,
+                first_id,
+                |path| {
+                    hashing_tx.send(()).unwrap();
+                    release_rx.recv().unwrap();
+                    digest_of(path)
+                },
+                |_| Ok(()),
+            )
+        })
+    };
+    hashing_rx.recv().unwrap();
+
+    let outcome = {
+        let mut spools = registry.lock().unwrap();
+        spools.frame(SECOND, &frame(second_id, 0, &second[..MAX_PAYLOAD]))
+    };
+    assert_eq!(outcome, Frame::Appended);
+
+    release_tx.send(()).unwrap();
+    committer.join().unwrap().unwrap();
+}
+
+#[test]
+fn a_commit_that_the_job_refuses_puts_the_import_back_for_a_later_commit() {
+    use std::sync::Mutex;
+
+    let root = TempDir::new().unwrap();
+    let data = bytes(2 * MAX_PAYLOAD);
+    let registry = Mutex::new(Spools::default());
+    let id = {
+        let mut spools = registry.lock().unwrap();
+        let id = spools
+            .begin(root.path(), FIRST, &ask("a.zip", &data))
+            .unwrap()
+            .import_id;
+        send(&mut spools, FIRST, id, &data);
+        id
+    };
+
+    let refused = commit_shared(&registry, FIRST, id, digest_of, |_| Err("busy".into()));
+    assert_eq!(refused, Err("busy".to_owned()));
+    assert!(spool_of(root.path(), &data).exists());
+
+    let handed = commit_shared(&registry, FIRST, id, digest_of, |_| Ok(()));
+    assert!(handed.is_ok());
+}
+
+#[test]
+fn a_second_begin_from_one_browser_for_another_archive_is_refused() {
+    let root = TempDir::new().unwrap();
+    let first = bytes(2 * MAX_PAYLOAD);
+    let second = bytes(3 * MAX_PAYLOAD);
+    let mut spools = Spools::default();
+    spools
+        .begin(root.path(), FIRST, &ask("rides.zip", &first))
+        .unwrap();
+
+    assert!(
+        spools
+            .begin(root.path(), FIRST, &ask("more.zip", &second))
+            .is_err()
+    );
+    assert!(!spool_of(root.path(), &second).exists());
+    assert_eq!(spools.imports.len(), 1);
+}
+
+#[test]
+fn another_browser_may_begin_its_own_import() {
+    let root = TempDir::new().unwrap();
+    let first = bytes(2 * MAX_PAYLOAD);
+    let second = bytes(3 * MAX_PAYLOAD);
+    let mut spools = Spools::default();
+    spools
+        .begin(root.path(), FIRST, &ask("rides.zip", &first))
+        .unwrap();
+    assert!(
+        spools
+            .begin(root.path(), SECOND, &ask("more.zip", &second))
+            .is_ok()
+    );
+}
+
+#[test]
+fn a_begin_that_ends_and_another_may_follow() {
+    let root = TempDir::new().unwrap();
+    let first = bytes(2 * MAX_PAYLOAD);
+    let second = bytes(3 * MAX_PAYLOAD);
+    let mut spools = Spools::default();
+    let begun = spools
+        .begin(root.path(), FIRST, &ask("rides.zip", &first))
+        .unwrap();
+    spools.cancel(FIRST, begun.import_id).unwrap();
+    assert!(
+        spools
+            .begin(root.path(), FIRST, &ask("more.zip", &second))
+            .is_ok()
+    );
+}
+
+#[test]
+fn a_begin_larger_than_free_space_less_the_margin_is_refused() {
+    let root = TempDir::new().unwrap();
+    let data = bytes(3 * MAX_PAYLOAD);
+    let ask = ask("rides.zip", &data);
+    let mut spools = Spools::default();
+
+    let tight = data.len() as u64 + FREE_SPACE_MARGIN - 1;
+    assert!(
+        spools
+            .begin_with_free(root.path(), FIRST, &ask, Some(tight))
+            .is_err()
+    );
+    assert!(!spool_of(root.path(), &data).exists());
+    assert!(spools.imports.is_empty());
+
+    let enough = data.len() as u64 + FREE_SPACE_MARGIN;
+    assert!(
+        spools
+            .begin_with_free(root.path(), FIRST, &ask, Some(enough))
+            .is_ok()
+    );
+}
+
+#[test]
+fn a_resumed_begin_needs_room_only_for_the_bytes_still_to_come() {
+    let root = TempDir::new().unwrap();
+    let data = bytes(4 * MAX_PAYLOAD);
+    let mut spools = Spools::default();
+    let begun = spools
+        .begin_with_free(root.path(), FIRST, &ask("rides.zip", &data), None)
+        .unwrap();
+    send(
+        &mut spools,
+        FIRST,
+        begun.import_id,
+        &data[..2 * MAX_PAYLOAD],
+    );
+
+    let room = 2 * MAX_PAYLOAD as u64 + FREE_SPACE_MARGIN;
+    assert!(
+        spools
+            .begin_with_free(root.path(), FIRST, &ask("rides.zip", &data), Some(room))
+            .is_ok()
+    );
 }

@@ -349,6 +349,11 @@ export function reachOf(inSrc: number, inDelegates: number): Reach {
  * reader has to re-investigate every time.
  */
 export const OWNED_ELSEWHERE: Record<string, string> = {
+  // The share-sheet export calls it once that screen is built; the engine side lands first.
+  'VeloqEngine.runLibraryExport': 'called by the library export screen once it is built',
+  // The debug screen's switch for the backfill's day cap calls it once the
+  // screen offers the switch; the engine side lands first.
+  'SyncManager.setBackfillCapLifted': 'called by the debug screen switch once it is built',
   // The exercise picker reads the search once it is built; the labels are handed in already.
   'StrengthManager.searchExercises': 'read by the exercise picker once it is built',
   // The followed route's turns are read by the map layer that marks them,

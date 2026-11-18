@@ -1,14 +1,15 @@
 #!/usr/bin/env tsx
-// Renders every connect page at two window sizes in both colour schemes, from a
-// scripted phone holding the demo library, and writes the PNGs and a contact
-// sheet. The page is built the way the deploy builds it and runs in the
-// browser harness the page's own tests use, so nothing here reaches a network.
+// Renders every connect page at three large-screen sizes in both colour schemes,
+// from a scripted phone holding the demo library, and writes the PNGs, the
+// axe-core report beside each one and a contact sheet. The page is built the way
+// the deploy builds it and runs in the browser harness the page's own tests use,
+// so nothing here reaches a network.
 //
 // Usage: npm run connect:screenshots [-- --out <dir>] [--routes feed,map] [--sizes 1280x800]
 //
 // `--out` defaults to `connect-screenshots/`, which is git-ignored.
 
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { phoneScript } from '../src/__tests__/__shared__/connectPhoneScripts';
@@ -27,10 +28,26 @@ export interface Size {
   height: number;
 }
 
+/** The sizes the owner reviews on a large screen. `--sizes` takes others, such as 1280x800. */
 export const SIZES: Size[] = [
-  { width: 1280, height: 800 },
-  { width: 1600, height: 1000 },
+  { width: 1440, height: 900 },
+  { width: 1920, height: 1080 },
+  { width: 2560, height: 1440 },
 ];
+
+/** Injected into each page, so no capture depends on a copy the page loads itself. */
+const AXE_SOURCE = readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
+
+/** A violation of these fails the run. Lesser impacts are written beside the PNG and pass. */
+const BLOCKING_IMPACTS = new Set(['serious', 'critical']);
+
+interface Violation {
+  id: string;
+  impact: string | null | undefined;
+  help: string;
+  helpUrl: string;
+  targets: string[];
+}
 
 const SCHEMES = ['light', 'dark'] as const;
 type Scheme = (typeof SCHEMES)[number];
@@ -46,6 +63,11 @@ export type Capture = {
   ready: string;
   /** What is done once it has, and an expression true when that has taken effect. */
   then?: { do: string; until: string };
+  /**
+   * An expression awaited in the page once the PNG is taken, with the PNG as a data URL in
+   * `window.shot`. A string it gives is the reason the capture is wrong; anything else passes.
+   */
+  check?: string;
 };
 
 const has = (selector: string) => `document.querySelector(${JSON.stringify(selector)}) !== null`;
@@ -127,7 +149,7 @@ export const ROUTES: Record<string, Capture> = {
   sections: { hash: '#/sections', ready: has('#sections-list tbody tr') },
   settings: {
     hash: '#/settings',
-    ready: `document.querySelector('#settings-profile dd') !== null`,
+    ready: has('#settings-profile tbody tr'),
   },
   'settings-display': {
     hash: '#/settings/display-settings',
@@ -172,6 +194,12 @@ export const ROUTES: Record<string, Capture> = {
     ready: has('#sections-selection .panel-title'),
   },
   'sections-retired': { hash: '#/sections?view=retired', ready: has('#sections-list tbody tr') },
+  // The review queue: the primary button names the sections awaiting acceptance and is enabled,
+  // and a row awaiting acceptance is in the list.
+  'sections-review': {
+    hash: '#/sections',
+    ready: `[...document.querySelectorAll('.filter-bar button')].some((b) => /to review/.test(b.textContent) && !b.disabled) && ${has('#sections-list tbody tr[data-row="section-5"]')}`,
+  },
   section: { hash: '#/section/section-0', ready: has('#section-body .section-name') },
   // The ends of the section's line as two grips on the map, with the length and grade between them.
   'section-edit-bounds': {
@@ -241,7 +269,7 @@ export const ROUTES: Record<string, Capture> = {
     hash: '#/workout/workout-1',
     ready: has('#workout-exercises li') + ' && ' + has('#workout-picker tbody tr'),
   },
-  live: { hash: '#/live', ready: has('#live-exercises li') },
+  live: { hash: '#/live', ready: has('#live-sets-table tbody tr') },
   pairing: { phone: 'unpaired', fresh: true, ready: has('#pair #code') },
   // Every read the phone is asked fails, and each panel says so in place while the link stays up.
   errors: {
@@ -278,11 +306,32 @@ export const ROUTES: Record<string, Capture> = {
   },
 };
 
+const AXE_RUN = `axe.run(document).then((result) => result.violations.map((violation) => ({
+  id: violation.id,
+  impact: violation.impact,
+  help: violation.help,
+  helpUrl: violation.helpUrl,
+  targets: violation.nodes.map((node) => node.target.join(' ')),
+})))`;
+
+/** Runs axe-core over the page as it is now, and returns its violations. */
+async function audit(page: ConnectPage): Promise<Violation[]> {
+  await page.evaluate(`${AXE_SOURCE}\n;true`);
+  return page.evaluate<Violation[]>(AXE_RUN);
+}
+
+const describeViolation = (violation: Violation) =>
+  `${violation.id} (${violation.impact}): ${violation.help}, at ${violation.targets.join('; ')}`;
+
 const scriptFor = (kind: Capture['phone']): Promise<Script> => phoneScript(kind ?? 'demo');
 
 const settle = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
-async function shoot(page: ConnectPage, capture: Capture, timeoutMs: number): Promise<Buffer> {
+async function shoot(
+  page: ConnectPage,
+  capture: Capture,
+  timeoutMs: number
+): Promise<{ png: Buffer; problem: string | null }> {
   if (capture.phone !== 'unpaired') {
     await page.until(
       `document.querySelector('#status[data-state="connected"]') !== null`,
@@ -297,7 +346,13 @@ async function shoot(page: ConnectPage, capture: Capture, timeoutMs: number): Pr
     await settle(2_000);
   }
   await settle(1_200);
-  return page.screenshot();
+  const png = await page.screenshot();
+  if (!capture.check) return { png, problem: null };
+  await page.evaluate(
+    `window.shot = ${JSON.stringify(`data:image/png;base64,${png.toString('base64')}`)}`
+  );
+  const verdict = await page.evaluate<unknown>(capture.check);
+  return { png, problem: typeof verdict === 'string' ? verdict : null };
 }
 
 export interface Options {
@@ -331,8 +386,9 @@ export function exitStatus(report: Report): number {
 }
 
 /**
- * Writes `<route>-<width>-<scheme>.png` for each route, size and scheme, and
- * `index.html`. A capture that fails is reported and the rest still run.
+ * Writes `<route>-<width>-<scheme>.png` and its `.axe.json` violations for each
+ * route, size and scheme, and `index.html`. A capture that fails, or whose page
+ * has a serious or critical violation, is reported and the rest still run.
  */
 export async function captureScreenshots(options: Options): Promise<Report> {
   const captures = options.captures ?? ROUTES;
@@ -366,10 +422,27 @@ export async function captureScreenshots(options: Options): Promise<Report> {
           let page: ConnectPage | null = null;
           try {
             page = await browser.open(script, 'en', { ...size, scheme });
-            const png = await shoot(page, capture, timeoutMs);
-            const file = `${name}-${size.width}-${scheme}.png`;
-            writeFileSync(resolve(options.out, file), png);
-            report.written.push(file);
+            const { png, problem } = await shoot(page, capture, timeoutMs);
+            const stem = `${name}-${size.width}-${scheme}`;
+            writeFileSync(resolve(options.out, `${stem}.png`), png);
+            report.written.push(`${stem}.png`);
+            if (problem !== null) report.failed.push({ name, size, scheme, message: problem });
+            const violations = await audit(page);
+            writeFileSync(
+              resolve(options.out, `${stem}.axe.json`),
+              JSON.stringify(violations, null, 2)
+            );
+            const blocking = violations.filter((violation) =>
+              BLOCKING_IMPACTS.has(violation.impact ?? '')
+            );
+            if (blocking.length > 0) {
+              report.failed.push({
+                name,
+                size,
+                scheme,
+                message: blocking.map(describeViolation).join('\n'),
+              });
+            }
           } catch (error) {
             report.failed.push({
               name,

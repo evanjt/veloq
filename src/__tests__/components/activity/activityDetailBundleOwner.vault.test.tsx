@@ -132,6 +132,7 @@ const mockBundle = {
   prSectionIds: [],
   customSections: [],
   encounters: [],
+  memberships: [],
   highlights: { indicators: [], routeHighlights: [], newGround: [], strengthCards: [] },
   routeGroups: [],
   activityCount: 1,

@@ -5,9 +5,12 @@ static SERIAL: Mutex<()> = Mutex::new(());
 /// Every test starts signed out: a credential left standing narrows the
 /// detection pool to tracks with elevation, so the next test's seed would
 /// detect over nothing. A test that needs a session stands one up itself.
+/// A response an earlier test received is no proof for this one either: it
+/// would count every failed ask against a track as the track's own.
 fn serial_state() -> MutexGuard<'static, ()> {
     let guard = SERIAL.lock().unwrap_or_else(|error| error.into_inner());
     veloqrs::objects::clear_credentials_from_native();
+    veloqrs::net::connectivity::forget_link_proof();
     guard
 }
 

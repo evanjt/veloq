@@ -18,6 +18,7 @@ import {
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   readlinkSync,
   readdirSync,
   realpathSync,
@@ -47,6 +48,50 @@ function git(cwd: string, ...args: string[]): string {
   });
   if (result.status !== 0) throw new Error(`git ${args.join(' ')}: ${result.stderr}`);
   return result.stdout;
+}
+
+/** Every entry under `dir` with its kind, link target and, for a file, its bytes. */
+function snapshot(dir: string, prefix = ''): string[] {
+  const rows: string[] = [];
+  for (const name of readdirSync(dir).sort()) {
+    const full = join(dir, name);
+    const stat = lstatSync(full);
+    if (stat.isSymbolicLink()) rows.push(`${prefix}${name} -> ${readlinkSync(full)}`);
+    else if (stat.isDirectory()) {
+      rows.push(`${prefix}${name}/`, ...snapshot(full, `${prefix}${name}/`));
+    } else rows.push(`${prefix}${name} ${readFileSync(full, 'utf8')}`);
+  }
+  return rows;
+}
+
+function npm(cwd: string, ...args: string[]): void {
+  const result = spawnSync(
+    'npm',
+    [...args, '--ignore-scripts', '--offline', '--no-audit', '--no-fund'],
+    { cwd, env: gitFreeEnv(), encoding: 'utf8' }
+  );
+  if (result.status !== 0) throw new Error(`npm ${args.join(' ')}: ${result.stderr}`);
+}
+
+/** A package tarball for `name`, made by npm, in a directory of its own. */
+function tarball(box: string, name: string, bin = false): string {
+  const src = join(box, 'src', name.replace('/', '-'));
+  mkdirSync(src, { recursive: true });
+  write(
+    src,
+    'package.json',
+    JSON.stringify({ name, version: '1.0.0', ...(bin ? { bin: { [name]: 'cli.js' } } : {}) })
+  );
+  write(src, 'cli.js', '#!/usr/bin/env node\n');
+  const out = join(box, 'tarballs');
+  mkdirSync(out, { recursive: true });
+  const packed = spawnSync('npm', ['pack', '--pack-destination', out, '--silent'], {
+    cwd: src,
+    env: gitFreeEnv(),
+    encoding: 'utf8',
+  });
+  if (packed.status !== 0) throw new Error(`npm pack: ${packed.stderr}`);
+  return join(out, packed.stdout.trim());
 }
 
 function write(root: string, path: string, contents: string): void {
@@ -226,7 +271,41 @@ describe('node_modules', () => {
 
     expect(provision(fx).status).toBe(0);
 
-    expect(realpathSync(link(fx, '@scope'))).toBe(join(fx.checkout, 'node_modules/@scope'));
+    expect(lstatSync(link(fx, '@scope')).isDirectory()).toBe(true);
+    expect(realpathSync(link(fx, '@scope/late'))).toBe(
+      join(fx.checkout, 'node_modules/@scope/late')
+    );
+  });
+});
+
+describe('an npm install run in the landing tree', () => {
+  it('leaves the main checkout’s install byte for byte as it was', () => {
+    const fx = fixture();
+    const plain = tarball(fx.box, 'plain-pkg', true);
+    const scoped = tarball(fx.box, '@scope/scoped-pkg');
+    const added = tarball(fx.box, 'added-pkg');
+    write(
+      fx.checkout,
+      'package.json',
+      JSON.stringify({
+        name: 'host',
+        version: '1.0.0',
+        devDependencies: { 'plain-pkg': `file:${plain}`, '@scope/scoped-pkg': `file:${scoped}` },
+      })
+    );
+    rmSync(join(fx.checkout, 'node_modules'), { recursive: true });
+    npm(fx.checkout, 'install');
+    symlinkSync(join(fx.checkout, 'modules/veloqrs'), join(fx.checkout, 'node_modules/veloqrs'));
+    expect(provision(fx).status).toBe(0);
+    for (const file of ['package.json', 'package-lock.json']) {
+      writeFileSync(join(fx.landing, file), readFileSync(join(fx.checkout, file)));
+    }
+    const before = snapshot(join(fx.checkout, 'node_modules'));
+
+    npm(fx.landing, 'install', '--save-dev', added);
+
+    expect(snapshot(join(fx.checkout, 'node_modules'))).toEqual(before);
+    expect(existsSync(join(fx.landing, 'node_modules/added-pkg/package.json'))).toBe(true);
   });
 });
 

@@ -6,7 +6,9 @@ import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DetectionPane } from '../DetectionPane';
+import { ExportPane } from '../ExportPane';
 import { ImportPane } from '../ImportPane';
+import { openSink } from '../archiveSink';
 import { ThresholdsPane } from '../ThresholdsPane';
 import { deviceLines } from '../link';
 import {
@@ -350,6 +352,17 @@ export function SettingsPage({ session, snapshot, route }: PageProps) {
           upload={snapshot.upload}
           notice={snapshot.writeNotice}
           importArchive={session.importArchive}
+        />
+      ) : null}
+      {route.id === null ? (
+        <ExportPane
+          libraryExport={snapshot.libraryExport}
+          exportLibrary={async (options) => {
+            const day = new Date().toISOString().slice(0, 10);
+            // The save picker needs the click, so the file is chosen before the phone is asked.
+            const sink = await openSink(`veloq-library-${day}.zip`).catch(() => null);
+            if (sink) await session.exportLibrary(options, sink);
+          }}
         />
       ) : null}
     </>

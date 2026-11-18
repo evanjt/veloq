@@ -259,26 +259,116 @@ fn a_refused_proof_closes_the_pairing() {
     assert_eq!(pairing.confirm(true), None);
 }
 
+const ROOM_SECRET: [u8; 32] = [9; 32];
+
 #[test]
 fn a_linked_pair_meets_in_a_room_the_relay_takes() {
-    let room = room_for(BROWSER, PHONE);
+    let room = room_for(&ROOM_SECRET, BROWSER, PHONE);
     assert!(crate::remote::is_room_id(&room), "{room}");
-    assert_eq!(room, room_for(BROWSER, PHONE));
+    assert_eq!(room, room_for(&ROOM_SECRET, BROWSER, PHONE));
 }
 
 #[test]
 fn each_linked_browser_has_its_own_room() {
-    let room = room_for(BROWSER, PHONE);
-    assert_ne!(room, room_for("sha-256 CC:CC", PHONE));
-    assert_ne!(room, room_for(BROWSER, "sha-256 CC:CC"));
-    assert_ne!(room, room_for(PHONE, BROWSER));
+    let room = room_for(&ROOM_SECRET, BROWSER, PHONE);
+    assert_ne!(room, room_for(&ROOM_SECRET, "sha-256 CC:CC", PHONE));
+    assert_ne!(room, room_for(&ROOM_SECRET, BROWSER, "sha-256 CC:CC"));
+    assert_ne!(room, room_for(&ROOM_SECRET, PHONE, BROWSER));
+}
+
+#[test]
+fn a_room_cannot_be_computed_from_the_fingerprints_alone() {
+    let room = room_for(&ROOM_SECRET, BROWSER, PHONE);
+    assert_ne!(room, room_for(&[8; 32], BROWSER, PHONE));
 }
 
 #[test]
 fn the_room_pins_the_derivation_the_web_page_repeats() {
-    // The page computes the same id with SubtleCrypto, so the bytes hashed are fixed.
+    // The page computes the same ids with SubtleCrypto, so the bytes hashed are fixed.
     assert_eq!(
-        room_for(BROWSER, PHONE),
-        "lD6s7KZ5brFE6GjE1k-PwiGY80A1aFGhYeKG78_Kp9k"
+        room_for(&ROOM_SECRET, BROWSER, PHONE),
+        "Taj32Mw-49FizxFKWRTJzY3saP8aUCeOkTovlalofhA"
+    );
+}
+
+const VECTORS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/examples/link/vectors.json");
+
+fn unhex(text: &str) -> Vec<u8> {
+    (0..text.len())
+        .step_by(2)
+        .map(|at| u8::from_str_radix(&text[at..at + 2], 16).expect("hex"))
+        .collect()
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn vectors() -> serde_json::Value {
+    let text = std::fs::read_to_string(VECTORS)
+        .unwrap_or_else(|error| panic!("{VECTORS} is not readable: {error}"));
+    serde_json::from_str(&text).expect("the vectors are JSON")
+}
+
+#[test]
+fn every_output_in_the_vectors_is_what_the_engine_derives_from_its_inputs() {
+    let vectors = vectors();
+    let text = |section: &str, key: &str| -> String {
+        vectors[section][key]
+            .as_str()
+            .unwrap_or_else(|| panic!("{section}.{key} is a string"))
+            .to_owned()
+    };
+    let browser = text("inputs", "browserFingerprint");
+    let phone = text("inputs", "phoneFingerprint");
+    let secret: [u8; 32] = unhex(&text("inputs", "secretHex"))
+        .try_into()
+        .expect("a 32-byte secret");
+
+    assert_eq!(text("outputs", "room"), room_for(&secret, &browser, &phone));
+    assert_eq!(
+        text("outputs", "browserProof"),
+        hex(&proof(&secret, Role::Browser, &browser, &phone))
+    );
+    assert_eq!(
+        text("outputs", "phoneProof"),
+        hex(&proof(&secret, Role::Phone, &browser, &phone))
+    );
+    assert_eq!(
+        text("outputs", "fingerprint"),
+        fingerprint_of(&unhex(&text("inputs", "certificateHex")))
+    );
+
+    for (reply, frames) in [("shortReply", "shortFrames"), ("longReply", "longFrames")] {
+        let expected: Vec<String> = vectors["outputs"][frames]
+            .as_array()
+            .unwrap_or_else(|| panic!("outputs.{frames} is a list"))
+            .iter()
+            .map(|frame| frame.as_str().expect("hex").to_owned())
+            .collect();
+        let actual: Vec<String> = crate::remote::protocol::frames(&text("inputs", reply))
+            .iter()
+            .map(|frame| hex(frame))
+            .collect();
+        assert_eq!(expected, actual, "{frames}");
+    }
+}
+
+#[test]
+fn the_long_reply_is_over_the_gzip_threshold_and_the_short_one_is_not() {
+    let vectors = vectors();
+    let long = vectors["inputs"]["longReply"].as_str().expect("text");
+    let short = vectors["inputs"]["shortReply"].as_str().expect("text");
+    assert!(long.len() > crate::remote::protocol::GZIP_OVER);
+    assert!(short.len() <= crate::remote::protocol::GZIP_OVER);
+}
+
+#[test]
+fn the_committed_vectors_are_the_rendered_ones() {
+    let rendered = crate::remote::vectors::vectors_json();
+    let kept = std::fs::read_to_string(VECTORS).unwrap_or_default();
+    assert!(
+        kept == rendered,
+        "examples/link/vectors.json is out of date; it should read:\n{rendered}"
     );
 }

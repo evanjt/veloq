@@ -626,7 +626,7 @@
     "tracksMissing": {
       "title_one": "{{count}} percorso non è stato scaricato",
       "title_other": "{{count}} percorsi non sono stati scaricati",
-      "detail": "Mancano sulla mappa e non sono confrontati con alcun tratto. Il prossimo aggiornamento riproverà."
+      "detail": "Il download è stato tentato più volte e non è andato a buon fine. Riprova lo richiede di nuovo."
     },
     "startupError": {
       "title": "Alcune parti dell'app non sono state caricate",
@@ -813,7 +813,9 @@
     "bulkExporting": "Generazione {{format}}…",
     "bulkSharing": "Apertura foglio di condivisione…",
     "error": "Impossibile esportare il file GPX.",
+    "fitError": "Impossibile esportare il file FIT.",
     "exporting": "Esportazione…",
+    "fit": "Esporta FIT",
     "gpx": "Esporta GPX",
     "gpxTrimmedAway": "Niente da esportare. Il taglio vicino a casa ha lasciato troppo poco del percorso.",
     "failedTitle": "Esportazione non riuscita",
@@ -824,6 +826,16 @@
     "shareUnavailable": "Questo dispositivo non può condividere file."
   },
   "feed": {
+    "remote": {
+      "offer": "Cerca su intervals.icu",
+      "searching": "Ricerca su intervals.icu in corso",
+      "heading": "Su intervals.icu, non su questo dispositivo",
+      "notOnDevice": "Non su questo dispositivo",
+      "none": "Nient'altro su intervals.icu",
+      "failed": "Impossibile cercare su intervals.icu",
+      "capped": "intervals.icu ha raggiunto il limite per una ricerca per nome, quindi potrebbero esserci altri risultati. Restringi il nome per vederli.",
+      "rowLabel": "{{name}}, {{facts}}, non su questo dispositivo"
+    },
     "activitiesCount_one": "{{count}} Attività",
     "activitiesCount_many": "{{count}} di Attività",
     "activitiesCount_other": "{{count}} Attività",
@@ -834,6 +846,20 @@
       "last90Days": "Ultimi 90 giorni",
       "thisYear": "Quest'anno",
       "lastYear": "L'anno scorso"
+    },
+    "filter": {
+      "show": "Mostra filtri",
+      "hide": "Nascondi filtri",
+      "clear": "Rimuovi {{filter}}",
+      "date": "Data",
+      "dateFrom": "Data di inizio",
+      "dateTo": "Data di fine",
+      "distance": "Distanza",
+      "distanceFrom": "Distanza minima",
+      "distanceTo": "Distanza massima",
+      "duration": "Durata",
+      "durationFrom": "Durata minima",
+      "durationTo": "Durata massima"
     },
     "emptyLibrary": {
       "pausedTitle": "La sincronizzazione è in pausa",
@@ -1325,6 +1351,8 @@
     "oauthInterrupted": "L’accesso è stato interrotto. Riprova.",
     "oauthNeedsNetwork": "L'accesso con intervals.icu richiede una connessione di rete. Connettiti e riprova, oppure usa una chiave API, che potrà farti accedere più tardi.",
     "oauthProxyRefused": "Il servizio di accesso non ha accettato la richiesta. Riprova tra poco.",
+    "intervalsBusy": "intervals.icu è occupato in questo momento. Riprova dopo {{time}}.",
+    "intervalsBusyShortly": "intervals.icu è occupato in questo momento. Riprova tra poco.",
     "oauthUnreachable": "Impossibile raggiungere il servizio di accesso. Controlla la connessione e riprova.",
     "oauthInvalidCallback": "URL di callback OAuth non valido",
     "oauthNotConfigured": "OAuth non è configurato. Usa la chiave API per accedere.",
@@ -1379,7 +1407,6 @@
     "emptyNoGpsHint": "Le sessioni indoor, sui rulli e in piscina non hanno un percorso da disegnare.",
     "loadingHeatmap": "Caricamento della mappa di calore…",
     "panelFold": "Comprimi il pannello",
-    "panelOpen": "Apri il pannello delle attività",
     "panelBack": "Torna all'elenco",
     "timelineFrom": "Da",
     "timelineTo": "A"
@@ -1451,7 +1478,11 @@
     },
     "underPointRoute": "Percorso {{number}}",
     "underPointNoRoute": "Senza percorso",
-    "underPointDrawn": "{{drawn}} di {{total}} tracciate"
+    "underPointDrawn": "{{drawn}} di {{total}} tracciate",
+    "underPointCount": "{{count}} sotto il tocco",
+    "underPointFilterAll": "Tutte",
+    "underPointOpenRoute": "Apri il percorso {{name}}",
+    "underPointOpenSection": "Apri la sezione {{name}}"
   },
   "metrics": {
     "activityCount": "Attività",
@@ -1998,6 +2029,7 @@
     "setAsReferenceConfirm": "Usare questa attività come riferimento? La linea seguirà questa attività e la vista Avanti o indietro misurerà il tempo rispetto a essa. I confronti con tutte le tue attività vengono ricalcolati, il che può aggiungerne o rimuoverne alcune.",
     "setReferenceError": "Impossibile impostare il riferimento. La sezione o l'attività potrebbe essere cambiata. Per favore riprova.",
     "editBounds": "Modifica limiti",
+    "sendToWatch": "Invia all'orologio",
     "showOnMap": "Mostra sulla mappa",
     "pointsCount_one": "{{count}} punto",
     "pointsCount_other": "{{count}} punti",
@@ -2277,6 +2309,8 @@
     "storageOther": "Altro",
     "mapCache": "Cache delle mappe",
     "sizeAtLeast": "Almeno {{size}}",
+    "watchLink": "Guida all'orologio",
+    "watchLinkDescription": "Permette a questo telefono di inviare sezioni al tuo orologio. L'orologio mostra i suoi segnali come notifiche.",
     "permissions": "Autorizzazioni",
     "heatmapGeneration": "Mappa di calore",
     "heatmapDescription": "Mantiene la mappa di calore su questo dispositivo e usa spazio di archiviazione per essa. Disattivala per liberare quello spazio.",
@@ -2913,6 +2947,8 @@
       "startEmpty": "Inizia una sessione vuota",
       "previousSessions": "Sessioni precedenti",
       "savedWorkouts": "Allenamenti salvati",
+      "removedWorkouts": "Allenamenti eliminati",
+      "restoreWorkout": "Ripristina",
       "noHistory": "Qui vengono proposte le sessioni che registri o sincronizzi, da cui partire.",
       "workoutSummary": "{{exercises}} esercizi, {{sets}} serie",
       "startFrom": "Parti da {{name}}",
@@ -3209,6 +3245,7 @@
     "retryNow": "Riprova ora",
     "heldByUpstream": "intervals.icu ha chiesto di attendere fino a {{time}}",
     "heldByBudget": "Limite di richieste raggiunto, in attesa fino a {{time}}",
+    "heldForPool": "Recupero in pausa perché la sincronizzazione di tutti prosegua, riprende alle {{time}}",
     "pacedOnCaps_one": "Almeno {{count}} giorno per completare, a causa del limite giornaliero di intervals.icu",
     "pacedOnCaps_other": "Almeno {{count}} giorni per completare, a causa del limite giornaliero di intervals.icu",
     "headerRunning_one": "{{count}} attività in background in corso",
@@ -3541,16 +3578,44 @@
     "notConnected": "Non connesso",
     "noChanges": "Nessuna modifica finora",
     "wrote": "{{browser}}: {{summary}}",
-    "manage": "Gestisci i dispositivi collegati"
+    "manage": "Gestisci i dispositivi collegati",
+    "howTitle": "Come funziona Connect",
+    "howLinked": "Scansionare il codice collega un browser una sola volta. Conserva la propria chiave e si riconnette da solo finché Veloq è aperto.",
+    "howPrivate": "I tuoi dati vanno direttamente da questo telefono al browser, da un capo all'altro. Nessun server li conserva.",
+    "howRelay": "Un relay trasmette solo l'avvio della connessione. Non trasporta mai i tuoi dati.",
+    "refusedToday_one": "Oggi è stata rifiutata {{count}} richiesta di connessione da un browser non collegato.",
+    "refusedToday_other": "Oggi sono state rifiutate {{count}} richieste di connessione da browser non collegati.",
+    "howAccess": "Un collegamento dura finché non lo rimuovi. Un browser collegato può leggere la tua libreria e fare le modifiche elencate sulla sua pagina.",
+    "linkedOn": "Collegato il {{date}}",
+    "connectedNow": "Connesso ora",
+    "scope": "Può leggere la tua libreria e fare le modifiche elencate sotto.",
+    "connectionsTitle": "Connessioni",
+    "noConnections": "Ancora nessuna connessione",
+    "thisNetwork": "Questa rete",
+    "internet": "Internet",
+    "changesTitle": "Modifiche",
+    "kindTool": "Strumento da computer",
+    "clientOn": "{{browser}} su {{os}}",
+    "endReason": {
+      "closed": "Chiusa",
+      "backgrounded": "Veloq è passato in background",
+      "switched_off": "Spenta",
+      "removed": "Rimosso",
+      "disconnected": "Disconnesso dal telefono",
+      "refused": "Rifiutata"
+    },
+    "rename": "Rinomina",
+    "renameLabel": "Nome"
   },
   "connectPage": {
     "undo": {
       "hidden": "Nascosta dalla mappa di calore",
       "shown": "Mostrata sulla mappa di calore",
+      "sectionsHidden": "Sezioni nascoste",
+      "sectionsShown": "Sezioni mostrate",
       "excluded": "Attività esclusa",
       "included": "Attività di nuovo inclusa",
-      "renamed": "Nome modificato",
-      "workoutDeleted": "Allenamento eliminato"
+      "renamed": "Nome modificato"
     },
     "title": "Veloq Connect",
     "language": "Lingua",
@@ -3571,7 +3636,8 @@
       "declined": "Il collegamento è stato rifiutato sul telefono.",
       "removed": "Questo browser è stato rimosso sul telefono. Scansiona un nuovo codice per collegarlo di nuovo.",
       "unreachable": "Impossibile raggiungere il telefono da qui. Collega entrambi alla stessa rete Wi-Fi e scansiona il nuovo codice.",
-      "phoneLocked": "Sblocca il telefono e apri Veloq per fare modifiche"
+      "phoneLocked": "Sblocca il telefono e apri Veloq per fare modifiche",
+      "badId": "Il telefono non ha accettato la richiesta. Riprova."
     },
     "screens": {
       "fitness": "Forma",
@@ -3588,7 +3654,8 @@
       "expand": "Espandi la barra laterale",
       "breadcrumb": "Percorso di navigazione",
       "search": "Cerca",
-      "account": "Profilo"
+      "account": "Profilo",
+      "skipToContent": "Vai al contenuto"
     },
     "yourPhone": "Il tuo telefono",
     "laterScreen": "Questa schermata non è ancora disponibile nel browser. Aprila sul telefono.",
@@ -3614,23 +3681,20 @@
     },
     "update": {
       "heading": "Aggiorna Veloq sul telefono",
-      "body": "Questa pagina e Veloq sul telefono non usano la stessa versione del collegamento. Aggiorna Veloq sul telefono, poi riapri questa pagina.",
-      "screen": "Aggiorna Veloq sul telefono per vedere questo"
+      "body": "Questa pagina e Veloq sul telefono non usano la stessa versione del collegamento. Aggiorna Veloq sul telefono, poi riapri questa pagina."
     },
     "keys": {
-      "heading": "Tasti",
-      "tabs": "Feed, Forma, Analisi, Mappa, Impostazioni",
-      "search": "Cerca nel feed",
+      "heading": "Scorciatoie da tastiera",
+      "search": "Apri la ricerca",
       "close": "Chiudi l'attività",
       "list": "Questo elenco",
-      "range": "Da 1 a 5",
       "control": "Ctrl",
       "shell": "Ovunque",
       "page": "In questa pagina",
       "palette": "Apri la palette dei comandi",
-      "chord": "Vai a una pagina: feed, mappa, percorsi, sezioni, forma, approfondimenti, forza, allenamenti, registrazioni, impostazioni",
       "step": "Attività precedente e successiva",
-      "open": "Apri l'attività selezionata"
+      "open": "Apri l'attività selezionata",
+      "pages": "Vai a una pagina"
     },
     "library": {
       "activities": "Attività",
@@ -3639,6 +3703,12 @@
       "pick": "Scegli un'attività",
       "loadMore": "Carica altro",
       "sportLabel": "Sport",
+      "distance": "Distanza ({{unit}})",
+      "distanceMin": "Distanza minima ({{unit}})",
+      "distanceMax": "Distanza massima ({{unit}})",
+      "duration": "Durata",
+      "durationMin": "Durata minima (minuti)",
+      "durationMax": "Durata massima (minuti)",
       "summary": "Riepilogo",
       "fitnessTrend": "Forma negli ultimi 30 giorni",
       "range": "Intervallo",
@@ -3710,11 +3780,14 @@
       "sections": "Sezioni",
       "routes": "Percorsi",
       "intervals": "Intervalli",
-      "hideFromHeatmap": "Nascondi dalla mappa di calore",
       "showOnHeatmap": "Mostra sulla mappa di calore",
       "actions": "Azioni dell'attività",
       "exportGpx": "Esporta GPX",
       "openOnIntervals": "Apri su intervals.icu",
+      "more": "Altro",
+      "manage": "Gestisci",
+      "manageHeatmap": "Mappa di calore",
+      "manageHint": "Disattiva un percorso o una sezione per escludere questa attività. Annulla la rimette.",
       "noTrack": "Questa attività non ha una traccia GPS.",
       "colourBy": "Colora la traccia per",
       "colourNone": "Tinta unita",
@@ -3754,7 +3827,16 @@
         "energy": "Energia",
         "conditions": "Condizioni",
         "newGround": "Terreno nuovo"
-      }
+      },
+      "createSection": "Crea sezione",
+      "createHint": "Evidenzia un intervallo sui grafici, trascina le due estremità lungo il tracciato sulla mappa, oppure digita le distanze. Esc annulla.",
+      "createStart": "Inizio ({{unit}})",
+      "createEnd": "Fine ({{unit}})",
+      "createStartHandle": "Inizio della nuova sezione",
+      "createEndHandle": "Fine della nuova sezione",
+      "createSave": "Crea",
+      "created": "Sezione creata",
+      "createdNamed": "Sezione {{name}} creata"
     },
     "chart": {
       "elevation": "Altitudine",
@@ -3768,7 +3850,8 @@
       "gap": "Passo corretto per la pendenza",
       "time": "Tempo",
       "axis": "Asse orizzontale",
-      "reset": "Reimposta lo zoom"
+      "reset": "Reimposta lo zoom",
+      "pace": "Passo"
     },
     "fitness": {
       "range": "Intervallo",
@@ -3986,7 +4069,8 @@
         "notifications": "Notifiche",
         "recording": "Registrazione",
         "experimental": "Funzioni sperimentali",
-        "summaryCard": "Scheda riepilogo"
+        "summaryCard": "Scheda riepilogo",
+        "singleKeys": "Scorciatoie a tasto singolo"
       },
       "options": {
         "system": "Sistema",
@@ -4015,8 +4099,7 @@
       },
       "toast": {
         "saved": "Salvato",
-        "undo": "Annulla",
-        "dismiss": "Chiudi"
+        "undo": "Annulla"
       },
       "displayNote": "Tema, unità e sport principale sono salvati sul telefono. Lingua e lisciatura del benessere si modificano sul telefono.",
       "thresholds": {
@@ -4047,8 +4130,8 @@
           "zone": "Zona",
           "upper": "Limite superiore",
           "bpm": "{{value}} bpm",
-          "percentOfMaxHr": "{{value}} % della frequenza cardiaca massima",
-          "percentOfFtp": "{{value}} % della FTP",
+          "percentOfMaxHr": "{{percent}} della frequenza cardiaca massima",
+          "percentOfFtp": "{{percent}} della FTP",
           "openTop": "Nessun limite superiore",
           "name": "Zona {{n}}",
           "note": "Uno sport le cui impostazioni intervals.icu non elencano zone mostra i limiti predefiniti."
@@ -4062,6 +4145,15 @@
       "deltaToBest": "Differenza dal migliore",
       "passTable": "Seleziona fino a {{max}} da confrontare",
       "fact": "Misura"
+    },
+    "filter": {
+      "activities": "Filtra attività",
+      "routes": "Filtra percorsi",
+      "sections": "Filtra tratti",
+      "exercises": "Filtra esercizi",
+      "recordings": "Filtra registrazioni",
+      "count": "{{shown}} di {{total}}",
+      "clear": "Cancella il filtro"
     },
     "table": {
       "count_one": "{{count}} riga",
@@ -4092,9 +4184,6 @@
       "unnamedRoute": "Percorso senza nome",
       "sections": "Tratti",
       "routes": "Percorsi",
-      "searchHint": "Cerca (/)",
-      "searchSections": "Cerca tratti",
-      "searchRoutes": "Cerca percorsi",
       "sort": "Ordina",
       "show": "Mostra",
       "listFailed": "Il telefono non ha risposto per questo elenco.",
@@ -4119,7 +4208,7 @@
       "attemptsExcluded_other": "{{count}} tentativi esclusi",
       "attemptsIncluded_other": "{{count}} tentativi inclusi di nuovo",
       "name": "Nome",
-      "lift": "Lift",
+      "lift": "Impianto",
       "enabled": "Attivo",
       "accepted": "Accettato",
       "actionInclude": "Includi di nuovo",
@@ -4167,7 +4256,8 @@
       "viewSpread": "Dispersione",
       "viewTime": "Nel tempo",
       "views": "Viste delle prestazioni",
-      "axisBin": "Tempo impiegato, dall'inizio di ciascun intervallo"
+      "axisBin": "Tempo impiegato, dall'inizio di ciascun intervallo",
+      "attemptsMenu": "Azioni del tentativo"
     },
     "columns": {
       "date": "Data",
@@ -4243,6 +4333,18 @@
       "alreadyStored": "Già nella libreria",
       "failedCount": "Non riuscite"
     },
+    "export": {
+      "title": "Esporta la libreria",
+      "note": "Salva tutte le attività della libreria in un unico file ZIP. Tieni il telefono aperto e in primo piano mentre il file viene scritto e inviato.",
+      "since": "Attività dal",
+      "originals": "Includi i file originali",
+      "start": "Esporta tutto",
+      "building": "Il telefono sta scrivendo l'archivio: {{done}} di {{rides}} attività",
+      "reading": "Salvati {{done}} di {{size}} MB",
+      "waiting": "Collegamento ripreso, si continua da {{done}} di {{size}} MB",
+      "finished": "Esportazione salvata",
+      "failed": "Esportazione non riuscita"
+    },
     "read": {
       "loading": "Lettura dal telefono",
       "timeout": "Il telefono non ha risposto",
@@ -4250,19 +4352,26 @@
       "retry": "Riprova"
     },
     "palette": {
-      "open": "Vai a",
-      "title": "Vai a",
-      "label": "Cerca pagine, attività, percorsi e sezioni",
+      "title": "Cerca",
+      "label": "Cerca pagine, impostazioni, attività, percorsi, sezioni, esercizi, allenamenti e registrazioni",
       "placeholder": "Digita un nome",
       "none": "Nessuna corrispondenza",
-      "page": "Pagina",
-      "action": "Azione",
-      "activity": "Attività",
-      "route": "Percorso",
-      "section": "Sezione",
       "toggleSidebar": "Comprimi o espandi la barra laterale",
       "toggleTheme": "Cambia tema",
-      "showKeys": "Mostra le scorciatoie da tastiera"
+      "showKeys": "Mostra le scorciatoie da tastiera",
+      "showAll": "Mostra tutti ({{total}})",
+      "groups": {
+        "recent": "Recenti",
+        "page": "Pagine",
+        "action": "Azioni",
+        "setting": "Impostazioni",
+        "activity": "Attività",
+        "route": "Percorsi",
+        "section": "Sezioni",
+        "exercise": "Esercizi",
+        "workout": "Allenamenti",
+        "recording": "Registrazioni"
+      }
     },
     "sections": {
       "acceptAll": "Accetta tutte",
@@ -4280,12 +4389,10 @@
       "best": "Migliore",
       "cancel": "Annulla",
       "changed": "Modificata",
-      "clearSearch": "Cancella la ricerca",
       "close": "Chiudi",
       "curvesPending": "Il telefono sta ancora calcolando queste curve.",
       "deltaChart": "Secondi di vantaggio o ritardo sul riferimento lungo la sezione, una linea per ogni giro recente",
       "direction": "Direzione",
-      "dismiss": "Chiudi",
       "excludeActivities": "Escludi attività",
       "excludeLaps": "Escludi giri",
       "faster": "Più veloce",
@@ -4345,7 +4452,7 @@
       "stats": "Giri, migliore, media e ultimo per ciascuna direzione",
       "status": "Stato",
       "statusCustom": "Personalizzata",
-      "statusLift": "Lift",
+      "statusLift": "Impianto",
       "statusRecord": "Record",
       "statusRemoved": "Rimossa",
       "tookGround": "Ha preso il suo terreno",
@@ -4358,18 +4465,46 @@
       "unflagLift": "Rimuovere il contrassegno di lift?",
       "unflagLiftBody": "Il rilevatore ha segnato questo come terreno di lift. Rimuovere il contrassegno non si può annullare.",
       "view": "Mostra",
-      "views": "Viste di questa sezione"
+      "views": "Viste di questa sezione",
+      "hideFromMap": "Nascondi dalla mappa",
+      "showOnMap": "Mostra sulla mappa",
+      "boundsBeyond": "Oltre le estremità",
+      "boundsEnd": "Fine della sezione",
+      "boundsHint": "Trascina le due estremità lungo la linea, oppure seleziona un'estremità e usa i tasti freccia. Esc annulla.",
+      "boundsLine": "Linea della sezione",
+      "boundsNoTrack": "L'uscita da cui è stata ricavata questa sezione non è salvata, quindi le estremità si possono spostare solo lungo la linea.",
+      "boundsReset": "Reimposta i limiti",
+      "boundsResetDone": "Limiti di {{name}} reimpostati",
+      "boundsSave": "Salva",
+      "boundsSaved": "Limiti di {{name}} salvati: {{length}}",
+      "boundsShow": "Le estremità scorrono lungo",
+      "boundsStart": "Inizio della sezione",
+      "boundsTooShort": "Una sezione mantiene almeno cinque punti.",
+      "editBounds": "Modifica i limiti",
+      "lapMenu": "Azioni del giro",
+      "referenceReset": "Riferimento restituito al rilevamento",
+      "referenceSet": "Riferimento impostato su {{name}}",
+      "resetReference": "Restituisci il riferimento al rilevamento",
+      "useAsReference": "Usa questa uscita come riferimento",
+      "mergeDone": "{{name}} unita a questa sezione",
+      "mergeKept": "Mantenuta: {{name}}, {{length}}, {{count}} passaggi",
+      "boundsDiscard": "Scarta le modifiche",
+      "boundsDiscardBody": "Le estremità che hai spostato non sono state salvate.",
+      "boundsDiscardTitle": "Scartare le nuove estremità?",
+      "boundsKeepEditing": "Continua a modificare",
+      "boundsLaps": "Giri misurati di nuovo al salvataggio: {{count}}.",
+      "mergeLaps": "Giri misurati sulla linea mantenuta: {{count}}."
     },
     "workouts": {
       "open": "Crea un allenamento",
       "heading": "Allenamenti",
-      "start": "Parti da",
       "blank": "Allenamento vuoto",
       "saved": "Allenamenti salvati",
       "noneSaved": "Nessun allenamento salvato",
       "failed": "Il telefono non ha risposto",
-      "counts": "{{exercises}} esercizi, {{sets}} serie",
       "delete": "Elimina",
+      "deleted": "Allenamenti eliminati: {{count}}",
+      "undo": "Annulla",
       "recent": "Sessioni recenti",
       "times": "Fatto ×{{times}}",
       "building": "In costruzione",
@@ -4388,8 +4523,6 @@
       "removeExercise": "Rimuovi esercizio",
       "save": "Salva allenamento",
       "picker": "Esercizi",
-      "search": "Cerca esercizi",
-      "clearSearch": "Cancella la ricerca",
       "equipment": "Attrezzatura",
       "daysAgo": "{{days}} g fa",
       "confirmDelete": "Eliminare {{name}}?",
@@ -4569,7 +4702,7 @@
     "overhead_walk": "Camminata con carico sopra la testa",
     "inchworm": "Inchworm",
     "weighted_modified_front_lever": "Front lever modificato con peso",
-    "russian_twist": "Russian twist",
+    "russian_twist": "Torsione russa",
     "abdominal_leg_rotations": "Rotazioni delle gambe per addominali",
     "arm_and_leg_extension_on_knees": "Estensione di braccio e gamba in quadrupedia",
     "bicycle": "Bicicletta",
@@ -5113,7 +5246,7 @@
     "weighted_45_degree_plank": "Plank a 45 gradi con peso",
     "90_degree_static_hold": "Tenuta statica a 90 gradi",
     "weighted_90_degree_static_hold": "Tenuta statica a 90 gradi con peso",
-    "bear_crawl": "Bear crawl",
+    "bear_crawl": "Camminata dell'orso",
     "weighted_bear_crawl": "Bear crawl con peso",
     "cross_body_mountain_climber": "Mountain climber incrociato",
     "weighted_cross_body_mountain_climber": "Mountain climber incrociato con peso",
@@ -5278,11 +5411,11 @@
     "weighted_squat_jump_onto_box": "Salto su box da squat con peso",
     "squat_jumps_in_and_out": "Jump squat dentro e fuori",
     "weighted_squat_jumps_in_and_out": "Jump squat dentro e fuori con peso",
-    "box_jump": "Box jump",
+    "box_jump": "Salto sul box",
     "box_jump_overs": "Box jump over",
     "box_jump_overs_over_the_box": "Box jump over scavalcando il box",
     "star_jump_squats": "Star jump squat",
-    "jump_squat": "Jump squat",
+    "jump_squat": "Squat con salto",
     "banded_pull_ups": "Trazioni con elastico",
     "30_degree_lat_pulldown": "Lat machine a 30 gradi",
     "band_assisted_chin_up": "Trazioni supine assistite con elastico",
@@ -5640,17 +5773,17 @@
     "weighted_elevated_single_leg_squat": "Squat monopodalico rialzato con peso",
     "figure_four_squats": "Squat a figura quattro",
     "weighted_figure_four_squats": "Squat a figura quattro con peso",
-    "goblet_squat": "Goblet squat",
+    "goblet_squat": "Squat goblet",
     "kettlebell_squat": "Squat con kettlebell",
     "kettlebell_swing_overhead": "Kettlebell swing sopra la testa",
     "kettlebell_swing_with_flip_to_squat": "Kettlebell swing con flip e squat",
     "lateral_dumbbell_step_up": "Step up laterale con manubri",
     "one_legged_squat": "Squat su una gamba",
     "overhead_dumbbell_squat": "Overhead squat con manubri",
-    "overhead_squat": "Overhead squat",
+    "overhead_squat": "Squat sopra la testa",
     "partial_single_leg_squat": "Squat monopodalico parziale",
     "weighted_partial_single_leg_squat": "Squat monopodalico parziale con peso",
-    "pistol_squat": "Pistol squat",
+    "pistol_squat": "Squat su una gamba",
     "weighted_pistol_squat": "Pistol squat con peso",
     "plie_slides": "Plié con slider",
     "weighted_plie_slides": "Plié con slider e peso",
@@ -5700,7 +5833,7 @@
     "medicine_ball_squat": "Squat con palla medica",
     "wall_ball_squat_and_press": "Wall ball con squat e distensione",
     "squat_american_swing": "Squat con American swing",
-    "air_squat": "Air squat",
+    "air_squat": "Squat a corpo libero",
     "dumbbell_thrusters": "Thruster con manubri",
     "overhead_barbell_squat": "Overhead squat con bilanciere",
     "burpee": "Burpee",
@@ -5992,7 +6125,7 @@
     "reverse_plank": "Plank inverso",
     "single_leg_deadlift": "Stacco monopodalico",
     "single_leg_squat": "Squat monopodalico",
-    "squat_jump": "Squat jump",
+    "squat_jump": "Salto squat",
     "tricep_press": "Distensione per tricipiti",
     "y_fly": "Y fly"
   },

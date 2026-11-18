@@ -27,6 +27,7 @@ interface SearchOptions {
   placeholder?: string;
   placement?: string;
   onChangeText?: (event: { nativeEvent: { text: string } }) => void;
+  onFocus?: () => void;
 }
 
 /**
@@ -49,6 +50,7 @@ function SearchField({ search }: { search: SearchOptions }) {
       placeholder={search.placeholder}
       accessibilityHint={search.placement}
       value={text}
+      onFocus={() => search.onFocus?.()}
       onChangeText={(next) => {
         setText(next);
         search.onChangeText?.({ nativeEvent: { text: next } });

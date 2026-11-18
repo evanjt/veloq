@@ -20,6 +20,7 @@ describe('ftpTrendView', () => {
       lookbackDays: 30,
       sampleCount: 3,
       changes: [],
+      historyDays: [],
       history: [
         { date: midnightUtc('2026-06-01'), value: 240 },
         { date: midnightUtc('2026-06-02'), value: 245 },
@@ -39,6 +40,7 @@ describe('ftpTrendView', () => {
       lookbackDays: 30,
       sampleCount: 91,
       changes: [],
+      historyDays: [],
       history: [],
     });
 
@@ -55,6 +57,7 @@ describe('ftpTrendView', () => {
       lookbackDays: 30,
       sampleCount: 3,
       changes: [],
+      historyDays: [],
       history: [
         { date: midnightUtc('2026-06-07'), value: 240 },
         { date: midnightUtc('2026-08-06'), value: 270 },
@@ -74,6 +77,7 @@ describe('ftpTrendView', () => {
       lookbackDays: 30,
       sampleCount: 91,
       changes: [],
+      historyDays: [],
       history: [],
     });
 
@@ -87,6 +91,7 @@ describe('ftpTrendView', () => {
       lookbackDays: 30,
       sampleCount: 1,
       changes: [],
+      historyDays: [],
       history: [{ date: midnightUtc('2026-06-03'), value: 250 }],
     });
 
@@ -96,7 +101,13 @@ describe('ftpTrendView', () => {
   });
 
   it('is empty without a stored estimate', () => {
-    const view = ftpTrendView({ lookbackDays: 30, sampleCount: 0, history: [], changes: [] });
+    const view = ftpTrendView({
+      lookbackDays: 30,
+      sampleCount: 0,
+      history: [],
+      historyDays: [],
+      changes: [],
+    });
 
     expect(view.series).toEqual([]);
     expect(view.latest).toBe(0);

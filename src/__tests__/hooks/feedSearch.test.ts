@@ -110,6 +110,41 @@ describe('useFeedSearch', () => {
     });
   });
 
+  it('reads a distance range alone as a whole-library search with its bounds', async () => {
+    const size = { distance: { low: 20_000, high: 60_000 }, duration: null };
+    const { result } = await renderHook(() => useFeedSearch('', new Set(), null, size), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(engine.searchFeedCards).toHaveBeenCalledWith({
+      needle: '',
+      sportFamilies: [],
+      minDistance: 20_000,
+      maxDistance: 60_000,
+      offset: 0,
+      limit: 30,
+    });
+  });
+
+  it('reads a duration range with the name and sport it narrows', async () => {
+    const size = { distance: null, duration: { low: 3_600, high: 10_800 } };
+    const { result } = await renderHook(
+      () => useFeedSearch('ferry', new Set<FeedGroup>(['Ride']), null, size),
+      { wrapper }
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(engine.searchFeedCards).toHaveBeenCalledWith({
+      needle: 'ferry',
+      sportFamilies: [EngineSportFamily.Ride],
+      minMovingTime: 3_600,
+      maxMovingTime: 10_800,
+      offset: 0,
+      limit: 30,
+    });
+  });
+
   it('passes two selected families to one whole-library read', async () => {
     const selected = new Set<FeedGroup>(['Ride', 'Other']);
     const { result } = await renderHook(() => useFeedSearch('', selected), { wrapper });

@@ -20,11 +20,15 @@ use serde::Deserialize;
 pub struct FfiPowerModel {
     /// `MS_2P`, `MORTON_3P`, `FFT_CURVES` or `ECP`.
     pub kind: String,
+    /// Unit: watt.
     pub critical_power: f64,
     /// W prime, joules above critical power.
+    /// Unit: joule.
     pub w_prime: f64,
+    /// Unit: watt.
     pub ftp: f64,
     /// The three-parameter models' peak, absent on the two-parameter fit.
+    /// Unit: watt.
     pub p_max: Option<f64>,
 }
 
@@ -34,9 +38,13 @@ pub struct FfiPowerModel {
 pub struct FfiCurveActivity {
     pub id: String,
     pub name: String,
+    /// Unit: metre.
     pub distance: f64,
+    /// Unit: second.
     pub moving_time: f64,
+    /// Unit: tss.
     pub training_load: f64,
+    /// Unit: kilogram.
     pub weight: f64,
     pub start_date_local: String,
     pub race: bool,
@@ -48,14 +56,18 @@ pub struct FfiCurveActivity {
 pub struct FfiPowerCurve {
     pub sport: String,
     /// Durations, in seconds.
+    /// Unit: second.
     pub secs: Vec<f64>,
     /// The best watts held for each duration.
+    /// Unit: watt.
     pub watts: Vec<f64>,
+    /// Unit: watt_per_kilogram.
     pub watts_per_kg: Option<Vec<f64>>,
     pub activity_ids: Option<Vec<String>>,
     /// Activity ids for each per-kilogram best, which need not be the watts one.
     pub wkg_activity_ids: Option<Vec<String>>,
     /// The athlete's weight the per-kilogram series was divided by.
+    /// Unit: kilogram.
     pub weight: Option<f64>,
     /// The server's fitted models, in the order it sent them.
     pub models: Vec<FfiPowerModel>,
@@ -63,8 +75,10 @@ pub struct FfiPowerCurve {
     pub activities: HashMap<String, FfiCurveActivity>,
     pub start_date: Option<String>,
     pub end_date: Option<String>,
+    /// Unit: day.
     pub days: Option<f64>,
     /// Epoch seconds at the fetch that stored the body.
+    /// Unit: epoch_second.
     pub fetched_at: f64,
     /// `intervals` for a body the server sent, `veloq` for one worked out on
     /// the phone from the library's own streams, which the chart says.
@@ -77,21 +91,29 @@ pub struct FfiPowerCurve {
 pub struct FfiPaceCurve {
     pub sport: String,
     /// Distances, in metres.
+    /// Unit: metre.
     pub distances: Vec<f64>,
     /// Seconds taken to cover each distance.
+    /// Unit: second.
     pub times: Vec<f64>,
     /// Metres per second at each distance, zero where the time is.
+    /// Unit: metre_per_second.
     pub pace: Vec<f64>,
     pub activity_ids: Option<Vec<String>>,
     pub activities: HashMap<String, FfiCurveActivity>,
     /// The critical-speed model's terms, when the server fitted one.
+    /// Unit: metre_per_second.
     pub critical_speed: Option<f64>,
+    /// Unit: metre.
     pub d_prime: Option<f64>,
+    /// Unit: ratio.
     pub r2: Option<f64>,
     pub start_date: Option<String>,
     pub end_date: Option<String>,
+    /// Unit: day.
     pub days: Option<f64>,
     /// Epoch seconds at the fetch that stored the body.
+    /// Unit: epoch_second.
     pub fetched_at: f64,
     /// `intervals` for a body the server sent, `veloq` for one worked out on
     /// the phone from the library's own streams, which the chart says.

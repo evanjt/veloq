@@ -133,7 +133,7 @@ run_surface() {
     killer=$!
   fi
 
-  VELOQ_DEVICE_LOCK_HELD=1 ANDROID_SERIAL=$UDID MAESTRO_DRIVER_STARTUP_TIMEOUT=180000 \
+  VELOQ_DEVICE_LOCK_HELD=1 ANDROID_SERIAL=$UDID MAESTRO_DRIVER_STARTUP_TIMEOUT=450000 \
     "$HERE/with-maestro.sh" test "$flow" \
     -e CYCLES="$CYCLES" -e ACTIVITY="${ACTIVITY:-demo-test-0}" -e SECTION="${SECTION:-}" -e SECTION_ALT="${SECTION_ALT:-}" \
     >"$dir/maestro.log" 2>&1

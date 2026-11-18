@@ -11,7 +11,6 @@
 import React from 'react';
 import { act, render, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { FlatList, Platform } from 'react-native';
 
 import { getEngine } from '@/shared/native/engine';
 import { feedCard } from '../__shared__/feedCard';
@@ -226,6 +225,11 @@ const getActivityHighlightsBundle = jest.fn((_activityIds: string[]) => ({
   strengthCards: [],
 }));
 
+/** Opens the filter panel from the header's filter button. */
+async function openFilterPanel() {
+  await fireEvent.press(screen.getByTestId('home-filter-button'));
+}
+
 async function renderFeed() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   const view = await render(
@@ -323,51 +327,6 @@ vaultIt('hands a card no new-ground chip, even for an activity on wholly new gro
 });
 
 describe('feed search does not re-read the highlight bundle', () => {
-  vaultIt(
-    'scrolls past the measured search section on Android when the estimate matches',
-    async () => {
-      const platform = Platform.OS;
-      Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
-      const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
-      try {
-        await renderFeed();
-        const searchSection = screen.getByTestId('home-filter-section');
-        await act(() =>
-          searchSection.props.onLayout({
-            nativeEvent: { layout: { x: 0, y: 0, width: 430, height: 78 } },
-          })
-        );
-        expect(scrollToOffset).toHaveBeenCalledWith({ offset: 78, animated: false });
-      } finally {
-        scrollToOffset.mockRestore();
-        Object.defineProperty(Platform, 'OS', { value: platform, configurable: true });
-      }
-    }
-  );
-
-  vaultIt('hides revealed controls after returning to an unfiltered feed', async () => {
-    const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
-    try {
-      const feed = await renderFeed();
-      const searchSection = screen.getByTestId('home-filter-section');
-      await act(() =>
-        searchSection.props.onLayout({
-          nativeEvent: { layout: { x: 0, y: 0, width: 430, height: 94 } },
-        })
-      );
-      scrollToOffset.mockClear();
-
-      mockFeedFocused = false;
-      await feed.rerenderFeed();
-      mockFeedFocused = true;
-      await feed.rerenderFeed();
-
-      expect(scrollToOffset).toHaveBeenCalledWith({ offset: 94, animated: false });
-    } finally {
-      scrollToOffset.mockRestore();
-    }
-  });
-
   vaultIt('does not render again for sync progress within the same state', async () => {
     let renders = 0;
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
@@ -452,6 +411,7 @@ describe('feed search does not re-read the highlight bundle', () => {
       await fireEvent.changeText(screen.getByTestId('native-header-search'), '');
       await waitFor(() => expect(screen.getByTestId('card-a1')).toBeTruthy());
 
+      await openFilterPanel();
       await fireEvent.press(screen.getByTestId('home-filter-run'));
       await waitFor(() => expect(screen.queryByTestId('card-a1')).toBeNull());
 
@@ -525,63 +485,14 @@ describe('a date range narrows the feed like a search or a sport chip', () => {
     { id: 'y2', name: 'Lock walk', sportType: 'Walk' },
   ];
 
-  async function revealedAt(height: number) {
-    const filterSection = screen.getByTestId('home-filter-section');
-    await act(() =>
-      filterSection.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 430, height } } })
-    );
-  }
-
-  vaultIt('keeps the range chips on screen after a pull to refresh', async () => {
-    jest.useFakeTimers();
-    const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
-    try {
-      mockRangeActivities = lastYear;
-      await renderFeed();
-      await revealedAt(94);
-      await fireEvent.press(screen.getByTestId('home-range-lastYear'));
-      scrollToOffset.mockClear();
-
-      const list = screen.getByTestId('home-activity-list');
-      await act(async () => {
-        await list.props.refreshControl.props.onRefresh();
-      });
-      await act(() => jest.runOnlyPendingTimers());
-
-      expect(scrollToOffset).not.toHaveBeenCalledWith(expect.objectContaining({ offset: 94 }));
-    } finally {
-      scrollToOffset.mockRestore();
-      jest.useRealTimers();
-    }
-  });
-
-  vaultIt('keeps the range chips on screen when the feed tab is returned to', async () => {
-    const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
-    try {
-      mockRangeActivities = lastYear;
-      const feed = await renderFeed();
-      await revealedAt(94);
-      await fireEvent.press(screen.getByTestId('home-range-lastYear'));
-      scrollToOffset.mockClear();
-
-      mockFeedFocused = false;
-      await feed.rerenderFeed();
-      mockFeedFocused = true;
-      await feed.rerenderFeed();
-
-      expect(scrollToOffset).not.toHaveBeenCalled();
-    } finally {
-      scrollToOffset.mockRestore();
-    }
-  });
-
   it('shows the engine count of the whole range above the cards', async () => {
     mockRangeActivities = lastYear;
     await renderFeed();
+    await openFilterPanel();
     await fireEvent.press(screen.getByTestId('home-range-lastYear'));
 
     await waitFor(() => expect(screen.getByTestId('card-y1')).toBeTruthy());
-    expect(screen.getByText('feed.activitiesCount')).toBeTruthy();
+    expect(screen.getAllByText('feed.activitiesCount').length).toBeGreaterThan(0);
     expect(searchFeedCardsSpy).toHaveBeenCalledWith(
       expect.objectContaining({ needle: '', sportFamilies: [], limit: 0 })
     );
@@ -590,6 +501,7 @@ describe('a date range narrows the feed like a search or a sport chip', () => {
   it('says the range holds nothing, rather than standing by for a sync', async () => {
     mockSyncState = 2;
     await renderFeed();
+    await openFilterPanel();
     await fireEvent.press(screen.getByTestId('home-range-lastYear'));
 
     await waitFor(() => expect(screen.getByTestId('home-empty-state')).toBeTruthy());
@@ -598,6 +510,7 @@ describe('a date range narrows the feed like a search or a sport chip', () => {
 
   it('clears the range from the empty state and returns to the whole feed', async () => {
     await renderFeed();
+    await openFilterPanel();
     await fireEvent.press(screen.getByTestId('home-range-lastYear'));
     await waitFor(() => expect(screen.getByTestId('home-empty-state')).toBeTruthy());
 
@@ -612,6 +525,7 @@ describe('a date range narrows the feed like a search or a sport chip', () => {
   it('clears a search and a chip that match nothing in one tap', async () => {
     await renderFeed();
     await fireEvent.changeText(screen.getByTestId('native-header-search'), 'nothing matches this');
+    await openFilterPanel();
     await fireEvent.press(screen.getByTestId('home-filter-run'));
     await waitFor(() => expect(screen.getByTestId('home-empty-state')).toBeTruthy());
 

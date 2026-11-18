@@ -1,7 +1,8 @@
 /**
- * Scenario: the activity, route and section screens all share a GPX file
- * through one hook, and the athlete has asked for the start and end of tracks
- * near home to stay out of exports.
+ * Scenario: the activity, route and section screens all share a GPX file, and
+ * the route and section screens also share a FIT course, through one hook. The
+ * athlete has asked for the start and end of tracks near home to stay out of
+ * exports.
  *
  * Expected behaviour: the file is the one the engine built, under the name the
  * engine chose, nothing is shared when the trim leaves too little, and nothing
@@ -13,10 +14,14 @@ import { Alert } from 'react-native';
 
 import { useGpxExport } from '@/features/settings/hooks/useGpxExport';
 import { getEngine } from '@/shared/native/engine';
-import { shareFile } from '@/features/settings/lib/shareFile';
+import { shareFile, shareFileBytes } from '@/features/settings/lib/shareFile';
+import { settings } from 'veloqrs';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
-jest.mock('@/features/settings/lib/shareFile', () => ({ shareFile: jest.fn() }));
+jest.mock('@/features/settings/lib/shareFile', () => ({
+  shareFile: jest.fn(),
+  shareFileBytes: jest.fn(),
+}));
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
   useTranslation: () => ({ t: (key: string) => key }),
@@ -24,6 +29,7 @@ jest.mock('react-i18next', () => ({
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 const mockShare = shareFile as jest.MockedFunction<typeof shareFile>;
+const mockShareBytes = shareFileBytes as jest.MockedFunction<typeof shareFileBytes>;
 
 const door = { latitude: 46.2333, longitude: 7.36 };
 const away = { latitude: 46.25, longitude: 7.36 };
@@ -97,4 +103,83 @@ it('shares nothing when the engine is not there to apply the trim', async () => 
     undefined,
     expect.objectContaining({ cancelable: true })
   );
+});
+
+describe('a route or section shared by its id', () => {
+  it('hands the engine the route id and shares the file it built', async () => {
+    jest
+      .mocked(settings.buildRouteGpxFile)
+      .mockReturnValueOnce({ filename: 'Lake_loop.gpx', content: '<gpx/>' });
+    const { result } = await renderHook(() => useGpxExport());
+
+    await act(async () => {
+      await result.current.exportRouteGpx('g1', { sport: 'Ride' });
+    });
+
+    expect(settings.buildRouteGpxFile).toHaveBeenCalledWith('g1', 'Ride');
+    expect(mockShare).toHaveBeenCalledWith({
+      content: '<gpx/>',
+      name: 'Lake_loop.gpx',
+      kind: 'gpx',
+      anchor: undefined,
+    });
+  });
+
+  it('hands the engine the section id and shares nothing when the trim leaves too little', async () => {
+    jest.mocked(settings.buildSectionGpxFile).mockReturnValueOnce(null);
+    const { result } = await renderHook(() => useGpxExport());
+
+    await act(async () => {
+      await result.current.exportSectionGpx('sec-1', { sport: 'Ride' });
+    });
+
+    expect(settings.buildSectionGpxFile).toHaveBeenCalledWith('sec-1', 'Ride');
+    expect(mockShare).not.toHaveBeenCalled();
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'export.failedTitle',
+      'export.gpxTrimmedAway',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
+  });
+});
+
+describe('a route or section FIT course shared by its id', () => {
+  it('shares the engine bytes unchanged, as a fit file the engine named', async () => {
+    const content = new Uint8Array([0x0e, 0x10, 0xff]).buffer;
+    jest.mocked(settings.buildRouteFitCourse).mockReturnValueOnce({
+      filename: 'Lake_loop.fit',
+      content,
+    });
+    const { result } = await renderHook(() => useGpxExport());
+
+    await act(async () => {
+      await result.current.exportRouteFit('g1', { sport: 'Ride' });
+    });
+
+    expect(settings.buildRouteFitCourse).toHaveBeenCalledWith('g1', 'Ride');
+    expect(mockShareBytes).toHaveBeenCalledTimes(1);
+    const shared = jest.mocked(shareFileBytes).mock.calls[0][0];
+    expect(shared.bytes).toBe(content);
+    expect(shared).toMatchObject({ name: 'Lake_loop.fit', kind: 'fit', anchor: undefined });
+    expect(mockShare).not.toHaveBeenCalled();
+  });
+
+  it('shares nothing and says why when the trim leaves too little of a section', async () => {
+    jest.mocked(settings.buildSectionFitCourse).mockReturnValueOnce(null);
+    const { result } = await renderHook(() => useGpxExport());
+
+    await act(async () => {
+      await result.current.exportSectionFit('sec-1', { sport: 'Ride' });
+    });
+
+    expect(settings.buildSectionFitCourse).toHaveBeenCalledWith('sec-1', 'Ride');
+    expect(mockShareBytes).not.toHaveBeenCalled();
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'export.failedTitle',
+      'export.gpxTrimmedAway',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
+  });
 });

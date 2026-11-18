@@ -1,7 +1,6 @@
 // What the section page and the activity page do with a pair of ends dragged
-// along a track: the vertex an end snaps to, the length and slope between the
-// ends, the padded window around a section, and the writes a save and its undo
-// send. The engine measures and stores the section; this only places the ends
+// along a track: the vertex an end snaps to, the padded window around a section, and the writes a save and its
+// undo send. The engine measures and stores the section; this only places the ends
 // and asks. Pure, so a test drives it without a browser.
 
 import { nearestIndex, type LngLat } from './map/activityLayers';
@@ -44,7 +43,11 @@ export function pathMetres(path: readonly LngLat[], span: Span): number {
 }
 
 /** The vertex of `path` nearest `at`, looking only inside `within`; null when none lies there. */
-export function snapIndex(path: readonly (LngLat | null)[], at: LngLat, within: Span): number | null {
+export function snapIndex(
+  path: readonly (LngLat | null)[],
+  at: LngLat,
+  within: Span
+): number | null {
   const from = Math.max(0, within.start);
   const to = Math.min(path.length - 1, within.end);
   if (from > to) return null;
@@ -89,22 +92,6 @@ export function paddedWindow(path: readonly LngLat[], section: Span): Span {
     end += 1;
   }
   return { start, end };
-}
-
-/**
- * The mean slope in percent between the ends of `span`, from the altitude recorded at the
- * same vertices; null when the altitude is missing there or the ends are the same place.
- */
-export function slopePercent(
-  altitude: readonly number[] | undefined,
-  path: readonly LngLat[],
-  span: Span
-): number | null {
-  const low = altitude?.[span.start];
-  const high = altitude?.[span.end];
-  if (low === undefined || high === undefined || !Number.isFinite(low + high)) return null;
-  const metres = pathMetres(path, span);
-  return metres > 0 ? ((high - low) / metres) * 100 : null;
 }
 
 type EditAsk = Methods['section.editBounds']['params'];
@@ -205,4 +192,42 @@ export async function undoOfEdit(phone: QueryClient, id: string): Promise<EditWr
   } catch {
     return [];
   }
+}
+
+/** The writes that flag a section as lifting ground or clear it, and the ones that take that back. */
+export function liftWrites(id: string, isLift: boolean) {
+  const set = (flag: boolean) => [
+    { method: 'section.setLift' as const, params: { id, isLift: flag } },
+  ];
+  return { writes: set(isLift), undo: set(!isLift) };
+}
+
+/**
+ * What takes a merge back: the merged section restored, then the kept section put back on the
+ * line it had before, read from its ledger before the merge (none when it could not be read).
+ */
+export function mergeUndoWrites(
+  mergedId: string,
+  keptRevert: readonly EditWrite[]
+): { method: keyof Methods; params: object }[] {
+  return [{ method: 'section.restore', params: { id: mergedId } }, ...keptRevert];
+}
+
+/** What Escape does to a bounds draft: close one that changed nothing, ask about one that did. */
+export const escapeAction = (dirty: boolean): 'close' | 'confirm' => (dirty ? 'confirm' : 'close');
+
+/**
+ * The distance and grade the editor shows: the engine's stored figures while the ends sit where
+ * the section has them, so they agree with the header, and the engine's preview of the moved
+ * ends once there is one. Moved ends the engine has not measured show no figure.
+ */
+export function shownBounds(
+  unchanged: boolean,
+  stored: { distanceMeters: number; avgGradePercent: number | null },
+  preview: Methods['section.boundsPreview']['result'] | null
+): { metres: number | null; slope: number | null } {
+  if (unchanged) return { metres: stored.distanceMeters, slope: stored.avgGradePercent };
+  return preview
+    ? { metres: preview.distanceMeters, slope: preview.avgGradePercent }
+    : { metres: null, slope: null };
 }

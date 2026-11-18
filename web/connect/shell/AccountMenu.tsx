@@ -1,19 +1,22 @@
-// The account menu: the language, the colour scheme, the phone this browser is
-// linked to, and unlinking it. Language and scheme are offered while pairing
-// too; the phone and unlink only once there is a link.
+// The account menu: the language, the colour scheme, whether single keys act
+// as shortcuts, the phone this browser is linked to, and unlinking it. Language,
+// scheme and shortcuts are offered while pairing too; the phone and unlink only
+// once there is a link.
 
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { ThemeChoice } from '../appearance';
 import { LanguageMenu } from '../LanguageMenu';
-import { Button, SegmentedControl } from '../ui';
+import { Button, SegmentedControl, Switch } from '../ui';
 
 export function AccountMenu({
   phone,
   onLanguage,
   theme,
   onTheme,
+  shortcuts,
+  onShortcuts,
   onRetry,
   onUnlink,
 }: {
@@ -22,6 +25,9 @@ export function AccountMenu({
   onLanguage: (tag: string) => void;
   theme: ThemeChoice;
   onTheme: (choice: ThemeChoice) => void;
+  /** Whether single-key shortcuts act; Ctrl+K and Escape work either way. */
+  shortcuts: boolean;
+  onShortcuts: (on: boolean) => void;
   /** Present while the link is trying the phone or the phone needs an update. */
   onRetry: (() => void) | null;
   /** Absent while pairing, when there is nothing to unlink. */
@@ -94,6 +100,12 @@ export function AccountMenu({
               { value: 'dark', label: t('connectPage.settings.options.dark') },
             ]}
             onChange={onTheme}
+          />
+          <Switch
+            id="single-key-shortcuts"
+            label={t('connectPage.settings.values.singleKeys')}
+            checked={shortcuts}
+            onChange={onShortcuts}
           />
           <p className="note">{t('connectPage.footer')}</p>
           {onRetry ? (

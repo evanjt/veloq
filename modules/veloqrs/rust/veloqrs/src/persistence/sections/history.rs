@@ -184,9 +184,11 @@ pub struct RetiredSection {
     /// apart. `None` when nothing the ledger kept names it.
     pub name: Option<String>,
     /// Its length when it left, else its newest stored line's.
+    /// Unit: metre.
     pub distance_meters: Option<f64>,
     /// How many passes it had when it left: its retirement event's count,
     /// else the newest archived state's. `None` when neither recorded one.
+    /// Unit: count.
     pub visit_count: Option<u32>,
     /// The version a restore rolls it back to: the newest `archived` state
     /// that names a sport, which is what recreating the row needs. `None`

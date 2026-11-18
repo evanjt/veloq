@@ -2,13 +2,14 @@ import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { Stack, useIsFocused } from 'expo-router';
 import type { SearchBarCommands } from 'react-native-screens';
-import { View, FlatList, Platform, StyleSheet, type LayoutChangeEvent } from 'react-native';
+import { View, FlatList, Keyboard, Platform, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
   ActivityCardSkeleton,
   ComponentErrorBoundary,
   EmptyState,
   ErrorState,
+  IconButton,
   ScreenSafeAreaView,
   useScrollEndInset,
   Spinner,
@@ -28,12 +29,12 @@ import { navigateTo } from '@/shared/app/navigation';
 import { releaseSplash } from '@/shared/app/splash';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
-import { isReduceMotionOn } from '@/shared/ui/reduceMotion';
 import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 import { useSyncPillYield } from '@/shared/ui/syncPillYield';
 import { useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSyncHealth } from '@/shared/native/useSyncHealth';
 import { useSyncLastErrorReason, useSyncState } from '@/shared/native/useSyncStatus';
 import { useEngineReadState } from '@/shared/native/useEngineSubscription';
 import { EngineUnavailableState } from '@/shared/app/EngineUnavailableState';
@@ -67,32 +68,30 @@ import {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
 } from '@/features/maps';
-import { colors, darkColors, layout, spacing, themePalette, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, themePalette, typography } from '@/theme';
+import { Icon } from '@/shared/ui/Icon';
 import { createSharedStyles } from '@/styles';
 import {
   CARD_MARGIN,
-  ESTIMATED_FILTER_SECTION_HEIGHT,
-  FeedFilterChips,
-  feedFilterLabelKeys,
-  feedRangeForPreset,
+  FeedFilterPanel,
+  FeedRemoteSearch,
+  shouldOfferRemoteSearch,
   isFeedFiltered,
   isFeedSearch,
-  searchOffsetCorrection,
+  useFeedFilterBounds,
+  useFeedFilterChips,
   useRangeActivities,
   type FeedGroup,
   type FeedRange,
-  type FeedRangePreset,
+  type NumericRange,
 } from '@/features/activity';
 import { headPreviewIds, setFeedHeadIds } from '@/shared/activity/feedHead';
-import { formatLocalDate } from '@/shared/format/format';
 import { filterSummary } from '@/shared/format/filterSummary';
 import { debug } from '@/shared/debug/debug';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const log = debug.create('Feed');
 
-// iOS applies the estimate before layout; the section's onLayout sets the measured offset.
-const INITIAL_CONTENT_OFFSET = { x: 0, y: ESTIMATED_FILTER_SECTION_HEIGHT } as const;
 /** A card counts as on screen once a tenth of it is. */
 const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 10 } as const;
 
@@ -101,13 +100,6 @@ const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 10 } as const;
  * range read from its newest day. Both hooks stay mounted so a range toggled
  * off returns to the pages already loaded.
  */
-function useFeedRange(preset: FeedRangePreset | null): FeedRange | null {
-  return useMemo(
-    () => (preset ? feedRangeForPreset(preset, formatLocalDate(new Date())) : null),
-    [preset]
-  );
-}
-
 function useWindowedFeed(range: FeedRange | null) {
   const infinite = useInfiniteActivities();
   const ranged = useRangeActivities(range);
@@ -140,8 +132,12 @@ function FeedScreenContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [pullRefreshing, setPullRefreshing] = useState(false);
   const [selectedTypeGroups, setSelectedTypeGroups] = useState<Set<FeedGroup>>(new Set());
-  const [rangePreset, setRangePreset] = useState<FeedRangePreset | null>(null);
-  const feedRange = useFeedRange(rangePreset);
+  const [feedRange, setFeedRange] = useState<FeedRange | null>(null);
+  const [distanceRange, setDistanceRange] = useState<NumericRange | null>(null);
+  const [durationRange, setDurationRange] = useState<NumericRange | null>(null);
+  // The panel opens from the search field and the header's filter button, and shuts once the
+  // keyboard goes or the list is dragged.
+  const [panelOpen, setPanelOpen] = useState(false);
 
   // Basemap snapshot WebView pool - every card gets a snapshot (3D or flat),
   // so the pool always mounts; deferred so initial renders settle first
@@ -164,12 +160,6 @@ function FeedScreenContent() {
 
   // FlatList ref for scroll-to-reveal filters
   const listRef = useRef<FlatList>(null);
-  // How far the list opens scrolled: past the filter section, which heads the list.
-  const hiddenHeadHeight = useRef(ESTIMATED_FILTER_SECTION_HEIGHT);
-  // Where the filter section starts.
-  const filterSectionTop = useRef(0);
-  const searchOffsetCorrected = useRef(false);
-  const wasFeedFocused = useRef(isFeedFocused);
 
   // Initialise terrain preview cache and camera overrides on mount
   useEffect(() => {
@@ -269,33 +259,24 @@ function FeedScreenContent() {
   // windowed pages hold a few months at most, so filtering them answered "no
   // match" for any older activity. A range keeps its own windowed read, and it
   // narrows the feed all the same: its chips stay on screen and its count shows.
-  const searching = isFeedSearch({ searchText: searchQuery, groups: selectedTypeGroups });
-  const filtered = isFeedFiltered({
-    searchText: searchQuery,
-    groups: selectedTypeGroups,
-    range: feedRange,
-  });
-  useEffect(() => {
-    const returned = isFeedFocused && !wasFeedFocused.current;
-    wasFeedFocused.current = isFeedFocused;
-    if (returned && !filtered) {
-      listRef.current?.scrollToOffset({ offset: hiddenHeadHeight.current, animated: false });
-    }
-  }, [isFeedFocused, filtered]);
-  // A reselect opens the list as the tab does, the search and filters hidden above it. A filter
-  // keeps its section in view, where its chips and match count sit above the first result.
-  useScrollToTopOnReselect('/', listRef, () =>
-    filtered ? filterSectionTop.current : hiddenHeadHeight.current
+  const filter = useMemo(
+    () => ({
+      searchText: searchQuery,
+      groups: selectedTypeGroups,
+      range: feedRange,
+      distance: distanceRange,
+      duration: durationRange,
+    }),
+    [searchQuery, selectedTypeGroups, feedRange, distanceRange, durationRange]
   );
-  // The search field is in the header, so a query typed into it opens the list at the filter
-  // section, where the match count and the chips sit above the first result.
-  const hasQuery = searchQuery.trim().length > 0;
-  useEffect(() => {
-    if (hasQuery) {
-      listRef.current?.scrollToOffset({ offset: filterSectionTop.current, animated: false });
-    }
-  }, [hasQuery]);
-  const search = useFeedSearch(searchQuery, selectedTypeGroups, feedRange);
+  const size = useMemo(
+    () => ({ distance: distanceRange, duration: durationRange }),
+    [distanceRange, durationRange]
+  );
+  const searching = isFeedSearch(filter);
+  const filtered = isFeedFiltered(filter);
+  useScrollToTopOnReselect('/', listRef);
+  const search = useFeedSearch(searchQuery, selectedTypeGroups, feedRange, size);
   const filteredActivities = searching ? search.activities : allActivities;
   // The header's search field holds its own text, so clearing the query clears the field too.
   const searchBarRef = useRef<SearchBarCommands | null>(null);
@@ -303,8 +284,22 @@ function FeedScreenContent() {
     searchBarRef.current?.clearText();
     setSearchQuery('');
     setSelectedTypeGroups(new Set());
-    setRangePreset(null);
+    setFeedRange(null);
+    setDistanceRange(null);
+    setDurationRange(null);
   }, []);
+  const clearName = useCallback(() => {
+    searchBarRef.current?.clearText();
+    setSearchQuery('');
+  }, []);
+  const filterChips = useFeedFilterChips(filter);
+  const filterBounds = useFeedFilterBounds();
+  const openPanel = useCallback(() => setPanelOpen(true), []);
+  const closePanel = useCallback(() => setPanelOpen(false), []);
+  useEffect(() => {
+    const hide = Keyboard.addListener('keyboardDidHide', closePanel);
+    return () => hide.remove();
+  }, [closePanel]);
 
   // What the feed draws when it has no cards. A first launch is its own case:
   // the query resolves empty long before the first sync has stored anything,
@@ -312,11 +307,13 @@ function FeedScreenContent() {
   // stopped short is another: the engine's reason says why nothing arrived.
   const syncState = useSyncState();
   const lastErrorReason = useSyncLastErrorReason();
+  const { retryAtMs } = useSyncHealth();
   const engineState = useEngineReadState();
   const emptyState = feedEmptyState({
     storedCount: filteredActivities.length,
     syncState: syncState ?? undefined,
     lastErrorReason,
+    retryAtMs,
     isError: searching ? search.isError : isError,
     isLoading: searching ? search.isLoading : isLoading,
     hasFilter: filtered,
@@ -376,19 +373,10 @@ function FeedScreenContent() {
       refreshStartupData();
       // Retry any failed 3D terrain snapshots
       snapshotRef.current?.retryFailed();
-      // Re-hide the filter section after refresh (if no active filter)
-      if (!filtered) {
-        setTimeout(() => {
-          listRef.current?.scrollToOffset({
-            offset: hiddenHeadHeight.current,
-            animated: !isReduceMotionOn(),
-          });
-        }, 100);
-      }
     } finally {
       setPullRefreshing(false);
     }
-  }, [queryClient, refetchSummary, refreshStartupData, filtered, requestRefresh]);
+  }, [queryClient, refetchSummary, refreshStartupData, requestRefresh]);
 
   // Load more when scrolling to the end, from whichever read the list holds
   const {
@@ -483,9 +471,10 @@ function FeedScreenContent() {
     navigateTo(summaryCardTarget(summaryCard.heroMetric));
   }, [summaryCard.heroMetric]);
 
-  const selectRange = useCallback((preset: FeedRangePreset) => {
-    setRangePreset((prev) => (prev === preset ? null : preset));
-  }, []);
+  const handleScrollBeginDrag = useCallback(() => {
+    scrollHold.onScrollBeginDrag();
+    setPanelOpen(false);
+  }, [scrollHold]);
 
   const selectTypeGroup = useCallback((group: FeedGroup) => {
     setSelectedTypeGroups((previous) => {
@@ -495,26 +484,6 @@ function FeedScreenContent() {
       return next;
     });
   }, []);
-
-  const handleSearchSectionLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      // The section's top is the height of whatever the header holds above it.
-      const { y, height } = event.nativeEvent.layout;
-      const measured = y + height;
-      const offset = searchOffsetCorrection({
-        measured,
-        applied: Platform.OS === 'ios' ? ESTIMATED_FILTER_SECTION_HEIGHT : 0,
-        filtering: filtered,
-        corrected: searchOffsetCorrected.current,
-      });
-      if (measured > 0) hiddenHeadHeight.current = Math.round(measured);
-      filterSectionTop.current = Math.round(y);
-      if (offset === null) return;
-      searchOffsetCorrected.current = true;
-      listRef.current?.scrollToOffset({ offset, animated: false });
-    },
-    [filtered]
-  );
 
   // The search field is the header's, so it is there on the first frame.
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
@@ -527,6 +496,7 @@ function FeedScreenContent() {
         placement: 'stacked' as const,
         placeholder: t('feed.searchPlaceholder'),
         autoCapitalize: 'none' as const,
+        onFocus: openPanel,
         onChangeText: (event: { nativeEvent: { text: string } }) =>
           setSearchQuery(event.nativeEvent.text),
         onCancelButtonPress: () => setSearchQuery(''),
@@ -536,34 +506,20 @@ function FeedScreenContent() {
         hintTextColor: textSecondary,
         headerIconColor: textPrimary,
       },
+      headerRight: () => (
+        <IconButton
+          testID="home-filter-button"
+          variant="ghost"
+          selected={panelOpen}
+          accessibilityLabel={t(panelOpen ? 'feed.filter.hide' : 'feed.filter.show')}
+          onPress={() => setPanelOpen((open) => !open)}
+        >
+          <Icon name="filter-variant" size={iconSize.md} color={textPrimary} />
+        </IconButton>
+      ),
     }),
-    [t, isDark, textPrimary, textSecondary]
+    [t, isDark, textPrimary, textSecondary, openPanel, panelOpen]
   );
-
-  // The filter chips head the list, scrolled past when it opens.
-  const filterSection = (
-    <View
-      testID="home-filter-section"
-      style={styles.filterSection}
-      onLayout={handleSearchSectionLayout}
-    >
-      <FeedFilterChips
-        selected={selectedTypeGroups}
-        onSelect={selectTypeGroup}
-        selectedRange={rangePreset}
-        onSelectRange={selectRange}
-      />
-    </View>
-  );
-
-  // The engine's count of what the filters leave, whichever filter is on.
-  const matchCount = filtered ? (
-    <View style={styles.sectionHeader}>
-      <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-        {t('feed.activitiesCount', { count: search.matchedCount })}
-      </Text>
-    </View>
-  ) : null;
 
   const renderFilteredEmpty = useCallback(
     () => (
@@ -574,9 +530,7 @@ function FeedScreenContent() {
           filters: filterSummary(
             t,
             searchQuery,
-            feedFilterLabelKeys(selectedTypeGroups, rangePreset).map(
-              (key) => t(key as never) as string
-            )
+            filterChips.filter((chip) => chip.kind !== 'name').map((chip) => chip.label)
           ),
         })}
         actionLabel={t('common.clearFilters')}
@@ -584,7 +538,7 @@ function FeedScreenContent() {
         actionTestID="home-clear-filters"
       />
     ),
-    [searchQuery, selectedTypeGroups, rangePreset, clearFilters, t]
+    [searchQuery, filterChips, clearFilters, t]
   );
 
   const renderSkeletons = useCallback(
@@ -643,17 +597,31 @@ function FeedScreenContent() {
   ]);
 
   const loadingMore = searching ? search.isFetchingNextPage : isFetchingNextPage;
-  const renderFooter = useCallback(() => {
-    if (!loadingMore) return null;
-    return (
-      <View style={styles.footerLoader}>
-        <Spinner label={t('common.loadingMore')} />
-        <Text style={[styles.footerText, isDark && styles.textDark]}>
-          {t('common.loadingMore')}
-        </Text>
-      </View>
-    );
-  }, [loadingMore, isDark, t]);
+  // The device's own list is the fast path. The account is offered once that list has run out.
+  const remoteOffered = shouldOfferRemoteSearch({
+    filter,
+    searchable: startupData?.remoteSearch ?? false,
+    loading: searching ? search.isLoading : isLoading,
+    hasMore: searching ? searchHasNextPage : hasNextPage,
+    fetchingMore: loadingMore,
+    failed: searching ? search.isError : isError,
+  });
+  const renderFooter = useCallback(
+    () => (
+      <>
+        {loadingMore ? (
+          <View style={styles.footerLoader}>
+            <Spinner label={t('common.loadingMore')} />
+            <Text style={[styles.footerText, isDark && styles.textDark]}>
+              {t('common.loadingMore')}
+            </Text>
+          </View>
+        ) : null}
+        <FeedRemoteSearch filter={filter} offered={remoteOffered} />
+      </>
+    ),
+    [loadingMore, isDark, t, filter, remoteOffered]
+  );
 
   // Track what changes between renders to identify unnecessary re-renders
   const prevRenderState = useRef({
@@ -743,12 +711,25 @@ function FeedScreenContent() {
   return (
     <ScreenSafeAreaView style={shared.container} testID="home-screen">
       <Stack.Screen options={headerOptions} />
+      <FeedFilterPanel
+        filter={filter}
+        span={filterBounds.data}
+        expanded={panelOpen}
+        matchedCount={search.matchedCount}
+        onExpand={openPanel}
+        onCollapse={closePanel}
+        onRange={setFeedRange}
+        onDistance={setDistanceRange}
+        onDuration={setDurationRange}
+        onToggleGroup={selectTypeGroup}
+        onClearName={clearName}
+      />
       <FlatList
         ref={listRef}
         focusable={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={VIEWABILITY_CONFIG}
-        onScrollBeginDrag={scrollHold.onScrollBeginDrag}
+        onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={scrollHold.onScrollEndDrag}
         onMomentumScrollBegin={scrollHold.onMomentumScrollBegin}
         onMomentumScrollEnd={scrollHold.onMomentumScrollEnd}
@@ -757,17 +738,10 @@ function FeedScreenContent() {
         renderItem={renderActivity}
         keyExtractor={(item) => item.id}
         extraData={isDark}
-        ListHeaderComponent={
-          <>
-            {filterSection}
-            {headCards}
-            {matchCount}
-          </>
-        }
+        ListHeaderComponent={<>{headCards}</>}
         ListEmptyComponent={renderListEmpty}
         ListFooterComponent={renderFooter}
         contentContainerStyle={listContentStyle}
-        contentOffset={INITIAL_CONTENT_OFFSET}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         refreshControl={refreshControl}
@@ -811,26 +785,10 @@ const styles = StyleSheet.create({
     paddingBottom: CARD_MARGIN,
     gap: spacing.sm,
   },
-  textLight: {
-    color: colors.textOnFill,
-  },
   textDark: {
     color: darkColors.textSecondary,
   },
 
-  // Filter section (heads ListHeaderComponent, initially scrolled past).
-  // Shown, its padding is the card spacing between it and the head cards.
-  filterSection: {
-    paddingBottom: CARD_MARGIN,
-  },
-  sectionHeader: {
-    paddingHorizontal: layout.screenPadding,
-    paddingBottom: spacing.sm,
-  },
-  sectionTitle: {
-    ...typography.sectionHeader,
-    color: colors.textSecondary,
-  },
   footerLoader: {
     flexDirection: 'row',
     justifyContent: 'center',

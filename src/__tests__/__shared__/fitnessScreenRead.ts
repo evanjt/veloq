@@ -170,7 +170,7 @@ const NO_PACE = { sampleCount: 0, history: [] };
 
 /** The parts the calendar cards do not paint, with nothing in them. */
 export const NO_FITNESS_PARTS = {
-  ftpTrend: { lookbackDays: 0, sampleCount: 0, history: [], changes: [] },
+  ftpTrend: { lookbackDays: 0, sampleCount: 0, history: [], historyDays: [], changes: [] },
   ftpTrendCoverage: RangeCoverage.NotFetched,
   runPaceTrend: NO_PACE,
   swimPaceTrend: NO_PACE,

@@ -17,6 +17,16 @@ use crate::{
 };
 use crate::{LibraryCoverage, RangeCoverage};
 
+/// How much of a ride a removal takes.
+#[derive(Clone, Copy)]
+enum Removal {
+    /// The ride and everything keyed on it.
+    Ride,
+    /// The stored track and series, which the ride's body and metrics outlive:
+    /// the download is owed again.
+    Track,
+}
+
 struct RemovalMemory {
     identity: super::sections::SectionIdentity,
     sections: Vec<std::sync::Arc<FrequentSection>>,
@@ -455,6 +465,7 @@ fn spawn_tile_sweep(tiles_path: String, ground: Vec<SweepGround>, reason: &'stat
 /// cleared by its own statement.
 const ACTIVITY_KEYED_TABLES: &[&str] = &[
     "ride_originals",
+    "file_track_checks",
     "ride_identity",
     "activity_sync_failures",
     "activity_held_back",
@@ -707,6 +718,7 @@ pub(crate) fn feed_card(
         skyline_chart_bytes: body.skyline_chart_bytes,
         sync_failure: None,
         stub,
+        heatmap_hidden: false,
         id: body.id,
     })
 }
@@ -1286,6 +1298,45 @@ pub(crate) mod pooled {
         })
     }
 
+    /// The tracks the engine has given up on for an athlete, newest first,
+    /// each with the name its stored body carries. A refused track is a final
+    /// answer about the activity and is not listed.
+    pub(crate) fn given_up_tracks(conn: &Connection, athlete_id: &str) -> crate::FfiGivenUpTracks {
+        if athlete_id.is_empty() {
+            return crate::FfiGivenUpTracks::default();
+        }
+        let read = || -> SqlResult<Vec<crate::FfiGivenUpTrack>> {
+            let mut stmt = conn.prepare(&format!(
+                "SELECT c.intervals_id,
+                        COALESCE((SELECT json_extract(b.raw, '$.name')
+                                  FROM activity_bodies b
+                                  WHERE (b.activity_id = c.intervals_id
+                                         OR b.intervals_id = c.intervals_id)
+                                    AND json_valid(b.raw)
+                                  LIMIT 1), ''),
+                        COALESCE(c.start_date_local, '')
+                 FROM activity_census c
+                 WHERE c.athlete_id = ?1 AND ({unavailable})
+                 ORDER BY c.start_date_local DESC, c.intervals_id",
+                unavailable = CENSUS_TRACK_UNAVAILABLE.as_str(),
+            ))?;
+            stmt.query_map(params![athlete_id], |row| {
+                Ok(crate::FfiGivenUpTrack {
+                    activity_id: row.get(0)?,
+                    name: row.get(1)?,
+                    start_date_local: row.get(2)?,
+                })
+            })?
+            .collect()
+        };
+        crate::FfiGivenUpTracks {
+            tracks: read().unwrap_or_else(|e| {
+                log::warn!("veloqrs: [census] given-up track read failed: {}", e);
+                Vec::new()
+            }),
+        }
+    }
+
     /// The sport an activity was recorded as, wherever it is stored: the
     /// metrics row, else the track's, else the stored body's type. An activity
     /// with no GPS has no `activities` row, and one stored only as a body has
@@ -1395,6 +1446,7 @@ pub(crate) mod pooled {
                 Some(mut card) => {
                     card.sync_failure = crate::persistence::activity_sync_failures::of(conn, &key)
                         .unwrap_or_default();
+                    card.heatmap_hidden = crate::persistence::tiles::is_heatmap_hidden(conn, &key);
                     cards.push(card);
                 }
                 None => log::warn!("veloqrs: [feed] stored body for {} skipped", key),
@@ -1418,7 +1470,7 @@ pub(crate) mod pooled {
     ) -> rusqlite::Result<Vec<(crate::FfiSportFamily, u32)>> {
         let needle = query.needle.trim().to_lowercase();
         let mut stmt = conn.prepare_cached(
-            "SELECT m.name, m.sport_type, b.raw
+            "SELECT m.name, m.sport_type, b.raw, m.distance, m.moving_time
              FROM activity_bodies b
              LEFT JOIN activity_metrics m ON m.activity_id = b.activity_id
              WHERE b.date >= ?1 AND b.date <= ?2",
@@ -1429,19 +1481,29 @@ pub(crate) mod pooled {
         ])?;
         let mut counts = [0u32; crate::FfiSportFamily::ALL.len()];
         while let Some(row) = rows.next()? {
-            let (name, sport) = match (
+            let (name, sport, distance, moving_time) = match (
                 row.get::<_, Option<String>>(0)?,
                 row.get::<_, Option<String>>(1)?,
             ) {
-                (Some(name), Some(sport)) => (name, sport),
+                (Some(name), Some(sport)) => (
+                    name,
+                    sport,
+                    row.get::<_, Option<f64>>(3)?,
+                    row.get::<_, Option<f64>>(4)?,
+                ),
                 _ => match serde_json::from_str::<serde_json::Value>(&row.get::<_, String>(2)?) {
                     Ok(body) => (
                         body["name"].as_str().unwrap_or_default().to_owned(),
                         body["type"].as_str().unwrap_or_default().to_owned(),
+                        body["distance"].as_f64(),
+                        body["moving_time"].as_f64(),
                     ),
                     Err(_) => continue,
                 },
             };
+            if !query.admits_size(distance, moving_time) {
+                continue;
+            }
             if !needle.is_empty()
                 && !name.to_lowercase().contains(&needle)
                 && !sport.to_lowercase().contains(&needle)
@@ -1458,6 +1520,37 @@ pub(crate) mod pooled {
             .zip(counts)
             .filter(|(_, count)| *count > 0)
             .collect())
+    }
+
+    /// The `ORDER BY` terms of the feed read. The sorted value is the metrics
+    /// column, with the stored body read where the metrics row is missing, so
+    /// a row keeps its place; a row with no value comes last in either
+    /// direction. Ties fall back to newest first.
+    fn order_clause(sort: Option<crate::FfiFeedSort>) -> String {
+        use crate::FfiFeedSortKey as Key;
+        let body = |field: &str| {
+            format!("CASE WHEN json_valid(b.raw) THEN json_extract(b.raw, '$.{field}') END")
+        };
+        let Some(sort) = sort else {
+            return "b.date DESC, b.activity_id DESC".into();
+        };
+        let direction = if sort.descending { "DESC" } else { "ASC" };
+        let value = match sort.key {
+            Key::Date => return format!("b.date {direction}, b.activity_id {direction}"),
+            Key::Distance => format!("COALESCE(m.distance, {})", body("distance")),
+            Key::MovingTime => format!("COALESCE(m.moving_time, {})", body("moving_time")),
+            Key::ElevationGain => {
+                format!(
+                    "COALESCE(m.elevation_gain, {})",
+                    body("total_elevation_gain")
+                )
+            }
+            Key::TrainingLoad => {
+                format!("COALESCE(m.training_load, {})", body("icu_training_load"))
+            }
+            Key::Name => format!("lower(COALESCE(m.name, {}))", body("name")),
+        };
+        format!("({value}) IS NULL, {value} {direction}, b.date DESC, b.activity_id DESC")
     }
 
     /// The bodies in a window, newest first, narrowed by a search and a sport
@@ -1477,12 +1570,14 @@ pub(crate) mod pooled {
         mut take: impl FnMut(String, String, Option<String>),
     ) -> rusqlite::Result<(u32, bool)> {
         let needle = query.needle.trim().to_lowercase();
-        let filtered = !needle.is_empty() || !query.sport_families.is_empty();
-        let matches = |name: &str, sport: &str| {
-            (query.sport_families.is_empty()
-                || query
-                    .sport_families
-                    .contains(&crate::FfiSportFamily::of(sport)))
+        let filtered =
+            !needle.is_empty() || !query.sport_families.is_empty() || query.has_size_bounds();
+        let matches = |name: &str, sport: &str, distance: Option<f64>, moving_time: Option<f64>| {
+            query.admits_size(distance, moving_time)
+                && (query.sport_families.is_empty()
+                    || query
+                        .sport_families
+                        .contains(&crate::FfiSportFamily::of(sport)))
                 && (needle.is_empty()
                     || name.to_lowercase().contains(&needle)
                     || sport.to_lowercase().contains(&needle))
@@ -1492,15 +1587,16 @@ pub(crate) mod pooled {
             .limit
             .map_or(usize::MAX, |limit| first.saturating_add(limit as usize));
 
-        let mut stmt = conn.prepare_cached(
+        let mut stmt = conn.prepare_cached(&format!(
             "SELECT b.raw, m.name, m.sport_type, b.activity_id,
-                    COALESCE(a.intervals_id, b.intervals_id)
+                    COALESCE(a.intervals_id, b.intervals_id), m.distance, m.moving_time
              FROM activity_bodies b
              LEFT JOIN activity_metrics m ON m.activity_id = b.activity_id
              LEFT JOIN activities a ON a.id = b.activity_id
              WHERE b.date >= ?1 AND b.date <= ?2
-             ORDER BY b.date DESC, b.activity_id DESC",
-        )?;
+             ORDER BY {}",
+            order_clause(query.sort)
+        ))?;
         let mut rows = stmt.query(params![
             query.oldest_ts.map_or(i64::MIN, |ts| ts as i64),
             query.newest_ts.map_or(i64::MAX, |ts| ts as i64)
@@ -1512,12 +1608,19 @@ pub(crate) mod pooled {
                     row.get::<_, Option<String>>(1)?,
                     row.get::<_, Option<String>>(2)?,
                 ) {
-                    (Some(name), Some(sport)) => matches(&name, &sport),
+                    (Some(name), Some(sport)) => matches(
+                        &name,
+                        &sport,
+                        row.get::<_, Option<f64>>(5)?,
+                        row.get::<_, Option<f64>>(6)?,
+                    ),
                     _ => match serde_json::from_str::<serde_json::Value>(&row.get::<_, String>(0)?)
                     {
                         Ok(body) => matches(
                             body["name"].as_str().unwrap_or_default(),
                             body["type"].as_str().unwrap_or_default(),
+                            body["distance"].as_f64(),
+                            body["moving_time"].as_f64(),
                         ),
                         Err(_) => false,
                     },
@@ -2609,6 +2712,23 @@ impl PersistentEngine {
                 return Err(error);
             }
         };
+        self.activity_metrics.insert(id.to_owned(), metrics);
+        self.publish_written_track(id, coords, series, written, track_replaced);
+        Ok(())
+    }
+
+    /// What a committed write of a track owes the engine's memory and the
+    /// work derived from the track: the catalogue and signature of the points,
+    /// the clock, the spatial index, the regrouping, the performance cache and
+    /// the heatmap tiles the track covers.
+    fn publish_written_track(
+        &mut self,
+        id: &str,
+        coords: &[GpsPoint],
+        series: Option<&FileSeries<'_>>,
+        written: Vec<(String, ActivityMetadata, Option<Arc<RouteSignature>>)>,
+        track_replaced: bool,
+    ) {
         let ground: Vec<SweepGround> = if written.is_empty() {
             Vec::new()
         } else {
@@ -2620,7 +2740,6 @@ impl PersistentEngine {
             }
             self.activity_metadata.insert(id, metadata);
         }
-        self.activity_metrics.insert(id.to_owned(), metrics);
         if let Some(series) = series
             && !coords.is_empty()
             && series.clock.len() == coords.len()
@@ -2640,7 +2759,79 @@ impl PersistentEngine {
         {
             spawn_tile_sweep(path, ground, "provisional activity");
         }
-        Ok(())
+    }
+
+    /// Give a stored ride the track and series its own file holds, when the
+    /// ride has neither. `true` when they were written.
+    ///
+    /// A ride that holds a track or any series keeps what it has: a file never
+    /// replaces a download or a recording. The row, its body and its metrics
+    /// are not touched, and the sport the track is stored under is the body's
+    /// own. A ride with no body, or a file with neither a track nor a series,
+    /// writes nothing.
+    pub(crate) fn store_file_series_for_row(
+        &mut self,
+        id: &str,
+        coords: &[GpsPoint],
+        series: &FileSeries<'_>,
+    ) -> SqlResult<bool> {
+        if coords.is_empty() && series.streams.is_empty() {
+            return Ok(false);
+        }
+        let Some(body) = self.get_activity_body(id) else {
+            return Ok(false);
+        };
+        let holds_any: bool = self.db.query_row(
+            "SELECT EXISTS (SELECT 1 FROM gps_tracks WHERE activity_id = ?1)
+                 OR EXISTS (SELECT 1 FROM activity_streams WHERE activity_id = ?1)",
+            params![id],
+            |row| row.get(0),
+        )?;
+        if holds_any {
+            return Ok(false);
+        }
+        let sport = serde_json::from_str::<serde_json::Value>(&body)
+            .ok()
+            .and_then(|raw| raw.get("type")?.as_str().map(str::to_owned))
+            .or_else(|| self.activity_metrics.get(id).map(|m| m.sport_type.clone()))
+            .unwrap_or_else(|| crate::sport::UNKNOWN.to_string());
+        self.db.execute_batch("BEGIN IMMEDIATE")?;
+        let result = (|| {
+            let written = if coords.is_empty() {
+                Vec::new()
+            } else {
+                let written =
+                    self.write_activities_batch(&[(id.to_owned(), coords.to_vec(), sport)])?;
+                self.record_elevation_source(&[(
+                    id.to_owned(),
+                    elevation_source_of(coords, ElevationSeries::Recorded),
+                )])?;
+                // A row the server's id names is the one a census reads its
+                // stored track under.
+                self.db.execute(
+                    "UPDATE activities SET intervals_id = (
+                         SELECT b.intervals_id FROM activity_bodies b WHERE b.activity_id = ?1)
+                     WHERE id = ?1 AND intervals_id IS NULL",
+                    params![id],
+                )?;
+                written
+            };
+            self.write_file_series(id, coords, series)?;
+            if !coords.is_empty() {
+                super::climb_bests::refresh(&self.db, id)?;
+            }
+            self.db.execute_batch("COMMIT")?;
+            Ok::<_, rusqlite::Error>(written)
+        })();
+        let written = match result {
+            Ok(written) => written,
+            Err(error) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                return Err(error);
+            }
+        };
+        self.publish_written_track(id, coords, Some(series), written, false);
+        Ok(true)
     }
 
     /// Sections whose stored geometry is cut from this activity. An
@@ -2709,6 +2900,26 @@ impl PersistentEngine {
         Ok(removed_bounds)
     }
 
+    /// Take a ride's stored track and series out of the library and out of
+    /// every tier that holds them, keeping the ride, so its track is owed again.
+    pub(crate) fn withdraw_track(&mut self, id: &str) -> SqlResult<()> {
+        let removed_bounds = self.activity_metadata.get(id).map(|m| m.bounds);
+        self.db.execute_batch("BEGIN IMMEDIATE")?;
+        let result = self
+            .remove_rows(id, Removal::Track)
+            .and_then(|memory| self.commit_activity_removal(memory));
+        if result.is_err() {
+            let _ = self.db.execute_batch("ROLLBACK");
+        }
+        result?;
+        self.forget_track_in_memory(id);
+        self.rebuild_spatial_index();
+        if let Some(bounds) = removed_bounds {
+            self.sweep_tiles_for(vec![bounds], "withdrawn track");
+        }
+        Ok(())
+    }
+
     /// `stamp_kept_departure` in a transaction of its own.
     fn stamp_kept_departure(&mut self, id: &str) -> SqlResult<()> {
         let tx = self.db.transaction()?;
@@ -2762,8 +2973,14 @@ impl PersistentEngine {
     ///
     /// The registry and processed set are published by the transaction owner.
     fn forget_activity_in_memory(&mut self, id: &str) {
-        self.activity_metadata.remove(id);
         self.activity_metrics.remove(id);
+        self.forget_track_in_memory(id);
+    }
+
+    /// Drop one activity's track from the tiers that hold it, leaving the
+    /// activity's metrics.
+    fn forget_track_in_memory(&mut self, id: &str) {
+        self.activity_metadata.remove(id);
         self.signature_cache.pop(&id.to_string());
         self.section_cache.clear();
         self.time_streams.pop(&id.to_string());
@@ -2777,6 +2994,11 @@ impl PersistentEngine {
     ///
     /// Returns the next registry and section tiers for publication after commit.
     fn remove_activity_rows(&mut self, id: &str) -> SqlResult<RemovalMemory> {
+        self.remove_rows(id, Removal::Ride)
+    }
+
+    /// What [`Self::remove_activity_rows`] removes, over `scope`.
+    fn remove_rows(&mut self, id: &str, scope: Removal) -> SqlResult<RemovalMemory> {
         let metric_date = self
             .db
             .query_row(
@@ -2803,7 +3025,17 @@ impl PersistentEngine {
             .db
             .execute("DELETE FROM activities WHERE id = ?", params![id])?
             > 0;
-        delete_activity_keyed_rows(&self.db, id, KeepAthleteRows::No)?;
+        match scope {
+            Removal::Ride => delete_activity_keyed_rows(&self.db, id, KeepAthleteRows::No)?,
+            Removal::Track => {
+                for table in ["activity_streams", "activity_stream_backfill"] {
+                    self.db.execute(
+                        &format!("DELETE FROM {table} WHERE activity_id = ?1"),
+                        params![id],
+                    )?;
+                }
+            }
+        }
         // Every activity after this one was measured against its ground.
         super::new_ground::invalidate(&self.db, &mut self.new_ground)?;
         if let Some(date) = metric_date {
@@ -2905,6 +3137,7 @@ impl PersistentEngine {
              DELETE FROM calendar_event_bodies;
              DELETE FROM exercise_sets;
              DELETE FROM ride_originals;
+             DELETE FROM file_track_checks;
              DELETE FROM ride_identity;
              DELETE FROM exercise_usage;
              DELETE FROM exercise_followers;
@@ -2932,7 +3165,8 @@ impl PersistentEngine {
              DELETE FROM retired_ground_lines;
              DELETE FROM retired_ground_pairs;
              DELETE FROM route_group_sizes;
-             DELETE FROM linked_devices;",
+             DELETE FROM linked_devices;
+             DELETE FROM linked_refusals;",
         )?;
         // The session tables are the athlete's own, listed once in
         // `SESSION_TABLES` beside the record backup. Reversed, a child table
@@ -3020,6 +3254,7 @@ impl PersistentEngine {
         // A collection a linked browser was sending is the deleted library's
         // too, and its spool is the athlete's rides on disk.
         crate::remote::import::forget_all_beside(&self.db_path);
+        crate::remote::export::forget_all_beside(&self.db_path);
 
         self.activity_metadata.clear();
         self.activity_metrics.clear();
@@ -4087,6 +4322,12 @@ impl PersistentEngine {
         pooled::unavailable_track_ids(&self.db, athlete_id)
     }
 
+    /// The tracks the engine has given up on, newest first. See
+    /// `pooled::given_up_tracks`.
+    pub fn given_up_tracks(&self, athlete_id: &str) -> crate::FfiGivenUpTracks {
+        pooled::given_up_tracks(&self.db, athlete_id)
+    }
+
     /// The census as last recorded for an athlete.
     pub fn activity_census(&self, athlete_id: &str) -> Vec<ActivityCensusEntry> {
         let mut stmt = match self.db.prepare(
@@ -4633,6 +4874,29 @@ impl PersistentEngine {
             }
         }
         Ok(out)
+    }
+
+    /// Which of the server's `ids` the library already holds: one a stored row
+    /// claims, or one stored under the server's id as its own key, which is
+    /// how a row an earlier build stored is keyed.
+    pub fn held_upstream_ids(
+        &self,
+        ids: &[String],
+    ) -> SqlResult<std::collections::HashSet<String>> {
+        let claims = self.claimed_keys_of(ids)?;
+        let mut by_key = self.db.prepare_cached(
+            "SELECT 1 FROM activities WHERE id = ?1
+             UNION ALL
+             SELECT 1 FROM activity_bodies WHERE activity_id = ?1
+             LIMIT 1",
+        )?;
+        let mut held = std::collections::HashSet::new();
+        for id in ids {
+            if claims.contains_key(id) || by_key.exists([id])? {
+                held.insert(id.clone());
+            }
+        }
+        Ok(held)
     }
 
     /// Remove the trackless copy keyed by the server's id `copy_id` when a
@@ -5563,6 +5827,10 @@ mod activity_body_metrics_tests;
 #[cfg(test)]
 #[path = "tests/activity_record.rs"]
 mod activity_record_tests;
+
+#[cfg(test)]
+#[path = "tests/given_up_tracks.rs"]
+mod given_up_tracks_tests;
 
 #[cfg(test)]
 #[path = "tests/feed_cards.rs"]
@@ -7030,7 +7298,7 @@ mod tests {
     #[test]
     fn removing_an_activity_is_one_commit() {
         let mut engine = engine_with_activity_in_sections(12);
-        let commits = commit_counter::watch(&engine);
+        let commits = commit_counter::watch(&mut engine);
 
         engine.remove_activity("a1").unwrap();
 
@@ -7054,7 +7322,7 @@ mod tests {
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn removing_an_activity_in_no_section_is_one_commit() {
         let mut engine = engine_with_activity_in_sections(0);
-        let commits = commit_counter::watch(&engine);
+        let commits = commit_counter::watch(&mut engine);
 
         engine.remove_activity("a1").unwrap();
 
@@ -7184,7 +7452,7 @@ mod tests {
     fn removing_an_activity_with_every_table_seeded_is_still_one_commit() {
         let mut engine = engine_with_activity_in_sections(12);
         seed_activity_keyed_rows(&mut engine, "a1");
-        let commits = commit_counter::watch(&engine);
+        let commits = commit_counter::watch(&mut engine);
 
         engine.remove_activity("a1").unwrap();
 
@@ -7395,7 +7663,7 @@ mod tests {
         let mut engine = engine_with_activity_in_sections(3);
         engine.remove_activity("a1").unwrap();
 
-        let commits = commit_counter::watch(&engine);
+        let commits = commit_counter::watch(&mut engine);
         engine.remove_activity("a1").unwrap();
 
         assert_eq!(commit_counter::count(&commits), 1);
@@ -7424,7 +7692,7 @@ mod statement_cache_tests {
 
     /// One column, because the authorizer runs once per column a statement
     /// reads and the count wanted here is of statements.
-    fn count_prepares(engine: &PersistentEngine, table: &'static str, column: &'static str) {
+    fn count_prepares(engine: &mut PersistentEngine, table: &'static str, column: &'static str) {
         PREPARES.store(0, Ordering::Relaxed);
         engine
             .db
@@ -7444,7 +7712,7 @@ mod statement_cache_tests {
             .unwrap();
     }
 
-    fn stop_counting(engine: &PersistentEngine) {
+    fn stop_counting(engine: &mut PersistentEngine) {
         engine
             .db
             .authorizer(None::<fn(AuthContext<'_>) -> Authorization>)
@@ -7478,14 +7746,14 @@ mod statement_cache_tests {
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_walk_of_the_signatures_parses_the_select_once() {
         let ids = ["a1", "a2", "a3", "a4"];
-        let engine = engine_with(&ids);
+        let mut engine = engine_with(&ids);
 
-        count_prepares(&engine, "signatures", "points");
+        count_prepares(&mut engine, "signatures", "points");
         for id in ids {
             engine.load_signature_from_db(id);
         }
         let parses = PREPARES.load(Ordering::Relaxed);
-        stop_counting(&engine);
+        stop_counting(&mut engine);
 
         assert_eq!(
             parses, 1,
@@ -7502,12 +7770,12 @@ mod statement_cache_tests {
             engine.set_time_streams_flat(&[(*id).to_string()], &[1, 2], &[2]);
         }
 
-        count_prepares(&engine, "time_streams", "times");
+        count_prepares(&mut engine, "time_streams", "times");
         for id in ids {
             engine.load_time_stream(id);
         }
         let parses = PREPARES.load(Ordering::Relaxed);
-        stop_counting(&engine);
+        stop_counting(&mut engine);
 
         assert_eq!(
             parses, 1,

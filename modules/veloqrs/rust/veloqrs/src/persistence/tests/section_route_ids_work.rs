@@ -26,7 +26,7 @@ fn count_step() -> bool {
 }
 
 /// The virtual machine steps `read` costs on `engine`'s connection.
-fn steps_in<T>(engine: &PersistentEngine, read: impl FnOnce(&PersistentEngine) -> T) -> usize {
+fn steps_in<T>(engine: &mut PersistentEngine, read: impl FnOnce(&PersistentEngine) -> T) -> usize {
     STEPS.store(0, Ordering::SeqCst);
     engine
         .db
@@ -110,11 +110,11 @@ fn route_ids(engine: &PersistentEngine) -> Vec<String> {
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_sections_route_ids_cost_the_same_however_many_routes_the_library_holds() {
-    let small = seeded(10);
-    let large = seeded(400);
+    let mut small = seeded(10);
+    let mut large = seeded(400);
 
-    let on_small = steps_in(&small, route_ids);
-    let on_large = steps_in(&large, route_ids);
+    let on_small = steps_in(&mut small, route_ids);
+    let on_large = steps_in(&mut large, route_ids);
     assert!(on_small > 0, "the route ids ran no statement");
     assert_eq!(
         on_large, on_small,
@@ -122,8 +122,8 @@ fn a_sections_route_ids_cost_the_same_however_many_routes_the_library_holds() {
          beside 10: the read is walking every route group"
     );
 
-    let detail_small = steps_in(&small, |e| e.get_section("towpath"));
-    let detail_large = steps_in(&large, |e| e.get_section("towpath"));
+    let detail_small = steps_in(&mut small, |e| e.get_section("towpath"));
+    let detail_large = steps_in(&mut large, |e| e.get_section("towpath"));
     assert_eq!(
         detail_large, detail_small,
         "the section read took {detail_large} steps beside 400 unrelated routes and \

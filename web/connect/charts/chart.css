@@ -63,22 +63,22 @@ figure.calendar .day {
 }
 
 figure.calendar .day.level-1 {
-  fill: var(--chart-a);
+  fill: var(--colour-chart-series);
   fill-opacity: 0.45;
 }
 
 figure.calendar .day.level-2 {
-  fill: var(--chart-a);
+  fill: var(--colour-chart-series);
   fill-opacity: 0.65;
 }
 
 figure.calendar .day.level-3 {
-  fill: var(--chart-a);
+  fill: var(--colour-chart-series);
   fill-opacity: 0.85;
 }
 
 figure.calendar .day.level-4 {
-  fill: var(--chart-a);
+  fill: var(--colour-chart-series);
 }
 
 figure.calendar .day.active {
@@ -153,10 +153,16 @@ figure.chart .swatch {
   border-radius: var(--web-radius-sm);
 }
 
+/* Read aloud and shown in the tooltip, so it takes no row of its own. */
 figure.chart .readout {
-  color: var(--text-muted);
-  min-height: 1.4em;
-  margin: var(--space-xs) 0 0;
+  position: absolute;
+  width: var(--stroke-1);
+  height: var(--stroke-1);
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* Beside the crosshair, inside the plot; the chart sets its left, top and width. */

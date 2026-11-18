@@ -46,7 +46,8 @@ describe('recording settings threshold labels', () => {
   it('names every switch by the label beside it', async () => {
     const upload = await render(<RecordingUploadScreen />);
     expect(upload.getByRole('switch', { name: 'recording.autoUpload' })).toBeTruthy();
-    expect(upload.getAllByRole('switch')).toHaveLength(1);
+    expect(upload.getByRole('switch', { name: 'recording.strengthSummary' })).toBeTruthy();
+    expect(upload.getAllByRole('switch')).toHaveLength(2);
     await upload.unmount();
 
     const gps = await render(<RecordingGpsScreen />);

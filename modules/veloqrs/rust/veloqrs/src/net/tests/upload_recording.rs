@@ -210,6 +210,7 @@ fn answer(kind: FfiCallKind, id: Option<&str>, status: Option<u16>) -> FfiCallOu
         id: id.map(str::to_string),
         status,
         detail: None,
+        retry_at_ms: None,
         message: format!("{kind:?}"),
     }
 }

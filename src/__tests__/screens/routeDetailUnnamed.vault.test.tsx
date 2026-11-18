@@ -61,9 +61,9 @@ jest.mock('@/shared/debug/useFFITimer', () => ({
 }));
 jest.mock('@/shared/debug/renderTimer', () => ({ logScreenRender: () => () => {} }));
 
-const mockExportGpx = jest.fn();
+const mockExportRouteGpx = jest.fn();
 jest.mock('@/features/settings/hooks/exportIndex', () => ({
-  useGpxExport: () => ({ exportGpx: mockExportGpx, exporting: false }),
+  useGpxExport: () => ({ exportRouteGpx: mockExportRouteGpx, exporting: false }),
 }));
 
 jest.mock('@/shared/ui', () => {
@@ -158,7 +158,7 @@ const RouteDetailScreen = routeCardInHost((options) => {
 
 beforeEach(() => {
   jest.useFakeTimers();
-  mockExportGpx.mockClear();
+  mockExportRouteGpx.mockClear();
   mockScreenOptions = {};
 });
 
@@ -188,13 +188,14 @@ it('opens the rename field on the numbered label', async () => {
   expect(screen.getByTestId('route-rename-input').props.value).toBe('Strecke 4');
 });
 
-it('names the GPX export with the numbered label', async () => {
+it('shares the route by its id, so the engine names the file', async () => {
   const screen = await render(<RouteDetailScreen />);
 
   await fireEvent.press(screen.getByTestId('route-export-gpx'));
 
-  expect(mockExportGpx).toHaveBeenCalledWith(
-    expect.objectContaining({ name: 'Strecke 4', sport: 'Ride' })
+  expect(mockExportRouteGpx).toHaveBeenCalledWith(
+    'r_9',
+    expect.objectContaining({ sport: 'Ride' })
   );
 });
 

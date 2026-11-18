@@ -15,7 +15,7 @@ import {
 } from '../../../web/connect/map/sectionLayers';
 import { sectionDetailSpec } from '../../../web/connect/map/routeLayers';
 
-const BASE = {} as never;
+const BASE = 'light' as const;
 
 describe('the candidate lines', () => {
   it('writes longitude then latitude and drops a line with fewer than two points', () => {
@@ -108,11 +108,15 @@ describe('the bounds editor lines', () => {
   const plain = sectionMapSpec(BASE, 's1', null, [], [], null);
 
   it('draws the reachable window and the kept span over the section, keeping its layers', () => {
-    const spec = boundsEditorSpec(plain, {
-      path,
-      window: { start: 2, end: 10 },
-      span: { start: 4, end: 8 },
-    });
+    const spec = boundsEditorSpec(
+      plain,
+      {
+        path,
+        window: { start: 2, end: 10 },
+        span: { start: 4, end: 8 },
+      },
+      BASE
+    );
     expect(spec.layers.map((layer) => layer.id)).toEqual([
       ...plain.layers.map((layer) => layer.id),
       'bounds-window',
@@ -126,11 +130,15 @@ describe('the bounds editor lines', () => {
   });
 
   it('draws no line for a span of one vertex', () => {
-    const spec = boundsEditorSpec(plain, {
-      path,
-      window: { start: 0, end: 11 },
-      span: { start: 5, end: 5 },
-    });
+    const spec = boundsEditorSpec(
+      plain,
+      {
+        path,
+        window: { start: 0, end: 11 },
+        span: { start: 5, end: 5 },
+      },
+      BASE
+    );
     expect(
       (spec.sources['bounds-kept'] as { data: GeoJSON.FeatureCollection }).data.features
     ).toEqual([]);

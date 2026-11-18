@@ -793,6 +793,49 @@ impl VeloqEngine {
             .map_err(job_error)
     }
 
+    /// Write the whole library to one plain zip: the record, the library
+    /// tables and every ride's packed bytes, with or without the original
+    /// files and from a start date on.
+    ///
+    /// It runs on its own thread and connection like `run_bulk_export`, takes
+    /// the same slot, and reports through the same `bulk_export_progress`:
+    /// `visited` counts rides and `total` is how many the export lists.
+    async fn run_library_export(
+        &self,
+        dest_path: String,
+        options: crate::persistence::library_export::LibraryExportOptions,
+    ) -> Result<crate::persistence::library_export::LibraryExportResult, VeloqError> {
+        let slot = InFlight::claim(&BULK_EXPORT_IN_FLIGHT, "An export is already running")?;
+        let progress =
+            std::sync::Arc::new(crate::persistence::export::BulkExportProgress::default());
+        let run = RunSlot::open(&BULK_EXPORT_RUN, std::sync::Arc::clone(&progress));
+        let install = crate::persistence::engine_install();
+        let db_path = with_reader(|conn| conn.path().map(str::to_string))?
+            .filter(|path| !path.is_empty())
+            .ok_or(VeloqError::NotInitialized)?;
+        let handle = crate::persistence::export::library_export_background(
+            db_path, options, &dest_path, progress,
+        );
+
+        crate::runtime::ASYNC_RUNTIME
+            .spawn_blocking(move || {
+                let outcome = handle
+                    .recv_blocking()
+                    .unwrap_or_else(|| Err("Export thread died without a result".to_string()));
+                drop(run);
+                drop(slot);
+                settle_bulk_export(
+                    install,
+                    crate::persistence::engine_install(),
+                    &dest_path,
+                    outcome,
+                )
+            })
+            .await
+            .unwrap_or_else(|e| Err(format!("Export thread died without a result: {e}")))
+            .map_err(job_error)
+    }
+
     /// How far the running export has got, or nothing running.
     ///
     /// One mutex and two atomic loads, which is what a progress bar may cost.

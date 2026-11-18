@@ -4,6 +4,7 @@
 // drawing.
 
 import {
+  TEXT_PX,
   TICK_ROW,
   X_TITLE_ROW,
   Y_TITLE_RISE,
@@ -14,6 +15,9 @@ import {
   type ValueAxis,
 } from './scale';
 
+/** The gap between an inline title and the plot's edges. */
+const INLINE_INSET = 6;
+
 type XTick = { label: string; left: number };
 
 export function ValueGrid(props: {
@@ -21,12 +25,23 @@ export function ValueGrid(props: {
   box: Box;
   format: (value: number) => string;
   title?: string | undefined;
+  /** Writes the title inside the plot at its top left, not in a row above it. */
+  inline?: boolean;
   width: number;
   measure: Measure;
 }) {
   const { axis, box } = props;
   return (
     <>
+      <rect
+        className="plot"
+        x={box.left}
+        y={box.top}
+        width={box.right - box.left}
+        height={box.bottom - box.top}
+        fill="none"
+        pointerEvents="none"
+      />
       <g className="grid">
         {axis.ticks.map((tick) => (
           <line key={tick} x1={box.left} x2={box.right} y1={yOf(tick, axis, box)} y2={yOf(tick, axis, box)} />
@@ -38,7 +53,11 @@ export function ValueGrid(props: {
             {props.format(tick)}
           </text>
         ))}
-        {props.title ? (
+        {props.title && props.inline ? (
+          <text className="title" x={box.left + INLINE_INSET} y={box.top + TEXT_PX + INLINE_INSET} textAnchor="start">
+            {fitText(props.title, box.right - box.left - 2 * INLINE_INSET, props.measure)}
+          </text>
+        ) : props.title ? (
           <text className="title" x={0} y={box.top - Y_TITLE_RISE} textAnchor="start">
             {fitText(props.title, props.width, props.measure)}
           </text>

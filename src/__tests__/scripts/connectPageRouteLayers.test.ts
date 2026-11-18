@@ -22,8 +22,11 @@ import {
   listSpec,
   boundsOfGeoText,
 } from '../../../web/connect/map/routeLayers';
-import { COMPARE_COLOURS } from '../../../web/connect/map/activityLayers';
+import { compareColoursOn } from '../../../web/connect/map/activityLayers';
 import { divergingRamp } from '../../../src/theme/colors';
+
+const BASE = 'light';
+const COMPARE_COLOURS = compareColoursOn(BASE);
 
 const feature = (layerId: string, id: string | null, properties: Record<string, unknown> = {}) => ({
   layerId,
@@ -34,15 +37,15 @@ const feature = (layerId: string, id: string | null, properties: Record<string, 
 describe('pass colour', () => {
   it('follows the order of selection, not the order of the table', () => {
     const selected = ['pass-b', 'pass-a'];
-    const ascending = ['pass-a', 'pass-b', 'pass-c'].map((id) => passColour(id, selected));
-    const descending = ['pass-c', 'pass-b', 'pass-a'].map((id) => passColour(id, selected));
+    const ascending = ['pass-a', 'pass-b', 'pass-c'].map((id) => passColour(id, selected, BASE));
+    const descending = ['pass-c', 'pass-b', 'pass-a'].map((id) => passColour(id, selected, BASE));
     expect(ascending).toEqual([COMPARE_COLOURS['line-1'], COMPARE_COLOURS['line-0'], null]);
     expect(descending).toEqual([null, COMPARE_COLOURS['line-0'], COMPARE_COLOURS['line-1']]);
   });
 
   it('gives nothing below two selected passes', () => {
-    expect(passColour('pass-a', ['pass-a'])).toBeNull();
-    expect(passColour('pass-a', [])).toBeNull();
+    expect(passColour('pass-a', ['pass-a'], BASE)).toBeNull();
+    expect(passColour('pass-a', [], BASE)).toBeNull();
   });
 });
 

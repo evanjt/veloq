@@ -23,7 +23,12 @@ import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { useDetailCoordinates } from './useDetailCoordinates';
 import { feedSportGroup, type FeedGroup } from '../lib/feedActivityGroups';
 import { firstRangePage, olderRangePage, type FeedRange } from '../lib/feedRange';
-import { isFeedSearch } from '../lib/feedFilter';
+import {
+  feedFilterBoundsQuery,
+  isFeedSearch,
+  type FeedFilter,
+  type FeedSizeBounds,
+} from '../lib/feedFilter';
 
 /**
  * Ask Rust to fill a window the default sync may not cover.
@@ -153,6 +158,8 @@ export function useInfiniteActivities() {
   };
 }
 
+const NO_SIZE = { distance: null, duration: null } as const;
+
 /** Activities per page of a feed search. */
 const SEARCH_PAGE_SIZE = 30;
 
@@ -167,9 +174,11 @@ function readSearchPage(
   groups: ReadonlySet<FeedGroup>,
   range: FeedRange | null,
   offset: number,
-  limit: number
+  limit: number,
+  bounds: FeedSizeBounds = {}
 ): FeedSearchPage | undefined {
   const page = getEngine()?.searchFeedCards({
+    ...bounds,
     needle,
     sportFamilies: [...groups].map(feedSportGroup),
     ...(range && {
@@ -203,12 +212,14 @@ function readSearchPage(
 export function useFeedSearch(
   searchText: string,
   groups: ReadonlySet<FeedGroup>,
-  range: FeedRange | null = null
+  range: FeedRange | null = null,
+  size: Pick<FeedFilter, 'distance' | 'duration'> = NO_SIZE
 ) {
   const athleteId = useAuthStore((s) => s.athleteId);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const needle = searchText.trim();
-  const searching = isFeedSearch({ searchText, groups });
+  const searching = isFeedSearch({ searchText, groups, ...size });
+  const bounds = useMemo(() => feedFilterBoundsQuery(size), [size]);
   const countOnly = !searching && range !== null;
   const limit = countOnly ? 0 : SEARCH_PAGE_SIZE;
   const enabled = isAuthenticated && (searching || countOnly);
@@ -221,10 +232,11 @@ export function useFeedSearch(
       athleteId ?? 'anon',
       needle,
       [...groups].sort(),
-      range
+      range,
+      bounds
     ),
     queryFn: ({ pageParam }) => {
-      const page = readSearchPage(needle, groups, range, pageParam as number, limit);
+      const page = readSearchPage(needle, groups, range, pageParam as number, limit, bounds);
       if (!page) throw new Error('The activity library is not open');
       return page;
     },
@@ -234,7 +246,7 @@ export function useFeedSearch(
     // and took its focus.
     initialData: () => {
       if (!enabled) return undefined;
-      const first = readSearchPage(needle, groups, range, 0, limit);
+      const first = readSearchPage(needle, groups, range, 0, limit, bounds);
       return first && { pages: [first], pageParams: [0] };
     },
     initialPageParam: 0,

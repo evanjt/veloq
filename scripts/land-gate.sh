@@ -43,14 +43,23 @@ else
 fi
 touches() { printf '%s\n' "$changed" | grep -Eq "$1"; }
 
-# The kept tree is provisioned once, and again only when what provisioning
-# reads moved: the lockfile, the engine pin or the generated bindings.
-if [ -n "$landing" ] && { [ ! -e node_modules ] ||
+# A tree is provisioned when it has no install, and a kept tree again when what provisioning reads
+# moved: the lockfile, the engine pin or the generated bindings. A provisioning that fails, or
+# finishes with no install, refuses here and says so, rather than the gate failing later at a step
+# that needs the install.
+if [ ! -x node_modules/.bin/tsc ] || { [ -n "$landing" ] &&
   touches '^(package-lock\.json|modules/veloqrs/rust/tracematch|modules/veloqrs/src/generated/)'; }; then
-  scripts/provision-job-tree.sh >/dev/null
+  if ! scripts/provision-job-tree.sh >/dev/null; then
+    echo "gate: provisioning the tree failed (scripts/provision-job-tree.sh), so no gate ran" >&2
+    exit 1
+  fi
+  if [ ! -x node_modules/.bin/tsc ]; then
+    echo "gate: provisioning left no install (node_modules/.bin/tsc is missing), so no gate ran" >&2
+    exit 1
+  fi
 fi
 
-GENERATED='web/connect/methods.json web/connect/schema.d.ts modules/veloqrs/src/generated'
+GENERATED='web/connect/methods.json modules/veloqrs/rust/veloqrs/examples/link/vectors.json web/connect/schema.d.ts web/connect/schema.json docs/api/index.html modules/veloqrs/src/generated'
 if touches '^(modules/veloqrs/|web/connect/|Cargo\.lock)'; then
   node scripts/regenerate-link-files.mjs
   # shellcheck disable=SC2086

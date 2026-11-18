@@ -57,6 +57,10 @@ export type FeedReads = {
   sparklines: Read<Methods['feed.sparklines']['result']>;
   /** Stored activities per sport family under the search and window; a family with none is absent. */
   familyCounts: Readonly<Partial<Record<string, number>>>;
+  /** The activities the filter's text leaves under the chips and window; undefined until the phone answers. */
+  matched: number | undefined;
+  /** The activities the same chips and window leave without the text; undefined until the phone answers. */
+  total: number | undefined;
   /** The chips under each card, by card id. */
   highlights: Readonly<Record<string, string[]>>;
   /** Each card's preview line, base64, by card id. */
@@ -128,6 +132,15 @@ export function useFeed(filter: FeedFilter): FeedReads {
     [firstPage]
   );
 
+  // With no text the first page already answers the total; with text the same ask without it
+  // is read for one row, since only its count is wanted.
+  const unfiltered = useRead(
+    'feed.page',
+    filter.needle === '' ? null : { ...feedPageAsk({ ...filter, needle: '' }, 0), limit: 1 }
+  );
+  const matched = firstPage?.matchedCount;
+  const total = filter.needle === '' ? matched : unfiltered.data?.matchedCount;
+
   const last = states[states.length - 1];
   const more = last?.data?.hasMore === true;
   const loadMore = () => {
@@ -145,6 +158,8 @@ export function useFeed(filter: FeedFilter): FeedReads {
     summary,
     sparklines,
     familyCounts,
+    matched,
+    total,
     highlights,
     previews,
   };

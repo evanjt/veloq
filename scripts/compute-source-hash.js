@@ -12,6 +12,7 @@ const buildDirectories = new Set([
   'plugins',
   'widget',
   'push',
+  'watch',
   'assets',
   'patches',
   'expo-modules',
@@ -36,7 +37,7 @@ const excludedDirectories = new Set([
 ]);
 
 // Directories split by platform, whose other platform's half a profile skips.
-const platformDirectories = ['widget', 'push'];
+const platformDirectories = ['widget', 'push', 'watch'];
 
 // Workflows that build a native app, or call a workflow that does and so set
 // its inputs. Any other workflow runs tests, gates or publishing, and nothing

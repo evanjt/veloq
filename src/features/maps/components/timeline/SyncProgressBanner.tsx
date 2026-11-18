@@ -37,6 +37,7 @@ import {
   opacity,
 } from '@/theme';
 import { Icon } from '@/shared/ui/Icon';
+import { useSyncPillYield } from '@/shared/ui/syncPillYield';
 
 interface SyncProgressBannerProps {
   /** Whether the banner is visible */
@@ -74,6 +75,9 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
 
   // Should show when visible AND there's something to display
   const shouldShow = visible && displayInfo !== null;
+  // The banner and the sync pill would both count the same download, so the
+  // pill steps aside while this shows.
+  useSyncPillYield(shouldShow);
 
   // Shared values for native-thread animations
   const progressValue = useSharedValue(0);

@@ -7,8 +7,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Chart } from '../charts/Chart';
+import { Histogram } from '../charts/Histogram';
+import { ACHIEVEMENT_COLOUR } from '../charts/colours';
 import type { Compared } from '../compare';
-import { clock as clockOf, km, kmh } from '../format';
+import { clock as clockOf, km, kmh, signedDuration } from '../format';
 import {
   ATTEMPT_COLUMNS,
   RANGE_DAYS,
@@ -37,7 +39,6 @@ import type { Methods } from '../schema';
 import { usePageName } from '../shell/pageName';
 import { useTableLabels } from '../tableLabels';
 import { Button, ContextMenu, EmptyState, Skeleton, Tabs, DataTable, type Column } from '../ui';
-import { UNLESS_STORED } from '../query';
 import { useEdit } from '../useEdit';
 import { useBatch } from '../useBatch';
 import { useQueries } from '../useRead';
@@ -128,7 +129,7 @@ function Views({
       <Refused
         error={model.performance.error}
         title={t('connectPage.routes.performanceFailed')}
-        plain
+        onRetry={model.performance.retry}
       />
     );
   }
@@ -157,7 +158,7 @@ function Views({
         curveBand={{ points: trendBandOf(performance.trendCurves.forwardTime) }}
         steps={{
           name: t('connectPage.routes.records'),
-          colour: 'var(--colour-data-div-warm-2)',
+          colour: ACHIEVEMENT_COLOUR,
           points: recordSteps(performance.recordProgression.forward).map(
             ([date, seconds]) => [date * 1000, seconds] as const
           ),
@@ -173,22 +174,16 @@ function Views({
     spread: (() => {
       const bins = spreadBins(performance.histograms.forward);
       return (
-        <Chart
-          kind="bar"
+        <Histogram
+          binned={bins}
           label={t('connectPage.routes.spreadChart')}
           empty={t('connectPage.routes.spreadEmpty')}
-          none={t('connectPage.routes.none')}
-          categories={bins.map((bin) => clock(bin.low))}
-          series={[
-            {
-              name: t('connectPage.routes.attempts'),
-              colour: 'var(--colour-chart-series)',
-              values: bins.map((bin) => bin.count),
-            },
-          ]}
-          format={String}
+          format={clock}
+          count={String}
+          binText={(low, high, n) => `${clock(low)}–${clock(high)}: ${n}`}
           xTitle={t('connectPage.routes.axisBin')}
           yTitle={t('connectPage.routes.attempts')}
+          colour="var(--colour-chart-series)"
           height={240}
         />
       );
@@ -292,7 +287,7 @@ function DeltaView({
               : []),
           ]}
           x={{ values: series.metres, kind: 'number', format: (metres) => km(metres) ?? '' }}
-          format={(secs) => `${secs > 0 ? '+' : ''}${Math.round(secs)} s`}
+          format={signedDuration}
           xTitle={t('connectPage.routes.axisDistance')}
           yTitle={t('connectPage.routes.axisDelta')}
           height={240}
@@ -491,7 +486,13 @@ export function RoutePane({
   const detail = model.detail.value;
   usePageName(detail?.group?.customName);
   if (model.detail.failed && model.detail.error) {
-    return <Refused error={model.detail.error} title={t('connectPage.routes.routeFailed')} />;
+    return (
+      <Refused
+        error={model.detail.error}
+        title={t('connectPage.routes.routeFailed')}
+        onRetry={model.detail.retry}
+      />
+    );
   }
   if (!detail) return <Skeleton label={t('connectPage.routes.reading')} />;
 
@@ -509,8 +510,6 @@ export function RoutePane({
       writes(!excluded),
       t('connectPage.routes.undo')
     );
-    // The batch's last write names no reads, so the route's are asked again here, once.
-    if (taken) queries.invalidate(UNLESS_STORED);
     if (taken && excluded) onSelect(selected.filter((chosen) => !ids.includes(chosen)));
   };
 
@@ -542,7 +541,7 @@ export function RoutePane({
         <Refused
           error={model.attempts.error}
           title={t('connectPage.routes.performanceFailed')}
-          plain
+          onRetry={model.attempts.retry}
         />
       ) : model.attempts.value ? (
         attemptsOfModel(model).length === 0 ? (

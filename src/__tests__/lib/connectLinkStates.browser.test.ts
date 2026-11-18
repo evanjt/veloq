@@ -97,23 +97,18 @@ describeWithChromium('the connect page when the link is not up, in a headless Ch
   );
 
   it(
-    'keeps the shell and the sidebar mounted under a banner when the phone fails',
+    'keeps the link up and says in place that a read failed when the phone answers none',
     async () => {
       const connect = await visit('failing');
-      await connect.until(`${WAITING} && document.querySelector('#rail') !== null`, TIMEOUT_MS);
+      await connect.until(`${CONNECTED} && document.querySelector('#rail') !== null`, TIMEOUT_MS);
+      await connect.until(`document.querySelector('[data-read-error="failed"]') !== null`);
 
       expect(await connect.evaluate(`document.querySelector('#topbar') !== null`)).toBe(true);
       expect(await connect.evaluate(`document.querySelector('#rail') !== null`)).toBe(true);
-      expect(await connect.evaluate(text('#link-banner strong'))).toBe('Waiting for your phone');
-      expect(await connect.evaluate(`document.querySelector('#link-retry') !== null`)).toBe(true);
+      expect(await connect.evaluate(`document.getElementById('link-banner')`)).toBeNull();
       expect(
-        await connect.evaluate(`document.querySelector('.page-body[data-dimmed]') !== null`)
-      ).toBe(true);
-      expect(
-        await connect.evaluate(
-          `document.querySelector('.page-body[data-dimmed]').hasAttribute('inert')`
-        )
-      ).toBe(true);
+        await connect.evaluate(`document.querySelector('.page-body')?.hasAttribute('inert')`)
+      ).toBe(false);
     },
     TIMEOUT_MS
   );

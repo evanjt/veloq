@@ -194,7 +194,12 @@ export function bulkInsertExerciseSets(
   );
 }
 
-const EMPTY_START_DATA: FfiStrengthStartData = { live: false, groups: [], workouts: [] };
+const EMPTY_START_DATA: FfiStrengthStartData = {
+  live: false,
+  groups: [],
+  workouts: [],
+  removed: [],
+};
 
 /**
  * What the strength start screen shows: whether a session is live, the sessions the
@@ -203,6 +208,15 @@ const EMPTY_START_DATA: FfiStrengthStartData = { live: false, groups: [], workou
 export function getStrengthStartData(host: DelegateHost, now: number): FfiStrengthStartData {
   if (!host.ready) return EMPTY_START_DATA;
   return host.timed('getStrengthStartData', () => host.engine.strength().getStrengthStartData(now));
+}
+
+/**
+ * Put a removed workout back in the saved list. Does nothing while the engine is closed; the
+ * engine refuses an id that is not a removed workout, and the refusal throws.
+ */
+export function recoverStrengthWorkout(host: DelegateHost, id: string): void {
+  if (!host.ready) return;
+  host.timed('recoverStrengthWorkout', () => host.engine.strength().recoverStrengthWorkout(id));
 }
 
 /** The strength session being recorded, or null when none is or the engine is closed. */

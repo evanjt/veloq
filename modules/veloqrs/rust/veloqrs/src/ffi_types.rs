@@ -76,6 +76,7 @@ pub struct FfiSectionReferenceInfo {
 pub struct FfiDepartedRide {
     pub activity_id: String,
     pub name: String,
+    /// Unit: epoch_second.
     pub date: f64,
 }
 
@@ -134,7 +135,9 @@ pub struct FfiMapSignature {
     /// Delta+varint encoded coordinates (simplified, max ~100 points)
     #[serde(with = "crate::remote::bytes")]
     pub encoded_coords: Vec<u8>,
+    /// Unit: degree.
     pub center_lat: f64,
+    /// Unit: degree.
     pub center_lng: f64,
 }
 
@@ -178,55 +181,73 @@ pub struct FfiRouteFollow {
     pub next_turn: Option<crate::persistence::routes::follower::NextTurn>,
 }
 
-/// One saved route near the recording fix, with what the record screen shows for it.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiNearbyRoute {
-    pub group_id: String,
-    pub name: String,
-    /// The route's own length, the representative's distance in metres, 0 when unmeasured.
-    pub distance_meters: f64,
-    /// How far the route's bounding box lies from the fix, 0 when it contains it.
-    pub away_meters: f64,
-    /// Whether the route lies within the nearby radius of the fix. A followed route outside it
-    /// is returned so it can be described, but is not offered.
-    pub offered: bool,
-    /// The best counted time in the route's sport, `None` when no attempt has one.
-    pub best_time_seconds: Option<u32>,
-    /// The representative's simplified line, empty when it has no stored signature.
-    #[serde(with = "crate::remote::bytes")]
-    pub encoded_coords: Vec<u8>,
-}
-
 /// The activities whose tracks pass under a point on the map, grouped by route.
 #[derive(Debug, Clone, Default, PartialEq, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiActivitiesUnderPoint {
     /// Every activity that passes under the point, before the cap.
+    /// Unit: count.
     pub total: u32,
     /// The cap left some of them out of `groups`.
     pub truncated: bool,
     /// The most traces the map draws for one group under the point, so the
     /// sheet can say how many of a group are drawn. Zero when nothing is under
     /// the point.
+    /// Unit: count.
     pub trace_cap: u32,
     /// One group per route the activities belong to, the biggest first, then
     /// the group of activities in no route.
     pub groups: Vec<FfiUnderPointGroup>,
+    /// Every activity the groups list, each once, newest first, without the
+    /// grouping. A shared activity is listed here once, where the groups list
+    /// it under both.
+    pub activities: Vec<FfiUnderPointActivity>,
 }
 
-/// The activities under a point that belong to one route, or to none.
+/// What an under-point group collects the activities of.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum FfiUnderPointKind {
+    /// The activities of one route.
+    Route,
+    /// The activities that ride one section.
+    Section,
+    /// The activities in no route.
+    NoRoute,
+}
+
+/// The activities under a point that belong to one route or one section, or
+/// to no route.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiUnderPointGroup {
-    /// The route, `None` for the activities in no route.
-    pub route_id: Option<String>,
-    /// The name the athlete gave the route.
+    /// What the group collects.
+    pub kind: FfiUnderPointKind,
+    /// The route or the section, `None` for the activities in no route.
+    pub id: Option<String>,
+    /// The name the athlete gave the route or the section.
     pub name: Option<String>,
     /// The number an unnamed route is shown under.
+    /// Unit: count.
     pub number: Option<u32>,
     /// How many activities of this group pass under the point, before the cap.
+    /// Unit: count.
     pub count: u32,
+    /// The sports of a route's attempts, or the section's sport. Empty for the activities in no
+    /// route.
+    pub sport_types: Vec<String>,
+    /// The route's representative's length, or the section's, in metres. Zero for no route.
+    /// Unit: metre.
+    pub distance_m: f64,
+    /// A route's counted attempts, a section's visit count. Zero for no route.
+    /// Unit: count.
+    pub passes: u32,
+    /// Moving time in seconds of the fastest counted attempt.
+    /// Unit: second.
+    pub best_time: Option<u32>,
+    /// Unix seconds of the latest counted attempt.
+    /// Unit: epoch_second.
+    pub last_date: Option<f64>,
     /// The group's activities that fit under the cap, newest first.
     pub activities: Vec<FfiUnderPointActivity>,
 }
@@ -239,12 +260,16 @@ pub struct FfiUnderPointActivity {
     pub name: String,
     pub sport_type: String,
     /// Unix seconds.
+    /// Unit: epoch_second.
     pub date: f64,
     /// Metres.
+    /// Unit: metre.
     pub distance: f64,
     /// Moving time in seconds.
+    /// Unit: second.
     pub duration: u32,
     /// How close the track comes to the point, in metres.
+    /// Unit: metre.
     pub nearest_m: f64,
 }
 
@@ -275,9 +300,13 @@ pub struct GpsPoint {
 #[uniffi::remote(Record)]
 #[uniffi(name = "FfiBounds")]
 pub struct Bounds {
+    /// Unit: degree.
     pub min_lat: f64,
+    /// Unit: degree.
     pub max_lat: f64,
+    /// Unit: degree.
     pub min_lng: f64,
+    /// Unit: degree.
     pub max_lng: f64,
 }
 
@@ -288,24 +317,33 @@ pub struct FfiActivityMetrics {
     pub activity_id: String,
     pub name: String,
     /// Unix timestamp (seconds since epoch)
+    /// Unit: epoch_second.
     pub date: f64,
     /// Distance in meters
+    /// Unit: metre.
     pub distance: f64,
     /// Moving time in seconds
+    /// Unit: second.
     pub moving_time: u32,
     /// Elapsed time in seconds
+    /// Unit: second.
     pub elapsed_time: u32,
     /// Total elevation gain in meters
+    /// Unit: metre.
     pub elevation_gain: f64,
     /// Average heart rate (optional)
+    /// Unit: beat_per_minute.
     pub avg_hr: Option<u16>,
     /// Average power in watts (optional)
+    /// Unit: watt.
     pub avg_power: Option<u16>,
     /// Sport type (e.g., "Ride", "Run")
     pub sport_type: String,
     /// Training load / TSS (optional)
+    /// Unit: tss.
     pub training_load: Option<f64>,
     /// FTP used for this activity (optional)
+    /// Unit: watt.
     pub ftp: Option<u16>,
 }
 
@@ -358,6 +396,7 @@ impl From<FfiActivityMetrics> for crate::ActivityMetrics {
 #[serde(rename_all = "camelCase")]
 pub struct FfiWeeklyTotal {
     /// Epoch seconds of the week's first instant.
+    /// Unit: epoch_second.
     pub start: f64,
     pub stats: FfiPeriodStats,
     /// The week is still running, so its totals cover only the days so far.
@@ -369,12 +408,16 @@ pub struct FfiWeeklyTotal {
 #[serde(rename_all = "camelCase")]
 pub struct FfiPeriodStats {
     /// Number of activities
+    /// Unit: count.
     pub count: u32,
     /// Total moving time in seconds
+    /// Unit: second.
     pub total_duration: f64,
     /// Total distance in meters
+    /// Unit: metre.
     pub total_distance: f64,
     /// Total training load (TSS)
+    /// Unit: tss.
     pub total_tss: f64,
 }
 
@@ -397,11 +440,14 @@ pub enum FfiDayLoadStatus {
 #[serde(rename_all = "camelCase")]
 pub struct FfiDayLoad {
     /// Local date, `YYYY-MM-DD`.
+    /// Unit: iso_date.
     pub date: String,
     pub status: FfiDayLoadStatus,
     /// Sum of the recorded loads, absent when none is recorded.
+    /// Unit: tss.
     pub total: Option<f64>,
     /// Activities on the day, loaded or not.
+    /// Unit: count.
     pub activity_count: u32,
 }
 
@@ -427,13 +473,17 @@ pub struct FfiPeriodComparison {
     /// The total both values are under.
     pub metric: FfiLoadMetric,
     /// The later period's total, in TSS or in seconds.
+    /// Unit: varies.
     pub current: f64,
     /// The earlier period's total, on the same metric.
+    /// Unit: varies.
     pub previous: f64,
     /// `current / previous - 1`, so 0.28 is 28% more than the period before.
+    /// Unit: ratio.
     pub ratio: f64,
     /// Epoch seconds where the later period starts, the week the verdict is
     /// about, so a graphic of the weekly totals can mark it.
+    /// Unit: epoch_second.
     pub compared_start: f64,
 }
 
@@ -442,9 +492,11 @@ pub struct FfiPeriodComparison {
 #[serde(rename_all = "camelCase")]
 pub struct FfiZoneDistribution {
     /// Seconds per zone, lowest zone first. Empty for an unknown zone type.
+    /// Unit: second.
     pub seconds: Vec<f64>,
     /// Each zone's share of the time as a whole percent, beside `seconds`,
     /// totalling 100 when any zone holds time and all zero when none does.
+    /// Unit: percent.
     pub shares: Vec<u32>,
     /// The names the cached sport settings give the zones, lowest first, never
     /// more than `seconds` holds.
@@ -457,8 +509,10 @@ pub struct FfiZoneDistribution {
 #[serde(rename_all = "camelCase")]
 pub struct FfiMonthlyStats {
     /// Calendar year, in the athlete's own timezone.
+    /// Unit: year.
     pub year: i32,
     /// Calendar month, 1 to 12.
+    /// Unit: month.
     pub month: u32,
     /// The same four totals `get_period_stats` gives a window.
     pub stats: FfiPeriodStats,
@@ -472,18 +526,23 @@ pub struct FfiMonthlyStats {
 #[serde(rename_all = "camelCase")]
 pub struct FfiFtpTrend {
     /// eFTP of the newest day carrying one
+    /// Unit: watt.
     pub latest_ftp: Option<u16>,
     /// That day's epoch (Unix timestamp seconds)
+    /// Unit: epoch_second.
     pub latest_date: Option<f64>,
     /// eFTP of the newest day on or before `lookback_days` earlier than
     /// `latest_date`. It may equal `latest_ftp`
+    /// Unit: watt.
     pub previous_ftp: Option<u16>,
     /// That day's epoch (Unix timestamp seconds)
+    /// Unit: epoch_second.
     pub previous_date: Option<f64>,
     /// The step from `previous_ftp` to `latest_ftp` in watts, with its sign.
     /// Derived here so a screen, a widget and a notification cannot each
     /// subtract and round their own way. `None` when there is nothing to
     /// compare against.
+    /// Unit: watt.
     pub delta_watts: Option<i32>,
     /// The arrow the step draws, judged by [`crate::trend_table::glyph`]: up
     /// for a gain, flat inside the deadband, `None` when there is nothing to
@@ -492,15 +551,21 @@ pub struct FfiFtpTrend {
     /// The window in days `delta_watts` was measured across, carried so a
     /// caption names the window of the step it shows rather than the range of
     /// the chart it sits on, which can be longer.
+    /// Unit: day.
     pub lookback_days: u32,
     /// Days carrying an estimate from the one compared against to the newest,
     /// inclusive. The insight ranker weighs a claim by what it stands on, and
     /// a step measured off three days is not the one measured off thirty.
+    /// Unit: count.
     pub sample_count: u32,
     /// The daily estimates the step was read from, oldest first. The same
     /// series `sample_count` counts, carried rather than counted, so the
     /// milestone card draws the run-up to the step it names.
     pub history: Vec<FfiSeriesPoint>,
+    /// Beside `history`, one per point: the day it is the estimate of,
+    /// `YYYY-MM-DD`. The points are stamped at midnight UTC of that day, so a
+    /// page reads the day here and does not convert the stamp to a local one.
+    pub history_days: Vec<String>,
     /// Every activity that moved the accepted eFTP, oldest first, whatever the
     /// window: the fitness plot marks them over its own range.
     pub changes: Vec<FfiEftpChange>,
@@ -515,10 +580,13 @@ pub struct FfiFtpTrend {
 pub struct FfiEftpChange {
     pub activity_id: String,
     /// Activity start (Unix timestamp seconds).
+    /// Unit: epoch_second.
     pub date: f64,
     /// The accepted eFTP after the activity, in watts.
+    /// Unit: watt.
     pub eftp: f64,
     /// What the activity moved it by, with its sign.
+    /// Unit: watt.
     pub delta: f64,
     pub activity_name: String,
 }
@@ -528,20 +596,26 @@ pub struct FfiEftpChange {
 #[serde(rename_all = "camelCase")]
 pub struct FfiPaceTrend {
     /// Most recent critical speed in m/s
+    /// Unit: metre_per_second.
     pub latest_pace: Option<f64>,
     /// Date of most recent snapshot (Unix timestamp seconds)
+    /// Unit: epoch_second.
     pub latest_date: Option<f64>,
     /// Previous different critical speed in m/s
+    /// Unit: metre_per_second.
     pub previous_pace: Option<f64>,
     /// Date of previous snapshot (Unix timestamp seconds)
+    /// Unit: epoch_second.
     pub previous_date: Option<f64>,
     /// The move from `previous_pace` to `latest_pace` as a percent of the
     /// earlier speed, positive for faster. `None` with nothing to compare
     /// against.
+    /// Unit: percent.
     pub gain_percent: Option<f64>,
     /// The same move in seconds per unit distance, the unit the sport is
     /// paced in: 100 m for swimming, a kilometre otherwise. Positive is
     /// seconds saved.
+    /// Unit: second.
     pub delta_seconds: Option<f64>,
     /// The arrow the move draws, judged on pace in the unit the sport is paced
     /// in by [`crate::trend_table::glyph`]: up for faster. Flat when no earlier
@@ -549,6 +623,7 @@ pub struct FfiPaceTrend {
     pub glyph: Option<String>,
     /// Snapshots the trend was read from, for the same reason as
     /// `FfiFtpTrend::sample_count`.
+    /// Unit: count.
     pub sample_count: u32,
     /// Those snapshots, oldest first, for the same reason as
     /// `FfiFtpTrend::history`.
@@ -565,6 +640,7 @@ pub struct FfiClaimBasis {
     /// `earlierReading` is the newest reading at least `lookback_days` before it.
     pub baseline: String,
     /// The earlier readings inside the window.
+    /// Unit: count.
     pub population: u32,
 }
 
@@ -581,31 +657,47 @@ pub struct FfiClaimBasis {
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiWellnessSummary {
+    /// Unit: tss.
     pub fitness: Option<f64>,
     pub fitness_trend: Option<String>,
+    /// Unit: tss_or_percent.
     pub form: Option<f64>,
     pub form_trend: Option<String>,
+    /// Unit: millisecond.
     pub hrv: Option<f64>,
     pub hrv_trend: Option<String>,
+    /// Unit: beat_per_minute.
     pub rhr: Option<f64>,
     pub rhr_trend: Option<String>,
+    /// Unit: kilogram.
     pub weight: Option<f64>,
     pub weight_trend: Option<String>,
     /// The newest row's fatigue, rounded as `fitness` is. It has no arrow of its own.
+    /// Unit: tss.
     pub fatigue: Option<f64>,
+    /// Unit: tss.
     pub fitness_previous: Option<f64>,
+    /// Unit: epoch_second.
     pub fitness_previous_date: Option<f64>,
     pub fitness_basis: Option<FfiClaimBasis>,
+    /// Unit: tss_or_percent.
     pub form_previous: Option<f64>,
+    /// Unit: epoch_second.
     pub form_previous_date: Option<f64>,
     pub form_basis: Option<FfiClaimBasis>,
+    /// Unit: millisecond.
     pub hrv_previous: Option<f64>,
+    /// Unit: epoch_second.
     pub hrv_previous_date: Option<f64>,
     pub hrv_basis: Option<FfiClaimBasis>,
+    /// Unit: beat_per_minute.
     pub rhr_previous: Option<f64>,
+    /// Unit: epoch_second.
     pub rhr_previous_date: Option<f64>,
     pub rhr_basis: Option<FfiClaimBasis>,
+    /// Unit: kilogram.
     pub weight_previous: Option<f64>,
+    /// Unit: epoch_second.
     pub weight_previous_date: Option<f64>,
     pub weight_basis: Option<FfiClaimBasis>,
 }
@@ -740,10 +832,13 @@ pub struct FfiRouteGroup {
     #[serde(default, with = "crate::remote::bounds::option")]
     pub bounds: Option<Bounds>,
     pub custom_name: Option<String>,
+    /// Unit: second.
     #[serde(default)]
     pub best_time: Option<f64>,
+    /// Unit: second.
     #[serde(default)]
     pub avg_time: Option<f64>,
+    /// Unit: metre_per_second.
     #[serde(default)]
     pub best_pace: Option<f64>,
     #[serde(default)]
@@ -774,10 +869,15 @@ impl From<tracematch::RouteGroup> for FfiRouteGroup {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiSectionConfig {
+    /// Unit: metre.
     pub proximity_threshold: f64,
+    /// Unit: metre.
     pub min_section_length: f64,
+    /// Unit: metre.
     pub max_section_length: f64,
+    /// Unit: count.
     pub min_activities: u32,
+    /// Unit: metre.
     pub divergence_threshold: f64,
 }
 
@@ -818,8 +918,11 @@ impl Default for FfiSectionConfig {
 #[serde(rename_all = "camelCase")]
 pub struct FfiSectionPortion {
     pub activity_id: String,
+    /// Unit: index.
     pub start_index: u32,
+    /// Unit: index.
     pub end_index: u32,
+    /// Unit: metre.
     pub distance_meters: f64,
     pub direction: String,
 }
@@ -907,23 +1010,33 @@ pub struct FfiSection {
     pub sport_types: Vec<String>,
     #[serde(with = "crate::remote::bytes")]
     pub encoded_polyline: Vec<u8>,
+    /// Unit: metre.
     pub distance_meters: f64,
     pub representative_activity_id: Option<String>,
     pub activity_ids: Vec<String>,
     /// Each activity's portion of the section. Only the in-memory catalogue
     /// carries these, so the database path sends an empty list.
     pub activity_portions: Vec<FfiSectionPortion>,
+    /// Unit: count.
     pub visit_count: u32,
     // Auto-specific metadata (None for custom sections)
+    /// Unit: ratio.
     pub confidence: Option<f64>,
+    /// Unit: count.
     pub observation_count: Option<u32>,
+    /// Unit: ratio.
     pub average_spread: Option<f64>,
+    /// Unit: count.
     pub point_density: Option<Vec<u32>>,
     pub scale: Option<String>,
     pub is_user_defined: bool,
+    /// Unit: ratio.
     pub stability: Option<f64>,
+    /// Unit: metre.
     pub elevation_gain_m: Option<f64>,
+    /// Unit: percent.
     pub avg_grade_percent: Option<f64>,
+    /// Unit: identifier.
     pub version: Option<u32>,
     pub updated_at: Option<String>,
     pub created_at: String,
@@ -931,16 +1044,22 @@ pub struct FfiSection {
     pub route_ids: Option<Vec<String>>,
     // Custom-specific fields (None for auto sections)
     pub source_activity_id: Option<String>,
+    /// Unit: index.
     pub start_index: Option<u32>,
+    /// Unit: index.
     pub end_index: Option<u32>,
     // Visibility state
     pub disabled: bool,
     pub superseded_by: Option<String>,
+    /// Unit: metre.
     pub elevation_loss_m: Option<f64>,
+    /// Unit: percent.
     pub max_grade_percent: Option<f64>,
     pub klass: Option<String>,
     pub is_lift: bool,
+    /// Unit: point.
     pub rank_score: Option<f64>,
+    /// Unit: point.
     pub sport_rank_score: Option<f64>,
 }
 
@@ -1056,6 +1175,7 @@ impl From<tracematch::FrequentSection> for FfiSection {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiSectionHistoryEvent {
+    /// Unit: identifier.
     pub id: f64,
     pub at: String,
     /// formed, restored, split, recut, dissolved, merged, superseded,
@@ -1065,6 +1185,7 @@ pub struct FfiSectionHistoryEvent {
     /// What the row recorded, read from the stored payload. Absent when the
     /// row stored none or stored something unreadable.
     pub details: Option<FfiSectionEventDetails>,
+    /// Unit: identifier.
     pub geometry_version: Option<f64>,
 }
 
@@ -1084,7 +1205,9 @@ pub struct FfiSectionEventDetails {
     pub prs: Vec<FfiSectionEraRecord>,
     /// A re-based record's time before and after, within `pr_sport` and
     /// `pr_direction`.
+    /// Unit: second.
     pub pr_from: Option<f64>,
+    /// Unit: second.
     pub pr_to: Option<f64>,
     pub pr_sport: Option<String>,
     /// `same` or `reverse`; absent on a row written before records were held
@@ -1092,6 +1215,7 @@ pub struct FfiSectionEventDetails {
     pub pr_direction: Option<String>,
     /// The sections a split left behind, in line order.
     pub siblings: Vec<String>,
+    /// Unit: identifier.
     pub version: Option<f64>,
     /// The activity a re-anchor moved the line off, and the one it moved to.
     pub reanchored_from: Option<String>,
@@ -1118,13 +1242,16 @@ pub struct FfiSectionEventDetails {
 #[serde(rename_all = "camelCase")]
 pub struct FfiSectionChangeSummary {
     /// The line's length in metres in the version before, when one is stored.
+    /// Unit: metre.
     pub length_before: Option<f64>,
     /// The line's length in metres in the row's version.
+    /// Unit: metre.
     pub length_after: Option<f64>,
     /// The part of the line that moved: `start`, `end`, `both`, or `split`
     /// for a split. Absent when neither end moved.
     pub moved: Option<String>,
     /// For a split, the distance along the line in metres where it was cut.
+    /// Unit: metre.
     pub at_metres: Option<f64>,
     /// The boundary record nearest the part that moved. Absent when the row
     /// stored none there, or only a kind this build does not explain.
@@ -1133,6 +1260,7 @@ pub struct FfiSectionChangeSummary {
     /// beside it.
     pub records: Vec<FfiRecordMove>,
     /// On a record row folded onto a re-cut, the id of that re-cut's row.
+    /// Unit: identifier.
     pub folded_into: Option<f64>,
 }
 
@@ -1144,9 +1272,12 @@ pub struct FfiSectionChangeSummary {
 #[serde(rename_all = "camelCase")]
 pub struct FfiChangeReason {
     pub kind: String,
+    /// Unit: count.
     pub count: Option<u32>,
+    /// Unit: count.
     pub of: Option<u32>,
     /// Metres a trim removed or a seam clip shortened.
+    /// Unit: metre.
     pub metres: Option<f64>,
     /// The neighbouring section the record names, with its standing now.
     pub neighbour: Option<FfiSectionLink>,
@@ -1158,7 +1289,9 @@ pub struct FfiChangeReason {
 pub struct FfiRecordMove {
     pub sport: Option<String>,
     pub direction: Option<String>,
+    /// Unit: second.
     pub from: Option<f64>,
+    /// Unit: second.
     pub to: Option<f64>,
 }
 
@@ -1171,6 +1304,7 @@ pub struct FfiBoundaryReason {
     pub kind: String,
     /// How much of the drawn line a seam clip took off, in metres; absent on
     /// every other reason.
+    /// Unit: metre.
     pub clipped_metres: Option<f64>,
 }
 
@@ -1183,6 +1317,7 @@ pub struct FfiSectionEraRecord {
     /// per direction.
     pub direction: Option<String>,
     /// Seconds.
+    /// Unit: second.
     pub time: f64,
 }
 
@@ -1199,6 +1334,7 @@ pub struct FfiSectionLink {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiSectionGeometryVersion {
+    /// Unit: identifier.
     pub version: f64,
     pub created_at: String,
     pub milestone: bool,
@@ -1214,12 +1350,15 @@ pub struct FfiBackupScreenData {
     pub suggestion: Option<crate::persistence::SuggestedHome>,
     /// History rows the latest restore left in its backup file because no
     /// section here covers their ground.
+    /// Unit: count.
     pub not_restored: u32,
     /// Route names the latest restore gave up on because the grouping here
     /// merged their routes into one that already took a restored name.
+    /// Unit: count.
     pub names_not_restored: u32,
     /// The running record backup's id, for `cancel_run`, or nothing running.
     /// Read from the job, not the database: a backup is single-flight.
+    /// Unit: identifier.
     pub record_backup_run: Option<f64>,
 }
 
@@ -1235,9 +1374,12 @@ pub struct FfiRecordScreenData {
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiCacheScreenData {
+    /// Unit: day.
     pub stream_retention_days: f64,
+    /// Unit: byte.
     pub stream_store_bytes: f64,
     /// Bytes the kept originals take, deflated, as the originals owner counts them.
+    /// Unit: byte.
     pub original_store_bytes: f64,
     pub activity_year_counts: Vec<FfiYearCount>,
 }
@@ -1270,6 +1412,7 @@ pub enum FfiThresholdField {
 #[serde(rename_all = "camelCase")]
 pub struct FfiThresholdFigure {
     pub field: FfiThresholdField,
+    /// Unit: varies.
     pub value: Option<f64>,
     pub source: Option<FfiThresholdSource>,
 }
@@ -1285,6 +1428,7 @@ pub struct FfiSportThresholds {
     pub hr_zones: FfiZoneBounds,
     /// The upper edge of each power zone as a percent of FTP, empty when the
     /// sport settings list none.
+    /// Unit: percent.
     pub power_zones: Vec<f64>,
 }
 
@@ -1303,6 +1447,7 @@ pub enum FfiZoneSource {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiZoneBounds {
+    /// Unit: varies.
     pub upper: Vec<f64>,
     pub source: FfiZoneSource,
 }
@@ -1314,6 +1459,7 @@ pub struct FfiThresholdsScreenData {
     pub sports: Vec<FfiSportThresholds>,
     /// The upper edge of each heart rate zone, as a percent of maximum heart
     /// rate, used when the athlete's sport settings list no zones of their own.
+    /// Unit: percent.
     pub hr_zone_default_percents: Vec<f64>,
 }
 
@@ -1339,7 +1485,9 @@ pub struct FfiHistoryRangeEstimate {
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiYearCount {
+    /// Unit: year.
     pub year: u32,
+    /// Unit: count.
     pub count: u32,
 }
 
@@ -1353,25 +1501,28 @@ pub struct FfiBackgroundJobsData {
     pub runs: Vec<crate::persistence::job_runs::JobRun>,
     /// Stored activities no detect has seen. `None` when it cannot be counted,
     /// which must not read as nothing left to do.
+    /// Unit: count.
     pub detection_awaiting: Option<u32>,
     /// Whether a section rebuild is still owed.
     pub cutover_owed: bool,
     /// Whole days the stream backfill's daily allowance takes to draw what it
     /// owes, when that is more than one day. `None` when the queue fits in a
     /// day, is empty, or cannot be counted.
+    /// Unit: day.
     pub stream_days_to_finish: Option<u32>,
     /// The activities the backfill draws in one budget day, the figure
     /// `stream_days_to_finish` counts against. `None` when it has no daily cap.
+    /// Unit: count.
     pub backfill_day_share: Option<u32>,
     /// The Garmin pull, `None` while no Garmin key is held.
     pub garmin_pull: Option<FfiGarminPull>,
     /// When the elevation and stream downloads may next be asked again, in
     /// epoch milliseconds, while a refusal's cooldown or the request budget
     /// holds them. `None` when nothing holds them.
+    /// Unit: epoch_millisecond.
     pub downloads_held_until_ms: Option<f64>,
-    /// Whether intervals.icu asked for that wait, rather than this install's
-    /// own request budget.
-    pub downloads_held_by_upstream: bool,
+    /// Who asked for that wait. `None` when nothing holds them.
+    pub downloads_held_cause: Option<FfiHoldCause>,
     /// What the backfill has drawn of today's allowance and when it resets.
     /// `None` where the governor only paces.
     pub daily_limit: Option<crate::governor::FfiDailyLimit>,
@@ -1388,11 +1539,38 @@ pub struct FfiBackgroundJobsData {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiStagedHistory {
+    /// Unit: count.
     pub done: u32,
+    /// Unit: count.
     pub total: u32,
     /// The whole days the tracks still owed take on the daily backfill share,
     /// or `None` when they fit in one day.
+    /// Unit: day.
     pub days_to_finish: Option<u32>,
+}
+
+/// Who asked for a hold on the downloads, named in the order the engine
+/// decides it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum FfiHoldCause {
+    /// intervals.icu asked for the wait, through a refusal's cooldown.
+    Upstream,
+    /// The shared intervals.icu pool is low, so the backfill yields to
+    /// everyone's sync until it recovers.
+    Pool,
+    /// This install's own share of its request budget.
+    Budget,
+}
+
+impl From<crate::net::resume::HoldCause> for FfiHoldCause {
+    fn from(cause: crate::net::resume::HoldCause) -> Self {
+        match cause {
+            crate::net::resume::HoldCause::Upstream => Self::Upstream,
+            crate::net::resume::HoldCause::Pool => Self::Pool,
+            crate::net::resume::HoldCause::Budget => Self::Budget,
+        }
+    }
 }
 
 /// What Retry now did.
@@ -1403,8 +1581,8 @@ pub struct FfiRetryNow {
     pub started: bool,
     /// When the hold that refused the restart lifts, epoch milliseconds.
     pub held_until_ms: Option<f64>,
-    /// Whether intervals.icu asked for that wait.
-    pub held_by_upstream: bool,
+    /// Who asked for that hold. `None` when nothing refused the restart.
+    pub held_cause: Option<FfiHoldCause>,
 }
 
 /// Where the Garmin pull stands.
@@ -1441,6 +1619,7 @@ pub struct FfiGarminPull {
     /// Set when `phase` is `Stopped`.
     pub halt: Option<FfiGarminHalt>,
     /// Originals this device has stored from Garmin.
+    /// Unit: count.
     pub stored: u32,
     /// The earliest month the history pull has finished, as `YYYY-MM`.
     pub reached_month: Option<String>,
@@ -1631,11 +1810,14 @@ pub struct FfiRoutePerformanceResult {
     /// Summary stats for reverse direction
     pub reverse_stats: Option<crate::DirectionStats>,
     /// Current activity's standing, with rank one reserved for a strict record.
+    /// Unit: index.
     pub current_rank: Option<u32>,
     /// Timed comparable attempts in the current direction.
+    /// Unit: count.
     pub attempt_count: u32,
     /// Share of those attempts slower than the current one, 0 to 100.
     /// `None` for a lone attempt or an activity that is not on the route.
+    /// Unit: percent.
     pub percentile_rank: Option<f64>,
     /// The trend curve and band over the counted attempts, for the scatter
     /// chart: the same smoother a section's chart uses.
@@ -1656,6 +1838,7 @@ pub struct FfiSectionCorrelation {
     /// Variables of this direction that carried an estimate: the family the
     /// mover label was Holm-adjusted across. The same on every row of a
     /// direction, and 0 when none of them had enough pairs.
+    /// Unit: count.
     pub family_size: u32,
 }
 
@@ -1716,10 +1899,13 @@ pub struct FfiHeatmapDay {
     /// Date string in YYYY-MM-DD format
     pub date: String,
     /// Intensity bracket: 0 (none), 1 (light), 2 (medium-light), 3 (medium), 4 (high)
+    /// Unit: code.
     pub intensity: u8,
     /// Longest activity duration in seconds for this day
+    /// Unit: second.
     pub max_duration: f64,
     /// Number of activities on this day
+    /// Unit: count.
     pub activity_count: u32,
 }
 
@@ -1734,11 +1920,13 @@ pub struct FfiHeatmapDay {
 pub struct FfiGroupWithPolyline {
     pub group_id: String,
     pub representative_id: String,
+    /// Unit: count.
     pub activity_count: u32,
     pub custom_name: Option<String>,
     #[serde(default, with = "crate::remote::bounds::option")]
     pub bounds: Option<Bounds>,
     /// Distance in meters (from representative activity's metrics)
+    /// Unit: metre.
     pub distance_meters: f64,
     /// Delta+varint encoded coordinates
     #[serde(with = "crate::remote::bytes")]
@@ -1747,6 +1935,7 @@ pub struct FfiGroupWithPolyline {
     pub sport_types: Vec<String>,
     /// Moving time in seconds of the fastest attempt not excluded from the
     /// route, `None` when no attempt has a time.
+    /// Unit: second.
     pub best_time: Option<f64>,
 }
 
@@ -1765,13 +1954,16 @@ pub struct FfiMapSection {
     /// Every sport whose included outings have taken the section, sorted.
     pub sport_types: Vec<String>,
     /// Traversals, one per pass.
+    /// Unit: count.
     pub visit_count: u32,
+    /// Unit: metre.
     pub distance_meters: f64,
     /// climb, descent, rolling, flat or loop; None when nothing says. With the
     /// grade below, this is what the auto-generated label is built from, so the
     /// map's names do not change when it stops taking the whole record.
     pub klass: Option<String>,
     /// Steepest grade (%) held over 300 m of the slice.
+    /// Unit: percent.
     pub max_grade_percent: Option<f64>,
     /// Delta+varint encoded coordinates, as every other track leaves the engine.
     #[serde(with = "crate::remote::bytes")]
@@ -1802,8 +1994,10 @@ pub struct FfiCurrentMapSection {
     pub hidden: bool,
     pub superseded_by: Option<String>,
     /// Its stored length.
+    /// Unit: metre.
     pub distance_meters: f64,
     /// Traversals, one per pass.
+    /// Unit: count.
     pub visit_count: u32,
     /// Delta+varint encoded coordinates.
     #[serde(with = "crate::remote::bytes")]
@@ -1830,6 +2024,7 @@ pub struct FfiRetiredMapPair {
     pub current_id: String,
     pub link: FfiRetiredPairLink,
     /// The larger of the two coverage fractions, for a `Ground` pair only.
+    /// Unit: ratio.
     pub overlap: Option<f64>,
 }
 
@@ -1853,9 +2048,13 @@ pub struct FfiSectionWithPolyline {
     pub id: String,
     pub section_type: String,
     pub name: Option<String>,
+    /// Unit: count.
     pub visit_count: u32,
+    /// Unit: metre.
     pub distance_meters: f64,
+    /// Unit: count.
     pub activity_count: u32,
+    /// Unit: ratio.
     pub confidence: f64,
     pub scale: Option<String>,
     #[serde(default, with = "crate::remote::bounds::option")]
@@ -1868,19 +2067,26 @@ pub struct FfiSectionWithPolyline {
     pub is_user_defined: bool,
     pub disabled: bool,
     pub superseded_by: Option<String>,
+    /// Unit: metre.
     pub elevation_gain_m: Option<f64>,
+    /// Unit: metre.
     pub elevation_loss_m: Option<f64>,
+    /// Unit: percent.
     pub avg_grade_percent: Option<f64>,
+    /// Unit: percent.
     pub max_grade_percent: Option<f64>,
     pub klass: Option<String>,
     pub is_lift: bool,
+    /// Unit: point.
     pub rank_score: Option<f64>,
+    /// Unit: point.
     pub sport_rank_score: Option<f64>,
     /// The section's record was set on its most recent outing. The feed card
     /// and the activity plot both mark a record; this is the same fact keyed by
     /// section, so the sections list can mark it too.
     pub latest_is_record: bool,
     /// Faster or slower in the selected sport, or the sport with most visits.
+    /// Unit: code.
     pub trend: Option<i8>,
 }
 
@@ -1926,10 +2132,15 @@ pub struct FfiSectionFilters {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase", default)]
 pub struct FfiRoutesScreenQuery {
+    /// Unit: count.
     pub group_limit: u32,
+    /// Unit: count.
     pub group_offset: u32,
+    /// Unit: count.
     pub section_limit: u32,
+    /// Unit: count.
     pub section_offset: u32,
+    /// Unit: count.
     pub min_group_activity_count: u32,
     pub group_sort: FfiGroupSort,
     /// Case-insensitive substring of the group name. Empty matches everything.
@@ -1944,7 +2155,9 @@ pub struct FfiRoutesScreenQuery {
     /// Keeps the sections taken in this sport, and makes `Signature` read the
     /// within-sport percentile rather than the pooled one.
     pub section_sport_type: Option<String>,
+    /// Unit: degree.
     pub user_lat: f64,
+    /// Unit: degree.
     pub user_lng: f64,
 }
 
@@ -1981,13 +2194,18 @@ impl Default for FfiRoutesScreenQuery {
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiRoutesScreenData {
+    /// Unit: count.
     pub activity_count: u32,
     /// How many routes the minimum activity count leaves, before the search and
     /// the sport narrow them. A group ridden once is not a route, so it is not
     /// counted here.
+    /// Unit: count.
     pub group_count: u32,
+    /// Unit: count.
     pub section_count: u32,
+    /// Unit: epoch_second.
     pub oldest_date: Option<f64>,
+    /// Unit: epoch_second.
     pub newest_date: Option<f64>,
     pub groups: Vec<FfiGroupWithPolyline>,
     pub sections: Vec<FfiSectionWithPolyline>,
@@ -2007,32 +2225,40 @@ pub struct FfiRoutesScreenData {
     /// How many groups the minimum activity count, the sport and the search
     /// leave. This is what the page is taken out of, and what `has_more_groups`
     /// is measured against. `group_count` is the scope it is taken out of.
+    /// Unit: count.
     pub filtered_group_count: u32,
     /// How many sections the search and the hidden filters leave.
+    /// Unit: count.
     pub filtered_section_count: u32,
     /// Auto sections the athlete has not accepted, over the whole catalogue and
     /// not the page, because this is the "N to review" figure.
+    /// Unit: count.
     pub unaccepted_auto_count: u32,
     /// Auto sections the athlete has accepted, over the whole catalogue.
+    /// Unit: count.
     pub accepted_auto_count: u32,
     /// Custom sections over the whole catalogue. The chip beside it filters the
     /// catalogue, so a page-sized tally would be a lower bound nothing labels.
+    /// Unit: count.
     pub custom_count: u32,
     /// Auto sections the athlete disabled or a custom one superseded, over the
     /// whole catalogue. Taken before `hide_disabled` runs, which is the filter
     /// this figure is the count for and which hides them by default. Distinct
     /// from `ledger_retired_count`: a disabled row is still in the catalogue,
     /// a ledger retirement has left it.
+    /// Unit: count.
     pub removed_count: u32,
     /// Sections that left the catalogue through a fired retirement and still
     /// hold a ledger, the graveyard the retired screen lists, a record
     /// restore's pending states included. This is what the entry points to the
     /// graveyard gate on, and it is not the `removed_count` of disabled rows.
+    /// Unit: count.
     pub ledger_retired_count: u32,
     /// Of those, the ones that hold an `archived` row: the cutover's, or a
     /// record restore's pending state. A later detect that dissolves a section
     /// leaves no archived row, so a library with no cutover reads zero here,
     /// which is what the "your matching changed" card gates on.
+    /// Unit: count.
     pub archived_retired_count: u32,
     /// The sports the athlete has activities in, which the sport chips offer.
     pub available_sport_types: Vec<String>,
@@ -2101,22 +2327,33 @@ pub enum FfiImprovementBasis {
 pub struct FfiRankedSection {
     pub section_id: String,
     pub section_name: String,
+    /// Unit: point.
     pub relevance_score: f64,
+    /// Unit: point.
     pub recency_score: f64,
+    /// Unit: point.
     pub improvement_score: f64,
     /// Signed fraction the athlete got faster by before the score clamps it,
     /// +0.14 for 14% faster and -1.5 for 150% slower. Absent with fewer than
     /// three efforts or a nonpositive earlier time, never an invented zero.
+    /// Unit: ratio.
     pub improvement_change: Option<f64>,
     /// What `improvement_change` compares, absent when it is.
     pub improvement_basis: Option<FfiImprovementBasis>,
+    /// Unit: point.
     pub anomaly_score: f64,
+    /// Unit: point.
     pub engagement_score: f64,
+    /// Unit: count.
     pub traversal_count: u32,
+    /// Unit: second.
     pub best_time_secs: f64,
+    /// Unit: second.
     pub median_recent_secs: f64,
+    /// Unit: day.
     pub days_since_last: u32,
     /// -1 = declining, 0 = stable, 1 = improving
+    /// Unit: code.
     pub trend: i8,
     /// The last efforts on the section, oldest first, capped by the ranker's
     /// own limit. The scoring already holds every traversal to compute the
@@ -2136,8 +2373,11 @@ pub struct FfiExerciseContribution {
     pub name: String,
     /// "primary" | "secondary"
     pub role: String,
+    /// Unit: count.
     pub sets: f64,
+    /// Unit: count.
     pub reps: f64,
+    /// Unit: kilogram.
     pub volume_kg: f64,
 }
 
@@ -2149,10 +2389,15 @@ pub struct FfiExerciseContribution {
 pub struct FfiMuscleGroupDetail {
     pub slug: String,
     pub exercises: Vec<FfiExerciseContribution>,
+    /// Unit: count.
     pub total_sets: f64,
+    /// Unit: count.
     pub total_reps: f64,
+    /// Unit: kilogram.
     pub volume_kg: f64,
+    /// Unit: count.
     pub primary_exercises: u32,
+    /// Unit: count.
     pub secondary_exercises: u32,
 }
 
@@ -2165,11 +2410,15 @@ pub struct FfiSectionChartPoint {
     pub activity_id: String,
     pub activity_name: String,
     /// Unix seconds
+    /// Unit: epoch_second.
     pub activity_date: f64,
     /// m/s
+    /// Unit: metre_per_second.
     pub speed: f64,
     /// Section time for this lap (seconds)
+    /// Unit: second.
     pub section_time: u32,
+    /// Unit: metre.
     pub section_distance: f64,
     /// "same" | "reverse"
     pub direction: String,
@@ -2180,6 +2429,7 @@ pub struct FfiSectionChartPoint {
     pub is_best: bool,
     /// The lap's stored mean watts. `None` for a lap with no power stream and
     /// for a record without laps, which has no single lap to read it from.
+    /// Unit: watt.
     pub avg_power: Option<f64>,
     /// A route attempt outside the band around the route's usual distance:
     /// drawn, but never the record, fitted or binned. Always false on a
@@ -2187,6 +2437,7 @@ pub struct FfiSectionChartPoint {
     pub outside_distance_band: bool,
     /// How much of the route the attempt matched, 0 to 100. `None` on a
     /// section, and on a route attempt with no stored match.
+    /// Unit: percent.
     pub match_percentage: Option<f64>,
     /// Which side of its direction's focus range the point lies past, so the
     /// scatter draws it at the edge with a flag rather than stretching the
@@ -2195,9 +2446,11 @@ pub struct FfiSectionChartPoint {
     /// Seconds behind the direction's record: zero for the record holder,
     /// positive for a slower attempt. `None` for an excluded attempt, one
     /// outside a route's distance band, and in a direction with no record.
+    /// Unit: second.
     pub record_gap_secs: Option<f64>,
     /// Metres per second behind the direction's record, signed as
     /// `record_gap_secs` is: positive is slower. `None` where it is.
+    /// Unit: metre_per_second.
     pub record_gap_speed: Option<f64>,
     /// The lap's time was projected to a gate over ground the recording did
     /// not cover. Charted and ranked, and the record only when no lap in its
@@ -2223,11 +2476,15 @@ pub enum FfiOffScale {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiFocusRange {
+    /// Unit: varies.
     pub low: f64,
+    /// Unit: varies.
     pub high: f64,
     /// Points drawn past the slow end.
+    /// Unit: count.
     pub slow_count: u32,
     /// Points drawn past the fast end.
+    /// Unit: count.
     pub fast_count: u32,
 }
 
@@ -2247,15 +2504,20 @@ pub struct FfiRecordStep {
     pub activity_id: String,
     pub lap_id: String,
     /// Unix seconds.
+    /// Unit: epoch_second.
     pub activity_date: f64,
     /// Seconds.
+    /// Unit: second.
     pub section_time: f64,
     /// Metres per second.
+    /// Unit: metre_per_second.
     pub speed: f64,
     /// Seconds faster than the step before. `None` on the first step.
+    /// Unit: second.
     pub improvement_secs: Option<f64>,
     /// Metres per second faster than the step before. `None` on the first
     /// step.
+    /// Unit: metre_per_second.
     pub improvement_speed: Option<f64>,
 }
 
@@ -2275,17 +2537,23 @@ pub struct FfiRecordProgressions {
 #[serde(rename_all = "camelCase")]
 pub struct FfiSectionChartData {
     pub points: Vec<FfiSectionChartPoint>,
+    /// Unit: metre_per_second.
     pub min_speed: f64,
+    /// Unit: metre_per_second.
     pub max_speed: f64,
     pub has_reverse_runs: bool,
     /// The quickest lap in the section's own direction.
+    /// Unit: second.
     pub best_time_secs: Option<f64>,
     /// `best_time_secs` is an estimate: no lap in the direction it was read
     /// from was timed on the ground.
     pub best_time_estimated: bool,
     /// The oldest point's date, unix seconds.
+    /// Unit: epoch_second.
     pub first_activity_date: Option<f64>,
+    /// Unit: epoch_second.
     pub last_activity_date: Option<f64>,
+    /// Unit: count.
     pub total_activities: u32,
 }
 
@@ -2297,14 +2565,20 @@ pub struct FfiSectionChartData {
 pub struct FfiWorkoutSection {
     pub id: String,
     pub name: String,
+    /// Unit: second.
     pub pr_time_secs: Option<f64>,
     /// Second-best time (prior PR before current best)
+    /// Unit: second.
     pub previous_best_time_secs: Option<f64>,
+    /// Unit: second.
     pub last_time_secs: Option<f64>,
+    /// Unit: day.
     pub days_since_last: Option<i32>,
+    /// Unit: day.
     pub pr_days_ago: Option<i32>,
     /// -1 = declining, 0 = stable, 1 = improving. None when there is not
     /// enough history to say.
+    /// Unit: code.
     pub trend: Option<i8>,
 }
 
@@ -2370,32 +2644,49 @@ pub struct FfiActivityRecord {
     pub description: Option<String>,
     pub device_name: Option<String>,
     /// Seconds.
+    /// Unit: second.
     pub moving_time: u32,
     /// Metres.
+    /// Unit: metre.
     pub distance: f64,
     /// Metres climbed.
+    /// Unit: metre.
     pub elevation_gain: f64,
     /// Beats per minute.
+    /// Unit: beat_per_minute.
     pub avg_hr: Option<f64>,
+    /// Unit: beat_per_minute.
     pub max_hr: Option<f64>,
     /// Watts.
+    /// Unit: watt.
     pub avg_power: Option<f64>,
+    /// Unit: watt.
     pub max_power: Option<f64>,
     /// Kilocalories.
+    /// Unit: kilocalorie.
     pub calories: Option<f64>,
+    /// Unit: tss.
     pub training_load: Option<f64>,
     /// Intensity factor as a percentage.
+    /// Unit: percent.
     pub intensity: Option<f64>,
     /// The FTP the activity was scored against, and the eFTP it estimated.
+    /// Unit: watt.
     pub ftp: Option<f64>,
+    /// Unit: watt.
     pub eftp: Option<f64>,
+    /// Unit: trimp.
     pub trimp: Option<f64>,
+    /// Unit: point.
     pub strain_score: Option<f64>,
     /// Heart rate recovery, the drop in beats per minute.
+    /// Unit: beat_per_minute.
     pub hr_recovery: Option<f64>,
+    /// Unit: ratio.
     pub efficiency_factor: Option<f64>,
     /// Aerobic decoupling in percent, `None` when intervals.icu stored no
     /// finite value.
+    /// Unit: percent.
     pub decoupling: Option<f64>,
     /// `veloq` when the load, intensity, normalised power, efficiency factor,
     /// decoupling and zone times above were worked out on the phone from the
@@ -2405,12 +2696,16 @@ pub struct FfiActivityRecord {
     /// Whether the temperatures below include intervals.icu's weather.
     pub has_weather: bool,
     /// Degrees Celsius from the weather.
+    /// Unit: degree_celsius.
     pub weather_temp: Option<f64>,
     /// Degrees Celsius from the device's own sensor.
+    /// Unit: degree_celsius.
     pub sensor_temp: Option<f64>,
     /// Degrees Celsius, from whichever of its names the body carries.
+    /// Unit: degree_celsius.
     pub feels_like: Option<f64>,
     /// Metres a second.
+    /// Unit: metre_per_second.
     pub wind_speed: Option<f64>,
     /// The stream kinds intervals.icu holds for the activity.
     pub stream_types: Vec<String>,
@@ -2497,6 +2792,153 @@ pub struct FfiActivityBodiesQuery {
     pub offset: u32,
     /// None returns every match from the offset on.
     pub limit: Option<u32>,
+    /// Inclusive lower bound on distance in metres. None is unbounded.
+    pub min_distance: Option<f64>,
+    /// Inclusive upper bound on distance in metres. None is unbounded.
+    pub max_distance: Option<f64>,
+    /// Inclusive lower bound on moving time in seconds. None is unbounded.
+    pub min_moving_time: Option<u32>,
+    /// Inclusive upper bound on moving time in seconds. None is unbounded.
+    pub max_moving_time: Option<u32>,
+    /// The order of the whole match before the page is cut. None is newest
+    /// first.
+    pub sort: Option<FfiFeedSort>,
+}
+
+impl FfiActivityBodiesQuery {
+    /// Whether any distance or moving-time bound is set.
+    pub(crate) fn has_size_bounds(&self) -> bool {
+        self.min_distance.is_some()
+            || self.max_distance.is_some()
+            || self.min_moving_time.is_some()
+            || self.max_moving_time.is_some()
+    }
+
+    /// Whether a distance in metres and a moving time in seconds sit inside
+    /// every bound set. A value the activity lacks fails any bound on it.
+    pub(crate) fn admits_size(&self, distance: Option<f64>, moving_time: Option<f64>) -> bool {
+        fn within<T: PartialOrd + Copy>(value: Option<T>, min: Option<T>, max: Option<T>) -> bool {
+            if min.is_none() && max.is_none() {
+                return true;
+            }
+            value.is_some_and(|v| min.is_none_or(|m| v >= m) && max.is_none_or(|m| v <= m))
+        }
+        within(distance, self.min_distance, self.max_distance)
+            && within(
+                moving_time,
+                self.min_moving_time.map(f64::from),
+                self.max_moving_time.map(f64::from),
+            )
+    }
+}
+
+/// How a search of the athlete's account ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum FfiRemoteSearchStatus {
+    /// The account answered; `rows` holds what the library lacks.
+    Found,
+    /// Neither a name nor a whole date range was set, so nothing was asked.
+    NoQuery,
+    /// No signed-in account, or one whose source has no search.
+    Unavailable,
+    /// The request was refused or did not reach the account.
+    Failed,
+}
+
+/// One activity of the athlete's account that the library does not hold.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiRemoteActivity {
+    /// The server's id, which `sync_activity_detail` downloads the activity by.
+    pub id: String,
+    pub name: String,
+    pub sport_type: String,
+    /// The local start as the server sends it, `YYYY-MM-DDTHH:MM:SS`.
+    pub start_date_local: String,
+    /// Metres, absent when the server sent none.
+    pub distance: Option<f64>,
+    /// Seconds, absent when the server sent none.
+    pub moving_time: Option<f64>,
+}
+
+/// The answer to a search of the athlete's account.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiRemoteActivitySearch {
+    pub status: FfiRemoteSearchStatus,
+    /// Newest first.
+    pub rows: Vec<FfiRemoteActivity>,
+    /// How many rows the account answered with, before the library's own and
+    /// the filter's were taken out.
+    pub fetched: u32,
+    /// Whether the account answered with as many as it will, so it may hold
+    /// more matches than `fetched`.
+    pub capped: bool,
+}
+
+impl FfiRemoteActivitySearch {
+    pub(crate) fn without_rows(status: FfiRemoteSearchStatus) -> Self {
+        Self {
+            status,
+            rows: Vec::new(),
+            fetched: 0,
+            capped: false,
+        }
+    }
+}
+
+/// The span of the library the feed's filter bars draw across: the first and
+/// last start, and the shortest and longest distance and moving time. Every
+/// field is absent when nothing answers it, so an empty library draws no bar.
+///
+/// The dates reach every stored activity. A distance or a time bound takes
+/// only the positive values, so a session with neither (a strength session,
+/// say) does not pull a minimum to zero.
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiFeedFilterBounds {
+    /// Epoch seconds of the earliest stored start.
+    /// Unit: epoch_second.
+    pub oldest_ts: Option<f64>,
+    /// Epoch seconds of the latest stored start.
+    /// Unit: epoch_second.
+    pub newest_ts: Option<f64>,
+    /// Metres, over the activities with a positive distance.
+    /// Unit: metre.
+    pub min_distance: Option<f64>,
+    /// Metres, over the activities with a positive distance.
+    /// Unit: metre.
+    pub max_distance: Option<f64>,
+    /// Seconds, over the activities with a positive moving time.
+    /// Unit: second.
+    pub min_moving_time: Option<f64>,
+    /// Seconds, over the activities with a positive moving time.
+    /// Unit: second.
+    pub max_moving_time: Option<f64>,
+}
+
+/// The column a feed read orders by.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, uniffi::Enum)]
+#[serde(rename_all = "camelCase")]
+pub enum FfiFeedSortKey {
+    Date,
+    Distance,
+    MovingTime,
+    ElevationGain,
+    TrainingLoad,
+    Name,
+}
+
+/// A column and a direction. A row with no value in the column comes last
+/// whichever way it runs.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, uniffi::Record,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiFeedSort {
+    pub key: FfiFeedSortKey,
+    pub descending: bool,
 }
 
 /// What one feed card draws, typed from the stored body.
@@ -2521,23 +2963,32 @@ pub struct FfiFeedCard {
     /// the body has none.
     pub start_date_local: String,
     /// Metres.
+    /// Unit: metre.
     pub distance: Option<f64>,
     /// Seconds.
+    /// Unit: second.
     pub moving_time: Option<f64>,
     /// Metres climbed.
+    /// Unit: metre.
     pub elevation_gain: Option<f64>,
     /// Beats per minute.
+    /// Unit: beat_per_minute.
     pub avg_hr: Option<f64>,
     /// Watts.
+    /// Unit: watt.
     pub avg_power: Option<f64>,
+    /// Training load, in TSS.
+    /// Unit: tss.
     pub training_load: Option<f64>,
     /// `veloq` when `training_load` was worked out on the phone from the
     /// activity's streams, `None` otherwise.
     pub metrics_source: Option<String>,
     /// Kilocalories.
+    /// Unit: kilocalorie.
     pub calories: Option<f64>,
     pub has_weather: bool,
     /// Degrees Celsius.
+    /// Unit: degree_celsius.
     pub average_weather_temp: Option<f64>,
     /// The elevation skyline as intervals.icu encodes it, base64.
     pub skyline_chart_bytes: Option<String>,
@@ -2552,6 +3003,10 @@ pub struct FfiFeedCard {
     /// Whether the activity is a stub intervals.icu does not serve, and what
     /// the card offers for it.
     pub stub: crate::net::garmin_swap::FfiStubVerdict,
+    /// Whether the athlete hid the activity from the heatmap. The detail
+    /// record carries the same flag; a list that offers a bulk hide marks the
+    /// rows it hid from this one.
+    pub heatmap_hidden: bool,
 }
 
 /// One page of feed cards, newest first, with the count of everything the
@@ -2574,6 +3029,7 @@ pub struct FfiActivityName {
     pub activity_id: String,
     pub name: String,
     /// Start time as epoch seconds, so a caller can order what it draws.
+    /// Unit: epoch_second.
     pub date: f64,
 }
 
@@ -2584,6 +3040,7 @@ pub struct FfiActivityName {
 pub struct FfiSportLoad {
     /// The sport the entry stands for, as the API spells it ("Ride", "Run").
     pub sport_group: Option<String>,
+    /// Unit: tss.
     pub load: Option<f64>,
 }
 
@@ -2597,19 +3054,37 @@ pub struct FfiSportLoad {
 #[serde(rename_all = "camelCase")]
 pub struct FfiWellnessDay {
     /// ISO-8601 YYYY-MM-DD
+    /// Unit: iso_date.
     pub date: String,
+    /// Chronic training load.
+    /// Unit: tss.
     pub ctl: Option<f64>,
+    /// Acute training load.
+    /// Unit: tss.
     pub atl: Option<f64>,
+    /// Change in `ctl` over the week to the day.
+    /// Unit: tss_per_week.
     pub ramp_rate: Option<f64>,
+    /// Heart rate variability.
+    /// Unit: millisecond.
     pub hrv: Option<f64>,
+    /// Unit: beat_per_minute.
     pub resting_hr: Option<f64>,
+    /// Unit: kilogram.
     pub weight: Option<f64>,
+    /// Unit: second.
     pub sleep_secs: Option<f64>,
+    /// Unit: point.
     pub sleep_score: Option<f64>,
+    /// Unit: point.
     pub soreness: Option<i32>,
+    /// Unit: point.
     pub fatigue: Option<i32>,
+    /// Unit: point.
     pub stress: Option<i32>,
+    /// Unit: point.
     pub mood: Option<i32>,
+    /// Unit: point.
     pub motivation: Option<i32>,
     /// Empty for a day synced before the body column existed, and for a day
     /// the API sent no per-sport breakdown for.
@@ -2629,6 +3104,20 @@ pub struct FfiWellnessDays {
     /// Oldest first.
     pub days: Vec<FfiWellnessDay>,
     pub coverage: crate::RangeCoverage,
+    /// Beside `days`, one per day: form in the unit the athlete reads it in,
+    /// rounded fitness less rounded fatigue, or that as a percentage of
+    /// rounded fitness under `form_as_percent`. Absent on a day missing a
+    /// load, and under the percentage on a day whose fitness rounds to zero.
+    /// Unit: tss_or_percent.
+    pub form: Vec<Option<f64>>,
+    /// Whether `form` is a percentage of fitness rather than absolute TSB,
+    /// from the athlete's `icu_form_as_percent`.
+    pub form_as_percent: bool,
+    /// Where the form zones change in either unit, lowest first: below the
+    /// first is high risk, then optimal, grey zone, fresh, and from the last
+    /// transition.
+    /// Unit: percent.
+    pub form_zone_edges: Vec<f64>,
 }
 
 /// Sparkline payload for the SummaryCard: rounded integer arrays, oldest
@@ -2637,10 +3126,15 @@ pub struct FfiWellnessDays {
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiWellnessSparklines {
+    /// Unit: tss.
     pub fitness: Vec<i32>,
+    /// Unit: tss.
     pub fatigue: Vec<i32>,
+    /// Unit: tss_or_percent.
     pub form: Vec<i32>,
+    /// Unit: millisecond.
     pub hrv: Vec<i32>,
+    /// Unit: beat_per_minute.
     pub rhr: Vec<i32>,
     /// Beside `hrv`, one per day: whether that day had a reading of its own
     /// or carries an earlier one forward. A scrub reads it so a filled day is
@@ -2650,9 +3144,11 @@ pub struct FfiWellnessSparklines {
     /// The same for `rhr`.
     pub rhr_read: Vec<bool>,
     /// Last plotted fitness minus the first. `None` under two values.
+    /// Unit: tss.
     pub fitness_delta: Option<i32>,
     /// Indices into `fitness` of the days fitness rose over the day before by
     /// more than one CTL point.
+    /// Unit: index.
     pub fitness_rise_days: Vec<u32>,
 }
 
@@ -2668,15 +3164,20 @@ pub struct FfiHrvTrend {
     /// apart from the readings before them. Both can say
     /// `trendingDown` and they are not the same claim.
     pub reason: String,
+    /// Unit: millisecond.
     pub avg: f64,
+    /// Unit: millisecond.
     pub latest: f64,
+    /// Unit: count.
     pub data_points: u32,
     pub sparkline: Vec<FfiSeriesPoint>,
     /// Epoch seconds where the later half of the window starts, the split the
     /// `halves` rule judged. Absent for `lastTwoDays`, which judges no split.
+    /// Unit: epoch_second.
     pub window_split: Option<f64>,
     /// The latest day against the window's average, in the window's own
     /// standard deviations. Absent where the window has no spread.
+    /// Unit: standard_deviation.
     pub signal_delta: Option<f64>,
 }
 
@@ -2703,8 +3204,10 @@ pub struct FfiRankedSectionsBySport {
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiSeriesPoint {
+    /// Unit: varies.
     pub value: f64,
     /// Epoch seconds.
+    /// Unit: epoch_second.
     pub date: f64,
     /// The activity the value was recorded in, for a series whose points are
     /// efforts. Absent where a point is a day's estimate with no activity
@@ -2718,7 +3221,9 @@ pub struct FfiSeriesPoint {
 pub struct FfiRecentPr {
     pub section_id: String,
     pub section_name: String,
+    /// Unit: second.
     pub best_time: f64,
+    /// Unit: day.
     pub days_ago: u32,
     /// The sport the record was set in. Shared ground holds a record in each
     /// sport that travels it and neither is measured against the other's laps,
@@ -2729,14 +3234,20 @@ pub struct FfiRecentPr {
     /// and one set over fifty are different claims, and the ranker has no other
     /// way to tell them apart. It counted the section's own traversals until
     /// 2026-09-20, so three runs on a much-ridden climb claimed the rides.
+    /// Unit: count.
     pub traversal_count: u32,
     /// Timed, eligible laps in the record's direction.
+    /// Unit: count.
     pub standing_count: u32,
     /// Percent of other counted laps slower than the record, when at least three count.
+    /// Unit: percent.
     pub percentile_faster: Option<u32>,
     /// The next fastest counted lap in the record's direction.
+    /// Unit: second.
     pub previous_best_time: Option<f64>,
+    /// Unit: epoch_second.
     pub previous_best_date: Option<f64>,
+    /// Unit: second.
     pub delta_seconds: Option<f64>,
     /// The last efforts on the section, oldest first, capped by
     /// `FfiInsightsParams::history_limit`. What the card draws, so the list
@@ -2768,17 +3279,22 @@ pub struct FfiRouteInsight {
     pub is_recent_record: bool,
     /// -1 slower, 0 stable or too few attempts, 1 faster, on the median
     /// window rule sections use.
+    /// Unit: code.
     pub trend: i8,
     /// The trend's size: the recent median moving time minus the previous
     /// median, in seconds, negative faster. `None` where `trend` is 0.
+    /// Unit: second.
     pub trend_seconds: Option<f64>,
     /// The fastest counted attempt's moving time, in seconds.
+    /// Unit: second.
     pub best_time: f64,
     /// Whole days from the newest counted attempt to the end of the current
     /// week.
+    /// Unit: day.
     pub days_since_last: u32,
     /// Counted attempts: timed, not excluded, not partial, inside the
     /// distance band.
+    /// Unit: count.
     pub attempt_count: u32,
     /// The last counted attempts' moving times, oldest first, capped by
     /// `FfiInsightsParams::history_limit`.
@@ -2813,6 +3329,7 @@ pub struct FfiInsightsData {
     /// Up to 3 recent section PRs (best times set in last 7 days)
     pub recent_prs: Vec<FfiRecentPr>,
     /// Sections held by the engine, for the section-readiness check
+    /// Unit: count.
     pub section_count: u32,
     /// Sport types the ranked-section lists were built for
     pub sport_types: Vec<String>,
@@ -2820,13 +3337,18 @@ pub struct FfiInsightsData {
     pub ranked_sections: Vec<FfiRankedSectionsBySport>,
     /// Every eligible section trend, independent of the ranked-list display limit.
     pub trend_sections: Vec<FfiRankedSectionsBySport>,
+    /// Unit: count.
     pub trend_faster_count: u32,
+    /// Unit: count.
     pub trend_slower_count: u32,
     /// Every route bucket holding a recent record or an eligible trend, recent
     /// records first and then newest attempt. Not capped.
     pub route_insights: Vec<FfiRouteInsight>,
+    /// Unit: count.
     pub route_record_count: u32,
+    /// Unit: count.
     pub route_faster_count: u32,
+    /// Unit: count.
     pub route_slower_count: u32,
     /// Aerobic efficiency trends worth surfacing, already filtered and capped
     pub efficiency_trends: Vec<FfiEfficiencyTrend>,
@@ -2860,35 +3382,49 @@ pub struct FfiInsightsData {
 #[serde(rename_all = "camelCase")]
 pub struct FfiInsightsParams {
     /// Start of the current week, filled by the engine from current_end
+    /// Unit: epoch_second.
     pub current_start: f64,
     /// Current wall-clock second; the engine derives both week windows from it
+    /// Unit: epoch_second.
     pub current_end: f64,
     /// Start of the previous week, filled by the engine
+    /// Unit: epoch_second.
     pub prev_start: f64,
     /// End of the previous elapsed week, filled by the engine
+    /// Unit: epoch_second.
     pub prev_end: f64,
     /// Start of the four-week chronic window, filled by the engine
+    /// Unit: epoch_second.
     pub chronic_start: f64,
     /// Start of today
+    /// Unit: epoch_second.
     pub today_start: f64,
     /// Whether section-derived insights are wanted at all
     pub include_sections: bool,
     /// Ranked sections requested per sport
+    /// Unit: count.
     pub ranked_limit: u32,
     /// History points a card carries at most, per section and per trend. The
     /// graphic is a strip a few dozen pixels wide, so the read is capped
     /// rather than carrying a library of laps across the bridge.
+    /// Unit: count.
     pub history_limit: u32,
     /// Sections last visited beyond this many days get no efficiency trend
+    /// Unit: day.
     pub active_window_days: u32,
     /// Efficiency candidates taken from each sport's ranked list
+    /// Unit: count.
     pub efficiency_per_sport: u32,
     /// Smallest rounded heart-rate change, in bpm, an efficiency trend may report
+    /// Unit: beat_per_minute.
     pub efficiency_min_hr_change_bpm: u32,
     /// Efficiency trends to return at most
+    /// Unit: count.
     pub efficiency_limit: u32,
     /// Minimum matched efforts before an efficiency trend counts
+    /// Unit: count.
     pub efficiency_min_efforts: u32,
+    /// Unit: count.
     pub efficiency_declining_min_efforts: u32,
     /// Trailing month the strength summary covers
     pub strength_month: FfiTimestampRange,
@@ -2899,20 +3435,28 @@ pub struct FfiInsightsParams {
     /// Newest day of it, which is normally today in the athlete's own zone
     pub wellness_newest: String,
     /// Trailing days the HRV trend is read over
+    /// Unit: day.
     pub hrv_window_days: u32,
     /// Trailing days the section-change list covers
+    /// Unit: day.
     pub section_change_window_days: u32,
     /// A section unvisited for this many days is stale
+    /// Unit: day.
     pub stale_threshold_days: u32,
     /// Fitness has to have risen by this much for a stale section to qualify
+    /// Unit: percent.
     pub stale_min_gain_percent: f64,
     /// Stale-PR opportunities to return at most
+    /// Unit: count.
     pub stale_max_opportunities: u32,
     /// Fewest traversals a stale section needs to be offered
+    /// Unit: count.
     pub stale_min_traversals: u32,
     /// A section record counts as recent when set within this many days
+    /// Unit: day.
     pub recent_pr_window_days: u32,
     /// Fewest outings a section needs to hold a recent-record slot
+    /// Unit: count.
     pub recent_pr_min_outings: u32,
 }
 
@@ -2927,9 +3471,17 @@ pub struct FfiInsightForm {
     /// The day the reading is from, `YYYY-MM-DD`
     pub date: String,
     /// Chronic training load, zero when the day carries none
+    /// Unit: tss.
     pub ctl: f64,
     /// Acute training load, zero when the day carries none
+    /// Unit: tss.
     pub atl: f64,
+    /// Form in the unit the athlete reads it in, as `FfiWellnessDays::form`
+    /// gives it for the same day.
+    /// Unit: tss_or_percent.
+    pub form: Option<f64>,
+    /// Whether `form` is a percentage of fitness rather than absolute TSB.
+    pub form_as_percent: bool,
 }
 
 // ============================================================================
@@ -2963,6 +3515,9 @@ pub struct FfiStartupData {
     /// beside this read, which cost the feed a second call per wellness
     /// invalidation and every `activities` event causes one.
     pub sparklines: Option<FfiWellnessSparklines>,
+    /// Whether the held credential's source answers the account search, so the
+    /// feed offers it only where it can be answered.
+    pub remote_search: bool,
 }
 
 // ============================================================================
@@ -2980,6 +3535,22 @@ pub struct FfiSectionTrace {
     pub encoded_coords: Vec<u8>,
 }
 
+/// A route or section an activity matched, and whether the athlete excluded
+/// the activity from it.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiActivityMembership {
+    /// `"route"` or `"section"`.
+    pub kind: String,
+    pub id: String,
+    /// The name it is shown under, `None` while it has none.
+    pub name: Option<String>,
+    /// For a route, the match row's flag. For a section, whether no counted
+    /// pass remains: an activity with only some laps excluded is not
+    /// excluded, that state is per lap.
+    pub excluded: bool,
+}
+
 /// All data needed to paint the activity detail screen in one call.
 /// Replaces a fan-out that grew one trace extraction per matched section.
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
@@ -2990,12 +3561,14 @@ pub struct FfiActivityDetailData {
     /// This activity's addition to the daily fitness, fatigue and form loads.
     pub fitness_impact: Option<FfiActivityFitnessImpact>,
     /// Total activities held by the engine
+    /// Unit: count.
     pub activity_count: u32,
     /// Whether the engine holds this activity's track. The map then draws the
     /// line from the engine's `veloq-geo` URL rather than receiving it as text;
     /// without one it is sent inline from the streams.
     pub has_gps_track: bool,
     /// Total sections held by the engine
+    /// Unit: count.
     pub section_count: u32,
     /// The route group this activity belongs to, if it meets the caller's
     /// minimum. At most one: the screen asks which group holds this activity,
@@ -3018,6 +3591,10 @@ pub struct FfiActivityDetailData {
     pub custom_sections: Vec<FfiSection>,
     /// One entry per (section, direction) this activity encountered
     pub encounters: Vec<FfiSectionEncounter>,
+    /// Every route and visible section this activity matched, with whether the
+    /// athlete took it out of that one. The matched lists above leave an
+    /// excluded pass out, so this is the only place one still shows.
+    pub memberships: Vec<FfiActivityMembership>,
     /// Section indicators and route highlights for this activity
     pub highlights: FfiActivityHighlightsBundle,
     /// This activity's portion of every section it matches
@@ -3027,6 +3604,7 @@ pub struct FfiActivityDetailData {
     /// The max HR this activity's heart rate is read against: the top of its
     /// own zones, then the sport setting for its type, then 190. The stat card
     /// and the zones chart both divide by it.
+    /// Unit: beat_per_minute.
     pub max_hr: f64,
     /// Which of those `max_hr` came from, so a screen can tell the athlete's
     /// own maximum from the default.
@@ -3106,6 +3684,7 @@ pub enum FfiPoolUnit {
 pub struct FfiPoolSwim {
     pub state: FfiPoolSwimState,
     /// The pool length in metres, whichever unit the device showed.
+    /// Unit: metre.
     pub pool_length_m: Option<f64>,
     /// The unit the pool is measured in. Metres when the length is unknown.
     pub pool_unit: FfiPoolUnit,
@@ -3121,21 +3700,27 @@ pub struct FfiPoolSwim {
 #[serde(rename_all = "camelCase")]
 pub struct FfiPoolLength {
     /// The length's place in the file, from zero, rests counted.
+    /// Unit: index.
     pub index: u32,
     /// False for a rest, which the device records as an idle length.
     pub active: bool,
     /// The FIT SwimStroke number. None for a rest or an unrecorded stroke.
+    /// Unit: code.
     pub stroke: Option<u8>,
     /// A locale key naming the stroke (`freestyle`, `breaststroke`, ...),
     /// `unknown` for an active length with no stroke. None for a rest.
     pub stroke_key: Option<String>,
     /// Seconds from the push-off to the wall, or the rest's duration.
+    /// Unit: second.
     pub elapsed_secs: Option<f64>,
+    /// Unit: count.
     pub strokes: Option<u16>,
     /// Metres per second over the pool length. None for a rest.
+    /// Unit: metre_per_second.
     pub speed_mps: Option<f64>,
     /// Elapsed seconds plus strokes. None for a rest or a length with no
     /// stroke count or no time.
+    /// Unit: swolf.
     pub swolf: Option<f64>,
 }
 
@@ -3143,15 +3728,21 @@ pub struct FfiPoolLength {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiPoolStrokeTotal {
+    /// Unit: code.
     pub stroke: Option<u8>,
     pub stroke_key: String,
+    /// Unit: count.
     pub lengths: u32,
     /// Lengths times the pool length. None when the pool length is unknown.
+    /// Unit: metre.
     pub distance_m: Option<f64>,
+    /// Unit: second.
     pub elapsed_secs: f64,
     /// Distance over time. None when either is unknown or zero.
+    /// Unit: metre_per_second.
     pub speed_mps: Option<f64>,
     /// The mean SWOLF of the lengths that have one.
+    /// Unit: swolf.
     pub avg_swolf: Option<f64>,
 }
 
@@ -3161,15 +3752,20 @@ pub struct FfiPoolStrokeTotal {
 #[serde(rename_all = "camelCase")]
 pub struct FfiActivitySummary {
     /// Moving time in seconds
+    /// Unit: second.
     pub moving_time: Option<f64>,
     /// Elapsed time in seconds, pauses and stops included
+    /// Unit: second.
     pub elapsed_time: Option<f64>,
     /// Average speed in m/s
+    /// Unit: metre_per_second.
     pub average_speed: Option<f64>,
     /// Max speed in m/s
+    /// Unit: metre_per_second.
     pub max_speed: Option<f64>,
     /// Average cadence in `cadence_unit`: steps a minute on foot, where
     /// intervals.icu stores strides
+    /// Unit: FfiCadenceUnit.
     pub average_cadence: Option<f64>,
     /// The unit this sport's cadence is shown in, here and in its stream
     pub cadence_unit: FfiCadenceUnit,
@@ -3203,12 +3799,17 @@ pub enum FfiMaxHrSource {
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiActivityFitnessImpact {
+    /// Unit: tss.
     pub fitness: f64,
+    /// Unit: tss.
     pub fatigue: f64,
+    /// Unit: tss_or_percent.
     pub form: f64,
     /// The fitness time constant in days in effect on the activity's date
+    /// Unit: day.
     pub fitness_days: u32,
     /// The fatigue time constant in days in effect on the activity's date
+    /// Unit: day.
     pub fatigue_days: u32,
 }
 
@@ -3217,16 +3818,22 @@ pub struct FfiActivityFitnessImpact {
 #[serde(rename_all = "camelCase")]
 pub struct FfiHrZoneBand {
     /// Zone number, from 1
+    /// Unit: index.
     pub zone: u32,
     /// Lower edge in bpm, 0 for zone 1
+    /// Unit: beat_per_minute.
     pub min_bpm: u32,
     /// Upper edge in bpm
+    /// Unit: beat_per_minute.
     pub max_bpm: u32,
     /// Seconds spent in the zone
+    /// Unit: second.
     pub seconds: f64,
     /// Share of the total time in zones, 0 to 100
+    /// Unit: percent.
     pub percent: f64,
     /// The share as a whole percent, the bands' shares totalling 100
+    /// Unit: percent.
     pub share: u32,
 }
 
@@ -3235,16 +3842,22 @@ pub struct FfiHrZoneBand {
 #[serde(rename_all = "camelCase")]
 pub struct FfiPowerZoneBand {
     /// Zone number, from 1
+    /// Unit: index.
     pub zone: u32,
     /// Lower edge in watts, 0 for zone 1
+    /// Unit: watt.
     pub min_watts: u32,
     /// Upper edge in watts, absent for the open top zone
+    /// Unit: watt.
     pub max_watts: Option<u32>,
     /// Seconds spent in the zone
+    /// Unit: second.
     pub seconds: f64,
     /// Share of the total time in zones, 0 to 100
+    /// Unit: percent.
     pub percent: f64,
     /// The share as a whole percent, the bands' shares totalling 100
+    /// Unit: percent.
     pub share: u32,
 }
 
@@ -3273,10 +3886,14 @@ pub struct FfiSectionActivityRow {
     pub name: String,
     pub sport_type: String,
     /// Unix seconds, as stored by the engine.
+    /// Unit: epoch_second.
     pub start_time: f64,
+    /// Unit: metre.
     pub distance: f64,
+    /// Unit: second.
     pub moving_time: u32,
     /// Metres per second; zero when moving time is zero.
+    /// Unit: metre_per_second.
     pub average_speed: f64,
 }
 
@@ -3285,6 +3902,7 @@ pub struct FfiSectionActivityRow {
 #[serde(rename_all = "camelCase")]
 pub struct FfiSectionDetailData {
     /// Total activities held by the engine
+    /// Unit: count.
     pub activity_count: u32,
     /// The section itself, or `None` when the ID is unknown
     pub section: Option<FfiSection>,
@@ -3308,6 +3926,7 @@ pub struct FfiSectionDetailData {
     /// Every stored geometry version, with the pinned one flagged
     pub geometry_versions: Vec<FfiSectionGeometryVersion>,
     /// The pinned version, or `None` when the section follows the newest cut
+    /// Unit: identifier.
     pub pinned_version: Option<f64>,
 }
 
@@ -3317,6 +3936,7 @@ pub struct FfiSectionDetailData {
 pub struct FfiSectionSportCount {
     pub sport_type: String,
     /// Laps the chart would plot under this sport, not activities.
+    /// Unit: count.
     pub count: u32,
 }
 
@@ -3362,6 +3982,7 @@ pub struct FfiSectionPerformanceData {
     pub correlations: Vec<FfiSectionCorrelation>,
     /// Complete pairs a variable needed before its correlation carries a
     /// figure: the floor every `TooFew` above fell short of.
+    /// Unit: count.
     pub correlation_floor: u32,
     /// Each lap's time won or lost against the section's reference at every
     /// point along it, for the laps inside the range. `None` when neither
@@ -3498,10 +4119,13 @@ uniffi::custom_type!(FfiFloat32Array, Vec<u8>, {
 #[serde(rename_all = "camelCase")]
 pub struct FfiSectionLapCurves {
     /// Metres between two points of a lap's `delta_secs`.
+    /// Unit: metre.
     pub grid_step_m: f64,
     /// Metres each of a lap's `split_delta_secs` spans; the last is short.
+    /// Unit: metre.
     pub split_step_m: f64,
     /// The section's line length the grid runs over.
+    /// Unit: metre.
     pub section_length_m: f64,
     pub forward: Option<FfiDirectionDeltas>,
     pub reverse: Option<FfiDirectionDeltas>,
@@ -3521,6 +4145,7 @@ pub struct FfiDirectionDeltas {
     pub missing: Vec<FfiLapDeltaMissing>,
     /// The largest number of seconds any of `laps` is behind or ahead of the
     /// reference, 0 when none has a finite delta.
+    /// Unit: second.
     pub peak_delta_secs: f32,
     /// The typical lap's time against the reference per split, over the laps
     /// other than the reference. `None` when no split has enough laps.
@@ -3551,6 +4176,7 @@ pub struct FfiSplitSummary {
     pub upper_quartile_secs: FfiFloat32Array,
     /// The laps with a finite delta over each split, which its figures come
     /// from.
+    /// Unit: index.
     pub laps: Vec<u32>,
 }
 
@@ -3560,8 +4186,10 @@ pub struct FfiSplitSummary {
 pub struct FfiLapDelta {
     pub activity_id: String,
     /// Joins the curve to its chart point and lap row.
+    /// Unit: index.
     pub start_index: u32,
     /// Unix seconds
+    /// Unit: epoch_second.
     pub activity_date: f64,
     /// Seconds behind the reference (positive) or ahead of it (negative) at
     /// each grid point from the start of travel, zero at the first shared point and
@@ -3575,6 +4203,7 @@ pub struct FfiLapDelta {
     pub split_secs: FfiFloat32Array,
     /// The delta at the end of the section, only for a lap that covers both
     /// of its ends.
+    /// Unit: second.
     pub end_delta_secs: Option<f32>,
 }
 
@@ -3583,8 +4212,10 @@ pub struct FfiLapDelta {
 #[serde(rename_all = "camelCase")]
 pub struct FfiLapDeltaMissing {
     pub activity_id: String,
+    /// Unit: index.
     pub start_index: u32,
     /// Unix seconds
+    /// Unit: epoch_second.
     pub activity_date: f64,
     pub reason: FfiLapDeltaMissingReason,
 }
@@ -3594,9 +4225,13 @@ pub struct FfiLapDeltaMissing {
 #[serde(rename_all = "camelCase")]
 pub struct FfiTrendBandPoint {
     /// Unix seconds
+    /// Unit: epoch_second.
     pub time: f64,
+    /// Unit: second.
     pub value: f64,
+    /// Unit: second.
     pub upper: f64,
+    /// Unit: second.
     pub lower: f64,
 }
 
@@ -3632,18 +4267,24 @@ pub struct FfiAttemptHistograms {
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiAttemptHistogram {
+    /// Unit: second.
     pub start_secs: f64,
+    /// Unit: second.
     pub bin_width_secs: f64,
+    /// Unit: count.
     pub counts: Vec<u32>,
     /// A section's speed in m/s over each bin edge, `counts.len() + 1` values,
     /// so the axis is labelled in the scatter's unit. `None` for a route,
     /// whose attempts differ in length and whose scatter plots time. An edge
     /// at zero seconds reads 0.
+    /// Unit: metre_per_second.
     pub edge_speeds: Option<Vec<f64>>,
     /// Attempts in the bins.
+    /// Unit: count.
     pub binned: u32,
     /// Route attempts the scatter draws that the bins leave out for lying
     /// outside the distance band. Zero for a section.
+    /// Unit: count.
     pub unbinned_outside_band: u32,
 }
 
@@ -3659,16 +4300,19 @@ pub struct FfiAttemptHistogram {
 #[serde(rename_all = "camelCase")]
 pub struct FfiRouteDetailData {
     /// Total activities held by the engine
+    /// Unit: count.
     pub activity_count: u32,
     /// The route itself, or `None` when the ID is unknown. Its `custom_name`
     /// is the name it is shown under.
     pub group: Option<FfiRouteGroup>,
     /// The representative activity's distance in meters, the figure the routes
     /// list shows and sorts on. Zero when the route is unknown.
+    /// Unit: metre.
     pub distance_meters: f64,
     /// The representative activity's elevation gain in meters, the climbing
     /// the route hero shows beside its distance. Zero when the route is
     /// unknown.
+    /// Unit: metre.
     pub elevation_gain_meters: f64,
     /// Representative activity's polyline, delta+varint encoded
     #[serde(with = "crate::remote::bytes")]
@@ -3802,14 +4446,18 @@ pub enum FfiBestEffortKind {
 pub struct FfiBestEffort {
     pub kind: FfiBestEffortKind,
     /// Seconds for power, metres for pace.
+    /// Unit: metre.
     pub checkpoint: f64,
     /// Watts for power, metres per second for pace. Empty when the curve
     /// holds no sample within tolerance of the checkpoint.
+    /// Unit: watt.
     pub value: Option<f64>,
     /// Seconds taken to cover the distance, for pace only.
+    /// Unit: second.
     pub time: Option<f64>,
     pub activity_id: Option<String>,
     /// Watts per kilogram for power, from the curve's own per-kilogram series.
+    /// Unit: watt_per_kilogram.
     pub watts_per_kg: Option<f64>,
     /// The activity holding the per-kilogram best, which need not be the one
     /// holding the watts.
@@ -3826,9 +4474,11 @@ pub struct FfiBestEffort {
 pub struct FfiClimbBests {
     pub sport: String,
     /// Activities in the period whose climb rows are still being computed.
+    /// Unit: count.
     pub owed: u32,
     /// Activities in the period holding climb rows whose elevation is not the
     /// corrected series, so they are left out of the bests.
+    /// Unit: count.
     pub source_excluded: u32,
     /// One per stored window length, shortest first.
     pub bests: Vec<FfiClimbBest>,
@@ -3838,9 +4488,12 @@ pub struct FfiClimbBests {
 #[serde(rename_all = "camelCase")]
 pub struct FfiClimbBest {
     pub label: String,
+    /// Unit: second.
     pub window_s: u32,
     /// Vertical metres per hour. Empty when no activity measured the window.
+    /// Unit: metre_per_hour.
     pub vam: Option<f64>,
+    /// Unit: watt_per_kilogram.
     pub watts_per_kg: Option<f64>,
     pub activity_id: Option<String>,
     /// The name and start of the activity holding the best, when the device
@@ -3872,6 +4525,7 @@ pub struct FfiFitnessScreenWindows {
     pub month_previous: FfiTimestampRange,
     /// The instant the weekly card's periods run to, in the wall-clock seconds
     /// an activity's date is recorded in.
+    /// Unit: epoch_second.
     pub now_wall_seconds: f64,
 }
 
@@ -3884,9 +4538,11 @@ pub struct FfiStatTrend {
     pub glyph: String,
     /// The size of the move in whole percent of the earlier total, absent for
     /// a move inside the deadband.
+    /// Unit: percent.
     pub percent: Option<u32>,
     /// The signed move in percent of the earlier total, unrounded, for a card
     /// that prints its own precision.
+    /// Unit: percent.
     pub change: f64,
 }
 
@@ -3953,19 +4609,26 @@ pub struct FfiFitnessScreenData {
     /// primary sport defaults to until the athlete chooses one.
     pub sport_mix: FfiSportMix,
     /// The fitness time constant in days in effect today
+    /// Unit: day.
     pub fitness_days: u32,
     /// The fatigue time constant in days in effect today
+    /// Unit: day.
     pub fatigue_days: u32,
     /// The cycling FTP the athlete set, in watts, else the one the newest
     /// cycling activity was analysed against.
+    /// Unit: watt.
     pub cycling_ftp_setting: Option<f64>,
     /// The running LTHR the athlete set, in bpm.
+    /// Unit: beat_per_minute.
     pub running_lthr: Option<f64>,
     /// The decoupling ride of each span the read was asked for, in that order.
     pub decoupling_sources: Vec<FfiSpanDecoupling>,
     /// Every activity inside the longest span asked for, oldest first, for the
     /// strip under the fitness plot.
     pub load_dots: Vec<FfiLoadDot>,
+    /// The least-squares line through `load_dots` by day, which the strip's
+    /// scatter draws. Absent for fewer than two dots or dots on one day.
+    pub load_trend: Option<FfiLoadTrend>,
     /// Moving hours per week and sport family over the twelve weeks ending at
     /// the latest week that holds an activity, oldest first. A week with
     /// nothing in it stays in the series with no hours. It does not follow the
@@ -3980,6 +4643,7 @@ pub struct FfiFitnessScreenData {
     pub calendar_first_day: String,
     /// The activities from the cap to the day before `calendar_first_day`
     /// that the account holds and the device has not downloaded.
+    /// Unit: count.
     pub calendar_older_owed: u32,
     /// Calendar months with activities inside the monthly span, oldest first.
     pub months: Vec<FfiMonthlyStats>,
@@ -3993,6 +4657,7 @@ pub struct FfiFitnessScreenData {
     pub comparisons: FfiSummaryComparisons,
     /// The imported rides the server's figures leave out: shown as rides, and
     /// in no curve, best effort or fitness day. Zero for a Garmin-only library.
+    /// Unit: count.
     pub uncounted_imports: u32,
 }
 
@@ -4001,6 +4666,7 @@ pub struct FfiFitnessScreenData {
 #[serde(rename_all = "camelCase")]
 pub struct FfiSpanDecoupling {
     /// The span's length in days, back from today.
+    /// Unit: day.
     pub days: u32,
     /// `None` when no ride inside the span qualifies.
     pub source: Option<FfiDecouplingSource>,
@@ -4016,7 +4682,26 @@ pub struct FfiDecouplingSource {
     /// Wall-clock start, `YYYY-MM-DDTHH:MM:SS`.
     pub start_date_local: String,
     /// Percentage, as intervals.icu computed it.
+    /// Unit: percent.
     pub decoupling: f64,
+}
+
+/// A least-squares line of load against day, with the spread of the points
+/// about it.
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiLoadTrend {
+    /// The day the line is anchored on, `YYYY-MM-DD`: the first point's day.
+    pub origin_day: String,
+    /// The change in load per day.
+    /// Unit: tss_per_day.
+    pub slope_per_day: f64,
+    /// The line's load on `origin_day`.
+    /// Unit: tss.
+    pub intercept: f64,
+    /// The standard deviation of the points about the line, zero for two.
+    /// Unit: tss.
+    pub spread: f64,
 }
 
 /// One activity as the fitness strip marks it and its day picker lists it.
@@ -4026,13 +4711,19 @@ pub struct FfiLoadDot {
     pub activity_id: String,
     pub name: String,
     pub sport_type: String,
+    /// The sport's family, lower case as `FfiFamilyHours` names it: `ride`,
+    /// `winter`, `run`, `water`, `foot`, `strength` or `other`.
+    pub family: String,
     /// Wall-clock start, `YYYY-MM-DDTHH:MM:SS`.
     pub start_date_local: String,
     /// Seconds.
+    /// Unit: second.
     pub moving_time: u32,
     /// Metres.
+    /// Unit: metre.
     pub distance: f64,
     /// The recorded training load, zero when none is recorded.
+    /// Unit: tss.
     pub load: f64,
 }
 
@@ -4054,6 +4745,7 @@ pub struct FfiFamilyHours {
     /// The family's lower-case name: `ride`, `winter`, `run`, `water`, `foot`,
     /// `strength` or `other`.
     pub family: String,
+    /// Unit: hour.
     pub hours: f64,
 }
 
@@ -4061,8 +4753,11 @@ pub struct FfiFamilyHours {
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiSportMix {
+    /// Unit: count.
     pub rides: u32,
+    /// Unit: count.
     pub runs: u32,
+    /// Unit: count.
     pub swims: u32,
     /// "Cycling", "Running" or "Swimming", whichever counts the most. `None`
     /// for an empty library or a tie, which is no evidence for either sport.
@@ -4078,6 +4773,7 @@ pub struct FfiSportMix {
 #[serde(rename_all = "camelCase")]
 pub struct FfiMapScreenData {
     /// Total activities held by the engine, before the date and sport filters
+    /// Unit: count.
     pub activity_count: u32,
     /// Sport types with at least one activity
     pub available_sport_types: Vec<String>,
@@ -4087,11 +4783,13 @@ pub struct FfiMapScreenData {
     pub activities: Vec<crate::persistence::MapActivityComplete>,
     /// Routes the map can draw: groups of at least two activities with a
     /// stored line. Zero while the route-line layer is stale.
+    /// Unit: count.
     pub route_count: u32,
     /// The pre-built route lines, present only when the read asked for them
     /// and the layer is current
     pub route_lines: Option<FfiRouteLineLayer>,
     /// Visible sections, regardless of whether the overlay was requested
+    /// Unit: count.
     pub section_count: u32,
     /// The section overlay, present only while the layer is requested
     pub sections: Option<FfiMapSectionLayer>,
@@ -4123,9 +4821,30 @@ pub struct FfiMapContextLayers {
 pub struct FfiMapUnmapped {
     /// No track is owed: no GPS upstream, a track refused for good, or one the
     /// download gave up on, as `FfiMapEmptyReason::NoGps` reads it.
+    /// Unit: count.
     pub without_gps: u32,
     /// A track is upstream and the GPS download has still to fetch it.
+    /// Unit: count.
     pub downloading: u32,
+}
+
+/// An activity whose track the engine has given up on: it failed the limit of
+/// settled runs at the upstream version the census still names.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiGivenUpTrack {
+    pub activity_id: String,
+    /// The name in the stored body, empty when none is stored.
+    pub name: String,
+    /// The start on the athlete's wall clock, as the census holds it.
+    pub start_date_local: String,
+}
+
+/// The activities whose track the engine has given up on, newest first.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiGivenUpTracks {
+    pub tracks: Vec<FfiGivenUpTrack>,
 }
 
 /// Why the map draws no activity, so the tab names its cause rather than
@@ -4153,10 +4872,12 @@ pub enum FfiMapEmptyReason {
 pub struct FfiRouteLineLayer {
     /// The route group generation the lines were built from. Declared as a
     /// double, which holds every generation a library reaches exactly.
+    /// Unit: identifier.
     pub generation: f64,
     /// The database state the layer was read in, which the caller passes back
     /// to say it still holds these lines. `None` when the read could not vouch
     /// for one.
+    /// Unit: identifier.
     pub stamp: Option<f64>,
     /// The lines, absent when the caller passed back this layer's `stamp`:
     /// nothing has committed since, so the lines and names it holds are these.
@@ -4170,6 +4891,7 @@ pub struct FfiRouteLineLayer {
 pub struct FfiMapSectionLayer {
     /// The database state the overlay was read in, passed back to say the
     /// caller still holds it. `None` when the read could not vouch for one.
+    /// Unit: identifier.
     pub stamp: Option<f64>,
     /// The sections, absent when the caller passed back this layer's `stamp`.
     pub sections: Option<Vec<FfiMapSection>>,
@@ -4180,14 +4902,17 @@ pub struct FfiMapSectionLayer {
 pub struct FfiRouteLine {
     pub route_id: String,
     /// The number the route is shown under, absent until one is minted
+    /// Unit: identifier.
     pub route_number: Option<u32>,
     /// The name the route is shown under, read when the map is, so a rename
     /// shows without the layer being rebuilt
     pub name: String,
     /// The activities in the route
+    /// Unit: count.
     pub activity_count: u32,
     /// The representative's distance in metres, the figure the route list
     /// shows, read when the map is
+    /// Unit: metre.
     pub distance_meters: f64,
     /// The representative's signature in `codec::encode_polyline` form
     #[serde(with = "crate::remote::bytes")]
@@ -4198,6 +4923,7 @@ pub struct FfiRouteLine {
 #[serde(rename_all = "camelCase")]
 pub struct FfiMapCategoryCount {
     pub family: FfiSportFamily,
+    /// Unit: count.
     pub count: u32,
 }
 
@@ -4215,13 +4941,17 @@ pub struct FfiMapCategoryCount {
 #[serde(rename_all = "camelCase")]
 pub struct FfiEfficiencyPoint {
     /// Unix timestamp of the activity
+    /// Unit: epoch_second.
     pub date: f64,
     /// Pace in seconds per km
+    /// Unit: second_per_kilometre.
     pub pace_secs_per_km: f64,
     /// Average heart rate during this traversal
+    /// Unit: beat_per_minute.
     pub avg_hr: f64,
     /// Heart rate per unit of speed: avg_hr * pace_secs_per_km. Lower is
     /// fewer beats for the same speed, which is more efficient.
+    /// Unit: beat_second_per_kilometre.
     pub hr_pace_ratio: f64,
 }
 
@@ -4250,18 +4980,22 @@ pub struct FfiEfficiencyTrend {
     /// Individual data points sorted by date (oldest first)
     pub points: Vec<FfiEfficiencyPoint>,
     /// Linear regression slope of the ratio over time (negative = improving)
+    /// Unit: ratio.
     pub trend_slope: f64,
     /// Direction of the ratio's significant movement.
     pub direction: EfficiencyDirection,
     /// The ratio's own change over the observed range, restated in bpm at the
     /// mean pace. Not a measured heart rate delta: an effort set that only
     /// changed pace moves it too.
+    /// Unit: beat_per_minute.
     pub hr_change_bpm: f64,
     /// Efforts the regression used: both signals present and a plausible pace
+    /// Unit: count.
     pub effort_count: u32,
     /// The newest effort's ratio against the mean of the series, in the
     /// series' own standard deviations. Absent where the series has no spread
     /// to measure against.
+    /// Unit: standard_deviation.
     pub signal_delta: Option<f64>,
 }
 
@@ -4877,16 +5611,24 @@ mod tests {
 #[serde(rename_all = "camelCase")]
 pub struct FfiExerciseSet {
     pub activity_id: String,
+    /// Unit: identifier.
     pub set_order: u32,
+    /// Unit: identifier.
     pub exercise_category: u16,
+    /// Unit: identifier.
     pub exercise_name: Option<u16>,
     /// Human-readable exercise name, pre-resolved in Rust.
     pub display_name: String,
     /// 0=active, 1=rest, 2=warmup, 3=cooldown
+    /// Unit: code.
     pub set_type: u8,
+    /// Unit: count.
     pub repetitions: Option<u16>,
+    /// Unit: kilogram.
     pub weight_kg: Option<f64>,
+    /// Unit: second.
     pub duration_secs: Option<f64>,
+    /// Unit: epoch_second.
     pub start_time: Option<f64>,
 }
 
@@ -4895,10 +5637,12 @@ pub struct FfiExerciseSet {
 #[serde(rename_all = "camelCase")]
 pub struct FfiExerciseGroup {
     pub name: String,
+    /// Unit: identifier.
     pub exercise_category: u16,
     pub sets: Vec<FfiExerciseSet>,
     pub best_set: Option<FfiExerciseSet>,
     /// Rest after each preceding active set, when both timestamps are known.
+    /// Unit: second.
     pub rest_seconds: Vec<f64>,
 }
 
@@ -4908,8 +5652,10 @@ pub struct FfiExerciseGroup {
 pub struct FfiExerciseHistorySession {
     pub activity_id: String,
     pub activity_name: String,
+    /// Unit: epoch_second.
     pub date: f64,
     pub best_set: FfiExerciseSet,
+    /// Unit: kilogram.
     pub estimated_one_rep_max_kg: Option<f64>,
 }
 
@@ -4917,6 +5663,7 @@ pub struct FfiExerciseHistorySession {
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiExerciseDetailData {
+    /// Unit: identifier.
     pub exercise_category: u16,
     pub exercise_name: String,
     pub sessions: Vec<FfiExerciseHistorySession>,
@@ -4926,13 +5673,16 @@ pub struct FfiExerciseDetailData {
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiExercisePickerRow {
+    /// Unit: identifier.
     pub category: u16,
+    /// Unit: identifier.
     pub name: u16,
     pub label_key: String,
     /// The English name; a translation is looked up by `label_key`.
     pub display_name: String,
     pub equipment: String,
     /// Whole days since the athlete last did it, `None` when never.
+    /// Unit: day.
     pub last_done_days: Option<u32>,
     /// It has followed the exercise just done in the athlete's sessions.
     pub usually_next: bool,
@@ -4959,10 +5709,14 @@ pub struct FfiExercisePickerData {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLiveStrengthSet {
+    /// Unit: count.
     pub reps: Option<u32>,
+    /// Unit: kilogram.
     pub weight_kg: Option<f64>,
     /// The weight as the athlete reads it, in the session's `weight_unit`, to one decimal.
+    /// Unit: varies.
     pub display_weight: Option<f64>,
+    /// Unit: second.
     pub duration_secs: Option<f64>,
     /// Which side of a one-sided exercise, when the athlete said.
     pub side: Option<String>,
@@ -4974,7 +5728,9 @@ pub struct FfiLiveStrengthSet {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLiveStrengthExercise {
+    /// Unit: identifier.
     pub category: u16,
+    /// Unit: identifier.
     pub name: Option<u16>,
     /// The catalogue's key for the exercise; empty for a pair the catalogue does not name.
     pub label_key: String,
@@ -4982,8 +5738,10 @@ pub struct FfiLiveStrengthExercise {
     pub equipment: String,
     pub one_sided: bool,
     /// The group the exercise is done with, by number.
+    /// Unit: identifier.
     pub group_no: Option<u32>,
     /// The rest planned after the exercise on its own, in seconds.
+    /// Unit: second.
     pub rest_secs: Option<u32>,
     pub sets: Vec<FfiLiveStrengthSet>,
 }
@@ -4992,7 +5750,9 @@ pub struct FfiLiveStrengthExercise {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiLiveStrengthGroup {
+    /// Unit: identifier.
     pub group_no: u32,
+    /// Unit: second.
     pub rest_secs: Option<u32>,
 }
 
@@ -5005,13 +5765,17 @@ pub struct FfiLiveStrengthSession {
     pub weight_unit: crate::strength::weight::WeightUnit,
     /// The session has begun; before that it is being prepared.
     pub begun: bool,
+    /// Unit: epoch_second.
     pub started_at: Option<f64>,
     pub exercises: Vec<FfiLiveStrengthExercise>,
     pub groups: Vec<FfiLiveStrengthGroup>,
     /// The set the session is at, by exercise and set index.
+    /// Unit: index.
     pub current_exercise: Option<u32>,
+    /// Unit: index.
     pub current_set: Option<u32>,
     /// When the rest in progress began, if one is.
+    /// Unit: epoch_second.
     pub rest_started_at: Option<f64>,
     /// The lines of the plan this session was started from that are not
     /// exercises, as the plan wrote them.
@@ -5027,9 +5791,12 @@ pub struct FfiFocusState {
     pub previous: Option<crate::persistence::strength_focus::FocusNeighbour>,
     pub next: Option<crate::persistence::strength_focus::FocusNeighbour>,
     /// Epoch seconds the running rest began.
+    /// Unit: epoch_second.
     pub rest_started_at: Option<f64>,
+    /// Unit: second.
     pub rest_secs: Option<u32>,
     /// Epoch seconds the running rest ends.
+    /// Unit: epoch_second.
     pub rest_ends_at: Option<f64>,
 }
 
@@ -5039,6 +5806,7 @@ pub struct FfiFocusState {
 pub struct FfiLiveStrengthOutcome {
     pub session: FfiLiveStrengthSession,
     /// For an exercise added with sets from an earlier session, the whole days since it.
+    /// Unit: day.
     pub prefilled_days_ago: Option<u32>,
 }
 
@@ -5085,12 +5853,19 @@ pub enum FfiLiveEditKind {
 #[serde(rename_all = "camelCase")]
 pub struct FfiLiveEdit {
     pub kind: FfiLiveEditKind,
+    /// Unit: index.
     pub exercise: Option<u32>,
+    /// Unit: index.
     pub set: Option<u32>,
+    /// Unit: index.
     pub to: Option<u32>,
+    /// Unit: identifier.
     pub group_no: Option<u32>,
+    /// Unit: identifier.
     pub category: Option<u32>,
+    /// Unit: identifier.
     pub name: Option<u32>,
+    /// Unit: varies.
     pub value: Option<f64>,
     pub text: Option<String>,
     pub flag: Option<bool>,
@@ -5146,6 +5921,9 @@ pub struct FfiStrengthStartData {
     pub live: bool,
     pub groups: Vec<FfiStrengthStartGroup>,
     pub workouts: Vec<FfiStrengthSavedWorkout>,
+    /// The workouts deleted from the phone or a linked client, which the screen
+    /// lists with a restore.
+    pub removed: Vec<FfiStrengthSavedWorkout>,
 }
 
 /// One session's stored sets with the totals every surface shows for it.
@@ -5156,12 +5934,16 @@ pub struct FfiExerciseSession {
     pub sets: Vec<FfiExerciseSet>,
     /// Active sets grouped by consecutive exercise name, in recorded order.
     pub groups: Vec<FfiExerciseGroup>,
+    /// Unit: count.
     pub active_set_count: u32,
     /// Distinct exercise names among the active sets.
+    /// Unit: count.
     pub exercise_count: u32,
     /// Weight times repetitions over active sets. A set with no repetitions
     /// counts as one and a set with no weight as zero.
+    /// Unit: kilogram.
     pub total_volume_kg: f64,
+    /// Unit: second.
     pub total_duration_secs: f64,
 }
 
@@ -5172,6 +5954,7 @@ pub struct FfiMuscleGroup {
     /// Slug matching react-native-body-highlighter (e.g., "biceps", "chest")
     pub slug: String,
     /// 1 = secondary, 2 = primary
+    /// Unit: code.
     pub intensity: u8,
 }
 
@@ -5184,10 +5967,13 @@ pub struct FfiStrengthCardSummary {
     /// download is still owed, in flight or failed, so an empty card says nothing.
     pub settled: bool,
     /// Rest, warmup and cooldown sets are not counted.
+    /// Unit: count.
     pub active_set_count: u32,
     /// Distinct exercise names among the active sets.
+    /// Unit: count.
     pub exercise_count: u32,
     /// Weight times repetitions over active sets.
+    /// Unit: kilogram.
     pub total_volume_kg: f64,
     /// Muscle groups the active sets work, primary over secondary.
     pub muscles: Vec<FfiMuscleGroup>,
@@ -5200,19 +5986,25 @@ pub struct FfiMuscleVolume {
     /// Slug matching react-native-body-highlighter
     pub slug: String,
     /// Number of sets where this muscle is primary target
+    /// Unit: count.
     pub primary_sets: u32,
     /// Number of sets where this muscle is secondary target
+    /// Unit: count.
     pub secondary_sets: u32,
     /// Weighted set count: primary=1.0, secondary=0.5
+    /// Unit: count.
     pub weighted_sets: f64,
     /// Reps targeting this muscle, with secondary work counted at half
+    /// Unit: count.
     pub total_reps: f64,
     /// Weight × reps in kg, with secondary work counted at half
+    /// Unit: kilogram.
     pub volume_kg: f64,
     /// Human-readable exercise names that targeted this muscle
     pub exercise_names: Vec<String>,
     /// Body-diagram shade, 1 (lightest) to `DIAGRAM_SHADES`, against the
     /// most trained muscle in the same summary
+    /// Unit: code.
     pub shade: u8,
 }
 
@@ -5230,12 +6022,15 @@ pub struct FfiStrengthBalancePair {
     pub left_slug: String,
     pub right_slug: String,
     /// Weighted sets on each side, rounded to one decimal, as the verdict saw them
+    /// Unit: count.
     pub left_weighted_sets: f64,
+    /// Unit: count.
     pub right_weighted_sets: f64,
     /// The heavier side, or `None` when the two are equal
     pub dominant_slug: Option<String>,
     /// Heavier over lighter. `None` when either side is untrained, where a
     /// ratio is not a number: `status` carries that case.
+    /// Unit: ratio.
     pub ratio: Option<f64>,
     /// `balanced` | `watch` | `imbalanced` | `one-sided` | `insufficient`
     pub status: String,
@@ -5246,17 +6041,21 @@ pub struct FfiStrengthBalancePair {
 #[serde(rename_all = "camelCase")]
 pub struct FfiStrengthSummary {
     /// Start of the summary's range in Unix seconds, or zero for an undated aggregate.
+    /// Unit: epoch_second.
     pub start_ts: f64,
     /// Per-muscle-group volume data
     pub muscle_volumes: Vec<FfiMuscleVolume>,
     /// Number of WeightTraining activities in the period
+    /// Unit: count.
     pub activity_count: u32,
     /// Total active sets across all activities
+    /// Unit: count.
     pub total_sets: u32,
     /// One entry per opposing pair, trained or not
     pub balance: Vec<FfiStrengthBalancePair>,
     /// The most trained muscle's weighted sets, the top of the diagram's
     /// scale, or zero when nothing was trained
+    /// Unit: count.
     pub max_weighted_sets: f64,
 }
 
@@ -5264,7 +6063,9 @@ pub struct FfiStrengthSummary {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiTimestampRange {
+    /// Unit: epoch_second.
     pub start_ts: f64,
+    /// Unit: epoch_second.
     pub end_ts: f64,
 }
 
@@ -5284,6 +6085,7 @@ pub struct FfiStrengthScreenData {
     pub exercises: Vec<FfiMuscleExercises>,
     /// Strength activities in the period with no FIT outcome yet, whose sets
     /// are owed rather than absent.
+    /// Unit: count.
     pub owed_count: u32,
 }
 
@@ -5319,17 +6121,23 @@ pub struct FfiStrengthProgression {
     /// Weighted sets for each week of `weekly`, oldest first, rounded to one
     /// decimal before the averages below are taken. The order matters: the
     /// reader rounded first and an average of unrounded weeks disagrees.
+    /// Unit: count.
     pub weekly_weighted_sets: Vec<f64>,
+    /// Unit: count.
     pub recent_average: f64,
+    /// Unit: count.
     pub baseline_average: f64,
+    /// Unit: count.
     pub peak_weighted_sets: f64,
     /// `None` when the baseline is zero, which has no percentage to report.
+    /// Unit: percent.
     pub change_pct: Option<f64>,
     /// "up", "down" or "flat".
     pub trend: String,
     /// How far the recent average sits from the baseline, in standard
     /// deviations of the weekly series. `None` when the series is flat or
     /// shorter than two weeks.
+    /// Unit: standard_deviation.
     pub signal_delta: Option<f64>,
 }
 
@@ -5344,14 +6152,19 @@ pub struct FfiExerciseSummary {
     /// Human-readable exercise name
     pub exercise_name: String,
     /// FIT exercise category ID (pass back for drill-down query)
+    /// Unit: identifier.
     pub exercise_category: u16,
     /// Sets credited to this muscle across all activities
+    /// Unit: count.
     pub total_sets: f64,
     /// Reps credited to this muscle
+    /// Unit: count.
     pub total_reps: f64,
     /// Total volume load in kg (weight × reps)
+    /// Unit: kilogram.
     pub volume_kg: f64,
     /// Number of distinct activities containing this exercise
+    /// Unit: count.
     pub activity_count: u32,
     /// True if the muscle is a primary target for at least one occurrence
     pub is_primary: bool,
@@ -5406,10 +6219,13 @@ pub struct FfiActivityHighlightsBundle {
 pub struct FfiActivityNewGround {
     pub activity_id: String,
     /// `new_tiles` over `tiles`, from 0 to 1.
+    /// Unit: ratio.
     pub fraction: f64,
     /// Tiles the activity touches.
+    /// Unit: count.
     pub tiles: u32,
     /// Tiles no earlier activity touched.
+    /// Unit: count.
     pub new_tiles: u32,
 }
 
@@ -5427,13 +6243,16 @@ pub struct FfiActivityRouteHighlight {
     /// True when this activity's duration is the best across all route attempts
     pub is_pr: bool,
     /// -1=slower than preceding avg, 0=neutral, 1=faster
+    /// Unit: code.
     pub trend: i8,
     /// Seconds between this activity's moving time and the route PR's moving
     /// time. Negative = ahead of PR, positive = behind PR. None when there is
     /// no PR comparison available (e.g. first attempt).
+    /// Unit: second.
     pub time_delta_seconds: Option<i32>,
     /// When is_pr: seconds faster than the previous best attempt. None when
     /// this is the only timed attempt, when times tie, or when not a PR.
+    /// Unit: second.
     pub pr_improvement_seconds: Option<u32>,
     /// The chip text a feed row shows for this highlight, worded here once.
     pub label: String,
@@ -5478,8 +6297,10 @@ pub struct FfiActivityIndicator {
     pub target_id: String,
     pub target_name: String,
     pub direction: String,
+    /// Unit: second.
     pub lap_time: f64,
     /// -1=declining, 0=stable, 1=improving
+    /// Unit: code.
     pub trend: i8,
     /// The chip text a feed row shows for this indicator, worded here once.
     pub label: String,
@@ -5494,13 +6315,17 @@ pub struct FfiSectionEncounter {
     pub section_type: String,
     pub section_name: String,
     pub direction: String,
+    /// Unit: metre.
     pub distance_meters: f64,
     /// Where this activity's track first enters the section in this direction.
     /// Encounters come back ordered by it.
+    /// Unit: index.
     pub start_index: u32,
     /// This activity's time on this section in this direction
+    /// Unit: second.
     pub lap_time: f64,
     /// This activity's pace on this section in this direction
+    /// Unit: metre_per_second.
     pub lap_pace: f64,
     /// Whether this activity holds the PR for this (section, direction)
     pub is_pr: bool,
@@ -5509,15 +6334,19 @@ pub struct FfiSectionEncounter {
     /// Podium place, 1 to 3, among the other outings on this (section,
     /// direction); `None` for fourth and below, a fragment or a lone outing.
     /// `is_pr` is exactly `rank == Some(1)`.
+    /// Unit: index.
     pub rank: Option<u32>,
     /// How many total traversals exist for this (section, direction)
+    /// Unit: count.
     pub visit_count: u32,
     /// Historical lap times for sparkline (chronological, all activities in this direction)
+    /// Unit: second.
     pub history_times: Vec<f64>,
     /// Activity IDs corresponding to history_times (for highlighting current activity)
     pub history_activity_ids: Vec<String>,
     /// Start of each activity in history_times, Unix seconds, so the sparkline
     /// can place each outing at its date
+    /// Unit: epoch_second.
     pub history_dates: Vec<f64>,
 }
 
@@ -5552,9 +6381,13 @@ pub struct FfiMergeCandidate {
     pub name: Option<String>,
     /// Every sport whose included outings have taken the section, sorted.
     pub sport_types: Vec<String>,
+    /// Unit: metre.
     pub distance_meters: f64,
+    /// Unit: count.
     pub visit_count: u32,
+    /// Unit: percent.
     pub overlap_pct: f64,
+    /// Unit: metre.
     pub center_distance_meters: f64,
     /// The candidate's line thinned to what a row thumbnail draws, delta+varint
     /// encoded as `FfiRecentPr.encoded_polyline` is. Empty when it cannot be read.
@@ -5570,6 +6403,7 @@ pub struct FfiMergeDropped {
     pub activity_id: String,
     pub name: String,
     /// Unix seconds
+    /// Unit: epoch_second.
     pub start_date: f64,
 }
 
@@ -5591,15 +6425,21 @@ pub struct FfiMatchStrictness {
 pub struct FfiStalePrOpportunity {
     pub section_id: String,
     pub section_name: String,
+    /// Unit: second.
     pub best_time_secs: f64,
+    /// Unit: count.
     pub traversal_count: u32,
     /// Days since the last traversal. The insight gates on this, so it has to
     /// travel with the opportunity rather than be recovered downstream.
+    /// Unit: day.
     pub days_since_last: u32,
     /// "power" for cycling (FTP), "pace" for running/swimming (critical speed)
     pub fitness_metric: String,
+    /// Unit: varies.
     pub current_value: f64,
+    /// Unit: varies.
     pub previous_value: f64,
+    /// Unit: percent.
     pub gain_percent: f64,
     /// "W" for power, "/km" for running, "/100m" for swimming
     pub unit: String,
@@ -5615,16 +6455,20 @@ pub struct FfiStalePrOpportunity {
     pub best_activity_id: Option<String>,
     /// When the record was set, epoch seconds. `previous_value` is the
     /// fitness on this day.
+    /// Unit: epoch_second.
     pub pr_date: f64,
     /// The record effort's mean power in watts, for a cycling section whose
     /// record carried a power stream. Absent otherwise, never a zero.
+    /// Unit: watt.
     pub pr_power: Option<f64>,
     /// The record effort's mean speed in m/s, for a running or swimming
     /// section. Absent for cycling.
+    /// Unit: metre_per_second.
     pub pr_speed: Option<f64>,
     /// The record effort as a percent of the fitness held that day: power
     /// over eFTP for cycling, speed over critical speed for running and
     /// swimming. Absent when the effort is.
+    /// Unit: percent.
     pub pr_share_percent: Option<f64>,
     /// The fitness `previous_value` and `current_value` are read from, oldest
     /// first, from the first of `recent_efforts` to the newest value, with a

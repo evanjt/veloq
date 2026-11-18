@@ -1,3 +1,4 @@
+import { FfiHoldCause } from 'veloqrs';
 import { summariseBackgroundJobs } from '@/features/settings/lib/backgroundJobsSummary';
 import type { BackgroundJob } from '@/features/settings/hooks/useBackgroundJobs';
 
@@ -72,7 +73,10 @@ describe('summariseBackgroundJobs', () => {
     expect(
       summariseBackgroundJobs([
         job('elevationBackfill', { state: 'waiting', resumesAt: 9000 }),
-        job('streamBackfill', { state: 'waiting', held: { until: 5000, byUpstream: false } }),
+        job('streamBackfill', {
+          state: 'waiting',
+          held: { until: 5000, cause: FfiHoldCause.Budget },
+        }),
       ])
     ).toEqual({ kind: 'waiting', count: 2, until: 5000 });
     expect(summariseBackgroundJobs([job('streamBackfill', { state: 'waiting' })])).toEqual({

@@ -8,6 +8,7 @@
 use crate::persistence::PersistentEngine;
 use crate::persistence::sections::geometry;
 use rusqlite::{OptionalExtension, params};
+use std::collections::HashSet;
 use tracematch::GpsPoint;
 use tracematch::matching::calculate_route_distance;
 
@@ -15,6 +16,162 @@ use tracematch::matching::calculate_route_distance;
 struct PreferenceRow {
     custom: bool,
     superseded_by: Option<String>,
+}
+
+/// The distance and profile the engine gives a line: what a section stores for
+/// its line, and what a preview of an edit reports.
+fn measure(line: &[GpsPoint]) -> (f64, tracematch::Enrichment) {
+    let distance = calculate_route_distance(line);
+    (distance, tracematch::enrich(line, distance))
+}
+
+/// The line a trim keeps: `start_index..=end_index` of the section's line,
+/// refused when the range does not index it or keeps too little.
+fn trimmed_line(
+    polyline: &[GpsPoint],
+    start_index: u32,
+    end_index: u32,
+) -> Result<Vec<GpsPoint>, String> {
+    let start = start_index as usize;
+    let end = end_index as usize;
+    if start >= end {
+        return Err("Start index must be less than end index".to_string());
+    }
+    if end >= polyline.len() {
+        return Err(format!(
+            "End index {} out of bounds (polyline has {} points)",
+            end,
+            polyline.len()
+        ));
+    }
+    if end - start + 1 < 5 {
+        return Err("Trimmed section must have at least 5 points".to_string());
+    }
+    let trimmed = polyline[start..=end].to_vec();
+    if calculate_route_distance(&trimmed) < 50.0 {
+        return Err("Trimmed section must be at least 50 meters".to_string());
+    }
+    Ok(trimmed)
+}
+
+/// The line an expand takes from an activity's track, `start_index..=end_index`
+/// of it, read backwards when the section's line ran against that ride.
+fn expanded_line(
+    track: &[GpsPoint],
+    activity_id: &str,
+    reversed: bool,
+    start_index: u32,
+    end_index: u32,
+) -> Result<Vec<GpsPoint>, String> {
+    let start = start_index as usize;
+    let end = end_index as usize;
+    if start >= end {
+        return Err("Start index must be less than end index".to_string());
+    }
+    if end >= track.len() {
+        return Err(format!(
+            "End index {} out of bounds (track has {} points)",
+            end,
+            track.len()
+        ));
+    }
+    let line = geometry::slice(track, (activity_id, start_index, end_index + 1, reversed))
+        .ok_or_else(|| "Expanded range does not index the track".to_string())?;
+    if line.len() < 5 {
+        return Err("Expanded section must have at least 5 points".to_string());
+    }
+    if calculate_route_distance(&line) < 50.0 {
+        return Err("Expanded section must be at least 50 meters".to_string());
+    }
+    Ok(line)
+}
+
+/// Whether a section's line runs against `activity_id`'s track, when that ride
+/// is the section's representative.
+fn runs_against(
+    conn: &rusqlite::Connection,
+    section_id: &str,
+    activity_id: &str,
+) -> Result<bool, String> {
+    conn.query_row(
+        "SELECT rep_reversed FROM sections
+         WHERE id = ? AND representative_activity_id = ?",
+        params![section_id, activity_id],
+        |row| row.get(0),
+    )
+    .optional()
+    .map(|reversed| reversed.unwrap_or(false))
+    .map_err(|e| format!("Failed to read the section: {e}"))
+}
+
+pub(crate) mod pooled {
+    use super::{expanded_line, measure, runs_against, trimmed_line};
+    use rusqlite::{Connection, params};
+
+    /// A line an edit would give a section, read before it is saved.
+    pub(crate) enum ProposedLine<'a> {
+        Trim {
+            start_index: u32,
+            end_index: u32,
+        },
+        Expand {
+            activity_id: &'a str,
+            start_index: u32,
+            end_index: u32,
+        },
+    }
+
+    /// What an edit would leave a section measuring.
+    #[derive(Debug, Clone, PartialEq)]
+    pub(crate) struct BoundsPreview {
+        pub distance_meters: f64,
+        pub avg_grade_percent: Option<f64>,
+        /// The laps the section holds now; the edit deletes them and re-cuts
+        /// every one against the new line.
+        pub laps_remeasured: u32,
+    }
+
+    /// The distance and grade the engine would store for `edit` on a section,
+    /// from the same line and the same measure the edit writes. Writes nothing.
+    pub(crate) fn bounds_preview(
+        conn: &Connection,
+        section_id: &str,
+        edit: &ProposedLine<'_>,
+    ) -> Result<BoundsPreview, String> {
+        let line = match *edit {
+            ProposedLine::Trim {
+                start_index,
+                end_index,
+            } => {
+                let polyline =
+                    crate::persistence::sections::geometry::stored_line(conn, section_id)?;
+                trimmed_line(&polyline, start_index, end_index)?
+            }
+            ProposedLine::Expand {
+                activity_id,
+                start_index,
+                end_index,
+            } => {
+                let track = crate::persistence::activities::pooled::gps_track(conn, activity_id)
+                    .ok_or_else(|| format!("GPS track not found for activity: {activity_id}"))?;
+                let reversed = runs_against(conn, section_id, activity_id)?;
+                expanded_line(&track, activity_id, reversed, start_index, end_index)?
+            }
+        };
+        let (distance_meters, profile) = measure(&line);
+        let laps_remeasured: u32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM section_activities WHERE section_id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to count the section's laps: {e}"))?;
+        Ok(BoundsPreview {
+            distance_meters,
+            avg_grade_percent: profile.avg_grade_percent,
+            laps_remeasured,
+        })
+    }
 }
 
 /// The reference a row stores for a line, with the provenance word that goes beside it.
@@ -229,7 +386,7 @@ impl PersistentEngine {
     /// on the line's own pass, and an edit does not re-run that, so it stays.
     /// Every writer of a section's line calls this after its UPDATE.
     fn write_line_profile(&self, section_id: &str, line: &[GpsPoint]) -> rusqlite::Result<()> {
-        let profile = tracematch::enrich(line, calculate_route_distance(line));
+        let (_, profile) = measure(line);
         self.db.execute(
             "UPDATE sections SET
                 elevation_gain_m = ?, avg_grade_percent = ?, elevation_loss_m = ?,
@@ -271,25 +428,7 @@ impl PersistentEngine {
         // Load current polyline (blob authoritative, JSON fallback)
         let polyline: Vec<GpsPoint> = self.stored_section_polyline(section_id)?;
 
-        // Validate indices
-        let start = start_index as usize;
-        let end = end_index as usize;
-        if start >= end {
-            return Err("Start index must be less than end index".to_string());
-        }
-        if end >= polyline.len() {
-            return Err(format!(
-                "End index {} out of bounds (polyline has {} points)",
-                end,
-                polyline.len()
-            ));
-        }
-        if end - start + 1 < 5 {
-            return Err("Trimmed section must have at least 5 points".to_string());
-        }
-
-        // Slice the polyline
-        let trimmed: Vec<GpsPoint> = polyline[start..=end].to_vec();
+        let trimmed = trimmed_line(&polyline, start_index, end_index)?;
 
         let held = self.section_reference_of_length(section_id, polyline.len());
 
@@ -315,11 +454,7 @@ impl PersistentEngine {
             (id, start, end, reversed)
         });
 
-        // Check minimum distance (50m)
         let distance = calculate_route_distance(&trimmed);
-        if distance < 50.0 {
-            return Err("Trimmed section must be at least 50 meters".to_string());
-        }
 
         self.back_up_original_line(section_id, &polyline)?;
 
@@ -1191,43 +1326,10 @@ impl PersistentEngine {
             .get_gps_track(activity_id)
             .ok_or_else(|| format!("GPS track not found for activity: {}", activity_id))?;
 
-        let start = start_index as usize;
-        let end = end_index as usize;
-        if start >= end {
-            return Err("Start index must be less than end index".to_string());
-        }
-        if end >= track.len() {
-            return Err(format!(
-                "End index {} out of bounds (track has {} points)",
-                end,
-                track.len()
-            ));
-        }
-
         // A line that ran against this ride keeps running the way it did, so its start stays put.
-        let reversed: bool = self
-            .db
-            .query_row(
-                "SELECT rep_reversed FROM sections
-                 WHERE id = ? AND representative_activity_id = ?",
-                params![section_id, activity_id],
-                |row| row.get(0),
-            )
-            .optional()
-            .map_err(|e| format!("Failed to read the section: {e}"))?
-            .unwrap_or(false);
-        let new_polyline: Vec<GpsPoint> =
-            geometry::slice(&track, (activity_id, start_index, end_index + 1, reversed))
-                .ok_or_else(|| "Expanded range does not index the track".to_string())?;
-        if new_polyline.len() < 5 {
-            return Err("Expanded section must have at least 5 points".to_string());
-        }
-
-        // Check minimum distance (50m)
+        let reversed = runs_against(&self.db, section_id, activity_id)?;
+        let new_polyline = expanded_line(&track, activity_id, reversed, start_index, end_index)?;
         let distance = calculate_route_distance(&new_polyline);
-        if distance < 50.0 {
-            return Err("Expanded section must be at least 50 meters".to_string());
-        }
 
         if !self.has_original_bounds(section_id) {
             let current = self.stored_section_polyline(section_id)?;
@@ -1321,53 +1423,103 @@ impl PersistentEngine {
 
     /// Disable a section (hide from all queries except restore UI).
     ///
-    /// The DB row is kept (disabled = 1) so enable can restore it with members
-    /// intact, but it is dropped from the in-memory cache and the identity
-    /// registry, and a durable suppression intent is recorded. Together these
-    /// stop the corridor from re-emerging on the next detect, and
-    /// close the in-mem/DB seam: the visible view already hides a disabled
-    /// section, so the in-memory cache must too, or detection keeps matching on
-    /// a corridor the user hid.
+    /// The one-id case of [`set_sections_enabled`](Self::set_sections_enabled).
     pub fn disable_section(&mut self, section_id: &str) -> Result<(), String> {
-        let rows = self
-            .db
-            .execute(
-                "UPDATE sections SET disabled = 1 WHERE id = ?",
-                params![section_id],
-            )
-            .map_err(|e| format!("Failed to disable section: {}", e))?;
-        if rows == 0 {
-            return Err(format!("Section not found: {}", section_id));
+        self.set_sections_enabled(&[section_id.to_owned()], false)
+    }
+
+    /// Re-enable a previously disabled section.
+    ///
+    /// The one-id case of [`set_sections_enabled`](Self::set_sections_enabled).
+    pub fn enable_section(&mut self, section_id: &str) -> Result<(), String> {
+        self.set_sections_enabled(&[section_id.to_owned()], true)
+    }
+
+    /// Disable or re-enable sections as one write.
+    ///
+    /// Every id is checked before any is changed: each must exist and none may
+    /// be named twice. The rows and their suppression intents then change in one
+    /// transaction, so a fault cannot leave a hidden row with no intent (the
+    /// corridor would return on the next detect) or an intent with no hidden
+    /// row.
+    ///
+    /// A disabled row is kept (`disabled = 1`) so enable can restore it with its
+    /// members intact, but it leaves the in-memory cache and the identity
+    /// registry and a durable suppression intent is recorded, which stops the
+    /// corridor re-emerging on the next detect. Enabling clears the intent,
+    /// unhides the row and restores it to memory. Memory, badges and the
+    /// registry are brought up to date in one pass over the set.
+    pub fn set_sections_enabled(
+        &mut self,
+        section_ids: &[String],
+        enabled: bool,
+    ) -> Result<(), String> {
+        if section_ids.is_empty() {
+            return Ok(());
         }
-        self.record_section_intent(section_id, "disabled");
-        self.invalidate_section_cache(section_id);
-        self.remove_section_from_memory(section_id);
-        self.section_identity_relinquish(section_id);
-        self.drop_section_pin(section_id);
-        self.refresh_section_badges(&[section_id]);
+        self.in_write_txn(|e| e.write_sections_enabled(section_ids, enabled))?;
+        for id in section_ids {
+            self.invalidate_section_cache(id);
+        }
+        if enabled {
+            self.refresh_sections_in_memory(section_ids);
+            self.refresh_superseded_ids();
+            self.section_identity_admit_many(section_ids);
+        } else {
+            self.remove_sections_from_memory(section_ids);
+            self.section_identity_relinquish_many(section_ids);
+            for id in section_ids {
+                self.drop_section_pin(id);
+            }
+        }
+        self.refresh_section_badges(section_ids);
         Ok(())
     }
 
-    /// Re-enable a previously disabled section: clear its suppression intent,
-    /// unhide the row, and restore it to the in-memory cache so the seam stays
-    /// coherent and the corridor can be detected again.
-    pub fn enable_section(&mut self, section_id: &str) -> Result<(), String> {
-        let rows = self
-            .db
-            .execute(
-                "UPDATE sections SET disabled = 0, superseded_by = NULL WHERE id = ?",
-                params![section_id],
-            )
-            .map_err(|e| format!("Failed to enable section: {}", e))?;
-        if rows == 0 {
-            return Err(format!("Section not found: {}", section_id));
+    fn write_sections_enabled(
+        &mut self,
+        section_ids: &[String],
+        enabled: bool,
+    ) -> Result<(), String> {
+        let mut seen = HashSet::new();
+        for id in section_ids {
+            let exists: Option<i64> = self
+                .db
+                .query_row("SELECT 1 FROM sections WHERE id = ?", params![id], |row| {
+                    row.get(0)
+                })
+                .optional()
+                .map_err(|e| format!("Failed to read section: {}", e))?;
+            if exists.is_none() {
+                return Err(format!("Section not found: {}", id));
+            }
+            if !seen.insert(id.as_str()) {
+                return Err(format!("Section named twice: {}", id));
+            }
         }
-        self.clear_section_intent(section_id);
-        self.invalidate_section_cache(section_id);
-        self.refresh_section_in_memory(section_id);
-        self.refresh_superseded_ids();
-        self.section_identity_admit(section_id);
-        self.refresh_section_badges(&[section_id]);
+        let listed = serde_json::to_string(section_ids)
+            .map_err(|e| format!("Failed to list sections: {}", e))?;
+        let statement = if enabled {
+            "UPDATE sections SET disabled = 0, superseded_by = NULL
+             WHERE id IN (SELECT value FROM json_each(?1))"
+        } else {
+            "UPDATE sections SET disabled = 1
+             WHERE id IN (SELECT value FROM json_each(?1))"
+        };
+        self.db.execute(statement, params![listed]).map_err(|e| {
+            format!(
+                "Failed to {} sections: {}",
+                if enabled { "enable" } else { "disable" },
+                e
+            )
+        })?;
+        for id in section_ids {
+            if enabled {
+                self.clear_section_intent(id)?;
+            } else {
+                self.try_record_section_intent(id, "disabled")?;
+            }
+        }
         Ok(())
     }
 
@@ -2103,6 +2255,103 @@ mod tests {
                 [],
             )
             .unwrap();
+    }
+
+    fn laps_held(engine: &PersistentEngine, extra: usize) {
+        for at in 0..extra {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO section_activities
+                     (section_id, activity_id, direction, start_index, end_index, distance_meters)
+                     VALUES ('s1', 'a2', 'same', ?, ?, 100.0)",
+                    params![at as i64, at as i64 + 10],
+                )
+                .unwrap();
+        }
+    }
+
+    fn stored_figures(engine: &PersistentEngine) -> (f64, Option<f64>) {
+        engine
+            .db
+            .query_row(
+                "SELECT distance_meters, avg_grade_percent FROM sections WHERE id = 's1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap()
+    }
+
+    /// Scenario: the editor asks what a trim or an expand would measure before
+    /// the athlete saves it.
+    /// Expected behaviour: the preview's distance and grade are the figures the
+    /// section stores after the same edit, the lap count is the laps the edit
+    /// re-cuts, and the preview writes nothing.
+    #[test]
+    fn a_bounds_preview_equals_the_figures_stored_after_the_same_edit() {
+        let mut engine = engine_with_stale_profile(20);
+        laps_held(&engine, 2);
+        let before = stored_figures(&engine);
+
+        let trim = pooled::ProposedLine::Trim {
+            start_index: 10,
+            end_index: 19,
+        };
+        let trim_preview = pooled::bounds_preview(&engine.db, "s1", &trim).unwrap();
+        let expand = pooled::ProposedLine::Expand {
+            activity_id: "a2",
+            start_index: 2,
+            end_index: 14,
+        };
+        let expand_preview = pooled::bounds_preview(&engine.db, "s1", &expand).unwrap();
+        assert_eq!(stored_figures(&engine), before, "a preview writes nothing");
+        assert_eq!(traversals(&engine), 3);
+
+        engine.trim_section("s1", 10, 19).unwrap();
+        let (distance, grade) = stored_figures(&engine);
+        assert_eq!(trim_preview.distance_meters, distance);
+        assert_eq!(trim_preview.avg_grade_percent, grade);
+        assert_eq!(trim_preview.laps_remeasured, 3);
+        assert_ne!(trim_preview.distance_meters, before.0);
+
+        engine.expand_section_bounds("s1", "a2", 2, 14).unwrap();
+        let (distance, grade) = stored_figures(&engine);
+        assert_eq!(expand_preview.distance_meters, distance);
+        assert_eq!(expand_preview.avg_grade_percent, grade);
+        assert!(grade.is_some(), "the climb gives the expanded line a grade");
+    }
+
+    /// Scenario: the ends are dragged to a range the engine refuses.
+    /// Expected behaviour: the preview refuses with the edit's own reason.
+    #[test]
+    fn a_bounds_preview_refuses_what_the_edit_refuses() {
+        let engine = engine_with_stale_profile(20);
+        let refused = |edit: pooled::ProposedLine| {
+            pooled::bounds_preview(&engine.db, "s1", &edit).unwrap_err()
+        };
+        let reasons = [
+            refused(pooled::ProposedLine::Trim {
+                start_index: 5,
+                end_index: 5,
+            }),
+            refused(pooled::ProposedLine::Trim {
+                start_index: 0,
+                end_index: 20,
+            }),
+            refused(pooled::ProposedLine::Trim {
+                start_index: 0,
+                end_index: 3,
+            }),
+            refused(pooled::ProposedLine::Expand {
+                activity_id: "nobody",
+                start_index: 0,
+                end_index: 10,
+            }),
+        ];
+        assert!(reasons[0].contains("less than end index"));
+        assert!(reasons[1].contains("out of bounds"));
+        assert!(reasons[2].contains("at least 5 points"));
+        assert!(reasons[3].contains("GPS track not found"));
     }
 
     /// Scenario: the athlete trims a climb to its flat end, resets the

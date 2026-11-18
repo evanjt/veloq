@@ -1,6 +1,6 @@
 [package]
 name = "veloqrs"
-version = "0.4.1"
+version = "0.5.0"
 edition = "2024"
 authors = ["Evan Thomas <evan@evanjt.com>"]
 license = "Apache-2.0"
@@ -37,7 +37,7 @@ tracematch = { path = "../tracematch" }
 uniffi = { version = "0.31", features = ["cli"] }
 
 # Persistence
-rusqlite = { version = "0.40", features = ["bundled", "backup"] }
+rusqlite = { version = "0.41", features = ["bundled", "backup"] }
 rusqlite_migration = "2.6"
 tempfile = "3.27"
 rmp-serde = "1.1"
@@ -122,7 +122,7 @@ uniffi = { version = "0.31", features = ["build"] }
 # The commit hook counts transactions, which is how a page write proves it
 # is one commit and not one per row, and the trace hook counts statements,
 # which is how a loop proves it reads a blob once rather than once per row.
-rusqlite = { version = "0.40", features = ["hooks", "trace"] }
+rusqlite = { version = "0.41", features = ["hooks", "trace"] }
 env_logger = "0.11"
 criterion = { version = "0.5", features = ["html_reports"] }
 sha2 = "0.11"
@@ -404,6 +404,10 @@ harness = false
 
 [[bench]]
 name = "route_representative_cost"
+harness = false
+
+[[bench]]
+name = "under_point_cost"
 harness = false
 
 [[bench]]

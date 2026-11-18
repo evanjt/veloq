@@ -33,6 +33,8 @@ export interface StartupResult {
   previewTracks: Map<string, PreviewTrack>;
   /** The card's sparklines, or null when the athlete has no wellness */
   sparklines: WellnessSparklines | null;
+  /** Whether the held source answers the account search, so the feed offers it */
+  remoteSearch: boolean;
 }
 
 /** The metrics row for decoding the feed's preview tracks. */
@@ -93,6 +95,7 @@ function fetchStartupData(previewActivityIds: string[]): StartupResult | null {
       // card reads the difference as "the bundle answered" against "there is
       // no bundle, read it yourself".
       sparklines: result.sparklines ?? null,
+      remoteSearch: result.remoteSearch,
     };
   } catch {
     // empty-on-error: null is "keep what is already on screen", so a failed refresh leaves

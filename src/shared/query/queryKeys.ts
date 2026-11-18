@@ -29,9 +29,20 @@ export const queryKeys = {
         athleteId: string,
         needle: string,
         groups: readonly string[],
-        range: { oldest: string; newest: string } | null
-      ) => ['activities-search', athleteId, needle, groups, range?.oldest, range?.newest] as const,
+        range: { oldest: string; newest: string } | null,
+        bounds: object = {}
+      ) =>
+        [
+          'activities-search',
+          athleteId,
+          needle,
+          groups,
+          range?.oldest,
+          range?.newest,
+          bounds,
+        ] as const,
     },
+    filterBounds: ['activities-filter-bounds'] as const,
     detail: (id: string) => ['activity', id] as const,
     streams: (id: string) => ['activity-streams-v3', id] as const,
     intervals: (id: string) => ['activity-intervals', id] as const,

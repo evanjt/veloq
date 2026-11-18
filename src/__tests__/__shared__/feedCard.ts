@@ -13,6 +13,7 @@ export function feedCard(overrides: Partial<FeedCard> & Pick<FeedCard, 'id'>): F
     hasGps: false,
     hasAltitude: false,
     stub: StubVerdict.NotStub,
+    heatmapHidden: false,
     ...overrides,
   };
 }

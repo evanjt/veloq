@@ -60,6 +60,7 @@ const RULES = [
   { prefix: '.github/', areas: ['workflows'] },
   { prefix: 'widget/', areas: ['native'] },
   { prefix: 'push/', areas: ['native'] },
+  { prefix: 'watch/', areas: ['native'] },
   { prefix: 'ios/', areas: ['native'] },
   { prefix: 'src/plugins/', areas: ['native'] },
   { prefix: 'modules/', areas: ['native', 'appJs'] },

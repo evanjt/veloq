@@ -9,7 +9,12 @@
  */
 import type { SyncErrorReason } from 'veloqrs';
 
-import { useSyncStatus } from './useSyncStatus';
+import {
+  useLastSyncSuccessAt,
+  useSyncLastError,
+  useSyncLastErrorReason,
+  useSyncRetryAtMs,
+} from './useSyncStatus';
 
 export interface SyncHealth {
   /** The error the last sync settled with, or null while it is healthy. */
@@ -31,11 +36,15 @@ export interface SyncHealth {
 }
 
 export function useSyncHealth(): SyncHealth {
-  const status = useSyncStatus();
+  // Per-field reads: the whole snapshot moves on every progress step, and these four do not.
+  const lastError = useSyncLastError();
+  const lastErrorReason = useSyncLastErrorReason();
+  const lastSuccessAt = useLastSyncSuccessAt();
+  const retryAtMs = useSyncRetryAtMs();
   return {
-    lastError: status?.lastError ?? null,
-    lastErrorReason: status?.lastErrorReason ?? null,
-    lastSuccessAt: status?.lastSuccessAt ?? null,
-    retryAtMs: status?.retryAtMs ?? null,
+    lastError: lastError ?? null,
+    lastErrorReason,
+    lastSuccessAt,
+    retryAtMs,
   };
 }

@@ -388,33 +388,51 @@ fn an_answer_naming_an_id_not_asked_for_confirms_nothing_absent() {
     assert_eq!(interval_body("b000"), Some(intervals_text("b000")));
 }
 
-/// The server answers `icu_intervals: null` for an activity it has not split
-/// into intervals, and the single endpoint stores that answer. A null in the
-/// bulk answer is confirmed by that single request rather than stored as an
-/// empty body.
+/// A bulk item for an activity with no intervals, `icu_intervals` null as the
+/// server sends it for a short or zero-length activity.
+fn null_intervals_item(id: &str) -> String {
+    format!(
+        r#"{{"id":"{id}","start_date_local":"2025-03-01T07:30:00","type":"Run","name":"{id}","analyzed":"2025-03-01T08:00:00.000+00:00","icu_athlete_id":"i1","moving_time":600,"icu_intervals":null,"icu_groups":null}}"#
+    )
+}
+
+/// Expected behaviour: a null `icu_intervals` in the bulk answer is the answer
+/// for that activity. Its interval body is stored from the bulk answer as the
+/// single endpoint stores it, and the sweep makes no single request for it.
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
-fn an_item_with_null_intervals_is_confirmed_and_stored_as_the_single_answer() {
+fn an_item_with_null_intervals_is_stored_from_the_bulk_answer() {
     let _guard = serial_global_state();
     let _dir = init_engine();
-    let ids = owed_ids(1);
+    let ids = owed_ids(3);
     library_of(&ids);
     let server = MockServer::start();
-    let item = r#"{"id":"b000","start_date_local":"2025-03-01T07:30:00","type":"Run","analyzed":"2025-03-01T08:00:00.000+00:00","icu_athlete_id":"i1","icu_intervals":null,"icu_groups":null}"#;
-    mock_bulk_answering(&server, &ids, format!("[{item}]"));
-    let single_answer = r#"{"id":"b000","analyzed":"2025-03-01T08:00:00.000+00:00","icu_intervals":null,"icu_groups":null}"#;
-    let confirm = server.mock(|when, then| {
-        when.method(GET).path("/activity/b000/intervals");
-        then.status(200).body(single_answer);
-    });
+    let answer = sorted_answer(
+        vec![
+            bulk_item("b000"),
+            null_intervals_item("b001"),
+            bulk_item("b002"),
+        ],
+        &ids,
+    );
+    let bulk = mock_bulk_answering(&server, &ids, answer);
+    let single = mock_single_activity_requests(&server);
 
     sweep(&server).expect("the sweep");
 
-    confirm.assert_calls(1);
-    assert_eq!(interval_body("b000").as_deref(), Some(single_answer));
+    bulk.assert_calls(1);
+    single.assert_calls(0);
+    assert_eq!(
+        interval_body("b001"),
+        Some(
+            r#"{"id":"b001","analyzed":"2025-03-01T08:00:00.000+00:00","icu_intervals":null,"icu_groups":null}"#
+                .to_string()
+        )
+    );
+    assert!(ids.iter().all(|id| interval_body(id).is_some()));
     assert!(
-        activity_body("b000").is_some_and(|b| b.contains("icu_athlete_id")),
-        "the detail body still lands from the bulk answer"
+        activity_body("b001").is_some_and(|b| b.contains("icu_athlete_id")),
+        "the detail body lands from the bulk answer too"
     );
 }
 

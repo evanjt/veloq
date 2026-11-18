@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use str0m::channel::ChannelId;
 
 use super::peer::Gate;
-use super::protocol::{self, MAX_OUTSTANDING};
+use super::protocol::{self, Answer, MAX_OUTSTANDING};
 
 /// The worker threads in the process.
 const WORKERS: usize = 2;
@@ -79,6 +79,10 @@ struct Pending {
     /// be named.
     running: usize,
     running_ids: HashSet<u64>,
+    /// Replies a worker handed over whose last frame is not yet written to
+    /// the channel. They count as outstanding, so a browser that stops
+    /// reading cannot grow the send queue past [`MAX_OUTSTANDING`] replies.
+    unsent: usize,
     /// Running asks whose reply is dropped when they return.
     cancelled: HashSet<u64>,
     closed: bool,
@@ -86,13 +90,13 @@ struct Pending {
 
 impl Pending {
     fn outstanding(&self) -> usize {
-        self.queued.len() + self.running
+        self.queued.len() + self.running + self.unsent
     }
 }
 
 /// A reply a worker made, with the channel it goes back on and the protocol
 /// version its request asked it in.
-pub type Reply = (ChannelId, String, u32);
+pub type Reply = (ChannelId, Answer, u32);
 
 /// One connection's asks.
 pub struct Conn {
@@ -118,7 +122,8 @@ impl Conn {
         (conn, receiver)
     }
 
-    /// Queue an ask. False when [`MAX_OUTSTANDING`] are outstanding already or
+    /// Queue an ask. False when [`MAX_OUTSTANDING`] are outstanding already (queued,
+    /// running, or answered with the reply not yet written) or
     /// the connection is closed, and then nothing was queued.
     pub fn submit(
         self: &Arc<Self>,
@@ -152,6 +157,13 @@ impl Conn {
         }
     }
 
+    /// A reply handed over is gone from the send queue, written or dropped:
+    /// `count` asks stop counting as outstanding.
+    pub fn release(&self, count: usize) {
+        let mut pending = lock(&self.pending);
+        pending.unsent = pending.unsent.saturating_sub(count);
+    }
+
     /// Whether any ask is queued or running.
     pub fn busy(&self) -> bool {
         lock(&self.pending).outstanding() > 0
@@ -178,14 +190,17 @@ impl Conn {
             job
         };
         let text = catch_unwind(AssertUnwindSafe(|| {
-            self.gate.answer(&self.presented, &self.local, &job.request)
+            self.gate
+                .answer_bytes(&self.presented, &self.local, &job.request)
         }))
-        .unwrap_or_else(|_| protocol::failed(job.id));
+        .unwrap_or_else(|_| Answer::Text(protocol::failed(job.id)));
         let mut pending = lock(&self.pending);
         let cancelled = job.id.is_some_and(|id| pending.cancelled.remove(&id));
         if !cancelled {
             let wire = protocol::wire_of(&job.request);
-            let _ = self.replies.send((job.channel, text, wire));
+            if self.replies.send((job.channel, text, wire)).is_ok() {
+                pending.unsent += 1;
+            }
         }
         // After the send, so the serving loop never sees the ask gone before
         // its reply is on the channel.

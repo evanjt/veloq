@@ -37,16 +37,25 @@ pub struct FfiRecordingEntry {
     pub activity_type: String,
     pub name: String,
     /// Milliseconds since the epoch, when the ride started.
+    /// Unit: epoch_millisecond.
     pub start_time: f64,
+    /// Unit: second.
     pub duration_seconds: f64,
+    /// Unit: metre.
     pub distance_meters: f64,
+    /// Unit: metre.
     pub elevation_gain: Option<f64>,
+    /// Unit: beat_per_minute.
     pub avg_heartrate: Option<f64>,
+    /// Unit: identifier.
     pub paired_event_id: Option<f64>,
     /// Milliseconds since the epoch, when the recording was saved.
+    /// Unit: epoch_millisecond.
     pub created_at: f64,
     pub upload_status: String,
+    /// Unit: count.
     pub retry_count: u32,
+    /// Unit: epoch_millisecond.
     pub last_attempt_at: Option<f64>,
     pub last_error: Option<String>,
     pub intervals_activity_id: Option<String>,
@@ -65,6 +74,7 @@ pub struct FfiRecordingEntry {
     pub notes: Option<String>,
     /// The effort from 1 to 10 the athlete set on the review screen, `None`
     /// when the slider was never moved.
+    /// Unit: point.
     pub rpe: Option<u32>,
     /// Whether intervals.icu has the effort. It goes up after the upload, so a
     /// failed update is retried from here without sending the file again.

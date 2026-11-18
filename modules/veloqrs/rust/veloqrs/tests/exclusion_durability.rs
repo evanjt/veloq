@@ -145,6 +145,50 @@ fn engine_with_member_track(
     (engine, section.id.clone(), starts)
 }
 
+/// An engine holding `act_lapped` with the given track and a section cut by
+/// hand over `cut` (inclusive indices into that track), plus the section id
+/// and the start index of each row `act_lapped` holds on it. The cut does not
+/// depend on what the detector makes of the track.
+fn engine_with_member_cut(
+    dir: &TempDir,
+    corpus: &LifecycleCorpus,
+    track: Vec<tracematch::GpsPoint>,
+    cut: (u32, u32),
+) -> (PersistentEngine, String, Vec<u32>) {
+    let path = dir.path().join("exclusion_cut.db");
+    let mut engine = PersistentEngine::new(path.to_str().unwrap()).unwrap();
+    let base = &corpus.bucket_c_single;
+    let slice = track[cut.0 as usize..=cut.1 as usize].to_vec();
+    engine
+        .add_activity("act_lapped".to_string(), track, base.sport_type.clone())
+        .unwrap();
+    engine
+        .update_activity_metadata("act_lapped", Some(base.start_date_unix), None, None, None)
+        .unwrap();
+    let section_id = engine
+        .create_section(veloqrs::sections::CreateSectionParams {
+            sport_type: base.sport_type.clone(),
+            distance_meters: tracematch::matching::calculate_route_distance(&slice),
+            polyline: slice,
+            name: Some("Out and back".to_string()),
+            source_activity_id: Some("act_lapped".to_string()),
+            start_index: Some(cut.0),
+            end_index: Some(cut.1),
+        })
+        .unwrap();
+    engine.attach_new_activities(&["act_lapped".to_string()]);
+    let mut starts: Vec<u32> = engine
+        .get_section_by_id(&section_id)
+        .expect("the cut section")
+        .activity_portions
+        .iter()
+        .filter(|p| p.activity_id == "act_lapped")
+        .map(|p| p.start_index)
+        .collect();
+    starts.sort_unstable();
+    (engine, section_id, starts)
+}
+
 fn lapped_exclusions(engine: &PersistentEngine, section_id: &str) -> Vec<(String, u32)> {
     engine
         .get_excluded_section_laps(section_id)
@@ -296,13 +340,13 @@ fn a_lap_exclusion_does_not_move_onto_a_lone_traversal_far_from_it_after_a_recut
     let mut back = ground[..90].to_vec();
     back.reverse();
     track.extend(back);
-    let (mut engine, sid, starts) = engine_with_member_track(&dir, &corpus, track);
+    let (mut engine, sid, starts) = engine_with_member_cut(&dir, &corpus, track, (31, 89));
     assert_eq!(
         starts,
-        vec![31, 192],
+        vec![31, 200],
         "the member must hold two laps to start"
     );
-    engine.exclude_section_lap(&sid, "act_lapped", 192).unwrap();
+    engine.exclude_section_lap(&sid, "act_lapped", 200).unwrap();
     assert_eq!(lapped_exclusions(&engine, &sid).len(), 1);
 
     engine

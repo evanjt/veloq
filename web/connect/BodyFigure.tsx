@@ -1,66 +1,69 @@
-// A schematic body, front and back, with each muscle shaded by how much of the period's work it
-// took. The shading is the engine's weighted sets relative to the most-worked muscle; a muscle
-// the figure does not draw is still in the table beside it. A click on a muscle chooses it.
+// The body, front and back, drawn from the same shapes as the phone's diagram, with each muscle
+// shaded in the step the engine put it in (the stylesheet colours each step) and a legend of the sets each step covers. A click on a
+// muscle chooses it.
 
 import { useTranslation } from 'react-i18next';
 
-type Shape = { slug: string; d: string };
+import {
+  bodyFills,
+  type BodyGender,
+  type BodySide,
+} from '../../src/features/strength/lib/bodyFills';
+import { BODY_DRAWINGS } from '../../src/features/strength/lib/bodyPaths.generated';
+import { volumeStepCeilings } from '../../src/features/strength/lib/volumeSteps';
 
-const DELTOIDS =
-  'M28 44 q-9 3 -10 14 q4 4 10 2 q4 -8 2 -16 Z M72 44 q9 3 10 14 q-4 4 -10 2 q-4 -8 -2 -16 Z';
-const UPPER_ARM =
-  'M18 62 q-3 14 0 24 q5 2 8 0 q2 -12 2 -24 q-5 2 -10 0 Z M82 62 q3 14 0 24 q-5 2 -8 0 q-2 -12 -2 -24 q5 2 10 0 Z';
-const FOREARM =
-  'M16 90 q-4 18 -4 30 q5 2 8 0 q3 -14 6 -30 Z M84 90 q4 18 4 30 q-5 2 -8 0 q-3 -14 -6 -30 Z';
-
-/** Front view outlines, in a 100 by 220 box. */
-const FRONT: Shape[] = [
-  { slug: 'deltoids', d: DELTOIDS },
-  { slug: 'chest', d: 'M32 46 h16 v18 q-10 3 -16 -3 Z M52 46 h16 l0 15 q-6 6 -16 3 Z' },
-  { slug: 'biceps', d: UPPER_ARM },
-  { slug: 'forearm', d: FOREARM },
-  { slug: 'abs', d: 'M40 68 h20 v34 q-10 5 -20 0 Z' },
-  { slug: 'obliques', d: 'M32 68 h7 v32 q-5 -4 -8 -10 Z M68 68 h-7 v32 q5 -4 8 -10 Z' },
-  { slug: 'adductors', d: 'M44 118 h12 l-2 30 h-8 Z' },
-  { slug: 'quadriceps', d: 'M30 112 h14 l-2 52 q-8 3 -14 0 Z M70 112 h-14 l2 52 q8 3 14 0 Z' },
-];
-
-/** Back view outlines, in the same box. */
-const BACK: Shape[] = [
-  { slug: 'trapezius', d: 'M38 34 h24 l6 12 h-14 v10 h-8 v-10 h-14 Z' },
-  { slug: 'deltoids', d: DELTOIDS },
-  { slug: 'upper-back', d: 'M32 56 h16 v22 h-14 Z M52 56 h16 l-2 22 h-14 Z' },
-  { slug: 'triceps', d: UPPER_ARM },
-  { slug: 'forearm', d: FOREARM },
-  { slug: 'lower-back', d: 'M38 80 h24 v20 h-24 Z' },
-  { slug: 'gluteal', d: 'M32 102 h18 v18 h-20 Z M50 102 h18 l2 16 h-20 Z' },
-  { slug: 'hamstring', d: 'M30 122 h18 l-2 44 q-8 3 -14 0 Z M70 122 h-18 l2 44 q8 3 14 0 Z' },
-  { slug: 'calves', d: 'M31 170 h13 l-2 40 h-9 Z M69 170 h-13 l2 40 h9 Z' },
-];
-
-const HEAD = 'M50 6 a11 13 0 1 0 0.1 0 Z';
+/** The muscles the engine reports, which are the ones a click can choose. */
+type Volume = { slug: string; shade: number };
 
 type Shared = {
-  intensity: ReadonlyMap<string, number>;
+  volumes: readonly Volume[];
+  /** The most weighted sets the engine shades against, the top of the legend. */
+  maxWeightedSets: number;
+  /** `M` or `F` as intervals.icu sends it; the body is female only for `F`. */
+  sex: string | null | undefined;
   names: (slug: string) => string;
   chosen: string | null;
   onChoose: (slug: string) => void;
 };
 
-function View(props: Shared & { label: string; shapes: Shape[] }) {
+/** The legend's entries: untrained first, then each step with the most sets it covers. */
+export function shadeLegend(maxWeightedSets: number): { shade: number; label: string }[] {
+  return [
+    { shade: 0, label: '0' },
+    ...volumeStepCeilings(maxWeightedSets).map((ceiling, at) => ({
+      shade: at + 1,
+      label: String(ceiling),
+    })),
+  ];
+}
+
+function View(props: Shared & { side: BodySide; gender: BodyGender; label: string }) {
+  const { gender, side } = props;
+  const drawing = BODY_DRAWINGS[gender][side];
+  const trained = new Set(props.volumes.map((volume) => volume.slug));
+  const muscles = props.volumes.map((volume) => ({ slug: volume.slug, intensity: volume.shade }));
   return (
-    <svg className="body-figure-view" viewBox="0 0 100 220" role="group" aria-label={props.label}>
-      <path className="body-figure-head" d={HEAD} />
-      {props.shapes.map((shape) => {
-        const level = props.intensity.get(shape.slug);
-        return (
+    <svg
+      className="body-figure-view"
+      viewBox={drawing.viewBox}
+      role="group"
+      aria-label={props.label}
+      data-side={side}
+    >
+      <path className="body-figure-outline" d={drawing.outline} />
+      {bodyFills(muscles, gender, side, []).map((shape, at) => {
+        const chooses = trained.has(shape.slug);
+        const common = {
+          className: 'body-figure-shape',
+          d: shape.d,
+          'data-shade': shape.step,
+        };
+        return chooses ? (
           <path
-            key={shape.slug}
-            className="body-figure-muscle"
-            d={shape.d}
+            key={at}
+            {...common}
             data-muscle={shape.slug}
             data-chosen={props.chosen === shape.slug || undefined}
-            style={{ fillOpacity: level === undefined ? 0 : 0.12 + level * 0.88 }}
             role="button"
             tabIndex={0}
             aria-label={props.names(shape.slug)}
@@ -75,6 +78,8 @@ function View(props: Shared & { label: string; shapes: Shape[] }) {
           >
             <title>{props.names(shape.slug)}</title>
           </path>
+        ) : (
+          <path key={at} {...common} data-muscle={shape.slug} />
         );
       })}
     </svg>
@@ -83,10 +88,21 @@ function View(props: Shared & { label: string; shapes: Shape[] }) {
 
 export function BodyFigure(props: Shared) {
   const { t } = useTranslation();
+  const gender: BodyGender = props.sex === 'F' ? 'female' : 'male';
   return (
     <div className="body-figure">
-      <View label={t('connectPage.strength.bodyFront')} shapes={FRONT} {...props} />
-      <View label={t('connectPage.strength.bodyBack')} shapes={BACK} {...props} />
+      <div className="body-figure-views">
+        <View label={t('connectPage.strength.bodyFront')} side="front" gender={gender} {...props} />
+        <View label={t('connectPage.strength.bodyBack')} side="back" gender={gender} {...props} />
+      </div>
+      <div className="body-figure-legend" role="group" aria-label={t('strength.relativeVolume')}>
+        {shadeLegend(props.maxWeightedSets).map((step) => (
+          <span key={step.shade} className="body-figure-step" data-shade={step.shade || undefined}>
+            <span className="body-figure-swatch" data-shade={step.shade || undefined} />
+            {step.label}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
