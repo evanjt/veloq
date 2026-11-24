@@ -33,7 +33,11 @@ import { Card } from '@/shared/ui/Card';
 import { Icon } from '@/shared/ui/Icon';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 
-import { describeCutoverCounts } from './whatsNew/SectionChangeCardSlide';
+import {
+  describeCutoverCounts,
+  describeSettingsReset,
+  type Translate,
+} from '../lib/cutoverDescribe';
 import { useStagedHistory } from '../hooks/useBackgroundJobs';
 import { useSessionAsk } from '../hooks/useLaunchSurfaces';
 import { useWhatsNewStore } from '../stores/WhatsNewStore';
@@ -42,7 +46,7 @@ export function SectionsChangedCard() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const total = useArchivedRetiredCount();
-  const { isRunning, phase, counts, countsOwed } = useCutoverSummary();
+  const { isRunning, phase, counts, countsOwed, settingsReset } = useCutoverSummary();
   const failed = phase in CUTOVER_FAILURE_KEYS;
   const staged = useStagedHistory();
   const state = countsOwed ? 'owed' : 'final';
@@ -51,6 +55,8 @@ export function SectionsChangedCard() {
   const eligible =
     (total > 0 || counts !== null || countsOwed) && !isRunning && !failed && !dismissed;
   const holdsAsk = useSessionAsk('sectionsChanged', eligible);
+
+  const changes = settingsReset ? describeSettingsReset(settingsReset, t as Translate) : '';
 
   const dismiss = useCallback(() => dismissState(state), [dismissState, state]);
   const open = useCallback(() => {
@@ -103,11 +109,20 @@ export function SectionsChangedCard() {
             testID="sections-changed-counts"
             style={[styles.description, isDark && styles.descriptionDark]}
           >
-            {describeCutoverCounts(
-              counts,
-              t as (key: string, vars?: Record<string, unknown>) => string
-            )}
+            {describeCutoverCounts(counts, t as Translate)}
           </Text>
+        )}
+        {counts !== null && changes !== '' && (
+          <View style={styles.header} testID="sections-changed-settings-reset">
+            <Icon
+              name="tune-variant"
+              size={iconSize.md}
+              color={isDark ? darkColors.actionPrimary : colors.actionPrimary}
+            />
+            <Text style={[styles.description, styles.flex, isDark && styles.descriptionDark]}>
+              {t('whatsNew.v040.settingsReset', { changes })}
+            </Text>
+          </View>
         )}
         <ButtonRow
           actions={[
@@ -160,6 +175,7 @@ const styles = StyleSheet.create({
   titleDark: {
     color: darkColors.textPrimary,
   },
+  flex: { flex: 1 },
   description: {
     ...typography.bodySmall,
     color: colors.textSecondary,

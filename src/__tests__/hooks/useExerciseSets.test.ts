@@ -33,7 +33,6 @@ const engine = {
   getExerciseSets: jest.fn(),
   isFitProcessed: jest.fn(),
   fetchAndParseExerciseSets: jest.fn(),
-  bulkInsertExerciseSets: jest.fn(),
   subscribe: jest.fn((event: string, cb: (payload?: { activityId: string }) => void) => {
     const subscribers = listeners.get(event) ?? new Set<typeof cb>();
     listeners.set(event, subscribers);

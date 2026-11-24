@@ -648,6 +648,16 @@ pub(crate) mod test_globals {
     /// and a read that waited for the writer returns only once this runs out.
     const WRITER_HOLD_LIMIT: Duration = Duration::from_secs(30);
 
+    /// The saved route list, read through the pool the way the route screens
+    /// read it. It is the one owner's read, `routes::pooled::all_groups`.
+    pub(crate) fn saved_route_groups() -> Vec<crate::FfiRouteGroup> {
+        crate::objects::error::with_reader(crate::persistence::routes::pooled::all_groups)
+            .unwrap()
+            .into_iter()
+            .map(crate::FfiRouteGroup::from)
+            .collect()
+    }
+
     /// Run `read` while another thread holds the engine for writing, and
     /// return what it read. Fails when the read could not finish until the
     /// writer let go.

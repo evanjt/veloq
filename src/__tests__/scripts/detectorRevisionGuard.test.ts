@@ -185,3 +185,27 @@ it('compares the golden in the object database it is given when the clone lacks 
   });
   expect(runGuard(root, ['--objects', sub.path]).status).toBe(1);
 });
+
+it('passes a committed merge whose base predates the revision constant', () => {
+  const sub = submoduleRepo('a\n', 'b\n');
+  const root = superproject(sub, { stagedPointer: sub.older, stagedRevision: 0 });
+  writeFileSync(join(root, REVISION_FILE), 'pub mod sections {}\n');
+  runGit(['add', REVISION_FILE], root);
+  commit(root, 'a base without the constant');
+  const base = runGit(['rev-parse', 'HEAD'], root).trim();
+  writeFileSync(join(root, REVISION_FILE), revisionSource(3));
+  runGit(['add', REVISION_FILE], root);
+  runGit(['update-index', '--cacheinfo', `160000,${sub.newer},${SUB}`], root);
+  commit(root, 'introduce the constant and move the pointer');
+  expect(runGuard(root, ['--base', base]).status).toBe(0);
+});
+
+it('fails when the revision constant is missing from the staged tree', () => {
+  const sub = submoduleRepo('a\n', 'b\n');
+  const root = superproject(sub, { stagedPointer: sub.newer, stagedRevision: 0 });
+  writeFileSync(join(root, REVISION_FILE), 'pub mod sections {}\n');
+  runGit(['add', REVISION_FILE], root);
+  const { status, output } = runGuard(root);
+  expect(status).toBe(1);
+  expect(output).toContain('was not found');
+});

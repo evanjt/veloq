@@ -9,7 +9,7 @@
  * feels and the engine and the map line keep one sign.
  */
 
-import { chartBoundsFor, xForValue, yForValue, type XY } from '@/shared/charts';
+import { chartBoundsFor, runsSvgPath, xForValue, yForValue, type XY } from '@/shared/charts';
 import { FfiReferenceSource } from 'veloqrs';
 import type { FfiDirectionDeltas, FfiLapDelta, FfiSplitSummary } from 'veloqrs';
 
@@ -299,13 +299,6 @@ function curveRuns(
   return runs;
 }
 
-/** SVG path data for a curve's runs, each a subpath. */
-function runsPath(runs: readonly XY[][]): string {
-  return runs
-    .map((run) => run.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x} ${p.y}`).join(' '))
-    .join(' ');
-}
-
 /**
  * The closed areas between a curve's runs and the zero line, one per stretch
  * on one side. A crossing between two drawn points is placed on the zero line
@@ -399,7 +392,7 @@ export function layoutDelta(
     return {
       activityId: lap.activityId,
       startIndex: lap.startIndex,
-      path: runsPath(runs),
+      path: runsSvgPath(runs),
       emphasised: lap === emphasised,
     };
   });

@@ -87,7 +87,7 @@ fn the_launch_date_range_reads_the_date_index_rather_than_the_table() {
     let mut engine = PersistentEngine::in_memory().unwrap();
 
     let plans = plans_of(&mut engine, "activity_metrics", |engine| {
-        crate::persistence::pooled_stats(&engine.db);
+        crate::persistence::pooled_stats(&engine.db).unwrap();
     });
 
     for plan in &plans {

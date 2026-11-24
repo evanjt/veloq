@@ -792,13 +792,13 @@ export const ActivityMapView = memo(function ActivityMapView({
     [consolidatedPortionsGeoJSON, fullscreenPRMarkersGeoJSON, overlayGeoJSON]
   );
   const fullscreenLayers = useCallback(
-    (fullscreenPalette: MapPalette) =>
-      buildFullscreenSectionLayers(!!sectionOverlaysGeoJSON, fullscreenPalette),
+    (fullscreenPalette: MapPalette, terrain: boolean) =>
+      buildFullscreenSectionLayers(!!sectionOverlaysGeoJSON, fullscreenPalette, terrain),
     [sectionOverlaysGeoJSON]
   );
   const fullscreenMatchedRouteLayers = useCallback(
-    (fullscreenPalette: MapPalette) =>
-      buildFullscreenMatchedRouteLayers(overlayHasData, fullscreenPalette),
+    (fullscreenPalette: MapPalette, terrain: boolean) =>
+      buildFullscreenMatchedRouteLayers(overlayHasData, fullscreenPalette, terrain),
     [overlayHasData]
   );
 

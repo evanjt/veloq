@@ -2412,13 +2412,22 @@ pub fn route_outline(gps: &[GpsPoint], max_points: usize) -> Option<RouteOutline
 // Reading and writing
 // ============================================================================
 
+/// The Monday-first week a wall-clock day falls in, numbered from the epoch. Day zero was a
+/// Thursday, so week `n` begins on day `7n - 3`, and [`week_start_seconds`] is its inverse.
+pub(crate) fn week_of_day(day: i64) -> i64 {
+    (day + 3).div_euclid(7)
+}
+
+/// The first wall-clock second of week `week`, its Monday at midnight.
+pub(crate) fn week_start_seconds(week: i64) -> i64 {
+    (week * 7 - 3) * SECONDS_PER_DAY
+}
+
 /// Monday of this week to now, and the same elapsed part of the week before, in the wall-clock
 /// seconds an activity's date is recorded in.
 pub fn week_bounds(now_wall_seconds: i64) -> (i64, i64, i64, i64) {
-    let day = now_wall_seconds.div_euclid(SECONDS_PER_DAY);
-    // 1970-01-01 was a Thursday, three days after a Monday.
-    let since_monday = (day + 3).rem_euclid(7);
-    let current_start = (day - since_monday) * SECONDS_PER_DAY;
+    let current_start =
+        week_start_seconds(week_of_day(now_wall_seconds.div_euclid(SECONDS_PER_DAY)));
     (
         current_start,
         now_wall_seconds,
@@ -2464,15 +2473,20 @@ pub fn summary_period_bounds(now_wall_seconds: i64) -> [(i64, i64, i64, i64); 5]
     ]
 }
 
-/// The strength window in the wall-clock seconds an activity's date is
-/// recorded in: today and the 29 days before it, as the strength screen
-/// bounds its 30 days, from midnight on the first day to the last second of
-/// today.
-pub fn strength_bounds(now_wall_seconds: i64) -> (i64, i64) {
+/// The wall-clock seconds of the `days` days ending today, from midnight on the first day to the
+/// last second of today, in the space an activity's date is recorded in.
+pub(crate) fn trailing_days_bounds(now_wall_seconds: i64, days: i64) -> (i64, i64) {
     let today = now_wall_seconds.div_euclid(SECONDS_PER_DAY);
     let end = (today + 1) * SECONDS_PER_DAY - 1;
-    let start = (today - (STRENGTH_WINDOW_DAYS - 1)) * SECONDS_PER_DAY;
+    let start = (today - (days - 1)) * SECONDS_PER_DAY;
     (start, end)
+}
+
+/// The strength window in the wall-clock seconds an activity's date is
+/// recorded in: today and the 29 days before it, as the strength screen
+/// bounds its 30 days.
+pub fn strength_bounds(now_wall_seconds: i64) -> (i64, i64) {
+    trailing_days_bounds(now_wall_seconds, STRENGTH_WINDOW_DAYS)
 }
 
 /// The engine's side of the snapshot, read off `conn` for the week `clock` falls in.

@@ -87,7 +87,7 @@ import {
   type WebdavConfigFormHandle,
 } from './WebdavConfigForm';
 import { describeBackupFailure } from '@/features/settings/lib/backupFailure';
-import { getIntlLocale } from '@/shared/format/format';
+import { formatFullDate } from '@/shared/format/format';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 import { restoreDropLines, showRestoreNotice } from '@/features/settings/lib/restoreNotice';
 
@@ -204,7 +204,7 @@ function CarrierFailure({
   return (
     <Text testID={testID} style={errorStyle(isDark)}>
       {t('backup.lastAttemptFailed', {
-        date: new Date(failure.at).toLocaleDateString(getIntlLocale()),
+        date: formatFullDate(new Date(failure.at)),
       })}
       {'\n'}
       {t(failureMessageKey(failure.kind))}
@@ -220,7 +220,7 @@ function DestinationLastBackup({ at, testID }: { at: number | null; testID: stri
     <Text testID={testID} style={[styles.detail, isDark && settingsStyles.textSecondary]}>
       {at === null
         ? t('backup.lastBackupNever')
-        : t('backup.lastBackup', { date: new Date(at).toLocaleDateString(getIntlLocale()) })}
+        : t('backup.lastBackup', { date: formatFullDate(new Date(at)) })}
     </Text>
   );
 }
@@ -667,7 +667,7 @@ export function BackupSection() {
   const totalActivities = useActivityCount();
 
   const lastBackupText = lastBackupTs
-    ? t('backup.lastBackup', { date: new Date(lastBackupTs).toLocaleDateString(getIntlLocale()) })
+    ? t('backup.lastBackup', { date: formatFullDate(new Date(lastBackupTs)) })
     : t('backup.lastBackupNever');
 
   const iconColor = isDark ? darkColors.textSecondary : colors.textSecondary;

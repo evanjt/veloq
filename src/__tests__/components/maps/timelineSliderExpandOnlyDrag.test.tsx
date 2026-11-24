@@ -215,6 +215,25 @@ describe('TimelineSlider expandOnly start returns to the downloaded start', () =
     }
   );
 
+  it('keeps a proposed span when the track is laid out again at another width', async () => {
+    const { view, onRangeChange, rerender } = await renderExpandOnly();
+    await tapTrackAt(may2025);
+    expect(lastStart(onRangeChange)).toEqual(expect.any(Date));
+
+    await act(() => {
+      view.getByTestId('timeline-slider-track').props.onLayout({
+        nativeEvent: { layout: { width: TRACK_WIDTH + 40 } },
+      });
+    });
+    rerender();
+
+    const proposed = StyleSheet.flatten(
+      view.getByTestId('timeline-slider-proposed-range', { includeHiddenElements: true }).props
+        .style
+    );
+    expect(proposed.display).not.toBe('none');
+  });
+
   it('refuses a tap right of the downloaded start, and a tap on it clears a proposal', async () => {
     const { onRangeChange } = await renderExpandOnly();
 

@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { awaitActivityBody } from '@/features/insights/lib/awaitActivityBody';
+import { refreshPushTokenRegistration } from '@/features/settings/lib/pushTokenRegistration';
 import { presentActivityNotification } from '@/features/settings/lib/notificationService';
 
 jest.mock('@/features/insights/lib/taskRunLog', () => ({
@@ -31,6 +32,10 @@ jest.mock('expo-task-manager', () => ({
 }));
 jest.mock('@/features/insights/lib/awaitActivityBody', () => ({
   awaitActivityBody: jest.fn(async () => null),
+}));
+jest.mock('@/features/settings/lib/pushTokenRegistration', () => ({
+  ...jest.requireActual('@/features/settings/lib/pushTokenRegistration'),
+  refreshPushTokenRegistration: jest.fn(async () => undefined),
 }));
 jest.mock('@/features/settings/lib/notificationService', () => ({
   presentActivityNotification: jest.fn(async () => undefined),
@@ -89,6 +94,44 @@ describe('background insight task, cold start', () => {
 
     expect(useAuthStore.getState().athleteId).toBe('12345');
     expect(mockAwaitActivityBody).toHaveBeenCalled();
+  });
+
+  it('keeps the server token registration fresh while notifications are on', async () => {
+    mockGetItemAsync.mockImplementation(async (key) => {
+      if (key === ACCESS_TOKEN_STORAGE_KEY) return 'token-abc';
+      if (key === ATHLETE_ID_STORAGE_KEY) return '12345';
+      if (key === 'intervals_auth_method') return 'oauth';
+      return null;
+    });
+    await runTask({
+      data: {
+        data: { event_type: 'ACTIVITY_UPLOADED', activity_id: 'i1234', athlete_id: '12345' },
+      },
+      error: null,
+    });
+
+    expect(refreshPushTokenRegistration).toHaveBeenCalledWith('12345');
+  });
+
+  it('does not re-register the push token after the athlete opted out', async () => {
+    mockGetItemAsync.mockImplementation(async (key) => {
+      if (key === ACCESS_TOKEN_STORAGE_KEY) return 'token-abc';
+      if (key === ATHLETE_ID_STORAGE_KEY) return '12345';
+      if (key === 'intervals_auth_method') return 'oauth';
+      return null;
+    });
+    await AsyncStorage.setItem(
+      'veloq-notification-preferences',
+      JSON.stringify({ enabled: false, pendingUnregister: true })
+    );
+    await runTask({
+      data: {
+        data: { event_type: 'ACTIVITY_UPLOADED', activity_id: 'i1234', athlete_id: '12345' },
+      },
+      error: null,
+    });
+
+    expect(refreshPushTokenRegistration).not.toHaveBeenCalled();
   });
 
   it('does not fetch an activity addressed to a different athlete', async () => {

@@ -1,10 +1,13 @@
 /**
- * Auto-calculate the best camera angle for a route's 3D terrain preview.
+ * Calculate the camera angle for a route's 3D terrain preview.
  *
  * When altitude data is available, positions the camera on the LOW side
- * of the route looking TOWARD high terrain for dramatic, clipping-free views.
+ * of the route looking TOWARD high terrain, so the high ground is in view
+ * rather than behind the camera.
  * Falls back to perpendicular-to-route bearing when altitude is unavailable or flat.
  */
+
+import { boundsOfLngLat } from './coordinates';
 
 export interface TerrainCamera {
   center: [number, number]; // [lng, lat]
@@ -47,20 +50,11 @@ function computeBoundsAndZoom(coordinates: [number, number][]): {
   centerLat: number;
   zoom: number;
 } | null {
-  let minLng = Infinity;
-  let maxLng = -Infinity;
-  let minLat = Infinity;
-  let maxLat = -Infinity;
+  const box = boundsOfLngLat(coordinates);
+  if (!box) return null;
 
-  for (const [lng, lat] of coordinates) {
-    if (!isFinite(lng) || !isFinite(lat)) continue;
-    if (lng < minLng) minLng = lng;
-    if (lng > maxLng) maxLng = lng;
-    if (lat < minLat) minLat = lat;
-    if (lat > maxLat) maxLat = lat;
-  }
-
-  if (!isFinite(minLng) || !isFinite(minLat)) return null;
+  const [minLng, minLat] = box.sw;
+  const [maxLng, maxLat] = box.ne;
 
   const centerLng = (minLng + maxLng) / 2;
   const centerLat = (minLat + maxLat) / 2;
@@ -258,7 +252,7 @@ function computeElevationCamera(
   } else if (elevationRange < MOUNTAINOUS_ELEVATION) {
     pitch = 58; // Medium: balanced
   } else {
-    pitch = 52; // Mountainous: more horizontal, dramatic views
+    pitch = 52; // Mountainous: more horizontal
   }
 
   return { bearing: normalisedBearing, pitch, elevationRange };
@@ -296,7 +290,11 @@ export interface Terrain3DInput {
 export interface Terrain3DVerdict {
   show3D: boolean;
   camera: TerrainCamera | null;
-  /** The camera is the athlete's saved override, which no surface turns off a hiding ridge. */
+  /**
+   * The camera is the athlete's saved override, so a surface keeps the 3D view on
+   * rather than turning it off for a ridge that hides the line. Always false on a
+   * flat verdict, since there is no camera to keep.
+   */
   pinned: boolean;
 }
 
@@ -309,7 +307,7 @@ export interface Terrain3DVerdict {
 export function resolveTerrain3D(input: Terrain3DInput): Terrain3DVerdict {
   const { mode, coordinates, altitude, gain, distance, override } = input;
   if (mode !== 'always' && mode !== 'smart') {
-    return { show3D: false, camera: null, pinned: override !== null };
+    return { show3D: false, camera: null, pinned: false };
   }
 
   const hasTrack = coordinates.length >= 2;

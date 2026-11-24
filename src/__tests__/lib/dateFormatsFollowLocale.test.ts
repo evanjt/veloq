@@ -12,6 +12,7 @@ import {
   formatDateTime,
   formatRelativeDateTime,
   formatShortDateWithYear,
+  formatWeekRange,
   formatYear,
 } from '@/shared/format/format';
 
@@ -127,5 +128,32 @@ describe('formatDateTime', () => {
     const label = formatDateTime('2024-06-15T07:12:34');
     expect(label).toContain('07:12');
     expect(label).not.toContain('34');
+  });
+});
+
+describe('formatWeekRange', () => {
+  it('reads the days then the month in en-AU, and the month first in en-US', () => {
+    expect(formatWeekRange(new Date(2025, 0, 20), 'en-AU')).toBe('20–26 Jan');
+    expect(formatWeekRange(new Date(2025, 0, 20), 'en-US')).toBe('Jan 20–26');
+  });
+
+  it('names both months across a month or year boundary', () => {
+    const cases: [Date, string][] = [
+      [new Date(2025, 0, 27), '27 Jan – 2 Feb'],
+      [new Date(2025, 11, 29), '29 Dec – 4 Jan'],
+      [new Date(2025, 1, 24), '24 Feb – 2 Mar'],
+      [new Date(2025, 5, 2), '2–8 June'],
+    ];
+    for (const [monday, expected] of cases) {
+      expect(formatWeekRange(monday, 'en-AU')).toBe(expected);
+    }
+  });
+
+  it('keeps the German day point and month abbreviation', () => {
+    expect(formatWeekRange(new Date(2025, 0, 20), 'de')).toBe('20.–26. Jan.');
+  });
+
+  it('reads Invalid Date for a date that is not one', () => {
+    expect(formatWeekRange(new Date(Number.NaN), 'en-AU')).toBe('Invalid Date');
   });
 });

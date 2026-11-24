@@ -133,7 +133,7 @@ function addPaceMilestoneInsight(
       icon: options.icon as Insight['icon'],
       iconTone: declining ? verdictRung('declined') : options.iconTone,
       title: t(declining ? 'insights.paceChange' : 'insights.paceImproved', {
-        delta: `${declining ? '-' : ''}${Math.abs(deltaSecs)}s${options.paceUnit}`,
+        delta: `${declining ? '-' : ''}${t('units.secondsValue', { value: Math.abs(deltaSecs) })}${options.paceUnit}`,
       }),
       subtitle: t('insights.caption.fromTo', {
         previous: `${options.formatValue(pace.previousPace)}${options.paceUnit}`,

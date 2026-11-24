@@ -148,11 +148,15 @@ function trimToRetention(entries: CrashEntry[]) {
   }
 }
 
-type NewCrash = Omit<CrashEntry, 'ts' | 'screen'> & { screen?: string | undefined };
+type NewCrash = Omit<CrashEntry, 'ts' | 'screen'> & {
+  screen?: string | undefined;
+  /** When the crash happened, if it was logged before this process saw it. */
+  ts?: number | undefined;
+};
 
 function stamp(entry: NewCrash): CrashEntry {
   return {
-    ts: Date.now(),
+    ts: entry.ts ?? Date.now(),
     screen: entry.screen ?? currentScreen,
     source: entry.source,
     message: entry.message,
@@ -208,8 +212,9 @@ export function recordCrash(entry: NewCrash) {
   }
 }
 
+/** Rejects when storage cannot be read, so an unreadable log is never taken for an empty one. */
 export async function getCrashLog(): Promise<CrashEntry[]> {
-  const entries = await enqueue(load).catch(() => [] as CrashEntry[]);
+  const entries = await enqueue(load);
   return [...entries].reverse();
 }
 

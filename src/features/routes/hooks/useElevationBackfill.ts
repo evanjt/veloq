@@ -7,8 +7,8 @@
  * of its own, so a live run is polled and only a live run is.
  *
  * The phase is a process-global that starts at `idle` and only a pass moves,
- * so it cannot answer at rest and every launch without one read as nothing
- *. At rest the answer comes from `getElevationBackfillRemaining`, a
+ * so it cannot answer at rest and every launch without one read as nothing.
+ * At rest the answer comes from the routes status read's remaining count, a
  * count of stored tracks that have not been asked about yet, which is durable.
  */
 

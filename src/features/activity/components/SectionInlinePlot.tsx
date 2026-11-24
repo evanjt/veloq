@@ -26,7 +26,7 @@ import {
   stroke,
   opacity,
 } from '@/theme';
-import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
+import { readsAsPace } from '@/shared/activity/activityUtils';
 import {
   formatDistance,
   formatDuration,
@@ -106,7 +106,7 @@ function formatLap(
   isMetric: boolean
 ): string {
   const type = sportType as ActivityType;
-  if (isSwimmingActivity(type) || isPaceSport(type)) {
+  if (readsAsPace(type)) {
     return formatSportSpeed(lapPace, type, isMetric);
   }
   return formatDuration(lapTime);
@@ -212,7 +212,7 @@ export function sectionSparklineData(
   }
 
   const type = sportType as ActivityType;
-  const pace = isSwimmingActivity(type) || isPaceSport(type);
+  const pace = readsAsPace(type);
   const format = (speed: number) => formatSportSpeed(speed, type, isMetric);
   const name = t(pace ? 'chartTypes.pace' : 'chartTypes.speed');
   const points: SparklinePoint[] = [];

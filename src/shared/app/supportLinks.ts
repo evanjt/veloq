@@ -73,7 +73,13 @@ export async function shareCrashLog(
   t: TFunction,
   { quiet = false, anchor }: { quiet?: boolean; anchor?: ShareAnchor | undefined } = {}
 ): Promise<boolean> {
-  const entries = await getCrashLog();
+  let entries: Awaited<ReturnType<typeof getCrashLog>>;
+  try {
+    entries = await getCrashLog();
+  } catch (error) {
+    if (!quiet) informShareFailed(error, t);
+    return false;
+  }
   if (!entries.length) {
     inform({ title: t('support.shareCrashLog'), message: t('support.noCrashLog') });
     return true;

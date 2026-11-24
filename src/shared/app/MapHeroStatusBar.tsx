@@ -1,5 +1,5 @@
 /**
- * The status bar and scroll state of a map-hero detail screen, both read from `mapHeroChrome`.
+ * The status bar of a map-hero detail screen, read from `mapHeroChrome`.
  *
  * The style is a status bar entry mounted only while the screen is focused. The stack keeps a
  * covered screen mounted and frozen, so an entry mounted for the screen's whole life would carry
@@ -8,13 +8,11 @@
  * which the app turns off so the root entry and the full-screen maps' entries apply.
  */
 
-import React, { useCallback, useState } from 'react';
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import React from 'react';
 import { useIsFocused } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
-import { heroScrolledPast, mapHeroChrome } from '@/shared/app/screenHeaders';
-import { useHeroHeaderBottom } from '@/shared/ui/useHeroHeaderBottom';
+import { mapHeroChrome } from '@/shared/app/screenHeaders';
 
 export function MapHeroStatusBar({
   scrolledPastHero,
@@ -26,23 +24,4 @@ export function MapHeroStatusBar({
   const focused = useIsFocused();
   if (!focused) return null;
   return <StatusBar style={mapHeroChrome({ scrolledPastHero, isDark }).statusBarStyle} animated />;
-}
-
-/**
- * Whether the hero at the top of a scroll view has scrolled out from under the header, and the
- * scroll handler that tracks it. The state changes only when that answer flips, so a scroll
- * renders the screen twice at most rather than once a frame.
- */
-export function useHeroScrolledPast(heroHeight: number) {
-  const headerBottom = useHeroHeaderBottom();
-  const [scrolledPastHero, setScrolledPastHero] = useState(false);
-  const onScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      setScrolledPastHero(
-        heroScrolledPast(event.nativeEvent.contentOffset.y, heroHeight, headerBottom)
-      );
-    },
-    [heroHeight, headerBottom]
-  );
-  return { scrolledPastHero, onScroll };
 }

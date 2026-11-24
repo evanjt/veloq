@@ -5,6 +5,7 @@ mod fixtures;
 mod form_zones;
 mod native;
 mod numbers;
+mod pace;
 mod snapshot;
 mod spoken;
 mod strength;

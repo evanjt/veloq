@@ -1,4 +1,5 @@
 import type { FtpTrend } from 'veloqrs';
+import type { TrendGlyph } from '@/shared/format/trend';
 
 /** One daily eFTP estimate, keyed by the local day it was stored for. */
 export interface FtpSeriesPoint {
@@ -13,6 +14,8 @@ export interface FtpTrendView {
   previous: number | undefined;
   /** The engine's step in watts, with its sign. Zero with nothing to compare against. */
   change: number;
+  /** The engine's judgement of the step. Flat with nothing to compare against. */
+  glyph: TrendGlyph;
   /** The step as a percentage of the earlier estimate it was measured from. */
   changePercent: number;
   /** The window in days the engine measured the step over, for the caption to name. */
@@ -37,6 +40,8 @@ export function ftpTrendView(trend: FtpTrend): FtpTrendView {
     latest: trend.latestFtp ?? 0,
     previous: trend.previousFtp,
     change,
+    // No glyph means nothing to compare against, which reads flat.
+    glyph: trend.glyph === '↑' || trend.glyph === '↓' ? trend.glyph : '→',
     changePercent: previous > 0 ? (change / previous) * 100 : 0,
     lookbackDays: trend.lookbackDays,
   };

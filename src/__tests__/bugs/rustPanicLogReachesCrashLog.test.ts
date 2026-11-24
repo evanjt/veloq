@@ -50,11 +50,13 @@ describe('recoverPanicLog', () => {
         source: 'rust-panic',
         fatal: true,
         message: '2026-10-01T08:00:00+00:00 [fetch] panic at a.rs:1:2: one',
+        ts: Date.parse('2026-10-01T08:00:00+00:00'),
       },
       {
         source: 'rust-panic',
         fatal: true,
         message: '2026-10-01T08:00:01+00:00 [fetch] panic at b.rs:3:4: two',
+        ts: Date.parse('2026-10-01T08:00:01+00:00'),
       },
     ]);
     expect(fs.readAsStringAsync).toHaveBeenCalledWith(PATH);

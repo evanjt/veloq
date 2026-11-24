@@ -14,7 +14,6 @@
 //   monochrome-icon   Android's themed layer, the same mark in one flat colour
 //   logo              the mark on a rounded tile, the website's and README's icon
 //                     and the web build's favicon
-//   logo-transparent  the mark on transparency
 //   splash            "veloq" on transparency, which the native splash lays on
 //                     the app colour
 //
@@ -142,17 +141,6 @@ const IMAGES = [
       { file: 'docs/icon.png', width: 1024, height: 1024 },
       { file: 'src/assets/favicon.png', width: 48, height: 48 },
     ],
-  },
-  {
-    name: 'logo-transparent',
-    width: 512,
-    height: 512,
-    word: 'vq',
-    baseline: 340,
-    ground: null,
-    mark: 'gradient',
-    size: 280,
-    renders: [],
   },
   {
     // The splash plugin reads a 400-wide image and draws it 200 points wide.

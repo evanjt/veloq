@@ -379,7 +379,7 @@ export function updateRecordingNotification(now = Date.now()): void {
         translate: (key, fallback) => t(key, fallback),
         isMetric: getIsMetric(),
         now,
-        guidance: { line: sessionGuidanceCue.line, vibrate: sessionGuidanceCue.takeVibration() },
+        guidance: { line: sessionGuidanceCue.line, vibrate: sessionGuidanceCue.vibrationPending },
       }
     );
     if (!payload) {
@@ -387,6 +387,7 @@ export function updateRecordingNotification(now = Date.now()): void {
       return;
     }
     VeloqRecordingNotification.update(JSON.stringify(payload));
+    if (payload.vibrate) sessionGuidanceCue.acknowledgeVibration();
   } catch (e) {
     log.warn('updateRecordingNotification failed:', e);
   }

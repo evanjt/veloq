@@ -58,6 +58,29 @@ describe('the stored summary on the activity stat cards', () => {
     expect(row(list, 'Speed', 'Max')).toBe(formatSportSpeed(15.4, 'Ride', true));
   });
 
+  it('shows distance over moving time when the stored average is over elapsed time', () => {
+    // 10 km, 3600 s moving of 6545 s elapsed: stored 1.528 m/s is the elapsed figure.
+    const stopped = activityRecord({ ...ride, distance: 10000, movingTime: 3600 });
+    const list = stats(stopped, {
+      ...rideSummary,
+      movingTime: 3600,
+      elapsedTime: 6545,
+      averageSpeed: 10000 / 6545,
+    });
+    expect(card(list, 'Speed').value).toBe(formatSportSpeed(10000 / 3600, 'Ride', true));
+    expect(row(list, 'Speed', 'Average')).toBe(formatSportSpeed(10000 / 3600, 'Ride', true));
+  });
+
+  it('keeps the stored average when the moving time or distance is absent', () => {
+    const noDistance = activityRecord({ ...ride, distance: 0 });
+    expect(card(stats(noDistance, rideSummary), 'Speed').value).toBe(
+      formatSportSpeed(8.2, 'Ride', true)
+    );
+    const { movingTime: _omitted, ...noMoving } = rideSummary;
+    const far = activityRecord({ ...ride, distance: 10000, movingTime: 0 });
+    expect(card(stats(far, noMoving), 'Speed').value).toBe(formatSportSpeed(8.2, 'Ride', true));
+  });
+
   vaultIt('reads speed in the athlete units', () => {
     const list = stats(ride, rideSummary, false);
     expect(card(list, 'Speed').value).toBe(formatSportSpeed(8.2, 'Ride', false));

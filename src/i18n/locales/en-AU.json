@@ -141,6 +141,7 @@
       "busy": "Something else was using the database. Another go should sort it.",
       "storageUnavailable": "The database couldn't be written. Free up some space, then try again.",
       "storageShortfall": "Updating your library needs {{needed}} free on this device. Free up some space, then try again.",
+      "wipeFailed": "The previous athlete's activities couldn't be cleared from this device, so they're still showing. Try again.",
       "failed": "Your activity library couldn't be opened, for a reason the app can't put a name to. It's still on your device, untouched."
     },
     "quarantine": {
@@ -189,6 +190,7 @@
     "oauthAccessDenied": "Access was denied. Allow access and have another go at signing in.",
     "oauthProxyRefused": "The sign-in service knocked back the request. Try again shortly.",
     "oauthUnreachable": "Couldn't reach the sign-in service. Check your connection and have another go.",
+    "permissionUpgradeWrongAccount": "The access was granted to a different account ({{athleteId}}). Sign in with the account this device uses and have another go.",
     "oauthInterrupted": "Sign-in got interrupted. Have another go.",
     "sessionDataKept": "Your activities, sections and settings are all still on this device.",
     "sessionSignedOut": "You've been signed out.",

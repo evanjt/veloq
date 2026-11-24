@@ -32,6 +32,7 @@ import {
   namespaceMethodExports,
   clientMethodReach,
   clientReachProblems,
+  ownedElsewhereProblems,
   type Reach,
   callIsAttributed,
   callsIn,
@@ -332,6 +333,10 @@ const used = usageReport.filter((u) => u.reach === 'called');
 const delegated = usageReport.filter((u) => u.reach === 'delegated');
 const unused = usageReport.filter((u) => u.reach === 'unreachable');
 const unlisted = unused.filter((u) => !(u.key in OWNED_ELSEWHERE));
+const staleOwned = ownedElsewhereProblems(
+  new Map(usageReport.map((u) => [u.key, u.reach])),
+  OWNED_ELSEWHERE
+);
 
 if (usageReport.length === 0) {
   console.error('The Rust source declared no exports. Check scripts/lib/ffiExports.ts reads it.');
@@ -357,7 +362,9 @@ if (process.argv.includes('--json')) {
       2
     )
   );
-  process.exit(unlisted.length > 0 && process.argv.includes('--check') ? 1 : 0);
+  process.exit(
+    (unlisted.length > 0 || staleOwned.length > 0) && process.argv.includes('--check') ? 1 : 0
+  );
 }
 
 if (process.argv.includes('--areas')) {
@@ -371,20 +378,29 @@ if (process.argv.includes('--areas')) {
 }
 
 if (process.argv.includes('--check')) {
-  if (unlisted.length === 0) {
+  if (unlisted.length === 0 && staleOwned.length === 0) {
     console.log(
       `FFI usage guard: ${used.length} of ${usageReport.length} exports reach a screen, ` +
         `${delegated.length} reach the delegate layer and no further.`
     );
     process.exit(0);
   }
-  console.error(
-    `${unlisted.length} FFI export(s) are exported from Rust and named by nothing, not even a delegate:`
-  );
-  for (const u of unlisted) console.error(`  - ${u.key}`);
-  console.error('');
-  console.error('Either wire it up, delete it, or add it to OWNED_ELSEWHERE in');
-  console.error('scripts/lib/ffiUsage.ts with the reason it has no caller here.');
+  if (unlisted.length > 0) {
+    console.error(
+      `${unlisted.length} FFI export(s) are exported from Rust and named by nothing, not even a delegate:`
+    );
+    for (const u of unlisted) console.error(`  - ${u.key}`);
+    console.error('');
+    console.error('Either wire it up, delete it, or add it to OWNED_ELSEWHERE in');
+    console.error('scripts/lib/ffiUsage.ts with the reason it has no caller here.');
+  }
+  if (staleOwned.length > 0) {
+    if (unlisted.length > 0) console.error('');
+    console.error('OWNED_ELSEWHERE lists exports that are now called, delegated or gone:');
+    for (const key of staleOwned) console.error(`  - ${key}`);
+    console.error('');
+    console.error('Remove each entry, or the next export to lose its caller hides behind it.');
+  }
   process.exit(1);
 }
 

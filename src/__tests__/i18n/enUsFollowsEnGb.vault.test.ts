@@ -74,8 +74,6 @@ const SPELLING = [
   'whatsNew.v022.fitnessBody',
   'whatsNew.v030.strengthBody',
   'whatsNew.v040.recutFailedAfterApply',
-  'whatsNew.v040.recutRunning',
-  'whatsNew.v040.recutRunningPhase',
   'whatsNew.v040.sectionPageLine',
   'whatsNew.v040.sectionPageTip',
 ];

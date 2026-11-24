@@ -11,6 +11,7 @@ import { act, renderHook } from '@testing-library/react-native';
 
 import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { getEngine } from '@/shared/native/engine';
+import { summaryCardBundle } from '../__shared__/summaryCardBundle';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
@@ -26,13 +27,13 @@ jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
-const CARD = {
+const CARD = summaryCardBundle({
   currentWeek: { count: 4, totalDuration: 7200 },
   prevWeek: { count: 2, totalDuration: 3600 },
   ftpTrend: { latestFtp: 250, previousFtp: 240 },
   runPaceTrend: { latestPace: 3.5, previousPace: 3.4 },
   swimPaceTrend: { latestPace: 1.2, previousPace: 1.2 },
-};
+});
 
 const SPARKLINES = {
   fitness: [70, 71, 72],

@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import { AppState, Platform } from 'react-native';
+import { errorMessage } from '@/shared/format/errorMessage';
 
 import { getSetting } from '@/shared/storage';
 import { debug } from '@/shared/debug/debug';
@@ -91,7 +92,7 @@ async function indexActivity(
     await appendTaskRun({
       stage: 'indexed',
       activityId,
-      detail: `failed: ${e instanceof Error ? e.message : String(e)}`,
+      detail: `failed: ${errorMessage(e)}`,
     });
   }
 }
@@ -127,7 +128,7 @@ async function readyActivity(activityId: string): Promise<void> {
           : `still owed after ${elapsed}`;
   } catch (e) {
     log.warn('Readying the activity failed:', e);
-    detail = `failed: ${e instanceof Error ? e.message : String(e)}`;
+    detail = `failed: ${errorMessage(e)}`;
   }
   await appendTaskRun({ stage: 'readied', activityId, detail });
 }
@@ -404,14 +405,15 @@ export async function handleBackgroundInsightTask({
 
     // 10. A delivered push proves the pipeline is alive, so use it to keep
     // the server-side token registration (30-day TTL) fresh for users who
-    // rarely open the app. Throttled to once a day inside the helper. A wake
+    // rarely open the app. An athlete who opted out stays unregistered: a
+    // late push must not put the token back. Throttled to once a day inside the helper. A wake
     // carrying no activity reaches here without the ingest above, so it asks
     // for the credential itself rather than assuming that ran.
     try {
       const { ensureCredentialsHydrated, getStoredCredentials } = require('@/shared/app/AuthStore');
       await ensureCredentialsHydrated();
       const { athleteId, authMethod } = getStoredCredentials();
-      if (athleteId && sourceFor({ authMethod })?.can.push) {
+      if (notificationsEnabled && athleteId && sourceFor({ authMethod })?.can.push) {
         await refreshPushTokenRegistration(athleteId);
       }
     } catch {
@@ -419,7 +421,7 @@ export async function handleBackgroundInsightTask({
     }
   } catch (e) {
     log.error('Background insight task failed:', e);
-    await appendTaskRun({ stage: 'error', detail: e instanceof Error ? e.message : String(e) });
+    await appendTaskRun({ stage: 'error', detail: errorMessage(e) });
   }
 }
 

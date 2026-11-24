@@ -80,6 +80,17 @@ function ensurePanicLog(dbPath: string): void {
 }
 
 /**
+ * Successful opens in this process. The engine handle is one singleton, so a
+ * cache of what the open database holds is told apart by this count: a wipe or
+ * a rollback reopens the same handle onto a different file.
+ */
+let libraryOpenings = 0;
+
+export function libraryOpenCount(): number {
+  return libraryOpenings;
+}
+
+/**
  * Open the library at `dbPath` and keep what the open created, and the panic
  * log beside it, out of the iOS device backup, which is the one place the engine's database is opened.
  *
@@ -96,6 +107,7 @@ export function openLibrary(
 ): boolean {
   const opened = engine.initWithPath(dbPath);
   if (!opened) return false;
+  libraryOpenings += 1;
   markLibraryFiles(dbPath);
   return true;
 }
@@ -111,6 +123,7 @@ export async function openLibraryAsync(
 ): Promise<boolean> {
   const opened = await engine.openWithPath(dbPath);
   if (!opened) return false;
+  libraryOpenings += 1;
   markLibraryFiles(dbPath);
   return true;
 }
@@ -200,8 +213,12 @@ export async function migrateRouteDb(
     for (const name of written) {
       await fs.remove(`${toDir}${name}`).catch(() => undefined);
     }
+    // A file that will not move back stays under its dated name. The rest are
+    // still restored, and the old location still opens.
     for (const name of displaced.reverse()) {
-      await fs.move(`${toDir}${displacedName(name, stamp)}`, `${toDir}${name}`);
+      await fs
+        .move(`${toDir}${displacedName(name, stamp)}`, `${toDir}${name}`)
+        .catch(() => debug.warn(`[RouteDb] ${name} could not be moved back from its dated name`));
     }
     return fromDir;
   };

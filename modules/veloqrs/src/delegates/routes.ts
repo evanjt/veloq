@@ -9,7 +9,6 @@
 import type {
   FfiNearbyKind,
   FfiNearbyPlace,
-  FfiRouteGroup,
   FfiRouteDetailData,
   FfiRoutePerformanceResult,
   FfiRoutesScreenData,
@@ -31,11 +30,6 @@ const EMPTY_ROUTE_PERFORMANCE_RESULT: FfiRoutePerformanceResult = {
   trendCurves: {},
   histograms: {},
 };
-
-export function getGroups(host: DelegateHost): FfiRouteGroup[] {
-  if (!host.ready) return [];
-  return host.timed('getGroups', () => host.engine.routes().getAll());
-}
 
 export type GroupSortKey = 'count' | 'name';
 

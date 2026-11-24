@@ -657,6 +657,7 @@
       "database": "La base de données n'a pas pu effectuer cette opération. Réessayez, et videz le cache si cela persiste."
     },
     "initReason": {
+      "wipeFailed": "Les activités de l'athlète précédent n'ont pas pu être effacées de cet appareil, elles s'affichent donc encore. Réessayez.",
       "busy": "Autre chose utilisait la base de données. Réessayez dans un instant.",
       "forwardSchema": "Ces données ont été enregistrées par une version plus récente de Veloq. Mettez l'application à jour pour les ouvrir.",
       "storageUnavailable": "La base de données n'a pas pu être écrite. Libérez de l'espace, puis réessayez.",
@@ -706,6 +707,7 @@
     "rideStillRecording": "Votre sortie est toujours en cours d'enregistrement.",
     "stopAndSaveRide": "Arrêter et enregistrer la sortie",
     "rideStopped": "Votre sortie est arrêtée et conservée sur cet appareil.",
+    "rideNotSaved": "Votre sortie est arrêtée mais pas encore enregistrée. Elle n'existe qu'en mémoire.",
     "shareFailed": "Impossible de partager le journal des plantages.",
     "unableToLoad": "Impossible de charger : {{part}}",
     "retryHint": "Touchez Réessayer pour le charger à nouveau.",
@@ -901,16 +903,9 @@
     "notificationsBody": "Veloq peut vous prévenir quand une sortie bat un record personnel ou réalise un meilleur temps sur un parcours, avec le nom du parcours."
   },
   "filters": {
-    "climbing": "Escalade",
     "cycling": "Cyclisme",
-    "hiking": "Randonnée",
-    "other": "Autre",
-    "racketSports": "Sports de raquette",
     "running": "Course",
-    "snowSports": "Sports de neige",
-    "swimming": "Natation",
-    "walking": "Marche",
-    "waterSports": "Sports nautiques"
+    "swimming": "Natation"
   },
   "fitness": {
     "activitiesCount_one": "{{count}} activité",
@@ -2749,8 +2744,6 @@
       "backupBody": "Garde tout ce qu'intervals.icu ne garde pas : vos noms de sections, vos modifications et vos réglages."
     },
     "v040": {
-      "recutRunning": "Nouvelle analyse de tes tronçons",
-      "recutRunningPhase": "Nouvelle analyse de tes tronçons : {{phase}}",
       "diffTotals": "{{current}} tronçons sont devenus {{proposed}}.",
       "diffBreakdown": "{{new}} nouveaux, {{changed}} modifiés, {{gone}} retirés.",
       "diffNoneKept_one": "Le nouveau détecteur a parcouru toute ta bibliothèque et n'a gardé aucun de tes {{count}} tronçon. Il est retiré, pas supprimé : ouvre la liste des tronçons retirés pour récupérer ceux que tu veux.",

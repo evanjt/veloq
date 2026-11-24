@@ -112,12 +112,31 @@ export function TimelineSlider({
   // the prop while a span is proposed, so a month step runs from this rather than from the prop.
   const reportedStart = useRef(startDate);
 
-  // Sync shared values when props change
+  // The props the handles were last synced to. A new layout width rebuilds `dateToPosition`
+  // without changing a prop, and it has to re-place the handles where they are, not where the
+  // props are, or a span the athlete proposed is thrown away by a rotation or a resize.
+  const syncedProps = useRef<{
+    startDate: Date;
+    endDate: Date;
+    resetKey: number | undefined;
+  } | null>(null);
+
   useEffect(() => {
-    startPos.value = dateToPosition(startDate);
-    endPos.value = dateToPosition(endDate);
+    const synced = syncedProps.current;
+    const propsChanged =
+      !synced ||
+      synced.startDate !== startDate ||
+      synced.endDate !== endDate ||
+      synced.resetKey !== resetKey;
+    syncedProps.current = { startDate, endDate, resetKey };
     downloadedStartPos.value = dateToPosition(startDate);
-    reportedStart.current = startDate;
+    if (propsChanged) {
+      startPos.value = dateToPosition(startDate);
+      endPos.value = dateToPosition(endDate);
+      reportedStart.current = startDate;
+    } else {
+      startPos.value = dateToPosition(reportedStart.current);
+    }
   }, [startDate, endDate, dateToPosition, startPos, endPos, downloadedStartPos, resetKey]);
 
   const onLayout = useCallback(

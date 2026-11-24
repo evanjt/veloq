@@ -650,6 +650,7 @@
       "database": "数据库无法完成该操作。请重试，若持续出现请清除缓存。"
     },
     "initReason": {
+      "wipeFailed": "无法从此设备清除上一位运动员的活动，因此仍在显示。请重试。",
       "busy": "数据库正被其他操作占用。稍后重试即可。",
       "forwardSchema": "这些数据由更新版本的 Veloq 保存。请升级应用后再打开。",
       "storageUnavailable": "无法写入数据库。请释放存储空间后重试。",
@@ -692,6 +693,7 @@
     "rideStillRecording": "你的骑行仍在记录中。",
     "stopAndSaveRide": "停止并保存骑行",
     "rideStopped": "你的骑行已停止并保留在此设备上。",
+    "rideNotSaved": "你的骑行已停止，但尚未保存。它目前只存在于内存中。",
     "shareFailed": "无法分享崩溃日志。",
     "unableToLoad": "无法加载{{part}}",
     "retryHint": "轻点“重试”即可重新加载。",
@@ -881,16 +883,9 @@
     "notificationsBody": "当一次骑行刷新个人最佳或在某条路线上跑出更快用时，Veloq 可以通知你，并注明路线名称。"
   },
   "filters": {
-    "climbing": "攀岩",
     "cycling": "骑行",
-    "hiking": "徒步",
-    "other": "其他",
-    "racketSports": "球拍运动",
     "running": "跑步",
-    "snowSports": "雪上运动",
-    "swimming": "游泳",
-    "walking": "步行",
-    "waterSports": "水上运动"
+    "swimming": "游泳"
   },
   "fitness": {
     "activitiesCount_one": "{{count}} 个活动",
@@ -2674,8 +2669,6 @@
       "backupBody": "保存 intervals.icu 不保存的内容：你的路段名称、编辑和设置。"
     },
     "v040": {
-      "recutRunning": "正在重新分析你的路段",
-      "recutRunningPhase": "正在重新分析你的路段：{{phase}}",
       "diffTotals": "{{current}} 个路段变为 {{proposed}} 个。",
       "diffBreakdown": "新增 {{new}} 个，变更 {{changed}} 个，退役 {{gone}} 个。",
       "diffNoneKept_one": "新的检测器已重新分析你的全部路段，但 {{count}} 个路段一个也没有保留。它们已退出，并未删除：打开已退出路段的列表，即可找回需要的路段。",

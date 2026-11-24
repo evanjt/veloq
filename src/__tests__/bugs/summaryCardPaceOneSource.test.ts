@@ -16,6 +16,8 @@ import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { useDashboardPreferences } from '@/features/settings/stores/summaryCardPreferences';
 import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
 import { ABSENT } from '@/shared/format/absent';
+import type { FfiPaceTrend } from 'veloqrs';
+import { summaryCardBundle } from '../__shared__/summaryCardBundle';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('@/i18n', () => ({
@@ -29,15 +31,8 @@ jest.mock('@/features/stats', () => ({ usePaceCurve: (o: unknown) => mockPaceCur
 let mockMetric = true;
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => mockMetric }));
 
-function card(run: object, swim: object) {
-  return {
-    wellness: {},
-    currentWeek: { count: 0, totalDuration: 0 },
-    prevWeek: { count: 0, totalDuration: 0 },
-    ftpTrend: { latestFtp: null, previousFtp: null },
-    runPaceTrend: run,
-    swimPaceTrend: swim,
-  };
+function card(run: Partial<FfiPaceTrend>, swim: Partial<FfiPaceTrend>) {
+  return summaryCardBundle({ runPaceTrend: run, swimPaceTrend: swim });
 }
 
 const DEFAULTS = useDashboardPreferences.getState().summaryCard;

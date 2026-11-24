@@ -1,4 +1,4 @@
-import { previewLineOf } from '@/shared/geo/polyline';
+import { previewLineFromStreams, previewLineOf } from '@/shared/geo/polyline';
 
 describe('previewLineOf', () => {
   it('keeps the elevation of every placed point, aligned with the coordinates', () => {
@@ -12,7 +12,7 @@ describe('previewLineOf', () => {
     expect(line.altitude).toEqual([410, 425.5]);
   });
 
-  it('gives no altitude when any placed point lacks one, so it never misaligns', () => {
+  it('marks a placed point without elevation as NaN, keeping the others aligned', () => {
     const line = previewLineOf([
       { latitude: 46.2, longitude: 7.3, elevation: 410 },
       { latitude: 46.21, longitude: 7.31 },
@@ -20,6 +20,14 @@ describe('previewLineOf', () => {
     ]);
 
     expect(line.coordinates).toHaveLength(3);
+    expect(line.altitude).toEqual([410, NaN, 430]);
+  });
+
+  it('gives no altitude when no placed point has one', () => {
+    const line = previewLineOf([
+      { latitude: 46.2, longitude: 7.3 },
+      { latitude: 46.21, longitude: 7.31 },
+    ]);
     expect(line.altitude).toBeUndefined();
   });
 
@@ -35,5 +43,25 @@ describe('previewLineOf', () => {
     ]);
 
     expect(line.altitude).toEqual([410]);
+  });
+});
+
+describe('previewLineFromStreams', () => {
+  it('drops an unplaceable pair together with its elevation', () => {
+    const line = previewLineFromStreams([46.2, 7.3, NaN, NaN, 46.22, 7.32], [410, 999, 430]);
+
+    expect(line.coordinates).toHaveLength(2);
+    expect(line.altitude).toEqual([410, 430]);
+  });
+
+  it('keeps a non-finite elevation as NaN on its own point', () => {
+    const line = previewLineFromStreams([46.2, 7.3, 46.21, 7.31, 46.22, 7.32], [410, NaN, 430]);
+
+    expect(line.altitude).toEqual([410, NaN, 430]);
+  });
+
+  it('gives no altitude without an altitude stream', () => {
+    expect(previewLineFromStreams([46.2, 7.3], undefined).altitude).toBeUndefined();
+    expect(previewLineFromStreams([46.2, 7.3], []).altitude).toBeUndefined();
   });
 });

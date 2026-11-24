@@ -151,23 +151,38 @@ export function latLngsFromFlat(flat: ArrayLike<number>): LatLng[] {
 
 /**
  * A decoded preview line as the card draws it: the points the map can place,
- * and the elevation of each of them when every one has one.
+ * and the elevation of each of them.
  *
- * An altitude that skipped a point would shift every later elevation onto the
- * wrong coordinate, so a line with a gap carries none: the camera then falls
- * back to the position-only angle rather than reading a misaligned profile.
+ * A placed point without an elevation keeps its slot as NaN, so every later
+ * elevation stays on its own coordinate and the camera skips the gap. A line
+ * where no placed point has an elevation carries no altitude.
  */
 export function previewLineOf(points: readonly LatLng[]): {
   coordinates: LatLng[];
   altitude: number[] | undefined;
 } {
   const coordinates = points.filter((p) => !isNaN(p.latitude) && !isNaN(p.longitude));
-  const altitude: number[] = [];
-  for (const point of coordinates) {
-    if (point.elevation === undefined) return { coordinates, altitude: undefined };
-    altitude.push(point.elevation);
-  }
-  return { coordinates, altitude: altitude.length > 0 ? altitude : undefined };
+  const altitude = coordinates.map((p) => p.elevation ?? NaN);
+  return { coordinates, altitude: altitude.some((v) => !isNaN(v)) ? altitude : undefined };
+}
+
+/**
+ * The preview line of a flat `[lat, lng, ...]` track and the altitude series
+ * sampled beside it. A pair the map cannot place is dropped together with its
+ * elevation, so the rest stay aligned.
+ */
+export function previewLineFromStreams(
+  latlng: ArrayLike<number>,
+  altitude: ArrayLike<number> | undefined
+): { coordinates: LatLng[]; altitude: number[] | undefined } {
+  const points = latLngsFromFlat(latlng);
+  if (!altitude || altitude.length === 0) return previewLineOf(points);
+  return previewLineOf(
+    points.map((p, i) => {
+      const elevation = altitude[i];
+      return elevation !== undefined && isFinite(elevation) ? { ...p, elevation } : p;
+    })
+  );
 }
 
 /**

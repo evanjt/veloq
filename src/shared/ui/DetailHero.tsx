@@ -1,17 +1,13 @@
 /**
- * Shared hero frame for the activity, route, and section detail screens:
- * full-bleed map slot, a top scrim, a bottom gradient and a bottom info
- * overlay. The back control is the stack's transparent native header, drawn
- * over the map. HeroNameRow and HeroStatsRow provide the standard overlay
- * content (editable name, dot-separated stats).
+ * The name and stat rows drawn over a detail map, or on a sheet's surface. The map sheet's cards
+ * and their Peek lay these out, so the rows and the text styles they share live here.
  */
 
 import React from 'react';
-import { Platform, View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import {
   colors,
@@ -19,7 +15,6 @@ import {
   controlHeight,
   darkColors,
   iconSize,
-  layers,
   layout,
   mapTextShadow,
   opacity,
@@ -28,20 +23,16 @@ import {
   typography,
 } from '@/theme';
 import { Icon } from './Icon';
-import { BACK_SWIPE_EDGE_WIDTH } from './backSwipeEdge';
 import { PressTarget } from './PressTarget';
 import { HeadingControl } from './HeadingControl';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import { TextField, type TextFieldHandle } from './TextField';
-import { useHeroHeaderBottom } from './useHeroHeaderBottom';
 import { NameText } from './NameText';
 import { Shimmer, SkeletonLine } from './Shimmer';
 import { useTheme } from '@/shared/app/useTheme';
 
 type MaterialIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
-/** The band at the hero's bottom that the gradient darkens and the info overlay sits in. */
-export const HERO_GRADIENT_HEIGHT = 120;
 const noop = () => {};
 
 export const heroTextStyles = StyleSheet.create({
@@ -100,86 +91,6 @@ export const heroPeekStyles = StyleSheet.create({
 
 /** The side of the sport chip before a hero's name. */
 const TYPE_ICON_SIZE = 28;
-
-/** How far below the header the top scrim takes to fade out. */
-const TOP_SCRIM_FADE = spacing.xl;
-
-/**
- * Held across the status bar and the header row, so the white back control and
- * status glyphs keep 3:1 over the palest tile. A pure white tile under black at
- * 0.5 composites to a grey white reads at about 4:1 against.
- */
-const TOP_SCRIM_COLOUR = opacity.overlay.heavy;
-
-export interface DetailHeroProps {
-  height: number;
-  containerTestID?: string;
-  /** Bottom info overlay content (HeroNameRow / HeroStatsRow or custom). */
-  overlay?: React.ReactNode;
-  /** Right padding for the info overlay, so its text stays clear of controls drawn down the map's edge. */
-  overlayInsetEnd?: number;
-  /** The map (or placeholder) filling the hero. */
-  children: React.ReactNode;
-  /**
-   * A map tool's bar, drawn over the map's foot while the tool runs. It takes the place of the
-   * info overlay and the gradient under it, so the map work has one way out.
-   */
-  tool?: React.ReactNode;
-}
-
-export function DetailHero({
-  height,
-  containerTestID,
-  overlay,
-  overlayInsetEnd,
-  children,
-  tool,
-}: DetailHeroProps) {
-  const headerBottom = useHeroHeaderBottom();
-  const topScrimHeight = headerBottom + TOP_SCRIM_FADE;
-
-  return (
-    <View testID={containerTestID} style={[styles.heroSection, { height }]}>
-      <View style={styles.mapContainer}>{children}</View>
-
-      {/* The leading edge belongs to the stack's back swipe on iOS. A touch that lands here hits a
-          plain view, so the map's pan never sees it and the ancestor's pop recogniser does. Android
-          has no edge swipe to give back, and a strip there would only take pan from the map. */}
-      {Platform.OS === 'ios' && (
-        <View testID="detail-hero-back-edge" accessible={false} style={styles.backSwipeEdge} />
-      )}
-
-      <LinearGradient
-        testID="detail-hero-top-scrim"
-        colors={[TOP_SCRIM_COLOUR, TOP_SCRIM_COLOUR, 'transparent']}
-        locations={[0, headerBottom / topScrimHeight, 1]}
-        style={[styles.topScrim, { height: topScrimHeight }]}
-        pointerEvents="none"
-      />
-
-      {tool == null && (
-        <LinearGradient
-          testID="detail-hero-gradient"
-          colors={['transparent', opacity.overlay.full]}
-          style={styles.mapGradient}
-          pointerEvents="none"
-        />
-      )}
-
-      {tool != null ? tool : null}
-
-      {tool == null && overlay != null && (
-        <View
-          testID="detail-hero-overlay"
-          style={[styles.infoOverlay, overlayInsetEnd != null && { paddingRight: overlayInsetEnd }]}
-          pointerEvents="box-none"
-        >
-          {overlay}
-        </View>
-      )}
-    </View>
-  );
-}
 
 export interface HeroNameRowProps {
   name: string;
@@ -443,45 +354,6 @@ const STAT_SKELETON_WIDTH = spacing.xxl + spacing.md;
 const EDIT_NAME_SLOP = slopToMinTapTarget(controlHeight.button, controlHeight.button);
 
 const styles = StyleSheet.create({
-  heroSection: {
-    position: 'relative',
-  },
-  mapContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  backSwipeEdge: {
-    position: 'absolute',
-    start: 0,
-    top: 0,
-    bottom: 0,
-    width: BACK_SWIPE_EDGE_WIDTH,
-  },
-  topScrim: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-  },
-  mapGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: HERO_GRADIENT_HEIGHT,
-  },
-  infoOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-    zIndex: layers.raised,
-  },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',

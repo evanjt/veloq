@@ -488,7 +488,7 @@ fn net_zero_activity_swap_during_cutover_leaves_detection_dirty() {
 
     assert!(matches!(outcome, CutoverOutcome::Completed(_)));
     assert_eq!(detecting_checks.load(Ordering::SeqCst), 2);
-    assert!(with_persistent_engine(|e| e.stats().sections_dirty).unwrap());
+    assert!(with_persistent_engine(|e| e.stats().unwrap().sections_dirty).unwrap());
 }
 
 fn stored_group_generation(path: &std::path::Path) -> u64 {

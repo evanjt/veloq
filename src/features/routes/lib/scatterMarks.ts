@@ -13,14 +13,16 @@
 
 import type { TFunction } from 'i18next';
 import type { FfiFocusRange, FfiRecordStep } from 'veloqrs';
-import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
+import { isSwimmingActivity, readsAsPace } from '@/shared/activity/activityUtils';
 import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 import {
   formatDuration,
   formatSecondsValue,
   formatSpeed,
   paceSeconds,
+  paceUnitLabel,
   swimPaceSeconds,
+  swimPaceUnitLabel,
 } from '@/shared/format/format';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 
@@ -193,18 +195,14 @@ function speedDifference(
   activityType: ActivityType,
   isMetric: boolean
 ): string | null {
-  if (isSwimmingActivity(activityType) || isPaceSport(activityType)) {
+  if (readsAsPace(activityType)) {
     const pace = isSwimmingActivity(activityType) ? swimPaceSeconds : paceSeconds;
     const a = pace(slower, isMetric);
     const b = pace(faster, isMetric);
     if (a == null || b == null) return null;
     const unit = isSwimmingActivity(activityType)
-      ? isMetric
-        ? '/100m'
-        : '/100yd'
-      : isMetric
-        ? '/km'
-        : '/mi';
+      ? swimPaceUnitLabel(isMetric)
+      : paceUnitLabel(isMetric);
     return `${gapSeconds(a - b)} ${unit}`;
   }
   return formatSpeed(faster - slower, isMetric);
@@ -250,5 +248,5 @@ export function scatterStandingText(
 }
 
 function isPaced(activityType: ActivityType): boolean {
-  return isSwimmingActivity(activityType) || isPaceSport(activityType);
+  return readsAsPace(activityType);
 }

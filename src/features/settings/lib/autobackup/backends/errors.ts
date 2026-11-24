@@ -13,6 +13,8 @@
  * `device` until a later run writes one.
  */
 
+import { errorMessage } from '@/shared/format/errorMessage';
+
 export type BackupFailureKind =
   | 'auth'
   | 'signin'
@@ -133,7 +135,7 @@ export function failureMessageKey(kind: BackupFailureKind): BackupFailureMessage
 
 /** Wrap a thrown network error, which is never a decision the server made. */
 export function transportFailure(operation: string, cause: unknown): BackupTransferError {
-  const detail = cause instanceof Error ? cause.message : String(cause);
+  const detail = errorMessage(cause);
   return new BackupTransferError(operation, 'transport', `${operation} failed: ${detail}`);
 }
 

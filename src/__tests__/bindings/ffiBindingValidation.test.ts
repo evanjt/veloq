@@ -100,7 +100,9 @@ describe('FFI Binding Validation', () => {
     vaultIt('should include the known standalone FFI functions', () => {
       const names = new Set(STANDALONE_EXPORTS.map((e) => e.name));
       expect(names.has('get_download_progress')).toBe(false);
-      expect(names.has('validate_backup_database')).toBe(true);
+      // Read by the Rust tests that probe a backup file and by nothing in
+      // TypeScript, so it is a plain function and not an export.
+      expect(names.has('validate_backup_database')).toBe(false);
       // Conversion opens a picked database copy before the live engine exists.
       expect(names.has('convert_legacy_database_to_record_backup')).toBe(true);
       expect(names.has('start_gps_pass')).toBe(true);
@@ -120,7 +122,9 @@ describe('FFI Binding Validation', () => {
       // A caller queued behind a 500-activity sync used to poll the global
       // flag and watch someone else's numbers long after its own had landed.
       expect(names.has('get_fetch_run_progress')).toBe(true);
-      expect(names.has('compute_polyline_overlap')).toBe(true);
+      // The merge scan builds one index per query line; a single-shot call
+      // across the boundary had no caller.
+      expect(names.has('compute_polyline_overlap')).toBe(false);
       // Deleted with the synthetic detection illustration, its only caller.
       // Named here so a re-add has to answer for itself rather than ride in
       // on a bumped count.
@@ -129,7 +133,9 @@ describe('FFI Binding Validation', () => {
       // A pause with no inverse held detection for the rest of the process,
       // with a force-quit as the only exit. This is that inverse.
       expect(names.has('resume_elevation_backfill')).toBe(true);
-      expect(names.has('get_elevation_backfill_remaining')).toBe(true);
+      // The routes status read carries the count, so a second read of it is a
+      // second poller of one fact.
+      expect(names.has('get_elevation_backfill_remaining')).toBe(false);
       // Tens of megabytes on the athlete's own connection, so unlike the
       // elevation pass nothing starts this at launch and the stop is the
       // control that matters.
@@ -159,15 +165,32 @@ describe('FFI Binding Validation', () => {
       expect(names.has('run_detector_cutover')).toBe(false);
     });
 
-    vaultIt('should have exports sourced from ffi.rs and persistence/mod.rs', () => {
+    vaultIt('should have exports sourced from ffi.rs and objects/quarantine.rs', () => {
       const files = new Set(STANDALONE_EXPORTS.map((e) => e.file));
       expect(files.has('ffi.rs')).toBe(true);
-      expect(files.has('persistence/mod.rs')).toBe(true);
+      expect(files.has('objects/quarantine.rs')).toBe(true);
     });
 
     vaultIt('should have correct snake_case to camelCase conversion', () => {
       expect(RUST_TO_TS_NAME['get_fetch_run_progress']).toBe('getFetchRunProgress');
-      expect(RUST_TO_TS_NAME['compute_polyline_overlap']).toBe('computePolylineOverlap');
+      expect(RUST_TO_TS_NAME['get_cutover_diff']).toBe('getCutoverDiff');
+    });
+  });
+
+  describe('Methods with no TypeScript caller', () => {
+    vaultIt('are not exported, so a re-add has to answer for itself', () => {
+      const methods = new Set(METHOD_EXPORTS.map((e) => `${e.object}.${e.name}`));
+      const removed = [
+        'SectionManager.get_retired',
+        'BasemapManager.put_tile',
+        'BasemapManager.get_tile',
+        'BasemapManager.clear_source_tiles',
+        'StrengthManager.bulk_insert_exercise_sets',
+        'StrengthManager.get_strength_session_fit',
+        'SettingsManager.stream_retention_days',
+        'SettingsManager.stream_store_bytes',
+      ];
+      expect(removed.filter((key) => methods.has(key))).toEqual([]);
     });
   });
 

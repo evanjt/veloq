@@ -249,7 +249,8 @@ const GUARDS = [
     kind: 'correctness',
     paths: ['modules/veloqrs/', 'src/api/', 'src/__tests__/contracts/', 'package.json'],
     cmd: tsx('ffi-usage-report.ts', '--check'),
-    catches: 'an engine export no TypeScript caller reaches and no list accounts for',
+    catches:
+      'an engine export no TypeScript caller reaches and no list accounts for, or a list row for an export that is now called or gone',
   },
   {
     name: 'ffi:client-reach',

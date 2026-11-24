@@ -13,6 +13,8 @@ import { renderHook } from '@testing-library/react-native';
 import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { useDashboardPreferences } from '@/features/settings/stores/summaryCardPreferences';
 import { formatDurationHuman } from '@/shared/format/format';
+import type { FfiSummaryCardData } from 'veloqrs';
+import { summaryCardBundle } from '../__shared__/summaryCardBundle';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('@/i18n', () => ({
@@ -25,14 +27,12 @@ jest.mock('@/features/stats', () => ({ usePaceCurve: () => ({ data: null }) }));
 let mockMetric = true;
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => mockMetric }));
 
-const BUNDLE = {
+const BUNDLE = summaryCardBundle({
   wellness: { hrv: 52, rhr: 48 },
-  currentWeek: { count: 0, totalDuration: 0 },
-  prevWeek: { count: 0, totalDuration: 0 },
   ftpTrend: { latestFtp: 262, previousFtp: 255 },
   runPaceTrend: { latestPace: 3.5, previousPace: 3.4, glyph: '↑' },
   swimPaceTrend: { latestPace: 1.35, previousPace: 1.25, glyph: '↑' },
-};
+});
 
 const DEFAULTS = useDashboardPreferences.getState().summaryCard;
 afterEach(() => {
@@ -40,7 +40,7 @@ afterEach(() => {
   useDashboardPreferences.setState({ summaryCard: DEFAULTS });
 });
 
-function metrics(bundle: object, ids: string[]) {
+function metrics(bundle: FfiSummaryCardData, ids: string[]) {
   useDashboardPreferences.setState({
     summaryCard: { ...DEFAULTS, supportingMetrics: ids as never },
   });
@@ -73,14 +73,14 @@ describe('the summary card supporting metrics', () => {
   });
 
   vaultIt('give a placeholder no unit', () => {
-    const empty = { ...BUNDLE, wellness: {}, ftpTrend: {}, runPaceTrend: {}, swimPaceTrend: {} };
+    const empty = summaryCardBundle();
     for (const metric of metrics(empty, ['hrv', 'rhr', 'ftp', 'thresholdPace'])) {
       expect(metric.unit).toBeUndefined();
     }
   });
 
   vaultIt('write the week total as hours and minutes, not decimal hours', () => {
-    const week = { ...BUNDLE, currentWeek: { count: 4, totalDuration: 23400 } };
+    const week = summaryCardBundle({ currentWeek: { count: 4, totalDuration: 23400 } });
     const [hours] = metrics(week, ['weekHours']);
 
     expect(hours.value).toBe(formatDurationHuman(23400));

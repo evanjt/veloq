@@ -404,6 +404,14 @@ describe('resolveTerrain3D', () => {
     }
   });
 
+  it('a flat verdict is never pinned, even with a camera saved for the activity', () => {
+    const base = { coordinates: coords, altitude: ramp(300), gain: 300, distance: 10000 };
+    const flat = resolveTerrain3D({ ...base, mode: 'off', override });
+    expect(flat.show3D).toBe(false);
+    expect(flat.camera).toBeNull();
+    expect(flat.pinned).toBe(false);
+  });
+
   it('a saved camera override gives 3D even when the prefilter fails', () => {
     const v = resolveTerrain3D({
       mode: 'smart',

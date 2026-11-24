@@ -41,11 +41,13 @@ export function createGuidanceCue(describeOffRoute: (guidance: FfiRouteFollow) =
     get line(): string | null {
       return line;
     },
-    /** Whether a departure's vibration has not been handed to a surface yet; reading it clears it. */
-    takeVibration(): boolean {
-      const pending = pendingVibration;
+    /** Whether a departure's vibration has not been delivered to a surface yet. */
+    get vibrationPending(): boolean {
+      return pendingVibration;
+    },
+    /** Marks the pending vibration delivered, once a surface has posted it. */
+    acknowledgeVibration(): void {
       pendingVibration = false;
-      return pending;
     },
     reset(): void {
       line = null;

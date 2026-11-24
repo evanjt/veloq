@@ -182,6 +182,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                 <FTPTrendChart
                   data={eftpTrend?.series}
                   change={eftpTrend?.change}
+                  glyph={eftpTrend?.glyph}
                   changePercent={eftpTrend?.changePercent}
                   lookbackDays={eftpTrend?.lookbackDays}
                   height={180}

@@ -657,6 +657,7 @@
       "database": "Il database non è riuscito a farlo. Riprova e svuota la cache se continua."
     },
     "initReason": {
+      "wipeFailed": "Non è stato possibile cancellare dal dispositivo le attività dell'atleta precedente, quindi sono ancora visibili. Riprova.",
       "busy": "Qualcos'altro stava usando il database. Riprova tra un momento.",
       "forwardSchema": "Questi dati sono stati salvati da una versione più recente di Veloq. Aggiorna l'app per aprirli.",
       "storageUnavailable": "Non è stato possibile scrivere il database. Libera spazio e riprova.",
@@ -706,6 +707,7 @@
     "rideStillRecording": "La tua uscita è ancora in registrazione.",
     "stopAndSaveRide": "Ferma e salva l'uscita",
     "rideStopped": "La tua uscita è ferma e conservata su questo dispositivo.",
+    "rideNotSaved": "La tua uscita è ferma ma non ancora salvata. Esiste solo in memoria.",
     "shareFailed": "Impossibile condividere il registro degli arresti anomali.",
     "unableToLoad": "Impossibile caricare: {{part}}",
     "retryHint": "Tocca Riprova per caricarlo di nuovo.",
@@ -901,16 +903,9 @@
     "notificationsBody": "Veloq può avvisarti quando un’uscita stabilisce un record personale o un tempo più veloce su un percorso, con il nome del percorso."
   },
   "filters": {
-    "climbing": "Arrampicata",
     "cycling": "Ciclismo",
-    "hiking": "Escursionismo",
-    "other": "Altro",
-    "racketSports": "Sport con racchetta",
     "running": "Corsa",
-    "snowSports": "Sport invernali",
-    "swimming": "Nuoto",
-    "walking": "Camminata",
-    "waterSports": "Sport acquatici"
+    "swimming": "Nuoto"
   },
   "fitness": {
     "activitiesCount_one": "{{count}} attività",
@@ -2749,8 +2744,6 @@
       "backupBody": "Salva tutto ciò che intervals.icu non conserva: i nomi delle sezioni, le modifiche e le impostazioni."
     },
     "v040": {
-      "recutRunning": "Nuova analisi dei tuoi tratti",
-      "recutRunningPhase": "Nuova analisi dei tuoi tratti: {{phase}}",
       "diffTotals": "{{current}} tratti sono diventati {{proposed}}.",
       "diffBreakdown": "{{new}} nuovi, {{changed}} modificati, {{gone}} ritirati.",
       "diffNoneKept_one": "Il nuovo rilevatore ha esaminato tutta la tua libreria e non ne ha conservato nessuno dei tuoi {{count}} tratto. È ritirato, non cancellato: apri l'elenco dei tratti ritirati per recuperare quelli che vuoi.",

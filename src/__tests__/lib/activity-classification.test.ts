@@ -3,6 +3,7 @@ import {
   getActivityColor,
   getActivityIcon,
   isPaceSport,
+  readsAsPace,
   isCyclingActivity,
   isSwimmingActivity,
   measuresPower,
@@ -109,5 +110,18 @@ describe('countsCadenceInSteps', () => {
     expect(countsCadenceInSteps('Hike')).toBe(true);
     expect(countsCadenceInSteps('Ride')).toBe(false);
     expect(countsCadenceInSteps('Swim')).toBe(false);
+  });
+});
+
+describe('readsAsPace', () => {
+  it('is true for every pace sport and every swimming sport, false for the rest', () => {
+    for (const type of ACTIVITY_TYPES) {
+      const expected =
+        isPaceSport(type as ActivityType) || isSwimmingActivity(type as ActivityType);
+      expect(readsAsPace(type as ActivityType)).toBe(expected);
+    }
+    expect(readsAsPace('Run' as ActivityType)).toBe(true);
+    expect(readsAsPace('Swim' as ActivityType)).toBe(true);
+    expect(readsAsPace('Ride' as ActivityType)).toBe(false);
   });
 });

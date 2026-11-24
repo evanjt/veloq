@@ -293,6 +293,24 @@ describe('migrateRouteDb', () => {
     });
   });
 
+  it('opens the old location and restores the rest when one displaced file will not move back', async () => {
+    const disk: FakeDisk = {
+      [`${DOCS}routes.db`]: 4096,
+      [`${GROUP}routes.db`]: 9000,
+      [`${GROUP}routes.db-wal`]: 300,
+    };
+    const base = fileSystem(disk, `${DOCS}routes.db`);
+    const fs = {
+      ...base,
+      move: async (from: string, to: string) => {
+        if (to === `${GROUP}routes.db-wal`) throw new Error('restore failed');
+        return base.move(from, to);
+      },
+    };
+    await expect(migrateRouteDb(DOCS, GROUP, fs, STAMP)).resolves.toBe(DOCS);
+    expect(disk[`${GROUP}routes.db`]).toBe(9000);
+  });
+
   it('does nothing on a second call after the move landed', async () => {
     const disk: FakeDisk = {
       [`${DOCS}routes.db`]: 4096,

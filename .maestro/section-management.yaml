@@ -47,6 +47,25 @@ tags:
 
 - takeScreenshot: "screenshots/section-trim-active"
 
+# System back ends trim mode and stays on the section.
+- runFlow:
+    when:
+      platform: Android
+      visible:
+        id: "section-trim-overlay"
+    commands:
+      - back
+      - assertNotVisible:
+          id: "section-trim-overlay"
+      - assertVisible:
+          id: "section-detail-screen"
+      - tapOn:
+          id: "section-overflow-menu"
+      - tapOn:
+          text: "Edit bounds"
+      - assertVisible:
+          id: "section-trim-overlay"
+
 # Try expand mode toggle
 - tapOn:
     id: "section-expand-toggle"

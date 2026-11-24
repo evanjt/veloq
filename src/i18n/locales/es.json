@@ -657,6 +657,7 @@
       "database": "La base de datos no pudo hacerlo. Inténtalo de nuevo y vacía la caché si sigue ocurriendo."
     },
     "initReason": {
+      "wipeFailed": "No se pudieron borrar de este dispositivo las actividades del atleta anterior, así que se siguen mostrando. Inténtalo de nuevo.",
       "busy": "Algo más estaba usando la base de datos. Vuelve a intentarlo en un momento.",
       "forwardSchema": "Estos datos los guardó una versión más reciente de Veloq. Actualiza la app para abrirlos.",
       "storageUnavailable": "No se pudo escribir la base de datos. Libera espacio y vuelve a intentarlo.",
@@ -706,6 +707,7 @@
     "rideStillRecording": "Tu salida sigue grabándose.",
     "stopAndSaveRide": "Detener y guardar salida",
     "rideStopped": "Tu salida se ha detenido y se conserva en este dispositivo.",
+    "rideNotSaved": "Tu salida se ha detenido, pero aún no se ha guardado. Solo existe en la memoria.",
     "shareFailed": "No se pudo compartir el registro de fallos.",
     "unableToLoad": "No se pudo cargar: {{part}}",
     "retryHint": "Toca Reintentar para volver a cargarlo.",
@@ -901,16 +903,9 @@
     "notificationsBody": "Veloq puede avisarte cuando una salida logra un récord personal o un tiempo más rápido en una ruta, con el nombre de la ruta."
   },
   "filters": {
-    "climbing": "Escalada",
     "cycling": "Ciclismo",
-    "hiking": "Senderismo",
-    "other": "Otros",
-    "racketSports": "Deportes de raqueta",
     "running": "Carrera",
-    "snowSports": "Deportes de nieve",
-    "swimming": "Natación",
-    "walking": "Caminata",
-    "waterSports": "Deportes acuáticos"
+    "swimming": "Natación"
   },
   "fitness": {
     "activitiesCount_one": "{{count}} actividad",
@@ -2749,8 +2744,6 @@
       "backupBody": "Guarda todo lo que intervals.icu no guarda: los nombres de tus secciones, tus ediciones y tus ajustes."
     },
     "v040": {
-      "recutRunning": "Analizando de nuevo tus tramos",
-      "recutRunningPhase": "Analizando de nuevo tus tramos: {{phase}}",
       "diffTotals": "{{current}} tramos pasaron a ser {{proposed}}.",
       "diffBreakdown": "{{new}} nuevos, {{changed}} modificados, {{gone}} retirados.",
       "diffNoneKept_one": "El nuevo detector ha revisado toda tu biblioteca y no ha conservado ninguno de tus {{count}} tramo. Está retirado, no borrado: abre la lista de tramos retirados para recuperar los que quieras.",

@@ -7,16 +7,18 @@
  *
  * Cache keys are compound: `{activityId}_{style}` for the flat basemap and
  * `{activityId}_{style}_3d` for the terrain drape, so neither a style change
- * nor a 3D toggle serves the previous render.
+ * nor a 3D toggle serves the previous render. A drape the pool had to draw flat
+ * is kept under `{activityId}_{style}_3d_flat` until the drape itself lands.
  *
  * Storage location: documentDirectory/terrain_previews/
  *
  * ## The generation policy this cache serves
  *
  * Previews are made on demand and nowhere else. A card asks when it mounts
- * within one screen of the viewport (`previewRange.ts`), and there is exactly
- * one caller of `requestSnapshot`, the card's own effect in
- * `ActivityMapPreview.tsx`. No pass walks the library ahead of the athlete, no
+ * within one screen of the viewport (`previewRange.ts`), and a card asks through
+ * one call, `requestSnapshot` in the effect of `ActivityMapPreview.tsx`. The
+ * pool re-queues its own stand-ins and upgrades, which is the only other way
+ * into the queue. No pass walks the library ahead of the athlete, no
  * sync schedules one, and none should be added: the reason this file has a
  * policy at all is that generating for every activity turned an on-demand
  * cache into a background job with no definition of done, which is what every
@@ -30,8 +32,9 @@
  * viewport has already been on screen, so it either holds its preview or lost
  * it to eviction and will ask again on the way back. The list itself mounts two
  * to three screens either side so scrolling does not blank, and that window is
- * deliberately not the generation window: the queue is two workers deep and a
- * fast scroll would fill it with cards the athlete has gone past.
+ * deliberately not the generation window: the queue holds 30 requests behind
+ * two workers, and a fast scroll would fill it with cards the athlete has gone
+ * past.
  *
  * Until a preview arrives the card spins, and only the pool giving up moves it
  * off, onto the same "nothing to draw" mark a card with no GPS gets. There is no
@@ -422,11 +425,14 @@ export async function saveTerrainPreview(
   // evict one key and settle one above it.
   // The drape finally rendered, so its stand-in is not just superseded, it is
   // wrong: leaving it indexed would report the activity as downgraded forever.
+  // Its file goes only once the drape has landed, so a failed write leaves the
+  // card the stand-in it was already served, and the index is put back.
+  let replacedStandIn: string | null = null;
   if (!options?.downgradedTo) {
     const stale = cacheKey(activityId, style, is3D, 'flat');
     if (cachedKeys.includes(stale)) {
       cachedKeys = cachedKeys.filter((k) => k !== stale);
-      doomed.push(stale);
+      replacedStandIn = stale;
     }
   }
 
@@ -462,8 +468,18 @@ export async function saveTerrainPreview(
     cachedKeys = cachedKeys.filter((k) => k !== key);
     cachedKeys.push(key);
     bumpRevision(key);
+  } catch (error) {
+    if (replacedStandIn !== null && !cachedKeys.includes(replacedStandIn)) {
+      cachedKeys.push(replacedStandIn);
+    }
+    throw error;
   } finally {
     slotsInFlight.delete(key);
+  }
+  if (replacedStandIn !== null) {
+    await FileSystem.deleteAsync(`${TERRAIN_DIR}${replacedStandIn}.jpg`, {
+      idempotent: true,
+    }).catch(() => {});
   }
   // One write for the whole call: the stale drop, the eviction and the append
   // have all landed in the index by here.

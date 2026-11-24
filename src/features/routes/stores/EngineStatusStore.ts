@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import type { FfiQuarantineReport, FfiStorageShortfall, InitOutcome } from 'veloqrs';
 
+/**
+ * Why the library is not usable: the engine's own outcome, or a launch wipe
+ * that rejected while the open handle still holds the previous athlete's rows.
+ */
+export type EngineInitReason = InitOutcome | 'wipeFailed';
+
 interface EngineStatusState {
   /** Whether the Rust engine failed to initialise after all retries */
   initFailed: boolean;
@@ -10,8 +16,8 @@ interface EngineStatusState {
    * recorded. A newer build, a held file and an unwritable directory each
    * need a different sentence, and the banner cannot re-derive which.
    */
-  initFailureReason: InitOutcome | null;
-  setInitFailureReason: (v: InitOutcome | null) => void;
+  initFailureReason: EngineInitReason | null;
+  setInitFailureReason: (v: EngineInitReason | null) => void;
   /** The bytes an upgrade needed when the reason is a full volume, else null. */
   storageShortfall: FfiStorageShortfall | null;
   setStorageShortfall: (v: FfiStorageShortfall | null) => void;
@@ -40,7 +46,7 @@ export const useEngineStatus = create<EngineStatusState>((set) => ({
   initFailed: false,
   setInitFailed: (v: boolean) => set({ initFailed: v }),
   initFailureReason: null,
-  setInitFailureReason: (v: InitOutcome | null) => set({ initFailureReason: v }),
+  setInitFailureReason: (v: EngineInitReason | null) => set({ initFailureReason: v }),
   storageShortfall: null,
   setStorageShortfall: (v: FfiStorageShortfall | null) => set({ storageShortfall: v }),
   retryNonce: 0,

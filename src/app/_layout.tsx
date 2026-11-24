@@ -57,6 +57,7 @@ import {
   largeTitleScreenOptions,
   overMapHeaderOptions,
   screenAnimation,
+  screenGestureOptions,
   sheetScreenOptions,
 } from '@/shared/app/screenHeaders';
 import {
@@ -345,6 +346,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           }
         };
 
+        // Set when the launch wipe rejects, so giving up names the wipe.
+        let wipeRejected = false;
+
         const attemptInit = async (attempt: number): Promise<EngineInitAttempt> => {
           if (openLibrary(engine, dbPath)) {
             captureQuarantineReport();
@@ -390,7 +394,14 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               // The wipe runs on a Rust thread, so the re-open has to follow it
               // rather than race it. It takes the other athlete's files with
               // the tables, the decisions zip among them.
-              wipe: wipeLibrary,
+              wipe: async () => {
+                try {
+                  await wipeLibrary();
+                } catch (error) {
+                  wipeRejected = true;
+                  throw error;
+                }
+              },
               reopen: () => {
                 const opened = openLibrary(engine, dbPath);
                 if (opened) captureQuarantineReport();
@@ -424,12 +435,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         // told at once.
         void runEngineInit(run, {
           attempt: attemptInit,
-          retryable: () => isRetryableInit(engine.initOutcome()),
+          retryable: () => !wipeRejected && isRetryableInit(engine.initOutcome()),
           giveUp: () => {
             if (__DEV__) {
               console.warn(`[Engine] Persistent init failed for path: ${dbPath}`);
             }
-            setEngineInitFailureReason(engine.initOutcome());
+            setEngineInitFailureReason(wipeRejected ? 'wipeFailed' : engine.initOutcome());
             setEngineStorageShortfall(engine.initStorageShortfall());
             setEngineInitFailed(true);
             // Nothing will settle this library's identity now, so the athlete
@@ -766,6 +777,7 @@ export default function RootLayout() {
                                 gestureEnabled: name !== 'recording/[type]',
                                 ...largeTitleScreenOptions(name, Platform.OS),
                                 ...sheetScreenOptions(name, Platform.OS, Platform.Version),
+                                ...screenGestureOptions(name),
                                 ...(header?.overMap && overMapHeaderOptions({ isDark })),
                                 ...(name === 'recordings/[id]' && {
                                   headerTitle: () => <RecordingTitle />,

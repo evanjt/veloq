@@ -3,46 +3,22 @@ import { initReactI18next } from 'react-i18next';
 import { getLocales } from 'expo-localization';
 import 'intl-pluralrules';
 
-import { SUPPORTED_LOCALES, LOCALE_FALLBACKS, type SupportedLocale } from './types';
+import { LOCALE_FALLBACKS, type SupportedLocale } from './types';
+import { resolveLocaleChain } from './resolveLocale';
 
 import { localesToLoad, loadLocale, ROOT_LOCALE } from './localeBundles';
 import { PSEUDO_LOCALE, pseudoResource, registeredLocales } from './pseudoLocale';
-
-// Neutral 'es' has no picker entry, so a Spanish match with no table row takes the Español default variant.
-function pickerSelectable(locale: SupportedLocale): SupportedLocale {
-  return locale === 'es' ? 'es-419' : locale;
-}
 
 /** A language the platform reports, as `getLocales` gives it. */
 export type PlatformLocale = { languageTag: string; languageCode?: string | null };
 
 /**
  * The supported locale closest to the first language in the list the app ships,
- * British English when none is.
+ * British English when none is. The walk is `resolveLocaleChain`'s, so the app
+ * and the connect page pick the same locale for the same tags.
  */
 export function matchLocale(locales: readonly PlatformLocale[]): SupportedLocale {
-  for (const locale of locales) {
-    const tag = locale.languageTag; // e.g., 'en-AU', 'es-MX'
-    const lang = locale.languageCode ?? tag.split('-')[0]; // e.g., 'en', 'es'
-
-    // Check for exact match first
-    if (SUPPORTED_LOCALES.includes(tag as SupportedLocale)) {
-      return pickerSelectable(tag as SupportedLocale);
-    }
-
-    // Check fallback chain
-    if (tag in LOCALE_FALLBACKS) {
-      return pickerSelectable(LOCALE_FALLBACKS[tag][0]);
-    }
-
-    // Check language-only fallback
-    if (lang && lang in LOCALE_FALLBACKS) {
-      return pickerSelectable(LOCALE_FALLBACKS[lang][0]);
-    }
-  }
-
-  // Default to British English (standard English, not a dialect)
-  return 'en-GB';
+  return resolveLocaleChain(locales.map((locale) => locale.languageTag))[0];
 }
 
 /**

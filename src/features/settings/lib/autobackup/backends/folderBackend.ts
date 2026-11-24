@@ -14,6 +14,7 @@
 
 import { Directory, File } from 'expo-file-system';
 import { Platform } from 'react-native';
+import { errorMessage } from '@/shared/format/errorMessage';
 
 import { safeGetTime } from '@/shared/format/format';
 import {
@@ -42,7 +43,7 @@ export { forgetBackupFolder, isSharedBackupFolder, stopBackupFolder };
 const PICKER_DISMISSED = new Set(['ERR_PICKER_CANCELLED', 'ERR_FILE_PICKING_CANCELLED']);
 
 function folderUnavailable(operation: string, cause: unknown): BackupTransferError {
-  const detail = cause instanceof Error ? cause.message : String(cause);
+  const detail = errorMessage(cause);
   return new BackupTransferError(
     operation,
     'folder_unavailable',

@@ -9,7 +9,7 @@ import { formatDuration } from '@/shared/format/format';
 import { bodyDiagram, colors, darkColors, layout, spacing, stroke, typography } from '@/theme';
 
 import { useExerciseSets } from '../hooks/useExerciseSets';
-import { formatBestSet } from '../lib/formatting';
+import { formatBestSet, formatReps } from '../lib/formatting';
 import { formatWeight } from '@/shared/format/weight';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
 import { DENSE_TEXT_SCALE, denseExtent } from '@/shared/ui/DenseText';
@@ -204,7 +204,7 @@ export function ExerciseTable({
               </View>
 
               {group.sets.map((set, setIdx) => {
-                const reps = set.repetitions != null ? String(set.repetitions) : ABSENT;
+                const reps = formatReps(set.repetitions);
                 const weight = set.weightKg != null ? formatWeight(set.weightKg, isMetric) : ABSENT;
                 const time = set.durationSecs != null ? formatDuration(set.durationSecs) : ABSENT;
                 return (

@@ -13,7 +13,6 @@ import type {
   FfiExerciseDetailData,
   FfiExercisePickerData,
   FfiExerciseSession,
-  FfiExerciseSet,
   FfiFocusState,
   FfiLiveEdit,
   FfiLiveStrengthOutcome,
@@ -183,17 +182,6 @@ export function hasStrengthData(host: DelegateHost): boolean {
   return host.timed('hasStrengthData', () => host.engine.strength().hasStrengthData());
 }
 
-/** Insert pre-parsed sets without the network. Held in order until the engine opens. */
-export function bulkInsertExerciseSets(
-  host: DelegateHost,
-  activityId: string,
-  sets: FfiExerciseSet[]
-): void {
-  host.write('bulkInsertExerciseSets', () =>
-    host.engine.strength().bulkInsertExerciseSets(activityId, sets)
-  );
-}
-
 const EMPTY_START_DATA: FfiStrengthStartData = {
   live: false,
   groups: [],
@@ -236,18 +224,6 @@ export function getLiveStrengthSession(host: DelegateHost): FfiLiveStrengthSessi
 export function getLiveFocusState(host: DelegateHost): FfiFocusState | null {
   if (!host.ready) return null;
   return host.timed('getLiveFocusState', () => host.engine.strength().getLiveFocusState()) ?? null;
-}
-
-/**
- * A strength session's FIT file with its weights displayed in the athlete's unit, the bytes an
- * upload sends. Null for an id nothing holds or while the engine is closed.
- */
-export function getStrengthSessionFit(host: DelegateHost, id: string): ArrayBuffer | null {
-  if (!host.ready) return null;
-  return (
-    host.timed('getStrengthSessionFit', () => host.engine.strength().getStrengthSessionFit(id)) ??
-    null
-  );
 }
 
 /** Where a new live session takes its exercises from; the id names the source it needs. */

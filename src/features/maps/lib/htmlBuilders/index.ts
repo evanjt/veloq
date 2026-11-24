@@ -12,8 +12,7 @@ export {
   tileProtocolsScript,
 } from './shared';
 export type { SettleInsetAction } from './shared';
-export { resolveStyleForWebView, resolveStyleExpression, LIGHT_STYLE_URL } from './styleResolution';
-export type { ResolvedWebViewStyle, WebViewStyleOptions } from './styleResolution';
+export { resolveStyleForWebView, resolveStyleExpression } from './styleResolution';
 export {
   buildMapSurfaceHtml,
   buildApplyScript,

@@ -80,12 +80,12 @@ fn test_stream_retention_days_writer_held() {
     let _tmp = init_global_engine("retention_under_writer.db");
     let settings = SettingsManager::new();
     assert_eq!(
-        read_while_writer_holds(|| settings.stream_retention_days().unwrap()),
+        read_while_writer_holds(|| settings.cache_screen_data().unwrap()).stream_retention_days,
         0.0
     );
     settings.set_stream_retention_days(30.0).unwrap();
     assert_eq!(
-        read_while_writer_holds(|| settings.stream_retention_days().unwrap()),
+        read_while_writer_holds(|| settings.cache_screen_data().unwrap()).stream_retention_days,
         30.0
     );
 }
@@ -98,7 +98,8 @@ fn test_stream_store_bytes_writer_held_matches_locked() {
     seed_rides_from_home();
     let settings = SettingsManager::new();
     let expected = crate::with_persistent_engine(|e| e.stream_store_bytes().unwrap()).unwrap();
-    let actual = read_while_writer_holds(|| settings.stream_store_bytes().unwrap());
+    let actual =
+        read_while_writer_holds(|| settings.cache_screen_data().unwrap()).stream_store_bytes;
     assert_eq!(actual, 5.0);
     assert_eq!(actual, expected as f64);
 }

@@ -284,8 +284,7 @@ export function formatPace(metersPerSecond: number, isMetric: boolean): string {
   const totalSeconds = paceSeconds(metersPerSecond, isMetric);
   if (totalSeconds == null) return '--:--';
 
-  const unit = isMetric ? '/km' : '/mi';
-  return `${formatMinSec(totalSeconds)} ${unit}`;
+  return `${formatMinSec(totalSeconds)} ${paceUnitLabel(isMetric)}`;
 }
 
 /**
@@ -876,6 +875,45 @@ export function formatDateSpan(
 }
 
 /**
+ * The day of a formatted date as the start of a range reads it: the day, and
+ * the punctuation after it when the locale puts some there ("20." in German),
+ * with no space, since the range's own dash takes the space's place.
+ */
+function rangeStartDay(parts: Intl.DateTimeFormatPart[]): string {
+  const at = parts.findIndex((part) => part.type === 'day');
+  const next = parts[at + 1];
+  const trailing = next?.type === 'literal' ? next.value.replace(/\s/g, '') : '';
+  return (parts[at]?.value ?? '') + trailing;
+}
+
+/**
+ * A Monday to Sunday week with no year, in the locale's own order: "20–26 Jan"
+ * in en-AU, "Jan 20–26" in en-US, "27 Jan – 2 Feb" across a month, and
+ * "20.–26. Jan." in German.
+ *
+ * Hermes has no `Intl.DateTimeFormat.prototype.formatRange`, so the same-month
+ * range is the last day's own parts with the first day written before it. An
+ * invalid date reads "Invalid Date", as the other formatters here do.
+ *
+ * ```ts
+ * formatWeekRange(new Date(2025, 0, 20), 'en-AU'); // "20–26 Jan"
+ * ```
+ */
+export function formatWeekRange(monday: Date, locale: string = getIntlLocale()): string {
+  const sunday = getSunday(monday);
+  if (Number.isNaN(monday.getTime()) || Number.isNaN(sunday.getTime())) return 'Invalid Date';
+  const format = dateFormat(locale, { month: 'short', day: 'numeric' });
+  if (monday.getMonth() !== sunday.getMonth()) {
+    return `${format.format(monday)} – ${format.format(sunday)}`;
+  }
+  const startDay = rangeStartDay(format.formatToParts(monday));
+  return format
+    .formatToParts(sunday)
+    .map((part) => (part.type === 'day' ? `${startDay}–${part.value}` : part.value))
+    .join('');
+}
+
+/**
  * A full date, or the absent mark when there is none.
  */
 export function formatDateOrDash(date: string | null): string {
@@ -942,11 +980,6 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-export interface PerformanceDelta {
-  deltaDisplay: string | null;
-  isFaster: boolean;
-}
-
 /**
  * Isolate a numeric run so its sign stays with its digits.
  *
@@ -965,63 +998,6 @@ export interface PerformanceDelta {
 export function isolateNumeric(text: string): string {
   if (!text || !I18nManager.isRTL) return text;
   return `\u2068${text}\u2069`;
-}
-
-/**
- * Format a time delta as a signed duration string (e.g., "+1:30", "-45s").
- * Returns null if the delta is less than 1 second.
- */
-export function formatTimeDelta(deltaSeconds: number): string | null {
-  if (!Number.isFinite(deltaSeconds) || Math.abs(deltaSeconds) < 1) return null;
-  const totalSeconds = Math.round(Math.abs(deltaSeconds));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  const sign = deltaSeconds > 0 ? '+' : '-';
-  return isolateNumeric(
-    minutes > 0
-      ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`
-      : `${sign}${formatSecondsValue(seconds)}`
-  );
-}
-
-/**
- * Compute the performance delta for a section/route traversal.
- *
- * For running activities (showPace=true): compares pace (seconds/km, or seconds/mi when imperial).
- * For other activities: compares elapsed time.
- * `isBest` skips the delta, speeds are in m/s, and `timeDelta` is in seconds, positive when slower.
- */
-export function formatPerformanceDelta(options: {
-  isBest: boolean;
-  isMetric: boolean;
-  showPace?: boolean | undefined;
-  currentSpeed?: number | undefined;
-  bestSpeed?: number | undefined;
-  timeDelta?: number | undefined;
-}): PerformanceDelta {
-  const { isBest, isMetric, showPace, currentSpeed, bestSpeed, timeDelta } = options;
-
-  if (isBest) return { deltaDisplay: null, isFaster: false };
-
-  // Pace comparison for running activities
-  if (showPace && currentSpeed && currentSpeed > 0 && bestSpeed && bestSpeed > 0) {
-    const perKm = 1000 / currentSpeed - 1000 / bestSpeed; // positive = slower
-    const paceDelta = isMetric ? perKm : perKm / KM_TO_MI;
-    return {
-      deltaDisplay: formatTimeDelta(paceDelta),
-      isFaster: paceDelta <= 0,
-    };
-  }
-
-  // Time comparison for other activities
-  if (timeDelta !== undefined && Number.isFinite(timeDelta)) {
-    return {
-      deltaDisplay: formatTimeDelta(timeDelta),
-      isFaster: timeDelta <= 0,
-    };
-  }
-
-  return { deltaDisplay: null, isFaster: false };
 }
 
 /**

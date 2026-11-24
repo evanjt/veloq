@@ -158,7 +158,7 @@ export function useEngineRead(
 
 /**
  * Whether a read can be believed: the engine is open, still opening, or gave
- * up opening.
+ * up opening or clearing the library.
  *
  * A handle that is not open answers every read with its empty default, so a
  * reader's rows cannot tell an empty library from one that is not open. This
@@ -169,8 +169,10 @@ export function useEngineRead(
 export type EngineReadState = 'ready' | 'closed' | 'failed';
 
 export function engineReadState(open: boolean, initFailed: boolean): EngineReadState {
-  if (open) return 'ready';
-  return initFailed ? 'failed' : 'closed';
+  // A failed launch wipe leaves the handle open on the previous athlete's
+  // rows, so a recorded failure outranks an open handle.
+  if (initFailed) return 'failed';
+  return open ? 'ready' : 'closed';
 }
 
 /** The same answer outside React, for a reader that runs once rather than renders. */

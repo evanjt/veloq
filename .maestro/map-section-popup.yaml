@@ -57,6 +57,46 @@ tags:
 - assertVisible:
     id: "section-popup-close"
 
+# System back closes the popup and leaves the map tab on screen.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+      - extendedWaitUntil:
+          notVisible:
+            id: "section-popup"
+          timeout: 10000
+      - assertVisible:
+          id: "map-screen"
+      - assertNotVisible:
+          id: "section-detail-screen"
+
+# Open it again for the close control, which the rest of the flow covers.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - runFlow:
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://insights?tab=sections"
+            TARGET: "routes-screen"
+      - tapOn:
+          id: "section-row-0"
+      - extendedWaitUntil:
+          visible:
+            id: "section-detail-screen"
+          timeout: 10000
+      - tapOn:
+          id: "section-overflow-menu"
+      - tapOn:
+          text: "Show on map"
+      - extendedWaitUntil:
+          visible:
+            id: "section-popup"
+          timeout: 60000
+
 - tapOn:
     id: "section-popup-close"
 # The popup leaves with an animation, slower under the simulator.

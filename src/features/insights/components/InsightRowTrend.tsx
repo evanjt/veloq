@@ -23,6 +23,7 @@ import {
   groupedBarWidth,
   LINE_CAP,
   LINE_JOIN,
+  polylineSvgPath,
 } from '@/shared/charts';
 import { ChartErrorBoundary } from '@/shared/ui';
 import {
@@ -61,10 +62,6 @@ type SeriesHistory = Extract<InsightHistory, { series: HistorySeries[] }>;
 function isMarked(date: number, mark: HistoryMark | undefined): boolean {
   if (!mark) return false;
   return 'date' in mark ? date === mark.date : date >= mark.from && date <= mark.to;
-}
-
-function linePath(points: { x: number; y: number }[]): string {
-  return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
 }
 
 /** How far down the drawable height a value sits, between the range's top and bottom edge. */
@@ -117,7 +114,7 @@ function SeriesDrawing({
   return (
     <>
       <Path
-        path={linePath(placed)}
+        path={polylineSvgPath(placed)}
         style="stroke"
         strokeWidth={chartStroke.series}
         strokeJoin={LINE_JOIN}
@@ -126,7 +123,7 @@ function SeriesDrawing({
       />
       {span.length > 1 ? (
         <Path
-          path={linePath(span)}
+          path={polylineSvgPath(span)}
           style="stroke"
           strokeWidth={chartStroke.series}
           strokeJoin={LINE_JOIN}

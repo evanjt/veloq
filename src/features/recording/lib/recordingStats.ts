@@ -1,7 +1,7 @@
 import type { TFunction } from 'i18next';
 
 import type { ActivityType } from '@/types';
-import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
+import { readsAsPace } from '@/shared/activity/activityUtils';
 import {
   formatDistance,
   formatDuration,
@@ -78,7 +78,7 @@ export function recordingStats(
     });
   }
   if (input.distanceMeters > 0 && input.movingSeconds > 0) {
-    const pace = isPaceSport(input.activityType) || isSwimmingActivity(input.activityType);
+    const pace = readsAsPace(input.activityType);
     stats.push({
       key: 'avgSpeed',
       label: t(pace ? 'recording.fields.avgPace' : 'recording.fields.avgSpeed'),

@@ -13,6 +13,7 @@ import {
   AVAILABLE_METRICS,
   useDashboardPreferences,
 } from '@/features/settings/stores/summaryCardPreferences';
+import { summaryCardBundle } from '../__shared__/summaryCardBundle';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -25,14 +26,7 @@ jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefin
 jest.mock('@/features/stats', () => ({ usePaceCurve: () => ({ data: {} }) }));
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));
 
-const BUNDLE = {
-  wellness: {},
-  currentWeek: { count: 0, totalDuration: 0 },
-  prevWeek: { count: 0, totalDuration: 0 },
-  ftpTrend: { latestFtp: 262, previousFtp: 255 },
-  runPaceTrend: {},
-  swimPaceTrend: {},
-};
+const BUNDLE = summaryCardBundle({ ftpTrend: { latestFtp: 262, previousFtp: 255 } });
 
 const DEFAULTS = useDashboardPreferences.getState().summaryCard;
 beforeEach(() => {

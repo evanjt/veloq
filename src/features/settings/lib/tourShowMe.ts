@@ -1,8 +1,5 @@
 import type { WhatsNewSlideDefinition } from '../components/whatsNew/slides';
 
-export const SECTIONS_LIST_ROUTE = '/insights?tab=sections';
-export const ROUTES_LIST_ROUTE = '/insights?tab=routes';
-
 /** Fewest visits for a section or route to be worth opening: one attempt compares with nothing. */
 export const SHOW_ME_MIN_VISITS = 2;
 

@@ -3,6 +3,7 @@
 // undo send. The engine measures and stores the section; this only places the ends
 // and asks. Pure, so a test drives it without a browser.
 
+import { haversineDistance } from '@/shared/geo/distance';
 import { nearestIndex, type LngLat } from './map/activityLayers';
 import type { LatLng } from './fit';
 import type { QueryClient } from './query';
@@ -20,17 +21,9 @@ export type Handle = 'start' | 'end';
 export const lngLatOf = (points: readonly LatLng[]): LngLat[] =>
   points.map(([lat, lng]) => [lng, lat]);
 
-const EARTH_RADIUS_M = 6_371_000;
-
 /** Metres between two positions, along the great circle. */
 export function metresBetween(a: LngLat, b: LngLat): number {
-  const radians = Math.PI / 180;
-  const dLat = (b[1] - a[1]) * radians;
-  const dLng = (b[0] - a[0]) * radians;
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(a[1] * radians) * Math.cos(b[1] * radians) * Math.sin(dLng / 2) ** 2;
-  return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(h)));
+  return haversineDistance(a[1], a[0], b[1], b[0]);
 }
 
 /** Metres along `path` from vertex `span.start` to vertex `span.end`. */

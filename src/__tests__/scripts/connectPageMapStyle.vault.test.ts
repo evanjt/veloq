@@ -5,8 +5,8 @@
  *
  * Expected behaviour: both styles name their sources, sprite and glyphs on the
  * basemap host and nowhere else, with no tile-store, loopback or bundle URL; the
- * dark style paints the dark palette's water; the page's style is what the
- * phone's resolver answers when asked for no rewriting; and the corner line is
+ * dark style paints the dark palette's water; the page's style is the
+ * phone's upstream style before any rewriting; and the corner line is
  * the phone's attribution for the base. The satellite base draws the phone's global imagery and
  * 3D terrain the phone's elevation tiles, and every URL a style names on any base, with or without
  * terrain, is one the page's content security policy lets the page reach.
@@ -20,7 +20,7 @@ import {
   SATELLITE_SOURCES,
   TERRAIN_3D_CONFIG,
 } from '@/features/maps/components/mapStyles';
-import { resolveStyleForWebView } from '@/features/maps/lib/htmlBuilders/styleResolution';
+import { upstreamStyle } from '@/features/maps/lib/htmlBuilders/upstreamStyle';
 import { mapPalette } from '@/theme/palette';
 
 import {
@@ -41,7 +41,7 @@ jest.mock('veloqrs', () =>
 );
 
 const BASEMAP_HOST = 'tiles.openfreemap.org';
-const BASES: PageBase[] = ['light', 'dark'];
+const BASES: ('light' | 'dark')[] = ['light', 'dark'];
 const EVERY_BASE: PageBase[] = ['light', 'dark', 'satellite'];
 
 /** The `connect-src` sources of the policy the page is deployed with. */
@@ -103,16 +103,9 @@ describe('the connect page basemap styles', () => {
     );
   });
 
-  it.each(BASES)(
-    'is what the phone resolves for the %s base when asked for no rewriting',
-    (base) => {
-      const resolved = resolveStyleForWebView(base, {
-        cacheVectorTiles: false,
-        bundledAssets: false,
-      });
-      expect(pageStyle(base)).toEqual(resolved.inline);
-    }
-  );
+  it.each(BASES)('is the upstream %s style the phone starts from, before any rewriting', (base) => {
+    expect(pageStyle(base)).toEqual(upstreamStyle(base));
+  });
 
   it.each(BASES)('credits the %s base as the phone does', (base) => {
     expect(pageAttribution()).toBe(MAP_ATTRIBUTIONS[base]);

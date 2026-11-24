@@ -304,7 +304,7 @@ fn a_clear_empties_the_derived_caches() {
         0,
         "the removed activity's signature survived"
     );
-    let stats = engine.stats();
+    let stats = engine.stats().unwrap();
     assert_eq!(stats.group_count, 0);
     assert!(stats.sections_dirty, "the next detect has to re-cut");
 }

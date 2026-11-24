@@ -10,7 +10,6 @@
 
 import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
 import { bindDelegates } from '../../../modules/veloqrs/src/delegates/bind';
-import * as elevationDelegates from '../../../modules/veloqrs/src/delegates/elevation';
 import { engineErrorTag } from '@/shared/native/engineError';
 import * as cutoverDelegates from '../../../modules/veloqrs/src/delegates/cutover';
 import * as heatmapDelegates from '../../../modules/veloqrs/src/delegates/heatmap';
@@ -62,7 +61,6 @@ jest.mock('../../../modules/veloqrs/src/generated/veloqrs', () => {
     },
     takeQuarantineReport: fail,
     getCutoverDiff: fail,
-    getElevationBackfillRemaining: fail,
     getRoutesStatusData: fail,
   };
 });
@@ -95,10 +93,6 @@ const READS: [string, (client: EngineClient) => unknown][] = [
     'sectionDetectionAwaiting',
     (c) => bindDelegates(c, detectionDelegates).sectionDetectionAwaiting(),
   ],
-  [
-    'getElevationBackfillRemaining',
-    (c) => bindDelegates(c, elevationDelegates).getElevationBackfillRemaining(),
-  ],
   ['getHeatmapTileProgress', (c) => bindDelegates(c, heatmapDelegates).getHeatmapTileProgress()],
   [
     'launchData',
@@ -121,8 +115,6 @@ const READS: [string, (client: EngineClient) => unknown][] = [
   ['hrZoneFor', (c) => c.hrZoneFor('Ride', 140)],
   ['exportPrivacyPreview', (c) => c.exportPrivacyPreview(46.5, 6.6, 200)],
   ['engineInstall', (c) => c.engineInstall()],
-  ['streamRetentionDays', (c) => c.streamRetentionDays()],
-  ['streamStoreBytes', (c) => c.streamStoreBytes()],
 ];
 
 describe('engine client reads', () => {

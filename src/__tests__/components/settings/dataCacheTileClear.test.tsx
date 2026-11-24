@@ -92,6 +92,7 @@ jest.mock('@/features/maps', () => ({
   HEATMAP_TILES_DIR: '/cache/heatmap-tiles/',
   readHeatmapTilesCacheSize: async () => 0,
   clearTerrainPreviews: async () => {},
+  recycleDrawnSurfaces: () => 0,
   getTerrainPreviewCacheSize: async () => 0,
 }));
 

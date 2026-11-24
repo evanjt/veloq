@@ -2335,12 +2335,9 @@ describe('every basemap clear runs off the JS thread', () => {
     );
   };
 
-  it.each(['clearTiles', 'clearSourceTiles', 'clearUnpinnedTiles'])(
-    '%s returns a Promise',
-    (name) => {
-      expect(declared().get(name)).toMatch(/^Promise</);
-    }
-  );
+  it.each(['clearTiles', 'clearUnpinnedTiles'])('%s returns a Promise', (name) => {
+    expect(declared().get(name)).toMatch(/^Promise</);
+  });
 });
 
 // A run handle is an object TypeScript starts work through and watches to its

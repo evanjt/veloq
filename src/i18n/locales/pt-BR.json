@@ -657,6 +657,7 @@
       "database": "O banco de dados não conseguiu fazer isso. Tente novamente e limpe o cache se continuar."
     },
     "initReason": {
+      "wipeFailed": "Não foi possível apagar deste dispositivo as atividades do atleta anterior, então elas ainda aparecem. Tente novamente.",
       "busy": "Outra coisa estava usando o banco de dados. Tente de novo em instantes.",
       "forwardSchema": "Estes dados foram salvos por uma versão mais nova do Veloq. Atualize o app para abri-los.",
       "storageUnavailable": "Não foi possível gravar o banco de dados. Libere espaço e tente de novo.",
@@ -706,6 +707,7 @@
     "rideStillRecording": "Seu pedal ainda está sendo gravado.",
     "stopAndSaveRide": "Parar e salvar pedal",
     "rideStopped": "Seu pedal foi parado e mantido neste dispositivo.",
+    "rideNotSaved": "Seu pedal foi parado, mas ainda não foi salvo. Ele existe apenas na memória.",
     "shareFailed": "Não foi possível compartilhar o registro de falhas.",
     "unableToLoad": "Não foi possível carregar: {{part}}",
     "retryHint": "Toque em Tentar novamente para carregar de novo.",
@@ -901,16 +903,9 @@
     "notificationsBody": "O Veloq pode avisar você quando uma pedalada alcança um recorde pessoal ou um tempo mais rápido em um percurso, com o nome do percurso."
   },
   "filters": {
-    "climbing": "Escalada",
     "cycling": "Ciclismo",
-    "hiking": "Trilha",
-    "other": "Outro",
-    "racketSports": "Esportes de raquete",
     "running": "Corrida",
-    "snowSports": "Esportes de neve",
-    "swimming": "Natação",
-    "walking": "Caminhada",
-    "waterSports": "Esportes aquáticos"
+    "swimming": "Natação"
   },
   "fitness": {
     "activitiesCount_one": "{{count}} atividade",
@@ -2721,8 +2716,6 @@
       "backupBody": "Guarda tudo o que o intervals.icu não guarda: seus nomes de seções, edições e configurações."
     },
     "v040": {
-      "recutRunning": "Analisando seus trechos de novo",
-      "recutRunningPhase": "Analisando seus trechos de novo: {{phase}}",
       "diffTotals": "{{current}} trechos viraram {{proposed}}.",
       "diffBreakdown": "{{new}} novos, {{changed}} alterados, {{gone}} aposentados.",
       "diffNoneKept_one": "O novo detector passou por toda a sua biblioteca e não manteve nenhum dos seus {{count}} trecho. Ele foi retirado, não apagado: abra a lista de trechos retirados para trazer de volta os que quiser.",

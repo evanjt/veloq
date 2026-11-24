@@ -1,6 +1,7 @@
 import { useMemo, useCallback } from 'react';
 
 import type { RecordingStreams } from '@/features/recording/types';
+import { calculateSpeed } from '@/shared/math';
 import { pausedSecondsBetween, type PauseInterval } from '../lib/pausedTime';
 import { parseManualSummary } from '../lib/parseManualSummary';
 import { buildStreamPrefixes, windowAverage, windowGain } from '../lib/streamPrefixes';
@@ -159,7 +160,7 @@ export function useActivitySummary({
       duration: moving,
       elapsed,
       distance: totalDistance,
-      avgSpeed: moving > 0 ? totalDistance / moving : 0,
+      avgSpeed: calculateSpeed(totalDistance, moving),
       elevationGain: elevGain,
       avgHeartrate: avgHr,
       avgPower: avgPwr,

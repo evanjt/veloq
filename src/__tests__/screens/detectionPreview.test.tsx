@@ -1347,6 +1347,34 @@ describe('detection preview sensitivity controls', () => {
     expect(router.back).toHaveBeenCalledTimes(1);
   });
 
+  it('informs and starts no re-cut when the config write throws', async () => {
+    mockSetSectionConfig.mockImplementationOnce(() => {
+      throw new Error('Busy');
+    });
+    const alert = confirmNextAlert();
+    const tree = await render(<DetectionPreviewScreen />);
+    await fireEvent(tree.getByTestId('preview-keep-button'), 'press');
+    expect(mockForceRedetect).not.toHaveBeenCalled();
+    expect(router.back).not.toHaveBeenCalled();
+    expect(alert.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it('does not offer to discard values that are already stored after a refused re-cut', async () => {
+    mockForceRedetect.mockReturnValue(StartOutcome.Held);
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const tree = await render(<DetectionPreviewScreen />);
+    await fireEvent(sliders(tree)[0], 'valueChange', 150);
+    expect(mockBackHold.active).toBe(true);
+    act(() => mockBackHold.onBack(jest.fn()));
+    const buttons = alert.mock.calls[alert.mock.calls.length - 1][2] as {
+      text: string;
+      onPress?: () => void;
+    }[];
+    act(() => buttons.find((x) => x.text === 'common.save')!.onPress?.());
+    expect(mockSetSectionConfig).toHaveBeenCalledTimes(1);
+    expect(mockBackHold.active).toBe(false);
+  });
+
   describe('leaving with changed values', () => {
     function leave() {
       const carryOut = jest.fn();

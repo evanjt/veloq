@@ -619,12 +619,6 @@ impl SectionManager {
         })?
     }
 
-    fn get_retired(
-        &self,
-    ) -> Result<Vec<crate::persistence::sections::history::RetiredSection>, VeloqError> {
-        with_reader(history::retired_sections)
-    }
-
     /// The old-versus-new sections map in one read: the retired sections with
     /// their lines, every catalogue row, and the pairs between them. Cached
     /// under the read stamp, so a selection on the map reads nothing. Ground
@@ -1062,7 +1056,7 @@ mod tests {
         assert!(result.summaries.is_empty());
         assert!(sections.get_all_names().unwrap().is_empty());
         assert!(sections.get_named_corridors().unwrap().is_empty());
-        assert!(sections.get_retired().unwrap().is_empty());
+        assert!(with_reader(history::retired_sections).unwrap().is_empty());
         assert!(sections.get_history("s1".into()).unwrap().is_empty());
         assert!(
             sections

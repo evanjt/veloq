@@ -34,9 +34,7 @@ import {
   formatFileSize,
   formatRelativeDate,
   calendarDaysBetween,
-  formatTimeDelta,
   formatPrGap,
-  formatPerformanceDelta,
   speedToSecsPerKm,
   getMonday,
   getSunday,
@@ -125,93 +123,6 @@ describe('formatRelativeDate', () => {
     const result = formatRelativeDate(earlierThisYear);
     // Should show "Jan 15" format for dates > 7 days old in current year
     expect(result).toMatch(/Jan.*15|15.*Jan/);
-  });
-});
-
-describe('formatTimeDelta', () => {
-  it('formats positive deltas (slower)', () => {
-    expect(formatTimeDelta(90)).toBe('+1:30');
-    expect(formatTimeDelta(5)).toBe('+5 s');
-  });
-
-  it('formats negative deltas (faster)', () => {
-    expect(formatTimeDelta(-90)).toBe('-1:30');
-    expect(formatTimeDelta(-5)).toBe('-5 s');
-  });
-
-  it('returns null for sub-second deltas', () => {
-    expect(formatTimeDelta(0.5)).toBeNull();
-    expect(formatTimeDelta(-0.3)).toBeNull();
-    expect(formatTimeDelta(0)).toBeNull();
-  });
-
-  it('pads seconds with leading zero', () => {
-    expect(formatTimeDelta(65)).toBe('+1:05');
-  });
-});
-
-describe('formatPerformanceDelta', () => {
-  it('returns null display for best performance', () => {
-    const result = formatPerformanceDelta({ isBest: true, isMetric: true });
-    expect(result.deltaDisplay).toBeNull();
-    expect(result.isFaster).toBe(false);
-  });
-
-  it('computes pace delta for running', () => {
-    // Current 4 m/s = 250 s/km, Best 5 m/s = 200 s/km → delta +50s
-    const result = formatPerformanceDelta({
-      isBest: false,
-      isMetric: true,
-      showPace: true,
-      currentSpeed: 4,
-      bestSpeed: 5,
-    });
-    expect(result.deltaDisplay).toBe('+50 s');
-    expect(result.isFaster).toBe(false);
-  });
-
-  it('detects faster pace', () => {
-    const result = formatPerformanceDelta({
-      isBest: false,
-      isMetric: true,
-      showPace: true,
-      currentSpeed: 5,
-      bestSpeed: 4,
-    });
-    expect(result.isFaster).toBe(true);
-  });
-
-  it('uses timeDelta when not showPace', () => {
-    const result = formatPerformanceDelta({
-      isBest: false,
-      isMetric: true,
-      timeDelta: 30,
-    });
-    expect(result.deltaDisplay).toBe('+30 s');
-    expect(result.isFaster).toBe(false);
-  });
-
-  it('expresses the pace delta per mile for imperial athletes', () => {
-    // 50 s/km slower is 50 / 0.621371 = 80.5 s/mi
-    const result = formatPerformanceDelta({
-      isBest: false,
-      isMetric: false,
-      showPace: true,
-      currentSpeed: 4,
-      bestSpeed: 5,
-    });
-    expect(result.deltaDisplay).toBe('+1:20');
-    expect(result.isFaster).toBe(false);
-  });
-
-  it('leaves a time delta unchanged under imperial units', () => {
-    const result = formatPerformanceDelta({ isBest: false, isMetric: false, timeDelta: 30 });
-    expect(result.deltaDisplay).toBe('+30 s');
-  });
-
-  it('returns null for missing data', () => {
-    const result = formatPerformanceDelta({ isBest: false, isMetric: true });
-    expect(result.deltaDisplay).toBeNull();
   });
 });
 
@@ -370,24 +281,6 @@ describe('speedToSecsPerKm invalid-input coercion', () => {
   });
 });
 
-/**
- * formatTimeDelta:
- *  - Near-60-second boundary: 59.5 must roll over to ±1:00, not show ±60s.
- *  - NaN/Infinity return null (a valid "nothing to display" sentinel).
- */
-describe('formatTimeDelta edge cases', () => {
-  it.each([
-    [59.5, '+1:00'],
-    [-59.5, '-1:00'],
-  ])('boundary %p rolls over to %p', (input, expected) => {
-    expect(formatTimeDelta(input)).toBe(expected);
-  });
-
-  it.each([NaN, Infinity, -Infinity])('invalid input %p returns null', (input) => {
-    expect(formatTimeDelta(input)).toBeNull();
-  });
-});
-
 describe('formatDurationDelta', () => {
   it.each([
     [0, '0 s'],
@@ -500,15 +393,6 @@ describe('NaN/Infinity wall', () => {
       expectClean(String(speedToSecsPerKm(input as unknown as number)))
     );
   });
-
-  // formatTimeDelta returns string | null - null is a valid "nothing to display"
-  // sentinel, so only non-null results are checked.
-  vaultIt('formatTimeDelta returns null or a clean string for any invalid input', () => {
-    INVALID_INPUTS.forEach((input) => {
-      const result = formatTimeDelta(input as unknown as number);
-      if (result !== null) expectClean(result);
-    });
-  });
 });
 
 describe('extreme finite magnitudes do not leak scientific-notation garbage', () => {
@@ -577,7 +461,6 @@ describe("durations in the locale's units", () => {
     expect(formatDurationHuman(5430)).toBe('1時間30分');
     expect(formatDurationHuman(330)).toBe('5分30秒');
     expect(formatDurationDelta(12)).toBe('12秒');
-    expect(formatTimeDelta(-5)).toContain('5秒');
   });
 
   vaultIt('writes the same seconds unit in every short form', () => {
@@ -721,5 +604,20 @@ describe('shared date formatter', () => {
   vaultIt('formats in the locale it is given, whatever the app language', () => {
     expect(formatShortDateIn('2026-03-14', 'de-DE')).toBe('14. März');
     expect(formatShortDateIn('2026-03-14', 'en-AU')).toBe('14 Mar');
+  });
+});
+
+describe('formatPaceCompact against the engine case table', () => {
+  // The engine's pace rule is held to the same table in
+  // widget_snapshot/tests/pace.rs.
+  const cases: {
+    name: string;
+    speed: number;
+    isMetric: boolean;
+    expected: string;
+  }[] = require('../../../modules/veloqrs/rust/veloqrs/src/widget_snapshot/tests/pace_compact_cases.json');
+
+  it.each(cases.map((c) => [c.name, c] as const))('%s', (_name, c) => {
+    expect(formatPaceCompact(c.speed, c.isMetric)).toBe(c.expected);
   });
 });

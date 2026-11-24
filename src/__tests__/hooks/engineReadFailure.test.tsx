@@ -35,7 +35,6 @@ const failing = () => {
 
 const engine = {
   subscribe: () => () => undefined,
-  getGroups: jest.fn(failing),
   getFilteredSectionSummaries: jest.fn(failing),
   getFilteredGroupSummaries: jest.fn(failing),
   getSectionById: jest.fn(failing),

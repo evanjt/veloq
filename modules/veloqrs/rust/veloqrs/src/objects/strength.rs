@@ -565,32 +565,6 @@ impl StrengthManager {
         with_reader(|conn| strength_screen_from(conn, start_ts, end_ts, week_ranges))?
     }
 
-    /// Insert pre-parsed exercise sets for an activity without touching the
-    /// network or FIT-file pipeline. Demo mode uses this to seed synthetic
-    /// WeightTraining activities; the production path still goes through
-    /// fetch_and_parse_exercise_sets. Also marks the activity as FIT-processed
-    /// so the normal code path won't attempt to re-download.
-    fn bulk_insert_exercise_sets(
-        &self,
-        activity_id: String,
-        sets: Vec<FfiExerciseSet>,
-    ) -> Result<(), VeloqError> {
-        let internal: Vec<fit::FitExerciseSet> =
-            sets.iter().map(fit::FitExerciseSet::from).collect();
-        with_engine(|e| {
-            e.settle_exercise_sets(&activity_id, &internal)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })
-        })??;
-
-        // Same reason as the import above, and it is the demo seed's only
-        // signal that its synthetic sets have landed.
-        observer::notify(Announcement::FitParsed(activity_id.clone()));
-
-        Ok(())
-    }
-
     /// Check if there are any strength activities with exercise data.
     fn has_strength_data(&self) -> Result<bool, VeloqError> {
         with_reader(|conn| {
@@ -1124,8 +1098,8 @@ pub(crate) fn screen_windows(
 ) -> (i64, i64, Vec<FfiTimestampRange>) {
     const DAY: i64 = 86_400;
     let today = now_wall.div_euclid(DAY);
-    let end = today * DAY + DAY - 1;
-    let start = (today - i64::from(period_days.max(1)) + 1) * DAY;
+    let (start, end) =
+        crate::widget_snapshot::trailing_days_bounds(now_wall, i64::from(period_days.max(1)));
     let ranges = (0..weeks)
         .rev()
         .map(|back| {
@@ -2070,37 +2044,23 @@ mod tests {
         assert!(!with_engine(|e| e.is_fit_processed("a3").unwrap()).unwrap());
     }
 
-    /// The upload's import and the demo seed both settle an activity, and every
-    /// card on it, the demo seed's own reader among them, hears nothing
-    /// without the announcement.
+    /// A parse that committed nothing has nothing to announce, so a reader is
+    /// not sent back for a file that settled no sets.
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
-    fn test_importing_fit_bytes_announces_the_verdict() {
+    fn test_importing_unparseable_fit_bytes_announces_nothing() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("fit_import.db");
         let recorder = Recorder::new();
         set_observer(Some(recorder.clone()));
 
-        // Not a FIT file, so the parse fails and nothing is committed.
-        let manager = StrengthManager::new();
         let install = crate::persistence::engine_install();
         assert!(import_fit_sets_under(install, "a4", b"not a fit file").is_err());
-        assert!(
-            recorder.events().is_empty(),
-            "a parse that committed nothing has nothing to announce"
-        );
-
-        manager
-            .bulk_insert_exercise_sets("a5".to_string(), vec![])
-            .expect("an empty seed still settles the activity");
         crate::objects::observer::flush();
         set_observer(None);
 
-        assert_eq!(recorder.events(), vec!["fit_parsed:a5"]);
-        assert!(
-            with_engine(|e| e.is_fit_processed("a5").unwrap()).unwrap(),
-            "the verdict must be committed before the announcement"
-        );
+        assert!(recorder.events().is_empty());
+        assert!(!with_engine(|e| e.is_fit_processed("a4").unwrap()).unwrap());
     }
 
     fn fit_crc(bytes: &[u8]) -> u16 {

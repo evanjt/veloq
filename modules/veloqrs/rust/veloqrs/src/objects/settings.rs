@@ -309,16 +309,6 @@ impl SettingsManager {
         })?
     }
 
-    /// Days of stream history the athlete keeps. Zero means keep everything.
-    ///
-    /// This only ever evicts stored series: nothing deletes whole activities
-    /// by age.
-    fn stream_retention_days(&self) -> Result<f64, VeloqError> {
-        with_reader(|conn| {
-            crate::persistence::streams::pooled::retention_days(conn).unwrap_or(0) as f64
-        })
-    }
-
     /// Set the stream retention window in days, then evict what now falls
     /// outside it. Zero keeps everything.
     fn set_stream_retention_days(&self, days: f64) -> Result<(), VeloqError> {
@@ -332,17 +322,6 @@ impl SettingsManager {
         crate::net::stream_backfill::release_autostart_hold();
         crate::net::stream_backfill::autostart_stream_backfill();
         Ok(())
-    }
-
-    /// Bytes the stream store holds, for the cache readout.
-    fn stream_store_bytes(&self) -> Result<f64, VeloqError> {
-        with_reader(|conn| {
-            crate::persistence::streams::pooled::store_bytes(conn)
-                .map(|bytes| bytes as f64)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
-        })?
     }
 
     /// Delete a single user preference.
@@ -663,12 +642,13 @@ mod tests {
 
         // The FFI carries "keep everything" as zero, which is also what the
         // athlete sets to ask for it.
-        assert_eq!(settings.stream_retention_days().unwrap(), 0.0);
-        assert_eq!(settings.stream_store_bytes().unwrap(), 0.0);
+        let read = || settings.cache_screen_data().unwrap();
+        assert_eq!(read().stream_retention_days, 0.0);
+        assert_eq!(read().stream_store_bytes, 0.0);
         settings.set_stream_retention_days(30.0).unwrap();
-        assert_eq!(settings.stream_retention_days().unwrap(), 30.0);
+        assert_eq!(read().stream_retention_days, 30.0);
         settings.set_stream_retention_days(0.0).unwrap();
-        assert_eq!(settings.stream_retention_days().unwrap(), 0.0);
+        assert_eq!(read().stream_retention_days, 0.0);
     }
 
     #[test]
@@ -701,7 +681,7 @@ mod tests {
             Err(VeloqError::NotInitialized)
         ));
         assert!(matches!(
-            settings.stream_retention_days(),
+            settings.cache_screen_data(),
             Err(VeloqError::NotInitialized)
         ));
         assert!(matches!(
@@ -714,10 +694,6 @@ mod tests {
         ));
         assert!(matches!(
             settings.export_privacy_preview(46.2, 7.35, 500.0),
-            Err(VeloqError::NotInitialized)
-        ));
-        assert!(matches!(
-            settings.stream_store_bytes(),
             Err(VeloqError::NotInitialized)
         ));
     }

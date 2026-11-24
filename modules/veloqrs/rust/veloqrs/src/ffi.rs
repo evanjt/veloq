@@ -168,7 +168,7 @@ pub struct ActivitySportMapping {
 
 /// What a picked backup file says about itself, read without touching the
 /// global engine.
-#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiBackupValidation {
     /// The file's own schema version, as it stores it. `"0"` when the file
@@ -188,10 +188,8 @@ pub struct FfiBackupValidation {
 
 /// Validate a backup database file without touching the global engine.
 ///
-/// Opens the file read-only. A record rather than a JSON document, so a field
-/// renamed here is a compile error in TypeScript rather than a valid backup
-/// reported as invalid at runtime.
-#[uniffi::export]
+/// Opens the file read-only. Not exported across the boundary: the Rust tests
+/// that open a backup copy are its only callers.
 pub fn validate_backup_database(path: String) -> Result<FfiBackupValidation, crate::VeloqError> {
     use rusqlite::{Connection, OpenFlags};
 
@@ -1509,8 +1507,9 @@ pub fn is_elevation_backfill_paused() -> bool {
 /// trigger stamps the app version on a zero and the cutover start reads one
 /// as permission to cut (it answers held until the newest slice of the queue
 /// is decided), so an absent engine or a locked database has to reach the
-/// caller as the null its delegate already handles.
-#[uniffi::export]
+/// caller as an error.
+///
+/// Read by [`get_routes_status_data`], which is what TypeScript polls.
 pub fn get_elevation_backfill_remaining() -> Result<u32, crate::VeloqError> {
     let remaining = crate::objects::error::with_reader(|conn| {
         crate::net::elevation_backfill::pooled_elevation_backfill_remaining(conn)

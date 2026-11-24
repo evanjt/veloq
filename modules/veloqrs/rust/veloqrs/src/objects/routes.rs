@@ -96,17 +96,6 @@ impl RouteManager {
         Arc::new(Self { _private: () })
     }
 
-    fn get_all(&self) -> Result<Vec<crate::FfiRouteGroup>, VeloqError> {
-        // The last saved grouping. A regroup the library owes runs on the
-        // worker, so a read never recomputes it on the way past.
-        with_reader(|conn| {
-            crate::persistence::routes::pooled::all_groups(conn)
-                .into_iter()
-                .map(crate::FfiRouteGroup::from)
-                .collect()
-        })
-    }
-
     /// Group summaries with the total count beside them.
     ///
     /// `sort_key` accepts "count" and "name"; anything else, and `None`,
@@ -365,10 +354,26 @@ impl RouteManager {
     }
 }
 
+/// The saved grouping as the Rust tests read it. The screens read groups
+/// through their own screen reads, so this is not exported.
+#[cfg(test)]
+impl RouteManager {
+    fn get_all(&self) -> Result<Vec<crate::FfiRouteGroup>, VeloqError> {
+        // The last saved grouping. A regroup the library owes runs on the
+        // worker, so a read never recomputes it on the way past.
+        with_reader(|conn| {
+            crate::persistence::routes::pooled::all_groups(conn)
+                .into_iter()
+                .map(crate::FfiRouteGroup::from)
+                .collect()
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_globals::{init_global_engine, serial_global_state};
+    use crate::test_globals::{init_global_engine, saved_route_groups, serial_global_state};
 
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
@@ -377,7 +382,7 @@ mod tests {
         let _tmp = init_global_engine("routes.db");
         let routes = RouteManager::new();
 
-        assert!(routes.get_all().unwrap().is_empty());
+        assert!(saved_route_groups().is_empty());
         let summaries = routes.get_summaries(Some(2), Some("count".into())).unwrap();
         assert_eq!(summaries.total_count, 0);
         assert!(summaries.summaries.is_empty());
@@ -519,7 +524,9 @@ mod tests {
 #[cfg(test)]
 mod pooled_read_tests {
     use super::*;
-    use crate::test_globals::{init_global_engine, read_while_writer_holds, serial_global_state};
+    use crate::test_globals::{
+        init_global_engine, read_while_writer_holds, saved_route_groups, serial_global_state,
+    };
     use crate::with_persistent_engine;
     use tracematch::GpsPoint;
 
@@ -586,9 +593,8 @@ mod pooled_read_tests {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("routes_list_under_writer.db");
         seed_route();
-        let routes = RouteManager::new();
 
-        let groups = read_while_writer_holds(|| routes.get_all().unwrap());
+        let groups = read_while_writer_holds(saved_route_groups);
 
         assert_eq!(groups.len(), 1);
     }
@@ -626,7 +632,7 @@ mod pooled_read_tests {
                 .collect()
         })
         .unwrap();
-        same(&routes.get_all().unwrap(), &engine_groups, "the route list");
+        same(&saved_route_groups(), &engine_groups, "the route list");
 
         for (current, sport) in [
             (None, None),
@@ -668,7 +674,7 @@ mod pooled_read_tests {
         with_persistent_engine(|e| e.set_groups_dirty(true)).unwrap();
         let routes = RouteManager::new();
 
-        let listed = routes.get_all().unwrap();
+        let listed = saved_route_groups();
         routes.get_performances("g1".into(), None, None).unwrap();
 
         assert_eq!(listed.len(), 1, "the saved grouping is listed");

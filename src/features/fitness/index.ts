@@ -29,10 +29,11 @@ export {
   useFitnessScreenData,
   useFitnessWindow,
   useValueWhileActive,
-  getISOWeekNumber,
-  formatWeekRange,
   type WeeklySummaryData,
 } from './hooks';
+export { getISOWeekNumber } from './lib/weekWindow';
+
+export type { FtpSeriesPoint } from './lib/ftpTrendView';
 
 export {
   getFormZone,

@@ -17,6 +17,7 @@
 
 import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
+import { errorMessage } from '@/shared/format/errorMessage';
 
 import { safeGetTime } from '@/shared/format/format';
 import { backupFileName, backupNameTimestamp } from './backupName';
@@ -78,7 +79,7 @@ function remotePath(name: string): string {
  */
 function cloudFailure(operation: string, cause: unknown): BackupTransferError {
   if (cause instanceof BackupTransferError) return cause;
-  const detail = cause instanceof Error ? cause.message : String(cause);
+  const detail = errorMessage(cause);
   return new BackupTransferError(operation, 'server', `${operation} failed: ${detail}`);
 }
 

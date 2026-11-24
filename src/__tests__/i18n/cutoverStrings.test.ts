@@ -11,7 +11,6 @@ import * as path from 'path';
 const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 
 const PLACEHOLDERS: Record<string, string[]> = {
-  recutRunningPhase: ['{{phase}}'],
   diffTotals: ['{{current}}', '{{proposed}}'],
   diffBreakdown: ['{{new}}', '{{changed}}', '{{gone}}'],
   diffUnchanged_other: ['{{count}}'],

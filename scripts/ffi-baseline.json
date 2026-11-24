@@ -57,9 +57,6 @@
     "getGpsFetchCandidates": {
       "p95Ms": 1.2
     },
-    "getGroups": {
-      "p95Ms": 1.1
-    },
     "getInsightsData": {
       "p95Ms": 46.6
     },

@@ -8,12 +8,11 @@
  */
 
 import React from 'react';
-import { View } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
 import { ActivityPeek } from '@/features/activity/components/ActivityPeek';
 import { activityHeroStats } from '@/features/activity/lib/activityHeroStats';
-import { DetailHero, HeroNameRow, HeroStatsRow } from '@/shared/ui/DetailHero';
+import { HeroNameRow, HeroStatsRow } from '@/shared/ui/DetailHero';
 
 import { activityRecord } from '../__shared__/activityRecord';
 import type { ActivityRecord } from 'veloqrs';
@@ -99,32 +98,25 @@ describe('the section and route hero', () => {
 
   async function renderHero(editable: boolean) {
     return render(
-      <DetailHero
-        height={320}
-        overlay={
-          <>
-            <HeroNameRow
-              name="Ridge climb"
-              {...(editable && {
-                editable: {
-                  isEditing: false,
-                  editName: '',
-                  inputRef: React.createRef(),
-                  label: 'Name',
-                  testIDPrefix: 'sample',
-                  onStartEdit: jest.fn(),
-                  onSave: jest.fn(),
-                  onCancel: jest.fn(),
-                  onChange: jest.fn(),
-                },
-              })}
-            />
-            <HeroStatsRow testID="hero-stats" stats={stats} />
-          </>
-        }
-      >
-        <View />
-      </DetailHero>
+      <>
+        <HeroNameRow
+          name="Ridge climb"
+          {...(editable && {
+            editable: {
+              isEditing: false,
+              editName: '',
+              inputRef: React.createRef(),
+              label: 'Name',
+              testIDPrefix: 'sample',
+              onStartEdit: jest.fn(),
+              onSave: jest.fn(),
+              onCancel: jest.fn(),
+              onChange: jest.fn(),
+            },
+          })}
+        />
+        <HeroStatsRow testID="hero-stats" stats={stats} />
+      </>
     );
   }
 

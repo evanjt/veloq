@@ -875,7 +875,8 @@ fn test_engine_stats_follow_a_commit_behind_the_engine() {
     let dir = init_global_engine("regroup.db");
     commit_nobody_adopts(&dir, 44.0);
 
-    let groups = with_persistent_engine(|engine| engine.stats().group_count).expect("engine");
+    let groups =
+        with_persistent_engine(|engine| engine.stats().unwrap().group_count).expect("engine");
     assert_eq!(groups, 2);
 
     crate::persistence::clear_persistent_engine();

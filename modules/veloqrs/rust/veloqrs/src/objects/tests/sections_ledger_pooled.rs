@@ -96,10 +96,16 @@ fn test_get_pinned_version_writer_held() {
 
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
-fn test_get_retired_writer_held() {
+fn test_retired_sections_writer_held() {
     let _guard = serial_global_state();
-    let (_tmp, sections) = empty_engine("sections_retired_under_writer.db");
-    assert!(read_while_writer_holds(|| sections.get_retired().unwrap()).is_empty());
+    let (_tmp, _sections) = empty_engine("sections_retired_under_writer.db");
+    assert!(
+        read_while_writer_holds(|| with_reader(
+            crate::persistence::sections::history::pooled::retired_sections
+        )
+        .unwrap())
+        .is_empty()
+    );
 }
 
 #[test]
@@ -230,7 +236,8 @@ fn test_ledger_reads_match_the_engine() {
         .unwrap()
     );
 
-    let retired = sections.get_retired().unwrap();
+    let retired =
+        with_reader(crate::persistence::sections::history::pooled::retired_sections).unwrap();
     assert_eq!(retired.len(), 1);
     assert_eq!(retired[0].section_id, "auto_gone");
     assert_eq!(retired[0].into.as_deref(), Some("auto_1"));

@@ -23,6 +23,7 @@ import {
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { ABSENT } from '@/shared/format/absent';
 import { colors } from '@/theme';
+import { summaryCardBundle } from '../__shared__/summaryCardBundle';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/i18n', () => ({
@@ -154,14 +155,7 @@ describe('form on a half-unit day', () => {
     useDashboardPreferences.setState({
       summaryCard: { ...DEFAULTS, heroMetric: 'fitness', supportingMetrics: ['form'] },
     });
-    const card = {
-      wellness: { fitness: day.fitness, form: day.form },
-      currentWeek: { count: 0, totalDuration: 0 },
-      prevWeek: { count: 0, totalDuration: 0 },
-      ftpTrend: { latestFtp: null, previousFtp: null },
-      runPaceTrend: {},
-      swimPaceTrend: {},
-    };
+    const card = summaryCardBundle({ wellness: { fitness: day.fitness, form: day.form } });
     const sparklines = {
       fitness: [day.fitness - 1, day.fitness],
       fatigue: [day.fatigue, day.fatigue],
@@ -190,14 +184,7 @@ describe('form under the percentage preference', () => {
     useDashboardPreferences.setState({
       summaryCard: { ...DEFAULTS, heroMetric: 'fitness', supportingMetrics: ['form'] },
     });
-    const card = {
-      wellness: { fitness, form },
-      currentWeek: { count: 0, totalDuration: 0 },
-      prevWeek: { count: 0, totalDuration: 0 },
-      ftpTrend: { latestFtp: null, previousFtp: null },
-      runPaceTrend: {},
-      swimPaceTrend: {},
-    };
+    const card = summaryCardBundle({ wellness: { fitness, form } });
     const sparklines = {
       fitness: [fitness, fitness],
       fatigue: [fitness - form, fitness - form],

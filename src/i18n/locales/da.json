@@ -650,6 +650,7 @@
       "database": "Databasen kunne ikke gøre det. Prøv igen, og ryd cachen hvis det bliver ved."
     },
     "initReason": {
+      "wipeFailed": "Den tidligere atlets aktiviteter kunne ikke ryddes fra enheden, så de vises stadig. Prøv igen.",
       "busy": "Noget andet brugte databasen. Prøv igen om lidt.",
       "forwardSchema": "Disse data er gemt af en nyere version af Veloq. Opdatér appen for at åbne dem.",
       "storageUnavailable": "Databasen kunne ikke skrives. Frigør plads, og prøv igen.",
@@ -692,6 +693,7 @@
     "rideStillRecording": "Din tur optages stadig.",
     "stopAndSaveRide": "Stop og gem turen",
     "rideStopped": "Din tur er stoppet og gemt på denne enhed.",
+    "rideNotSaved": "Din tur er stoppet, men endnu ikke gemt. Den findes kun i hukommelsen.",
     "shareFailed": "Crashloggen kunne ikke deles.",
     "unableToLoad": "Kan ikke indlæse {{part}}",
     "retryHint": "Tryk på Prøv igen for at indlæse det igen.",
@@ -881,16 +883,9 @@
     "notificationsBody": "Veloq kan fortælle dig, når en tur giver en personlig rekord eller en hurtigere tid på en rute, med ruten nævnt."
   },
   "filters": {
-    "climbing": "Klatring",
     "cycling": "Cykling",
-    "hiking": "Vandring",
-    "other": "Andet",
-    "racketSports": "Ketchersport",
     "running": "Løb",
-    "snowSports": "Vintersport",
-    "swimming": "Svømning",
-    "walking": "Gang",
-    "waterSports": "Vandsport"
+    "swimming": "Svømning"
   },
   "fitness": {
     "activitiesCount_one": "{{count}} aktivitet",
@@ -2674,8 +2669,6 @@
       "backupBody": "Gemmer alt, som intervals.icu ikke gemmer: dine sektionsnavne, redigeringer og indstillinger."
     },
     "v040": {
-      "recutRunning": "Analyserer dine strækninger igen",
-      "recutRunningPhase": "Analyserer dine strækninger igen: {{phase}}",
       "diffTotals": "{{current}} strækninger blev til {{proposed}}.",
       "diffBreakdown": "{{new}} nye, {{changed}} ændrede, {{gone}} pensionerede.",
       "diffNoneKept_one": "Den nye detektor har gennemgået hele dit bibliotek og beholdt ingen af dine {{count}} strækning. Den er udgået, ikke slettet: åbn listen over udgåede strækninger for at hente dem tilbage, du vil have.",

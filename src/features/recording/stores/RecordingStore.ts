@@ -49,6 +49,11 @@ type SensorStreamKind = 'heartrate' | 'power' | 'cadence' | 'speed';
  * and a zero reading apart.
  */
 export function freshPower(sample: SensorSampleLite | null, now: number): number | null {
+  return freshReading(sample, now);
+}
+
+/** A sample's value, or null when it is absent or stale. */
+export function freshReading(sample: SensorSampleLite | null, now: number): number | null {
   if (!sample) return null;
   return now - sample.at <= SENSOR_STALE_MS ? sample.value : null;
 }
@@ -588,8 +593,13 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     const heartrate = freshValue(latestSensor.heartrate, nowMs);
     streams.time.push(elapsedSec);
     streams.altitude.push(NaN);
-    streams.speed.push(freshValue(latestSensor.speed, nowMs));
-    streams.distance.push(streams.distance[streams.distance.length - 1] ?? 0);
+    // A missing or stale speed is no reading (NaN), not 0 m/s. Distance
+    // integrates the fresh speed over the time since the previous sample.
+    const speed = freshReading(latestSensor.speed, nowMs);
+    const prevDistance = streams.distance[streams.distance.length - 1] ?? 0;
+    const dt = lastTime === undefined ? 0 : elapsedSec - lastTime;
+    streams.speed.push(speed ?? NaN);
+    streams.distance.push(prevDistance + (speed === null ? 0 : speed * dt));
     streams.heartrate.push(heartrate);
     streams.power.push(freshPower(latestSensor.power, nowMs));
     streams.cadence.push(freshValue(latestSensor.cadence, nowMs));

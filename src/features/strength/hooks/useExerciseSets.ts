@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import type { ActivityHighlightsBundle, ExerciseSession, MuscleGroup } from 'veloqrs';
 
@@ -83,7 +82,6 @@ export function useExerciseSets(activityId: string, activityType: string) {
   // the two cannot disagree: a settled activity with no sets has none, and an
   // unsettled one is a download still owed.
   const query = useQuery<ExerciseSetsRead>({
-    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.strength.exerciseSets(activityId),
     queryFn: () => {
       // A throw is a failed read and stays one: the query errors, and the
@@ -151,7 +149,6 @@ export function useStrengthReconnect(): void {
  */
 export function useMuscleGroups(activityId: string, hasExercises: boolean) {
   return useQuery<MuscleGroup[]>({
-    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.strength.muscleGroups(activityId),
     queryFn: () => {
       return strength.getMuscleGroups(activityId);

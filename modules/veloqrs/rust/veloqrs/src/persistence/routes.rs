@@ -1539,67 +1539,17 @@ impl PersistentEngine {
         // without it (4s of 9s on a full resync).
         let group_start = Instant::now();
 
-        let live: HashSet<&str> = arc_sigs.iter().map(|s| s.activity_id.as_str()).collect();
-        let seed_groups = groups_of_live_members(&self.groups, &live);
-        let already_grouped: std::collections::HashSet<&str> = seed_groups
-            .iter()
-            .flat_map(|g| g.activity_ids.iter().map(|s| s.as_str()))
-            .collect();
-
-        let total = arc_sigs.len();
         let chosen = routes_keeping_representative(&self.db, &self.groups);
-        // Incremental grouping is correct at any new-to-total ratio
-        // (existing groups stay valid; we only add new edges). The
-        // benchmark shows it's faster than full at every ratio measured
-        // (60+90 → −37%, 154+396 → −19%).
-        // Count new (ungrouped) sigs cheaply via Arc references - no clone yet.
-        let new_count = arc_sigs
-            .iter()
-            .filter(|s| !already_grouped.contains(s.activity_id.as_str()))
-            .count();
-
-        // The 90% gate exists only to skip the partition + HashSet build when
-        // nearly everything is new - full is simpler in that fresh-import case.
         // A changed rule re-evaluates pairs the incremental path never looks at.
         let rule_changed = groups_match_rule_changed(&self.db, &self.match_config);
-        let use_incremental = !seed_groups.is_empty()
-            && new_count > 0
-            && (new_count as f64) < (total as f64 * 0.9)
-            && !rule_changed;
-
-        // Materialise owned Vecs for tracematch (needs &[RouteSignature]).
-        // With Arc this is one clone per sig instead of two (cache-hit + partition).
-        let result = if use_incremental {
-            let new_sigs: Vec<RouteSignature> = arc_sigs
-                .iter()
-                .filter(|s| !already_grouped.contains(s.activity_id.as_str()))
-                .map(|a| a.as_ref().clone())
-                .collect();
-            let existing_sigs: Vec<RouteSignature> = arc_sigs
-                .iter()
-                .filter(|s| already_grouped.contains(s.activity_id.as_str()))
-                .map(|a| a.as_ref().clone())
-                .collect();
-            log::info!(
-                "[RUST: PERF] Phase 2 - INCREMENTAL grouping: {} new vs {} existing",
-                new_sigs.len(),
-                existing_sigs.len()
-            );
-            tracematch::group_incremental_with_matches(
-                &new_sigs,
-                &groups_keeping_chosen_representatives(&seed_groups, &chosen),
-                &existing_sigs,
-                &self.match_config,
-            )
-        } else {
-            let signatures: Vec<RouteSignature> =
-                arc_sigs.iter().map(|a| a.as_ref().clone()).collect();
-            log::info!(
-                "[RUST: PERF] Phase 2 - FULL grouping: {} signatures",
-                signatures.len()
-            );
-            tracematch::group_signatures_parallel_with_matches(&signatures, &self.match_config)
-        };
+        let signatures: Vec<RouteSignature> = arc_sigs.iter().map(|a| a.as_ref().clone()).collect();
+        let (result, _) = super::regroup::group_pool(
+            &signatures,
+            &self.groups,
+            &chosen,
+            rule_changed,
+            &self.match_config,
+        );
 
         let group_ms = group_start.elapsed().as_millis();
         log::info!(
@@ -2375,6 +2325,7 @@ pub(crate) mod pooled {
     /// The blob is the current encoding of the membership and the JSON column
     /// the one before it, the same order `load_groups` reads them in, so a
     /// library written by either release answers the same.
+    #[cfg(test)]
     pub(crate) fn all_groups(conn: &Connection) -> Vec<RouteGroup> {
         let names = all_route_names(conn);
         let Ok(mut stmt) = conn.prepare(

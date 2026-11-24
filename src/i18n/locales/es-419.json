@@ -70,6 +70,7 @@
   },
   "engine": {
     "initReason": {
+      "wipeFailed": "No se pudieron borrar de este dispositivo las actividades del atleta anterior, así que se siguen mostrando. Probá de nuevo.",
       "busy": "Otra cosa estaba ocupando la base de datos. Probá de nuevo en un momento.",
       "forwardSchema": "Estos datos se guardaron con una versión más nueva de Veloq. Actualizá la app para abrirlos.",
       "storageUnavailable": "No se pudo escribir la base de datos. Liberá espacio y probá otra vez.",

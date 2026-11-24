@@ -635,7 +635,6 @@ const REFERENCE_LOCALE = 'src/i18n/locales/en-GB.json';
 // under `settings.` unseen.
 const DYNAMIC_PREFIXES = [
   'activityTypes.',
-  'filters.',
   'formZones.',
   'insights.hrvTrend.',
   'insights.sectionChanged.',

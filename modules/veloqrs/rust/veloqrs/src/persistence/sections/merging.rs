@@ -504,7 +504,7 @@ pub(crate) mod pooled {
                 let candidate_polyline = flat(&candidate_line);
                 let overlap = if candidate_polyline.len() >= 4 {
                     // Both lines come off disk already paired, so the
-                    // even-length refusal on the FFI entry cannot fire here.
+                    // even-length refusal cannot fire here.
                     crate::persistence::compute_polyline_overlap(
                         query_polyline.clone(),
                         candidate_polyline,

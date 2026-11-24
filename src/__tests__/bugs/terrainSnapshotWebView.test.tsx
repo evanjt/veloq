@@ -2322,6 +2322,35 @@ describe('a pool that goes quiet', () => {
     post({ type: 'mapReady', workerId: 1 });
     expect(injectedByWorker[1][injectedByWorker[1].length - 1]).toBe('a2');
   });
+
+  it('counts down to a rebuild after a worker is lost mid-render and its request is redone', async () => {
+    pool().requestSnapshot(request('a0'));
+    await land(0, 'a0');
+    pool().requestSnapshot(request('a1'));
+    await act(() => goneHandlers[0]());
+    post({ type: 'mapReady', workerId: 0 });
+    await land(0, 'a1', 3);
+
+    jest.advanceTimersByTime(RECYCLE_IDLE_MS - 1);
+    expect(recycles(0) + recycles(1)).toBe(0);
+    jest.advanceTimersByTime(1);
+
+    expect(recycles(0) + recycles(1)).toBe(1);
+  });
+
+  it('counts down to a rebuild after a render fails and nothing else is asked', async () => {
+    pool().requestSnapshot(request('a0'));
+    await land(0, 'a0');
+    pool().requestSnapshot(request('a1'));
+    post({ type: 'snapshotError', workerId: 0, activityId: 'a1', error: 'tiles', gen: 2 });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(() => jest.advanceTimersByTime(RECYCLE_IDLE_MS * 20));
+
+    expect(recycles(0) + recycles(1)).toBeGreaterThanOrEqual(1);
+  });
 });
 
 /**

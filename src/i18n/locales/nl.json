@@ -650,6 +650,7 @@
       "database": "De database kon dat niet doen. Probeer het opnieuw en wis de cache als het blijft gebeuren."
     },
     "initReason": {
+      "wipeFailed": "De activiteiten van de vorige atleet konden niet van dit apparaat worden gewist, dus ze worden nog getoond. Probeer het opnieuw.",
       "busy": "Iets anders gebruikte de database. Probeer het zo nog eens.",
       "forwardSchema": "Deze gegevens zijn opgeslagen door een nieuwere versie van Veloq. Werk de app bij om ze te openen.",
       "storageUnavailable": "De database kon niet worden weggeschreven. Maak ruimte vrij en probeer het opnieuw.",
@@ -692,6 +693,7 @@
     "rideStillRecording": "Je rit wordt nog opgenomen.",
     "stopAndSaveRide": "Rit stoppen en opslaan",
     "rideStopped": "Je rit is gestopt en bewaard op dit apparaat.",
+    "rideNotSaved": "Je rit is gestopt, maar nog niet opgeslagen. Hij bestaat alleen in het geheugen.",
     "shareFailed": "Het crashlogboek kon niet worden gedeeld.",
     "unableToLoad": "Kan {{part}} niet laden",
     "retryHint": "Tik op Opnieuw proberen om het nog eens te laden.",
@@ -881,16 +883,9 @@
     "notificationsBody": "Veloq kan je laten weten wanneer een rit een persoonlijk record of een snellere tijd op een route oplevert, met de naam van de route."
   },
   "filters": {
-    "climbing": "Klimmen",
     "cycling": "Fietsen",
-    "hiking": "Wandelen",
-    "other": "Overig",
-    "racketSports": "Racketsport",
     "running": "Hardlopen",
-    "snowSports": "Wintersport",
-    "swimming": "Zwemmen",
-    "walking": "Lopen",
-    "waterSports": "Watersport"
+    "swimming": "Zwemmen"
   },
   "fitness": {
     "activitiesCount_one": "{{count}} activiteit",
@@ -2674,8 +2669,6 @@
       "backupBody": "Bewaart alles wat intervals.icu niet bewaart: je sectienamen, bewerkingen en instellingen."
     },
     "v040": {
-      "recutRunning": "Je stukken worden opnieuw geanalyseerd",
-      "recutRunningPhase": "Je stukken worden opnieuw geanalyseerd: {{phase}}",
       "diffTotals": "{{current}} stukken werden er {{proposed}}.",
       "diffBreakdown": "{{new}} nieuw, {{changed}} gewijzigd, {{gone}} teruggetrokken.",
       "diffNoneKept_one": "De nieuwe detector heeft je hele bibliotheek doorgerekend en geen van je {{count}} stuk behouden. Het is vervallen, niet verwijderd: open de lijst met vervallen stukken om terug te halen wat je wilt.",

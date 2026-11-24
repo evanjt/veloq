@@ -16,7 +16,7 @@ import React from 'react';
 import { RangeCoverage } from 'veloqrs';
 
 import { WeeklySummary } from '@/features/stats/components/WeeklySummary';
-import { initialiseI18n } from '@/i18n';
+import { changeLanguage, initialiseI18n } from '@/i18n';
 import { PERIOD_LABEL_KEYS } from '@/shared/app/period';
 import { formatFullDate } from '@/shared/format/format';
 import { getEngine } from '@/shared/native/engine';
@@ -138,4 +138,20 @@ describe('WeeklySummary calendar windows', () => {
       }
     }
   );
+
+  it('names the week in the app language, day first in en-AU', async () => {
+    await changeLanguage('en-AU');
+    try {
+      const view = await render(
+        <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>,
+        { wrapper }
+      );
+
+      expect(view.getByTestId('weekly-summary-header-title')).toHaveTextContent(
+        /#25 \(15–21 June\)$/
+      );
+    } finally {
+      await changeLanguage('en-GB');
+    }
+  });
 });

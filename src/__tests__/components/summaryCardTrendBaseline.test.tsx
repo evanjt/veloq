@@ -20,6 +20,7 @@ import {
   useDashboardPreferences,
   type MetricId,
 } from '@/features/settings/stores/summaryCardPreferences';
+import { summaryCardBundle } from '../__shared__/summaryCardBundle';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
@@ -31,7 +32,7 @@ const DAY = 86_400;
 /** Midnight UTC on 8 October 2026, the way the engine dates a wellness day. */
 const OCT_8 = 1_791_417_600;
 
-const CARD = {
+const CARD = summaryCardBundle({
   wellness: {
     fitness: 62,
     fitnessTrend: '↑',
@@ -62,7 +63,7 @@ const CARD = {
   ftpTrend: { latestFtp: 250, previousFtp: 240, previousDate: OCT_8 - 30 * DAY, glyph: '↑' },
   runPaceTrend: {},
   swimPaceTrend: {},
-};
+});
 
 type Card = typeof CARD;
 

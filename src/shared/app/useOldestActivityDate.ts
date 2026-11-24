@@ -7,7 +7,6 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
@@ -25,7 +24,6 @@ export function useOldestActivityDate() {
   useEngineChannel('activities', queryKeys.calendar.oldestDate);
 
   return useQuery({
-    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.calendar.oldestDate,
     queryFn: () => {
       const engine = getEngine();

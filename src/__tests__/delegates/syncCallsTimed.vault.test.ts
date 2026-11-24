@@ -40,8 +40,6 @@ const engine = {
 const cases: [string, (h: never) => unknown][] = [
   ['getSetting', (h) => settings.getSetting(h, 'k')],
   ['engineInstall', (h) => settings.engineInstall(h)],
-  ['streamRetentionDays', (h) => settings.streamRetentionDays(h)],
-  ['streamStoreBytes', (h) => settings.streamStoreBytes(h)],
   ['setPriorityView', (h) => heatmap.setHeatmapPriorityView(h, 1, 2, 3)],
   ['clearPriorityView', (h) => heatmap.clearHeatmapPriorityView(h)],
   ['cancel', (h) => heatmap.cancelHeatmapWork(h)],

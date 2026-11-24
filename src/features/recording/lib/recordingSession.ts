@@ -58,6 +58,8 @@ let indoorServiceStarted = false;
 let sessionUnsubscribes: (() => void)[] = [];
 let installUnsubscribe: (() => void) | null = null;
 let running = false;
+/** Bumped by every session stop, so an arming that began under an earlier session can tell. */
+let sessionGeneration = 0;
 
 function isLive(status: RecordingStatus): boolean {
   return status === 'recording' || status === 'paused';
@@ -207,9 +209,14 @@ async function startForegroundService(): Promise<void> {
 export async function ensureLocationWatch(): Promise<boolean> {
   if (!running) return false;
   if (useRecordingStore.getState().mode !== 'gps') return false;
+  const generation = sessionGeneration;
+  const stale = (): boolean => !running || generation !== sessionGeneration;
   // An approximate grant still starts the watch: the screen says why its fixes
   // are dropped, and an upgrade mid-ride needs the watch already running.
   if (!(await readLocationGrant()).granted) return false;
+  // The ride may have ended while the check was out; a stop had nothing to
+  // remove then, so the late arrival starts nothing.
+  if (stale()) return false;
   // The screen's own watch first. It is what the rider sees, it costs
   // milliseconds, and verifying the service can take seconds on the path where
   // it was refused, which is no reason to hold up the first fix.
@@ -223,7 +230,9 @@ export async function ensureLocationWatch(): Promise<boolean> {
       log.warn('Foreground location watch was refused, the service carries on:', e);
     }
   }
+  if (stale()) return false;
   await startForegroundService();
+  if (stale()) return false;
   armServiceWatch();
   return true;
 }
@@ -441,6 +450,7 @@ function startSession(): void {
 function stopSession(): void {
   if (!running) return;
   running = false;
+  sessionGeneration += 1;
   log.log('Stopping recording session');
 
   for (const unsubscribe of sessionUnsubscribes) unsubscribe();

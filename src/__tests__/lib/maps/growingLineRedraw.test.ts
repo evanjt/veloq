@@ -57,7 +57,7 @@ interface Page {
   drawn: (id: string) => number[];
 }
 
-function runPage(): Page {
+function runPage(posted: string[] = []): Page {
   const handlers: Record<string, ((payload?: unknown) => void)[]> = {};
   const register = (event: string, fn: (payload?: unknown) => void) => {
     (handlers[event] ??= []).push(fn);
@@ -135,7 +135,7 @@ function runPage(): Page {
     },
     document: { getElementById: () => ({ addEventListener: () => {}, style: {} }) },
     addEventListener: () => {},
-    ReactNativeWebView: { postMessage: () => {} },
+    ReactNativeWebView: { postMessage: (message: string) => posted.push(message) },
     maplibregl: {
       addProtocol: () => {},
       Map: function MapCtor() {
@@ -252,6 +252,16 @@ describe('the page redraws a growing line at most once per window', () => {
     expect(page.drawn(ROUTE).every((count) => count === 12)).toBe(true);
   });
 
+  it('keeps a point appended while the style has wiped the source, so the rehydrate carries it', () => {
+    const page = loadedPage(2);
+
+    delete page.sources[ROUTE];
+    page.run(buildApplyScript({ appends: { [ROUTE]: [fix()] } }));
+    page.run('window._veloq.rehydrate();');
+
+    expect(page.sources[ROUTE].added.features[0].geometry.coordinates).toHaveLength(3);
+  });
+
   it('drops a pending redraw once the line is sent whole', () => {
     const page = loadedPage(2);
 
@@ -274,6 +284,17 @@ describe('the page redraws a growing line at most once per window', () => {
 
     expect(page.sources[ROUTE]).toBeUndefined();
     expect(removed.setData).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports an append for a line the page does not hold, rather than dropping it silently', () => {
+    const posted: string[] = [];
+    const page = runPage(posted);
+    page.fire('load');
+
+    page.run(buildApplyScript({ appends: { missing: [fix()] } }));
+
+    const messages = posted.map((m) => String(JSON.parse(m).message));
+    expect(messages.some((m) => m.includes('append missing'))).toBe(true);
   });
 
   vaultIt('redraws each growing line on its own window', () => {

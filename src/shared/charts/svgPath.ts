@@ -22,6 +22,14 @@ export function polylineSvgPath(points: XY[]): string {
   return d;
 }
 
+/** Several open polylines as one path, each run its own subpath; empty runs are skipped. */
+export function runsSvgPath(runs: readonly (readonly XY[])[]): string {
+  return runs
+    .map((run) => polylineSvgPath(run as XY[]))
+    .filter((d) => d !== '')
+    .join(' ');
+}
+
 /**
  * Closed confidence band: upper edge forward, lower edge backward, then closed.
  * `upper` and `lower` align by index. Returns '' if either is empty.

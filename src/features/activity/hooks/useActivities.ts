@@ -1,5 +1,4 @@
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
-import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { readActivityRecord, readFeedCards } from '@/features/activity/lib/engineActivityRecord';
 import {
@@ -7,7 +6,7 @@ import {
   readStreams,
   requestStreams,
 } from '@/features/activity/lib/engineStreams';
-import { formatLocalDate } from '@/shared/format/format';
+import { epochDayKeyUtc, formatLocalDate } from '@/shared/format/format';
 import { addDaysToDay, dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared/time/startDate';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -19,6 +18,7 @@ import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import type { ActivityInterval, ActivityStreams, FeedCard } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { useFeedFilterBounds } from './useFeedFilterBounds';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { useDetailCoordinates } from './useDetailCoordinates';
 import { feedSportGroup, type FeedGroup } from '../lib/feedActivityGroups';
@@ -93,12 +93,18 @@ export function useInfiniteActivities() {
   const athleteId = useAuthStore((s) => s.athleteId);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { data: oldestActivityDate } = useOldestActivityDate();
-  const oldestDay = oldestActivityDate ? formatLocalDate(oldestActivityDate) : null;
+  const { data: bounds } = useFeedFilterBounds();
+  // The census date reaches past what is stored. A library with no census
+  // (files, Garmin) ends at its oldest stored activity.
+  const oldestDay = oldestActivityDate
+    ? formatLocalDate(oldestActivityDate)
+    : bounds?.oldestTs !== undefined
+      ? epochDayKeyUtc(bounds.oldestTs)
+      : null;
 
   useEngineChannel('activities', queryKeys.activities.infinite.all);
 
   const query = useInfiniteQuery<FeedCard[], Error>({
-    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.activities.infinite.byAthlete(athleteId ?? 'anon'),
     queryFn: ({ pageParam }) => {
       const { oldest, newest } = pageParam as {
@@ -227,7 +233,6 @@ export function useFeedSearch(
   useEngineChannel('activities', queryKeys.activities.search.all);
 
   const query = useInfiniteQuery<FeedSearchPage, Error>({
-    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.activities.search.byFilter(
       athleteId ?? 'anon',
       needle,
@@ -274,7 +279,6 @@ export function useActivity(id: string) {
   const queryKey = queryKeys.activities.detail(id);
 
   const query = useQuery<ActivityRecord | null>({
-    ...LOCAL_READ_QUERY,
     queryKey,
     queryFn: () => readActivityRecord(id),
     // SQLite is the source, so a sync decides freshness, not a clock.
@@ -318,7 +322,6 @@ export function useActivityStreams(id: string) {
   // `JSON.parse` of 100-500 KB and a SQLite write per frame, for a boolean
   // the query's own result already carries.
   const query = useQuery<ActivityStreams | null>({
-    ...LOCAL_READ_QUERY,
     queryKey,
     queryFn: () => readStreams(id, DETAIL_STREAM_TYPES),
     // Streams NEVER change - infinite staleTime prevents refetching
@@ -385,7 +388,6 @@ export function useActivityIntervals(id: string) {
   // The query is the only reader of the stored laps. `null` is "never
   // fetched", which is the cue to ask Rust for them.
   const query = useQuery<ActivityInterval[] | null>({
-    ...LOCAL_READ_QUERY,
     queryKey,
     queryFn: () => getEngine()?.getActivityIntervals(id)?.intervals ?? null,
     // Intervals never change
@@ -435,7 +437,6 @@ export function useRangeActivities(range: FeedRange | null) {
   useEngineChannel('activities', queryKeys.activities.range.all);
 
   const query = useInfiniteQuery<FeedCard[], Error>({
-    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.activities.range.byRange(
       athleteId ?? 'anon',
       range?.oldest ?? '',

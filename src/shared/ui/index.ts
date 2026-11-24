@@ -107,7 +107,7 @@ export { ScreenErrorBoundary } from './ScreenErrorBoundary';
 export { CollapsibleSection } from './CollapsibleSection';
 export { DisclosureChevron } from './DisclosureChevron';
 export { SectionTitle } from './SectionTitle';
-export { DetailHero, HERO_GRADIENT_HEIGHT, HeroNameRow, HeroStatsRow } from './DetailHero';
+export { HeroNameRow, HeroStatsRow } from './DetailHero';
 export { useHeroHeaderBottom } from './useHeroHeaderBottom';
 export type { HeroStat } from './DetailHero';
 export { useHeroMapHeight, HERO_MAP_FRACTION } from './useHeroMapHeight';

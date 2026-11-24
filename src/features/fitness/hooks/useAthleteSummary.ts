@@ -1,41 +1,16 @@
 import { useMemo } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { formatLocalDate, getMonday, getSunday, getIntlLocale } from '@/shared/format/format';
+import { formatLocalDate, formatWeekRange, getMonday, getSunday } from '@/shared/format/format';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { AthleteSummary } from '@/types';
-import { mondayAnchors, weekAnchorSeconds } from '@/features/fitness/lib/weekWindow';
-import { TIME } from '@/shared/app/time';
-
-/**
- * Get ISO week number for a date
- * Week 1 is the week containing the first Thursday of the year
- */
-export function getISOWeekNumber(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(((d.getTime() - yearStart.getTime()) / TIME.DAY + 1) / 7);
-}
-
-/**
- * Format a date range for display (e.g., "Jan 20-26" or "Dec 30 - Jan 5")
- */
-export function formatWeekRange(monday: Date): string {
-  const sunday = getSunday(monday);
-  const locale = getIntlLocale();
-  const mondayMonth = monday.toLocaleString(locale, { month: 'short' });
-  const sundayMonth = sunday.toLocaleString(locale, { month: 'short' });
-
-  if (mondayMonth === sundayMonth) {
-    return `${mondayMonth} ${monday.getDate()}-${sunday.getDate()}`;
-  }
-  return `${mondayMonth} ${monday.getDate()} - ${sundayMonth} ${sunday.getDate()}`;
-}
+import {
+  getISOWeekNumber,
+  mondayAnchors,
+  weekAnchorSeconds,
+} from '@/features/fitness/lib/weekWindow';
 
 export interface WeeklySummaryData {
   /** Current week summary (or null if no data) */
@@ -140,7 +115,6 @@ export function useAthleteSummary(weeksBack: number = 8) {
   useEngineChannel('activities', queryKeys.athleteSummary.all);
 
   const query = useQuery<AthleteSummary[]>({
-    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.athleteSummary.byRange(
       formatLocalDate(startDate),
       formatLocalDate(endDate)
@@ -155,8 +129,8 @@ export function useAthleteSummary(weeksBack: number = 8) {
 
   // One object per set of weeks, not one per render. Built in the render body it
   // was a new reference every time, so `WeeklySummary`'s memo recomputed on
-  // every scrub tick, `formatWeekRange` ran two `toLocaleString` calls with it,
-  // and the non-week ranges walked the whole activity array again.
+  // every scrub tick the week label was formatted again, and the non-week ranges
+  // walked the whole activity array again.
   const data = useMemo<WeeklySummaryData>(() => {
     const built: WeeklySummaryData = {
       currentWeek: null,

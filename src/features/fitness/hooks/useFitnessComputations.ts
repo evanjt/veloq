@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { type PrimarySport } from '@/features/fitness/stores';
 import type { ZoneDistribution } from '@/types';
 import type { FtpTrendView } from '../lib/ftpTrendView';
-import { trendOfMetric, type TrendDirection } from '@/shared/format/trend';
+import { glyphMove, type TrendDirection } from '@/shared/format/trend';
 
 interface UseFitnessComputationsArgs {
   sportMode: PrimarySport;
@@ -30,10 +30,10 @@ export function useFitnessComputations({
   hrZones,
   eftpTrend,
 }: UseFitnessComputationsArgs): FitnessComputations {
-  // The direction of the engine's step over the card's window
+  // The direction of the engine's step over the card's window, read off its glyph
   const ftpTrend = useMemo<FitnessComputations['ftpTrend']>(() => {
     if (!eftpTrend || eftpTrend.previous === undefined) return null;
-    return trendOfMetric('ftp', eftpTrend.latest, eftpTrend.previous);
+    return glyphMove('ftp', eftpTrend.glyph).direction;
   }, [eftpTrend]);
 
   // Compute dominant zone for header display

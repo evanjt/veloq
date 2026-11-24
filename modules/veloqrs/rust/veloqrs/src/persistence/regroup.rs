@@ -114,6 +114,64 @@ pub(super) fn usable_signatures(conn: &Connection, context: &str) -> Option<Vec<
     Some(signatures)
 }
 
+/// Which grouping a regroup runs over `signatures`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum GroupingMode {
+    /// Only the signatures no live group holds are compared against the
+    /// existing groups.
+    Incremental,
+    /// Every pair is evaluated again.
+    Full,
+}
+
+/// Group `signatures` over the catalogue held in `existing_groups`, and say
+/// which grouping ran. The one pipeline both regroup writers run: seed from
+/// the groups that still have live members, split the pool into signatures
+/// already grouped and new ones, and group incrementally unless there is
+/// nothing to seed from, nothing new, nearly everything is new, or the match
+/// rule changed (which re-evaluates pairs the incremental path never looks at).
+pub(super) fn group_pool(
+    signatures: &[RouteSignature],
+    existing_groups: &[RouteGroup],
+    chosen: &HashSet<String>,
+    rule_changed: bool,
+    match_config: &MatchConfig,
+) -> (tracematch::GroupingResult, GroupingMode) {
+    let live: HashSet<&str> = signatures.iter().map(|s| s.activity_id.as_str()).collect();
+    let seed_groups = super::routes::groups_of_live_members(existing_groups, &live);
+    let already_grouped: HashSet<&str> = seed_groups
+        .iter()
+        .flat_map(|g| g.activity_ids.iter().map(|s| s.as_str()))
+        .collect();
+    let (existing_sigs, new_sigs): (Vec<_>, Vec<_>) = signatures
+        .iter()
+        .cloned()
+        .partition(|s| already_grouped.contains(s.activity_id.as_str()));
+
+    let incremental = !seed_groups.is_empty()
+        && !new_sigs.is_empty()
+        && (new_sigs.len() as f64) < (signatures.len() as f64 * 0.9)
+        && !rule_changed;
+    if incremental {
+        log::info!(
+            "[regroup] INCREMENTAL: {} new vs {} existing",
+            new_sigs.len(),
+            existing_sigs.len()
+        );
+        let result = tracematch::group_incremental_with_matches(
+            &new_sigs,
+            &super::routes::groups_keeping_chosen_representatives(&seed_groups, chosen),
+            &existing_sigs,
+            match_config,
+        );
+        (result, GroupingMode::Incremental)
+    } else {
+        log::info!("[regroup] FULL: {} signatures", signatures.len());
+        let result = tracematch::group_signatures_parallel_with_matches(signatures, match_config);
+        (result, GroupingMode::Full)
+    }
+}
+
 /// Compute route groups from DB signatures and save them back, and say what
 /// became of the save. Runs on the background thread so it doesn't block the
 /// JS thread.
@@ -152,18 +210,6 @@ pub(crate) fn recompute_and_save_groups(
     };
     let sig_ms = start.elapsed().as_millis();
 
-    let live: HashSet<&str> = signatures.iter().map(|s| s.activity_id.as_str()).collect();
-    let seed_groups = super::routes::groups_of_live_members(existing_groups, &live);
-    let already_grouped: HashSet<&str> = seed_groups
-        .iter()
-        .flat_map(|g| g.activity_ids.iter().map(|s| s.as_str()))
-        .collect();
-    let (new_sigs, existing_sigs): (Vec<_>, Vec<_>) = signatures
-        .iter()
-        .cloned()
-        .partition(|s| !already_grouped.contains(s.activity_id.as_str()));
-
-    let total = signatures.len();
     let Some((chosen, rule_changed)) = read_piece(|| {
         (
             super::routes::routes_keeping_representative(conn, existing_groups),
@@ -172,28 +218,15 @@ pub(crate) fn recompute_and_save_groups(
     }) else {
         return (existing_groups.to_vec(), GroupSave::Kept);
     };
-    let use_incremental = !seed_groups.is_empty()
-        && !new_sigs.is_empty()
-        && (new_sigs.len() as f64) < (total as f64 * 0.9)
-        && !rule_changed;
 
     let group_start = Instant::now();
-    let result = if use_incremental {
-        log::info!(
-            "[BG Groups] INCREMENTAL: {} new vs {} existing",
-            new_sigs.len(),
-            existing_sigs.len()
-        );
-        tracematch::group_incremental_with_matches(
-            &new_sigs,
-            &super::routes::groups_keeping_chosen_representatives(&seed_groups, &chosen),
-            &existing_sigs,
-            match_config,
-        )
-    } else {
-        log::info!("[BG Groups] FULL: {} signatures", signatures.len());
-        tracematch::group_signatures_parallel_with_matches(&signatures, match_config)
-    };
+    let (result, _) = group_pool(
+        &signatures,
+        existing_groups,
+        &chosen,
+        rule_changed,
+        match_config,
+    );
     let group_ms = group_start.elapsed().as_millis();
 
     // The same assign-once remap the foreground writer runs. Without it this
@@ -780,3 +813,7 @@ mod regroup_worker_tests;
 #[cfg(test)]
 #[path = "tests/foreground_regroup_guard.rs"]
 mod foreground_regroup_guard_tests;
+
+#[cfg(test)]
+#[path = "tests/group_pool.rs"]
+mod group_pool_tests;

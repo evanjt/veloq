@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { PERIOD_DAYS } from '@/shared/app/period';
 import { useQuery } from '@tanstack/react-query';
-import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 
 import { getNativeModule, isEngineReady } from '@/shared/native/engine';
 import { useEngineReady } from '@/shared/native/useEngineReady';
@@ -102,7 +101,6 @@ export function useStrengthScreenData(period: StrengthPeriod) {
   // A parse commits sets the read could not see before, so it is stale at once.
   useEngineChannel('fitParsed', queryKeys.strength.all);
   return useQuery<StrengthScreenData | null>({
-    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.strength.screenData(period, PROGRESSION_WEEKS),
     queryFn: () => {
       ensureDemoStrengthSeeded();
@@ -154,10 +152,9 @@ export function useStrengthTabState(): StrengthTabState {
   // has to land before the first `hasStrengthData` answer or the tab never
   // appears, so it runs here instead: the memo reads 'hidden' for one render,
   // the seed announces on `fitParsed`, and the subscription above brings the
-  // real answer. `bulk_insert_exercise_sets` notifies for exactly this reason
-  // and says so in `objects/strength.rs`, so nothing has to be wired up
-  // by hand. Non-demo sessions do nothing at all; a demo mount whose sets are
-  // already in the engine reads them and writes nothing.
+  // real answer, so nothing has to be wired up by hand. Non-demo sessions do
+  // nothing at all; a demo mount whose sets are already in the engine reads
+  // them and writes nothing.
   useEffect(() => {
     if (!engine) return;
     ensureDemoStrengthSeeded();

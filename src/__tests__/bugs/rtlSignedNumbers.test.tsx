@@ -14,7 +14,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 import { I18nManager, View } from 'react-native';
 
-import { isolateNumeric, formatTimeDelta } from '@/shared/format/format';
+import { isolateNumeric } from '@/shared/format/format';
 import { ActivityStreams } from '@/features/activity/components/ActivityStreams';
 import { CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
 import { TodayBanner } from '@/features/routes/components/TodayBanner';
@@ -73,26 +73,6 @@ describe('isolateNumeric', () => {
     await withRtl(async () => {
       expect(isolateNumeric('')).toBe('');
     });
-  });
-});
-
-describe('a delta chip under a right-to-left layout', () => {
-  it('keeps the minus with the digits', async () => {
-    await withRtl(async () => {
-      expect(formatTimeDelta(-90)).toBe(`${FSI}-1:30${PDI}`);
-      expect(formatTimeDelta(90)).toBe(`${FSI}+1:30${PDI}`);
-      expect(signTouchesDigits(formatTimeDelta(-5) as string)).toBe(true);
-    });
-  });
-
-  it('still returns null below a second, so the isolate never stands alone', async () => {
-    await withRtl(async () => {
-      expect(formatTimeDelta(0.5)).toBeNull();
-    });
-  });
-
-  it('is unchanged left to right', () => {
-    expect(formatTimeDelta(-90)).toBe('-1:30');
   });
 });
 

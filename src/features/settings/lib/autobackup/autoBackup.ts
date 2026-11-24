@@ -44,6 +44,7 @@ import { zipFingerprint, type ZipFingerprint } from './zipFingerprint';
 import { backupFolderTarget } from '@/shared/native/backupFolder';
 import { readBackCopyUri } from '@/shared/storage/cacheFiles';
 import { TIME } from '@/shared/app/time';
+import { errorMessage } from '@/shared/format/errorMessage';
 
 const log = debug.create('AutoBackup');
 
@@ -523,7 +524,7 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
         if (libraryMoved()) return NOTHING_WRITTEN;
         await verifyCarrierCopy(carrier, backupId, sentZip(recordPath));
       } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
+        const msg = errorMessage(error);
         log.warn(`Auto-backup to ${carrier.id} failed:`, msg);
         if (libraryMoved()) return NOTHING_WRITTEN;
         recordBackupFailure(carrier.id, error);
@@ -551,7 +552,7 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
     log.log(`Record backup complete: ${entry.sizeBytes} bytes`);
     return { wroteZip: true, carriers };
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
+    const msg = errorMessage(error);
     log.warn('Auto-backup failed:', msg);
     if (libraryMoved()) return NOTHING_WRITTEN;
     // A stop the athlete asked for wrote nothing and is not a failure.
@@ -593,7 +594,7 @@ async function verifyCarrierCopy(
     }
   } catch (error) {
     if (isBackupTransferError(error)) throw error;
-    const detail = error instanceof Error ? error.message : String(error);
+    const detail = errorMessage(error);
     throw new BackupTransferError(operation, 'unverified', `${operation} failed: ${detail}`);
   } finally {
     if (copyUri) await FileSystem.deleteAsync(copyUri, { idempotent: true }).catch(() => {});

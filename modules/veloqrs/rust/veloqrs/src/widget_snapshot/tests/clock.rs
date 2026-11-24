@@ -355,3 +355,68 @@ fn test_widget_weekly_delta_compares_matching_elapsed_weeks() {
     assert_eq!(snapshot.weekly.delta_pct, Some(100));
     crate::persistence::read_cache::close();
 }
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn week_of_day_numbers_weeks_from_the_epoch_with_monday_first() {
+    // Day zero was a Thursday, so week zero began on the Monday three days before the epoch.
+    assert_eq!(week_of_day(-3), 0);
+    assert_eq!(week_of_day(3), 0);
+    assert_eq!(week_of_day(4), 1);
+    assert_eq!(week_start_seconds(0), -3 * DAY);
+    assert_eq!(week_start_seconds(1), 4 * DAY);
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn week_start_seconds_is_the_monday_midnight_of_every_day_in_the_week() {
+    let monday = MONDAY_14TH / DAY;
+    for offset in 0..7 {
+        assert_eq!(
+            week_start_seconds(week_of_day(monday + offset)),
+            MONDAY_14TH
+        );
+    }
+    assert_eq!(week_start_seconds(week_of_day(monday - 1)), MONDAY_7TH);
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn trailing_days_bounds_run_from_midnight_on_the_first_day_to_the_last_second_today() {
+    // 2026-09-14 08:15, a Monday.
+    let now = MONDAY_14TH + 8 * 3600 + 15 * 60;
+    assert_eq!(
+        trailing_days_bounds(now, 1),
+        (MONDAY_14TH, MONDAY_14TH + DAY - 1)
+    );
+    assert_eq!(
+        trailing_days_bounds(now, 30),
+        (MONDAY_14TH - 29 * DAY, MONDAY_14TH + DAY - 1)
+    );
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn trailing_days_bounds_hold_the_last_second_of_today_and_the_first_of_tomorrow_apart() {
+    let last_second = MONDAY_14TH + DAY - 1;
+    assert_eq!(trailing_days_bounds(MONDAY_14TH, 1).1, last_second);
+    assert_eq!(
+        trailing_days_bounds(last_second, 1),
+        (MONDAY_14TH, last_second)
+    );
+    assert_eq!(
+        trailing_days_bounds(last_second + 1, 1),
+        (last_second + 1, last_second + DAY)
+    );
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn the_strength_window_is_the_trailing_days_bounds_of_its_month() {
+    for now in [MONDAY_14TH, MONDAY_14TH + DAY - 1, MONDAY_7TH + 5 * 3600] {
+        assert_eq!(
+            strength_bounds(now),
+            trailing_days_bounds(now, STRENGTH_WINDOW_DAYS)
+        );
+    }
+}

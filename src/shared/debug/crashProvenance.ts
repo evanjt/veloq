@@ -36,7 +36,7 @@ function engineLine(): string {
   if (state === 'ready') return 'Engine open';
   if (state === 'closed') return 'Engine not open';
   const reason = useEngineStatus.getState().initFailureReason;
-  return `Engine failed to open: ${reason === null ? 'unknown' : (InitOutcome[reason] ?? reason)}`;
+  return `Engine failed to open: ${reason === null ? 'unknown' : typeof reason === 'string' ? reason : (InitOutcome[reason] ?? reason)}`;
 }
 
 function guarded(read: () => string, fallback: string): string {

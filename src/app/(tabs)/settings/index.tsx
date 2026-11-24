@@ -48,7 +48,7 @@ import { navigateTo } from '@/shared/app/navigation';
 import { useRemoteLinkStatus } from '@/shared/app/remoteLinkStatus';
 import { useOpenHistoryRangeFromLink } from '@/shared/app/historyRange';
 import { SCREEN_HEADERS, headerTitleOf } from '@/shared/app/screenHeaders';
-import { formatFileSize, getIntlLocale } from '@/shared/format/format';
+import { formatFileSize, formatFullDate } from '@/shared/format/format';
 import { getAppStorageSize } from '@/shared/storage/gpsStorage';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
@@ -248,7 +248,7 @@ function SettingsScreenContent() {
   const lastBackupText = !autoBackupEnabled
     ? t('common.off')
     : lastBackupTimestamp
-      ? new Date(lastBackupTimestamp).toLocaleDateString(getIntlLocale())
+      ? formatFullDate(new Date(lastBackupTimestamp))
       : t('backup.lastBackupNever');
 
   // Linked devices is experimental, so its row shows only while its switch is on.

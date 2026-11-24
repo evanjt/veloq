@@ -28,7 +28,7 @@ import {
   MAX_MAP_PITCH,
 } from './shared';
 import { surfaceRuntimeScript } from './mapSurfaceScripts';
-import { resolveStyleExpression, type WebViewStyleOptions } from './styleResolution';
+import { resolveStyleExpression } from './styleResolution';
 import {
   HILLSHADE_INSERT_INDEX_SCRIPT,
   TERRAIN_3D_CONFIG,
@@ -166,7 +166,6 @@ export interface MapSurfaceSpec {
 
 export interface MapSurfaceHtmlConfig {
   style: MapStyleType;
-  styleOptions?: WebViewStyleOptions | undefined;
   camera: MapCameraSpec;
   /** Gestures the user may perform. A preview map turns them all off. */
   interaction: {
@@ -195,7 +194,7 @@ function setTerrainLookStatement(style: MapStyleType): string {
 
 /** Build the page. Only style, camera and gesture settings force a rebuild. */
 export function buildMapSurfaceHtml(config: MapSurfaceHtmlConfig): string {
-  const { styleJSON, url } = resolveStyleExpression(config.style, config.styleOptions);
+  const styleJSON = resolveStyleExpression(config.style);
   const { camera, interaction } = config;
 
   const boundsJSON = camera.bounds ? JSON.stringify(camera.bounds) : 'null';
@@ -303,12 +302,7 @@ ${surfaceRuntimeScript(config)}
 
     window._veloqReleasableMap = true;
     try {
-      var _style = ${styleJSON};
-      if (_style) {
-        window.map = new maplibregl.Map(_mapOptions(_style));
-      } else {
-        window.map = new maplibregl.Map(_mapOptions('${url ?? ''}'));
-      }
+      window.map = new maplibregl.Map(_mapOptions(${styleJSON}));
 
       if (${!interaction.rotate}) {
         window.map.touchZoomRotate.disableRotation();
@@ -419,11 +413,8 @@ export function buildApplyScript(
  * Swap the base style, then replay the cached sources, layers and terrain over
  * it, the terrain in the new base's sky and relief.
  */
-export function buildSetStyleScript(
-  style: MapStyleType,
-  options: WebViewStyleOptions = {}
-): string {
-  const { styleJSON, url } = resolveStyleExpression(style, options);
+export function buildSetStyleScript(style: MapStyleType): string {
+  const styleJSON = resolveStyleExpression(style);
   return `
     (function() {
       if (!window.map) return;
@@ -432,15 +423,7 @@ export function buildSetStyleScript(
         window.map.once('style.load', function() { window._veloq.rehydrate(); });
         ${setStyleStatement('window.map', 'next')}
       }
-      var inline = ${styleJSON};
-      if (inline) {
-        apply(inline);
-      } else {
-        fetch('${url ?? ''}')
-          .then(function(r) { return r.json(); })
-          .then(apply)
-          .catch(function(e) { window._rn_log('style fetch failed: ' + e.message); });
-      }
+      apply(${styleJSON});
     })();
     true;
   `;

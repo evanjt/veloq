@@ -307,15 +307,6 @@ export function setNotificationTemplates(
   }
 }
 
-/**
- * Days of stream history the athlete keeps, 0 meaning keep everything. This
- * only ever evicts stored series: nothing deletes whole activities by age.
- */
-export function streamRetentionDays(host: DelegateHost): number | undefined {
-  if (!host.ready) return undefined;
-  return host.timed('streamRetentionDays', () => host.engine.settings().streamRetentionDays());
-}
-
 /** Set the window and evict what now falls outside it. */
 export function setStreamRetentionDays(host: DelegateHost, days: number): void {
   host.write('setStreamRetentionDays', () => {
@@ -326,12 +317,6 @@ export function setStreamRetentionDays(host: DelegateHost, days: number): void {
       // side: nothing is evicted that the athlete did not ask to evict.
     }
   });
-}
-
-/** Bytes the stream store holds, for the cache readout. */
-export function streamStoreBytes(host: DelegateHost): number {
-  if (!host.ready) return 0;
-  return host.timed('streamStoreBytes', () => host.engine.settings().streamStoreBytes());
 }
 
 export function deleteSetting(host: DelegateHost, key: string): void {

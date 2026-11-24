@@ -1,0 +1,74 @@
+[
+  {
+    "name": "metric ordinary",
+    "speed": 3,
+    "isMetric": true,
+    "expected": "5:33"
+  },
+  {
+    "name": "imperial ordinary",
+    "speed": 3,
+    "isMetric": false,
+    "expected": "8:56"
+  },
+  {
+    "name": "metric fast",
+    "speed": 5,
+    "isMetric": true,
+    "expected": "3:20"
+  },
+  {
+    "name": "metric minute rounds up to the next minute",
+    "speed": 16.778523489932887,
+    "isMetric": true,
+    "expected": "1:00"
+  },
+  {
+    "name": "metric exact hour",
+    "speed": 0.2777777777777778,
+    "isMetric": true,
+    "expected": "60:00"
+  },
+  {
+    "name": "stopped",
+    "speed": 0,
+    "isMetric": true,
+    "expected": "--:--"
+  },
+  {
+    "name": "stopped imperial",
+    "speed": 0,
+    "isMetric": false,
+    "expected": "--:--"
+  },
+  {
+    "name": "negative",
+    "speed": -1,
+    "isMetric": true,
+    "expected": "--:--"
+  },
+  {
+    "name": "metric just inside 100 h",
+    "speed": 0.002777785493848594,
+    "isMetric": true,
+    "expected": "5999:59"
+  },
+  {
+    "name": "metric just past 100 h",
+    "speed": 0.0027777700617498285,
+    "isMetric": true,
+    "expected": "--:--"
+  },
+  {
+    "name": "imperial just inside 100 h",
+    "speed": 0.0045,
+    "isMetric": false,
+    "expected": "5960:32"
+  },
+  {
+    "name": "imperial just past 100 h",
+    "speed": 0.0044,
+    "isMetric": false,
+    "expected": "--:--"
+  }
+]

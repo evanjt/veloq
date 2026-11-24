@@ -34,12 +34,6 @@ impl BasemapManager {
         basemap::set_path(path);
     }
 
-    /// One tile's bytes, or none. A hit moves the tile to the back of the
-    /// eviction queue.
-    fn get_tile(&self, source: String, z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
-        basemap::store()?.get(&source, z, x, y)
-    }
-
     /// Where one source's tiles come from, as a `{z}/{x}/{y}` template.
     /// Handed over at style load: the vector snapshot path and the per-country
     /// satellite choice are both decided in the page, not compiled in.
@@ -83,25 +77,6 @@ impl BasemapManager {
     /// if it is not. Blocks until the tile is in hand.
     fn get_or_fetch_tile(&self, source: String, z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
         basemap::get_or_fetch(&source, z, x, y)
-    }
-
-    // The FFI signature, which takes each field as its own argument.
-    #[allow(clippy::too_many_arguments)]
-    /// Store one tile. `pinned` marks the pre-seeded offline base, which
-    /// eviction takes last.
-    fn put_tile(
-        &self,
-        source: String,
-        z: u8,
-        x: u32,
-        y: u32,
-        ext: String,
-        bytes: Vec<u8>,
-        pinned: bool,
-    ) -> Result<(), VeloqError> {
-        store()?
-            .put(&source, z, x, y, &ext, &bytes, pinned)
-            .map_err(tile_store_error)
     }
 
     /// Total bytes across every source, answered without a WebView.
@@ -153,13 +128,6 @@ impl BasemapManager {
         }
     }
 
-    /// Drop every tile of one source. Async for the reason
-    /// [`clear_unpinned_tiles`](Self::clear_unpinned_tiles) is.
-    async fn clear_source_tiles(&self, source: String) -> Result<u32, VeloqError> {
-        let store = store()?;
-        off_the_caller(move || store.clear_source(&source).map_err(tile_store_error)).await
-    }
-
     /// Write every source's sidecar back to disk.
     ///
     /// Called when the app goes to the background. The store writes a sidecar
@@ -187,6 +155,43 @@ impl BasemapManager {
         let budget_bytes = crate::ffi_types::uint_from_wire(budget_bytes);
         let store = store()?;
         off_the_caller(move || store.set_budget(budget_bytes).map_err(tile_store_error)).await
+    }
+}
+
+/// The tile store's reads and writes the Rust tests drive directly. The page
+/// reaches the store through the loopback listener and the interceptor, so
+/// none of these is exported across the boundary.
+#[cfg(test)]
+impl BasemapManager {
+    /// One tile's bytes, or none. A hit moves the tile to the back of the
+    /// eviction queue.
+    fn get_tile(&self, source: String, z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
+        basemap::store()?.get(&source, z, x, y)
+    }
+
+    /// Store one tile. `pinned` marks the pre-seeded offline base, which
+    /// eviction takes last.
+    #[allow(clippy::too_many_arguments)]
+    fn put_tile(
+        &self,
+        source: String,
+        z: u8,
+        x: u32,
+        y: u32,
+        ext: String,
+        bytes: Vec<u8>,
+        pinned: bool,
+    ) -> Result<(), VeloqError> {
+        store()?
+            .put(&source, z, x, y, &ext, &bytes, pinned)
+            .map_err(tile_store_error)
+    }
+
+    /// Drop every tile of one source. Async for the reason
+    /// [`clear_unpinned_tiles`](Self::clear_unpinned_tiles) is.
+    async fn clear_source_tiles(&self, source: String) -> Result<u32, VeloqError> {
+        let store = store()?;
+        off_the_caller(move || store.clear_source(&source).map_err(tile_store_error)).await
     }
 }
 

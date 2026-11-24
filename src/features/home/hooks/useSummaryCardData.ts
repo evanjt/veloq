@@ -18,7 +18,7 @@ import { spokenDuration, spokenPace, spokenSwimPace } from '@/shared/format/spok
 import { formatWeightCompact } from '@/shared/format/weight';
 import { ABSENT } from '@/shared/format/absent';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
-import type { WellnessSparklines } from 'veloqrs';
+import type { FfiSummaryCardData, WellnessSparklines } from 'veloqrs';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
@@ -98,9 +98,6 @@ function useStableArray<T extends number | boolean>(arr: T[] | undefined): T[] |
   return useStableBy(arr, arr === undefined ? 'none' : arr.join(','));
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type PrecomputedCardData = any;
-
 /**
  * The window the card draws, and the one the engine bundles. Kept beside the
  * fallback read so a caller without a bundle asks for the same month.
@@ -171,7 +168,7 @@ const PLACEHOLDER = ABSENT;
  * bundle said the athlete has no wellness, which is an answer and not a miss.
  */
 export function useSummaryCardData(
-  precomputedCardData?: PrecomputedCardData,
+  precomputedCardData?: FfiSummaryCardData,
   {
     awaitPrecomputed = false,
     precomputedSparklines,

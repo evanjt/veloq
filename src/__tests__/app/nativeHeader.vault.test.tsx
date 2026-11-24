@@ -25,6 +25,7 @@ import {
   mapSheetScreenOptions,
   noHeroHeaderOptions,
   overMapHeaderOptions,
+  screenGestureOptions,
   sheetFrame,
   sheetHasDetents,
   sheetScreenOptions,
@@ -92,6 +93,17 @@ describe('the native stack header', () => {
       .map(([route]) => route)
       .sort();
     expect(overMap).toEqual(['activity/[id]', 'route/[id]', 'section/[id]']);
+  });
+
+  it('keeps the full-screen back pop off the map hosts and on every other screen', () => {
+    for (const [route, header] of headered()) {
+      const options = screenGestureOptions(route);
+      if (header.overMap) {
+        expect(options).toEqual({ fullScreenGestureEnabled: false });
+      } else {
+        expect(options).toEqual({});
+      }
+    }
   });
 
   it('titles every header from an i18n key that exists, bar the developer screen', () => {

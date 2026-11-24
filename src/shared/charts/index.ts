@@ -18,7 +18,7 @@ export { useChartInteraction } from './useChartInteraction';
 
 export { buildMonotoneSvg } from './sparklinePath';
 
-export { polylineSvgPath, bandSvgPath } from './svgPath';
+export { polylineSvgPath, bandSvgPath, runsSvgPath } from './svgPath';
 export type { XY } from './svgPath';
 
 export { CHART_CONFIG } from './constants';

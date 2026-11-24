@@ -64,9 +64,9 @@ describe('the strength delegate with the engine closed', () => {
     });
   });
 
-  it('holds a bulk insert instead of reaching the engine', () => {
-    strength.bulkInsertExerciseSets(host, 'a1', []);
+  it('holds a write instead of reaching the engine', () => {
+    strength.setExerciseLabels(host, new Map());
     strength.discardLiveStrengthSession(host);
-    expect(held).toEqual(['bulkInsertExerciseSets', 'discardLiveStrengthSession']);
+    expect(held).toEqual(['setExerciseLabels', 'discardLiveStrengthSession']);
   });
 });

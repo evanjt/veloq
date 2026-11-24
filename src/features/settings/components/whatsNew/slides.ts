@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import { fitnessTarget } from '@/shared/app/fitnessEntry';
 import { SETUP_SLIDES, type SetupSlide } from '../../lib/tourOffer';
 import type { ExperimentalSurface } from '../../lib/experimental';
+import { ROUTES_LIST_ROUTE, SECTIONS_LIST_ROUTE } from '../../lib/insightsListRoutes';
 
 /** A slide of an experimental feature names it in `experimental`, and shows only while it is on. */
 interface SlideContent extends ExperimentalSurface {
@@ -88,7 +89,7 @@ const SECTION_PAGE: WhatsNewSlideDefinition = {
   titleKey: 'whatsNew.v040.sectionPageTitle',
   bodyKey: 'whatsNew.v040.sectionPageBody',
   icon: 'chart-timeline-variant',
-  showMeRoute: '/insights?tab=sections',
+  showMeRoute: SECTIONS_LIST_ROUTE,
   showMeTip: 'whatsNew.v040.sectionPageTip',
   showMeAction: 'openBusiestSection',
   get Component() {
@@ -100,7 +101,7 @@ const ROUTES: WhatsNewSlideDefinition = {
   titleKey: 'whatsNew.v040.routesTitle',
   bodyKey: 'whatsNew.v040.routesBody',
   icon: 'map-marker-path',
-  showMeRoute: '/insights?tab=routes',
+  showMeRoute: ROUTES_LIST_ROUTE,
   showMeTip: 'whatsNew.v040.routesTip',
   showMeAction: 'openBusiestRoute',
   get Component() {

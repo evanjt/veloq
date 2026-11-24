@@ -153,9 +153,11 @@ fn a_hand_attached_ride_whose_track_does_not_read_survives_a_rebuild() {
 
 #[test]
 fn a_recount_that_met_an_unreadable_member_is_not_complete() {
+    let _serial = crate::test_globals::serial_global_state();
     let (mut engine, sid) = engine_with_damaged_member(false, Damage::BytesCorrupt);
+    let install = crate::persistence::engine_install();
 
-    let report = engine.recount_every_section();
+    let report = engine.recount_every_section(install);
 
     assert!(!report.complete);
     assert_eq!(row_flags(&engine, &sid, "bad"), vec![true]);

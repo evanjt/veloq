@@ -182,10 +182,15 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
           var data = spec && spec.data;
           var feature = data && (data.type === 'FeatureCollection' ? data.features[0] : data);
           var line = feature && feature.geometry;
-          var source = map.getSource(id);
-          if (!line || line.type !== 'LineString' || !source) return;
+          if (!line || line.type !== 'LineString') {
+            window._rn_log('append ' + id + ': no line to grow');
+            return;
+          }
           appends[id].forEach(function(point) { line.coordinates.push(point); });
-          _scheduleRedraw(id);
+          // A style swap removes the source until the rehydrate replays the
+          // cached spec, which now carries these points; there is nothing to
+          // redraw until then.
+          if (map.getSource(id)) _scheduleRedraw(id);
         } catch (e) {
           window._rn_log('append ' + id + ': ' + e.message);
         }

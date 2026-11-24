@@ -567,15 +567,6 @@ export function mapHeroChrome({
 }
 
 /**
- * Whether a hero at the top of a scroll view has scrolled out from under the header: true once
- * its bottom edge reaches the header's bottom edge, `headerBottom` being the top inset plus the
- * header's height.
- */
-export function heroScrolledPast(offsetY: number, heroHeight: number, headerBottom: number) {
-  return offsetY >= heroHeight - headerBottom;
-}
-
-/**
  * The stack header's own options: the theme surface behind it, the theme text for its controls,
  * and each platform's own title metrics. The Material 3 top app bar is flat at rest, so Android
  * draws no toolbar shadow; iOS keeps its bar's separator. Android's native header applies the
@@ -593,6 +584,17 @@ export function stackHeaderOptions(os: string, isDark: boolean, topSlotFilled = 
         unstable_nativeProps: { headerConfig: { disableTopInsetApplication: true } },
       }),
   };
+}
+
+/**
+ * The back-gesture options of a root stack screen. iOS 26 and later pops a pushed screen with a
+ * drag that starts anywhere on it, which on a screen whose whole content is a map takes every
+ * quick rightward pan. A map-hero screen turns that off and keeps the system's edge swipe, so the
+ * map keeps its pan everywhere but the leading edge. Every other screen keeps the default. The
+ * option is iOS only.
+ */
+export function screenGestureOptions(name: string): { fullScreenGestureEnabled?: false } {
+  return SCREEN_HEADERS[name]?.overMap ? { fullScreenGestureEnabled: false } : {};
 }
 
 /**

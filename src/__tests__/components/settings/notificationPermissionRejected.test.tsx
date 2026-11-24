@@ -71,7 +71,7 @@ beforeEach(() => {
     enabled: false,
     privacyAccepted: true,
   });
-  useNotificationPrompt.setState({ isLoaded: true, dismissed: false, showingSettingsHint: false });
+  useNotificationPrompt.setState({ isLoaded: true, dismissed: false });
 });
 
 afterEach(() => {

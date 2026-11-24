@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { getEngine } from '@/shared/native/engine';
 import { bodyNamed, useEngineBody, type EngineBodyWait } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
@@ -31,7 +30,6 @@ export function useBestEfforts(days: number, shown: readonly BestEffortsSport[])
   useEngineChannel('activities', queryKeys.charts.bestEfforts.all);
 
   const query = useQuery<BestEffortsData | null>({
-    ...LOCAL_READ_QUERY,
     queryKey,
     queryFn: () => getEngine()?.getBestEffortsData(days) ?? null,
     // SQLite is the source, so a sync decides freshness, not a clock.

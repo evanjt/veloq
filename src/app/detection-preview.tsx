@@ -153,7 +153,7 @@ function DetectionPreviewScreenContent() {
   );
 
   const [centre, setCentre] = useState<PreviewCentre | null>(null);
-  const [savedParams] = useState<PreviewParams>(readSavedParams);
+  const [savedParams, setSavedParams] = useState<PreviewParams>(readSavedParams);
   const [params, setParams] = useState<PreviewParams>(savedParams);
   const changed = PARAM_KEYS.some((k) => params[k] !== savedParams[k]);
   const [selected, setSelected] = useState<PreviewSection | null>(null);
@@ -291,7 +291,21 @@ function DetectionPreviewScreenContent() {
     (next: PreviewParams, onStarted: () => void) => {
       const config = previewClient.getSectionConfig();
       if (!config || migrating) return;
-      previewClient.setSectionConfig({ ...config, ...next });
+      const refused = () =>
+        inform({
+          title: t('settings.previewKeepRefusedTitle'),
+          message: t('settings.previewKeepRefused'),
+        });
+      try {
+        previewClient.setSectionConfig({ ...config, ...next });
+      } catch {
+        // The engine refused the write, so nothing is stored and the
+        // values still differ from the saved ones.
+        refused();
+        return;
+      }
+      // The write is stored from here on, whether or not the re-cut starts.
+      setSavedParams(next);
       // Through the rescan hook, not the client: the re-cut is global and
       // the athlete has to be able to see it run, and the hook is what
       // starts the poll every progress indicator reads.

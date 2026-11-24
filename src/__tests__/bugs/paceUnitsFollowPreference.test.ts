@@ -23,7 +23,11 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
 const NOW = 1_700_000_000_000;
 const t = (key: string, params?: Record<string, string | number>) =>
-  params ? `${key} ${JSON.stringify(params)}` : key;
+  key === 'units.secondsValue'
+    ? `${params?.value} s`
+    : params
+      ? `${key} ${JSON.stringify(params)}`
+      : key;
 
 const trend = (over: Partial<PaceTrend>): PaceTrend => ({
   latestPace: 3.5,
@@ -68,7 +72,7 @@ describe('pace milestone under imperial units', () => {
   it('states the run pace per mile with the change in seconds per mile', () => {
     const [insight] = generateFitnessMilestoneInsights(null, trend({}), null, NOW, t, false);
 
-    expect(insight.title).toContain('"delta":"16s/mi"');
+    expect(insight.title).toContain('"delta":"16 s/mi"');
     expect(point(insight, 'insights.data.currentPace')).toMatchObject({
       value: '7:40',
       unit: '/mi',
@@ -86,7 +90,7 @@ describe('pace milestone under imperial units', () => {
       false
     );
 
-    expect(insight.title).toContain('"delta":"7s/100yd"');
+    expect(insight.title).toContain('"delta":"7 s/100yd"');
     expect(point(insight, 'insights.data.currentPace')).toMatchObject({
       value: '1:16',
       unit: '/100yd',
@@ -96,7 +100,7 @@ describe('pace milestone under imperial units', () => {
   it('keeps the metric figures when metric', () => {
     const [insight] = generateFitnessMilestoneInsights(null, trend({}), null, NOW, t, true);
 
-    expect(insight.title).toContain('"delta":"10s/km"');
+    expect(insight.title).toContain('"delta":"10 s/km"');
     expect(point(insight, 'insights.data.currentPace')).toMatchObject({
       value: '4:46',
       unit: '/km',

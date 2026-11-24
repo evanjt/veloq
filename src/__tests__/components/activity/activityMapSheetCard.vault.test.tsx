@@ -242,6 +242,12 @@ describe("an activity's map sheet", () => {
     expect(screen.getByTestId('charts-page')).toBeTruthy();
   });
 
+  it('passes touches on the map beneath the sheet through its root', async () => {
+    await render(<InHost kind="activity" id="act-7" />);
+
+    expect(screen.getByTestId('activity-detail-map').props.pointerEvents).toBe('box-none');
+  });
+
   it('hands a chart scrub to the map without rendering the card', async () => {
     await render(<InHost kind="activity" id="act-7" />);
     const chartsBefore = mockChartsRenders;

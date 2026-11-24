@@ -16,7 +16,7 @@ import {
   MPS_TO_KPH,
   YARDS_100_IN_METRES,
 } from '@/shared/format';
-import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
+import { isSwimmingActivity, readsAsPace } from '@/shared/activity/activityUtils';
 import { paceMinutesFromSample } from '@/shared/math/kinematics';
 import type { ChartStream } from '@/theme';
 import { DEFAULT_AUTO_PAUSE_KMH, stoppedSpeedMs } from '@/shared/recording';
@@ -326,7 +326,7 @@ const PRIMARY_CHART_IDS: ChartTypeId[] = [
  * measurement inverted, so both at once is the same line twice.
  */
 export function motionChartFor(type: ActivityType): 'speed' | 'pace' {
-  return isPaceSport(type) || isSwimmingActivity(type) ? 'pace' : 'speed';
+  return readsAsPace(type) ? 'pace' : 'speed';
 }
 
 /**

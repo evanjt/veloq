@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineReady } from '@/shared/native/useEngineReady';
 import {
@@ -13,7 +12,7 @@ import { queryKeys } from '@/shared/query/queryKeys';
 import { CACHE } from '@/shared/app/constants';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { decodeCoords } from 'veloqrs';
-import { latLngsFromFlat, previewLineOf } from '@/shared/geo/polyline';
+import { previewLineFromStreams, previewLineOf } from '@/shared/geo/polyline';
 import type { LatLng } from '@/shared/geo/polyline';
 import type { ActivityStreams } from '@/types';
 import type { PreviewTrack } from '@/features/home';
@@ -100,7 +99,6 @@ export function useMapPreviewCoordinates(
   // names those ids and `useMutatedPreviewTracks` drops exactly their keys.
   const previewEnabled = hasGpsData && !startupTrack && !!activityId;
   const { data: previewPoints, status: previewStatus } = useQuery({
-    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.activities.previewTrack(activityId),
     queryFn: () => {
       const engine = getEngine();
@@ -126,7 +124,6 @@ export function useMapPreviewCoordinates(
   // no run is going, so this costs a card outside one nothing.
   const bulkRunHasIt = useSyncDateRange((s) => s.gpsSyncPendingIds.has(activityId));
   const { data: streams, isLoading: isFetching } = useQuery<ActivityStreams | null>({
-    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.activities.mapPreview(activityId),
     queryFn: () => readStreams(activityId, PREVIEW_STREAM_TYPES),
     staleTime: Infinity,
@@ -153,12 +150,7 @@ export function useMapPreviewCoordinates(
     const points = startupTrack?.points ?? engineResult;
     if (points) return previewLineOf(points);
     if (streams?.latlng && streams.latlng.length > 0) {
-      return {
-        coordinates: latLngsFromFlat(streams.latlng).filter(
-          (c) => !isNaN(c.latitude) && !isNaN(c.longitude)
-        ),
-        altitude: streams.altitude && streams.altitude.length > 0 ? streams.altitude : undefined,
-      };
+      return previewLineFromStreams(streams.latlng, streams.altitude);
     }
     return { coordinates: [], altitude: undefined };
   }, [startupTrack, engineResult, streams]);

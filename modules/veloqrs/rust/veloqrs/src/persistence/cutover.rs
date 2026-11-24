@@ -304,11 +304,8 @@ pub(crate) fn change_card_support_from(
 }
 
 /// The claims the change card is allowed to make on this build.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, uniffi::Record,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[uniffi(name = "FfiChangeCardSupport")]
 pub struct ChangeCardSupport {
     pub deterministic: bool,
     pub same_result_drip_or_batch: bool,

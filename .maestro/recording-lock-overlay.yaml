@@ -67,6 +67,22 @@ onFlowComplete:
 
 - takeScreenshot: "screenshots/recording-locked"
 
+# System back on a locked recording is swallowed: the live screen stays and
+# the unlock track is still the only way out.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+      - assertVisible:
+          id: "recording-timer"
+      - assertVisible:
+          id: "unlock-track"
+      - assertVisible:
+          id: "unlock-track-label"
+      - assertNotVisible:
+          id: "control-stop"
+
 # Unlock by sliding the handle right
 - runFlow:
     file: helpers/unlock-recording.yaml

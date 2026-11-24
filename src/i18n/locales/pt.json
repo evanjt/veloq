@@ -657,6 +657,7 @@
       "database": "A base de dados não conseguiu fazer isso. Tenta novamente e limpa a cache se continuar."
     },
     "initReason": {
+      "wipeFailed": "Não foi possível apagar deste dispositivo as atividades do atleta anterior, por isso continuam a aparecer. Tente novamente.",
       "busy": "Outra coisa estava a usar a base de dados. Tenta novamente daqui a pouco.",
       "forwardSchema": "Estes dados foram guardados por uma versão mais recente do Veloq. Atualiza a app para os abrir.",
       "storageUnavailable": "Não foi possível escrever a base de dados. Liberta espaço e tenta novamente.",
@@ -706,6 +707,7 @@
     "rideStillRecording": "O seu passeio ainda está a ser gravado.",
     "stopAndSaveRide": "Parar e guardar passeio",
     "rideStopped": "O seu passeio foi parado e mantido neste dispositivo.",
+    "rideNotSaved": "O seu passeio foi parado, mas ainda não foi guardado. Existe apenas na memória.",
     "shareFailed": "Não foi possível partilhar o registo de falhas.",
     "unableToLoad": "Não foi possível carregar: {{part}}",
     "retryHint": "Toque em Tentar novamente para voltar a carregar.",
@@ -901,16 +903,9 @@
     "notificationsBody": "O Veloq pode avisá-lo quando uma saída alcança um recorde pessoal ou um tempo mais rápido num percurso, com o nome do percurso."
   },
   "filters": {
-    "climbing": "Escalada",
     "cycling": "Ciclismo",
-    "hiking": "Caminhada",
-    "other": "Outro",
-    "racketSports": "Desportos de raquete",
     "running": "Corrida",
-    "snowSports": "Desportos de neve",
-    "swimming": "Natação",
-    "walking": "Andar",
-    "waterSports": "Desportos aquáticos"
+    "swimming": "Natação"
   },
   "fitness": {
     "activitiesCount_one": "{{count}} atividade",
@@ -2726,8 +2721,6 @@
       "backupBody": "Guarda tudo o que o intervals.icu não guarda: os nomes das suas secções, as edições e as definições."
     },
     "v040": {
-      "recutRunning": "A analisar de novo os teus troços",
-      "recutRunningPhase": "A analisar de novo os teus troços: {{phase}}",
       "diffTotals": "{{current}} troços passaram a {{proposed}}.",
       "diffBreakdown": "{{new}} novos, {{changed}} alterados, {{gone}} retirados.",
       "diffNoneKept_one": "O novo detetor passou por toda a tua biblioteca e não manteve nenhum dos teus {{count}} troço. Ele foi retirado, não apagado: abre a lista de troços retirados para trazer de volta os que quiseres.",

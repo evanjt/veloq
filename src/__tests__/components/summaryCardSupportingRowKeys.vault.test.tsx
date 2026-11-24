@@ -13,6 +13,7 @@ import { initialiseI18n } from '@/i18n';
 import { SummaryCard, type SummaryCardProps } from '@/features/home/components/SummaryCard';
 import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { useDashboardPreferences } from '@/features/settings/stores/summaryCardPreferences';
+import { summaryCardBundle } from '../__shared__/summaryCardBundle';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
@@ -23,7 +24,7 @@ jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }
 const DAY = 86_400;
 const OCT_8 = 1_791_417_600;
 
-const CARD = {
+const CARD = summaryCardBundle({
   wellness: {
     fitness: 62,
     fitnessTrend: '↑',
@@ -53,7 +54,7 @@ const CARD = {
   ftpTrend: { latestFtp: 250, previousFtp: 240, previousDate: OCT_8 - 30 * DAY, glyph: '↑' },
   runPaceTrend: {},
   swimPaceTrend: {},
-};
+});
 
 const DEFAULTS = useDashboardPreferences.getState().summaryCard;
 

@@ -1,4 +1,4 @@
-import { haversineDistance } from '@/shared/math/geometry';
+import { haversineDistance } from '@/shared/geo/distance';
 
 describe('haversineDistance', () => {
   it('returns 0 for the same point', () => {

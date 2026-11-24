@@ -103,25 +103,63 @@ export async function deletePanicLog(dbPath: string): Promise<void> {
 /** The crash log keeps this many entries, so older panic lines would be shifted out at once. */
 const MAX_PANIC_LINES = 20;
 
+/** The engine's panic hook starts each entry with an RFC 3339 time (`panic_log_line`). */
+const PANIC_LINE_START = /^(\d{4}-\d{2}-\d{2}T\S+)\s/;
+
 /**
- * Move the panic log's lines into the shared crash log, then empty the file once they are stored.
+ * Group the file's lines into entries. A line that opens with a time starts one,
+ * and the lines after it up to the next such line belong to it, since a panic
+ * message can span several. A line before any time stands alone.
+ */
+function parsePanicEntries(text: string): { ts?: number; message: string }[] {
+  const entries: { ts?: number; message: string }[] = [];
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    const time = PANIC_LINE_START.exec(line)?.[1];
+    const ts = time === undefined ? Number.NaN : Date.parse(time);
+    const last = entries[entries.length - 1];
+    if (Number.isNaN(ts) && last?.ts !== undefined) {
+      last.message += `\n${line}`;
+    } else {
+      entries.push(Number.isNaN(ts) ? { message: line } : { ts, message: line });
+    }
+  }
+  return entries;
+}
+
+const recoveries = new Map<string, Promise<void>>();
+
+/**
+ * Move the panic log's entries into the shared crash log, then empty the file once they are stored.
  *
  * A panic on a background thread reaches no JavaScript handler, so the hook's
- * file is its only record and nothing else reads it. The file is emptied and not
- * deleted, and marked again, so the hook keeps appending to the inode that
- * carries the backup mark. It is kept whole when it
- * cannot be read or the lines cannot be stored, so a later launch tries again. Never throws.
+ * file is its only record and nothing else reads it. Each entry keeps the time
+ * the hook logged, so a file that could not be emptied is stored once, not again
+ * on every launch. Recoveries of one file share a single run. The file is emptied
+ * and not deleted, and marked again, so the hook keeps appending to the inode
+ * that carries the backup mark. It is kept whole when it cannot be read or the
+ * entries cannot be stored, so a later launch tries again. Never throws.
  */
-export async function recoverPanicLog(dbPath: string): Promise<void> {
+export function recoverPanicLog(dbPath: string): Promise<void> {
+  const path = panicLogPath(dbPath);
+  const running = recoveries.get(path);
+  if (running) return running;
+  const run = recoverPanicLogOnce(path).finally(() => recoveries.delete(path));
+  recoveries.set(path, run);
+  return run;
+}
+
+async function recoverPanicLogOnce(path: string): Promise<void> {
   try {
-    const uri = `file://${panicLogPath(dbPath)}`;
+    const uri = `file://${path}`;
     if (!(await FileSystem.getInfoAsync(uri)).exists) return;
-    const lines = (await FileSystem.readAsStringAsync(uri))
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .slice(-MAX_PANIC_LINES);
-    await recordCrashes(lines.map((message) => ({ source: 'rust-panic', fatal: true, message })));
+    const entries = parsePanicEntries(await FileSystem.readAsStringAsync(uri)).slice(
+      -MAX_PANIC_LINES
+    );
+    await recordCrashes(
+      entries.map(({ ts, message }) => ({ source: 'rust-panic', fatal: true, message, ts }))
+    );
     await FileSystem.writeAsStringAsync(uri, '');
     excludeExistingFromBackup(uri);
   } catch {

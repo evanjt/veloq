@@ -15,6 +15,7 @@ import {
   clearHeatmapTileSets,
   clearUnpinnedBasemapTiles,
   clearTerrainPreviews,
+  recycleDrawnSurfaces,
   getTerrainPreviewCacheSize,
   HEATMAP_TILES_DIR,
   readBasemapTileSizes,
@@ -108,6 +109,7 @@ export function DataCacheSection() {
 
   const handleClearMapCache = useCallback(async () => {
     await clearTerrainPreviews();
+    recycleDrawnSurfaces();
     const tilesCleared = await clearHeatmapTileSets([HEATMAP_TILES_DIR]);
     await clearUnpinnedBasemapTiles();
     refreshBasemapTiles();

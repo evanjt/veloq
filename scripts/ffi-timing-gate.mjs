@@ -77,7 +77,6 @@ function staticScan() {
     /getSectionSummaries\(\)\??\.?\.totalCount/,
     /getSections\(\)\??\.?\.length/,
     /getSectionSummaries\(\)\??\.?\.length/,
-    /getGroups\(\)\??\.?\.length/,
   ];
   const warnings = [];
   walk(srcDir, (file) => {

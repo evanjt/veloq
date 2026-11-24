@@ -650,6 +650,7 @@
       "database": "Die Datenbank konnte das nicht ausführen. Versuche es erneut und leere den Cache, wenn es weiterhin auftritt."
     },
     "initReason": {
+      "wipeFailed": "Die Aktivitäten des vorherigen Athleten konnten nicht vom Gerät gelöscht werden und werden deshalb noch angezeigt. Versuche es erneut.",
       "busy": "Etwas anderes hat die Datenbank benutzt. Ein erneuter Versuch sollte helfen.",
       "forwardSchema": "Diese Daten wurden von einer neueren Version von Veloq gespeichert. Aktualisiere die App, um sie zu öffnen.",
       "storageUnavailable": "Die Datenbank konnte nicht geschrieben werden. Schaffe Speicherplatz und versuche es erneut.",
@@ -692,6 +693,7 @@
     "rideStillRecording": "Deine Fahrt wird weiter aufgezeichnet.",
     "stopAndSaveRide": "Fahrt beenden und speichern",
     "rideStopped": "Deine Fahrt ist beendet und auf diesem Gerät gespeichert.",
+    "rideNotSaved": "Deine Fahrt ist beendet, aber noch nicht gespeichert. Sie existiert nur im Arbeitsspeicher.",
     "shareFailed": "Das Absturzprotokoll konnte nicht geteilt werden.",
     "unableToLoad": "Nicht geladen: {{part}}",
     "retryHint": "Tippe auf „Erneut versuchen“, um es nochmals zu laden.",
@@ -881,16 +883,9 @@
     "notificationsBody": "Veloq kann dir melden, wenn eine Fahrt eine persönliche Bestleistung oder eine schnellere Zeit auf einer Route bringt, mit dem Namen der Route."
   },
   "filters": {
-    "climbing": "Klettern",
     "cycling": "Radfahren",
-    "hiking": "Wandern",
-    "other": "Andere",
-    "racketSports": "Rückschlagspiele",
     "running": "Laufen",
-    "snowSports": "Wintersport",
-    "swimming": "Schwimmen",
-    "walking": "Gehen",
-    "waterSports": "Wassersport"
+    "swimming": "Schwimmen"
   },
   "fitness": {
     "activitiesCount_one": "{{count}} Aktivität",
@@ -2674,8 +2669,6 @@
       "backupBody": "Speichert alles, was intervals.icu nicht behält: deine Abschnittsnamen, Änderungen und Einstellungen."
     },
     "v040": {
-      "recutRunning": "Deine Abschnitte werden neu analysiert",
-      "recutRunningPhase": "Deine Abschnitte werden neu analysiert: {{phase}}",
       "diffTotals": "Aus {{current}} Abschnitten wurden {{proposed}}.",
       "diffBreakdown": "{{new}} neu, {{changed}} geändert, {{gone}} stillgelegt.",
       "diffNoneKept_one": "Der neue Detektor ist durch deine ganze Bibliothek gelaufen und hat keinen deiner {{count}} Abschnitt behalten. Er ist ausgeschieden, nicht gelöscht: Öffne die Liste der ausgeschiedenen Abschnitte, um zurückzuholen, was du willst.",

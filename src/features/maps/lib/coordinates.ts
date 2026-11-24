@@ -128,22 +128,23 @@ export function lngLatFromLatLngPoint(point: LatLng | null | undefined): LngLat 
 
 /**
  * Bounding box of a normalised coordinate list, with optional fractional
- * padding. Returns null when there is nothing to fit.
+ * padding. Points that are not finite are skipped; returns null when none remain.
  */
 export function boundsOfLngLat(points: readonly LngLat[], padding = 0): LngLatBounds | null {
-  if (points.length === 0) return null;
-
-  let minLng = points[0][0];
-  let maxLng = points[0][0];
-  let minLat = points[0][1];
-  let maxLat = points[0][1];
+  let minLng = Infinity;
+  let maxLng = -Infinity;
+  let minLat = Infinity;
+  let maxLat = -Infinity;
 
   for (const [lng, lat] of points) {
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
     if (lng < minLng) minLng = lng;
     if (lng > maxLng) maxLng = lng;
     if (lat < minLat) minLat = lat;
     if (lat > maxLat) maxLat = lat;
   }
+
+  if (!Number.isFinite(minLng)) return null;
 
   const lngPad = (maxLng - minLng) * padding;
   const latPad = (maxLat - minLat) * padding;

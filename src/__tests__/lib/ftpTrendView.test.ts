@@ -112,4 +112,48 @@ describe('ftpTrendView', () => {
     expect(view.series).toEqual([]);
     expect(view.latest).toBe(0);
   });
+
+  it('carries the engine glyph, so a step inside its deadband stays flat', () => {
+    const view = ftpTrendView({
+      latestFtp: 251,
+      previousFtp: 250,
+      deltaWatts: 1,
+      glyph: '→',
+      lookbackDays: 30,
+      sampleCount: 2,
+      changes: [],
+      historyDays: [],
+      history: [],
+    });
+
+    expect(view.glyph).toBe('→');
+  });
+
+  it('carries the glyph of a rise and of a fall', () => {
+    const base = {
+      latestFtp: 250,
+      previousFtp: 240,
+      lookbackDays: 30,
+      sampleCount: 2,
+      changes: [],
+      historyDays: [],
+      history: [],
+    };
+
+    expect(ftpTrendView({ ...base, deltaWatts: 10, glyph: '↑' }).glyph).toBe('↑');
+    expect(ftpTrendView({ ...base, deltaWatts: -10, glyph: '↓' }).glyph).toBe('↓');
+  });
+
+  it('reads flat when the engine has no glyph, because it had nothing to compare', () => {
+    const view = ftpTrendView({
+      latestFtp: 250,
+      lookbackDays: 30,
+      sampleCount: 1,
+      changes: [],
+      historyDays: [],
+      history: [{ date: midnightUtc('2026-06-03'), value: 250 }],
+    });
+
+    expect(view.glyph).toBe('→');
+  });
 });

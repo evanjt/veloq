@@ -23,6 +23,7 @@ let mockRunning = false;
 let mockPhase = 'complete';
 let mockCounts: Record<string, number> | null = null;
 let mockCountsOwed = false;
+let mockReset: unknown = null;
 let mockStaged: { done: number; total: number; daysToFinish?: number } | null = null;
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
@@ -47,6 +48,7 @@ jest.mock('@/features/routes', () => ({
     phase: mockPhase,
     counts: mockCounts,
     countsOwed: mockCountsOwed,
+    settingsReset: mockReset,
   }),
   CUTOVER_FAILURE_KEYS: {
     failed: { card: 'cutover.failed' },
@@ -61,6 +63,7 @@ beforeEach(() => {
   mockPhase = 'complete';
   mockCounts = null;
   mockCountsOwed = false;
+  mockReset = null;
   mockStaged = null;
   openLaunchSession();
   useWhatsNewStore.setState({ sectionsChangedDismissed: [] });
@@ -129,6 +132,46 @@ describe('SectionsChangedCard', () => {
       expect(tree.getByTestId('sections-changed-counts')).toBeTruthy();
       expect(tree.queryByTestId('sections-changed-see')).toBeNull();
       expect(tree.getByTestId('sections-changed-dismiss')).toBeTruthy();
+    });
+
+    const RESET = {
+      previous: {
+        proximityThreshold: 100,
+        minSectionLength: 50,
+        maxSectionLength: 200000,
+        minActivities: 3,
+        divergenceThreshold: 0.1,
+      },
+      current: {
+        proximityThreshold: 200,
+        minSectionLength: 150,
+        maxSectionLength: 200000,
+        minActivities: 2,
+        divergenceThreshold: 0.15,
+      },
+    };
+
+    it('names each setting the cutover moved, and only those', async () => {
+      mockReset = RESET;
+      const row = (await render(<SectionsChangedCard />)).getByTestId(
+        'sections-changed-settings-reset'
+      );
+      expect(row).toHaveTextContent(/settingsResetProximity/);
+      expect(row).toHaveTextContent(/from\\":\\"100 m\\",\\"to\\":\\"200 m/);
+      expect(row).toHaveTextContent(/settingsResetMinActivities/);
+      expect(row).toHaveTextContent(/divergence|settingsResetDivergence/);
+      expect(row).not.toHaveTextContent(/settingsResetMaxLength/);
+    });
+
+    it('draws no reset row when nothing moved or no reset is stored', async () => {
+      mockReset = null;
+      expect(
+        (await render(<SectionsChangedCard />)).queryByTestId('sections-changed-settings-reset')
+      ).toBeNull();
+      mockReset = { previous: RESET.previous, current: RESET.previous };
+      expect(
+        (await render(<SectionsChangedCard />)).queryByTestId('sections-changed-settings-reset')
+      ).toBeNull();
     });
 
     vaultIt('is absent once dismissed', async () => {

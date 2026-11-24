@@ -37,11 +37,13 @@ const X_LABELS: PlacedLabel[] = [
 ];
 
 // Format time as mm:ss or h:mm:ss
-function formatTime(totalSeconds: number): string {
-  if (totalSeconds <= 0 || !isFinite(totalSeconds)) return '--:--';
+export function formatTime(rawSeconds: number): string {
+  if (rawSeconds <= 0 || !isFinite(rawSeconds)) return '--:--';
+  // Round before splitting so 239.6 s carries into the minute rather than printing 3:60.
+  const totalSeconds = Math.round(rawSeconds);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = Math.round(totalSeconds % 60);
+  const seconds = totalSeconds % 60;
   if (hours > 0) {
     return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }

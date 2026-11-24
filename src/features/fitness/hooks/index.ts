@@ -1,10 +1,5 @@
 export { useZoneDistribution } from './useZoneDistribution';
-export {
-  useAthleteSummary,
-  getISOWeekNumber,
-  formatWeekRange,
-  type WeeklySummaryData,
-} from './useAthleteSummary';
+export { useAthleteSummary, type WeeklySummaryData } from './useAthleteSummary';
 export { useFitnessRefresh } from './useFitnessRefresh';
 export { useFitnessComputations } from './useFitnessComputations';
 export { useDailyActivityLoads } from './useDailyActivityLoads';

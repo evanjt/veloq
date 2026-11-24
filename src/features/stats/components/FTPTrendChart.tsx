@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { typography, spacing, chartStyles, themedStyles, type Palette } from '@/theme';
 import { formatMonth, formatShortDate } from '@/shared/format/format';
 import { spokenVerdict } from '@/shared/format/spoken';
-import { trendVerdict, verdictRung, type TrendDirection } from '@/shared/format/trend';
+import { glyphMove, verdictRung, type TrendGlyph } from '@/shared/format/trend';
 import {
   ChartCanvas,
   ChartCrosshair,
@@ -31,18 +31,15 @@ import {
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { Badge, verdictTone } from '@/shared/ui/Badge';
 import { formatSignedPercentage } from '@/shared/format';
-
-/** One daily eFTP estimate: the local day and the watts. */
-interface FtpSeriesPoint {
-  date: string;
-  eftp: number;
-}
+import type { FtpSeriesPoint } from '@/features/fitness';
 
 interface FTPTrendChartProps {
   /** The engine's daily eFTP series, oldest first */
   data?: FtpSeriesPoint[] | undefined;
   /** The engine's step in watts over the window the caption names, with its sign */
   change?: number | undefined;
+  /** The engine's judgement of the step, which the arrow and the badge tone read */
+  glyph?: TrendGlyph | undefined;
   /** The step as a percentage of the earlier estimate */
   changePercent?: number | undefined;
   /** The window in days the engine measured the step over, which the caption names */
@@ -80,6 +77,7 @@ const xOf = (d: FtpPoint) => d.x;
 export function FTPTrendChart({
   data,
   change: ftpChange = 0,
+  glyph = '→',
   changePercent = 0,
   lookbackDays,
   height = 180,
@@ -118,10 +116,9 @@ export function FTPTrendChart({
     };
   }, [chartData]);
 
-  const direction: TrendDirection = ftpChange > 0 ? 'up' : ftpChange < 0 ? 'down' : 'flat';
-  const verdict = trendVerdict('ftp', direction);
+  const { verdict, direction } = glyphMove('ftp', glyph);
   const rung = verdictRung(verdict);
-  const arrow = ftpChange > 0 ? '▲ ' : ftpChange < 0 ? '▼ ' : '';
+  const arrow = direction === 'up' ? '▲ ' : direction === 'down' ? '▼ ' : '';
   // The triangle is read as "black up-pointing triangle", so the badge is
   // named with the judgement it draws instead.
   const changeLabel = `${spokenVerdict(verdict, direction)}, ${Math.abs(ftpChange)} ${t('units.watts')}`;

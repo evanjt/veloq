@@ -62,7 +62,9 @@ describe('the eFTP trend', () => {
   ];
 
   it('shows the latest value in the header and at the end of the line until a step picks another', async () => {
-    const tree = await render(<FTPTrendChart data={series} change={26} changePercent={10.8} />);
+    const tree = await render(
+      <FTPTrendChart data={series} change={26} glyph="↑" changePercent={10.8} />
+    );
     await layOut(tree);
 
     expect(tree.getByTestId('ftp-trend-value')).toHaveTextContent('266 W');

@@ -153,6 +153,7 @@ export {
 } from './lib/mapPeriod';
 export { sportChipOrder } from './lib/sportChipOrder';
 export { offlineMapStyle } from './lib/offlineStyleFallback';
+export { recycleDrawnSurfaces } from './lib/mapSurfaceRegistry';
 export { readSnapshotQueueReport } from './lib/snapshotQueueTrace';
 export { submitSectionCreation } from './hooks/submitSectionCreation';
 export { reloadMapCameraState } from './lib/storage/mapCameraState';

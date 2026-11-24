@@ -9,6 +9,7 @@
  */
 
 import { haversineDistance, polylineDistance } from '@/shared/geo/distance';
+import { metresBetween } from '../../../web/connect/sectionBounds';
 import type { LatLngShort } from '@/shared/geo/distance';
 
 const LAUSANNE: LatLngShort = { lat: 46.5197, lng: 6.6323 };
@@ -48,5 +49,13 @@ describe('polylineDistance', () => {
     const back = polylineDistance([MONTREUX, LAUSANNE]);
 
     expect(there).toBeCloseTo(back, 9);
+  });
+});
+
+describe('the web section editor', () => {
+  it('measures a leg exactly as haversineDistance does', () => {
+    const leg = metresBetween([LAUSANNE.lng, LAUSANNE.lat], [MONTREUX.lng, MONTREUX.lat]);
+
+    expect(leg).toBeCloseTo(haversineDistance(LAUSANNE, MONTREUX), 6);
   });
 });

@@ -167,7 +167,7 @@ describe('OAuth write scope boundary', () => {
     expect(useAuthStore.getState().setOAuthCredentials).not.toHaveBeenCalled();
     expect(useUploadPermissionStore.getState().grantedScopes).toBe('ACTIVITY:READ');
     expect(clearPermissionBlocked).not.toHaveBeenCalled();
-    expect(result.current.error).toContain('123');
+    expect(result.current.error).toBe('login.permissionUpgradeWrongAccount');
   });
   it("requeues only the upgrading athlete's blocked rides", async () => {
     useAuthStore.setState({ athleteId: '123' });

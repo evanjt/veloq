@@ -7,6 +7,7 @@ import type { TileCacheBudgetSheetInput } from '@/app/sheets/tile-cache-budget';
 import { formatDateOrDash, formatFileSize } from '@/shared/format/format';
 import { BYTES_PER_BUDGET_MB, type BasemapTileSizes, useTileCacheSettings } from '@/features/maps';
 import { mapCacheTotal } from '../lib/mapCacheTotal';
+import { ROUTES_LIST_ROUTE, SECTIONS_LIST_ROUTE } from '../lib/insightsListRoutes';
 import { storageSegments } from '../lib/storageSegments';
 import {
   colors,
@@ -232,7 +233,7 @@ export function StorageStatsPanel({
             label={t('settings.routesCount')}
             value={routeMatchingEnabled ? routeGroupCount : ABSENT}
             accessibilityLabel={statLabel('settings.routesCount', routeGroupCount)}
-            onPress={() => navigateTo('/insights?tab=routes')}
+            onPress={() => navigateTo(ROUTES_LIST_ROUTE)}
             disabled={!routeMatchingEnabled}
           />
         </View>
@@ -245,7 +246,7 @@ export function StorageStatsPanel({
             label={t('settings.sectionsCount')}
             value={routeMatchingEnabled ? totalSections : ABSENT}
             accessibilityLabel={statLabel('settings.sectionsCount', totalSections)}
-            onPress={() => navigateTo('/insights?tab=sections')}
+            onPress={() => navigateTo(SECTIONS_LIST_ROUTE)}
             disabled={!routeMatchingEnabled}
           />
         </View>

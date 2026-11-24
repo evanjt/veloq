@@ -243,6 +243,58 @@ export function upgradesUnlockedBy(
  */
 const cardWaitsOn = (r: SnapshotRequest) => !r.upgrade && !r.backgroundUpgrade;
 
+/**
+ * Whether a request may join a full queue and which entry it displaces. A
+ * background request never displaces anything but another background one, and
+ * is refused when the queue holds none. The decision is made before an upgrade
+ * spends one of its attempts, so a refusal costs the card nothing.
+ */
+export function admitToQueue(
+  queue: readonly SnapshotRequest[],
+  request: SnapshotRequest,
+  max: number
+): { admit: boolean; evict: number | null } {
+  if (queue.length < max) return { admit: true, evict: null };
+  const background = queue.findIndex((r) => snapshotQueueTier(r) === 2);
+  if (background === -1 && snapshotQueueTier(request) === 2) return { admit: false, evict: null };
+  const oldest = background === -1 ? queue.findIndex((r) => !r.priority) : background;
+  return { admit: true, evict: oldest === -1 ? 0 : oldest };
+}
+
+/**
+ * Files a drape a card is owed, the one record of them. The newest entry is
+ * last and the oldest goes once the bound is passed; a card that drops out
+ * still asks for itself whenever it next mounts.
+ */
+export function recordOwedDrape(
+  owed: Map<string, SnapshotRequest>,
+  request: SnapshotRequest,
+  max: number
+): void {
+  const key = requestKey(request);
+  owed.delete(key);
+  owed.set(key, request);
+  const oldest = owed.keys().next();
+  if (owed.size > max && !oldest.done) owed.delete(oldest.value);
+}
+
+/**
+ * What a pull-to-refresh asks the pool for: every failed render, then every
+ * owed drape whose key is not already among them, each once. An owed drape is
+ * an upgrade at the top of the retry ladder.
+ */
+export function retryRequests(
+  failed: readonly SnapshotRequest[],
+  owed: ReadonlyMap<string, SnapshotRequest>
+): SnapshotRequest[] {
+  const out = new Map<string, QueuedRequest>();
+  for (const req of failed) out.set(requestKey(req), { ...req, _notBefore: undefined });
+  for (const [key, req] of owed) {
+    if (!out.has(key)) out.set(key, { ...req, upgrade: true, _retryAttempt: 0 });
+  }
+  return [...out.values()];
+}
+
 const rememberFailure = (failed: Map<string, SnapshotRequest>, req: SnapshotRequest) => {
   const key = requestKey(req);
   failed.delete(key);
@@ -350,6 +402,7 @@ export const TerrainSnapshotWebView = forwardRef<
   const workerReleaseRef = useRef<{
     release: (worker: WorkerState, source: 'javascript' | 'native') => void;
     rebuild: (worker: WorkerState) => void;
+    recycleDrawn: (worker: WorkerState) => boolean;
   } | null>(null);
   // Lazy-init worker pool - created once, never recreated
   const workersRef = useRef<WorkerState[] | null>(null);
@@ -381,6 +434,7 @@ export const TerrainSnapshotWebView = forwardRef<
         surface: {
           release: (source) => workerReleaseRef.current?.release(worker, source),
           rebuild: () => workerReleaseRef.current?.rebuild(worker),
+          recycleDrawn: () => workerReleaseRef.current?.recycleDrawn(worker) ?? false,
         },
       };
       return worker;
@@ -577,6 +631,23 @@ export const TerrainSnapshotWebView = forwardRef<
     }, REBUILD_READY_MS);
   }, []);
 
+  // Rebuilds one worker's map when it has drawn since the map was built and is
+  // ready. Returns whether it started the rebuild.
+  const recycleDrawnWorker = useCallback(
+    (worker: WorkerState): boolean => {
+      if (!worker.lastRenderRef.current || !worker.mapReadyRef.current) return false;
+      traceRef.current.record({ kind: 'recycle', workerId: worker.id }, Date.now());
+      worker.mapReadyRef.current = false;
+      worker.lastRenderRef.current = null;
+      worker.mountedAtRef.current = Date.now();
+      worker.rebuildingRef.current = true;
+      worker.webViewRef.current?.injectJavaScript(buildRecycleSnapshotMapScript());
+      armRebuildDeadline(worker);
+      return true;
+    },
+    [armRebuildDeadline]
+  );
+
   // Rebuilds the map of every idle worker that has drawn since its map was
   // built. A worker is not ready again until its new map says so, so nothing is
   // assigned to a map mid-rebuild. A page off screen never finishes a rebuild,
@@ -585,17 +656,8 @@ export const TerrainSnapshotWebView = forwardRef<
     recycleTimerRef.current = null;
     if (disposedRef.current || suspendedRef.current) return;
     if (queueRef.current.length > 0 || workers.some((w) => w.processingRef.current)) return;
-    for (const worker of workers) {
-      if (!worker.lastRenderRef.current || !worker.mapReadyRef.current) continue;
-      traceRef.current.record({ kind: 'recycle', workerId: worker.id }, Date.now());
-      worker.mapReadyRef.current = false;
-      worker.lastRenderRef.current = null;
-      worker.mountedAtRef.current = Date.now();
-      worker.rebuildingRef.current = true;
-      worker.webViewRef.current?.injectJavaScript(buildRecycleSnapshotMapScript());
-      armRebuildDeadline(worker);
-    }
-  }, [workers, armRebuildDeadline]);
+    for (const worker of workers) recycleDrawnWorker(worker);
+  }, [workers, recycleDrawnWorker]);
 
   // Restarts the idle countdown whenever the pool settles with nothing to do,
   // and stops it whenever there is work.
@@ -669,6 +731,15 @@ export const TerrainSnapshotWebView = forwardRef<
   };
 
   workerReleaseRef.current = {
+    // A cache clear frees what a drawn page holds now rather than at the idle
+    // countdown. A worker mid-render is left to finish, and one off screen
+    // never completes a rebuild.
+    recycleDrawn: (worker) => {
+      if (disposedRef.current || suspendedRef.current) return false;
+      if (worker.lostRef.current || worker.releasedRef.current) return false;
+      if (worker.processingRef.current) return false;
+      return recycleDrawnWorker(worker);
+    },
     // The map goes with its GL context and the page stays. A render it cut
     // short goes back to the front of the queue, as a pause puts it, and with
     // no map left in the pool the watchdog stops, since nothing can fail.
@@ -886,13 +957,17 @@ export const TerrainSnapshotWebView = forwardRef<
       )
         return;
 
+      const admission = admitToQueue(queueRef.current, request, MAX_QUEUE_SIZE);
+      if (!admission.admit) {
+        // The card still holds a stand-in, so the drape stays owed.
+        if (!cardWaitsOn(request)) {
+          recordOwedDrape(downgradedRef.current, request, MAX_FAILED_SIZE);
+        }
+        return;
+      }
       if (!allowUpgradeAttempt(upgradeAttemptsRef.current, request)) return;
-      if (queueRef.current.length >= MAX_QUEUE_SIZE) {
-        const background = queueRef.current.findIndex((r) => snapshotQueueTier(r) === 2);
-        if (background === -1 && snapshotQueueTier(request) === 2) return;
-        const oldest =
-          background === -1 ? queueRef.current.findIndex((r) => !r.priority) : background;
-        const [evicted] = queueRef.current.splice(oldest === -1 ? 0 : oldest, 1);
+      if (admission.evict !== null) {
+        const [evicted] = queueRef.current.splice(admission.evict, 1);
         queueTotalRef.current--;
         traceRef.current.record(
           { kind: 'evict', activityId: evicted?.activityId, detail: 'queue full' },
@@ -903,6 +978,8 @@ export const TerrainSnapshotWebView = forwardRef<
         if (evicted && cardWaitsOn(evicted)) {
           rememberFailure(failedRequestsRef.current, evicted);
           emitSnapshotFailed(evicted.activityId);
+        } else if (evicted) {
+          recordOwedDrape(downgradedRef.current, evicted, MAX_FAILED_SIZE);
         }
       }
       traceRef.current.record(
@@ -1062,8 +1139,9 @@ export const TerrainSnapshotWebView = forwardRef<
           }
           if (completed) {
             downgradedRef.current.delete(requestKey(completed));
+            // Left in the record: requestSnapshot files a drape it cannot
+            // take, and a drape that lands removes its own entry above.
             for (const request of upgradesUnlockedBy(downgradedRef.current, completed)) {
-              downgradedRef.current.delete(requestKey(request));
               requestSnapshot(request);
             }
           }
@@ -1185,13 +1263,7 @@ export const TerrainSnapshotWebView = forwardRef<
             // Remembered so a later drape success can bring it back. Bounded
             // like the failed set: the oldest goes, and a card that drops out
             // still upgrades whenever it next mounts and asks for itself.
-            const downgradedKey = requestKey(currentRequest);
-            downgradedRef.current.delete(downgradedKey);
-            downgradedRef.current.set(downgradedKey, currentRequest);
-            const oldest = downgradedRef.current.keys().next();
-            if (downgradedRef.current.size > MAX_FAILED_SIZE && !oldest.done) {
-              downgradedRef.current.delete(oldest.value);
-            }
+            recordOwedDrape(downgradedRef.current, currentRequest, MAX_FAILED_SIZE);
             if (fallback) {
               queueRef.current.unshift({ ...fallback, _notBefore: Date.now() + RETRY_DELAY_MS });
               armRetryWake();
@@ -1338,9 +1410,12 @@ export const TerrainSnapshotWebView = forwardRef<
       requestSnapshot,
       holdForScroll,
       retryFailed: () => {
-        const failed = [...failedRequestsRef.current.values()];
-        if (failed.length === 0) return;
-        if (__DEV__) log.log(`[TerrainSnapshot] Retrying ${failed.length} failed snapshots`);
+        const requests = retryRequests(
+          [...failedRequestsRef.current.values()],
+          downgradedRef.current
+        );
+        if (requests.length === 0) return;
+        if (__DEV__) log.log(`[TerrainSnapshot] Retrying ${requests.length} snapshots`);
         failedRequestsRef.current.clear();
         // The athlete asking again is the reset for the one silent retry per
         // key, and the only thing that ever empties this set. Without it, it
@@ -1348,27 +1423,23 @@ export const TerrainSnapshotWebView = forwardRef<
         // life of the screen.
         idleRetriedRef.current.clear();
         upgradeAttemptsRef.current.clear();
-        for (const req of failed) {
+        for (const req of requests) {
           // A downgraded entry is served but is not what a drape asked for, so
-          // it is re-queued rather than counted as present. It is exactly what
-          // a stand-in asked for. Only a render that got what it asked for is
-          // skipped.
+          // it is re-queued rather than counted as present. Only a render that
+          // got what it asked for is skipped.
+          const cached = isCached(req);
           if (
-            isCached(req) &&
+            cached &&
             (req.standIn === true ||
               !isTerrainPreviewDowngraded(req.activityId, req.mapStyle, savesUnderDrape(req)))
           ) {
             continue;
           }
-          trace({ kind: 'enqueue', activityId: req.activityId, detail: 'retry failed' });
-          queueRef.current.push({ ...req, _notBefore: undefined });
-          queueTotalRef.current++;
+          requestSnapshot(cached ? { ...req, upgrade: true } : req);
         }
-        updateWatchdog();
-        processNext();
       },
     }),
-    [processNext, updateWatchdog, requestSnapshot, holdForScroll, trace]
+    [requestSnapshot, holdForScroll]
   );
 
   return (

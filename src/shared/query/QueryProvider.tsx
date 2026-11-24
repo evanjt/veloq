@@ -1,7 +1,6 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { AppState, Platform, type AppStateStatus } from 'react-native';
 import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Sync TanStack Query's focus state with React Native AppState
 // Module-level so it's active before any query runs
@@ -22,7 +21,11 @@ const queryClient = new QueryClient({
       // charts, sections) in the Hermes heap.
       gcTime: 1000 * 60 * 60 * 2, // 2 hours
       retry: 2,
-      networkMode: 'offlineFirst',
+      // Every queryFn reads the engine's on-device SQLite and the network belongs to
+      // Rust, so no query is gated on the online manager. Under `offlineFirst` a
+      // retry after one thrown read pauses while the manager says offline.
+      // `refetchOnReconnect` still reads the manager.
+      networkMode: 'always',
       refetchOnReconnect: true,
       // Prevent refetches on every screen navigation - only refetch on explicit pull-to-refresh
       refetchOnMount: false,
@@ -31,42 +34,13 @@ const queryClient = new QueryClient({
   },
 });
 
-/**
- * Options for a query whose `queryFn` reads only the engine's SQLite. Such a read
- * is not gated on TanStack's view of connectivity: under the default
- * `offlineFirst` a retry after one thrown read pauses while the manager says
- * offline, though nothing the read needs is on the network. A query that can
- * reach the network keeps the default.
- */
-export const LOCAL_READ_QUERY = { networkMode: 'always' } as const;
-
 // Export for manual cache management (e.g., clearing on navigation)
 export { queryClient };
-
-/**
- * Free the blob written by the persisted query cache that this provider used to
- * run. Nothing reads it any more: every queryFn reads the engine, which rebuilds
- * a key from SQLite faster than the blob can be read and parsed. Remove this
- * once the release carrying it has shipped.
- */
-export async function clearLegacyQueryCache(): Promise<void> {
-  try {
-    await AsyncStorage.removeItem('veloq-query-cache');
-  } catch {
-    // A blob nobody reads is not worth an error path.
-  }
-}
-let legacyCleanupStarted = false;
 
 interface QueryProviderProps {
   children: React.ReactNode;
 }
 
 export function QueryProvider({ children }: QueryProviderProps) {
-  useEffect(() => {
-    if (legacyCleanupStarted) return;
-    legacyCleanupStarted = true;
-    void clearLegacyQueryCache();
-  }, []);
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }

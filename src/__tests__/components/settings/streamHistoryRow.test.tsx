@@ -59,7 +59,6 @@ jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
 
 function buildEngine() {
   return {
-    streamRetentionDays: () => stored,
     setStreamRetentionDays: (days: number) => {
       setStreamRetentionDays(days);
       stored = days;
@@ -67,7 +66,6 @@ function buildEngine() {
       // is worth: a narrower one drops, a wider one refills.
       bytes = days === 0 ? 9 * 1024 * 1024 : (days / 90) * 4 * 1024 * 1024;
     },
-    streamStoreBytes: () => bytes,
     getCacheScreenData: () =>
       stored === undefined ? undefined : { streamRetentionDays: stored, streamStoreBytes: bytes },
     subscribe: () => () => undefined,
@@ -101,19 +99,11 @@ describe('StreamHistoryRow', () => {
   vaultIt('reads the window and bytes in one screen call', async () => {
     const engine = {
       ...buildEngine(),
-      streamRetentionDays: jest.fn(() => {
-        throw new Error('separate read');
-      }),
-      streamStoreBytes: jest.fn(() => {
-        throw new Error('separate read');
-      }),
       getCacheScreenData: jest.fn(() => ({ streamRetentionDays: 0, streamStoreBytes: bytes })),
     };
     mockEngineHandle = engine;
     await render(<StreamHistoryRow isDark={false} />);
     expect(engine.getCacheScreenData).toHaveBeenCalledTimes(1);
-    expect(engine.streamRetentionDays).not.toHaveBeenCalled();
-    expect(engine.streamStoreBytes).not.toHaveBeenCalled();
   });
 
   it('writes the next window once and re-reads the size the eviction left', async () => {

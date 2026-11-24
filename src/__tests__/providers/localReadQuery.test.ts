@@ -1,19 +1,14 @@
 /**
- * LOCAL_READ_QUERY
+ * Query client network mode
  *
- * Scenario: the device is offline and an engine-only read throws once (a busy lock).
- * Expected behaviour: the retry runs and the read resolves, because a read of
- * on-device SQLite is not gated on connectivity. A default query pauses its retry.
+ * Scenario: the device is offline and an engine read throws once (a busy lock).
+ * Expected behaviour: a query that sets no options of its own retries and
+ * resolves, because every queryFn in the app reads on-device SQLite and is not
+ * gated on connectivity. The app has no mutation and no query that fetches.
  */
 
-import { QueryClient, QueryObserver, onlineManager } from '@tanstack/react-query';
-import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
-
-function offlineClient(): QueryClient {
-  return new QueryClient({
-    defaultOptions: { queries: { retry: 2, retryDelay: 0, networkMode: 'offlineFirst' } },
-  });
-}
+import { QueryObserver, onlineManager } from '@tanstack/react-query';
+import { queryClient } from '@/shared/query/QueryProvider';
 
 function failOnce() {
   let calls = 0;
@@ -27,17 +22,22 @@ function failOnce() {
   };
 }
 
-describe('LOCAL_READ_QUERY', () => {
-  beforeEach(() => onlineManager.setOnline(false));
-  afterEach(() => onlineManager.setOnline(true));
+describe('query client default network mode', () => {
+  beforeEach(() => {
+    queryClient.clear();
+    onlineManager.setOnline(false);
+  });
+  afterEach(() => {
+    onlineManager.setOnline(true);
+    queryClient.clear();
+  });
 
-  it('retries a failed local read while offline', async () => {
-    const client = offlineClient();
+  it('retries a failed read while the online manager says offline', async () => {
     const read = failOnce();
-    const observer = new QueryObserver(client, {
+    const observer = new QueryObserver(queryClient, {
       queryKey: ['local'],
       queryFn: read.fn,
-      ...LOCAL_READ_QUERY,
+      retryDelay: 0,
     });
     const result = await new Promise<string>((resolve, reject) => {
       const unsubscribe = observer.subscribe((r) => {
@@ -52,18 +52,10 @@ describe('LOCAL_READ_QUERY', () => {
     });
     expect(result).toBe('rows');
     expect(read.calls()).toBe(2);
-    client.clear();
   });
 
-  vaultIt('pauses the retry of a default query while offline', async () => {
-    const client = offlineClient();
-    const read = failOnce();
-    const observer = new QueryObserver(client, { queryKey: ['remote'], queryFn: read.fn });
-    const unsubscribe = observer.subscribe(() => undefined);
-    await new Promise((r) => setTimeout(r, 50));
-    expect(read.calls()).toBe(1);
-    expect(observer.getCurrentResult().fetchStatus).toBe('paused');
-    unsubscribe();
-    client.clear();
+  it('runs the first attempt of a read while offline', async () => {
+    const data = await queryClient.fetchQuery({ queryKey: ['first'], queryFn: async () => 7 });
+    expect(data).toBe(7);
   });
 });

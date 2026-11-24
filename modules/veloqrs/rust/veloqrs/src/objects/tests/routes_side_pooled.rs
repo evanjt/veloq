@@ -5,7 +5,8 @@
 
 use super::*;
 use crate::test_globals::{
-    init_global_engine, read_while_writer_holds, seeded_global_engine, serial_global_state,
+    init_global_engine, read_while_writer_holds, saved_route_groups, seeded_global_engine,
+    serial_global_state,
 };
 
 fn seed_groups() {
@@ -87,9 +88,7 @@ fn test_route_side_reads_match_the_engine() {
     let routes = RouteManager::new();
     routes.set_name("g1".into(), "Lake loop".into()).unwrap();
 
-    let group = routes
-        .get_all()
-        .unwrap()
+    let group = saved_route_groups()
         .into_iter()
         .find(|g| g.group_id == "g1")
         .expect("seeded group");

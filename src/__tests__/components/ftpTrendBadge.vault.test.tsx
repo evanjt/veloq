@@ -70,16 +70,24 @@ describe('the eFTP change badge', () => {
 
   it('colours a fall as negative', async () => {
     const { getByText } = await render(
-      <FTPTrendChart data={series} change={-12} changePercent={-4.6} />
+      <FTPTrendChart data={series} change={-12} glyph="↓" changePercent={-4.6} />
     );
     expect(badgeFill(getByText('▼ 12 W'))).toBe(badgePaint('negative', false).fill);
   });
 
   it('colours a rise as positive', async () => {
     const { getByText } = await render(
-      <FTPTrendChart data={series} change={12} changePercent={4.8} />
+      <FTPTrendChart data={series} change={12} glyph="↑" changePercent={4.8} />
     );
     expect(badgeFill(getByText('▲ 12 W'))).toBe(badgePaint('positive', false).fill);
+  });
+
+  it('draws a step the engine calls flat with no arrow, even when it is above zero', async () => {
+    const { getByText, getByLabelText } = await render(
+      <FTPTrendChart data={series} change={1} changePercent={0.4} glyph="→" />
+    );
+    expect(badgeFill(getByText('1 W'))).toBe(badgePaint('neutral', false).fill);
+    expect(getByLabelText('no change, 1 W')).toBeTruthy();
   });
 
   it('shows a flat series as neutral with no arrow', async () => {
@@ -90,11 +98,15 @@ describe('the eFTP change badge', () => {
   });
 
   it('names the change for a screen reader with its judgement, not the triangle', async () => {
-    const rise = await render(<FTPTrendChart data={series} change={12} changePercent={4.8} />);
+    const rise = await render(
+      <FTPTrendChart data={series} change={12} glyph="↑" changePercent={4.8} />
+    );
     expect(rise.getByLabelText('improved, 12 W')).toBeTruthy();
     await rise.unmount();
 
-    const fall = await render(<FTPTrendChart data={series} change={-12} changePercent={-4.6} />);
+    const fall = await render(
+      <FTPTrendChart data={series} change={-12} glyph="↓" changePercent={-4.6} />
+    );
     expect(fall.getByLabelText('declined, 12 W')).toBeTruthy();
     await fall.unmount();
 
@@ -110,7 +122,7 @@ describe('the eFTP change caption', () => {
 
   it('names the window the step was measured over, not the range the chart draws', async () => {
     const { getByText, queryByText } = await render(
-      <FTPTrendChart data={series} change={5} changePercent={1.85} lookbackDays={30} />
+      <FTPTrendChart data={series} change={5} glyph="↑" changePercent={1.85} lookbackDays={30} />
     );
     expect(getByText('+1.9% from 30 days ago')).toBeTruthy();
     expect(queryByText(/3 months/)).toBeNull();
@@ -118,7 +130,7 @@ describe('the eFTP change caption', () => {
 
   it('pluralises a one-day window', async () => {
     const { getByText } = await render(
-      <FTPTrendChart data={series} change={-2} changePercent={-0.8} lookbackDays={1} />
+      <FTPTrendChart data={series} change={-2} glyph="↓" changePercent={-0.8} lookbackDays={1} />
     );
     expect(getByText('-0.8% from 1 day ago')).toBeTruthy();
   });

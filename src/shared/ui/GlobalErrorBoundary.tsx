@@ -4,6 +4,7 @@ import { initialWindowMetrics } from 'react-native-safe-area-context';
 import { i18n } from '@/i18n';
 import { endRecordingSession } from '@/features/recording/lib/endRecordingSession';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
 import { shareCrashLog } from '@/shared/app/supportLinks';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 import { settleForcedRenderCrash } from '@/shared/debug/forcedRenderCrash';
@@ -69,6 +70,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
  */
 function GlobalErrorFallback({ error, onRetry }: { error: Error | null; onRetry: () => void }) {
   const status = useRecordingStore((state) => state.status);
+  const backupFailing = useRecordingLiveStore((state) => state.backupFailures > 0);
   const [stoppedHere, setStoppedHere] = useState(false);
   const [shareFailed, setShareFailed] = useState(false);
   const dark = Appearance.getColorScheme() !== 'light';
@@ -84,11 +86,17 @@ function GlobalErrorFallback({ error, onRetry }: { error: Error | null; onRetry:
   const rideLine = live
     ? fallbackText('errorState.rideStillRecording', 'Your ride is still recording.')
     : stoppedHere && status === 'stopped'
-      ? fallbackText('errorState.rideStopped', 'Your ride is stopped and kept on this device.')
+      ? backupFailing
+        ? fallbackText(
+            'errorState.rideNotSaved',
+            'Your ride is stopped but not yet saved. It exists only in memory.'
+          )
+        : fallbackText('errorState.rideStopped', 'Your ride is stopped and kept on this device.')
       : null;
 
   // The stop lands in the store before the backup write, so the line follows the
-  // store even when the write or the route to review fails.
+  // store even when the write or the route to review fails. A failed backup
+  // write leaves the ride in memory only, and the line says that instead.
   const stopRide = async () => {
     try {
       await endRecordingSession();
@@ -199,6 +207,7 @@ type FallbackKey =
   | 'errorState.libraryUnaffected'
   | 'errorState.rideStillRecording'
   | 'errorState.rideStopped'
+  | 'errorState.rideNotSaved'
   | 'errorState.stopAndSaveRide'
   | 'errorState.shareFailed'
   | 'common.retry'

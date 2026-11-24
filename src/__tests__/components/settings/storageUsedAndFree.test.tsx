@@ -8,9 +8,11 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 
 import { StorageStatsPanel } from '@/features/settings/components/StorageStatsPanel';
+import { ROUTES_LIST_ROUTE, SECTIONS_LIST_ROUTE } from '@/features/settings/lib/insightsListRoutes';
+import { navigateTo } from '@/shared/app/navigation';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => ({
@@ -115,5 +117,17 @@ describe('the route and section counts with matching off', () => {
 
     expect(stat.props.accessibilityState?.disabled ?? false).toBe(false);
     expect(stat.props.accessibilityLabel).toBe(`${key}, ${count}`);
+  });
+
+  it.each([
+    ['settings.routesCount', ROUTES_LIST_ROUTE],
+    ['settings.sectionsCount', SECTIONS_LIST_ROUTE],
+  ])('%s opens its list when pressed', async (key, route) => {
+    jest.mocked(navigateTo).mockClear();
+    const { getByTestId } = await panel(null);
+
+    fireEvent.press(getByTestId(`storage-stat-${key}`));
+
+    expect(navigateTo).toHaveBeenCalledWith(route);
   });
 });

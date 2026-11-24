@@ -107,12 +107,6 @@ describe('style rewriting', () => {
       `${assets}sprites/ofm_f384/ofm`
     );
   });
-
-  it('leaves assets on the network when asked for no bundled assets', () => {
-    const json = JSON.stringify(resolveStyleForWebView('dark', { bundledAssets: false }).inline);
-    expect(json).toMatch(remote);
-    expect(json).not.toContain('veloq-asset');
-  });
 });
 
 describe('the page', () => {

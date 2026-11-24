@@ -647,6 +647,7 @@
       "database": "Die Datenbank konnte das nicht ausführen. Versuche es erneut und leere den Cache, wenn es weiterhin auftritt."
     },
     "initReason": {
+      "wipeFailed": "D Aktivitäte vom vorige Athlet hend nöd chöne glöscht werde ab dem Grät, drum werded si immer no azeigt. Probier's nomal.",
       "busy": "Öppis anders het d Datebank bruucht. Probier s glii nöd.",
       "forwardSchema": "Die Date sind vo n äre nöie Version vo Veloq gspeicheret. Aktualisier d App zum si öffne.",
       "storageUnavailable": "D Datebank het nöd chönne gschribe werde. Mach Platz frei und probier s nöd.",
@@ -689,6 +690,7 @@
     "rideStillRecording": "Dini Fahrt wird wiiter ufzeichnet.",
     "stopAndSaveRide": "Fahrt beände und speichere",
     "rideStopped": "Dini Fahrt isch beändet und uf däm Grät gspeicheret.",
+    "rideNotSaved": "Dini Fahrt isch beändet, aber No nöd gspeicheret. Si isch nur im Arbeitsspeicher.",
     "shareFailed": "S Absturzprotokoll het nöd chöne teilt wärde.",
     "unableToLoad": "Nöd glade: {{part}}",
     "retryHint": "Tipp uf «Nomol probiere», denn chunnts villicht.",
@@ -864,16 +866,9 @@
     "notificationsBody": "Veloq cha dir säge, wenn e Fahrt e persönlechi Bestleistig oder e schnellere Zit uf ere Route bringt, mit em Name vo de Route."
   },
   "filters": {
-    "climbing": "Chlättere",
     "cycling": "Velöle",
-    "hiking": "Wandere",
-    "other": "Suscht öppis",
-    "racketSports": "Racket-Züüg",
     "running": "Ränne",
-    "snowSports": "Schneesport",
-    "swimming": "Schwümme",
-    "walking": "Spaziere",
-    "waterSports": "Wassersport"
+    "swimming": "Schwümme"
   },
   "fitness": {
     "activitiesCount_one": "{{count}} Aktivität",
@@ -2494,8 +2489,6 @@
       "backupBody": "Speichered alles, was intervals.icu nöd behaltet: dini Abschnittsname, Änderige und Istellige."
     },
     "v040": {
-      "recutRunning": "Deine Abschnitte werden neu analysiert",
-      "recutRunningPhase": "Deine Abschnitte werden neu analysiert: {{phase}}",
       "diffTotals": "Aus {{current}} Abschnitten wurden {{proposed}}.",
       "diffBreakdown": "{{new}} neu, {{changed}} geändert, {{gone}} stillgelegt.",
       "diffNoneKept_one": "Der neue Detektor ist durch deine ganze Bibliothek gelaufen und hat keinen deiner {{count}} Abschnitt behalten. Er ist ausgeschieden, nicht gelöscht: Öffne die Liste der ausgeschiedenen Abschnitte, um zurückzuholen, was du willst.",

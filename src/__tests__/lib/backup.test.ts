@@ -73,7 +73,6 @@ const mockEngine = {
 const mockEngineState = { ready: true, reader: true };
 
 const mockNativeModule = {
-  validateBackupDatabase: jest.fn(),
   convertLegacyDatabaseToRecordBackup: jest.fn().mockResolvedValue(undefined),
   engine: { initWithPath: jest.fn() },
 };
@@ -112,11 +111,6 @@ jest.mock('@/shared/app/AuthStore', () => ({
 jest.mock('@/features/settings/lib/shareFile', () => ({
   shareFile: jest.fn().mockResolvedValue(undefined),
   shareExistingFile: jest.fn().mockResolvedValue(undefined),
-}));
-
-jest.mock('@/shared/storage/databaseStamps', () => ({
-  DATABASE_LOCAL_STAMPS: ['terrain-preview-cache-version'],
-  clearDatabaseStamps: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('@/shared/app/ThemeProvider', () => ({

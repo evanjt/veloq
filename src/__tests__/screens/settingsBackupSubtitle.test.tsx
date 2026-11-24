@@ -91,6 +91,13 @@ const readEnabled = isAutoBackupEnabled as jest.MockedFunction<() => boolean>;
 beforeEach(() => readEnabled.mockReturnValue(true));
 
 /** The nav row renders its title then its subtitle, so the subtitle is the last line. */
+/** A backup date as the Japanese app language writes a day: "2026年1月15日". */
+function japaneseDay(ms: number): string {
+  return new Intl.DateTimeFormat('ja', { month: 'short', day: 'numeric', year: 'numeric' }).format(
+    new Date(ms)
+  );
+}
+
 function backupSubtitle(screen: Awaited<ReturnType<typeof render>>): string {
   const row = screen.getByTestId('settings-nav-backup');
   const lines = within(row).getAllByText(/.+/);
@@ -108,7 +115,7 @@ describe('Settings auto-backup subtitle', () => {
     const taken = Date.UTC(2026, 0, 15, 12);
     readTimestamp.mockReturnValue(taken);
     const screen = await render(<SettingsScreen />);
-    expect(backupSubtitle(screen)).toBe(new Date(taken).toLocaleDateString('ja'));
+    expect(backupSubtitle(screen)).toBe(japaneseDay(taken));
   });
 
   it('picks up a backup taken since the screen mounted', async () => {
@@ -116,11 +123,11 @@ describe('Settings auto-backup subtitle', () => {
     const second = Date.UTC(2026, 5, 20, 12);
     readTimestamp.mockReturnValue(first);
     const screen = await render(<SettingsScreen />);
-    expect(backupSubtitle(screen)).toBe(new Date(first).toLocaleDateString('ja'));
+    expect(backupSubtitle(screen)).toBe(japaneseDay(first));
 
     readTimestamp.mockReturnValue(second);
     await screen.rerender(<SettingsScreen />);
-    expect(backupSubtitle(screen)).toBe(new Date(second).toLocaleDateString('ja'));
+    expect(backupSubtitle(screen)).toBe(japaneseDay(second));
   });
 
   vaultIt('goes back to never if the backup record is cleared', async () => {

@@ -15,7 +15,7 @@ import * as path from 'path';
 import { glob } from 'glob';
 import acceptedIdenticalValues from './acceptedIdenticalValues.json';
 import { resolvedLocale } from './resolvedLocale';
-import { resolveLocaleChain } from '../../i18n/resolveLocale';
+import { LOCALE_FALLBACKS, type SupportedLocale } from '../../i18n/types';
 
 // Reference locale (the source of truth)
 const REFERENCE_LOCALE = 'en-GB';
@@ -104,7 +104,9 @@ function languageOf(locale: string): string {
  */
 function keysFilledFromOtherLanguage(locale: string, referenceKeys: string[]): string[] {
   const language = languageOf(locale);
-  const ownLanguageSteps = resolveLocaleChain([locale]).filter(
+  // The table's chain for this locale: resolveLocaleChain maps a bare es to es-419, which is not what es reads.
+  const chain: SupportedLocale[] = LOCALE_FALLBACKS[locale] ?? [locale as SupportedLocale];
+  const ownLanguageSteps = chain.filter(
     (step) => languageOf(step) === language && fs.existsSync(path.join(LOCALES_DIR, `${step}.json`))
   );
   const held = new Set(ownLanguageSteps.flatMap((step) => getAllKeys(rawLocale(step))));

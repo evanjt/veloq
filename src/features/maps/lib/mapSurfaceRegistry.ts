@@ -14,6 +14,12 @@ const log = debug.create('MapSurfaceRegistry');
 export interface ReleasableSurface {
   release: (source: 'javascript' | 'native') => void;
   rebuild: () => void;
+  /**
+   * Rebuilds the page's map in place when it has drawn, so what its tile
+   * textures hold is freed. Returns whether it did. A surface with nothing to
+   * free omits it.
+   */
+  recycleDrawn?: () => boolean;
 }
 
 const mounted = new Set<ReleasableSurface>();
@@ -93,6 +99,23 @@ export function rebuildReleasedSurfaces(): number {
       count++;
     } catch (e) {
       log.warn('surface refused to rebuild:', e);
+    }
+  }
+  return count;
+}
+
+/**
+ * Recycles every mounted surface whose map has drawn, so a cache clear frees
+ * the tiles those pages still hold. Returns how many it reached.
+ */
+export function recycleDrawnSurfaces(): number {
+  let count = 0;
+  for (const surface of mounted) {
+    if (released.has(surface) || !surface.recycleDrawn) continue;
+    try {
+      if (surface.recycleDrawn()) count++;
+    } catch (e) {
+      log.warn('surface refused to recycle:', e);
     }
   }
   return count;

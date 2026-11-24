@@ -290,7 +290,7 @@ fn init_quarantines_a_ruined_main_file_beside_an_intact_log() {
         quarantined
     );
     assert_eq!(
-        with_persistent_engine(|engine| engine.stats().section_count),
+        with_persistent_engine(|engine| engine.stats().unwrap().section_count),
         Some(1),
         "the installed engine must load sections salvaged from the log"
     );
@@ -733,7 +733,7 @@ fn quarantine_salvages_user_sections_and_intents() {
     assert_eq!(kept.name.as_deref(), Some("Col du Test"));
     assert_eq!(kept.polyline.len(), line.len());
     assert_eq!(
-        with_persistent_engine(|engine| engine.stats().section_count),
+        with_persistent_engine(|engine| engine.stats().unwrap().section_count),
         Some(1),
         "the installed engine must load the salvaged section into memory"
     );

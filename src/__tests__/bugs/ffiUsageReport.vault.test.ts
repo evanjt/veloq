@@ -19,6 +19,7 @@ import { ffiManifest } from '../../../scripts/lib/ffiExports';
 import {
   OWNED_ELSEWHERE,
   type Call,
+  type Reach,
   callIsAttributed,
   callsIn,
   exportedKeys,
@@ -26,6 +27,7 @@ import {
   isCallerFile,
   isDelegateFile,
   keyOf,
+  ownedElsewhereProblems,
   reachOf,
   resolveCall,
   exportNameOf,
@@ -298,5 +300,36 @@ describe('the FFI usage report', () => {
       expect(reason).toMatch(/\S/);
       expect(key).toMatch(/^[A-Za-z]/);
     }
+  });
+});
+
+describe('the owned-elsewhere staleness check', () => {
+  const reach = new Map<string, Reach>([
+    ['Kiln.fire', 'unreachable'],
+    ['Kiln.glaze', 'called'],
+    ['Kiln.cool', 'delegated'],
+  ]);
+
+  it('passes when every listed export is still unreachable', () => {
+    expect(ownedElsewhereProblems(reach, { 'Kiln.fire': 'why' })).toEqual([]);
+  });
+
+  it('names a listed export a caller or a delegate now reaches', () => {
+    expect(
+      ownedElsewhereProblems(reach, {
+        'Kiln.fire': 'why',
+        'Kiln.glaze': 'why',
+        'Kiln.cool': 'why',
+      })
+    ).toEqual(['Kiln.glaze', 'Kiln.cool']);
+  });
+
+  it('names a listed export the Rust source no longer declares', () => {
+    expect(ownedElsewhereProblems(reach, { 'Kiln.vent': 'why' })).toEqual(['Kiln.vent']);
+  });
+
+  it('holds the real list to the same rule', () => {
+    const live = new Map(exportedKeys().map((k) => [k.key, 'unreachable' as Reach]));
+    expect(ownedElsewhereProblems(live, OWNED_ELSEWHERE)).toEqual([]);
   });
 });

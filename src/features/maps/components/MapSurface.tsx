@@ -90,7 +90,6 @@ import type {
   MapSourceSpec,
   MapTerrainSpec,
 } from '@/features/maps/lib/htmlBuilders/mapSurface';
-import type { WebViewStyleOptions } from '@/features/maps/lib/htmlBuilders/styleResolution';
 import type { MapStyleType } from './mapStyles';
 import {} from '@/features/maps/lib/terrainSnapshotEvents';
 import { useReduceMotion } from '@/shared/ui/reduceMotion';
@@ -161,7 +160,6 @@ export interface MapSurfaceRef {
 export interface MapSurfaceProps {
   /** Base style. Changes apply through `setStyle`, never a page reload. */
   mapStyle: MapStyleType;
-  styleOptions?: WebViewStyleOptions | undefined;
   /** Camera for first paint. Later moves go through the ref. */
   initialCamera: MapCameraSpec;
   sources: Record<string, MapSourceSpec>;
@@ -226,7 +224,6 @@ function toPressEvent(data: WebViewBridgeMessage): MapPressEvent | null {
 export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function MapSurface(
   {
     mapStyle,
-    styleOptions,
     initialCamera,
     sources,
     layers,
@@ -303,8 +300,6 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   const renderedStyleRef = useRef(mapStyle);
   const shownStyleRef = useRef(mapStyle);
   shownStyleRef.current = mapStyle;
-  const styleOptionsRef = useRef(styleOptions);
-  styleOptionsRef.current = styleOptions;
   // A change reaches the page by injection, so the page is never rebuilt for
   // it. `pageReduceMotionRef` is what the page was last told.
   const reduceMotion = useReduceMotion();
@@ -316,7 +311,6 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     pageReduceMotionRef.current = reduceMotionRef.current;
     return buildMapSurfaceHtml({
       style: initialStyleRef.current,
-      styleOptions,
       camera: pageCameraRef.current,
       interaction: {
         scroll: scrollEnabled,
@@ -328,7 +322,6 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       regionChangeThrottleMs: REGION_CHANGE_DEBOUNCE_MS,
       reduceMotion: pageReduceMotionRef.current,
     });
-    // styleOptions is a plain settings object supplied as a literal by callers.
     // `pageEpoch` moves when a released map comes back at a new camera.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- The settings object is reconstructed by callers.
   }, [scrollEnabled, zoomEnabled, rotateEnabled, pitchEnabled, pageEpoch]);
@@ -406,7 +399,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
         renderedStyleRef.current = initialStyleRef.current;
         if (shownStyleRef.current !== renderedStyleRef.current) {
           renderedStyleRef.current = shownStyleRef.current;
-          inject(buildSetStyleScript(shownStyleRef.current, styleOptionsRef.current));
+          inject(buildSetStyleScript(shownStyleRef.current));
         }
         // A change made while the page loaded had nowhere to go either.
         if (reduceMotionRef.current !== pageReduceMotionRef.current) {
@@ -474,9 +467,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   useEffect(() => {
     if (!readyRef.current || mapStyle === renderedStyleRef.current) return;
     renderedStyleRef.current = mapStyle;
-    inject(buildSetStyleScript(mapStyle, styleOptions));
-    // styleOptions is a settings literal; the style type is what drives the swap.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- The map style drives this update, and options are a settings literal.
+    inject(buildSetStyleScript(mapStyle));
   }, [mapStyle, inject]);
 
   useEffect(() => {

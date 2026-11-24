@@ -1,3 +1,4 @@
+import { formatDecimalTrimmed } from '@/shared/format/number';
 import { ABSENT } from '@/shared/format/absent';
 import { formatWeight } from '@/shared/format/weight';
 
@@ -14,6 +15,11 @@ export function formatSetCount(sets: number): string {
  * alone for a body-weight set the engine sends with no load, the load alone
  * when no count was logged, and the absent mark when it carries neither.
  */
+/** A repetition count in the app language's decimal separator, so a half rep reads "7,5" in German. */
+export function formatReps(reps: number | null | undefined): string {
+  return formatDecimalTrimmed(reps, 1);
+}
+
 export function formatBestSet(
   set: { weightKg?: number | undefined; repetitions?: number | undefined },
   isMetric: boolean,

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { errorMessage } from '@/shared/format/errorMessage';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import {
@@ -67,7 +68,7 @@ export function usePermissionUpgrade(): UsePermissionUpgrade {
         const currentAthleteId = useAuthStore.getState().athleteId;
         const consentedAthleteId = String(tokenResponse.athlete_id);
         if (consentedAthleteId !== currentAthleteId) {
-          return fail(`${t('alerts.accountChangeTitle')} (${consentedAthleteId})`);
+          return fail(t('login.permissionUpgradeWrongAccount', { athleteId: consentedAthleteId }));
         }
         await useAuthStore
           .getState()
@@ -101,7 +102,7 @@ export function usePermissionUpgrade(): UsePermissionUpgrade {
       // The athlete cancelled, so the API key session stays as it was.
       return { granted: false, error: null };
     } catch (err) {
-      log.warn(`Permission upgrade failed: ${err instanceof Error ? err.message : String(err)}`);
+      log.warn(`Permission upgrade failed: ${errorMessage(err)}`);
       return fail(t(oauthFailureKey(err)));
     } finally {
       setIsUpgrading(false);

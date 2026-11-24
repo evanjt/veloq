@@ -1,5 +1,4 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { getEngine } from '@/shared/native/engine';
 import { bodyNamed, useEngineBody } from '@/shared/native/engineBodies';
 import { useRangeCoverage } from '@/shared/native/useRangeCoverage';
@@ -33,7 +32,6 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
   // fetched", which is the cue to ask Rust for it; the empty curve is what the
   // chart draws in the meantime.
   const query = useQuery<DatedPaceCurve | null>({
-    ...LOCAL_READ_QUERY,
     queryKey,
     queryFn: () => {
       // The engine answers `null` for a window never fetched and for a body

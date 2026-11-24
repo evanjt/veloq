@@ -6,7 +6,7 @@
  * online edge it is pushed, so the reconnect edge asks nothing from here.
  */
 
-import { StartOutcome } from 'veloqrs';
+import { StartOutcome, activities } from 'veloqrs';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
@@ -269,6 +269,33 @@ describe('useInfiniteActivities', () => {
     });
     await waitFor(() => expect(result.current.hasNextPage).toBe(false));
   });
+  it('stops paging after the oldest stored activity when no census date is held', async () => {
+    const { result } = await renderHook(() => useInfiniteActivities(), { wrapper });
+    await waitFor(() => expect(result.current.data?.pageParams).toHaveLength(1));
+    const first = result.current.data?.pageParams[0] as { oldest: string };
+    const oldest = addDaysToDay(first.oldest, -5);
+    (activities.getFeedFilterBounds as jest.Mock).mockReturnValue({
+      oldestTs: Date.parse(`${oldest}T12:00:00Z`) / 1000,
+    });
+    await act(() => client.invalidateQueries({ queryKey: queryKeys.activities.filterBounds }));
+
+    await waitFor(() => expect(result.current.hasNextPage).toBe(true));
+    await act(async () => {
+      await result.current.fetchNextPage();
+    });
+    await waitFor(() => expect(result.current.hasNextPage).toBe(false));
+  });
+
+  it('keeps paging when neither a census date nor a stored activity is known', async () => {
+    (activities.getFeedFilterBounds as jest.Mock).mockReturnValue(null);
+    const { result } = await renderHook(() => useInfiniteActivities(), { wrapper });
+    await waitFor(() => expect(result.current.data?.pageParams).toHaveLength(1));
+    await act(async () => {
+      await result.current.fetchNextPage();
+    });
+    expect(result.current.hasNextPage).toBe(true);
+  });
+
   vaultIt('asks again for a feed page after the athlete changes', async () => {
     const { rerender } = await renderHook(() => useInfiniteActivities(), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));

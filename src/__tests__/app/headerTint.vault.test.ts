@@ -8,7 +8,7 @@
  * theme's text on the theme's surface, with the status bar style that reads on that surface.
  */
 
-import { heroScrolledPast, mapHeroChrome } from '@/shared/app/screenHeaders';
+import { mapHeroChrome } from '@/shared/app/screenHeaders';
 import { colors, darkColors } from '@/theme';
 
 describe('mapHeroChrome', () => {
@@ -36,24 +36,5 @@ describe('mapHeroChrome', () => {
       statusBarStyle: 'light',
       headerBackgroundColor: darkColors.surface,
     });
-  });
-});
-
-describe('heroScrolledPast', () => {
-  const heroHeight = 320;
-  const headerBottom = 103;
-
-  it('holds the hero state at rest and while the hero still fills the bar', () => {
-    expect(heroScrolledPast(0, heroHeight, headerBottom)).toBe(false);
-    expect(heroScrolledPast(heroHeight - headerBottom - 1, heroHeight, headerBottom)).toBe(false);
-  });
-
-  it('flips when the hero bottom reaches the bar bottom, and stays flipped beyond it', () => {
-    expect(heroScrolledPast(heroHeight - headerBottom, heroHeight, headerBottom)).toBe(true);
-    expect(heroScrolledPast(2000, heroHeight, headerBottom)).toBe(true);
-  });
-
-  it('holds the hero state on an overscroll above the top', () => {
-    expect(heroScrolledPast(-80, heroHeight, headerBottom)).toBe(false);
   });
 });

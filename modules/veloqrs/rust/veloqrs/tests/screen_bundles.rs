@@ -2408,18 +2408,24 @@ fn launch_writes_the_athlete_id_and_answers_with_the_stats() {
     let mut s = populated();
     let tiles = s._tmp.path().join("heatmap-tiles");
 
-    let stats = s.engine.launch_data(
-        Some("12345".to_string()),
-        Some(tiles.to_str().unwrap().to_string()),
-    );
+    let stats = s
+        .engine
+        .launch_data(
+            Some("12345".to_string()),
+            Some(tiles.to_str().unwrap().to_string()),
+        )
+        .unwrap();
 
     assert_eq!(
         s.engine.get_setting("__athlete_id").expect("read setting"),
         Some("12345".to_string())
     );
-    assert_eq!(stats.activity_count, s.engine.stats().activity_count);
-    assert_eq!(stats.oldest_date, s.engine.stats().oldest_date);
-    assert_eq!(stats.newest_date, s.engine.stats().newest_date);
+    assert_eq!(
+        stats.activity_count,
+        s.engine.stats().unwrap().activity_count
+    );
+    assert_eq!(stats.oldest_date, s.engine.stats().unwrap().oldest_date);
+    assert_eq!(stats.newest_date, s.engine.stats().unwrap().newest_date);
     assert!(s.engine.heatmap_tiles_path().is_some());
 }
 
@@ -2433,7 +2439,7 @@ fn launch_leaves_the_stored_athlete_id_alone_when_given_none() {
         .set_setting("__athlete_id", "12345")
         .expect("seed setting");
 
-    s.engine.launch_data(None, None);
+    s.engine.launch_data(None, None).unwrap();
 
     assert_eq!(
         s.engine.get_setting("__athlete_id").expect("read setting"),
@@ -2452,7 +2458,7 @@ fn launch_clears_the_tiles_path_when_the_heatmap_is_off() {
     s.engine
         .set_heatmap_tiles_path(tiles.to_str().unwrap().to_string());
 
-    s.engine.launch_data(None, None);
+    s.engine.launch_data(None, None).unwrap();
 
     assert!(s.engine.heatmap_tiles_path().is_none());
     let parked = veloqrs::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE

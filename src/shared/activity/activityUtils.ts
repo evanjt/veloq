@@ -137,6 +137,11 @@ export function isPaceSport(type: ActivityType): boolean {
   return PACE_SPORTS.includes(type);
 }
 
+/** Whether the sport's speed reads as a pace: the pace sports and swimming. */
+export function readsAsPace(type: ActivityType): boolean {
+  return isPaceSport(type) || isSwimmingActivity(type);
+}
+
 export function isCyclingActivity(type: ActivityType): boolean {
   return CYCLING.includes(type);
 }

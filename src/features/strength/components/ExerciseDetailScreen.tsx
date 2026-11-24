@@ -10,7 +10,6 @@ import { sportMarkColour } from '@/shared/activity/sportCategories';
 import { formatEpochDayUtc } from '@/shared/format/format';
 import { formatWeight } from '@/shared/format/weight';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
-import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import {
@@ -38,7 +37,6 @@ function ExerciseDetailScreen() {
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
   const { data, isLoading, isError, error, refetch } = useQuery({
-    ...LOCAL_READ_QUERY,
     queryKey: [...queryKeys.strength.exerciseDetail(exerciseCategory), readGeneration],
     queryFn: () => readExerciseDetailData(exerciseCategory),
     enabled: Number.isInteger(exerciseCategory) && exerciseCategory >= 0,

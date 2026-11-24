@@ -60,7 +60,7 @@ beforeEach(() => {
     enabled: false,
     privacyAccepted: false,
   });
-  useNotificationPrompt.setState({ isLoaded: true, dismissed: false, showingSettingsHint: false });
+  useNotificationPrompt.setState({ isLoaded: true, dismissed: false });
 });
 
 describe('NotificationsCard', () => {

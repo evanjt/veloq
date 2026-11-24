@@ -169,7 +169,7 @@ describe('a fatal JavaScript error', () => {
     handler(new Error('gear ratio NaN'), true);
 
     mockSetItemFails = 1;
-    expect(await (await relaunch()).getCrashLog()).toEqual([]);
+    await expect((await relaunch()).getCrashLog()).rejects.toThrow('storage full');
     expect(mockFiles.size).toBe(1);
 
     expect((await launch().getCrashLog()).map((e) => e.message)).toEqual(['gear ratio NaN']);

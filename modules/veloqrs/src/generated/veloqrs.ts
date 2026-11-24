@@ -165,50 +165,6 @@ export async function checkGarminKey(
 }
 
 /**
- * Compute what fraction of polylineA's points are within `threshold_meters` of any point in polylineB.
- * Both polylines are flat coordinate arrays [lat, lng, lat, lng, ...].
- * Uses an R-tree on polylineB for O(n log m) instead of O(n*m).
- * Returns 0.0-1.0.
- *
- * An odd length is refused rather than trimmed. The pairing below is
- * `chunks_exact(2)`, which drops a trailing value without a word, so a caller
- * that flattened one point short got an answer over a line it did not send.
- * Latitude-first order cannot be checked here at all: only an encoded input
- * carries its own order.
- */
-export function computePolylineOverlap(
-  coordsA: Array<number>,
-  coordsB: Array<number>,
-  thresholdMeters: number,
-): number /*throws*/ {
-  return FfiConverterFloat64.lift(
-    uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_compute_polyline_overlap(
-          FfiConverterSequenceFloat64.lower(
-            coordsA,
-            nativeModule().rustbuffer_alloc,
-          ),
-          FfiConverterSequenceFloat64.lower(
-            coordsB,
-            nativeModule().rustbuffer_alloc,
-          ),
-          FfiConverterFloat64.lower(
-            thresholdMeters,
-            nativeModule().rustbuffer_alloc,
-          ),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    ),
-  );
-}
-
-/**
  * Record the athlete's yes to a large automatic download and start the pass.
  */
 export function consentStreamBackfill(): FfiStartOutcome {
@@ -287,33 +243,6 @@ export function getCutoverDiff(): FfiCutoverDiff | undefined {
   } finally {
     nativeModule().rustbuffer_free(__rb);
   }
-}
-
-/**
- * How many stored tracks the backfill still has to ask upstream about.
- * Zero means the library has been fully asked, so the launch trigger can
- * stop attempting runs for this install.
- *
- * Raises rather than answering zero when it cannot answer at all. The launch
- * trigger stamps the app version on a zero and the cutover start reads one
- * as permission to cut (it answers held until the newest slice of the queue
- * is decided), so an absent engine or a locked database has to reach the
- * caller as the null its delegate already handles.
- */
-export function getElevationBackfillRemaining(): number /*throws*/ {
-  return FfiConverterUInt32.lift(
-    uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_get_elevation_backfill_remaining(
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    ),
-  );
 }
 
 /**
@@ -650,35 +579,6 @@ export function takeQuarantineReport(): FfiQuarantineReport | undefined {
   );
   try {
     return FfiConverterOptionalTypeFfiQuarantineReport.lift(__rb);
-  } finally {
-    nativeModule().rustbuffer_free(__rb);
-  }
-}
-
-/**
- * Validate a backup database file without touching the global engine.
- *
- * Opens the file read-only. A record rather than a JSON document, so a field
- * renamed here is a compile error in TypeScript rather than a valid backup
- * reported as invalid at runtime.
- */
-export function validateBackupDatabase(
-  path: string,
-): FfiBackupValidation /*throws*/ {
-  const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-    /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-      FfiConverterTypeVeloqError,
-    ),
-    /*caller:*/ (callStatus) => {
-      return nativeModule().ubrn_uniffi_veloqrs_fn_func_validate_backup_database(
-        FfiConverterString.lower(path, nativeModule().rustbuffer_alloc),
-        callStatus,
-      );
-    },
-    /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-  );
-  try {
-    return FfiConverterTypeFfiBackupValidation.lift(__rb);
   } finally {
     nativeModule().rustbuffer_free(__rb);
   }
@@ -7663,83 +7563,6 @@ const FfiConverterTypeFfiBackupScreenData = (() => {
 })();
 
 /**
- * What a picked backup file says about itself, read without touching the
- * global engine.
- */
-export type FfiBackupValidation = {
-  /**
-   * The file's own schema version, as it stores it. `"0"` when the file
-   * carries no `schema_info` row at all.
-   */
-  schemaVersion: string;
-  /**
-   * Who the backup belongs to, or `None` for a file that stored no athlete.
-   */
-  athleteId?: string;
-  activityCount: number;
-  /**
-   * What the athlete recognises the file by. `None` for a backup whose
-   * activities carry no date, which reads as "unknown" rather than as new.
-   */
-  newestActivity?: number;
-  /**
-   * This build's own version, not the file's. It is the only honest thing
-   * to compare a backup against: the live database is the other candidate
-   * and a fresh install cannot read one.
-   */
-  supportedSchemaVersion: number;
-};
-
-/**
- * Generated factory for {@link FfiBackupValidation} record objects.
- */
-export const FfiBackupValidation = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiBackupValidation, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiBackupValidation>,
-  });
-})();
-
-const FfiConverterTypeFfiBackupValidation = (() => {
-  type TypeName = FfiBackupValidation;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        schemaVersion: FfiConverterString.readFromCursor(c),
-        athleteId: FfiConverterOptionalString.readFromCursor(c),
-        activityCount: FfiConverterUInt32.readFromCursor(c),
-        newestActivity: FfiConverterOptionalFloat64.readFromCursor(c),
-        supportedSchemaVersion: FfiConverterInt32.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterString.writeIntoCursor(value.schemaVersion, c);
-      FfiConverterOptionalString.writeIntoCursor(value.athleteId, c);
-      FfiConverterUInt32.writeIntoCursor(value.activityCount, c);
-      FfiConverterOptionalFloat64.writeIntoCursor(value.newestActivity, c);
-      FfiConverterInt32.writeIntoCursor(value.supportedSchemaVersion, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.schemaVersion) +
-        FfiConverterOptionalString.allocationSize(value.athleteId) +
-        FfiConverterUInt32.allocationSize(value.activityCount) +
-        FfiConverterOptionalFloat64.allocationSize(value.newestActivity) +
-        FfiConverterInt32.allocationSize(value.supportedSchemaVersion)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * What a best effort's checkpoint measures. The front end words it in the
  * athlete's language and units, so the engine sends no display string.
  */
@@ -9137,75 +8960,6 @@ const FfiConverterTypeFfiCatalogueCounts = (() => {
         FfiConverterUInt32.allocationSize(value.changed) +
         FfiConverterUInt32.allocationSize(value.new) +
         FfiConverterUInt32.allocationSize(value.gone)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * The claims the change card is allowed to make on this build.
- */
-export type FfiChangeCardSupport = {
-  deterministic: boolean;
-  sameResultDripOrBatch: boolean;
-  ledger: boolean;
-  revert: boolean;
-  retired: boolean;
-  pinnedSurvive: boolean;
-  sameOnEveryDevice: boolean;
-};
-
-/**
- * Generated factory for {@link FfiChangeCardSupport} record objects.
- */
-export const FfiChangeCardSupport = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<
-      FfiChangeCardSupport,
-      ReturnType<typeof defaults>
-    >(defaults);
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiChangeCardSupport>,
-  });
-})();
-
-const FfiConverterTypeFfiChangeCardSupport = (() => {
-  type TypeName = FfiChangeCardSupport;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        deterministic: FfiConverterBool.readFromCursor(c),
-        sameResultDripOrBatch: FfiConverterBool.readFromCursor(c),
-        ledger: FfiConverterBool.readFromCursor(c),
-        revert: FfiConverterBool.readFromCursor(c),
-        retired: FfiConverterBool.readFromCursor(c),
-        pinnedSurvive: FfiConverterBool.readFromCursor(c),
-        sameOnEveryDevice: FfiConverterBool.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterBool.writeIntoCursor(value.deterministic, c);
-      FfiConverterBool.writeIntoCursor(value.sameResultDripOrBatch, c);
-      FfiConverterBool.writeIntoCursor(value.ledger, c);
-      FfiConverterBool.writeIntoCursor(value.revert, c);
-      FfiConverterBool.writeIntoCursor(value.retired, c);
-      FfiConverterBool.writeIntoCursor(value.pinnedSurvive, c);
-      FfiConverterBool.writeIntoCursor(value.sameOnEveryDevice, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterBool.allocationSize(value.deterministic) +
-        FfiConverterBool.allocationSize(value.sameResultDripOrBatch) +
-        FfiConverterBool.allocationSize(value.ledger) +
-        FfiConverterBool.allocationSize(value.revert) +
-        FfiConverterBool.allocationSize(value.retired) +
-        FfiConverterBool.allocationSize(value.pinnedSurvive) +
-        FfiConverterBool.allocationSize(value.sameOnEveryDevice)
       );
     }
   }
@@ -40494,48 +40248,6 @@ const FfiConverterTypeDisconnectReason = (() => {
   return new FFIConverter();
 })();
 
-/**
- * Why a run wants the network, which decides what waits for what.
- *
- * `Interactive` is a screen the athlete is looking at: the map tap that owns
- * no track yet, an activity opened before its download landed. It is one or
- * two activities and somebody is watching it arrive. `Bulk` is the sync's own
- * pass over the window, hundreds of them, with nothing on screen waiting for
- * any particular one.
- */
-export enum DownloadPriority {
-  Interactive,
-  Bulk,
-}
-
-const FfiConverterTypeDownloadPriority = (() => {
-  type TypeName = DownloadPriority;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      switch (c.readI32()) {
-        case 1:
-          return DownloadPriority.Interactive;
-        case 2:
-          return DownloadPriority.Bulk;
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      switch (value) {
-        case DownloadPriority.Interactive:
-          return c.writeI32(1);
-        case DownloadPriority.Bulk:
-          return c.writeI32(2);
-      }
-    }
-    allocationSize(value: TypeName): number {
-      return 4;
-    }
-  }
-  return new FFIConverter();
-})();
-
 export enum EngineLogLevel {
   Boot,
   Info,
@@ -43804,14 +43516,6 @@ const FfiConverterTypeActivityManager = new FfiConverterObject(
 
 export interface BasemapManagerLike {
   /**
-   * Drop every tile of one source. Async for the reason
-   * [`clear_unpinned_tiles`](Self::clear_unpinned_tiles) is.
-   */
-  clearSourceTiles(
-    source: string,
-    asyncOpts_?: { signal: AbortSignal },
-  ) /*throws*/ : Promise<number>;
-  /**
    * Drop every basemap tile, pinned pre-seed included. Async for the
    * reason [`clear_unpinned_tiles`](Self::clear_unpinned_tiles) is.
    */
@@ -43862,29 +43566,6 @@ export interface BasemapManagerLike {
     source: string,
     asyncOpts_?: { signal: AbortSignal },
   ): Promise<number>;
-  /**
-   * One tile's bytes, or none. A hit moves the tile to the back of the
-   * eviction queue.
-   */
-  getTile(
-    source: string,
-    z: number,
-    x: number,
-    y: number,
-  ): ArrayBuffer | undefined;
-  /**
-   * Store one tile. `pinned` marks the pre-seeded offline base, which
-   * eviction takes last.
-   */
-  putTile(
-    source: string,
-    z: number,
-    x: number,
-    y: number,
-    ext: string,
-    bytes: ArrayBuffer,
-    pinned: boolean,
-  ) /*throws*/ : void;
   /**
    * Zero the tile counters.
    */
@@ -43960,49 +43641,6 @@ export class BasemapManager
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] =
       uniffiTypeBasemapManagerObjectFactory.bless(pointer);
-  }
-
-  /**
-   * Drop every tile of one source. Async for the reason
-   * [`clear_unpinned_tiles`](Self::clear_unpinned_tiles) is.
-   */
-  async clearSourceTiles(
-    source: string,
-    asyncOpts_?: { signal: AbortSignal },
-  ): Promise<number> /*throws*/ {
-    const __stack = uniffiIsDebug ? new Error().stack : undefined;
-    try {
-      return await uniffiRustCallAsync(
-        /*rustCaller:*/ uniffiCaller,
-        /*rustFutureFunc:*/ () => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_clear_source_tiles(
-            uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(source, nativeModule().rustbuffer_alloc),
-          );
-        },
-        /*pollFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_poll_u32,
-        /*cancelFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_cancel_u32,
-        /*completeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_complete_u32,
-        /*freeFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_free_u32,
-        // Async returns always go through the JS-side converter: the
-        // FFI symbol returns the future handle (u64), and the user-level
-        // RustBuffer comes back via the shared `rust_future_complete_*`
-        // export. The bytes the runtime hands back must be deserialized
-        // here using the per-callable return-type converter.
-        /*liftFunc:*/ FfiConverterUInt32.lift.bind(FfiConverterUInt32),
-        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-        /*asyncOpts:*/ asyncOpts_,
-        /*errorHandler:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-      );
-    } catch (__error: any) {
-      if (uniffiIsDebug && __error instanceof Error) {
-        __error.stack = __stack;
-      }
-      throw __error;
-    }
   }
 
   /**
@@ -44221,70 +43859,6 @@ export class BasemapManager
       }
       throw __error;
     }
-  }
-
-  /**
-   * One tile's bytes, or none. A hit moves the tile to the back of the
-   * eviction queue.
-   */
-  getTile(
-    source: string,
-    z: number,
-    x: number,
-    y: number,
-  ): ArrayBuffer | undefined {
-    const __rb: Uint8Array = uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_tile(
-          uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(source, nativeModule().rustbuffer_alloc),
-          FfiConverterUInt8.lower(z, nativeModule().rustbuffer_alloc),
-          FfiConverterUInt32.lower(x, nativeModule().rustbuffer_alloc),
-          FfiConverterUInt32.lower(y, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterOptionalBytes.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  /**
-   * Store one tile. `pinned` marks the pre-seeded offline base, which
-   * eviction takes last.
-   */
-  putTile(
-    source: string,
-    z: number,
-    x: number,
-    y: number,
-    ext: string,
-    bytes: ArrayBuffer,
-    pinned: boolean,
-  ): void /*throws*/ {
-    uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        nativeModule().ubrn_uniffi_veloqrs_fn_method_basemapmanager_put_tile(
-          uniffiTypeBasemapManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(source, nativeModule().rustbuffer_alloc),
-          FfiConverterUInt8.lower(z, nativeModule().rustbuffer_alloc),
-          FfiConverterUInt32.lower(x, nativeModule().rustbuffer_alloc),
-          FfiConverterUInt32.lower(y, nativeModule().rustbuffer_alloc),
-          FfiConverterString.lower(ext, nativeModule().rustbuffer_alloc),
-          FfiConverterArrayBuffer.lower(bytes, nativeModule().rustbuffer_alloc),
-          FfiConverterBool.lower(pinned, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
   }
 
   /**
@@ -49468,7 +49042,6 @@ export interface RouteManagerLike {
    * ride on it. Fails when the route is unknown or its track holds no line.
    */
   follow(routeId: string) /*throws*/ : RouteFollowerLike;
-  getAll() /*throws*/ : Array<FfiRouteGroup>;
   /**
    * Everything the route detail screen paints with that one sport and one
    * range do not change: engine counts, the route and its shown name, the
@@ -49619,26 +49192,6 @@ export class RouteManager
         /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
       ),
     );
-  }
-
-  getAll(): Array<FfiRouteGroup> /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_all(
-          uniffiTypeRouteManagerObjectFactory.clonePointer(this),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterSequenceTypeFfiRouteGroup.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
   }
 
   /**
@@ -50222,7 +49775,6 @@ export interface SectionManagerLike {
     sectionId: string,
     sportType: string | undefined,
   ) /*throws*/ : FfiSectionPerformanceResult;
-  getRetired() /*throws*/ : Array<FfiRetiredSection>;
   /**
    * The old-versus-new sections map in one read: the retired sections with
    * their lines, every catalogue row, and the pairs between them. Cached
@@ -50785,26 +50337,6 @@ export class SectionManager
     );
     try {
       return FfiConverterTypeFfiSectionPerformanceResult.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  getRetired(): Array<FfiRetiredSection> /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_retired(
-          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterSequenceTypeFfiRetiredSection.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -51952,17 +51484,6 @@ export interface SettingsManagerLike {
     value: number | undefined,
   ) /*throws*/ : void;
   /**
-   * Days of stream history the athlete keeps. Zero means keep everything.
-   *
-   * This only ever evicts stored series: nothing deletes whole activities
-   * by age.
-   */
-  streamRetentionDays() /*throws*/ : number;
-  /**
-   * Bytes the stream store holds, for the cache readout.
-   */
-  streamStoreBytes() /*throws*/ : number;
-  /**
    * The threshold figures of each offered sport, each with its source, and
    * the default heart rate zone percentages.
    */
@@ -52634,49 +52155,6 @@ export class SettingsManager
   }
 
   /**
-   * Days of stream history the athlete keeps. Zero means keep everything.
-   *
-   * This only ever evicts stored series: nothing deletes whole activities
-   * by age.
-   */
-  streamRetentionDays(): number /*throws*/ {
-    return FfiConverterFloat64.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_stream_retention_days(
-            uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-      ),
-    );
-  }
-
-  /**
-   * Bytes the stream store holds, for the cache readout.
-   */
-  streamStoreBytes(): number /*throws*/ {
-    return FfiConverterFloat64.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_stream_store_bytes(
-            uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-      ),
-    );
-  }
-
-  /**
    * The threshold figures of each offered sport, each with its source, and
    * the default heart rate zone percentages.
    */
@@ -52796,17 +52274,6 @@ export interface StrengthManagerLike {
    */
   batchFetchOwedFitFiles(): FfiStartResult;
   /**
-   * Insert pre-parsed exercise sets for an activity without touching the
-   * network or FIT-file pipeline. Demo mode uses this to seed synthetic
-   * WeightTraining activities; the production path still goes through
-   * fetch_and_parse_exercise_sets. Also marks the activity as FIT-processed
-   * so the normal code path won't attempt to re-download.
-   */
-  bulkInsertExerciseSets(
-    activityId: string,
-    sets: Array<FfiExerciseSet>,
-  ) /*throws*/ : void;
-  /**
    * Drop the live session and everything in it; the library is unchanged.
    */
   discardLiveStrengthSession() /*throws*/ : void;
@@ -52896,11 +52363,6 @@ export interface StrengthManagerLike {
     endTs: number,
     weekRanges: Array<FfiTimestampRange>,
   ) /*throws*/ : FfiStrengthScreenData;
-  /**
-   * The finished session's FIT file, weights displayed in the athlete's unit, or none for an
-   * id nothing holds.
-   */
-  getStrengthSessionFit(id: string) /*throws*/ : ArrayBuffer | undefined;
   /**
    * What the strength start screen shows: whether a session is live, the
    * sessions done the same way before with their muscles and equipment, and
@@ -53008,36 +52470,6 @@ export class StrengthManager
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
-  }
-
-  /**
-   * Insert pre-parsed exercise sets for an activity without touching the
-   * network or FIT-file pipeline. Demo mode uses this to seed synthetic
-   * WeightTraining activities; the production path still goes through
-   * fetch_and_parse_exercise_sets. Also marks the activity as FIT-processed
-   * so the normal code path won't attempt to re-download.
-   */
-  bulkInsertExerciseSets(
-    activityId: string,
-    sets: Array<FfiExerciseSet>,
-  ): void /*throws*/ {
-    uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
-          uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(activityId, nativeModule().rustbuffer_alloc),
-          FfiConverterSequenceTypeFfiExerciseSet.lower(
-            sets,
-            nativeModule().rustbuffer_alloc,
-          ),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
   }
 
   /**
@@ -53368,31 +52800,6 @@ export class StrengthManager
     );
     try {
       return FfiConverterTypeFfiStrengthScreenData.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  /**
-   * The finished session's FIT file, weights displayed in the athlete's unit, or none for an
-   * id nothing holds.
-   */
-  getStrengthSessionFit(id: string): ArrayBuffer | undefined /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_strength_session_fit(
-          uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(id, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterOptionalBytes.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -57929,11 +57336,6 @@ const FfiConverterSequenceTypeFfiNamedCorridor = new FfiConverterArray(
   FfiConverterTypeFfiNamedCorridor,
 );
 
-// FfiConverter for Array<FfiRetiredSection>
-const FfiConverterSequenceTypeFfiRetiredSection = new FfiConverterArray(
-  FfiConverterTypeFfiRetiredSection,
-);
-
 // FfiConverter for Array<FfiPreviewCentre>
 const FfiConverterSequenceTypeFfiPreviewCentre = new FfiConverterArray(
   FfiConverterTypeFfiPreviewCentre,
@@ -58058,14 +57460,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap() !==
-    47043
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_compute_polyline_overlap",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_consent_stream_backfill() !==
     28113
   ) {
@@ -58087,14 +57481,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_get_cutover_diff",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining() !==
-    1855
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining",
     );
   }
   if (
@@ -58211,14 +57597,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_take_quarantine_report",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_validate_backup_database() !==
-    35540
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_validate_backup_database",
     );
   }
   if (
@@ -58462,14 +57840,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_clear_source_tiles() !==
-    29274
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_basemapmanager_clear_source_tiles",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_clear_tiles() !==
     28030
   ) {
@@ -58515,22 +57885,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_basemapmanager_get_source_size",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_tile() !==
-    54110
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_basemapmanager_get_tile",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_basemapmanager_put_tile() !==
-    10104
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_basemapmanager_put_tile",
     );
   }
   if (
@@ -59494,14 +58848,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_all() !==
-    5487
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_routemanager_get_all",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_detail_data() !==
     17662
   ) {
@@ -59739,14 +59085,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_performances",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_retired() !==
-    20855
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_retired",
     );
   }
   if (
@@ -60134,22 +59472,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_stream_retention_days() !==
-    26195
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_stream_retention_days",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_stream_store_bytes() !==
-    55834
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_settingsmanager_stream_store_bytes",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_thresholds_screen_data() !==
     41772
   ) {
@@ -60171,14 +59493,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_owed_fit_files",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_exercise_sets() !==
-    63799
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_exercise_sets",
     );
   }
   if (
@@ -60267,14 +59581,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_get_screen_data",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_strength_session_fit() !==
-    13090
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_strengthmanager_get_strength_session_fit",
     );
   }
   if (
@@ -60964,7 +60270,6 @@ export default Object.freeze({
     FfiConverterTypeDerivedClearCounts,
     FfiConverterTypeDetectionManager,
     FfiConverterTypeDisconnectReason,
-    FfiConverterTypeDownloadPriority,
     FfiConverterTypeDownloadProgressResult,
     FfiConverterTypeEfficiencyDirection,
     FfiConverterTypeElevationBackfillProgress,
@@ -61000,7 +60305,6 @@ export default Object.freeze({
     FfiConverterTypeFfiAttemptHistograms,
     FfiConverterTypeFfiBackgroundJobsData,
     FfiConverterTypeFfiBackupScreenData,
-    FfiConverterTypeFfiBackupValidation,
     FfiConverterTypeFfiBestEffort,
     FfiConverterTypeFfiBestEffortKind,
     FfiConverterTypeFfiBestEffortsData,
@@ -61020,7 +60324,6 @@ export default Object.freeze({
     FfiConverterTypeFfiCallOutcome,
     FfiConverterTypeFfiCatalogueCounts,
     FfiConverterTypeFfiCatalogueEmptyReason,
-    FfiConverterTypeFfiChangeCardSupport,
     FfiConverterTypeFfiChangeReason,
     FfiConverterTypeFfiClaimBasis,
     FfiConverterTypeFfiClimbBest,

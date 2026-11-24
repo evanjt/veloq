@@ -69,3 +69,15 @@ it('says nothing when the sheet closes without a target', async () => {
   });
   expect(alert).not.toHaveBeenCalled();
 });
+
+it('says the log was not shared when storage cannot be read, rather than that there is none', async () => {
+  const { getCrashLog } = jest.requireMock('@/shared/debug/crashLog');
+  getCrashLog.mockRejectedValueOnce(new Error('storage unavailable'));
+
+  expect(await shareCrashLog(t)).toBe(false);
+
+  expect(Sharing.shareAsync).not.toHaveBeenCalled();
+  expect(alert).toHaveBeenCalledTimes(1);
+  expect(alert.mock.calls[0][0]).toBe('export.shareFailedTitle');
+  expect(alert.mock.calls[0][1]).toBe('export.shareFailed');
+});

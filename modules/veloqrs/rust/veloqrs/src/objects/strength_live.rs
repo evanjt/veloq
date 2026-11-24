@@ -15,7 +15,7 @@ use crate::persistence::strength_saved::{
     SavedError, SavedWorkout, removed_workouts, saved_workouts,
 };
 use crate::persistence::strength_sessions::StrengthSession;
-use crate::persistence::strength_sessions::{athlete_weight_unit_on, strength_session_fit_on};
+use crate::persistence::strength_sessions::athlete_weight_unit_on;
 use crate::persistence::strength_signature::exercises_of;
 use crate::persistence::strength_signature::{RECENT_GROUP_LIMIT, recent};
 use crate::strength::catalogue;
@@ -412,12 +412,6 @@ impl StrengthManager {
                 .map(|found| found.map(|session| focus_to_ffi(session.focus_state(unit))))
                 .map_err(database)
         })?
-    }
-
-    /// The finished session's FIT file, weights displayed in the athlete's unit, or none for an
-    /// id nothing holds.
-    fn get_strength_session_fit(&self, id: String) -> Result<Option<Vec<u8>>, VeloqError> {
-        with_reader(|conn| strength_session_fit_on(conn, &id).map_err(database))?
     }
 
     /// Start the live session from nothing, a session, a library activity or a

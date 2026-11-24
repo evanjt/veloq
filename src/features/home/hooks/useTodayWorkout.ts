@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import type { FfiPlannedEvent } from 'veloqrs';
-import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { formatLocalDate } from '@/shared/format/format';
 import { CACHE } from '@/shared/app/constants';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -34,7 +33,6 @@ export function useTodayWorkout() {
   useEngineChannel('bodyStored', queryKey, 'calendar');
 
   const query = useQuery<FfiPlannedEvent[]>({
-    ...LOCAL_READ_QUERY,
     queryKey,
     queryFn: () => readPlannedWorkouts(today, horizon),
     enabled: isAuthenticated,

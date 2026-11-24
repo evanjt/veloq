@@ -9,6 +9,7 @@ import {
   initialiseDashboardPreferences,
   useDashboardPreferences,
 } from '@/features/settings/stores/summaryCardPreferences';
+import { summaryCardBundle } from '../__shared__/summaryCardBundle';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/i18n', () => ({
@@ -35,14 +36,7 @@ it('keeps a stored Form hero and draws its value and zone', async () => {
     JSON.stringify({ ...DEFAULTS, heroMetric: 'form' })
   );
   await initialiseDashboardPreferences();
-  const card = {
-    wellness: { fitness: 40, form: 8 },
-    currentWeek: { count: 0, totalDuration: 0 },
-    prevWeek: { count: 0, totalDuration: 0 },
-    ftpTrend: { latestFtp: null, previousFtp: null },
-    runPaceTrend: {},
-    swimPaceTrend: {},
-  };
+  const card = summaryCardBundle({ wellness: { fitness: 40, form: 8 } });
   const sparklines = {
     fitness: [39, 40],
     fatigue: [32, 32],

@@ -1440,7 +1440,7 @@ impl super::PersistentEngine {
         &mut self,
         athlete_id: Option<String>,
         heatmap_tiles_path: Option<String>,
-    ) -> super::PersistentEngineStats {
+    ) -> Result<super::PersistentEngineStats, crate::objects::error::VeloqError> {
         if let Some(id) = athlete_id.as_deref()
             && let Err(e) = self.set_setting(super::settings_keys::ATHLETE_ID, id)
         {
@@ -2712,7 +2712,6 @@ pub mod pooled {
     /// hours. The family is the engine's own for the sport. A read that fails
     /// answers no weeks.
     fn weekly_hours(conn: &Connection) -> Vec<crate::FfiWeeklyHours> {
-        const DAY: i64 = 86_400;
         // Day zero of the epoch was a Thursday, so the Monday-first week
         // number of a day is (day + 3) / 7.
         let rows = conn
@@ -2756,9 +2755,12 @@ pub mod pooled {
                         })
                     })
                     .collect();
-                let monday = chrono::DateTime::from_timestamp(week * 7 * DAY - 3 * DAY, 0)
-                    .map(|t| t.format("%Y-%m-%d").to_string())
-                    .unwrap_or_default();
+                let monday = chrono::DateTime::from_timestamp(
+                    crate::widget_snapshot::week_start_seconds(week),
+                    0,
+                )
+                .map(|t| t.format("%Y-%m-%d").to_string())
+                .unwrap_or_default();
                 crate::FfiWeeklyHours {
                     week_start: monday,
                     hours,
@@ -8779,10 +8781,10 @@ mod tests {
             ])
             .expect("metrics");
 
-        let stats = crate::persistence::pooled_stats(&engine.db);
+        let stats = crate::persistence::pooled_stats(&engine.db).unwrap();
         assert_eq!(stats.activity_count, 0);
         assert_eq!(stats.library_count, 2);
-        assert_eq!(engine.stats().library_count, 2);
+        assert_eq!(engine.stats().unwrap().library_count, 2);
     }
 
     #[test]
@@ -9511,7 +9513,7 @@ mod tests {
                 r#"[{"ground":{"rep_activity_id":"old"}}]"#,
             )
             .expect("pending record");
-        let stats = engine.launch_data(Some("i1".into()), None);
+        let stats = engine.launch_data(Some("i1".into()), None).unwrap();
         assert_eq!(stats.activity_window_oldest, default);
         assert!(
             stats.oldest_date.unwrap() < (chrono::Utc::now().timestamp() - 365 * 86_400) as f64
@@ -9528,10 +9530,11 @@ mod tests {
         assert_eq!(
             engine
                 .launch_data(Some("i1".into()), None)
+                .unwrap()
                 .activity_window_oldest,
             asked
         );
-        assert_eq!(engine.stats().activity_window_oldest, asked);
+        assert_eq!(engine.stats().unwrap().activity_window_oldest, asked);
     }
 
     #[test]
@@ -9547,7 +9550,10 @@ mod tests {
             Some(4 * 365),
         );
         assert_eq!(
-            with_rides.launch_data(None, None).activity_window_oldest,
+            with_rides
+                .launch_data(None, None)
+                .unwrap()
+                .activity_window_oldest,
             default
         );
 
@@ -9558,6 +9564,7 @@ mod tests {
         assert_eq!(
             empty
                 .launch_data(Some("i1".into()), None)
+                .unwrap()
                 .activity_window_oldest,
             default
         );

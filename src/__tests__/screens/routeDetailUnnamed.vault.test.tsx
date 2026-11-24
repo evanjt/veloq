@@ -70,7 +70,6 @@ jest.mock('@/shared/ui', () => {
   const hero = jest.requireActual('@/shared/ui/DetailHero');
   return {
     Button: jest.requireActual('@/shared/ui/Button').Button,
-    DetailHero: ({ overlay }: { overlay: React.ReactNode }) => overlay,
     HeroNameRow: hero.HeroNameRow,
     HeroStatsRow: () => null,
     ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,

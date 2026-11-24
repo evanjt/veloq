@@ -1,0 +1,42 @@
+# System back closes the full-screen activity map and leaves the detail page.
+
+appId: ${APP_ID}
+tags:
+  - tier2
+  - pack-map
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://activity/demo-test-0"
+      TARGET: "activity-detail-screen"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-map-fullscreen"
+    timeout: 30000
+
+- tapOn:
+    id: "activity-map-fullscreen"
+
+# The modal is its own window, so the page's button is out of the hierarchy
+# while it is open.
+- extendedWaitUntil:
+    notVisible:
+      id: "activity-map-fullscreen"
+    timeout: 10000
+
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+      - extendedWaitUntil:
+          visible:
+            id: "activity-map-fullscreen"
+          timeout: 10000
+      - assertVisible:
+          id: "activity-detail-screen"

@@ -37,6 +37,7 @@ function renderCycling() {
         latest: 305,
         previous: 295,
         change: 10,
+        glyph: '↑',
         changePercent: 3.4,
         lookbackDays: 30,
       }}

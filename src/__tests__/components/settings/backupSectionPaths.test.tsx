@@ -1216,9 +1216,15 @@ describe('each destination shows when it last received a backup', () => {
     };
     await render(<BackupSection />);
 
-    for (const id of ['webdav', 'folder']) {
+    const stamps = { webdav: '2026-05-03T06:30:00Z', folder: '2026-05-02T06:30:00Z' };
+    for (const id of ['webdav', 'folder'] as const) {
+      const day = new Intl.DateTimeFormat('en-GB', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }).format(new Date(stamps[id]));
       expect(screen.getByTestId(`backup-carrier-last-${id}`)).toHaveTextContent(
-        /^backup\.lastBackup:\{"date":".+"\}$/
+        `backup.lastBackup:{"date":"${day}"}`
       );
     }
   });

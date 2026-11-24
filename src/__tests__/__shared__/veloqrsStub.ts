@@ -311,12 +311,6 @@ export enum RecordScope {
   Automatic = 2,
 }
 
-/** `DownloadPriority` as generated, held to the source by the same test. */
-export enum DownloadPriority {
-  Interactive = 0,
-  Bulk = 1,
-}
-
 /** `SyncState` as generated, held to the source by the same test. */
 export enum SyncState {
   Idle = 1,
@@ -570,7 +564,6 @@ export const elevation = {
   pauseElevationBackfill: jest.fn(),
   resumeElevationBackfill: jest.fn(),
   retryDownloadsNow: jest.fn(),
-  getElevationBackfillRemaining: jest.fn(),
 };
 
 export const streamBackfill = {
@@ -658,7 +651,6 @@ export const strength = {
   recoverStrengthWorkout: jest.fn(),
   getLiveStrengthSession: jest.fn(),
   getLiveFocusState: jest.fn(),
-  getStrengthSessionFit: jest.fn(),
   startLiveStrengthSession: jest.fn(),
   startLiveStrengthSessionFromPlan: jest.fn(),
   editLiveStrengthSession: jest.fn(),
@@ -673,11 +665,9 @@ export const strength = {
   getStrengthScreenData: jest.fn(),
   getMuscleDetail: jest.fn(),
   hasStrengthData: jest.fn(),
-  bulkInsertExerciseSets: jest.fn(),
 };
 
 export const routes = {
-  getGroups: jest.fn(),
   getFilteredGroupSummaries: jest.fn(),
   setRouteName: jest.fn(),
   getRepresentativeRoute: jest.fn(),
@@ -803,7 +793,6 @@ export const basemap = {
   setSourceTemplate: jest.fn(),
   setCompositeSource: jest.fn(),
   tileListener: jest.fn(() => undefined),
-  getTile: jest.fn(() => undefined),
   getOrFetchTile: jest.fn(() => undefined),
   getCacheSize: jest.fn(() => Promise.resolve(0)),
   getSourceSize: jest.fn(() => Promise.resolve(0)),
@@ -833,7 +822,6 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     SyncErrorReason,
     SyncStep,
     TrackStep,
-    DownloadPriority,
     BulkExportFormat,
     RecordScope,
     GroupSort,

@@ -197,11 +197,11 @@ describe('one input for the card and the detail', () => {
     expect(card.result.current.altitude).toBeDefined();
   });
 
-  it('carries no altitude when one point of the line has none', async () => {
+  it('keeps the slot of a point without elevation as NaN', async () => {
     mockDecode.mockReturnValue([line[0]!, { latitude: 46.21, longitude: 7.31 }]);
     const { result } = await renderHook(() => useCard('a1'), { wrapper });
 
     await waitFor(() => expect(result.current.coordinates).toHaveLength(2));
-    expect(result.current.altitude).toBeUndefined();
+    expect(Array.from(result.current.altitude ?? [])).toEqual([410, NaN]);
   });
 });

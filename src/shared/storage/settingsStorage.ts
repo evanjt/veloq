@@ -20,6 +20,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getEngine } from '@/shared/native/engine';
 import { SETTINGS_MIGRATED_KEY } from './migrateSettingsToSqlite';
+import { libraryOpenCount } from './routeDbLocation';
 
 /**
  * Writes issued before the current tick ends, in the order their keys were
@@ -71,21 +72,27 @@ export async function getSetting(key: string): Promise<string | null> {
 }
 
 /**
- * True once the one-time migration has copied every preference into SQLite.
- * After that an absent key is absent, and asking AsyncStorage is an async
- * bridge round trip that can never find anything. A launch restores
- * seventeen stores and most of their keys have never been written, so that
- * is most of them, on every launch, forever.
+ * The library open count at which the migration sentinel was last seen. True
+ * once the one-time migration has copied every preference into SQLite. After
+ * that an absent key is absent, and asking AsyncStorage is an async bridge
+ * round trip that can never find anything. A launch restores seventeen stores
+ * and most of their keys have never been written, so that is most of them, on
+ * every launch, forever.
  *
- * Only the true answer is remembered. A false one is this session's migration
- * not having finished yet, which it can do at any moment.
+ * Only the true answer is remembered, and only for the library it was read
+ * from. A wipe or a rollback reopens the engine onto a new file with no
+ * sentinel, so the count moving on means the answer is asked again. A false
+ * one is this session's migration not having finished yet, which it can do at
+ * any moment.
  */
-let migrationSeen = false;
+let migrationSeenInOpening: number | null = null;
 
 function sqliteHoldsEverything(engine: NonNullable<ReturnType<typeof getEngine>>): boolean {
-  if (migrationSeen) return true;
-  migrationSeen = engine.getSetting(SETTINGS_MIGRATED_KEY) !== undefined;
-  return migrationSeen;
+  const opening = libraryOpenCount();
+  if (migrationSeenInOpening === opening) return true;
+  if (engine.getSetting(SETTINGS_MIGRATED_KEY) === undefined) return false;
+  migrationSeenInOpening = opening;
+  return true;
 }
 
 /**

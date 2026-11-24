@@ -2424,15 +2424,15 @@ impl PersistentEngine {
     // ========================================================================
 
     /// Get engine statistics.
-    pub fn stats(&self) -> PersistentEngineStats {
-        let mut stats = pooled_stats(&self.db);
+    pub fn stats(&self) -> Result<PersistentEngineStats, VeloqError> {
+        let mut stats = pooled_stats(&self.db)?;
         stats.activity_count = self.activity_metadata.len() as u32;
         stats.signature_cache_size = self.signature_cache.len() as u32;
         stats.group_count = self.groups.len() as u32;
         stats.section_count = self.sections.len() as u32;
         stats.groups_dirty = self.groups_dirty;
         stats.sections_dirty = self.sections_dirty;
-        stats
+        Ok(stats)
     }
 
     /// The routes screen read on the engine's own connection, which sees its
@@ -2450,31 +2450,37 @@ impl PersistentEngine {
 /// time the write lock was let go for the two flags and the cache length that
 /// exist only in memory. The counts are the rows the engine's catalogues load
 /// from, so they equal its own while no write is in flight.
-pub(crate) fn pooled_stats(conn: &Connection) -> PersistentEngineStats {
-    let count = |sql: &str| -> u32 { conn.query_row(sql, [], |row| row.get(0)).unwrap_or(0) };
+///
+/// A count that cannot be read is an error. Zero would be a library that is
+/// empty, and the callers act on that: a restore guard, a first-run screen.
+pub(crate) fn pooled_stats(conn: &Connection) -> Result<PersistentEngineStats, VeloqError> {
+    let count = |sql: &str| -> Result<u32, VeloqError> {
+        conn.query_row(sql, [], |row| row.get(0))
+            .map_err(|e| VeloqError::Database { msg: e.to_string() })
+    };
     let (oldest_date, newest_date): (Option<i64>, Option<i64>) = conn
         .query_row(
             "SELECT MIN(date), MAX(date) FROM activity_metrics",
             [],
-            |row| Ok((row.get(0).ok(), row.get(1).ok())),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
-        .unwrap_or((None, None));
-    PersistentEngineStats {
-        activity_count: count("SELECT COUNT(*) FROM activities"),
-        library_count: count("SELECT COUNT(*) FROM activity_metrics"),
+        .map_err(|e| VeloqError::Database { msg: e.to_string() })?;
+    Ok(PersistentEngineStats {
+        activity_count: count("SELECT COUNT(*) FROM activities")?,
+        library_count: count("SELECT COUNT(*) FROM activity_metrics")?,
         signature_cache_size: SIGNATURE_CACHE_LEN_FOR_READERS.load(Ordering::Acquire),
-        group_count: count("SELECT COUNT(*) FROM route_groups"),
-        section_count: count("SELECT COUNT(*) FROM sections"),
+        group_count: count("SELECT COUNT(*) FROM route_groups")?,
+        section_count: count("SELECT COUNT(*) FROM sections")?,
         groups_dirty: groups_dirty_for_readers(),
         sections_dirty: SECTIONS_DIRTY_FOR_READERS.load(Ordering::Acquire),
-        gps_track_count: count("SELECT COUNT(*) FROM gps_tracks"),
+        gps_track_count: count("SELECT COUNT(*) FROM gps_tracks")?,
         oldest_date: oldest_date.map(|v| v as f64),
         newest_date: newest_date.map(|v| v as f64),
         activity_window_oldest: held_window_oldest(conn),
         sqlite_heap_bytes: memory::sqlite_heap_bytes() as f64,
         satellite_cache_bytes: crate::basemap::store()
             .map_or(0, |store| store.satellite_cache_bytes()) as f64,
-    }
+    })
 }
 
 /// The held window for the athlete the library is stored for. With no athlete
@@ -4366,7 +4372,6 @@ fn pad_lng_degrees(lat: f64, threshold_meters: f64) -> f64 {
 /// that flattened one point short got an answer over a line it did not send.
 /// Latitude-first order cannot be checked here at all: only an encoded input
 /// carries its own order.
-#[uniffi::export]
 pub fn compute_polyline_overlap(
     coords_a: Vec<f64>,
     coords_b: Vec<f64>,

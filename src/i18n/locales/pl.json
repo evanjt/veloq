@@ -678,6 +678,7 @@
       "database": "Baza danych nie mogła tego wykonać. Spróbuj ponownie, a jeśli to się powtarza, wyczyść pamięć podręczną."
     },
     "initReason": {
+      "wipeFailed": "Nie udało się usunąć z urządzenia aktywności poprzedniego sportowca, więc nadal są widoczne. Spróbuj ponownie.",
       "busy": "Baza danych była właśnie używana przez coś innego. Spróbuj ponownie za chwilę.",
       "forwardSchema": "Te dane zapisała nowsza wersja Veloq. Zaktualizuj aplikację, aby je otworzyć.",
       "storageUnavailable": "Nie udało się zapisać bazy danych. Zwolnij miejsce i spróbuj ponownie.",
@@ -734,6 +735,7 @@
     "rideStillRecording": "Twoja jazda nadal jest nagrywana.",
     "stopAndSaveRide": "Zatrzymaj i zapisz jazdę",
     "rideStopped": "Twoja jazda jest zatrzymana i zachowana na tym urządzeniu.",
+    "rideNotSaved": "Twoja jazda jest zatrzymana, ale jeszcze nie zapisana. Istnieje tylko w pamięci.",
     "shareFailed": "Nie udało się udostępnić dziennika awarii.",
     "unableToLoad": "Nie można załadować: {{part}}",
     "retryHint": "Stuknij Spróbuj ponownie, aby wczytać to jeszcze raz.",
@@ -943,16 +945,9 @@
     "notificationsBody": "Veloq może powiadomić Cię, gdy przejazd da rekord życiowy lub szybszy czas na trasie, wraz z nazwą trasy."
   },
   "filters": {
-    "climbing": "Wspinaczka",
     "cycling": "Kolarstwo",
-    "hiking": "Wędrówki",
-    "other": "Inne",
-    "racketSports": "Sporty rakietowe",
     "running": "Bieganie",
-    "snowSports": "Sporty zimowe",
-    "swimming": "Pływanie",
-    "walking": "Spacer",
-    "waterSports": "Sporty wodne"
+    "swimming": "Pływanie"
   },
   "fitness": {
     "activitiesCount_one": "{{count}} aktywność",
@@ -2934,8 +2929,6 @@
       "backupBody": "Zapisuje wszystko, czego intervals.icu nie przechowuje: nazwy sekcji, edycje i ustawienia."
     },
     "v040": {
-      "recutRunning": "Ponowna analiza Twoich odcinków",
-      "recutRunningPhase": "Ponowna analiza Twoich odcinków: {{phase}}",
       "diffTotals": "{{current}} odcinków stało się {{proposed}}.",
       "diffBreakdown": "{{new}} nowych, {{changed}} zmienionych, {{gone}} wycofanych.",
       "diffNoneKept_one": "Nowy wykrywacz przejrzał całą twoją bibliotekę i nie zachował żadnego z twoich odcinków ({{count}}). Odcinek został wycofany, nie usunięty: otwórz listę wycofanych odcinków, aby przywrócić ten, który chcesz.",

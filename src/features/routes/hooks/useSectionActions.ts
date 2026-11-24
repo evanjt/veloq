@@ -427,6 +427,7 @@ export function useSectionActions({
       onConfirm: () => {
         if (!engine.setSectionIsLift(id, false)) {
           log.warn('unflag refused', id);
+          informSectionWriteRefused(t);
           return;
         }
         queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });

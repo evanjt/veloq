@@ -14,12 +14,7 @@ import * as path from 'path';
 import { render } from '@testing-library/react-native';
 import { resolvedLocale } from '../../i18n/resolvedLocale';
 import { getAllSlides, getTutorialSlides } from '@/features/settings/components/whatsNew/slides';
-import {
-  SECTIONS_LIST_ROUTE,
-  ROUTES_LIST_ROUTE,
-  resolveShowMeRoute,
-  type TourLibrary,
-} from '@/features/settings/lib/tourShowMe';
+import { resolveShowMeRoute, type TourLibrary } from '@/features/settings/lib/tourShowMe';
 import {
   TOUR_DEMO_ATTEMPTS,
   demoHistogram,
@@ -50,15 +45,13 @@ function slideOf(titleKey: string) {
 }
 
 describe('the tour', () => {
-  vaultIt('carries a sections slide followed by a routes slide, each offering Show Me', () => {
+  vaultIt('carries a sections slide followed by a routes slide', () => {
     const titles = getTutorialSlides().map((s) => s.titleKey);
     const at = titles.indexOf('whatsNew.v040.sectionPageTitle');
     expect(titles.slice(at, at + 2)).toEqual([
       'whatsNew.v040.sectionPageTitle',
       'whatsNew.v040.routesTitle',
     ]);
-    expect(slideOf('whatsNew.v040.sectionPageTitle').showMeRoute).toBe(SECTIONS_LIST_ROUTE);
-    expect(slideOf('whatsNew.v040.routesTitle').showMeRoute).toBe(ROUTES_LIST_ROUTE);
   });
 
   vaultIt('no longer gives section trimming a slide of its own', () => {

@@ -1,9 +1,9 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { configure, render } from '@testing-library/react-native';
 
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
-import { DetailHero, HeroNameRow, HeroStatsRow } from '@/shared/ui/DetailHero';
+import { HeroNameRow, HeroStatsRow } from '@/shared/ui/DetailHero';
 import { opacity, typography } from '@/theme';
 import type { FeedCard } from '@/types';
 
@@ -61,23 +61,16 @@ it('uses one shadow geometry and full type roles for map text', async () => {
   expect(cardName.lineHeight).toBe(typography.cardTitle.lineHeight);
 
   const hero = await render(
-    <DetailHero
-      height={320}
-      overlay={
-        <>
-          <HeroNameRow name="River path" nameTestID="hero-name" />
-          <HeroStatsRow
-            stats={[
-              { text: '42 km', label: 'Distance: 42 km' },
-              { text: '2h', label: 'Duration: 2h' },
-            ]}
-            statTestIDs={['hero-stat']}
-          />
-        </>
-      }
-    >
-      <View />
-    </DetailHero>
+    <>
+      <HeroNameRow name="River path" nameTestID="hero-name" />
+      <HeroStatsRow
+        stats={[
+          { text: '42 km', label: 'Distance: 42 km' },
+          { text: '2h', label: 'Duration: 2h' },
+        ]}
+        statTestIDs={['hero-stat']}
+      />
+    </>
   );
   const heroName = styleOf(hero.getByTestId('hero-name'));
   const heroStat = styleOf(hero.getByTestId('hero-stat'));

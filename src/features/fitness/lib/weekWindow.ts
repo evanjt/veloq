@@ -11,6 +11,7 @@
  * widget snapshot, the strength volume and the insights parameters already use.
  */
 
+import { TIME } from '@/shared/app/time';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 
 /**
@@ -46,4 +47,16 @@ export function trailingDaysWindow(days: number, now: Date): { startTs: number; 
     startTs: localWallClockToEpochSeconds(start),
     endTs: localWallClockToEpochSeconds(end),
   };
+}
+
+/**
+ * The ISO week number of a date. Week 1 is the week holding the year's first
+ * Thursday, so a week that starts in December can be week 1 of the next year.
+ */
+export function getISOWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / TIME.DAY + 1) / 7);
 }

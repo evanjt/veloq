@@ -10,7 +10,6 @@ import type {
   FfiMatchStrictness,
   FfiMapScreenData,
   MapDistanceBand,
-  FfiRouteGroup,
   GroupSummary,
   AthleteProfile,
   FfiStartResult,
@@ -729,8 +728,6 @@ class EngineClient implements DelegateHost {
 
   getBodiesStored = (): number => syncDelegates.getBodiesStored(this);
 
-  getGroups = (): FfiRouteGroup[] => routeDelegates.getGroups(this);
-
   getFilteredGroupSummaries = (
     minActivities: number,
     sortKey: routeDelegates.GroupSortKey
@@ -1100,12 +1097,8 @@ class EngineClient implements DelegateHost {
 
   deleteSetting = (key: string): void => settingsDelegates.deleteSetting(this, key);
 
-  streamRetentionDays = (): number | undefined => settingsDelegates.streamRetentionDays(this);
-
   setStreamRetentionDays = (days: number): void =>
     settingsDelegates.setStreamRetentionDays(this, days);
-
-  streamStoreBytes = (): number => settingsDelegates.streamStoreBytes(this);
 
   // ==========================================================================
   // Backup
@@ -1232,12 +1225,6 @@ class EngineClient implements DelegateHost {
   bulkExportProgress(): { running: boolean; run?: number; visited: number; total: number } {
     if (!this.ready) return { running: false, visited: 0, total: 0 };
     return this.timed('bulkExportProgress', () => this.engine.bulkExportProgress());
-  }
-
-  computePolylineOverlap(coordsA: number[], coordsB: number[], thresholdMeters = 50): number {
-    return this.timed('computePolylineOverlap', () =>
-      generated.computePolylineOverlap(coordsA, coordsB, thresholdMeters)
-    );
   }
 
   getSectionsByType = (sectionType?: 'auto' | 'custom'): FfiSection[] =>

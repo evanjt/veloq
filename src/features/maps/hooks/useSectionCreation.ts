@@ -8,7 +8,7 @@ import { type LatLng } from '@/shared/geo/polyline';
 import type { RoutePoint } from '@/types';
 import type { CreationState } from '@/features/maps/components/SectionCreationOverlay';
 import type { SectionCreationResult } from '@/features/maps/components/ActivityMapView';
-import { haversineDistance } from '@/shared/math/geometry';
+import { haversineDistance } from '@/shared/geo/distance';
 import { debug } from '@/shared/debug/debug';
 import { EMPTY_FEATURE_COLLECTION } from '@/features/maps/lib/coordinates';
 import * as haptics from '@/shared/ui/haptics';

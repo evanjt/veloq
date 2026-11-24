@@ -650,6 +650,7 @@
       "database": "データベースで処理できませんでした。再試行し、続く場合はキャッシュを消去してください。"
     },
     "initReason": {
+      "wipeFailed": "前のアスリートのアクティビティをこの端末から消去できなかったため、まだ表示されています。もう一度お試しください。",
       "busy": "他の処理がデータベースを使用中です。少ししてからやり直してください。",
       "forwardSchema": "このデータは新しいバージョンの Veloq で保存されています。アプリを更新してください。",
       "storageUnavailable": "データベースを書き込めませんでした。空き容量を確保してからやり直してください。",
@@ -692,6 +693,7 @@
     "rideStillRecording": "ライドはまだ記録中です。",
     "stopAndSaveRide": "ライドを停止して保存",
     "rideStopped": "ライドは停止され、このデバイスに保持されています。",
+    "rideNotSaved": "ライドは停止されましたが、まだ保存されていません。メモリ上にのみ存在します。",
     "shareFailed": "クラッシュログを共有できませんでした。",
     "unableToLoad": "{{part}}を読み込めません",
     "retryHint": "「再試行」をタップすると、もう一度読み込みます。",
@@ -881,16 +883,9 @@
     "notificationsBody": "Veloqは、ライドで自己ベストやルートでの更新タイムが出たときに、ルート名つきでお知らせできます。"
   },
   "filters": {
-    "climbing": "クライミング",
     "cycling": "サイクリング",
-    "hiking": "ハイキング",
-    "other": "その他",
-    "racketSports": "ラケットスポーツ",
     "running": "ランニング",
-    "snowSports": "スノースポーツ",
-    "swimming": "スイミング",
-    "walking": "ウォーキング",
-    "waterSports": "ウォータースポーツ"
+    "swimming": "スイミング"
   },
   "fitness": {
     "activitiesCount_one": "{{count}}件のアクティビティ",
@@ -2674,8 +2669,6 @@
       "backupBody": "intervals.icu が保持しないもの（セクション名、編集内容、設定）を保存します。"
     },
     "v040": {
-      "recutRunning": "区間を再解析しています",
-      "recutRunningPhase": "区間を再解析しています: {{phase}}",
       "diffTotals": "{{current}} 件の区間が {{proposed}} 件になりました。",
       "diffBreakdown": "新規 {{new}} 件、変更 {{changed}} 件、引退 {{gone}} 件。",
       "diffNoneKept_one": "新しい検出器はライブラリ全体を再解析しましたが、{{count}} 件の区間は一つも残りませんでした。削除ではなく消えた区間として保存されているので、消えた区間の一覧から必要なものを戻せます。",

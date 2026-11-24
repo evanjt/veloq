@@ -351,25 +351,15 @@ export function reachOf(inSrc: number, inDelegates: number): Reach {
 export const OWNED_ELSEWHERE: Record<string, string> = {
   // The share-sheet export calls it once that screen is built; the engine side lands first.
   'VeloqEngine.runLibraryExport': 'called by the library export screen once it is built',
-  // The debug screen's switch for the backfill's day cap calls it once the
-  // screen offers the switch; the engine side lands first.
-  'SyncManager.setBackfillCapLifted': 'called by the debug screen switch once it is built',
-  // The exercise picker reads the search once it is built; the labels are handed in already.
-  'StrengthManager.searchExercises': 'read by the exercise picker once it is built',
-  // The followed route's turns are read by the map layer that marks them,
-  // which is built after the engine side.
-  'RouteFollower.turns': 'read by the followed-line map layer once it marks turns',
-  // The retired list reads the old-versus-new map record now, so no TypeScript
-  // caller is left. The Rust export is deleted with a regeneration of the
-  // bindings, which a change to the screens does not carry.
-  'SectionManager.getRetired':
-    'superseded by getRetiredMap; awaiting deletion from Rust with the bindings regenerated',
+  // The followed route's turns are read as `follower.turns()` on a local with
+  // no declared type, which the scan cannot place on an export.
+  'RouteFollower.turns':
+    'called on an untyped local in routeFollowing.ts, which the scan cannot place',
   // UniFFI names a constructor `new` and the engine's accessor builds each
   // manager on the Rust side, so TypeScript holds the handle and never
   // constructs one. There is no call to find and nothing to wire up.
   'ActivityManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
   'RemoteManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
-  'BasemapManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
   'DetectionManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
   'FitnessManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
   'HeatmapManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
@@ -385,8 +375,6 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
   // screen, so none of it has a caller here yet.
   'BasemapManager.setPath':
     'the basemap tile store, reached from the offline map work rather than a screen',
-  'BasemapManager.putTile': 'the basemap tile store, written by the tile pipeline',
-  'BasemapManager.getTile': 'the basemap tile store, read by the tile pipeline',
   'BasemapManager.getCacheSize':
     'read by the cache screen and the hub total, through a lazy require the scan does not follow',
   'BasemapManager.getSourceSize':
@@ -398,7 +386,6 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
     "the debug screen's tile table, through a lazy require the scan does not follow",
   'BasemapManager.resetTileCounts':
     "the debug screen's Clear metrics button, through a lazy require the scan does not follow",
-  'BasemapManager.clearSourceTiles': 'the basemap tile store, the per-source clear',
   'BasemapManager.setBudget':
     'handed the tile limit by the settings store, through a lazy require the scan does not follow',
   'BasemapManager.flush':
@@ -411,12 +398,19 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
     "asked for the Android listener's ports and token at style load and on a return to the foreground, through a lazy require the scan does not follow",
   'BasemapManager.getOrFetchTile':
     'the interceptor reaches the store through the JNI symbol, not this mirror, and iOS has no interceptor yet',
-
-  validateBackupDatabase:
-    'reached through a dynamic property off the native module, so no static call exists to find',
-  // The engine can answer what shape a week's load had; no screen asks yet,
-  // and the surface that would draw it is its own item.
 };
+
+/**
+ * The `OWNED_ELSEWHERE` rows that no longer earn their place: an export the
+ * scan now places a call or a delegate on, or one the Rust source no longer
+ * declares. A row left behind hides the next export to lose its caller.
+ */
+export function ownedElsewhereProblems(
+  reach: Map<string, Reach>,
+  owned: Record<string, string>
+): string[] {
+  return Object.keys(owned).filter((key) => (reach.get(key) ?? 'called') !== 'unreachable');
+}
 
 /**
  * Every method `EngineClient` declares, in source order.
@@ -456,14 +450,6 @@ export const CLIENT_UNREACHED_ALLOWED: Record<string, string> = {
   // Read by tests, which are not callers, and by nothing in the app.
   isInitialized: 'no production caller; the engine tests read it to see that an open landed',
   getBackupMetadata: 'no production caller; the backup tests read it',
-  computePolylineOverlap: 'no production caller; the binding tests reach the export through it',
-
-  // The routes status read carries the figure, so a second read is a second
-  // poller of one fact.
-  streamRetentionDays:
-    'no production caller; the stream history row reads it from its screen data instead',
-  streamStoreBytes:
-    'no production caller; the stream history row reads it from its screen data instead',
 };
 
 /**

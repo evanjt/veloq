@@ -8,7 +8,6 @@
  * refreshes the charts without a second network call.
  */
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { PERIOD_DAYS } from '@/shared/app/period';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -102,7 +101,6 @@ const selectCoverage = (window: WellnessWindow): RangeCoverage => window.coverag
 function wellnessWindowQuery(range: TimeRange, isAuthenticated: boolean) {
   const { oldest, newest } = getDateRange(range);
   return {
-    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.wellness.byRange(range, oldest, newest),
     queryFn: () => readWellness(oldest, newest),
     enabled: isAuthenticated,
@@ -163,7 +161,6 @@ export function useWellnessDays(
   useWellnessInvalidation();
 
   const { data } = useQuery({
-    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.wellness.byRange('window', oldest, newest),
     queryFn: () => readWellness(oldest, newest),
     enabled: isAuthenticated,
@@ -204,7 +201,6 @@ export function useWellnessForDate(date: string | undefined) {
   useWellnessInvalidation();
 
   return useQuery<WellnessData | null>({
-    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.wellness.byDate(date),
     queryFn: () => {
       if (!date) return null;

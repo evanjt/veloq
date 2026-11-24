@@ -72,7 +72,6 @@ import {
   type FfiStalePrOpportunity,
   type FfiSectionChange,
   type FfiHrvTrend,
-  type FfiBackupValidation,
   type FfiEftpChange,
 } from './generated/veloqrs';
 
@@ -297,8 +296,6 @@ export type StalePrOpportunity = FfiStalePrOpportunity;
 export type SectionChange = FfiSectionChange;
 /** The HRV verdict over a trailing window. */
 export type HrvTrend = FfiHrvTrend;
-/** What the native probe reports about a picked backup file. */
-export type BackupValidation = FfiBackupValidation;
 /** One activity that moved the athlete's accepted eFTP. */
 export type EftpChange = FfiEftpChange;
 export type {

@@ -413,18 +413,26 @@ export function buildFullscreenSectionSources(
   };
 }
 
-/** The matched route for BaseMapView's under-route layers. */
+/**
+ * The matched route for BaseMapView's under-route layers. `terrain` is the flag
+ * BaseMapView passes when its base is tilted, and the line is drawn at the 3D
+ * width then, as the inline map draws it.
+ */
 export function buildFullscreenMatchedRouteLayers(
   overlayHasData: boolean,
-  palette: MapPalette
+  palette: MapPalette,
+  terrain = false
 ): MapLayerSpec[] {
-  return overlayLayers('fullscreen-', overlayHasData, palette);
+  return overlayLayers('fullscreen-', overlayHasData, palette, terrain ? MAP_3D_SCALE : 1);
 }
 
+/** The section portions and PR markers over the route, at the 3D width when tilted. */
 export function buildFullscreenSectionLayers(
   hasSectionOverlays: boolean,
-  palette: MapPalette
+  palette: MapPalette,
+  terrain = false
 ): MapLayerSpec[] {
+  const scale = terrain ? MAP_3D_SCALE : 1;
   return [
     {
       id: 'fullscreen-portion-casing',
@@ -433,7 +441,7 @@ export function buildFullscreenSectionLayers(
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
         'line-color': palette.edge,
-        'line-width': 6,
+        'line-width': 6 * scale,
         'line-opacity': hasSectionOverlays ? 1 : 0,
       },
     },
@@ -444,7 +452,7 @@ export function buildFullscreenSectionLayers(
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
         'line-color': sectionHue(palette),
-        'line-width': 4,
+        'line-width': 4 * scale,
         'line-opacity': hasSectionOverlays ? 1 : 0,
       },
     },

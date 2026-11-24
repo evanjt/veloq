@@ -12,6 +12,7 @@
  */
 
 import { DisconnectReason } from 'veloqrs';
+import { errorMessage } from '@/shared/format/errorMessage';
 
 /** The relay socket the controller needs, which the platform WebSocket satisfies. */
 export interface RelaySocket {
@@ -157,7 +158,7 @@ export function createRemoteLink({
           if (seat.socket === socket) socket.send(answer);
         },
         (error: unknown) => {
-          diagnose?.(`offer refused: ${error instanceof Error ? error.message : String(error)}`);
+          diagnose?.(`offer refused: ${errorMessage(error)}`);
         }
       );
     };

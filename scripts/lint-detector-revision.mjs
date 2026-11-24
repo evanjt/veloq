@@ -80,10 +80,13 @@ const revisionOf = (text) => REVISION.exec(text ?? '')?.[1];
 const before = revisionOf(git(['show', `${base}:${REVISION_FILE}`], root));
 const after = revisionOf(git(['show', `:${REVISION_FILE}`], root));
 
-if (before === undefined || after === undefined) {
+if (after === undefined) {
   console.error(`DETECTOR_REVISION was not found in ${REVISION_FILE}, so it cannot be compared.`);
   process.exit(1);
 }
+// A base that predates the constant has no revision to leave unchanged: the
+// commit that defines it is the first revision.
+if (before === undefined) process.exit(0);
 if (before !== after) process.exit(0);
 
 console.error(

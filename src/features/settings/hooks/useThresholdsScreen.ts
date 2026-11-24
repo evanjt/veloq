@@ -5,14 +5,12 @@
 
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { settings, type FfiThresholdField, type FfiThresholdsScreenData } from 'veloqrs';
 
 export function useThresholdsScreen() {
   const client = useQueryClient();
   const query = useQuery({
-    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.thresholdsScreen,
     queryFn: (): FfiThresholdsScreenData | null => settings.getThresholdsScreenData() ?? null,
     staleTime: 0,

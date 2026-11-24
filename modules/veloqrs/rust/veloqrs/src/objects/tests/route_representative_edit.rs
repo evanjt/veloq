@@ -2,7 +2,7 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use super::*;
-use crate::test_globals::{init_global_engine, serial_global_state};
+use crate::test_globals::{init_global_engine, saved_route_groups, serial_global_state};
 
 /// Three rides of one corridor, grouped into one route. Returns the route,
 /// the representative grouping chose, and a member that is not it.
@@ -35,9 +35,7 @@ fn grouped_library() -> (String, String, String) {
 }
 
 fn representative(route_id: &str) -> String {
-    RouteManager::new()
-        .get_all()
-        .unwrap()
+    saved_route_groups()
         .into_iter()
         .find(|group| group.group_id == route_id)
         .expect("route")

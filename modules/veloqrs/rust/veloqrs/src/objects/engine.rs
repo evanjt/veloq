@@ -386,7 +386,7 @@ impl VeloqEngine {
     }
 
     fn get_stats(&self) -> Result<PersistentEngineStats, VeloqError> {
-        with_reader(crate::persistence::pooled_stats)
+        with_reader(crate::persistence::pooled_stats)?
     }
 
     /// Give back what the engine holds in memory and can rebuild, when the OS
@@ -526,7 +526,7 @@ impl VeloqEngine {
         heatmap_tiles_path: Option<String>,
     ) -> Result<PersistentEngineStats, VeloqError> {
         self.set_name_translations(route_word, section_word);
-        with_engine(|e| e.launch_data(athlete_id, heatmap_tiles_path))
+        with_engine(|e| e.launch_data(athlete_id, heatmap_tiles_path))?
     }
 
     fn sections(&self) -> Arc<super::sections::SectionManager> {
@@ -728,7 +728,7 @@ impl VeloqEngine {
     /// Returns: {"schema_version", "activity_count", "section_count", "athlete_id"}.
     fn get_backup_metadata(&self) -> Result<String, VeloqError> {
         with_engine(|e| {
-            let stats = e.stats();
+            let stats = e.stats()?;
             let athlete_id: Option<String> = e.get_setting("__athlete_id").ok().flatten();
             let schema_version =
                 e.db.query_row(
@@ -1109,13 +1109,27 @@ mod tests {
     }
 
     #[test]
+    fn stats_report_an_unreadable_count_rather_than_an_empty_library() {
+        let _guard = serial_global_state();
+        let _tmp = init_global_engine("stats_unreadable.db");
+        seed_activity("a1");
+        let engine = VeloqEngine;
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        assert!(matches!(
+            crate::persistence::pooled_stats(&conn),
+            Err(VeloqError::Database { .. })
+        ));
+        assert_eq!(engine.get_stats().unwrap().activity_count, 1);
+    }
+
+    #[test]
     fn pooled_stats_equal_the_engines_after_each_kind_of_write() {
         let _guard = serial_global_state();
         let _tmp = init_global_engine("stats_parity.db");
         let engine = VeloqEngine;
         let parity = |when: &str| {
             let pooled = engine.get_stats().unwrap();
-            let mut own = with_persistent_engine(|e| e.stats()).unwrap();
+            let mut own = with_persistent_engine(|e| e.stats().unwrap()).unwrap();
             // Process-wide figures that move between the two reads, not rows.
             own.sqlite_heap_bytes = pooled.sqlite_heap_bytes;
             own.satellite_cache_bytes = pooled.satellite_cache_bytes;
@@ -1163,7 +1177,8 @@ mod tests {
         let engine = VeloqEngine;
         seed_activity("a1");
         seed_activity("a2");
-        let signatures = || with_persistent_engine(|e| e.stats().signature_cache_size).unwrap();
+        let signatures =
+            || with_persistent_engine(|e| e.stats().unwrap().signature_cache_size).unwrap();
         assert!(signatures() > 0, "an add caches the signature it built");
         crate::basemap::store()
             .unwrap()

@@ -17,6 +17,7 @@ import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { summarySeriesColor } from '@/features/home/lib/summaryMetricColour';
 import { useDashboardPreferences } from '@/features/settings/stores/summaryCardPreferences';
 import { colors, darkColors } from '@/theme';
+import { summaryCardBundle } from '../__shared__/summaryCardBundle';
 
 const mockScheme = { current: 'light' as 'light' | 'dark' };
 
@@ -34,7 +35,7 @@ jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefin
 jest.mock('@/features/stats', () => ({ usePaceCurve: () => ({ data: undefined }) }));
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));
 
-const CARD = {
+const CARD = summaryCardBundle({
   wellness: {
     fitness: 62,
     fatigue: 70,
@@ -49,7 +50,7 @@ const CARD = {
   ftpTrend: { latestFtp: 250, previousFtp: 245 },
   runPaceTrend: {},
   swimPaceTrend: {},
-};
+});
 
 const SPARKLINES = {
   fitness: [58, 60, 62],

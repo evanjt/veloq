@@ -5,7 +5,6 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { SectionRenameError } from '../lib/sectionRenameFailure';
@@ -214,7 +213,6 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     error,
     refetch,
   } = useQuery<Section[]>({
-    ...LOCAL_READ_QUERY,
     queryKey: queryKeys.sections.custom,
     enabled: enabled && !skipOwnFfiCall,
     queryFn: async () => {

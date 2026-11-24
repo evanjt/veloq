@@ -14,6 +14,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { GlobalErrorBoundary } from '@/shared/ui/GlobalErrorBoundary';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
 import { endRecordingSession } from '@/features/recording/lib/endRecordingSession';
 import { shareFile } from '@/features/settings/lib/shareFile';
 import { colors, darkColors } from '@/theme';
@@ -51,6 +52,7 @@ beforeEach(() => {
   (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
   consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
   useRecordingStore.getState().reset();
+  useRecordingLiveStore.getState().reset();
   jest.clearAllMocks();
 });
 
@@ -137,6 +139,22 @@ describe('the app crash screen in a release build', () => {
       expect(tree.getByText('Your ride is stopped and kept on this device.')).toBeTruthy();
     }
   );
+
+  it('does not say a stopped ride is kept on the device when its backup write failed', async () => {
+    useRecordingStore.setState({ status: 'recording', startTime: Date.now() - 60_000 });
+    useRecordingLiveStore.getState().recordBackupWrite(false);
+    const tree = await renderCrash();
+
+    await act(async () => {
+      fireEvent.press(tree.getByText('Stop and save ride'));
+    });
+
+    expect(useRecordingStore.getState().status).toBe('stopped');
+    expect(tree.queryByText('Your ride is stopped and kept on this device.')).toBeNull();
+    expect(
+      tree.getByText('Your ride is stopped but not yet saved. It exists only in memory.')
+    ).toBeTruthy();
+  });
 
   vaultIt.each([
     ['light', colors],

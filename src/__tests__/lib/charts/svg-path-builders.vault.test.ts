@@ -1,4 +1,4 @@
-import { polylineSvgPath, bandSvgPath } from '@/shared/charts/svgPath';
+import { polylineSvgPath, bandSvgPath, runsSvgPath } from '@/shared/charts/svgPath';
 
 // These builders feed Skia.Path.MakeFromSVGString - the supported constructor after
 // the imperative Skia.Path.Make().moveTo()/lineTo() API was deprecated in skia 2.x.
@@ -49,5 +49,30 @@ describe('bandSvgPath', () => {
       { x: 2, y: 4 },
     ];
     expect(bandSvgPath(upper, lower)).toBe('M0 0L2 0L2 4L0 4Z');
+  });
+});
+
+describe('runsSvgPath', () => {
+  it('returns an empty string for no runs', () => {
+    expect(runsSvgPath([])).toBe('');
+  });
+
+  it('draws each run as its own subpath, separated by a space', () => {
+    expect(
+      runsSvgPath([
+        [
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+        ],
+        [
+          { x: 5, y: 5 },
+          { x: 6, y: 7 },
+        ],
+      ])
+    ).toBe('M0 0L1 1 M5 5L6 7');
+  });
+
+  it('skips an empty run rather than leaving a gap', () => {
+    expect(runsSvgPath([[], [{ x: 1, y: 2 }]])).toBe('M1 2');
   });
 });

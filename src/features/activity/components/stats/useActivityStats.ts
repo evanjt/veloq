@@ -8,7 +8,7 @@
  */
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
+import { readsAsPace } from '@/shared/activity/activityUtils';
 import {
   formatCalorieRate,
   formatCalories,
@@ -35,7 +35,7 @@ import type { ActivityNewGround } from '../../hooks/useActivitySectionHighlights
 import { FEELS_LIKE_THRESHOLD } from '@/constants';
 import { useSource } from '@/shared/app/source/useSource';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
-import { formFromLoads } from '@/shared/math';
+import { calculateSpeed, formFromLoads } from '@/shared/math';
 import { formatDecimal, formatPercent, formatSigned } from '@/shared/format';
 
 // Explanation keys for each metric - educational, not interpretive
@@ -205,12 +205,19 @@ export function useActivityStats({
 
     // Speed, or pace for a sport read in pace. Both come from the stored
     // summary, so a ride whose streams were never fetched still shows them.
-    const avgSpeed = summary?.averageSpeed;
+    // The average is distance over moving time, as the chart line and the
+    // recording review read it; the stored figure is often over elapsed time.
+    // It stands only when the activity has no distance or moving time.
+    const movingSpeed = calculateSpeed(
+      activity.distance,
+      summary?.movingTime ?? activity.movingTime
+    );
+    const avgSpeed = movingSpeed > 0 ? movingSpeed : summary?.averageSpeed;
     if (avgSpeed != null) {
       const maxSpeed = summary?.maxSpeed;
       const sport = toActivityType(activity.sportType);
       // The sports `formatSportSpeed` reads as a pace.
-      const metric = isPaceSport(sport) || isSwimmingActivity(sport) ? 'Pace' : 'Speed';
+      const metric = readsAsPace(sport) ? 'Pace' : 'Speed';
       const formatted = (speed: number) => formatSportSpeed(speed, sport, isMetric);
       result.push({
         title: metric === 'Speed' ? t('activity.stats.speed') : t('activity.stats.pace'),

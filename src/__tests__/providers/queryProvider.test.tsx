@@ -4,7 +4,7 @@
  * Scenario: every queryFn in the tree reads the on-device engine, which rebuilds
  * any key from SQLite faster than AsyncStorage can be read and parsed.
  * Expected behaviour: a plain client provider with no persister, the first query
- * running on the first render, and a one-time removal of the legacy blob.
+ * running on the first render, and no storage writes.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -34,7 +34,6 @@ const QueryProviderModule =
   require('@/shared/query/QueryProvider') as typeof import('@/shared/query/QueryProvider');
 const { QueryProvider } = QueryProviderModule;
 const queryClient: QueryClient = QueryProviderModule.queryClient;
-const removalsAtImport = removeItemSpy.mock.calls.map((call) => call[0]);
 const readsAtImport = getItemSpy.mock.calls.map((call) => call[0]);
 
 function Probe({ queryFn, cacheKey }: { queryFn: () => Promise<string>; cacheKey: string }) {
@@ -53,7 +52,7 @@ describe('QueryProvider', () => {
       const defaults = queryClient.getDefaultOptions().queries!;
       expect(defaults.staleTime).toBe(1000 * 60 * 5);
       expect(defaults.gcTime).toBe(1000 * 60 * 60 * 2);
-      expect(defaults.networkMode).toBe('offlineFirst');
+      expect(defaults.networkMode).toBe('always');
       expect(defaults.retry).toBe(2);
       expect(defaults.refetchOnMount).toBe(false);
       expect(defaults.refetchOnWindowFocus).toBe(false);
@@ -61,34 +60,14 @@ describe('QueryProvider', () => {
     });
   });
 
-  describe('legacy cache cleanup', () => {
-    it('removes the veloq-query-cache blob on the first mount', async () => {
-      expect(removalsAtImport).toEqual([]);
-      await render(
-        <QueryProvider>
-          <></>
-        </QueryProvider>
-      );
-      expect(removeItemSpy).toHaveBeenCalledWith('veloq-query-cache');
-    });
-
-    it('does not remove it again on mount, or on a second mount', async () => {
-      await render(
-        <QueryProvider>
-          <></>
-        </QueryProvider>
-      );
+  describe('storage use', () => {
+    it('removes nothing from AsyncStorage on mount', async () => {
       await render(
         <QueryProvider>
           <></>
         </QueryProvider>
       );
       expect(removeItemSpy).not.toHaveBeenCalled();
-    });
-
-    it('swallows a failed removal', async () => {
-      removeItemSpy.mockRejectedValueOnce(new Error('disk full'));
-      await expect(QueryProviderModule.clearLegacyQueryCache()).resolves.toBeUndefined();
     });
   });
 

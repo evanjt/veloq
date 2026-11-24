@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { getISOWeekNumber, formatWeekRange } from '@/features/fitness';
+import { getISOWeekNumber } from '@/features/fitness';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { formatPercent } from '@/shared/format';
 import { Text } from 'react-native-paper';
@@ -13,6 +13,7 @@ import { RangeCoverage } from 'veloqrs';
 import {
   formatDistance,
   formatFullDate,
+  formatWeekRange,
   getMonday,
   formatDurationHuman,
 } from '@/shared/format/format';

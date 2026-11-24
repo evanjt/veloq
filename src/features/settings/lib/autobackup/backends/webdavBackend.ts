@@ -24,6 +24,7 @@ import { addressFailure, transferFailure, transportFailure } from './errors';
 import { NET_DEADLINE_MS, fetchWithDeadline } from '@/shared/net/fetchWithDeadline';
 import { basicAuthHeader } from '@/shared/net/basicAuth';
 import { debug } from '@/shared/debug/debug';
+import { errorMessage } from '@/shared/format/errorMessage';
 
 const log = debug.create('WebdavBackend');
 
@@ -103,7 +104,7 @@ async function deleteQuietly(url: string, headers: Record<string, string>): Prom
       log.warn(`Delete rejected (${res.status}): ${url}`);
     }
   } catch (error) {
-    log.warn('Delete failed:', error instanceof Error ? error.message : String(error));
+    log.warn('Delete failed:', errorMessage(error));
   }
 }
 

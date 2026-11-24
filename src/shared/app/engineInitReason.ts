@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next';
 import { InitOutcome, type FfiStorageShortfall } from 'veloqrs';
 
+import type { EngineInitReason } from '@/features/routes/stores/EngineStatusStore';
 import { formatFileSize } from '@/shared/format/format';
 import { navigateTo } from '@/shared/app/navigation';
 import { offerCrashLog, openForum, openStorePage } from '@/shared/app/supportLinks';
@@ -14,11 +15,14 @@ import { offerCrashLog, openForum, openStorePage } from '@/shared/app/supportLin
  * space or permission, and a file whose version records disagree with its
  * tables is kept on the device for someone to look at.
  *
+ * A launch wipe that rejected leaves the previous athlete's library open, so
+ * its line says the wipe failed, not that the library is untouched.
+ *
  * `Opened` and `NotAttempted` are not failures, and a variant this bundle has
  * no case for is what an engine newer than it produces. Both fall through to
  * the general line rather than rendering a key as text.
  */
-export function engineInitReasonKey(reason: InitOutcome | null) {
+export function engineInitReasonKey(reason: EngineInitReason | null) {
   switch (reason) {
     case InitOutcome.Busy:
       return 'engine.initReason.busy';
@@ -30,6 +34,8 @@ export function engineInitReasonKey(reason: InitOutcome | null) {
       return 'engine.initReason.failed';
     case InitOutcome.VersionMismatch:
       return 'engine.initReason.versionMismatch';
+    case 'wipeFailed':
+      return 'engine.initReason.wipeFailed';
     default:
       return 'engine.initFailed';
   }
@@ -41,7 +47,7 @@ export function engineInitReasonKey(reason: InitOutcome | null) {
  * from an earlier attempt says nothing about a later one.
  */
 export function engineInitReasonLine(
-  reason: InitOutcome | null,
+  reason: EngineInitReason | null,
   shortfall: FfiStorageShortfall | null,
   t: TFunction
 ): string {
@@ -66,7 +72,7 @@ export interface EngineRecoveryAction {
  * no case for keeps the retry, since nothing is known that rules it out.
  */
 export function engineRecoveryActions(
-  reason: InitOutcome | null,
+  reason: EngineInitReason | null,
   t: TFunction,
   retry: () => void
 ): EngineRecoveryAction[] {
