@@ -152,11 +152,6 @@ describe.each(CLOCK_EDGES)('the fitness screen read on %s', (_name, at) => {
     expect(windows.heatmapLastDay).toBe(localDay(at));
     expect(iso(windows.months.startTs)).toBe(`${year - 1}-01-01T00:00:00.000Z`);
     expect(iso(windows.months.endTs)).toBe(`${localDay(at)}T23:59:59.000Z`);
-    expect(iso(windows.yearCurrent.startTs)).toBe(`${year}-01-01T00:00:00.000Z`);
-    expect(iso(windows.yearCurrent.endTs)).toBe(`${localDay(at)}T23:59:59.000Z`);
-    expect(iso(windows.yearPrevious.startTs)).toBe(`${year - 1}-01-01T00:00:00.000Z`);
-    expect(iso(windows.monthCurrent.startTs).slice(0, 10)).toBe(localDay(at, 1 - at.getDate()));
-    expect(iso(windows.monthPrevious.startTs).slice(0, 4)).toBe(`${year - 1}`);
   });
 });
 

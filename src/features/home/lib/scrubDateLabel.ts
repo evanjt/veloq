@@ -1,3 +1,4 @@
+import { addLocalDays } from '@/shared/time/localDay';
 import { formatShortDate } from '@/shared/format/format';
 
 /**
@@ -8,8 +9,7 @@ import { formatShortDate } from '@/shared/format/format';
  * locale and the other passed none, which is the device's.
  */
 export function scrubDateLabel(daysAgo: number, today: Date = new Date()): string {
-  const date = new Date(today);
-  date.setDate(date.getDate() - daysAgo);
+  const date = addLocalDays(today, -daysAgo);
 
   return formatShortDate(date);
 }

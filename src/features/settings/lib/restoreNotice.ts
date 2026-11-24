@@ -11,7 +11,7 @@ import { sourceFor } from '@/shared/app/source';
 import { NOTICE_LONG_MS, showNotice } from '@/shared/ui/Notice';
 
 /** What the latest restore gave up on, every pass so far included, as the engine counts it. */
-export interface RestoreDrops {
+interface RestoreDrops {
   /** History rows left in the backup file because no section here covers their ground. */
   notRestored: number;
   /** Route names whose routes the grouping here merged into one already named. */

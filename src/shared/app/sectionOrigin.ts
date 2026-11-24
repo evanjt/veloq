@@ -1,7 +1,7 @@
 import { DEFAULT_PERIOD, type Period } from './period';
 
 /** The origin an insight marks on a section it opens, as the `origin` query value. */
-export const INSIGHTS_ORIGIN = 'insights';
+const INSIGHTS_ORIGIN = 'insights';
 
 const ORIGIN_PARAM = 'origin';
 

@@ -11,7 +11,7 @@ import { formatDateTime, formatFileSize } from '@/shared/format/format';
 
 import type { BackupEntry } from './autobackup/backends';
 
-export interface BackupEntryParts {
+interface BackupEntryParts {
   /** The date and time the backup was made, or that it was not recorded. */
   when: string;
   /** Size, version and activity count, the parts the entry knows, joined. */

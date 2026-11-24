@@ -38,6 +38,8 @@ fn outing(
 ) -> crate::SectionPerformanceRecord {
     let first = laps[0].clone();
     crate::SectionPerformanceRecord {
+        avg_pace_text: None,
+        best_pace_text: None,
         activity_id: activity.to_string(),
         activity_name: activity.to_string(),
         activity_date: crate::WholeNumber(chrono::Utc::now().timestamp() - age_days * 86_400),

@@ -18,7 +18,13 @@ import { FitnessTrendSections } from '@/features/fitness/components/sections/Fit
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
-function renderRunning(props: { thresholdPace?: number; runLthr?: number }) {
+/** Text that differs from what the formatter would print, so only the engine's can match. */
+const ENGINE_PACE = { speed: 4.2, metricText: '4:01', imperialText: '6:27' };
+
+function renderRunning(props: {
+  thresholdPace?: typeof ENGINE_PACE | undefined;
+  runLthr?: number;
+}) {
   return render(
     <FitnessTrendSections
       sportMode="Running"
@@ -67,25 +73,25 @@ describe('the running threshold section', () => {
     }
   );
 
-  it('renders the pace it was given per kilometre when metric', async () => {
+  it("prints the engine's kilometre text when metric", async () => {
     useUnitPreference.setState({ unitPreference: 'metric' });
-    const tree = await renderRunning({ thresholdPace: 4.2 });
+    const tree = await renderRunning({ thresholdPace: ENGINE_PACE });
 
     expect(tree.queryByTestId('fitness-threshold-empty')).toBeNull();
-    expect(tree.getAllByText('3:58/km').length).toBeGreaterThan(0);
+    expect(tree.getAllByText('4:01/km').length).toBeGreaterThan(0);
   });
 
-  it('renders the pace it was given per mile when imperial', async () => {
+  it("prints the engine's mile text when imperial", async () => {
     useUnitPreference.setState({ unitPreference: 'imperial' });
-    const tree = await renderRunning({ thresholdPace: 4.2 });
+    const tree = await renderRunning({ thresholdPace: ENGINE_PACE });
 
-    expect(tree.getAllByText('6:23/mi').length).toBeGreaterThan(0);
-    expect(tree.queryByText('3:58/km')).toBeNull();
+    expect(tree.getAllByText('6:27/mi').length).toBeGreaterThan(0);
+    expect(tree.queryByText('4:01/km')).toBeNull();
   });
 
   vaultIt('names critical speed and LTHR under Threshold, not lactate threshold pace', async () => {
     useUnitPreference.setState({ unitPreference: 'metric' });
-    const tree = await renderRunning({ thresholdPace: 4.2, runLthr: 172 });
+    const tree = await renderRunning({ thresholdPace: ENGINE_PACE, runLthr: 172 });
 
     expect(tree.getByText('Threshold')).toBeTruthy();
     expect(tree.queryByText(/lactate/i)).toBeNull();

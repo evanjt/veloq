@@ -30,8 +30,14 @@ import { colorWithOpacity, colourTokens, opacity, sportFamilyColours } from '@/t
 import type { WellnessData } from '@/types';
 import type { DayActivity } from '@/features/activity/light';
 import { layoutViews } from '../../__shared__/layoutViews';
+import { statedForm } from '../../__shared__/statedForm';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
+// The engine's edges between form zones, which it sends with every wellness read.
+jest.mock('@/features/wellness', () => ({
+  ...jest.requireActual('@/features/wellness'),
+  useFormZoneEdges: () => [-30, -10, 5, 25],
+}));
 
 let mockDark = false;
 jest.mock('@/shared/app', () => ({
@@ -47,18 +53,18 @@ afterEach(() => {
   mockDark = false;
 });
 
-const DAYS = [
+const DAYS = statedForm([
   { id: '2026-04-01', ctl: 40, atl: 48 },
   { id: '2026-04-02', ctl: 41, atl: 49 },
   { id: '2026-04-03', ctl: 42, atl: 47 },
-] as WellnessData[];
+]);
 
 /** Form held at -2, on the grey zone's centre row, clear of every other band's. */
-const LEVEL_FORM = [
+const LEVEL_FORM = statedForm([
   { id: '2026-04-01', ctl: 50, atl: 52 },
   { id: '2026-04-02', ctl: 50, atl: 52 },
   { id: '2026-04-03', ctl: 50, atl: 52 },
-] as WellnessData[];
+]);
 
 const MARKS: EftpChange[] = [
   { date: '2026-04-02', eftp: 251, delta: 6, activityId: 'a1', activityName: 'Hill repeats' },

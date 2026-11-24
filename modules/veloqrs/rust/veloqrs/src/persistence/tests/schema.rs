@@ -1,66 +1,6 @@
 use super::*;
 
 #[test]
-fn test_pre_v4_backfill_populates_zone_ftp_and_heatmap_caches() {
-    let mut conn = Connection::open_in_memory().unwrap();
-    let scripts = PersistentEngine::migration_scripts();
-    Migrations::new(scripts[..8].iter().copied().map(M::up).collect())
-        .to_latest(&mut conn)
-        .unwrap();
-    for (id, date, duration, ftp) in [
-        ("a1", 1_704_067_200_i64, 7_300, 250),
-        ("a2", 1_704_070_800, 3_500, 255),
-        ("a3", 1_704_153_600, 5_500, 260),
-    ] {
-        conn.execute(
-            "INSERT INTO activity_metrics
-             (activity_id, name, date, distance, moving_time, elapsed_time,
-              elevation_gain, sport_type, ftp, power_zone_times, hr_zone_times)
-             VALUES (?1, 'Ride', ?2, 1000, ?3, ?3, 0, 'Ride', ?4,
-                     '[10,20,30,40,50,60,70]', '[1,2,3,4,5]')",
-            params![id, date, duration, ftp],
-        )
-        .unwrap();
-    }
-
-    PersistentEngine::populate_all_performance_caches(&conn).unwrap();
-
-    let zones: (f64, f64, f64) = conn
-        .query_row(
-            "SELECT power_z1, power_z7, hr_z5 FROM activity_metrics WHERE activity_id = 'a1'",
-            [],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        )
-        .unwrap();
-    assert_eq!(zones, (10.0, 70.0, 5.0));
-    let ftp_rows: Vec<(String, i64)> = conn
-        .prepare("SELECT activity_id, ftp FROM ftp_history ORDER BY activity_id")
-        .unwrap()
-        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
-        .unwrap()
-        .map(Result::unwrap)
-        .collect();
-    assert_eq!(
-        ftp_rows,
-        vec![("a1".into(), 250), ("a2".into(), 255), ("a3".into(), 260)]
-    );
-    let heatmap: Vec<(String, i64, i64, i64)> = conn
-        .prepare("SELECT date, intensity, max_duration, activity_count FROM activity_heatmap ORDER BY date")
-        .unwrap()
-        .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))
-        .unwrap()
-        .map(Result::unwrap)
-        .collect();
-    assert_eq!(
-        heatmap,
-        vec![
-            ("2024-01-01".into(), 4, 7_300, 2),
-            ("2024-01-02".into(), 3, 5_500, 1)
-        ]
-    );
-}
-
-#[test]
 fn test_heatmap_rebuild_migration_matches_the_live_writer_at_every_boundary() {
     let mut conn = Connection::open_in_memory().unwrap();
     let scripts = PersistentEngine::migration_scripts();
@@ -170,7 +110,7 @@ fn legacy_disabled_and_superseded_rows_gain_a_disabled_intent_once() {
     // Enabling clears the intent; a second open must not bring it back.
     conn.execute("UPDATE sections SET disabled = 0 WHERE id = 'hidden'", [])
         .unwrap();
-    engine.clear_section_intent("hidden");
+    engine.clear_section_intent("hidden").expect("clear");
     PersistentEngine::ensure_section_intents_named_shape(conn).unwrap();
     assert_eq!(
         suppression_intents(conn),

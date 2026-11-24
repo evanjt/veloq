@@ -75,6 +75,11 @@ pub struct FfiActivityInterval {
     /// Metres per second.
     /// Unit: metre_per_second.
     pub average_speed: Option<f64>,
+    /// `average_speed` as pace text per kilometre (per 100 m for a swim), no
+    /// unit. `None` for a sport read as a speed, and when there is no pace.
+    pub average_speed_metric_text: Option<String>,
+    /// `average_speed` as pace text per mile (per 100 yd for a swim).
+    pub average_speed_imperial_text: Option<String>,
     /// Seconds.
     /// Unit: second.
     pub moving_time: Option<f64>,
@@ -203,6 +208,8 @@ fn interval_of(value: serde_json::Value) -> Option<FfiActivityInterval> {
         average_watts: raw.average_watts,
         average_heartrate: raw.average_heartrate,
         average_speed: raw.average_speed,
+        average_speed_metric_text: None,
+        average_speed_imperial_text: None,
         moving_time: raw.moving_time,
         distance: raw.distance,
         label: raw.label,
@@ -223,15 +230,38 @@ pub fn parse_activity_intervals(body: &str) -> Option<FfiActivityIntervals> {
     Some(FfiActivityIntervals { intervals })
 }
 
+impl FfiActivityIntervals {
+    /// Gives each lap the pace text of its average speed when `sport` is read
+    /// as a pace.
+    fn with_pace_text(mut self, sport: &str) -> Self {
+        for lap in &mut self.intervals {
+            let text = lap
+                .average_speed
+                .and_then(|speed| crate::widget_snapshot::sport_pace_text(speed, sport));
+            if let Some((metric, imperial)) = text {
+                lap.average_speed_metric_text = Some(metric);
+                lap.average_speed_imperial_text = Some(imperial);
+            }
+        }
+        self
+    }
+}
+
 /// An activity's laps, or `None` when its body was never fetched or will not
 /// parse, either of which a fetch is what answers.
 pub(crate) fn activity_intervals(
     conn: &Connection,
     activity_id: &str,
 ) -> SqlResult<Option<FfiActivityIntervals>> {
-    Ok(interval_body(conn, activity_id)?
+    let Some(laps) = interval_body(conn, activity_id)?
         .as_deref()
-        .and_then(parse_activity_intervals))
+        .and_then(parse_activity_intervals)
+    else {
+        return Ok(None);
+    };
+    let sport = crate::persistence::activities::pooled::activity_sport(conn, activity_id)
+        .unwrap_or_default();
+    Ok(Some(laps.with_pace_text(&sport)))
 }
 
 #[cfg(test)]
@@ -286,6 +316,50 @@ mod tests {
         assert_eq!(laps[2].zone, None);
         assert_eq!(laps[2].average_watts, None);
         assert_eq!(laps[2].label, None);
+    }
+
+    /// Scenario: the same stored laps belong to a run, a swim and a ride.
+    ///
+    /// Expected behaviour: a run's and a swim's laps carry their average speed
+    /// as pace text in both unit systems, a ride's carry none, and a lap with
+    /// no speed carries none.
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn a_lap_of_a_pace_sport_carries_its_pace_text() {
+        let (_dir, mut engine, reader) = engine_and_reader();
+        for (id, sport) in [("run-1", "Run"), ("swim-1", "Swim"), ("ride-1", "Ride")] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+                     VALUES (?, ?, 46.0, 46.1, 7.0, 7.1)",
+                    rusqlite::params![id, sport],
+                )
+                .unwrap();
+            engine.set_interval_body(id, THREE_LAPS).unwrap();
+        }
+        let texts = |id: &str| {
+            let laps = activity_intervals(&reader, id).unwrap().unwrap().intervals;
+            laps.iter()
+                .map(|lap| {
+                    (
+                        lap.average_speed_metric_text.clone(),
+                        lap.average_speed_imperial_text.clone(),
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(
+            texts("run-1"),
+            [
+                (Some("1:49".to_string()), Some("2:55".to_string())),
+                (None, None),
+                (None, None)
+            ]
+        );
+        assert_eq!(texts("swim-1")[0].0.as_deref(), Some("0:11"));
+        assert_eq!(texts("ride-1"), [(None, None), (None, None), (None, None)]);
     }
 
     fn ride_with_laps(laps: &[(u32, f64)]) -> crate::fit::FitActivity {

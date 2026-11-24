@@ -9,7 +9,7 @@
 
 import { useEffect, useRef } from 'react';
 
-import { TrackStep } from 'veloqrs';
+import { FfiTrackStep } from 'veloqrs';
 
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { useTrackStage } from '@/shared/native/useSyncStatus';
@@ -18,7 +18,7 @@ import { refreshTrackFetchNotice } from '../lib/trackFetchNotice';
 export function useTrackFetchNoticeRefresh(): void {
   const announced = useEngineSubscription(['activities']);
   const stage = useTrackStage();
-  const downloading = stage?.step === TrackStep.Downloading;
+  const downloading = stage?.step === FfiTrackStep.Downloading;
   const wasDownloading = useRef(downloading);
 
   useEffect(() => {

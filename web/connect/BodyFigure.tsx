@@ -10,15 +10,14 @@ import {
   type BodySide,
 } from '../../src/features/strength/lib/bodyFills';
 import { BODY_DRAWINGS } from '../../src/features/strength/lib/bodyPaths.generated';
-import { volumeStepCeilings } from '../../src/features/strength/lib/volumeSteps';
 
 /** The muscles the engine reports, which are the ones a click can choose. */
 type Volume = { slug: string; shade: number };
 
 type Shared = {
   volumes: readonly Volume[];
-  /** The most weighted sets the engine shades against, the top of the legend. */
-  maxWeightedSets: number;
+  /** The most weighted sets each shade covers, lightest first, as the engine reports them. */
+  shadeCeilings: readonly number[];
   /** `M` or `F` as intervals.icu sends it; the body is female only for `F`. */
   sex: string | null | undefined;
   names: (slug: string) => string;
@@ -27,13 +26,10 @@ type Shared = {
 };
 
 /** The legend's entries: untrained first, then each step with the most sets it covers. */
-export function shadeLegend(maxWeightedSets: number): { shade: number; label: string }[] {
+export function shadeLegend(shadeCeilings: readonly number[]): { shade: number; label: string }[] {
   return [
     { shade: 0, label: '0' },
-    ...volumeStepCeilings(maxWeightedSets).map((ceiling, at) => ({
-      shade: at + 1,
-      label: String(ceiling),
-    })),
+    ...shadeCeilings.map((ceiling, at) => ({ shade: at + 1, label: String(ceiling) })),
   ];
 }
 
@@ -96,7 +92,7 @@ export function BodyFigure(props: Shared) {
         <View label={t('connectPage.strength.bodyBack')} side="back" gender={gender} {...props} />
       </div>
       <div className="body-figure-legend" role="group" aria-label={t('strength.relativeVolume')}>
-        {shadeLegend(props.maxWeightedSets).map((step) => (
+        {shadeLegend(props.shadeCeilings).map((step) => (
           <span key={step.shade} className="body-figure-step" data-shade={step.shade || undefined}>
             <span className="body-figure-swatch" data-shade={step.shade || undefined} />
             {step.label}

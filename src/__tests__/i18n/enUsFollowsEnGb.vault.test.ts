@@ -71,6 +71,7 @@ const SPELLING = [
   'spoken.metres_other',
   'spoken.per100Metres',
   'spoken.perKilometre',
+  'whatsNew.tutorial.notificationsExampleSection',
   'whatsNew.v022.fitnessBody',
   'whatsNew.v030.strengthBody',
   'whatsNew.v040.recutFailedAfterApply',

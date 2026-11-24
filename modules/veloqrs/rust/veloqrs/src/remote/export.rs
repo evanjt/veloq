@@ -17,6 +17,7 @@
 //! A device has one export at a time: a `begin` while one is building is
 //! refused, and a `begin` over a finished one replaces it.
 
+use crate::poison::Recover;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -280,7 +281,7 @@ fn seal(
 /// stands. The digest was read on the build's own thread, so nothing here
 /// reads the archive.
 pub fn status_shared(registry: &Mutex<Spools>, device: &str, id: &str) -> Result<Status, String> {
-    let mut held = registry.lock().unwrap_or_else(|e| e.into_inner());
+    let mut held = registry.lock_recover();
     held.settle(device, id)?;
     held.describe(device, id)
 }
@@ -299,7 +300,7 @@ pub fn read_shared(
         return Err(format!("length must be 1 to {MAX_READ} bytes"));
     }
     let (path, bytes) = {
-        let mut held = registry.lock().unwrap_or_else(|e| e.into_inner());
+        let mut held = registry.lock_recover();
         let export = held.find(device, id)?;
         match &export.state {
             State::Ready { bytes, .. } => (export.ready.clone(), *bytes),
@@ -334,7 +335,7 @@ static SPOOLS: Mutex<Spools> = Mutex::new(Spools {
 });
 
 fn with_spools<R>(work: impl FnOnce(&mut Spools) -> R) -> R {
-    let mut held = SPOOLS.lock().unwrap_or_else(|e| e.into_inner());
+    let mut held = SPOOLS.lock_recover();
     work(&mut held)
 }
 

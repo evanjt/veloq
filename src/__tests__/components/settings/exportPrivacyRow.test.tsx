@@ -109,12 +109,7 @@ function engineWith(over: Record<string, unknown> = {}) {
         homeLat,
         homeLng,
         radiusM: settings.get('__export_privacy_radius_m'),
-        suggestion:
-          homeLat && homeLng
-            ? null
-            : typeof over.suggestExportHome === 'function'
-              ? (over.suggestExportHome as () => typeof HOME | null)()
-              : HOME,
+        suggestion: homeLat && homeLng ? null : HOME,
       };
     }),
     subscribe: jest.fn(() => () => undefined),
@@ -175,7 +170,14 @@ describe('the export privacy row', () => {
   });
 
   vaultIt('says a home is needed even when there is no place to suggest', async () => {
-    engineWith({ suggestExportHome: jest.fn(() => null) });
+    engineWith({
+      getBackupScreenData: jest.fn(() => ({
+        homeLat: undefined,
+        homeLng: undefined,
+        radiusM: undefined,
+        suggestion: null,
+      })),
+    });
     const tree = await render(<ExportPrivacyRow />);
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-needs-home')).toBeTruthy());
@@ -241,7 +243,14 @@ describe('the export privacy row', () => {
   });
 
   vaultIt('says there is nothing to suggest rather than offering a point at zero', async () => {
-    engineWith({ suggestExportHome: jest.fn(() => null) });
+    engineWith({
+      getBackupScreenData: jest.fn(() => ({
+        homeLat: undefined,
+        homeLng: undefined,
+        radiusM: undefined,
+        suggestion: null,
+      })),
+    });
     const tree = await render(<ExportPrivacyRow />);
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-no-home')).toBeTruthy());
@@ -451,7 +460,14 @@ describe('the export privacy row', () => {
   });
 
   vaultIt('draws no map when there is nothing to suggest, rather than one at zero', async () => {
-    engineWith({ suggestExportHome: jest.fn(() => null) });
+    engineWith({
+      getBackupScreenData: jest.fn(() => ({
+        homeLat: undefined,
+        homeLng: undefined,
+        radiusM: undefined,
+        suggestion: null,
+      })),
+    });
     const tree = await render(<ExportPrivacyRow />);
 
     await waitFor(() => expect(tree.getByTestId('export-privacy-no-home')).toBeTruthy());

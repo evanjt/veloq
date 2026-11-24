@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useTranslation } from 'react-i18next';
-import type { ActivityRecord, ExerciseSet } from 'veloqrs';
+import type { ActivityRecord, FfiExerciseSet } from 'veloqrs';
 
 import { useMetricSystem } from '@/shared/app';
 import { formatDateTime, formatDuration } from '@/shared/format/format';
@@ -41,7 +41,7 @@ interface MuscleGroupViewProps {
   hasExercises: boolean;
   isDark: boolean;
   athleteSex?: string | undefined;
-  exerciseSets?: ExerciseSet[];
+  exerciseSets?: FfiExerciseSet[];
 }
 
 // A primary muscle is drawn at the top sequential step and an assisting one at the

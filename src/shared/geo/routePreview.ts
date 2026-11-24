@@ -1,9 +1,7 @@
 import { finiteExtent } from '@/shared/charts/extent';
 import type { LatLng } from './polyline';
 
-export type { LatLng };
-
-export interface PixelPoint {
+interface PixelPoint {
   x: number;
   y: number;
 }
@@ -53,7 +51,7 @@ export function projectRouteToBox(
  * Normalised route outline, so a surface with no map can still draw the shape of a
  * ride. Points are 0..1 [x, y] pairs, y growing downward like screen pixels.
  */
-export interface RouteOutline {
+interface RouteOutline {
   points: [number, number][];
   /** Projected bounding-box width divided by height, for letterboxed drawing. */
   aspect: number;
@@ -67,17 +65,22 @@ export const ROUTE_OUTLINE_MAX_POINTS = 150;
  * `[lat, lng]` pairs and the card is refreshed every five seconds, so that
  * projection was the whole ride copied to use 150 of it.
  */
-export type LatLngPair = readonly [number, number];
+type LatLngPair = readonly [number, number];
 export type RouteTrack = readonly LatLng[] | readonly LatLngPair[];
 
 /**
- * A fix that carries a position. The recording store pads the track with
- * `[0, 0]` for samples taken without one, so the origin is the absence of a
- * fix, not a place to draw.
+ * A fix that carries a position: finite, on the globe, and not the origin. The
+ * recording store pads the track with `[0, 0]` for samples taken without one,
+ * so the origin is the absence of a fix, not a place to draw. Every surface
+ * that decides whether a coordinate can be drawn or stored asks this.
  */
 export function isPositioned(latitude: number, longitude: number): boolean {
   return (
-    Number.isFinite(latitude) && Number.isFinite(longitude) && (latitude !== 0 || longitude !== 0)
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    Math.abs(latitude) <= 90 &&
+    Math.abs(longitude) <= 180 &&
+    (latitude !== 0 || longitude !== 0)
   );
 }
 

@@ -478,6 +478,7 @@ pub(crate) fn chart_from_cutoff(
             let (record_gap_secs, record_gap_speed) =
                 gap(direction, record.best_time, record.best_pace, false);
             points.push(crate::FfiSectionChartPoint {
+                speed_pace: None,
                 lap_id: record.activity_id.clone(),
                 activity_id: record.activity_id.clone(),
                 activity_name: record.activity_name.clone(),
@@ -493,6 +494,7 @@ pub(crate) fn chart_from_cutoff(
                 off_scale: crate::FfiOffScale::None,
                 record_gap_secs,
                 record_gap_speed,
+                record_gap_pace: None,
                 estimated: false,
             });
         } else {
@@ -523,6 +525,7 @@ pub(crate) fn chart_from_cutoff(
                 let (record_gap_secs, record_gap_speed) =
                     gap(direction, lap.time, lap.pace, lap.outside_distance_band);
                 points.push(crate::FfiSectionChartPoint {
+                    speed_pace: None,
                     lap_id: lap.id.clone(),
                     activity_id: record.activity_id.clone(),
                     activity_name: record.activity_name.clone(),
@@ -542,6 +545,7 @@ pub(crate) fn chart_from_cutoff(
                     off_scale: crate::FfiOffScale::None,
                     record_gap_secs,
                     record_gap_speed,
+                    record_gap_pace: None,
                     estimated: lap.estimated,
                 });
             }
@@ -684,6 +688,8 @@ mod workout_trend_encoding_tests {
 
     fn record(activity_date: i64, best_time: f64) -> crate::SectionPerformanceRecord {
         crate::SectionPerformanceRecord {
+            avg_pace_text: None,
+            best_pace_text: None,
             activity_id: format!("act_{activity_date}"),
             activity_name: "Ride".to_string(),
             activity_date: crate::WholeNumber(activity_date),
@@ -1186,6 +1192,8 @@ mod workout_trend_encoding_tests {
             let records = laps
                 .into_iter()
                 .map(|(date, lap)| crate::SectionPerformanceRecord {
+                    avg_pace_text: None,
+                    best_pace_text: None,
                     activity_id: lap.activity_id.clone(),
                     activity_name: lap.id.clone(),
                     activity_date: crate::WholeNumber(date),
@@ -1826,7 +1834,7 @@ pub(crate) mod pooled {
     ) -> HashMap<String, Vec<crate::FfiSeriesPoint>> {
         let mut out: HashMap<String, Vec<(f64, f64, String)>> = HashMap::new();
         for chunk in section_ids.chunks(400) {
-            let marks = vec!["?"; chunk.len()].join(",");
+            let marks = crate::persistence::sql::question_marks(chunk.len());
             let sql = format!(
                 "SELECT section_id, lap_time, date, activity_id FROM (
                      SELECT s.id AS section_id, sa.lap_time AS lap_time, am.date AS date,
@@ -2106,7 +2114,7 @@ pub(crate) mod pooled {
         let now = wall_now();
         let mut chosen: HashMap<String, (u32, String, i8)> = HashMap::new();
         for chunk in section_ids.chunks(400) {
-            let marks = vec!["?"; chunk.len()].join(",");
+            let marks = crate::persistence::sql::question_marks(chunk.len());
             let sql = format!(
                 "SELECT section_id, sport_type, traversal_count, last_date, trend
                  FROM section_rank_inputs WHERE section_id IN ({marks})

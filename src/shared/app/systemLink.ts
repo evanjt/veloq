@@ -13,7 +13,7 @@ const LINK_PREFIX = /^[a-z][a-z0-9+.-]*:\/\/(?:[^/]*\/--\/)?/i;
  */
 export const RECORDING_ENTRY_SCREEN = /^recording\/(?!review$)[^/]+$/;
 
-export interface SystemLink {
+interface SystemLink {
   /** The text before the route: the scheme, any Expo Go prefix and the slashes that follow them. */
   head: string;
   /** The route after the head, with its query and fragment. */

@@ -4,7 +4,7 @@
  * page itself.
  */
 
-export interface DemoAttempt {
+interface DemoAttempt {
   /** Seconds the attempt took over the section. */
   timeSecs: number;
 }

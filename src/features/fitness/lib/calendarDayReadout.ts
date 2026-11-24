@@ -1,4 +1,3 @@
-import { formFromLoads } from '@/shared/math';
 import type { WellnessData } from '@/types';
 
 /** The wellness values the readout lists, in the order it lists them. */
@@ -13,11 +12,11 @@ const LOGGED_ORDER: readonly LoggedMetric[] = [
 ];
 
 /** What a day selected on the calendar grid states. */
-export interface CalendarDayReadout {
+interface CalendarDayReadout {
   fitness: number | null;
   fatigue: number | null;
-  /** Fitness less fatigue, each rounded first as the fitness chart does; null when either is missing. */
-  form: number | null;
+  /** The day's form as the engine prints it, null where it states none. */
+  form: string | null;
   /** Each value logged that day, in a fixed order. */
   logged: { metric: LoggedMetric; value: number }[];
 }
@@ -35,7 +34,7 @@ export function calendarDayReadout(day: WellnessData | undefined): CalendarDayRe
   return {
     fitness,
     fatigue,
-    form: fitness !== null && fatigue !== null ? formFromLoads(fitness, fatigue) : null,
+    form: day.formText ?? null,
     logged,
   };
 }

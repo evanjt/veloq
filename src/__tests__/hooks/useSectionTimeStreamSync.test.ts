@@ -10,7 +10,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { useSectionTimeStreamSync } from '@/features/routes/hooks/useSectionPerformances';
-import { engine, StartOutcome } from 'veloqrs';
+import { engine, FfiStartOutcome } from 'veloqrs';
 
 type MockListener = (payload?: unknown) => void;
 
@@ -51,7 +51,7 @@ function renderSync(ids: string[], known?: string[]) {
   return renderHook(() => useSectionTimeStreamSync(ids, known));
 }
 
-function startsWith(outcome: StartOutcome) {
+function startsWith(outcome: FfiStartOutcome) {
   syncTimeStreams.mockReturnValue({ outcome });
 }
 
@@ -60,7 +60,7 @@ describe('useSectionTimeStreamSync', () => {
     jest.clearAllMocks();
     mockListeners.clear();
     missing.mockReturnValue([]);
-    startsWith(StartOutcome.Started);
+    startsWith(FfiStartOutcome.Started);
   });
 
   vaultIt('is ready without asking for anything when every stream is stored', async () => {
@@ -163,7 +163,7 @@ describe('streams that do not arrive', () => {
     jest.clearAllMocks();
     mockListeners.clear();
     missing.mockReturnValue([]);
-    startsWith(StartOutcome.Started);
+    startsWith(FfiStartOutcome.Started);
     mockIsOnline = true;
   });
 
@@ -186,7 +186,7 @@ describe('streams that do not arrive', () => {
 
   it('does not wait on a start Rust refused', async () => {
     missing.mockReturnValue(['a1', 'a2']);
-    startsWith(StartOutcome.Held);
+    startsWith(FfiStartOutcome.Held);
 
     const { result } = await renderSync(['a1', 'a2']);
     await act(async () => {});
@@ -197,7 +197,7 @@ describe('streams that do not arrive', () => {
 
   vaultIt('treats an engine that is not open yet as nothing fetched', async () => {
     missing.mockReturnValue(['a1']);
-    startsWith(StartOutcome.NotReady);
+    startsWith(FfiStartOutcome.NotReady);
 
     const { result } = await renderSync(['a1']);
     await act(async () => {});
@@ -207,7 +207,7 @@ describe('streams that do not arrive', () => {
 
   it('waits on a fetch of the same streams already running', async () => {
     missing.mockReturnValue(['a1']);
-    startsWith(StartOutcome.Busy);
+    startsWith(FfiStartOutcome.Busy);
 
     const { result } = await renderSync(['a1']);
     await act(async () => {});
@@ -221,14 +221,14 @@ describe('streams that do not arrive', () => {
 
   it('asks again for what is missing when the network comes back', async () => {
     missing.mockReturnValue(['a1', 'a2']);
-    startsWith(StartOutcome.Held);
+    startsWith(FfiStartOutcome.Held);
     mockIsOnline = false;
 
     const { result, rerender } = await renderSync(['a1', 'a2']);
     await act(async () => {});
     expect(syncTimeStreams).toHaveBeenCalledTimes(1);
 
-    startsWith(StartOutcome.Started);
+    startsWith(FfiStartOutcome.Started);
     mockIsOnline = true;
     await rerender({});
     await act(async () => {});
@@ -258,7 +258,7 @@ describe('streams that do not arrive', () => {
 
   vaultIt('asks again on retry', async () => {
     missing.mockReturnValue(['a1']);
-    startsWith(StartOutcome.Held);
+    startsWith(FfiStartOutcome.Held);
 
     const { result } = await renderSync(['a1']);
     await act(async () => {});
@@ -285,7 +285,7 @@ describe('a retry after some streams landed', () => {
     jest.clearAllMocks();
     mockListeners.clear();
     missing.mockReturnValue([]);
-    startsWith(StartOutcome.Started);
+    startsWith(FfiStartOutcome.Started);
     mockIsOnline = true;
   });
 
@@ -315,7 +315,7 @@ describe('a retry after some streams landed', () => {
   });
 
   vaultIt('settles at once on retry when every stream has landed since', async () => {
-    startsWith(StartOutcome.Held);
+    startsWith(FfiStartOutcome.Held);
     const { result } = await renderSync(ids, ids);
     await act(async () => {});
     expect(result.current.outstanding).toBe(5);
@@ -329,7 +329,7 @@ describe('a retry after some streams landed', () => {
   });
 
   it('takes the caller list again for a new activity set after a retry', async () => {
-    startsWith(StartOutcome.Held);
+    startsWith(FfiStartOutcome.Held);
     const { result, rerender } = await renderHook(
       ({ all, known }: { all: string[]; known: string[] }) => useSectionTimeStreamSync(all, known),
       { initialProps: { all: ['a'], known: ['a'] } }
@@ -352,7 +352,7 @@ describe('a wait the caller has moved on from', () => {
     jest.clearAllMocks();
     mockListeners.clear();
     missing.mockReturnValue([]);
-    startsWith(StartOutcome.Started);
+    startsWith(FfiStartOutcome.Started);
   });
 
   /// Scenario: switching sections quickly leaves the previous wait running.
@@ -427,7 +427,7 @@ describe('an engine read that throws', () => {
     jest.clearAllMocks();
     mockListeners.clear();
     missing.mockReturnValue([]);
-    startsWith(StartOutcome.Started);
+    startsWith(FfiStartOutcome.Started);
     mockIsOnline = true;
     rejections.length = 0;
     process.on('unhandledRejection', onRejection);

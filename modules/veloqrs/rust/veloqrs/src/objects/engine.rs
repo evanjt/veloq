@@ -1,6 +1,8 @@
 use super::error::{VeloqError, with_engine, with_reader};
 use crate::init_logging;
+use crate::persistence::schema_info;
 use crate::persistence::{NAME_TRANSLATIONS, PERSISTENT_ENGINE, PersistentEngineStats};
+use crate::poison::Recover;
 use log::info;
 use std::sync::Arc;
 
@@ -118,14 +120,14 @@ struct RunSlot<L: 'static> {
 impl<L> RunSlot<L> {
     fn open(slot: &'static std::sync::Mutex<StoppableRun<L>>, latch: std::sync::Arc<L>) -> Self {
         let run = next_stoppable_run();
-        *slot.lock().unwrap_or_else(|e| e.into_inner()) = Some((run, latch));
+        *slot.lock_recover() = Some((run, latch));
         RunSlot { slot, run }
     }
 }
 
 impl<L> Drop for RunSlot<L> {
     fn drop(&mut self) {
-        let mut held = self.slot.lock().unwrap_or_else(|e| e.into_inner());
+        let mut held = self.slot.lock_recover();
         if held.as_ref().is_some_and(|(run, _)| *run == self.run) {
             *held = None;
         }
@@ -134,7 +136,7 @@ impl<L> Drop for RunSlot<L> {
 
 /// The run in `slot`, if one is running.
 fn running<L>(slot: &std::sync::Mutex<StoppableRun<L>>) -> StoppableRun<L> {
-    slot.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    slot.lock_recover().clone()
 }
 
 /// The running record backup's id, for `cancel_run`, or nothing running. The
@@ -168,7 +170,7 @@ fn job_error(msg: String) -> VeloqError {
     if msg == crate::persistence::export::JOB_CANCELLED {
         VeloqError::Cancelled
     } else {
-        VeloqError::Database { msg }
+        VeloqError::database(msg)
     }
 }
 
@@ -228,9 +230,9 @@ fn refuse_another_signed_in_athlete(imported: Option<&str>) -> Result<(), VeloqE
         msg: "Sign in before importing a backup".to_string(),
     })?;
     if imported.is_some_and(|imported| imported != signed_in) {
-        return Err(VeloqError::Database {
-            msg: "Record belongs to another athlete".to_string(),
-        });
+        return Err(VeloqError::database(
+            "Record belongs to another athlete".to_string(),
+        ));
     }
     Ok(())
 }
@@ -248,15 +250,13 @@ fn cancel_every_job() {
 fn cancel_jobs_except_sync() {
     crate::http::cancel_all_downloads();
     if let Some(handle) = crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .lock_recover()
         .as_ref()
     {
         handle.request_cancel();
     }
     if let Some(handle) = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .lock_recover()
         .as_ref()
     {
         handle.cancel();
@@ -379,10 +379,7 @@ impl VeloqEngine {
     }
 
     fn is_initialized(&self) -> bool {
-        PERSISTENT_ENGINE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .is_some()
+        PERSISTENT_ENGINE.lock_recover().is_some()
     }
 
     fn get_stats(&self) -> Result<PersistentEngineStats, VeloqError> {
@@ -450,7 +447,7 @@ impl VeloqEngine {
                 activities_removed: cleared.activities_removed,
                 activities_kept: cleared.activities_kept,
             })
-            .map_err(|msg| VeloqError::Database { msg })
+            .map_err(|msg| VeloqError::database(msg))
     }
 
     /// Wipe the whole database, resolving once it has ended.
@@ -476,7 +473,7 @@ impl VeloqEngine {
             })
             .await
             .unwrap_or_else(|e| Err(format!("Clear thread died without a result: {e}")))
-            .map_err(|msg| VeloqError::Database { msg })
+            .map_err(|msg| VeloqError::database(msg))
     }
 
     /// Drop the persistent engine entirely, closing the SQLite connection.
@@ -597,7 +594,7 @@ impl VeloqEngine {
             })
             .await
             .unwrap_or_else(|e| Err(format!("Backup thread died without a result: {e}")))
-            .map_err(|msg| VeloqError::Database { msg })
+            .map_err(|msg| VeloqError::database(msg))
     }
 
     /// Write the athlete record as a compressed backup off the JS thread.
@@ -632,8 +629,8 @@ impl VeloqEngine {
         let payload = crate::runtime::ASYNC_RUNTIME
             .spawn_blocking(move || crate::persistence::record_backup::read_record_zip(&path))
             .await
-            .map_err(|e| VeloqError::Database { msg: e.to_string() })?
-            .map_err(|msg| VeloqError::Database { msg })?;
+            .map_err(|e| VeloqError::database(e.to_string()))?
+            .map_err(|msg| VeloqError::database(msg))?;
         restore_record_payload(payload).await
     }
 
@@ -660,9 +657,9 @@ impl VeloqEngine {
                         )
                     }
                 }
-                .map_err(|msg| VeloqError::Database { msg })?;
+                .map_err(|msg| VeloqError::database(msg))?;
                 crate::persistence::record_restore::check_record_rows(&payload)
-                    .map_err(|msg| VeloqError::Database { msg })?;
+                    .map_err(|msg| VeloqError::database(msg))?;
                 let imported = payload.athlete_id.as_deref();
                 refuse_another_signed_in_athlete(imported)?;
                 with_reader(|conn| {
@@ -670,7 +667,7 @@ impl VeloqEngine {
                         conn, imported,
                     )
                 })?
-                .map_err(|msg| VeloqError::Database { msg })?;
+                .map_err(|msg| VeloqError::database(msg))?;
                 let counts = crate::persistence::record_restore::record_counts(&payload);
                 Ok(FfiRecordCheck {
                     names_account: imported.is_some_and(|id| !id.is_empty()),
@@ -681,7 +678,7 @@ impl VeloqEngine {
                 })
             })
             .await
-            .map_err(|e| VeloqError::Database { msg: e.to_string() })?
+            .map_err(|e| VeloqError::database(e.to_string()))?
     }
 
     /// Apply record JSON off the JS thread, including converted legacy records.
@@ -690,7 +687,7 @@ impl VeloqEngine {
         json: String,
     ) -> Result<FfiRecordRestoreResult, VeloqError> {
         let payload = crate::persistence::record_restore::parse_record_payload(&json)
-            .map_err(|msg| VeloqError::Database { msg })?;
+            .map_err(|msg| VeloqError::database(msg))?;
         restore_record_payload(payload).await
     }
 
@@ -708,7 +705,7 @@ impl VeloqEngine {
         })
         .await
         .ok_or(VeloqError::NotInitialized)?
-        .map_err(|msg| VeloqError::Database { msg })
+        .map_err(|msg| VeloqError::database(msg))
     }
 
     /// List decisions that still await their activity or matching ground.
@@ -720,8 +717,8 @@ impl VeloqEngine {
                 with_reader(crate::persistence::record_restore::unplaced_records_from_conn)
             })
             .await
-            .map_err(|e| VeloqError::Database { msg: e.to_string() })??
-            .map_err(|msg| VeloqError::Database { msg })
+            .map_err(|e| VeloqError::database(e.to_string()))??
+            .map_err(|msg| VeloqError::database(msg))
     }
 
     /// Get backup metadata as JSON for validation before restore.
@@ -730,13 +727,10 @@ impl VeloqEngine {
         with_engine(|e| {
             let stats = e.stats()?;
             let athlete_id: Option<String> = e.get_setting("__athlete_id").ok().flatten();
-            let schema_version =
-                e.db.query_row(
-                    "SELECT value FROM schema_info WHERE key = 'schema_version'",
-                    [],
-                    |row| row.get::<_, String>(0),
-                )
-                .unwrap_or_else(|_| "0".to_string());
+            let schema_version = schema_info::get(&e.db, "schema_version")
+                .ok()
+                .flatten()
+                .unwrap_or_else(|| "0".to_string());
 
             let metadata = serde_json::json!({
                 "schema_version": schema_version,
@@ -872,8 +866,8 @@ async fn restore_record_payload(
             with_reader(crate::persistence::record_restore::paused_import_athlete_from_conn)
         })
         .await
-        .map_err(|e| VeloqError::Database { msg: e.to_string() })??
-        .map_err(|msg| VeloqError::Database { msg })?;
+        .map_err(|e| VeloqError::database(e.to_string()))??
+        .map_err(|msg| VeloqError::database(msg))?;
     refuse_another_signed_in_athlete(paused.as_deref())?;
     let (result, not_restored, names_not_restored) =
         crate::persistence::with_persistent_engine_blocking(move |engine| {
@@ -886,7 +880,7 @@ async fn restore_record_payload(
         })
         .await
         .ok_or(VeloqError::NotInitialized)?
-        .map_err(|msg| VeloqError::Database { msg })?;
+        .map_err(|msg| VeloqError::database(msg))?;
     crate::objects::observer::notify(crate::objects::observer::Announcement::ActivitiesStored);
     crate::objects::observer::notify(crate::objects::observer::Announcement::GroupsChanged);
     crate::objects::observer::notify(crate::objects::observer::Announcement::DetectionApplied);
@@ -934,6 +928,7 @@ mod tests {
     use super::*;
     use crate::persistence::export::BulkExportFormat;
     use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
+    use crate::poison::Recover;
     use crate::test_globals::{
         hold_engine_lock, init_global_engine, read_while_writer_holds, serial_global_state,
     };
@@ -1625,16 +1620,12 @@ mod tests {
         })
         .expect("engine");
         let cancelled_before = detection.cancel_requested();
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(detection);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(detection);
 
         engine.destroy();
 
         assert!(!cancelled_before, "nothing was cancelled before destroy");
-        let handle = SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let handle = SECTION_DETECTION_HANDLE.lock_recover();
         assert!(
             handle.as_ref().expect("handle").cancel_requested(),
             "the detection was asked to stop"
@@ -1645,8 +1636,7 @@ mod tests {
         // engine write lock and the next test's backup then reads as one
         // already running.
         let finished = SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .lock_recover()
             .take()
             .expect("handle");
         let _ = finished.recv();

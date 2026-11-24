@@ -164,35 +164,6 @@ fn migration_busy_keeps_the_released_library_in_place() {
 }
 
 #[test]
-fn pre_v4_migration_busy_keeps_the_library_in_place() {
-    let _serial_state = crate::serial_state();
-    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
-    let tmp = TempDir::new().unwrap();
-    let db_path = tmp.path().join("v3.db");
-    let db_str = db_path.to_string_lossy().into_owned();
-    let mut blocker = rusqlite::Connection::open(&db_path).unwrap();
-    blocker
-        .execute_batch(
-            "CREATE TABLE schema_info (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-             INSERT INTO schema_info VALUES ('schema_version', '3');",
-        )
-        .unwrap();
-    blocker.pragma_update(None, "journal_mode", "WAL").unwrap();
-    let held = blocker
-        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
-        .unwrap();
-
-    assert!(!persistent_engine_init(db_str.clone()));
-    assert!(
-        quarantine_files(tmp.path()).is_empty(),
-        "a busy pre-v4 migration must not quarantine"
-    );
-    drop(held);
-    drop(blocker);
-    assert!(persistent_engine_init(db_str.clone()));
-}
-
-#[test]
 fn two_openers_upgrade_one_released_library_without_quarantine() {
     let _serial_state = crate::serial_state();
     let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());

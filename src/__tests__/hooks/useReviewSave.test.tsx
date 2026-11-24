@@ -8,7 +8,7 @@
 
 import { renderHook, act } from '@testing-library/react-native';
 import * as FileSystem from 'expo-file-system/legacy';
-import { UploadOutcome } from 'veloqrs';
+import { FfiUploadOutcome } from 'veloqrs';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -26,7 +26,7 @@ import {
 } from '@/features/recording/lib/storage/provisionalActivity';
 import { uploadRecordingNow } from '@/features/recording/lib/upload/intervalsUploads';
 import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
-import { generateFitFile } from '@/features/recording/lib/fitGenerator';
+import { writeRecordingFit } from '@/features/recording/lib/recordingFit';
 import { router } from 'expo-router';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { shareRecordingFit } from '@/features/recording/lib/shareRecordingFit';
@@ -53,8 +53,8 @@ jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
 
-jest.mock('@/features/recording/lib/fitGenerator', () => ({
-  generateFitFile: jest.fn().mockResolvedValue(new ArrayBuffer(64)),
+jest.mock('@/features/recording/lib/recordingFit', () => ({
+  writeRecordingFit: jest.fn().mockReturnValue(new ArrayBuffer(64)),
 }));
 
 jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
@@ -103,7 +103,7 @@ const mockAttachEngineActivity = attachEngineActivity as jest.Mock;
 const mockWriteProvisional = writeProvisionalActivity as jest.Mock;
 const mockUploadRecording = uploadRecordingNow as jest.Mock;
 const mockClearBackup = clearRecordingBackup as jest.Mock;
-const mockGenerateFit = generateFitFile as jest.Mock;
+const mockWriteFit = writeRecordingFit as jest.Mock;
 const mockShareFit = shareRecordingFit as jest.Mock;
 
 const STREAMS: RecordingStreams = {
@@ -156,7 +156,7 @@ beforeEach(() => {
     cb();
     return 0 as never;
   }) as never);
-  mockGenerateFit.mockResolvedValue(new ArrayBuffer(64));
+  mockWriteFit.mockReturnValue(new ArrayBuffer(64));
   mockSaveRecording.mockResolvedValue(ENTRY);
   useRecordingPreferences.setState({ autoUploadEnabled: true });
   useUploadPermissionStore.setState({
@@ -178,7 +178,7 @@ describe('useReviewSave', () => {
     await act(() => result.current.handleSave());
 
     expect(mockSaveRecording).not.toHaveBeenCalled();
-    expect(mockGenerateFit).not.toHaveBeenCalled();
+    expect(mockWriteFit).not.toHaveBeenCalled();
   });
 
   it("does not save another athlete's stopped ride during a pending handoff", async () => {
@@ -189,7 +189,7 @@ describe('useReviewSave', () => {
     await act(() => result.current.handleSave());
 
     expect(mockSaveRecording).not.toHaveBeenCalled();
-    expect(mockGenerateFit).not.toHaveBeenCalled();
+    expect(mockWriteFit).not.toHaveBeenCalled();
   });
 
   it('saves to the library before uploading and clears the backup after the save', async () => {
@@ -203,7 +203,7 @@ describe('useReviewSave', () => {
     });
     mockUploadRecording.mockImplementation(async () => {
       order.push('upload');
-      return { outcome: UploadOutcome.Uploaded };
+      return { outcome: FfiUploadOutcome.Uploaded };
     });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
@@ -283,7 +283,7 @@ describe('useReviewSave', () => {
     it('drops the space action once a retry saves', async () => {
       freeSpace(10 * MB);
       mockSaveRecording.mockResolvedValueOnce(null);
-      mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+      mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
 
       const { result } = await renderHook(() => useReviewSave(makeArgs()));
       await act(() => result.current.handleSave());
@@ -363,7 +363,7 @@ describe('useReviewSave', () => {
     'saves a %s ride pending and hands it to the upload',
     async (authMethod) => {
       useAuthStore.setState({ authMethod, isDemoMode: false });
-      mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+      mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
 
       const { result } = await renderHook(() => useReviewSave(makeArgs()));
       await act(() => result.current.handleSave());
@@ -378,7 +378,7 @@ describe('useReviewSave', () => {
   it('reuses the saved entry on retry instead of duplicating it', async () => {
     mockUploadRecording
       .mockRejectedValueOnce(new Error('socket closed'))
-      .mockResolvedValueOnce({ outcome: UploadOutcome.Uploaded });
+      .mockResolvedValueOnce({ outcome: FfiUploadOutcome.Uploaded });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
@@ -402,7 +402,7 @@ describe('useReviewSave', () => {
    */
   it('offers the kept ride rather than a retry when intervals.icu refuses the file', async () => {
     mockUploadRecording.mockResolvedValue({
-      outcome: UploadOutcome.Rejected,
+      outcome: FfiUploadOutcome.Rejected,
       errorDetail: 'Duplicate activity',
     });
 
@@ -419,7 +419,7 @@ describe('useReviewSave', () => {
   });
 
   vaultIt('leaves the detail out when the refusal carries none', async () => {
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Rejected });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Rejected });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
@@ -430,7 +430,7 @@ describe('useReviewSave', () => {
 
   it('offers no retry and nothing to share when the ride file is gone', async () => {
     mockUploadRecording.mockResolvedValue({
-      outcome: UploadOutcome.Missing,
+      outcome: FfiUploadOutcome.Missing,
       errorDetail: 'no such file /data/recordings/rec-1.fit',
     });
 
@@ -457,8 +457,11 @@ describe('useReviewSave', () => {
 
   it('clears the refusal when the next save uploads', async () => {
     mockUploadRecording
-      .mockResolvedValueOnce({ outcome: UploadOutcome.Rejected, errorDetail: 'Duplicate activity' })
-      .mockResolvedValueOnce({ outcome: UploadOutcome.Uploaded });
+      .mockResolvedValueOnce({
+        outcome: FfiUploadOutcome.Rejected,
+        errorDetail: 'Duplicate activity',
+      })
+      .mockResolvedValueOnce({ outcome: FfiUploadOutcome.Uploaded });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
@@ -470,7 +473,7 @@ describe('useReviewSave', () => {
   });
 
   it('explains the missing permission and offers the OAuth fix on 403', async () => {
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.PermissionBlocked });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.PermissionBlocked });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
@@ -481,7 +484,7 @@ describe('useReviewSave', () => {
   });
 
   it('shows why the permission grant failed and keeps the fix on screen', async () => {
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.PermissionBlocked });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.PermissionBlocked });
     mockUpgradeOutcome.mockResolvedValue({ granted: false, error: 'login.oauthUnreachable' });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
@@ -494,7 +497,7 @@ describe('useReviewSave', () => {
   });
 
   vaultIt('shows the second failure of a repeated permission grant', async () => {
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.PermissionBlocked });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.PermissionBlocked });
     mockUpgradeOutcome.mockResolvedValue({ granted: false, error: 'login.oauthUnreachable' });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
@@ -508,7 +511,7 @@ describe('useReviewSave', () => {
   });
 
   it('leaves the permission explanation and its fix when the grant is cancelled', async () => {
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.PermissionBlocked });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.PermissionBlocked });
     mockUpgradeOutcome.mockResolvedValue({ granted: false, error: null });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
@@ -522,8 +525,8 @@ describe('useReviewSave', () => {
 
   it('retries the upload once the permission is granted', async () => {
     mockUploadRecording
-      .mockResolvedValueOnce({ outcome: UploadOutcome.PermissionBlocked })
-      .mockResolvedValueOnce({ outcome: UploadOutcome.Uploaded, activityId: 'i1' });
+      .mockResolvedValueOnce({ outcome: FfiUploadOutcome.PermissionBlocked })
+      .mockResolvedValueOnce({ outcome: FfiUploadOutcome.Uploaded, activityId: 'i1' });
     mockUpgradeOutcome.mockResolvedValue({ granted: true, error: null });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
@@ -535,7 +538,7 @@ describe('useReviewSave', () => {
   });
 
   it('treats network failure as saved-and-queued, not an error', async () => {
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Network });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Network });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
@@ -548,7 +551,7 @@ describe('useReviewSave', () => {
 
   it('finishes a saved recording when its upload needs a fresh sign-in', async () => {
     useRecordingStore.setState({ status: 'stopped' });
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.AuthExpired });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.AuthExpired });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
@@ -568,7 +571,7 @@ describe('useReviewSave', () => {
     async (startTime) => {
       jest.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 8, 24, 1));
       mockSaveRecording.mockImplementation(async (params) => ({ ...params, id: 'manual-1' }));
-      mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+      mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
       useRecordingStore.setState({ status: 'recording', mode: 'manual' });
       const { result } = await renderHook(() =>
         useReviewSave(makeArgs({ isManual: true, startTime }))
@@ -598,14 +601,14 @@ describe('useReviewSave', () => {
       time: [10, 11, 12],
       distance: [100, 108, 116],
     };
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
 
     const { result } = await renderHook(() =>
       useReviewSave(makeArgs({ getTrimmedStreams: () => trimmed, canTrim: true }))
     );
     await act(() => result.current.handleSave());
 
-    const fitArgs = mockGenerateFit.mock.calls[0][0];
+    const fitArgs = mockWriteFit.mock.calls[0][0];
     expect(fitArgs.streams.time).toEqual([0, 1, 2]);
     expect(fitArgs.streams.distance).toEqual([0, 8, 16]);
     expect(fitArgs.startTime.getTime()).toBe(1_700_000_000_000 + 10_000);
@@ -620,7 +623,7 @@ describe('useReviewSave', () => {
    */
   it('starts an engine sync after a successful upload', async () => {
     mockSaveRecording.mockResolvedValue(ENTRY);
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
@@ -630,7 +633,7 @@ describe('useReviewSave', () => {
 
   it('still goes home when the post-upload sync request throws', async () => {
     mockSaveRecording.mockResolvedValue(ENTRY);
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
     mockRequestSyncRefresh.mockImplementationOnce(() => {
       throw new Error('engine gone');
     });
@@ -643,7 +646,7 @@ describe('useReviewSave', () => {
 
   vaultIt('requests no sync when the upload fails', async () => {
     mockSaveRecording.mockResolvedValue(ENTRY);
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Network });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Network });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
@@ -653,7 +656,7 @@ describe('useReviewSave', () => {
 
   it('writes the provisional engine row from the saved FIT, and keeps no streams copy', async () => {
     mockSaveRecording.mockResolvedValue(ENTRY);
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
@@ -671,7 +674,7 @@ describe('useReviewSave', () => {
    * from the queue after a relaunch.
    */
   it("saves the review's notes and effort on the ride", async () => {
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
 
     const { result } = await renderHook(() =>
       useReviewSave(makeArgs({ notes: 'legs heavy', rpe: 8 }))
@@ -684,7 +687,7 @@ describe('useReviewSave', () => {
   });
 
   it('saves no effort when the slider was never moved', async () => {
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs({ rpe: null })));
     await act(() => result.current.handleSave());
@@ -699,7 +702,7 @@ describe('useReviewSave', () => {
       uploadStatus: 'pending',
       engineActivityId: 'local-deadbeef',
     });
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
@@ -714,7 +717,7 @@ describe('useReviewSave', () => {
   it('uploads anyway when no provisional row could be written', async () => {
     mockSaveRecording.mockResolvedValue(ENTRY);
     mockWriteProvisional.mockResolvedValue(null);
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());
@@ -730,25 +733,40 @@ describe('useReviewSave', () => {
    * whatever it is, and nothing else decides it.
    */
   it.each([
-    [UploadOutcome.Uploaded, { home: true, queued: false, error: false, retry: false, fix: false }],
     [
-      UploadOutcome.PermissionBlocked,
+      FfiUploadOutcome.Uploaded,
+      { home: true, queued: false, error: false, retry: false, fix: false },
+    ],
+    [
+      FfiUploadOutcome.PermissionBlocked,
       { home: false, queued: false, error: true, retry: false, fix: true },
     ],
-    [UploadOutcome.Rejected, { home: false, queued: false, error: true, retry: false, fix: false }],
-    [UploadOutcome.Missing, { home: false, queued: false, error: true, retry: false, fix: false }],
     [
-      UploadOutcome.AuthExpired,
+      FfiUploadOutcome.Rejected,
+      { home: false, queued: false, error: true, retry: false, fix: false },
+    ],
+    [
+      FfiUploadOutcome.Missing,
+      { home: false, queued: false, error: true, retry: false, fix: false },
+    ],
+    [
+      FfiUploadOutcome.AuthExpired,
       { home: true, queued: true, error: false, retry: false, fix: false },
     ],
     [
-      UploadOutcome.OtherAthlete,
+      FfiUploadOutcome.OtherAthlete,
       { home: true, queued: true, error: false, retry: false, fix: false },
     ],
-    [UploadOutcome.Network, { home: true, queued: true, error: false, retry: false, fix: false }],
-    [UploadOutcome.Retriable, { home: true, queued: true, error: false, retry: false, fix: false }],
     [
-      UploadOutcome.NotStarted,
+      FfiUploadOutcome.Network,
+      { home: true, queued: true, error: false, retry: false, fix: false },
+    ],
+    [
+      FfiUploadOutcome.Retriable,
+      { home: true, queued: true, error: false, retry: false, fix: false },
+    ],
+    [
+      FfiUploadOutcome.NotStarted,
       { home: true, queued: true, error: false, retry: false, fix: false },
     ],
   ])('follows the outcome the upload export answered (%s)', async (outcome, expected) => {
@@ -765,7 +783,7 @@ describe('useReviewSave', () => {
     expect(result.current.canRetry).toBe(expected.retry);
     expect(result.current.showPermissionFix).toBe(expected.fix);
     expect(mockRequestSyncRefresh).toHaveBeenCalledTimes(
-      outcome === UploadOutcome.Uploaded ? 1 : 0
+      outcome === FfiUploadOutcome.Uploaded ? 1 : 0
     );
   });
 });
@@ -797,7 +815,7 @@ it('clips laps to the saved GPS window and rebases their indices and clock', asy
   await act(async () => {
     await result.current.handleSave();
   });
-  expect(mockGenerateFit.mock.calls[0][0].laps).toEqual([
+  expect(mockWriteFit.mock.calls[0][0].laps).toEqual([
     expect.objectContaining({
       startTime: 0,
       endTime: 5,
@@ -842,7 +860,7 @@ it('drops a lap the trim removes and reads the next one from its own samples', a
   await act(async () => {
     await result.current.handleSave();
   });
-  expect(mockGenerateFit.mock.calls[0][0].laps).toEqual([
+  expect(mockWriteFit.mock.calls[0][0].laps).toEqual([
     expect.objectContaining({
       index: 0,
       startTime: 0,
@@ -866,7 +884,7 @@ describe('the save haptic', () => {
       (router.dismissTo as jest.Mock).mockImplementationOnce(() => {
         successesAtLeave = successes();
       });
-      mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+      mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
 
       const { result } = await renderHook(() => useReviewSave(makeArgs()));
       await act(() => result.current.handleSave());
@@ -878,7 +896,7 @@ describe('the save haptic', () => {
 
   vaultIt('plays one success for a saved manual entry', async () => {
     useRecordingStore.setState({ status: 'recording', mode: 'manual' });
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs({ isManual: true })));
     await act(() => result.current.handleSave());
@@ -897,7 +915,7 @@ describe('the save haptic', () => {
   });
 
   vaultIt('plays no second success when a failed upload is retried', async () => {
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Rejected, errorDetail: 'x' });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Rejected, errorDetail: 'x' });
 
     const { result } = await renderHook(() => useReviewSave(makeArgs()));
     await act(() => result.current.handleSave());

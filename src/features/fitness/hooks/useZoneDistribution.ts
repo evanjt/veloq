@@ -3,9 +3,9 @@ import type { ZoneDistribution } from '@/types';
 import { useTranslation } from 'react-i18next';
 import { DEFAULT_ZONE_NAME_KEYS } from '@/shared/app/zoneNameKeys';
 import { type PrimarySport } from '@/features/fitness/stores';
-import { trailingDaysWindow } from '@/features/fitness/lib/weekWindow';
+import { trailingDaysWindow } from '@/shared/time/trailingWeeks';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 
 interface UseZoneDistributionOptions {
   type: 'power' | 'hr';
@@ -23,7 +23,7 @@ const SPORT_TO_ENGINE_TYPE: Record<PrimarySport, string> = {
 };
 
 /** Name of default zone `zone` (1-based) in the app language, undefined past the seventh. */
-export type DefaultZoneName = (type: 'power' | 'hr', zone: number) => string | undefined;
+type DefaultZoneName = (type: 'power' | 'hr', zone: number) => string | undefined;
 
 /**
  * One row per total the engine returns, carrying the engine's whole share beside

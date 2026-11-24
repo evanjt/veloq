@@ -33,12 +33,12 @@ import { seasonChange } from '@/features/stats/lib/periodWindows';
 import { seasonColours } from '@/features/stats/lib/seasonColours';
 import { useWindowCoverage } from '@/shared/native/useRangeCoverage';
 import {
-  formatLocalDate,
   getIntlLocale,
   hoursUnitLabel,
   longDistanceUnitLabel,
   metersToLongDistance,
 } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import {
   ChartSurface,

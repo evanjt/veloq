@@ -17,16 +17,16 @@ import {
   formatHrv,
   formatPower,
   formatSpeed,
-  formatSportSpeed,
+  formatSportSpeedText,
   formatTemperature,
 } from '@/shared/format/format';
-import { formZoneFromLoads, formatForm, formZoneLabel } from '@/features/fitness';
+import { formZoneLabel } from '@/features/fitness';
 import { cadenceUnitLabel } from '@/features/activity/lib/cadenceUnit';
 import { toActivityType, type WellnessData } from '@/types';
 import {
-  MaxHrSource,
+  FfiMaxHrSource,
   type ActivityFitnessImpact,
-  type ActivityHeldBack,
+  type FfiActivityHeldBack,
   type ActivityRecord,
   type ActivitySummary,
 } from 'veloqrs';
@@ -34,8 +34,6 @@ import type { StatDetail } from './types';
 import type { ActivityNewGround } from '../../hooks/useActivitySectionHighlights';
 import { FEELS_LIKE_THRESHOLD } from '@/constants';
 import { useSource } from '@/shared/app/source/useSource';
-import { useFormPreference } from '@/shared/app/FormPreferenceStore';
-import { calculateSpeed, formFromLoads } from '@/shared/math';
 import { formatDecimal, formatPercent, formatSigned } from '@/shared/format';
 
 // Explanation keys for each metric - educational, not interpretive
@@ -68,7 +66,7 @@ interface UseActivityStatsOptions {
    * Where `maxHR` came from. A percent against the engine's default is named
    * as one, so it never reads as the athlete's own.
    */
-  maxHrSource?: MaxHrSource | undefined;
+  maxHrSource?: FfiMaxHrSource | undefined;
   fitnessImpact?: ActivityFitnessImpact | null | undefined;
   /** Tile coverage against earlier activities; the card is left out without it. */
   newGround?: ActivityNewGround | undefined;
@@ -81,7 +79,7 @@ interface UseActivityStatsOptions {
    * The hold on the ride, when intervals.icu holds it and does not serve it. Its
    * load and intensity factor then read as not shared, never as a zero.
    */
-  heldBack?: ActivityHeldBack | null | undefined;
+  heldBack?: FfiActivityHeldBack | null | undefined;
 }
 
 interface UseActivityStatsResult {
@@ -103,9 +101,6 @@ export function useActivityStats({
   // A Garmin-only library has Veloq's own load and no strain, heart rate
   // recovery or weather, which only intervals.icu supplies.
   const fromGarmin = useSource()?.id === 'garmin';
-  // Subscribed, so the form card follows the setting when the athlete record
-  // lands after this screen has mounted.
-  const asPercent = useFormPreference((s) => s.formAsPercent) === true;
 
   // Build insightful stats (memoized to prevent rebuild on every render)
   const stats = useMemo(() => {
@@ -203,35 +198,36 @@ export function useActivityStats({
       });
     }
 
-    // Speed, or pace for a sport read in pace. Both come from the stored
-    // summary, so a ride whose streams were never fetched still shows them.
-    // The average is distance over moving time, as the chart line and the
+    // Speed, or pace for a sport read in pace. The engine reads both from the
+    // stored summary, so a ride whose streams were never fetched still shows
+    // them. Its average is distance over moving time, as the chart line and the
     // recording review read it; the stored figure is often over elapsed time.
-    // It stands only when the activity has no distance or moving time.
-    const movingSpeed = calculateSpeed(
-      activity.distance,
-      summary?.movingTime ?? activity.movingTime
-    );
-    const avgSpeed = movingSpeed > 0 ? movingSpeed : summary?.averageSpeed;
+    const avgSpeed = summary?.shownAverageSpeed;
     if (avgSpeed != null) {
       const maxSpeed = summary?.maxSpeed;
       const sport = toActivityType(activity.sportType);
-      // The sports `formatSportSpeed` reads as a pace.
       const metric = readsAsPace(sport) ? 'Pace' : 'Speed';
-      const formatted = (speed: number) => formatSportSpeed(speed, sport, isMetric);
+      const formatted = (speed: number, metricText?: string, imperialText?: string) =>
+        formatSportSpeedText(speed, sport, isMetric, { metricText, imperialText });
+      const average = formatted(
+        avgSpeed,
+        summary?.shownAveragePaceMetricText,
+        summary?.shownAveragePaceImperialText
+      );
+      const max =
+        maxSpeed == null
+          ? undefined
+          : formatted(maxSpeed, summary?.maxPaceMetricText, summary?.maxPaceImperialText);
       result.push({
         title: metric === 'Speed' ? t('activity.stats.speed') : t('activity.stats.pace'),
-        value: formatted(avgSpeed),
+        value: average,
         icon: 'speedometer',
         stream: metric === 'Speed' ? 'speed' : 'pace',
-        context:
-          maxSpeed == null ? undefined : t('activity.stats.max', { value: formatted(maxSpeed) }),
+        context: max == null ? undefined : t('activity.stats.max', { value: max }),
         explanation: t(METRIC_EXPLANATION_KEYS[metric] as never),
         details: [
-          { label: t('activity.stats.average'), value: formatted(avgSpeed) },
-          maxSpeed == null
-            ? null
-            : { label: t('activity.stats.maxLabel'), value: formatted(maxSpeed) },
+          { label: t('activity.stats.average'), value: average },
+          max == null ? null : { label: t('activity.stats.maxLabel'), value: max },
           summary?.movingTime == null
             ? null
             : {
@@ -254,7 +250,8 @@ export function useActivityStats({
     if (avgHRValue) {
       const hrPercent = maxHR ? Math.round((avgHRValue / maxHR) * 100) : null;
       const ownMax =
-        maxHrSource === MaxHrSource.ActivityZones || maxHrSource === MaxHrSource.SportSettings;
+        maxHrSource === FfiMaxHrSource.ActivityZones ||
+        maxHrSource === FfiMaxHrSource.SportSettings;
 
       result.push({
         title: t('activity.heartRate'),
@@ -441,11 +438,9 @@ export function useActivityStats({
 
     // Form from wellness (TSB = CTL - ATL)
     if (wellness?.ctl != null && wellness?.atl != null) {
-      const form = formFromLoads(wellness.ctl, wellness.atl);
       const fitness = Math.round(wellness.ctl);
-      const formZone = formZoneFromLoads(wellness.ctl, wellness.atl, asPercent);
-      const formText = `${form > 0 ? '+' : ''}${form}`;
-      const formValue = formatForm(form, fitness, asPercent) ?? '';
+      const formZone = wellness.formZone;
+      const formValue = wellness.formText ?? '';
 
       result.push({
         title: t('activity.stats.yourForm'),
@@ -457,7 +452,7 @@ export function useActivityStats({
         details: [
           {
             label: t('activity.stats.formTSB'),
-            value: formText,
+            value: wellness.tsbText ?? '',
           },
           {
             label: t('activity.stats.fitnessCTL'),
@@ -556,7 +551,6 @@ export function useActivityStats({
     isMetric,
     maxHR,
     maxHrSource,
-    asPercent,
     fromGarmin,
   ]);
 

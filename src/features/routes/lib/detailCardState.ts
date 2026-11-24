@@ -21,7 +21,7 @@ const DELTA_LINE = 'deltaLine';
 const SHOWN_DIRECTION = 'shownDirection';
 const SCRUB_DISTANCE = 'scrubDistanceM';
 
-export interface DetailCardWriter {
+interface DetailCardWriter {
   /** The chart's picked attempt, bound so it can be handed to a chart as a stable callback. */
   selectAttempt: (activityId: string | null, lapPoints?: RoutePoint[], date?: Date) => void;
   setSport: (sport: string | undefined) => void;

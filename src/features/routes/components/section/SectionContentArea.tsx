@@ -25,14 +25,14 @@ import type {
   FfiRecordProgressions,
   FfiScatterFocus,
   FfiSectionTrendCurves,
-  MergeCandidate,
+  FfiMergeCandidate,
 } from 'veloqrs';
 import type { DirectionStats, PerformanceDataPoint, RoutePoint } from '@/types';
 import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 import type { SportTypeOption } from '../SportSelectButton';
 import type { ChartDirection } from '@/features/routes/lib/scatterData';
 
-export interface SectionContentAreaProps {
+interface SectionContentAreaProps {
   isDark: boolean;
   /** What the attempts are of, a section unless said otherwise. */
   subject?: PerformanceSubject | undefined;
@@ -45,7 +45,7 @@ export interface SectionContentAreaProps {
   /** The section is removed; with `onToggleDisable`, a banner offers it back. */
   isSectionDisabled?: boolean | undefined;
   /** Sections close enough to merge; with `onMergePress`, a banner opens them. */
-  mergeCandidates?: MergeCandidate[] | undefined;
+  mergeCandidates?: FfiMergeCandidate[] | undefined;
   combinedChartData: (PerformanceDataPoint & { x: number })[];
   /** The engine's trend curves for the range and sport on screen. */
   trendCurves: FfiSectionTrendCurves;

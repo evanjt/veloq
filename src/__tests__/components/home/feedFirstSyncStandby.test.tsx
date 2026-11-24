@@ -14,7 +14,7 @@ import fs from 'fs';
 import path from 'path';
 import { AccessibilityInfo, Platform, StyleSheet } from 'react-native';
 import { act, render, screen } from '@testing-library/react-native';
-import { SyncStep } from 'veloqrs';
+import { FfiSyncStep } from 'veloqrs';
 
 import { FeedFirstSyncStandby } from '@/features/home/components/FeedFirstSyncStandby';
 
@@ -29,7 +29,7 @@ let mockStatus: {
   state: number;
   completed: number;
   total: number;
-  step?: SyncStep;
+  step?: FfiSyncStep;
   stepItemsDone?: number;
   stepItemsTotal?: number;
 } | null = null;
@@ -74,7 +74,7 @@ describe('the first-sync standby', () => {
   /** The defect: a step count read as a count of activities, so a fresh
    *  install waiting on the athlete profile said "0 of 7 activities". */
   it('names the endpoint the engine is on rather than counting activities', async () => {
-    mockStatus = { state: 1, completed: 0, total: 8, step: SyncStep.Athlete };
+    mockStatus = { state: 1, completed: 0, total: 8, step: FfiSyncStep.Athlete };
     await render(<FeedFirstSyncStandby />);
 
     expect(screen.getByTestId('feed-first-sync-step').props.children).toBe(
@@ -84,7 +84,7 @@ describe('the first-sync standby', () => {
   });
 
   it('follows the engine to the step that carries the activities', async () => {
-    mockStatus = { state: 1, completed: 4, total: 8, step: SyncStep.Activities };
+    mockStatus = { state: 1, completed: 4, total: 8, step: FfiSyncStep.Activities };
     await render(<FeedFirstSyncStandby />);
 
     expect(screen.getByTestId('feed-first-sync-step').props.children).toBe(
@@ -98,7 +98,7 @@ describe('the first-sync standby', () => {
       state: 1,
       completed: 4,
       total: 8,
-      step: SyncStep.Activities,
+      step: FfiSyncStep.Activities,
       stepItemsDone: 120,
       stepItemsTotal: 480,
     };
@@ -111,7 +111,7 @@ describe('the first-sync standby', () => {
   });
 
   vaultIt('draws no count line for a step with nothing to count', async () => {
-    mockStatus = { state: 1, completed: 0, total: 1, step: SyncStep.Activities };
+    mockStatus = { state: 1, completed: 0, total: 1, step: FfiSyncStep.Activities };
     await render(<FeedFirstSyncStandby />);
 
     expect(screen.getByTestId('feed-first-sync-step')).toBeTruthy();
@@ -133,7 +133,7 @@ describe('the first-sync standby', () => {
       state: 1,
       completed: 4,
       total: 8,
-      step: SyncStep.Activities,
+      step: FfiSyncStep.Activities,
       stepItemsDone: done,
       stepItemsTotal: 480,
     });
@@ -186,7 +186,7 @@ describe('the first-sync standby', () => {
     vaultIt('names a new step at once, without waiting on the count', async () => {
       mockStatus = itemsAt(10);
       const { rerender } = await render(<FeedFirstSyncStandby />);
-      mockStatus = { state: 1, completed: 5, total: 8, step: SyncStep.Curves };
+      mockStatus = { state: 1, completed: 5, total: 8, step: FfiSyncStep.Curves };
       await rerender(<FeedFirstSyncStandby />);
 
       expect(screen.getByTestId('feed-first-sync-step').props.children).toBe(
@@ -200,7 +200,7 @@ describe('the first-sync standby', () => {
       state: 1,
       completed: 4,
       total: 8,
-      step: SyncStep.Activities,
+      step: FfiSyncStep.Activities,
       stepItemsDone: 120,
       stepItemsTotal: 480,
     };
@@ -212,7 +212,7 @@ describe('the first-sync standby', () => {
   });
 
   vaultIt('is busy with no value while the step has no count of its own', async () => {
-    mockStatus = { state: 1, completed: 0, total: 8, step: SyncStep.Athlete };
+    mockStatus = { state: 1, completed: 0, total: 8, step: FfiSyncStep.Athlete };
     await render(<FeedFirstSyncStandby />);
 
     const progress = screen.getByRole('progressbar');
@@ -244,7 +244,7 @@ describe('the first-sync standby', () => {
     });
 
     vaultIt('marks the step line as a polite live region for Android', async () => {
-      mockStatus = { state: 1, completed: 0, total: 8, step: SyncStep.Athlete };
+      mockStatus = { state: 1, completed: 0, total: 8, step: FfiSyncStep.Athlete };
       await render(<FeedFirstSyncStandby />);
 
       expect(screen.getByTestId('feed-first-sync-step').props.accessibilityLiveRegion).toBe(
@@ -254,11 +254,11 @@ describe('the first-sync standby', () => {
 
     vaultIt('announces each new step on iOS, which has no live region', async () => {
       Platform.OS = 'ios';
-      mockStatus = { state: 1, completed: 0, total: 8, step: SyncStep.Athlete };
+      mockStatus = { state: 1, completed: 0, total: 8, step: FfiSyncStep.Athlete };
       const { rerender } = await render(<FeedFirstSyncStandby />);
       expect(announce).toHaveBeenLastCalledWith('settings.syncStep.athlete');
 
-      mockStatus = { state: 1, completed: 1, total: 8, step: SyncStep.SportSettings };
+      mockStatus = { state: 1, completed: 1, total: 8, step: FfiSyncStep.SportSettings };
       await rerender(<FeedFirstSyncStandby />);
 
       expect(announce).toHaveBeenLastCalledWith('settings.syncStep.sportSettings');
@@ -271,7 +271,7 @@ describe('the first-sync standby', () => {
         state: 1,
         completed: 4,
         total: 8,
-        step: SyncStep.Activities,
+        step: FfiSyncStep.Activities,
         stepItemsDone: 10,
         stepItemsTotal: 400,
       };

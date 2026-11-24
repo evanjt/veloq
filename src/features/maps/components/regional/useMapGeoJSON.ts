@@ -20,11 +20,7 @@ import { EMPTY_FEATURE_COLLECTION } from '../../lib/coordinates';
 import { buildUserLocationCollection } from '../../lib/userLocationLayer';
 import type { MapGeoJSONData } from '../../lib/htmlBuilders';
 
-// Size based on distance (always returns 24 - kept as function for future scaling)
 const MARKER_SIZE = 24;
-export function getMarkerSize(_distance: number): number {
-  return MARKER_SIZE;
-}
 
 const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
 
@@ -69,8 +65,9 @@ export function useMapGeoJSON({
   // NOTE: Does NOT include isSelected - use MapLibre expressions with selectedActivityId
   // iOS crash fix: Filter out activities with undefined/invalid centers to prevent
   // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
-  // CRITICAL: Use allActivities (not visibleActivities) so MapLibre Supercluster has the
-  // complete point set for correct cluster hierarchies and counts at all zoom levels.
+  // The points come from allActivities, the list the map read returned after its window,
+  // sport, distance band and name filters. That whole list goes to the cluster source, so
+  // its index holds every activity the read returned, at each zoom level.
   const markersGeoJSON = useMemo(() => {
     let skippedCount = 0;
     // One clock read for the whole set, so every marker ages against the same
@@ -93,7 +90,6 @@ export function useMapGeoJSON({
           }
           return null;
         }
-        const size = getMarkerSize(activity.distance);
         // Recency: 0 = today, 1 = 1+ year old (for opacity fade on unclustered points)
         const age = recencyAge(activity.date, nowWall);
 
@@ -105,7 +101,7 @@ export function useMapGeoJSON({
             id: activity.id,
             type: activity.type,
             color: sportMarkColour(getActivityCategory(activity.type), isDark),
-            size: size,
+            size: MARKER_SIZE,
             age: Math.round(age * 100) / 100, // 2 decimal places
           },
           geometry: {

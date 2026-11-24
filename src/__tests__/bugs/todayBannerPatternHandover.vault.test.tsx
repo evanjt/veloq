@@ -108,7 +108,9 @@ afterEach(() => {
 
 describe('TodayBanner', () => {
   it('renders no habit sentence when nothing is planned', async () => {
-    const { queryByText } = await render(<TodayBanner form={{ ctl: 50, atl: 40 }} />);
+    const { queryByText } = await render(
+      <TodayBanner form={{ zone: 'fresh', text: '+10', asPercent: false }} />
+    );
 
     expect(queryByText(/you usually/)).toBeNull();
     expect(engineCall).not.toHaveBeenCalled();

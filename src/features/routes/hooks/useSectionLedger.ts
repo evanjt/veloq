@@ -31,7 +31,7 @@ export interface SectionGeometryVersion {
   pinned: boolean;
 }
 
-export interface SectionLedger {
+interface SectionLedger {
   history: SectionHistoryEvent[];
   versions: SectionGeometryVersion[];
   pinnedVersion: number | null;

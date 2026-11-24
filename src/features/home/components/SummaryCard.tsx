@@ -24,10 +24,9 @@ import { drawsRhr, hrvSparklineHeight, SummaryCardHRVSparkline } from './Summary
 import { Card } from '@/shared/ui/Card';
 import { useMeasuredWidth } from '@/shared/charts';
 import { useTranslation } from 'react-i18next';
-import { getFormZone, formatForm } from '@/features/fitness';
+import type { FormZone } from '@/features/fitness';
 import { summaryFormZoneColor, summarySeriesColor } from '@/features/home/lib/summaryMetricColour';
 import type { TrendGlyph } from '@/shared/format/trend';
-import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { formatSignedChange } from '../lib/fitnessChange';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
 
@@ -92,6 +91,9 @@ export interface SummaryCardProps {
   fitnessRiseDays?: number[] | undefined;
   fatigueData?: number[] | undefined;
   formData?: number[] | undefined;
+  /** Beside `formData`: the engine's zone and printed text for each day's form. */
+  formZoneData?: (FormZone | null)[] | undefined;
+  formTextData?: (string | null)[] | undefined;
   // HRV sparkline data - HRV line + RHR line
   hrvData?: number[] | undefined;
   rhrData?: number[] | undefined;
@@ -133,6 +135,8 @@ export const SummaryCard = React.memo(function SummaryCard({
   fitnessRiseDays,
   fatigueData,
   formData,
+  formZoneData,
+  formTextData,
   hrvData,
   rhrData,
   hrvRead,
@@ -169,7 +173,13 @@ export const SummaryCard = React.memo(function SummaryCard({
     formData &&
     fitnessData.length >= SPARKLINE_MIN_DAYS &&
     formData.length >= SPARKLINE_MIN_DAYS
-      ? { fitness: fitnessData, form: formData }
+      ? {
+          fitness: fitnessData,
+          form: formData,
+          // A read that stated no zones or texts draws the lines and no bar.
+          zones: formZoneData ?? [],
+          texts: formTextData ?? [],
+        }
       : null;
   const hrvSparkline =
     showSparkline && isHrvMode && hrvData && hrvData.length >= SPARKLINE_MIN_DAYS ? hrvData : null;
@@ -189,9 +199,8 @@ export const SummaryCard = React.memo(function SummaryCard({
   const lastIdx = fitnessData ? fitnessData.length - 1 : 0;
   const currentFitness = scrubValues ? scrubValues.fitness : (fitnessData?.[lastIdx] ?? 0);
   const currentFatigue = scrubValues ? scrubValues.fatigue : (fatigueData?.[lastIdx] ?? null);
-  const currentForm = scrubValues ? scrubValues.form : (formData?.[lastIdx] ?? 0);
-  const asPercent = useFormPreference((s) => s.formAsPercent) === true;
-  const currentFormZone = getFormZone(currentForm, currentFitness, asPercent);
+  const currentFormZone = scrubValues ? scrubValues.formZone : (formZoneData?.[lastIdx] ?? null);
+  const currentFormText = scrubValues ? scrubValues.formText : (formTextData?.[lastIdx] ?? null);
   const currentFormKey = currentFormZone
     ? summaryFormZoneColor(currentFormZone, isDark)
     : undefined;
@@ -200,7 +209,7 @@ export const SummaryCard = React.memo(function SummaryCard({
       ? isHrvMode
         ? (scrubValues.hrv ?? heroValue)
         : isFormMode
-          ? (formatForm(scrubValues.form, scrubValues.fitness, asPercent) ?? ABSENT)
+          ? (scrubValues.formText ?? ABSENT)
           : scrubValues.fitness
       : heroValue;
   const displayKey =
@@ -264,9 +273,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                       <KeyDot testID="summary-card-key-fitness" color={fitnessKey} />
                     )}
                     <Text style={[styles.heroValueFixed, { color: valueInk }]}>
-                      {isFormMode
-                        ? (formatForm(currentForm, currentFitness, asPercent) ?? ABSENT)
-                        : currentFitness}
+                      {isFormMode ? (currentFormText ?? ABSENT) : currentFitness}
                     </Text>
                     <Text style={[styles.heroLabel, { color: labelInk }]}>
                       {t(isFormMode ? 'metrics.form' : 'metrics.fitness')}
@@ -305,9 +312,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                           <KeyDot testID="summary-card-key-form" color={currentFormKey} />
                         ) : null}
                         <Text style={[styles.heroSubText, { color: labelInk }]}>
-                          <Text style={{ color: valueInk }}>
-                            {formatForm(currentForm, currentFitness, asPercent) ?? ''}
-                          </Text>{' '}
+                          <Text style={{ color: valueInk }}>{currentFormText ?? ''}</Text>{' '}
                           {currentFormZone ? t(`formZones.${currentFormZone}`) : ''}
                         </Text>
                       </View>
@@ -381,6 +386,8 @@ export const SummaryCard = React.memo(function SummaryCard({
                   fatigueData={fatigueData}
                   riseDays={fitnessRiseDays}
                   formData={fitnessSparkline.form}
+                  formZoneData={fitnessSparkline.zones}
+                  formTextData={fitnessSparkline.texts}
                   width={sparklineWidth}
                   showLabels={showSparklineLabels}
                   onScrub={showSparklineLabels ? undefined : handleScrub}
@@ -448,7 +455,7 @@ export const SummaryCard = React.memo(function SummaryCard({
   );
 });
 
-export interface SummaryCardSkeletonProps {
+interface SummaryCardSkeletonProps {
   heroMetric: string;
   /** Whether the card will hold a sparkline, from the athlete's setting. */
   showSparkline: boolean;

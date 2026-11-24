@@ -9,16 +9,15 @@
 //! are all process-wide, so every test here takes `serial_global_state`.
 
 use super::*;
+use crate::atomic_file::sweep_probe::{await_sweep, plant_stale_temp, walked_on};
 use crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE;
 use crate::persistence::with_persistent_engine;
+use crate::poison::Recover;
 use crate::test_globals::{init_global_engine, serial_global_state};
 use std::time::{Duration, Instant};
 
 fn sweeps_running() -> bool {
-    !crate::persistence::TILE_SWEEPS
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .is_empty()
+    !crate::persistence::TILE_SWEEPS.lock_recover().is_empty()
 }
 
 fn wait_for_sweeps() {
@@ -40,10 +39,7 @@ fn settle() -> usize {
             std::thread::sleep(Duration::from_millis(2));
             continue;
         }
-        let parked = TILE_GENERATION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .take();
+        let parked = TILE_GENERATION_HANDLE.lock_recover().take();
         if let Some(handle) = parked {
             handle.recv_blocking();
             passes += 1;
@@ -357,11 +353,8 @@ fn a_sync_holds_back_the_passes_its_stores_ask_for_until_it_ends() {
     store_through_the_ffi("east", &sion_east());
     store_through_the_ffi("west", &sion_west());
     wait_for_sweeps();
-    let started_during_the_sync = TILE_GENERATION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .is_some()
-        || tile_pass_slot().is_some();
+    let started_during_the_sync =
+        TILE_GENERATION_HANDLE.lock_recover().is_some() || tile_pass_slot().is_some();
     drop(held);
     let passes = settle();
 
@@ -376,11 +369,7 @@ fn a_sync_holds_back_the_passes_its_stores_ask_for_until_it_ends() {
 
 /// Whether a pass is running or parked, without taking it.
 fn a_pass_is_live() -> bool {
-    TILE_GENERATION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .is_some()
-        || tile_pass_slot().is_some()
+    TILE_GENERATION_HANDLE.lock_recover().is_some() || tile_pass_slot().is_some()
 }
 
 fn engine_with_two_rides(name: &str) -> (tempfile::TempDir, PathBuf) {
@@ -489,8 +478,7 @@ fn a_pass_reports_its_own_duration_however_late_its_handle_is_taken() {
     let ended = requested.elapsed();
     std::thread::sleep(Duration::from_millis(300));
     let handle = TILE_GENERATION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .lock_recover()
         .take()
         .expect("the pass parked its handle");
     assert!(handle.recv_blocking().expect("the pass reported") > 0);
@@ -962,4 +950,34 @@ fn removing_a_ride_records_the_ground_it_swept() {
             .remove("east".into())
             .expect("east removed");
     });
+}
+
+/// Scenario: the athlete launches with a heatmap tree at the current format
+/// that holds a temp file a killed process left two hours ago, beside a tile
+/// it must keep.
+///
+/// Expected behaviour: the sweep runs off the calling thread, and removes the
+/// stale temp file while the tile stays.
+#[test]
+fn launch_sweeps_stale_heatmap_temp_files_off_the_calling_thread() {
+    let _serial = serial_global_state();
+    settle();
+    let tmp = init_global_engine("heatmap-launch-sweep.db");
+    let tiles = tmp.path().join("tiles");
+    std::fs::create_dir_all(&tiles).unwrap();
+    std::fs::write(tiles.join("version.txt"), TILE_FORMAT_VERSION).unwrap();
+    let temp = plant_stale_temp(&tiles, "12/2100/1400.png");
+    let tile = tiles.join("12/2100/1400.png");
+
+    set_tiles_path(&tiles);
+    await_sweep(&tiles);
+    turn_the_heatmap_off();
+
+    assert_ne!(
+        walked_on(&tiles),
+        Some(std::thread::current().id()),
+        "the sweep ran on the calling thread"
+    );
+    assert!(!temp.exists(), "the stale temp file was not swept");
+    assert_eq!(std::fs::read(&tile).unwrap(), b"tile");
 }

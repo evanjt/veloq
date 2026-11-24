@@ -9,9 +9,8 @@
  * request, is asserted in Rust, where it runs.
  */
 
-import { UploadOutcome, recordings } from 'veloqrs';
+import { FfiUploadOutcome, recordings } from 'veloqrs';
 import { uploadRecordingNow } from '@/features/recording/lib/upload/intervalsUploads';
-import { transitionRecording } from '@/features/recording/lib/storage/recordingLibrary';
 
 jest.mock('veloqrs', () =>
   require('../../__shared__/veloqrsStub').withOverrides({
@@ -21,11 +20,6 @@ jest.mock('veloqrs', () =>
   })
 );
 
-jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
-  recordingInstall: jest.fn(() => 4),
-  transitionRecording: jest.fn(),
-}));
-
 const mockAuthState = { isDemoMode: false, athleteId: 'i12345' };
 
 jest.mock('@/shared/app/AuthStore', () => ({
@@ -34,14 +28,12 @@ jest.mock('@/shared/app/AuthStore', () => ({
 }));
 
 const mockUploadRecording = recordings.uploadRecording as jest.Mock;
-const mockTransition = transitionRecording as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockAuthState.isDemoMode = false;
   mockAuthState.athleteId = 'i12345';
-  mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
-  mockTransition.mockResolvedValue({ applied: true, retryCount: 0, install: 4 });
+  mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
 });
 
 describe('uploadRecordingNow', () => {
@@ -56,31 +48,29 @@ describe('uploadRecordingNow', () => {
 
   vaultIt("answers the engine's outcome and detail as they were given", async () => {
     mockUploadRecording.mockResolvedValue({
-      outcome: UploadOutcome.Rejected,
+      outcome: FfiUploadOutcome.Rejected,
       errorDetail: 'File type not supported',
     });
 
     expect(await uploadRecordingNow('rec-1')).toEqual({
-      outcome: UploadOutcome.Rejected,
+      outcome: FfiUploadOutcome.Rejected,
       errorDetail: 'File type not supported',
     });
   });
 
-  it('answers that nothing started in demo mode, writing nothing and never touching the engine', async () => {
+  it('answers that nothing started in demo mode, never touching the engine', async () => {
     mockAuthState.isDemoMode = true;
     mockAuthState.athleteId = 'demo';
 
     const result = await uploadRecordingNow('rec-1');
 
-    expect(result).toEqual({ outcome: UploadOutcome.NotStarted });
+    expect(result).toEqual({ outcome: FfiUploadOutcome.NotStarted });
     expect(mockUploadRecording).not.toHaveBeenCalled();
-    expect(mockTransition).not.toHaveBeenCalled();
   });
 
   vaultIt('answers that nothing started for the demo athlete without the demo flag', async () => {
     mockAuthState.athleteId = 'demo';
 
-    expect(await uploadRecordingNow('rec-1')).toEqual({ outcome: UploadOutcome.NotStarted });
-    expect(mockTransition).not.toHaveBeenCalled();
+    expect(await uploadRecordingNow('rec-1')).toEqual({ outcome: FfiUploadOutcome.NotStarted });
   });
 });

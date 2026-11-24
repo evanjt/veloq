@@ -10,7 +10,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { SyncErrorReason, SyncState } from 'veloqrs';
+import { FfiSyncErrorReason, SyncState } from 'veloqrs';
 
 import { getEngine } from '@/shared/native/engine';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
@@ -23,7 +23,7 @@ jest.mock('@/shared/app/navigation', () => ({
   navigateTo: jest.fn(),
 }));
 jest.mock('@/shared/native/syncRefresh', () => ({
-  requestSyncRefresh: jest.fn(() => require('veloqrs').StartOutcome.Started),
+  requestSyncRefresh: jest.fn(() => require('veloqrs').FfiStartOutcome.Started),
   cancelSyncRefresh: jest.fn(),
 }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -93,7 +93,7 @@ jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
 }));
 jest.mock('@/features/activity/components', () => ({ ActivityCard: () => null }));
 
-async function renderFeedAfterSync(state: SyncState, lastErrorReason: SyncErrorReason | null) {
+async function renderFeedAfterSync(state: SyncState, lastErrorReason: FfiSyncErrorReason | null) {
   (getEngine as jest.Mock).mockReturnValue({
     getActivityHighlightsBundle: () => ({ indicators: [], routeHighlights: [], newGround: [] }),
     searchFeedCards: () => ({ cards: [], matchedCount: 0, hasMore: false }),
@@ -121,7 +121,7 @@ beforeEach(() => {
 });
 
 it('names an unreachable server and retries the sync', async () => {
-  await renderFeedAfterSync(SyncState.Idle, SyncErrorReason.Network);
+  await renderFeedAfterSync(SyncState.Idle, FfiSyncErrorReason.Network);
 
   expect(screen.getByText('feed.emptyLibrary.failedTitle')).toBeTruthy();
   expect(screen.getByText('emptyState.syncError.reason.network')).toBeTruthy();
@@ -132,7 +132,7 @@ it('names an unreachable server and retries the sync', async () => {
 });
 
 it('sends a refused login to sign in again', async () => {
-  await renderFeedAfterSync(SyncState.AuthExpired, SyncErrorReason.Unauthorized);
+  await renderFeedAfterSync(SyncState.AuthExpired, FfiSyncErrorReason.Unauthorized);
 
   expect(screen.getByText('feed.emptyLibrary.authExpiredTitle')).toBeTruthy();
   expect(screen.queryByText('feed.emptyLibrary.emptyTitle')).toBeNull();
@@ -142,7 +142,7 @@ it('sends a refused login to sign in again', async () => {
 });
 
 it('says a rate-limited sync is waiting, with nothing to press', async () => {
-  await renderFeedAfterSync(SyncState.Idle, SyncErrorReason.RateLimited);
+  await renderFeedAfterSync(SyncState.Idle, FfiSyncErrorReason.RateLimited);
 
   expect(screen.getByText('feed.emptyLibrary.pausedTitle')).toBeTruthy();
   expect(screen.getByText('emptyState.syncError.reason.rateLimited')).toBeTruthy();

@@ -30,7 +30,7 @@ import { Badge } from '@/shared/ui/Badge';
 import { Icon } from '@/shared/ui/Icon';
 import { NameText } from '@/shared/ui/NameText';
 
-export interface SelectedAttemptCardProps {
+interface SelectedAttemptCardProps {
   attempt: PerformanceDataPoint;
   isDark: boolean;
   activityType: ActivityType;
@@ -75,14 +75,19 @@ export function SelectedAttemptCard({
   const standing = recordsSettled
     ? scatterStandingText(
         scatterStanding(attempt, progression, axis),
-        attempt,
         axis,
         activityType,
         isMetric,
         t
       )
     : null;
-  const headline = formatAttemptHeadline(basis, attempt.sectionTime, attempt.speed, isMetric);
+  const headline = formatAttemptHeadline(
+    basis,
+    attempt.sectionTime,
+    attempt.speed,
+    isMetric,
+    attempt.speedPace
+  );
   const avgPower = attempt.avgPower;
   const power =
     avgPower != null && Number.isFinite(avgPower) && avgPower > 0 ? formatPower(avgPower) : null;

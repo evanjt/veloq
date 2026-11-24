@@ -15,14 +15,13 @@ import { DashPathEffect, Line, vec } from '@shopify/react-native-skia';
 
 import { useMetricSystem } from '@/shared/app';
 import { DenseText } from '@/shared/ui/DenseText';
-import { formatDuration } from '@/shared/format/format';
+import { formatDuration, formatSportSpeedText } from '@/shared/format/format';
 import {
   binIndexForTime,
   integerCountTicks,
   layoutHistogram,
 } from '@/features/routes/lib/histogramLayout';
 import { attemptBasis } from '@/features/routes/lib/attemptBasis';
-import { formatSectionSpeed } from '@/features/routes/lib/sectionSpeedFormat';
 import {
   ChartBar,
   ChartCanvas,
@@ -62,7 +61,7 @@ interface HistogramBin {
   range: string;
 }
 
-export interface AttemptHistogramChartProps {
+interface AttemptHistogramChartProps {
   histogram: FfiAttemptHistogram;
   activityType: ActivityType;
   isDark: boolean;
@@ -93,7 +92,12 @@ export function AttemptHistogramChart({
     (edge: number) => {
       const speed = histogram.edgeSpeeds?.[edge];
       if (!useTimeAxis && speed !== undefined) {
-        return formatSectionSpeed(speed, activityType, isMetric);
+        return formatSportSpeedText(
+          speed,
+          activityType,
+          isMetric,
+          histogram.edgePace?.[edge] ?? {}
+        );
       }
       return formatDuration(histogram.startSecs + edge * histogram.binWidthSecs);
     },

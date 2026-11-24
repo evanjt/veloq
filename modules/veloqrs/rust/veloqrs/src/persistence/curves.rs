@@ -99,11 +99,17 @@ pub struct FfiPaceCurve {
     /// Metres per second at each distance, zero where the time is.
     /// Unit: metre_per_second.
     pub pace: Vec<f64>,
+    /// `pace` as text in both unit systems, one entry per point: per kilometre
+    /// and mile on foot, per 100 m and 100 yd in the water. None for a point
+    /// with no pace and for every point of a sport read as a speed.
+    pub pace_texts: Vec<Option<crate::FfiPaceText>>,
     pub activity_ids: Option<Vec<String>>,
     pub activities: HashMap<String, FfiCurveActivity>,
     /// The critical-speed model's terms, when the server fitted one.
     /// Unit: metre_per_second.
     pub critical_speed: Option<f64>,
+    /// `critical_speed` as pace text, as `pace_texts`.
+    pub critical_pace: Option<crate::FfiPaceText>,
     /// Unit: metre.
     pub d_prime: Option<f64>,
     /// Unit: ratio.
@@ -317,7 +323,7 @@ pub fn parse_pace_curve(body: &str, sport: &str, fetched_at: i64) -> Option<FfiP
 
     // Metres per second, and nought where the time is: a divide by zero would
     // draw an infinite pace rather than a gap.
-    let pace = distances
+    let pace: Vec<f64> = distances
         .iter()
         .enumerate()
         .map(|(i, dist)| match times.get(i) {
@@ -326,6 +332,16 @@ pub fn parse_pace_curve(body: &str, sport: &str, fetched_at: i64) -> Option<FfiP
         })
         .collect();
 
+    let text_of = |speed: f64| {
+        crate::widget_snapshot::sport_pace_text(speed, sport).map(|(metric_text, imperial_text)| {
+            crate::FfiPaceText {
+                metric_text,
+                imperial_text,
+            }
+        })
+    };
+    let pace_texts = pace.iter().map(|&speed| text_of(speed)).collect();
+
     let cs = models.into_iter().find(|m| m.kind.as_deref() == Some("CS"));
 
     Some(FfiPaceCurve {
@@ -333,9 +349,11 @@ pub fn parse_pace_curve(body: &str, sport: &str, fetched_at: i64) -> Option<FfiP
         distances,
         times,
         pace,
+        pace_texts,
         activity_ids,
         activities: activities_of(parsed.activities),
         critical_speed: cs.as_ref().and_then(|m| m.critical_speed),
+        critical_pace: cs.as_ref().and_then(|m| m.critical_speed).and_then(text_of),
         d_prime: cs.as_ref().and_then(|m| m.d_prime),
         r2: cs.as_ref().and_then(|m| m.r2),
         start_date: start,
@@ -485,6 +503,43 @@ mod tests {
         assert_eq!(curve.pace[0], 400.0 / 70.0);
         assert_eq!(curve.pace[2], 0.0);
         assert!(curve.pace.iter().all(|p| p.is_finite()));
+    }
+
+    /// The curve carries the text of every point and of the critical speed,
+    /// in both unit systems, so the chart prints what it is given: a swim per
+    /// 100 m and 100 yd, a run per kilometre and mile, and no text for a
+    /// point with no time or a sport read as a speed.
+    #[test]
+    fn a_pace_curve_carries_pace_text_for_its_points_and_critical_speed() {
+        let body = r#"{"list": [{
+            "distance": [400, 1000, 5000],
+            "values": [80, 160, 0],
+            "paceModels": [{"type": "CS", "criticalSpeed": 4.0}]
+        }]}"#;
+        let text = |p: &Option<crate::FfiPaceText>| {
+            p.as_ref()
+                .map(|t| (t.metric_text.clone(), t.imperial_text.clone()))
+        };
+        let pair = |m: &str, i: &str| Some((m.to_string(), i.to_string()));
+
+        let swim = parse_pace_curve(body, "Swim", 0).expect("parses");
+        // 5 m/s is 20 s per 100 m and 18 s per 100 yd; 6.25 m/s is 16 s and 15 s.
+        assert_eq!(
+            swim.pace_texts.iter().map(text).collect::<Vec<_>>(),
+            vec![pair("0:20", "0:18"), pair("0:16", "0:15"), None]
+        );
+        // 4 m/s is 25 s per 100 m and 23 s per 100 yd.
+        assert_eq!(text(&swim.critical_pace), pair("0:25", "0:23"));
+
+        let run = parse_pace_curve(body, "Run", 0).expect("parses");
+        // 5 m/s is 3:20 per km and 5:22 per mile.
+        assert_eq!(text(&run.pace_texts[0]), pair("3:20", "5:22"));
+        assert_eq!(run.pace_texts.len(), run.pace.len());
+        assert_eq!(text(&run.critical_pace), pair("4:10", "6:42"));
+
+        let ride = parse_pace_curve(body, "Ride", 0).expect("parses");
+        assert!(ride.pace_texts.iter().all(Option::is_none));
+        assert_eq!(ride.critical_pace, None);
     }
 
     #[test]

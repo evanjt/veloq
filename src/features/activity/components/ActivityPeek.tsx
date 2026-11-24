@@ -23,7 +23,7 @@ import type { ActivityType } from '@/types';
 import { colors, darkColors } from '@/theme';
 import type { activityHeroStats } from '../lib/activityHeroStats';
 
-export interface ActivityPeekProps {
+interface ActivityPeekProps {
   activityId: string;
   name: string;
   activityType: ActivityType;

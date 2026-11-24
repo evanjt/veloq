@@ -92,7 +92,6 @@ jest.mock('@/features/fitness', () => {
     SportToggleSelector: () => <View testID="sport-toggle" />,
     BestEffortsHeaderButton: () => null,
     CalendarDayReadout: () => null,
-    resolveThresholdPace: () => null,
     useFitnessRefresh: () => ({ isRefreshing: false, onRefresh: jest.fn() }),
     useFitnessComputations: () => ({ ftpTrend: [], dominantZone: null }),
     useFitnessScreenData: () => ({
@@ -119,7 +118,6 @@ jest.mock('@/features/fitness', () => {
       sharedSelectedIdx: { value: -1 },
       chartInteracting: false,
       selectedDate: null,
-      selectedValues: null,
       handleInteractionChange: jest.fn(),
       handleDateSelect: jest.fn(),
     }),

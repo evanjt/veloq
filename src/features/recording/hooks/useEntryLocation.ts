@@ -24,7 +24,7 @@ export const GPS_READINESS_TIMEOUT_MS = 15_000;
  */
 export const ENTRY_FIX_MAX_AGE_MS = 120_000;
 
-export interface EntryLocation {
+interface EntryLocation {
   state: EntryGpsState;
   location: { latitude: number; longitude: number } | null;
   /** Metres, or null before the first fix. */

@@ -104,6 +104,12 @@ describe('toDirectionStats', () => {
     expect(toDirectionStats(null)).toBeNull();
   });
 
+  it('carries the average pace text the engine wrote, null where it wrote none', () => {
+    const pace = { metricText: '5:34', imperialText: '8:57' };
+    expect(toDirectionStats({ count: 2, avgPaceText: pace })!.avgPaceText).toEqual(pace);
+    expect(toDirectionStats({ count: 2 })!.avgPaceText).toBeNull();
+  });
+
   it('handles avgTime null', () => {
     const result = toDirectionStats({ avgTime: null, lastActivity: 1768435200, count: 3 });
     expect(result).not.toBeNull();

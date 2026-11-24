@@ -34,7 +34,7 @@ interface WireGroup extends WireSummary {
 }
 
 /** An interval body as the engine stores it, for the demo to seed. */
-export interface DemoIntervalBody {
+interface DemoIntervalBody {
   icu_intervals: WireInterval[];
   icu_groups: WireGroup[];
 }

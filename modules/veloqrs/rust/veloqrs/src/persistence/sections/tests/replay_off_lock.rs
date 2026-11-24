@@ -123,10 +123,12 @@ fn normalised(mut identity: SectionIdentity, mut applied: ReplayApplied) -> serd
 fn test_replay_snapshot_matches_locked_lifecycle() {
     let (_dir, engine) = seeded();
     let mut locked_identity = engine.identity.clone();
-    let locked = engine.section_identity_apply_into(&mut locked_identity, replay());
+    let locked = engine
+        .section_identity_apply_into(&mut locked_identity, replay())
+        .expect("replay");
     assert!(!locked.events.is_empty(), "the lifecycle fired no events");
 
-    let snapshot = IdentityReplaySnapshot::capture(&engine);
+    let snapshot = IdentityReplaySnapshot::capture(&engine).expect("snapshot");
     let (off_lock_identity, off_lock) = snapshot.replay(&engine.db, replay(), &[]);
     assert_eq!(
         normalised(off_lock_identity, off_lock),
@@ -149,7 +151,7 @@ fn test_replay_snapshot_runs_while_engine_lock_is_held() {
                 .add_activity(id.into(), line(latitude), "Ride".into())
                 .expect("activity");
         }
-        IdentityReplaySnapshot::capture(engine)
+        IdentityReplaySnapshot::capture(engine).expect("snapshot")
     })
     .expect("engine");
     let path = dir.path().join("replay-lock.db");

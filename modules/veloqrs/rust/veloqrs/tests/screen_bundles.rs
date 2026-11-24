@@ -257,9 +257,9 @@ fn activity_detail_matches_the_calls_it_replaces() {
         bundle.highlights.indicators.len(),
         s.engine.get_activity_indicators(&ids).len()
     );
-    assert_eq!(
-        bundle.highlights.route_highlights.len(),
-        s.engine.get_activity_route_highlights(&ids).len()
+    assert!(
+        bundle.highlights.route_highlights.is_empty(),
+        "a1 is in no route group, so the screen carries no route highlight for it"
     );
 }
 
@@ -1033,7 +1033,7 @@ fn route_detail_matches_the_calls_it_replaces() {
     assert_eq!(bundle.activity_count, s.engine.activity_count() as u32);
     assert_eq!(
         bundle.group.as_ref().and_then(|g| g.custom_name.clone()),
-        s.engine.get_route_name(&group_id)
+        s.engine.get_all_route_names().get(&group_id).cloned()
     );
     assert_eq!(
         bundle.excluded_activity_ids,

@@ -81,18 +81,25 @@ describe('reading the heatmap cache size off the JS thread', () => {
     expect(engine.started).toEqual([BASE, BASE]);
   });
 
-  it('abandons a walk that never finishes and reads zero', async () => {
+  it('abandons a walk that never finishes and reads unknown, not zero', async () => {
     const engine = engineFrom(['running'], 512);
 
-    await expect(readHeatmapCacheSize(engine, BASE, 0)).resolves.toBe(0);
+    await expect(readHeatmapCacheSize(engine, BASE, 0)).resolves.toBeNull();
     expect(engine.cancels).toBe(1);
   });
 
-  it('reads zero for a walk that died rather than throwing', async () => {
+  it('reads unknown for a walk that died rather than throwing', async () => {
     const engine = engineFrom(['failed'], null);
 
-    await expect(readHeatmapCacheSize(engine, BASE)).resolves.toBe(0);
+    await expect(readHeatmapCacheSize(engine, BASE)).resolves.toBeNull();
     expect(engine.takes).toBe(0);
+  });
+
+  it('reads unknown for a walk that completed without handing over a figure', async () => {
+    const engine = engineFrom(['complete'], null);
+
+    await expect(readHeatmapCacheSize(engine, BASE)).resolves.toBeNull();
+    expect(engine.takes).toBe(1);
   });
 
   vaultIt('reads zero for an empty tree rather than treating it as unknown', async () => {

@@ -192,10 +192,6 @@ export const folderBackend: BackupBackend = {
     await readFolderFile('Restore backup', backupId, destPath);
   },
 
-  async delete(): Promise<void> {
-    throw new Error('Veloq deletes nothing in a backup folder the athlete chose');
-  },
-
   /**
    * An object of the same name is replaced: on a storage-access folder it is
    * deleted before the new one is written, and the iOS folder and the shared

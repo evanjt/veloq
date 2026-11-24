@@ -202,11 +202,4 @@ export const localBackend: BackupBackend = {
   async fetchObject(): Promise<void> {
     throw new Error('The old backup directory holds no objects');
   },
-
-  async delete(backupId: string): Promise<void> {
-    const dir = getBackupDir();
-    const filePath = `${dir}${backupId}`;
-    await FileSystem.deleteAsync(filePath, { idempotent: true });
-    await FileSystem.deleteAsync(`${filePath}.meta.json`, { idempotent: true });
-  },
 };

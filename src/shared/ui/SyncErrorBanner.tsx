@@ -31,7 +31,7 @@
 
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SyncErrorReason } from 'veloqrs';
+import { FfiSyncErrorReason } from 'veloqrs';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNetwork } from '@/shared/app/NetworkContext';
@@ -43,9 +43,9 @@ import { SYNC_ERROR_REASON_KEY } from '@/shared/format/syncErrorReason';
 import { NoticeBanner, type NoticeAction } from './NoticeBanner';
 
 /** The reasons only a new login can clear. */
-const NEEDS_LOGIN: ReadonlySet<SyncErrorReason> = new Set([
-  SyncErrorReason.Unauthorized,
-  SyncErrorReason.NotConfigured,
+const NEEDS_LOGIN: ReadonlySet<FfiSyncErrorReason> = new Set([
+  FfiSyncErrorReason.Unauthorized,
+  FfiSyncErrorReason.NotConfigured,
 ]);
 
 function retry() {
@@ -84,7 +84,7 @@ export function SyncErrorBanner() {
   if (closedOn === failure) return null;
 
   const actions: NoticeAction[] = [];
-  if (lastErrorReason === SyncErrorReason.StorageFull) {
+  if (lastErrorReason === FfiSyncErrorReason.StorageFull) {
     actions.push({
       label: t('common.freeUpSpace'),
       onPress: () => navigateTo('/cache-settings'),
@@ -97,7 +97,7 @@ export function SyncErrorBanner() {
       onPress: () => navigateTo('/login'),
       testID: 'sync-error-sign-in',
     });
-  } else if (lastErrorReason !== SyncErrorReason.StorageFull) {
+  } else if (lastErrorReason !== FfiSyncErrorReason.StorageFull) {
     actions.push({ label: t('common.retry'), onPress: retry, testID: 'sync-error-banner-retry' });
   }
 

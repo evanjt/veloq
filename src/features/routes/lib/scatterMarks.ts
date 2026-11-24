@@ -12,16 +12,14 @@
  */
 
 import type { TFunction } from 'i18next';
-import type { FfiFocusRange, FfiRecordStep } from 'veloqrs';
+import type { FfiFocusRange, FfiPaceGap, FfiRecordStep } from 'veloqrs';
 import { isSwimmingActivity, readsAsPace } from '@/shared/activity/activityUtils';
 import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 import {
   formatDuration,
   formatSecondsValue,
   formatSpeed,
-  paceSeconds,
   paceUnitLabel,
-  swimPaceSeconds,
   swimPaceUnitLabel,
 } from '@/shared/format/format';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
@@ -40,7 +38,7 @@ const FALLBACK_FLAT_PADDING = 0.05;
  * projection, or a triangle at the top or bottom edge for an attempt past the
  * range.
  */
-export type ScatterMarkKind =
+type ScatterMarkKind =
   'dot' | 'excluded' | 'outsideBand' | 'estimated' | 'offScaleTop' | 'offScaleBottom';
 
 export interface ScatterMark {
@@ -53,7 +51,7 @@ export interface ScatterMark {
   selected: boolean;
 }
 
-export interface ScatterMarkContext {
+interface ScatterMarkContext {
   highlightedActivityId: string | undefined;
   /** The selected attempt's lap id and activity id, null with nothing selected. */
   selected: { id: string; activityId: string } | null;
@@ -111,12 +109,12 @@ export function clampToRange(value: number, range: readonly [number, number]): n
 }
 
 /** One step of the staircase on the chart: its normalised x and its axis value. */
-export interface PlacedStep {
+interface PlacedStep {
   x: number;
   value: number;
 }
 
-export interface PlacedStaircase {
+interface PlacedStaircase {
   /** The record held when the range opens, carried in from the left edge. Null when none. */
   carriedIn: number | null;
   /** The records set inside the range, oldest first. */
@@ -154,14 +152,17 @@ export function placeRecordStaircase(
 }
 
 /** How this activity stands against the record, in words the chart writes beside it. */
-export type ScatterStanding =
-  { kind: 'newRecord'; gain: number | null } | { kind: 'offRecord'; gap: number } | null;
+type ScatterStanding =
+  | { kind: 'newRecord'; gain: number | null; pace: FfiPaceGap | null }
+  | { kind: 'offRecord'; gap: number; pace: FfiPaceGap | null }
+  | null;
 
 /**
  * This activity's standing from the engine's gap and progression: a new record
  * with what it gained on the record before, or how far off the record it is.
  * `gain` and `gap` are in the axis's own value, seconds on a time axis and
- * metres per second on a speed axis, and are never negative.
+ * metres per second on a speed axis, and are never negative. `pace` is the
+ * same difference as the engine's pace seconds, for a sport that reads as a pace.
  */
 export function scatterStanding(
   point: PerformanceDataPoint,
@@ -173,9 +174,13 @@ export function scatterStanding(
   if (point.isBest === true) {
     const step = progression.find((s) => s.lapId === point.id);
     const gain = axis === 'time' ? step?.improvementSecs : step?.improvementSpeed;
-    return { kind: 'newRecord', gain: gain != null && Number.isFinite(gain) ? gain : null };
+    return {
+      kind: 'newRecord',
+      gain: gain != null && Number.isFinite(gain) ? gain : null,
+      pace: step?.improvementPace ?? null,
+    };
   }
-  return gap > 0 ? { kind: 'offRecord', gap } : null;
+  return gap > 0 ? { kind: 'offRecord', gap, pace: point.recordGapPace ?? null } : null;
 }
 
 /** A whole number of seconds as the chart writes a gap: "12 s", or "1:05" past a minute. */
@@ -185,27 +190,14 @@ function gapSeconds(seconds: number): string {
 }
 
 /**
- * A difference between two speeds in the unit the axis is read in: seconds
- * per kilometre or mile for a pace sport, per 100 m or 100 yd for a swim, and
- * speed otherwise. Null where one of the speeds has no pace.
+ * A pace difference the engine gave, in the unit the axis is read in: seconds
+ * per kilometre or mile for a pace sport, per 100 m or 100 yd for a swim.
  */
-function speedDifference(
-  slower: number,
-  faster: number,
-  activityType: ActivityType,
-  isMetric: boolean
-): string | null {
-  if (readsAsPace(activityType)) {
-    const pace = isSwimmingActivity(activityType) ? swimPaceSeconds : paceSeconds;
-    const a = pace(slower, isMetric);
-    const b = pace(faster, isMetric);
-    if (a == null || b == null) return null;
-    const unit = isSwimmingActivity(activityType)
-      ? swimPaceUnitLabel(isMetric)
-      : paceUnitLabel(isMetric);
-    return `${gapSeconds(a - b)} ${unit}`;
-  }
-  return formatSpeed(faster - slower, isMetric);
+function paceDifference(pace: FfiPaceGap, activityType: ActivityType, isMetric: boolean): string {
+  const unit = isSwimmingActivity(activityType)
+    ? swimPaceUnitLabel(isMetric)
+    : paceUnitLabel(isMetric);
+  return `${gapSeconds(isMetric ? pace.metric : pace.imperial)} ${unit}`;
 }
 
 /**
@@ -214,7 +206,6 @@ function speedDifference(
  */
 export function scatterStandingText(
   standing: ScatterStanding,
-  point: PerformanceDataPoint,
   axis: 'speed' | 'time',
   activityType: ActivityType,
   isMetric: boolean,
@@ -226,27 +217,15 @@ export function scatterStandingText(
     // A gain in speed reads with a plus; a gain in time or pace is time taken off.
     let gain: string | null;
     if (axis === 'time') gain = `-${gapSeconds(standing.gain)}`;
-    else if (!isPaced(activityType)) gain = `+${formatSpeed(standing.gain, isMetric)}`;
-    else {
-      const taken = speedDifference(
-        point.speed - standing.gain,
-        point.speed,
-        activityType,
-        isMetric
-      );
-      gain = taken == null ? null : `-${taken}`;
-    }
+    else if (!readsAsPace(activityType)) gain = `+${formatSpeed(standing.gain, isMetric)}`;
+    else gain = standing.pace ? `-${paceDifference(standing.pace, activityType, isMetric)}` : null;
     return gain == null
       ? t('sections.scatterNewRecordFirst')
       : t('sections.scatterNewRecord', { gain });
   }
-  const gap =
-    axis === 'time'
-      ? gapSeconds(standing.gap)
-      : speedDifference(point.speed, point.speed + standing.gap, activityType, isMetric);
+  let gap: string | null;
+  if (axis === 'time') gap = gapSeconds(standing.gap);
+  else if (!readsAsPace(activityType)) gap = formatSpeed(standing.gap, isMetric);
+  else gap = standing.pace ? paceDifference(standing.pace, activityType, isMetric) : null;
   return gap == null ? null : t('sections.scatterOffRecord', { gap });
-}
-
-function isPaced(activityType: ActivityType): boolean {
-  return readsAsPace(activityType);
 }

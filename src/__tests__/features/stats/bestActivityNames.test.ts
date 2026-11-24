@@ -8,7 +8,7 @@
  */
 
 import { bestEffortsOf, climbBestsOf } from '@/features/stats/hooks/useSeasonBests';
-import { BestEffortKind, type BestEffortsData } from 'veloqrs';
+import { FfiBestEffortKind, type BestEffortsData } from 'veloqrs';
 import type { TFunction } from 'i18next';
 import { atUtcOffset } from '../../__shared__/fixedOffsetDate';
 
@@ -24,7 +24,7 @@ const read = {
       fetched: true,
       efforts: [
         {
-          kind: BestEffortKind.Distance,
+          kind: FfiBestEffortKind.Distance,
           checkpoint: 5000,
           value: 4.2,
           time: 1190,
@@ -32,7 +32,7 @@ const read = {
           activity: { activityId: 'lake-loop', name: 'Lakeside tempo', date: LATE_START },
         },
         {
-          kind: BestEffortKind.Distance,
+          kind: FfiBestEffortKind.Distance,
           checkpoint: 10000,
           value: 4,
           time: 2500,
@@ -40,7 +40,7 @@ const read = {
           activity: undefined,
         },
         {
-          kind: BestEffortKind.HalfMarathon,
+          kind: FfiBestEffortKind.HalfMarathon,
           checkpoint: 21097.5,
           value: undefined,
           time: undefined,

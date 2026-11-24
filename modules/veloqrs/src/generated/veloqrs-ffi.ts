@@ -566,14 +566,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_cache_size(
     uniffiSelf: bigint,
   ): bigint;
-  ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_or_fetch_tile(
-    uniffiSelf: bigint,
-    source: Uint8Array,
-    z: number,
-    x: number,
-    y: number,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_basemapmanager_get_source_size(
     uniffiSelf: bigint,
     source: Uint8Array,
@@ -1024,18 +1016,18 @@ interface NativeModuleInterface {
     athleteId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_recordingmanager_live_pace(
+    uniffiSelf: bigint,
+    metersPerSecond: number,
+    activityType: Uint8Array,
+    isMetric: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_stamp_ownerless(
     uniffiSelf: bigint,
     athleteId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
-  ubrn_uniffi_veloqrs_fn_method_recordingmanager_transition(
-    uniffiSelf: bigint,
-    id: Uint8Array,
-    transition: Uint8Array,
-    nowMs: number,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_unuploaded_visible_count(
     uniffiSelf: bigint,
     athleteId: Uint8Array,
@@ -1052,6 +1044,11 @@ interface NativeModuleInterface {
     filesRoot: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_recordingmanager_write_recording_fit(
+    uniffiSelf: bigint,
+    recording: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_constructor_remotemanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
@@ -2094,7 +2091,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_clear_unpinned_tiles(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_flush(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_cache_size(): number;
-  ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_or_fetch_tile(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_get_source_size(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_reset_tile_counts(): number;
   ubrn_uniffi_veloqrs_checksum_method_basemapmanager_set_budget(): number;
@@ -2186,11 +2182,12 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_hold_other_athletes(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_list_recordings(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_list_visible_recordings(): number;
+  ubrn_uniffi_veloqrs_checksum_method_recordingmanager_live_pace(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_stamp_ownerless(): number;
-  ubrn_uniffi_veloqrs_checksum_method_recordingmanager_transition(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_unuploaded_visible_count(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_upload_recording(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_wake_upload_schedule(): number;
+  ubrn_uniffi_veloqrs_checksum_method_recordingmanager_write_recording_fit(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_remotemanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_accept_offer(): number;
   ubrn_uniffi_veloqrs_checksum_method_remotemanager_begin_pairing(): number;

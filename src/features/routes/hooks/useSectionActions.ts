@@ -57,7 +57,7 @@ interface UseSectionActionsArgs {
   sectionRefreshKey: number;
 }
 
-export interface UseSectionActionsResult {
+interface UseSectionActionsResult {
   // --- name state ---
   /** Committed custom name override (takes precedence over section.name). */
   customName: string | null;

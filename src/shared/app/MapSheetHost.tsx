@@ -48,7 +48,7 @@ import { useHeroHeaderBottom } from '@/shared/ui/useHeroHeaderBottom';
 import { colors, darkColors, stroke } from '@/theme';
 
 /** The name of the nested stack's sheet screen, beside its `index` map screen. */
-export const MAP_SHEET_SCREEN = 'sheet';
+const MAP_SHEET_SCREEN = 'sheet';
 
 export interface MapSheetHostValue {
   kind: MapSheetKind;
@@ -211,7 +211,7 @@ export function createMapSheetHostLayout(kind: MapSheetKind) {
 }
 
 /** The side panel's width on this window, or null where the data is a sheet. */
-export function useMapSheetPanelWidth(): number | null {
+function useMapSheetPanelWidth(): number | null {
   const { width, height } = useWindowDimensions();
   return mapSheetPanelWidth({ width, height });
 }

@@ -9,10 +9,9 @@
 //! and a route that crosses itself is followed along and not across.
 
 use crate::GpsPoint;
-use crate::persistence::line_simplify::{Metres, distance, nearest_on_segment, simplify};
-
-/// Metres to a degree of latitude, the scale the nearby-route read uses.
-pub(crate) const METRES_PER_DEGREE: f64 = 111_320.0;
+use crate::persistence::line_simplify::{
+    METRES_PER_DEGREE, Metres, distance, nearest_on_segment, simplify,
+};
 
 /// Douglas-Peucker tolerance for the followed line. A saved route's raw track
 /// has a median of 1,294 vertices and at most 9,246; at 5 m it has a median of

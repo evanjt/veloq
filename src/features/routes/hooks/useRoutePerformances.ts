@@ -21,7 +21,7 @@ import { safeGetTime } from '@/shared/format/format';
 import type { DirectionBestRecord } from '../lib/performanceTypes';
 import { routes } from 'veloqrs';
 
-export interface RoutePerformancePoint {
+interface RoutePerformancePoint {
   activityId: string;
   date: Date;
   name: string;
@@ -89,7 +89,7 @@ interface UseRoutePerformancesResult {
 }
 
 /** The groups holding the activity and the performances a caller already read as part of a screen bundle. */
-export interface PreComputedRoutePerformances {
+interface PreComputedRoutePerformances {
   groups: readonly EngineRouteGroup[];
   /** The result for this exact sport filter, when the caller has it. */
   result?: RoutePerformanceResult | undefined;

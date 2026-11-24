@@ -7,7 +7,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getEngine } from '@/shared/native/engine';
+import { getEngine, isEngineReady } from '@/shared/native/engine';
 import { debug } from '@/shared/debug/debug';
 
 /**
@@ -87,6 +87,10 @@ export const LEGACY_LIBRARY_KEYS = [
  * Call after VeloqEngine.create() on app boot.
  */
 export async function migrateSettingsToSqlite(): Promise<void> {
+  // The handle exists before the database is open, and every read before that
+  // answers undefined, so a pass run then would copy everything and set the
+  // sentinel into a database that never took the writes.
+  if (!isEngineReady()) return;
   const engine = getEngine();
   if (!engine) return;
 
@@ -96,7 +100,7 @@ export async function migrateSettingsToSqlite(): Promise<void> {
 }
 
 const ACTIVITY_OVERRIDES_KEY = 'veloq-map-activity-overrides';
-export const TERRAIN_CLEANUP_DONE_KEY = 'veloq-terrain-override-cleanup-done';
+const TERRAIN_CLEANUP_DONE_KEY = 'veloq-terrain-override-cleanup-done';
 
 /**
  * Older builds wrote `terrain3D: false` into an activity's map override when a

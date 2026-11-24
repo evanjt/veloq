@@ -7,7 +7,7 @@
 export type CorrelationStrength =
   'none' | 'veryWeak' | 'weak' | 'moderate' | 'strong' | 'veryStrong';
 
-export interface CorrelationReading {
+interface CorrelationReading {
   strength: CorrelationStrength;
   /** Which way the input goes when speed rises, or null when there is no clear link. */
   direction: 'higher' | 'lower' | null;

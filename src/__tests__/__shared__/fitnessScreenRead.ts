@@ -127,23 +127,51 @@ function seasonComparison(
   };
 }
 
+const DAY_SECONDS = 86_400;
+
+/**
+ * The year and the month to date at `now`, each against the same elapsed days
+ * of the year before and never past that year's or month's last day, as the
+ * engine names them from the instant alone.
+ */
+function seasonWindows(now: number) {
+  const at = new Date(now * 1000);
+  const [year, month] = [at.getUTCFullYear(), at.getUTCMonth()];
+  const today = Date.UTC(year, month, at.getUTCDate()) / 1000;
+  const window = (first: number, previousFirst: number, previousLast: number) => ({
+    current: { startTs: first, endTs: today + DAY_SECONDS - 1 },
+    previous: {
+      startTs: previousFirst,
+      endTs: Math.min(previousFirst + (today - first), previousLast) + DAY_SECONDS - 1,
+    },
+  });
+  const yearWindow = window(
+    Date.UTC(year, 0, 1) / 1000,
+    Date.UTC(year - 1, 0, 1) / 1000,
+    Date.UTC(year - 1, 11, 31) / 1000
+  );
+  const monthWindow = window(
+    Date.UTC(year, month, 1) / 1000,
+    Date.UTC(year - 1, month, 1) / 1000,
+    Date.UTC(year - 1, month + 1, 0) / 1000
+  );
+  return { year: yearWindow, month: monthWindow };
+}
+
 /** Whole months of this year before the current one, then the month to date. */
-function seasonMonthRanges(w: FitnessScreenWindows): [Range, Range][] {
-  const yearStart = new Date(w.yearCurrent.startTs * 1000);
-  const monthStart = new Date(w.monthCurrent.startTs * 1000);
+function seasonMonthRanges(now: number): [Range, Range][] {
+  const { month } = seasonWindows(now);
+  const monthStart = new Date(month.current.startTs * 1000);
   const year = monthStart.getUTCFullYear();
   const whole = (y: number, m: number): Range => ({
     startTs: Date.UTC(y, m, 1) / 1000,
     endTs: Date.UTC(y, m + 1, 1) / 1000 - 1,
   });
-  const past: [Range, Range][] =
-    yearStart.getUTCFullYear() === year
-      ? Array.from({ length: monthStart.getUTCMonth() }, (_, m) => [
-          whole(year, m),
-          whole(year - 1, m),
-        ])
-      : [];
-  return [...past, [w.monthCurrent, w.monthPrevious]];
+  const past: [Range, Range][] = Array.from({ length: monthStart.getUTCMonth() }, (_, m) => [
+    whole(year, m),
+    whole(year - 1, m),
+  ]);
+  return [...past, [month.current, month.previous]];
 }
 
 /** The weekly card's every range with nothing in it, at `now`. */
@@ -166,14 +194,11 @@ export function noCalendarParts(now = 0) {
   };
 }
 
-const NO_PACE = { sampleCount: 0, history: [] };
-
 /** The parts the calendar cards do not paint, with nothing in them. */
 export const NO_FITNESS_PARTS = {
   ftpTrend: { lookbackDays: 0, sampleCount: 0, history: [], historyDays: [], changes: [] },
   ftpTrendCoverage: RangeCoverage.NotFetched,
-  runPaceTrend: NO_PACE,
-  swimPaceTrend: NO_PACE,
+  thresholdPaces: [],
   sportMix: { rides: 0, runs: 0, swims: 0 },
   fitnessDays: 42,
   fatigueDays: 7,
@@ -196,8 +221,13 @@ export function fitnessScreenRead(parts: Parts) {
       calendarFirstDay: firstDay,
       calendarOlderOwed: parts.calendarOlderOwed ?? 0,
       months: parts.months?.(w.months.startTs, w.months.endTs) ?? [],
-      seasonYear: seasonComparison(w.yearCurrent, w.yearPrevious, totals, coverage),
-      seasonMonths: seasonMonthRanges(w).map(([current, previous]) =>
+      seasonYear: seasonComparison(
+        seasonWindows(now).year.current,
+        seasonWindows(now).year.previous,
+        totals,
+        coverage
+      ),
+      seasonMonths: seasonMonthRanges(now).map(([current, previous]) =>
         seasonComparison(current, previous, totals, coverage)
       ),
       comparisons: { ...noComparisons(now), ...parts.comparisons?.(now) },

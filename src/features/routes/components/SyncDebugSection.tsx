@@ -11,11 +11,10 @@ import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { getEngine } from '@/shared/native/engine';
 import { useLastSyncSuccessAt, useTrackStage } from '@/shared/native/useSyncStatus';
-import { attemptEngineRead, engineErrorKey, engineErrorTag } from '@/shared/native/engineError';
+import { attemptEngineRead, engineErrorKey, engineErrorText } from '@/shared/native/engineError';
 import { i18n } from '@/i18n';
-import { deleteGpsTracks } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { TrackStep, type PersistentEngineStats, detection } from 'veloqrs';
+import { FfiTrackStep, type PersistentEngineStats, detection } from 'veloqrs';
 import { ABSENT } from '@/shared/format/absent';
 import { formatEpochDayUtc } from '@/shared/format/format';
 import { confirmAction, inform } from '@/shared/ui/dialog';
@@ -186,20 +185,14 @@ export function SyncDebugSection() {
       onConfirm: async () => {
         setIsRemoving(true);
         let removed = 0;
-        const removedIds: string[] = [];
         const refused: string[] = [];
         for (const id of toRemove) {
           const result = engine.removeActivity(id);
           if (result.ok) {
             removed++;
-            removedIds.push(id);
           } else {
             refused.push(`${id}: ${result.reason}`);
           }
-        }
-        // Clean up orphaned GPS track files
-        if (removedIds.length > 0) {
-          await deleteGpsTracks(removedIds);
         }
         setIsRemoving(false);
         if (removed === 0 && toRemove.length > 0) {
@@ -355,7 +348,7 @@ export function SyncDebugSection() {
           </>
         ) : !engineStatsRead.ok ? (
           <Text style={[styles.emptyText, { color: mutedColor }]}>
-            {`Could not read engine stats: ${engineErrorTag(engineStatsRead.error) ?? String(engineStatsRead.error)}`}
+            {`Could not read engine stats: ${engineErrorText(engineStatsRead.error)}`}
           </Text>
         ) : (
           <Text style={[styles.emptyText, { color: mutedColor }]}>Engine not initialised</Text>
@@ -366,7 +359,7 @@ export function SyncDebugSection() {
       <Section title="Sync Status" icon="sync" isDark={isDark}>
         <StatRow
           label="Track Stage"
-          value={trackStage ? TrackStep[trackStage.step] : 'Idle'}
+          value={trackStage ? FfiTrackStep[trackStage.step] : 'Idle'}
           isDark={isDark}
         />
         <StatRow

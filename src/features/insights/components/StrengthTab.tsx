@@ -100,7 +100,7 @@ export const StrengthTab = React.memo(function StrengthTab({
       })),
     [summary]
   );
-  const maxWeightedSets = summary?.maxWeightedSets ?? 0;
+  const shadeCeilings = summary?.shadeCeilings ?? NO_SHADE_CEILINGS;
 
   const selectedVolume: MuscleVolume | null = useMemo(() => {
     if (!selectedMuscle || !summary) return null;
@@ -239,7 +239,7 @@ export const StrengthTab = React.memo(function StrengthTab({
             bodyData={bodyData}
             volumes={summary?.muscleVolumes}
             gender={gender}
-            maxWeightedSets={maxWeightedSets}
+            shadeCeilings={shadeCeilings}
             selectedVolume={selectedVolume}
             tappableSlugs={tappableSlugs}
             onMuscleTap={handleMuscleTap}
@@ -279,6 +279,9 @@ export const StrengthTab = React.memo(function StrengthTab({
     </ScrollView>
   );
 });
+
+/** The legend's labels before the engine has read a window. */
+const NO_SHADE_CEILINGS: readonly number[] = [];
 
 const styles = StyleSheet.create({
   container: {

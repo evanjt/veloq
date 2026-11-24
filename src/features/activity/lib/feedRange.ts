@@ -13,7 +13,7 @@ export interface FeedRange {
   newest: string;
 }
 
-export const FEED_RANGE_PAGE_DAYS = 30;
+const FEED_RANGE_PAGE_DAYS = 30;
 
 export const FEED_RANGE_PRESETS = ['last90Days', 'thisYear', 'lastYear'] as const;
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { AccessibilityInfo, Alert, Platform, StyleSheet } from 'react-native';
 import * as Notice from '@/shared/ui/Notice';
-import { SyncState, SyncStep } from 'veloqrs';
+import { SyncState, FfiSyncStep } from 'veloqrs';
 
 import { BackupSection } from '@/features/settings/components/BackupSection';
 import { darkColors } from '@/theme';
@@ -500,7 +500,7 @@ it('collapses restored records waiting on an activity into one line, never one p
 it('shows the shared sync step count as a progress bar while the restore fetch runs', async () => {
   mockSyncStatus = {
     state: SyncState.Syncing,
-    step: SyncStep.RecordActivities,
+    step: FfiSyncStep.RecordActivities,
     stepItemsDone: 3,
     stepItemsTotal: 40,
   };
@@ -514,7 +514,7 @@ it('shows the shared sync step count as a progress bar while the restore fetch r
 it('shows no bar when the sync is on another step', async () => {
   mockSyncStatus = {
     state: SyncState.Syncing,
-    step: SyncStep.Curves,
+    step: FfiSyncStep.Curves,
     stepItemsDone: 3,
     stepItemsTotal: 40,
   };

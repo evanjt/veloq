@@ -41,6 +41,7 @@ function makeSummary(
     activityCount,
     totalSets: muscles.reduce((sum, muscle) => sum + Math.round(muscle.weightedSets), 0),
     maxWeightedSets: Math.max(0, ...muscles.map((muscle) => muscle.weightedSets)),
+    shadeCeilings: [0, 0, 0, 0, 0],
     balance,
   };
 }

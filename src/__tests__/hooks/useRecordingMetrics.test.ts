@@ -8,8 +8,10 @@
 import { renderHook } from '@testing-library/react-native';
 import { useRecordingStore, streamTotals } from '@/features/recording/stores/RecordingStore';
 import { useRecordingMetrics } from '@/features/recording/hooks/useRecordingMetrics';
-import { useAuthStore } from '@/shared/app/AuthStore';
 import type { Athlete, RecordingStreams, RecordingLap } from '@/types';
+
+let mockProfile: Athlete | null = null;
+jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: mockProfile }) }));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -83,7 +85,7 @@ describe('useRecordingMetrics', () => {
 
   afterEach(() => {
     resetStore();
-    useAuthStore.setState({ athlete: null });
+    mockProfile = null;
   });
 
   // -------------------------------------------------------------------------
@@ -319,9 +321,7 @@ describe('useRecordingMetrics', () => {
     ];
 
     for (const { profile, expected } of cases) {
-      useAuthStore.setState({
-        athlete: { id: 'a1', name: 'Test Rider', ...profile },
-      });
+      mockProfile = { id: 'a1', name: 'Test Rider', ...profile };
       setStoreState({
         status: 'recording',
         activityType: 'Ride',
@@ -779,9 +779,7 @@ describe("useRecordingMetrics reads the store's running totals", () => {
   it("takes the heart-rate equation by the profile's sex", async () => {
     const heartrate = Array.from({ length: 40 }, () => 100);
     const kcalFor = async (profile: Partial<Athlete>) => {
-      useAuthStore.setState({
-        athlete: { id: 'a1', name: 'Test Rider', weightKg: 60, ...profile },
-      });
+      mockProfile = { id: 'a1', name: 'Test Rider', weightKg: 60, ...profile };
       setStoreState({
         activityType: 'Ride',
         streams: makeStreams({

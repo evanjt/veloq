@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { SwapOutcome, SwapState } from 'veloqrs';
+import { FfiSwapOutcome, FfiSwapState } from 'veloqrs';
 
 import { ActivityGarminSwap } from '@/features/activity/components/ActivityGarminSwap';
 import * as engine from '@/shared/native/garminSwap';
@@ -79,7 +79,7 @@ describe('ActivityGarminSwap', () => {
     ['the Garmin entry was never chosen', { experimentalFeatures: {} }],
   ])('renders nothing and asks the engine nothing when %s', async (_name, change) => {
     useDebugStore.setState(change);
-    state.mockResolvedValue(SwapState.Available);
+    state.mockResolvedValue(FfiSwapState.Available);
     render(<ActivityGarminSwap activityId="i1" />);
     await new Promise((resolve) => setImmediate(resolve));
     expect(screen.queryByTestId('activity-i1-garmin-swap')).toBeNull();
@@ -87,7 +87,7 @@ describe('ActivityGarminSwap', () => {
   });
 
   vaultIt('renders nothing while the engine offers nothing', async () => {
-    state.mockResolvedValue(SwapState.Hidden);
+    state.mockResolvedValue(FfiSwapState.Hidden);
     render(<ActivityGarminSwap activityId="i1" />);
     await waitFor(() => expect(state).toHaveBeenCalledWith('i1'));
     expect(screen.queryByTestId('activity-i1-garmin-swap')).toBeNull();
@@ -101,8 +101,8 @@ describe('ActivityGarminSwap', () => {
   });
 
   it('offers the swap marked experimental, and replaces only after the confirmation', async () => {
-    state.mockResolvedValueOnce(SwapState.Available).mockResolvedValue(SwapState.Undoable);
-    replace.mockResolvedValue({ outcome: SwapOutcome.Replaced });
+    state.mockResolvedValueOnce(FfiSwapState.Available).mockResolvedValue(FfiSwapState.Undoable);
+    replace.mockResolvedValue({ outcome: FfiSwapOutcome.Replaced });
     render(<ActivityGarminSwap activityId="i1" />);
 
     const button = await screen.findByTestId('activity-i1-garmin-swap-button');
@@ -121,8 +121,8 @@ describe('ActivityGarminSwap', () => {
   });
 
   it('offers Check Garmin for an unchecked import and the swap only once the check finds more', async () => {
-    state.mockResolvedValue(SwapState.Checkable);
-    check.mockResolvedValue(SwapState.Available);
+    state.mockResolvedValue(FfiSwapState.Checkable);
+    check.mockResolvedValue(FfiSwapState.Available);
     render(<ActivityGarminSwap activityId="i1" />);
 
     const button = await screen.findByTestId('activity-i1-garmin-check-button');
@@ -136,8 +136,8 @@ describe('ActivityGarminSwap', () => {
   });
 
   vaultIt('says Garmin holds nothing more when the check finds the files alike', async () => {
-    state.mockResolvedValue(SwapState.Checkable);
-    check.mockResolvedValue(SwapState.Unchanged);
+    state.mockResolvedValue(FfiSwapState.Checkable);
+    check.mockResolvedValue(FfiSwapState.Unchanged);
     render(<ActivityGarminSwap activityId="i1" />);
 
     fireEvent.press(await screen.findByTestId('activity-i1-garmin-check-button'));
@@ -147,7 +147,7 @@ describe('ActivityGarminSwap', () => {
   });
 
   it('keeps Check Garmin and says so when the check call fails', async () => {
-    state.mockResolvedValue(SwapState.Checkable);
+    state.mockResolvedValue(FfiSwapState.Checkable);
     check.mockRejectedValue(new Error('closed'));
     render(<ActivityGarminSwap activityId="i1" />);
 
@@ -158,7 +158,7 @@ describe('ActivityGarminSwap', () => {
   });
 
   vaultIt('tells the athlete the confirmation marks the intervals as edited', async () => {
-    state.mockResolvedValue(SwapState.Available);
+    state.mockResolvedValue(FfiSwapState.Available);
     render(<ActivityGarminSwap activityId="i1" />);
     fireEvent.press(await screen.findByTestId('activity-i1-garmin-swap-button'));
 
@@ -167,8 +167,8 @@ describe('ActivityGarminSwap', () => {
   });
 
   it('says a refusal changed nothing and keeps the offer', async () => {
-    state.mockResolvedValue(SwapState.Available);
-    replace.mockResolvedValue({ outcome: SwapOutcome.Refused, detail: 'no' });
+    state.mockResolvedValue(FfiSwapState.Available);
+    replace.mockResolvedValue({ outcome: FfiSwapOutcome.Refused, detail: 'no' });
     render(<ActivityGarminSwap activityId="i1" />);
     await screen.findByTestId('activity-i1-garmin-swap-button');
     fireEvent.press(screen.getByTestId('activity-i1-garmin-swap-button'));
@@ -179,8 +179,8 @@ describe('ActivityGarminSwap', () => {
   });
 
   it('undoes a swap and goes back to nothing offered when the files match again', async () => {
-    state.mockResolvedValueOnce(SwapState.Undoable).mockResolvedValue(SwapState.Available);
-    undo.mockResolvedValue({ outcome: SwapOutcome.Restored });
+    state.mockResolvedValueOnce(FfiSwapState.Undoable).mockResolvedValue(FfiSwapState.Available);
+    undo.mockResolvedValue({ outcome: FfiSwapOutcome.Restored });
     render(<ActivityGarminSwap activityId="i1" />);
 
     fireEvent.press(await screen.findByTestId('activity-i1-garmin-swap-undo'));
@@ -192,7 +192,7 @@ describe('ActivityGarminSwap', () => {
 
   describe('write access', () => {
     const tap = async () => {
-      state.mockResolvedValue(SwapState.Available);
+      state.mockResolvedValue(FfiSwapState.Available);
       render(<ActivityGarminSwap activityId="i1" />);
       fireEvent.press(await screen.findByTestId('activity-i1-garmin-swap-button'));
     };
@@ -237,8 +237,8 @@ describe('ActivityGarminSwap', () => {
     });
 
     it('offers Grant access beside a swap the engine reports as permission blocked', async () => {
-      state.mockResolvedValue(SwapState.Available);
-      replace.mockResolvedValue({ outcome: SwapOutcome.PermissionBlocked });
+      state.mockResolvedValue(FfiSwapState.Available);
+      replace.mockResolvedValue({ outcome: FfiSwapOutcome.PermissionBlocked });
       render(<ActivityGarminSwap activityId="i1" />);
       fireEvent.press(await screen.findByTestId('activity-i1-garmin-swap-button'));
       confirm.mock.calls[0][0].onConfirm();
@@ -271,7 +271,7 @@ describe('the match a check found', () => {
   vaultIt(
     'shows Match found, the Garmin id, both files and the fields Garmin holds alone',
     async () => {
-      state.mockResolvedValue(SwapState.Available);
+      state.mockResolvedValue(FfiSwapState.Available);
       match.mockResolvedValue(found);
       render(<ActivityGarminSwap activityId="i1" />);
 
@@ -294,7 +294,7 @@ describe('the match a check found', () => {
   vaultIt(
     'keeps the match beside Undo and heads the second column as the earlier file',
     async () => {
-      state.mockResolvedValue(SwapState.Undoable);
+      state.mockResolvedValue(FfiSwapState.Undoable);
       match.mockResolvedValue(found);
       render(<ActivityGarminSwap activityId="i1" />);
 
@@ -304,7 +304,7 @@ describe('the match a check found', () => {
   );
 
   vaultIt('shows no match before a check has been made or when the engine has none', async () => {
-    state.mockResolvedValue(SwapState.Checkable);
+    state.mockResolvedValue(FfiSwapState.Checkable);
     match.mockResolvedValue(found);
     render(<ActivityGarminSwap activityId="i1" />);
     await screen.findByTestId('activity-i1-garmin-check-button');
@@ -313,7 +313,7 @@ describe('the match a check found', () => {
   });
 
   vaultIt('says no field is missing when the files hold the same fields', async () => {
-    state.mockResolvedValue(SwapState.Unchanged);
+    state.mockResolvedValue(FfiSwapState.Unchanged);
     match.mockResolvedValue({ ...found, missingFields: [] });
     render(<ActivityGarminSwap activityId="i1" />);
     expect(await screen.findByText('activity.garminSwap.matchFound')).toBeTruthy();

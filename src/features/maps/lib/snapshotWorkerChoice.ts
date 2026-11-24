@@ -17,7 +17,7 @@
  * athlete is looking at.
  */
 
-export interface SnapshotWorkerChoice<T> {
+interface SnapshotWorkerChoice<T> {
   worker: T;
   /** What the worker was last asked to draw, or null if it has drawn nothing. */
   lastRender: { mapStyle: string; flat: boolean } | null;

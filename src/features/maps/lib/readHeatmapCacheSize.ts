@@ -30,20 +30,21 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  * The engine hands the figure over once, so three mount effects asking at once
  * follow one walk here rather than racing each other for the one take.
  */
-let following: Promise<number> | null = null;
+let following: Promise<number | null> | null = null;
 
 /**
- * The tile cache's size in bytes.
+ * The tile cache's size in bytes, or null when the walk could not say.
  *
- * A walk that stops without a figure reads as zero rather than throwing: this
- * is a storage readout on a settings row, and a row that cannot show one
- * should still render.
+ * A walk that stops without a figure, dies, or is abandoned at its deadline
+ * reads null rather than throwing, so a settings row still renders. Null is
+ * not zero: an empty tree answers 0, and a failed walk must not read as an
+ * empty cache.
  */
 export function readHeatmapCacheSize(
   engine: CacheSizeEngine,
   basePath: string,
   timeoutMs: number = WALK_TIMEOUT_MS
-): Promise<number> {
+): Promise<number | null> {
   if (!following) {
     following = follow(engine, basePath, timeoutMs).finally(() => {
       following = null;
@@ -56,18 +57,18 @@ async function follow(
   engine: CacheSizeEngine,
   basePath: string,
   timeoutMs: number
-): Promise<number> {
+): Promise<number | null> {
   engine.startHeatmapCacheSize(basePath);
 
   const awake = createAwakeClock(POLL_INTERVAL_MS);
   const deadline = awake() + timeoutMs;
   for (;;) {
     const { status } = engine.readHeatmapCacheSizeRun();
-    if (status === 'complete') return engine.takeHeatmapCacheSize() ?? 0;
-    if (status !== 'running') return 0;
+    if (status === 'complete') return engine.takeHeatmapCacheSize();
+    if (status !== 'running') return null;
     if (awake() > deadline) {
       engine.cancelHeatmapCacheSize();
-      return 0;
+      return null;
     }
     await wait(POLL_INTERVAL_MS);
   }

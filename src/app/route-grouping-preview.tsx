@@ -36,11 +36,11 @@ import {
   Spinner,
 } from '@/shared/ui';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import { getEngine } from '@/shared/native/engine';
 import { attemptEngineRead } from '@/shared/native/engineError';
 import {
-  GroupSort,
-  SectionSort,
+  detection,
+  FfiGroupSort,
+  FfiSectionSort,
   hasStarted,
   type PreviewCentre,
   previewClient,
@@ -101,9 +101,9 @@ function readRoutes(): RoutesRead {
       sectionLimit: 0,
       sectionOffset: 0,
       minGroupActivityCount: 2,
-      groupSort: GroupSort.Activities,
+      groupSort: FfiGroupSort.Activities,
       groupSearch: '',
-      sectionSort: SectionSort.Visits,
+      sectionSort: FfiSectionSort.Visits,
       sectionSearch: '',
       sectionFilters: {
         hideCustom: false,
@@ -135,11 +135,10 @@ function RouteGroupingPreviewScreenContent() {
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
-  const client = useMemo(() => getEngine(), []);
   // Open on the strictness the grouper is running at, not on the default: the
   // panel used to claim a value nobody had applied.
   const [params, setParams] = useState<GroupingParams>(() =>
-    groupingParamsOf(client?.getMatchStrictness())
+    groupingParamsOf(detection.getMatchStrictness())
   );
   const [applied] = useState<GroupingParams>(params);
   const { rescan } = useSectionRescan();
@@ -206,8 +205,7 @@ function RouteGroupingPreviewScreenContent() {
       confirmLabel: t('settings.previewKeep'),
       cancelLabel: t('common.cancel'),
       onConfirm: () => {
-        if (!client) return;
-        client.setMatchStrictness(params.minMatchPercentage, params.endpointThreshold);
+        detection.setMatchStrictness(params.minMatchPercentage, params.endpointThreshold);
         // Through the rescan hook so the athlete sees the regroup run. The
         // setting is already written when the engine refuses, so stay and
         // say why rather than report a change that has not run.
@@ -226,7 +224,7 @@ function RouteGroupingPreviewScreenContent() {
         goBack();
       },
     });
-  }, [t, client, params, rescan]);
+  }, [t, params, rescan]);
 
   const handleDiscard = useCallback(() => goBack(), []);
 

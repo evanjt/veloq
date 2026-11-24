@@ -145,6 +145,8 @@ function reply(): InsightsReply {
       previous: 360,
       ratio: 0.33,
       comparedStart: 1_700_000_000,
+      direction: 'down',
+      verdict: 'moved',
     },
     weekAgainstChronic: null,
     hrvTrend: null,

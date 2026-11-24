@@ -101,6 +101,7 @@ use crate::persistence::{
     elevation_source_of, engine_install, suspend_detection, with_persistent_engine,
     with_persistent_engine_for,
 };
+use crate::poison::Recover;
 use rusqlite::{Result as SqlResult, params};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
@@ -344,8 +345,7 @@ fn spawn_resume_ladder(
 /// no query behind it.
 fn engine_gone() -> bool {
     crate::persistence::PERSISTENT_ENGINE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .lock_recover()
         .is_none()
 }
 
@@ -519,7 +519,7 @@ fn set_waiting(at: chrono::DateTime<chrono::Utc>) {
 }
 
 fn set_phase_resuming(phase: &'static str, resumes_at_ms: Option<i64>) {
-    *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner()) = (phase, resumes_at_ms);
+    *BACKFILL.phase.lock_recover() = (phase, resumes_at_ms);
     // The guard above is a temporary of the statement it is in, so the
     // announcement is made with the phase lock already released.
     crate::objects::observer::notify(Announcement::BackfillPhase(phase.to_string()));
@@ -554,7 +554,7 @@ impl BackfillSnapshot {
 
 /// The current backfill state, safe to read from any thread at any time.
 pub fn backfill_progress() -> BackfillSnapshot {
-    let (phase, resumes_at_ms) = *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner());
+    let (phase, resumes_at_ms) = *BACKFILL.phase.lock_recover();
     BackfillSnapshot {
         phase,
         completed: BACKFILL.completed.load(Ordering::Relaxed),
@@ -2673,9 +2673,7 @@ fn start_final_detect(install: u64) -> bool {
     // Held across check, spawn and install. Releasing it to spawn lets a loser
     // start a second worker that rewrites `route_groups` on its own connection
     // beside the winner, with both track pools resident.
-    let mut guard = SECTION_DETECTION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let mut guard = SECTION_DETECTION_HANDLE.lock_recover();
     if guard.is_some() || crate::objects::detection::start_window_open() {
         // Something took the slot between the drain and here. The winning run
         // covers the same pool.
@@ -2854,6 +2852,7 @@ mod tests {
     use super::*;
     use crate::persistence::sections::conditioning::detection_suspended;
     use crate::persistence::sections::detection_workers_started;
+    use crate::poison::Recover;
     use crate::test_globals::{
         clear_detection_handle, drain_backfill, drain_detection, init_global_engine, race,
         seeded_global_engine, serial_global_state,
@@ -3031,9 +3030,7 @@ mod tests {
         })
         .expect("the earlier run starts");
         let slot = earlier.checkpoint_slot();
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(earlier);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(earlier);
         slot.mark_installed(engine_install());
 
         let before = detection_workers_started();
@@ -3093,9 +3090,7 @@ mod tests {
 
         let handle = crate::persistence::SectionDetectionHandle::finished_after_worker_apply();
         let slot = handle.checkpoint_slot();
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(handle);
         slot.mark_installed(install);
         assert!(!slot.detect_claimed(), "the re-cut does not claim the key");
         assert!(crate::objects::detection::claim_detect_for(install).is_ok());
@@ -3138,9 +3133,7 @@ mod tests {
 
         let handle = crate::persistence::SectionDetectionHandle::finished_after_worker_apply();
         let slot = handle.checkpoint_slot();
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(handle);
         slot.mark_installed(install);
         assert!(!slot.detect_claimed(), "the re-cut does not claim the key");
         assert!(!crate::persistence::sections::conditioning::try_start_conditioning());
@@ -3329,17 +3322,13 @@ mod tests {
             .db
             .execute("DROP TABLE activities", [])
             .expect("the join's table goes away");
-        *crate::persistence::PERSISTENT_ENGINE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(engine);
+        *crate::persistence::PERSISTENT_ENGINE.lock_recover() = Some(engine);
         crate::persistence::read_pool::bind(path.to_str().unwrap());
 
         let answer = crate::ffi::get_elevation_backfill_remaining();
 
         crate::persistence::read_pool::close();
-        *crate::persistence::PERSISTENT_ENGINE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        *crate::persistence::PERSISTENT_ENGINE.lock_recover() = None;
 
         assert!(matches!(answer, Err(crate::VeloqError::Database { .. })));
     }
@@ -4161,6 +4150,7 @@ mod tests {
     mod offline {
         use super::*;
         use crate::net::connectivity;
+        use crate::poison::Recover;
         use std::time::SystemTime;
 
         fn queue(n: usize) -> Vec<(String, String)> {
@@ -4946,12 +4936,7 @@ mod tests {
             owe_the_cutover_with_an_empty_elevation_queue();
             assert!(!terminal_cut(engine_install()));
 
-            assert!(
-                SECTION_DETECTION_HANDLE
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .is_none()
-            );
+            assert!(SECTION_DETECTION_HANDLE.lock_recover().is_none());
             assert!(!crate::persistence::cutover::cutover_running());
             assert_eq!(catalogue_method(), method);
             assert!(with_persistent_engine(|e| e.cutover_is_owed()).expect("engine"));

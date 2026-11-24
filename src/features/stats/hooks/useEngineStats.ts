@@ -16,7 +16,8 @@ import type {
   SummaryComparison as EngineSummaryComparison,
 } from 'veloqrs';
 
-import { formatLocalDate, parseDayString } from '@/shared/format/format';
+import { parseDayString } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import type { TrendGlyph } from '@/shared/format/trend';
 import {
   localDayEndEpochSeconds,
@@ -25,7 +26,6 @@ import {
   wallClockSecondsToLocalDate,
 } from '@/shared/time/startDate';
 import { heatmapLayout, type HeatmapLayout } from '../lib/heatmapGrid';
-import { seasonWindows, type SeasonWindows } from '../lib/periodWindows';
 
 /** The four totals the engine reports for any window. */
 export interface PeriodTotals {
@@ -66,7 +66,7 @@ const NO_MONTHS: MonthTotals[] = [];
  * The windows the fitness tab's calendar, weekly card and year comparison
  * draw, every one fixed by the local date.
  */
-export interface TrainingWindows {
+interface TrainingWindows {
   /** Today, at local midnight. */
   today: Date;
   /** 1 January last year, where the season chart's two years begin. */
@@ -77,8 +77,6 @@ export interface TrainingWindows {
    * one, the span the read answers, from [`calendarWindows`].
    */
   heatmap: HeatmapLayout;
-  /** The year and the month to date, each against last year's same span. */
-  season: SeasonWindows;
 }
 
 export function trainingWindows(now: Date): TrainingWindows {
@@ -87,7 +85,6 @@ export function trainingWindows(now: Date): TrainingWindows {
     today,
     seasonFrom: new Date(today.getFullYear() - 1, 0, 1),
     heatmap: heatmapLayout(today),
-    season: seasonWindows(today),
   };
 }
 
@@ -111,10 +108,6 @@ export function trainingEngineWindows(w: TrainingWindows, now: Date): FitnessScr
     heatmapFirstDay: formatLocalDate(w.heatmap.first),
     heatmapLastDay: formatLocalDate(w.heatmap.last),
     months: days(w.seasonFrom, w.today),
-    yearCurrent: days(w.season.yearCurrent.start, w.season.yearCurrent.end),
-    yearPrevious: days(w.season.yearPrevious.start, w.season.yearPrevious.end),
-    monthCurrent: days(w.season.monthCurrent.start, w.season.monthCurrent.end),
-    monthPrevious: days(w.season.monthPrevious.start, w.season.monthPrevious.end),
     nowWallSeconds: localWallClockToEpochSeconds(now),
   };
 }
@@ -181,7 +174,7 @@ function comparison(read: EngineSummaryComparison): SummaryComparison {
 }
 
 /** What the fitness tab's calendar, weekly card and year comparison paint with. */
-export interface TrainingCards {
+interface TrainingCards {
   heatmap: HeatmapDay[];
   /** Activities in the year before the calendar's first day the device has not downloaded. */
   calendarOlderOwed: number;

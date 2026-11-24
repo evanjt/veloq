@@ -9,7 +9,7 @@ import type { ActivityType } from '@/types';
 import type { ActivitySummary } from '@/features/recording/hooks/useActivitySummary';
 import { recordingStats } from '@/features/recording/lib/recordingStats';
 
-export interface ActivityStatsCardProps {
+interface ActivityStatsCardProps {
   summary: ActivitySummary;
   activityType: ActivityType;
 }

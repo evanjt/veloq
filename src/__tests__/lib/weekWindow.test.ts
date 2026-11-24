@@ -9,11 +9,11 @@
 import {
   getISOWeekNumber,
   mondayAnchors,
-  trailingDaysWindow,
   weekAnchorSeconds,
 } from '@/features/fitness/lib/weekWindow';
 import { formatWeekRange, getMonday, getSunday } from '@/shared/format/format';
 import { startDateLocalToEpochSeconds } from '@/shared/time/startDate';
+import { trailingDaysWindow } from '@/shared/time/trailingWeeks';
 
 /** A local `Date` for wall-clock fields, which is what the device clock gives. */
 function local(year: number, month: number, day: number, hour = 0, minute = 0): Date {

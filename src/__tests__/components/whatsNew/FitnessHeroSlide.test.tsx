@@ -11,7 +11,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { render } from '@testing-library/react-native';
 
-import { formFromLoads } from '@/shared/math';
 import { FitnessHeroSlide } from '@/features/settings/components/whatsNew/FitnessHeroSlide';
 import {
   tourPowerCurve,
@@ -90,7 +89,7 @@ describe('the tour demo training block', () => {
 
   it('gives form as fitness minus fatigue on every day', () => {
     expect(block.length).toBeGreaterThan(0);
-    for (const day of block) expect(day.form).toBe(formFromLoads(day.fitness, day.fatigue));
+    for (const day of block) expect(day.form).toBe(day.fitness - day.fatigue);
   });
 
   it('moves fitness slowly and fatigue quickly, as a 42 and a 7 day average do', () => {

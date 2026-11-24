@@ -28,7 +28,7 @@ export interface DerivedClearResult {
   activitiesKept: number;
 }
 
-export interface DerivedClearEngine {
+interface DerivedClearEngine {
   runClearDerived(): Promise<DerivedClearResult>;
 }
 
@@ -37,7 +37,7 @@ export interface DerivedClearEngine {
  * itself, because the re-cut owed after it has to follow it whenever it lands
  * and not only when it lands inside the caller's wait.
  */
-export type DerivedClearOutcome =
+type DerivedClearOutcome =
   | { state: 'complete'; removed: DerivedClearResult }
   | { state: 'stillRunning'; landing: Promise<DerivedClearResult> };
 

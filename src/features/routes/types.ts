@@ -4,6 +4,7 @@
 
 import type { ActivityType } from '@/features/activity';
 import type { LatLngShort } from '@/shared/geo/distance';
+import type { FfiPaceGap, FfiPaceText } from 'veloqrs';
 import { ACTIVITY_TYPES } from '@/shared/native/sportTaxonomy.generated';
 
 /** The activity types the engine's sport taxonomy names. */
@@ -34,7 +35,7 @@ export type RoutePoint = LatLngShort;
  * Compact route representation for efficient storage and comparison.
  * Uses Douglas-Peucker simplification to reduce points.
  */
-export interface RouteSignature {
+interface RouteSignature {
   /** Activity ID this signature belongs to */
   activityId: string;
   /** Simplified route points (typically 50-100 points) */
@@ -131,7 +132,6 @@ export type SectionType = 'auto' | 'custom';
 
 /**
  * A unified section (auto-detected or custom).
- * Replaces FrequentSection and CustomSection with a single type.
  */
 export interface Section {
   /** Unique section ID */
@@ -232,12 +232,11 @@ export interface Section {
 
 /** Backward compatibility aliases */
 export type FrequentSection = Section;
-export type CustomSection = Section;
 
 /**
  * Each activity's portion of a section (for pace comparison).
  */
-export interface ActivitySectionRecord {
+interface ActivitySectionRecord {
   /** Activity ID */
   activityId: string;
   /** Start index into the activity's GPS track */
@@ -250,17 +249,6 @@ export interface ActivitySectionRecord {
   direction: 'same' | 'reverse';
 }
 
-/** Parameters for creating a section */
-export interface CreateSectionParams {
-  sportType: string;
-  polyline: RoutePoint[];
-  distanceMeters: number;
-  name?: string;
-  sourceActivityId?: string;
-  startIndex?: number;
-  endIndex?: number;
-}
-
 /**
  * Unified data point for performance charts.
  */
@@ -268,6 +256,8 @@ export interface PerformanceDataPoint {
   id: string;
   activityId: string;
   speed: number;
+  /** `speed` as the engine's pace text, absent off a pace sport. */
+  speedPace?: FfiPaceText | undefined;
   date: Date;
   activityName: string;
   direction: 'same' | 'reverse';
@@ -294,6 +284,8 @@ export interface PerformanceDataPoint {
   recordGapSecs?: number | undefined;
   /** Metres per second behind the direction's record, from the engine, signed as the seconds are. */
   recordGapSpeed?: number | undefined;
+  /** The speed gap as the engine's pace seconds in both unit systems; absent off a pace sport. */
+  recordGapPace?: FfiPaceGap | undefined;
 }
 
 /**
@@ -306,5 +298,7 @@ export interface DirectionStats {
   count: number;
   /** Average speed across traversals (m/s). Total lap distance over total lap time; null when there is no time. */
   avgSpeed: number | null;
+  /** `avgSpeed` as the engine's pace text, null off a pace sport. */
+  avgPaceText: FfiPaceText | null;
   outsideBandCount: number;
 }

@@ -8,7 +8,7 @@
  * launch asks the same questions twice.
  */
 
-export interface EngineInitRun {
+interface EngineInitRun {
   /** False once the effect that owns this run has been cleaned up. */
   readonly live: boolean;
   /** Schedule the next attempt. A run that is no longer live schedules nothing. */

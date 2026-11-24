@@ -20,7 +20,6 @@ import {
   startOAuthFlow,
   classifyAuthResult,
   parseCallbackUrl,
-  validateState,
   handleOAuthCallback,
 } from '@/features/auth/lib/oauth';
 import { OAUTH } from '@/features/auth/constants';
@@ -110,6 +109,11 @@ function browserOpenedBy(oauth: typeof import('@/features/auth/lib/oauth')): Pro
 }
 
 /** Deliver a deep link to every `url` listener, as Android does when the redirect lands. */
+/** A callback that carries no state still spends the flow in progress. */
+async function spendPendingFlow(): Promise<void> {
+  await handleOAuthCallback('veloq://oauth/callback').catch(() => undefined);
+}
+
 function deliverLink(url: string): void {
   mockUrlListeners.forEach((listener) => listener({ url }));
 }
@@ -128,8 +132,7 @@ describe('OAuth service', () => {
 
   describe('buildAuthorizationUrl()', () => {
     afterEach(async () => {
-      // validateState spends whatever flow is in progress.
-      await validateState('anything');
+      await spendPendingFlow();
     });
 
     it('throws if oauth state has not been initialised', () => {
@@ -220,7 +223,7 @@ describe('OAuth service', () => {
     afterEach(async () => {
       jest.useRealTimers();
       expect(mockUrlListeners.size).toBe(0);
-      await validateState('anything');
+      await spendPendingFlow();
     });
 
     function registeredState(): string {
@@ -444,48 +447,6 @@ describe('OAuth service', () => {
     });
   });
 
-  describe('validateState()', () => {
-    it('returns false when no state has been generated', async () => {
-      // Ensure state is cleared
-      await validateState('dummy'); // this returns false AND clears anyway
-      expect(await validateState('anything')).toBe(false);
-    });
-
-    it('returns true when received state matches generated state', async () => {
-      mockedOpenAuth.mockResolvedValue({
-        type: 'cancel',
-      } as WebBrowser.WebBrowserAuthSessionResult);
-      await startOAuthFlow();
-
-      // Extract the state from the fetch body (real state used)
-      const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
-      const state = body.state;
-
-      expect(await validateState(state)).toBe(true);
-    });
-
-    it('returns false when received state does not match', async () => {
-      mockedOpenAuth.mockResolvedValue({
-        type: 'cancel',
-      } as WebBrowser.WebBrowserAuthSessionResult);
-      await startOAuthFlow();
-      expect(await validateState('wrong-state')).toBe(false);
-    });
-
-    it('is single-use: second call returns false even with correct state', async () => {
-      mockedOpenAuth.mockResolvedValue({
-        type: 'cancel',
-      } as WebBrowser.WebBrowserAuthSessionResult);
-      await startOAuthFlow();
-
-      const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
-      const state = body.state;
-      expect(await validateState(state)).toBe(true);
-      // State is cleared after validation - calling again returns false
-      expect(await validateState(state)).toBe(false);
-    });
-  });
-
   describe('handleOAuthCallback()', () => {
     /** Start a flow and hand back the state and challenge it registered. */
     async function startedFlow() {
@@ -516,6 +477,17 @@ describe('OAuth service', () => {
       const url =
         'veloq://oauth/callback?success=true&access_token=tok&athlete_id=iABC&state=not-the-state';
       await expect(handleOAuthCallback(url)).rejects.toThrow(/state validation failed/);
+    });
+
+    it('spends the flow on a wrong state, so the right state after it is refused', async () => {
+      const { state } = await startedFlow();
+
+      const wrong =
+        'veloq://oauth/callback?success=true&access_token=tok&athlete_id=iABC&state=not-the-state';
+      await expect(handleOAuthCallback(wrong)).rejects.toThrow(/state validation failed/);
+
+      const right = `veloq://oauth/callback?success=true&access_token=tok&athlete_id=iABC&state=${state}`;
+      await expect(handleOAuthCallback(right)).rejects.toThrow(/no sign-in in progress/);
     });
 
     it('redeems the code at the proxy, presenting the verifier', async () => {

@@ -104,6 +104,7 @@ fn bin(
             .collect()
     });
     Some(FfiAttemptHistogram {
+        edge_pace: None,
         start_secs: start,
         bin_width_secs: width,
         counts,

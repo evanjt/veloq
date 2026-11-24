@@ -40,7 +40,7 @@ function StorageBreakdownBar({
   routesSize: number;
   basemapTiles: BasemapTileSizes | null;
   terrainCacheSize: number;
-  heatmapCacheSize: number;
+  heatmapCacheSize: number | null;
   athleteFilesSize: number;
   freeStorage: number | null;
   isDark: boolean;
@@ -51,7 +51,7 @@ function StorageBreakdownBar({
     const groundBytes = Math.max(0, (basemapTiles?.totalBytes ?? 0) - vectorBytes);
     return storageSegments([
       { labelKey: 'settings.storageDatabase', bytes: routesSize },
-      { labelKey: 'settings.storageHeatmap', bytes: heatmapCacheSize },
+      { labelKey: 'settings.storageHeatmap', bytes: heatmapCacheSize ?? 0 },
       { labelKey: 'settings.storageVector', bytes: vectorBytes },
       { labelKey: 'settings.storageGround', bytes: groundBytes },
       { labelKey: 'settings.storagePreviews', bytes: terrainCacheSize },
@@ -133,7 +133,7 @@ function StorageBreakdownBar({
   );
 }
 
-export interface StorageStatsPanelProps {
+interface StorageStatsPanelProps {
   isDark: boolean;
   totalActivities: number;
   routeGroupCount: number;
@@ -146,7 +146,8 @@ export interface StorageStatsPanelProps {
   /** What the Rust tile store holds, or null until it has said. */
   basemapTiles: BasemapTileSizes | null;
   terrainCacheSize: number;
-  heatmapCacheSize: number;
+  /** Null when the heatmap walk could not say, so the total reads as a floor. */
+  heatmapCacheSize: number | null;
   /** Library copies, backups, recordings and share files. */
   athleteFilesSize: number;
   freeStorage: number | null;

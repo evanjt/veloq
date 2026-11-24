@@ -15,7 +15,7 @@ import { InsightfulStats } from '@/features/activity/components/stats/Insightful
 import { HRZonesChart } from '@/features/activity/components/HRZonesChart';
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 
-import { MaxHrSource } from 'veloqrs';
+import { FfiMaxHrSource } from 'veloqrs';
 import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -78,7 +78,7 @@ describe('InsightfulStats', () => {
 
   it('divides the heart rate by the 185 the screen read resolved', async () => {
     const { getByText } = await render(
-      <InsightfulStats activity={ride} maxHR={185} maxHrSource={MaxHrSource.SportSettings} />
+      <InsightfulStats activity={ride} maxHR={185} maxHrSource={FfiMaxHrSource.SportSettings} />
     );
     expect(getByText('activity.stats.percentOfMaxHR:{"percent":"81%"}')).toBeTruthy();
   });
@@ -123,7 +123,7 @@ describe('the fitness impact explanation', () => {
 
 describe('the heart rate card over a default max HR', () => {
   const runner = activityRecord({ ...ride, sportType: 'Run', avgHr: 170 });
-  const heartRateCard = async (maxHR: number, maxHrSource: MaxHrSource) => {
+  const heartRateCard = async (maxHR: number, maxHrSource: FfiMaxHrSource) => {
     const { result } = await renderHook(() =>
       useActivityStats({ activity: runner, isMetric: true, maxHR, maxHrSource })
     );
@@ -133,15 +133,15 @@ describe('the heart rate card over a default max HR', () => {
   };
 
   it('states a percent of the athlete own max HR as their own', async () => {
-    const card = await heartRateCard(205, MaxHrSource.SportSettings);
+    const card = await heartRateCard(205, FfiMaxHrSource.SportSettings);
     expect(card.context).toBe('activity.stats.percentOfMaxHR:{"percent":"83%"}');
-    expect((await heartRateCard(185, MaxHrSource.ActivityZones)).context).toBe(
+    expect((await heartRateCard(185, FfiMaxHrSource.ActivityZones)).context).toBe(
       'activity.stats.percentOfMaxHR:{"percent":"92%"}'
     );
   });
 
   it('names the default and grades nothing against it', async () => {
-    const card = await heartRateCard(190, MaxHrSource.Default);
+    const card = await heartRateCard(190, FfiMaxHrSource.Default);
     expect(card.context).toBe('activity.stats.percentOfDefaultMaxHR:{"percent":"89%","value":190}');
     expect(card.stream).toBe('heartrate');
     expect(card.details).toContainEqual({
@@ -159,13 +159,13 @@ describe('HRZonesChart', () => {
       <HRZonesChart
         hrZones={hrZones}
         maxHR={185}
-        maxHrSource={MaxHrSource.SportSettings}
+        maxHrSource={FfiMaxHrSource.SportSettings}
         movingTime={60}
       />
     );
     expect(getByText('activity.zoneMaxFromSettings:{"value":185}')).toBeTruthy();
     const card = await render(
-      <InsightfulStats activity={ride} maxHR={185} maxHrSource={MaxHrSource.SportSettings} />
+      <InsightfulStats activity={ride} maxHR={185} maxHrSource={FfiMaxHrSource.SportSettings} />
     );
     expect(card.getByText('activity.stats.percentOfMaxHR:{"percent":"81%"}')).toBeTruthy();
   });
@@ -175,7 +175,7 @@ describe('HRZonesChart', () => {
       <HRZonesChart
         hrZones={hrZones}
         maxHR={196}
-        maxHrSource={MaxHrSource.ActivityZones}
+        maxHrSource={FfiMaxHrSource.ActivityZones}
         movingTime={60}
       />
     );
@@ -187,7 +187,7 @@ describe('HRZonesChart', () => {
       <HRZonesChart
         hrZones={hrZones}
         maxHR={190}
-        maxHrSource={MaxHrSource.Default}
+        maxHrSource={FfiMaxHrSource.Default}
         movingTime={60}
       />
     );

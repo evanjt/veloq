@@ -31,7 +31,7 @@ import {
   formatDistance,
   formatDuration,
   formatShortDate,
-  formatSportSpeed,
+  formatSportSpeedText,
 } from '@/shared/format/format';
 import {
   type AccessibleAction,
@@ -43,7 +43,7 @@ import { Icon } from '@/shared/ui/Icon';
 import { RankRing } from '@/shared/charts/RankRing';
 import { seriesSummary, type SparklinePoint } from '@/shared/charts';
 import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
-import type { ActivityType } from '@/types';
+import { toActivityType } from '@/types';
 import { SectionSparkline } from '@/features/routes';
 import type { SectionEncounter } from 'veloqrs';
 import type { SectionEncounterGroup } from '@/features/activity/lib/groupSectionEncounters';
@@ -100,16 +100,21 @@ interface SectionInlinePlotProps {
 
 /** Pace for foot and water sports, elapsed time otherwise, as the section charts do. */
 function formatLap(
-  lapPace: number,
-  lapTime: number,
+  encounter: Pick<
+    SectionEncounter,
+    'lapPace' | 'lapTime' | 'lapPaceMetricText' | 'lapPaceImperialText'
+  >,
   sportType: string | undefined,
   isMetric: boolean
 ): string {
-  const type = sportType as ActivityType;
+  const type = toActivityType(sportType);
   if (readsAsPace(type)) {
-    return formatSportSpeed(lapPace, type, isMetric);
+    return formatSportSpeedText(encounter.lapPace, type, isMetric, {
+      metricText: encounter.lapPaceMetricText,
+      imperialText: encounter.lapPaceImperialText,
+    });
   }
-  return formatDuration(lapTime);
+  return formatDuration(encounter.lapTime);
 }
 
 /** The place word a medal marks, for ranks two and three of a complete pass. */
@@ -131,7 +136,7 @@ function placeKey(
  * speaks its range. Each direction is composed on its own so a distance both
  * directions share is spoken for each.
  */
-export function sectionCardAccessibilityLabel(
+function sectionCardAccessibilityLabel(
   group: SectionEncounterGroup,
   sportType: string | undefined,
   isMetric: boolean,
@@ -150,7 +155,7 @@ export function sectionCardAccessibilityLabel(
       formatDistance(encounter.distanceMeters, isMetric),
       encounter.historyTimes.length > 0 &&
         t('sections.traversalsCount', { count: encounter.visitCount }),
-      encounter.lapTime > 0 && formatLap(encounter.lapPace, encounter.lapTime, sportType, isMetric),
+      encounter.lapTime > 0 && formatLap(encounter, sportType, isMetric),
       !encounter.isComplete && !isPartialDirection && t('sections.partial'),
       encounter.isComplete && encounter.isPr && t('a11y.personalRecord'),
       place && t(place),
@@ -161,7 +166,7 @@ export function sectionCardAccessibilityLabel(
 }
 
 /** One direction's sparkline: its points, this activity's place among them, and what it speaks. */
-export interface SectionSparklineData {
+interface SectionSparklineData {
   points: SparklinePoint[];
   highlightIndex: number | undefined;
   name: string;
@@ -211,25 +216,40 @@ export function sectionSparklineData(
     }
   }
 
-  const type = sportType as ActivityType;
+  const type = toActivityType(sportType);
   const pace = readsAsPace(type);
-  const format = (speed: number) => formatSportSpeed(speed, type, isMetric);
   const name = t(pace ? 'chartTypes.pace' : 'chartTypes.speed');
   const points: SparklinePoint[] = [];
+  // The engine writes each point's pace, and the plot prints only its points.
+  const paceTexts = new Map<number, string>();
   let highlightIndex: number | undefined;
   for (let i = startIdx; i < endIdx; i++) {
     const time = encounter.historyTimes[i] ?? 0;
     const id = encounter.historyActivityIds[i] ?? '';
     const date = encounter.historyDates[i];
     if (id === activityId) highlightIndex = points.length;
+    const value = time > 0 ? encounter.distanceMeters / time : 0;
+    const paceText = (
+      isMetric ? encounter.historyPaceMetricTexts : encounter.historyPaceImperialTexts
+    )[i];
+    if (paceText != null) paceTexts.set(value, paceText);
     points.push({
-      value: time > 0 ? encounter.distanceMeters / time : 0,
+      value,
       label:
         date !== undefined ? formatShortDate(wallClockSecondsToLocalDate(date)) : String(i + 1),
       key: `${id}-${i}`,
       ...(date !== undefined ? { date } : {}),
     });
   }
+  const format = (speed: number) => {
+    const text = paceTexts.get(speed);
+    return formatSportSpeedText(
+      speed,
+      type,
+      isMetric,
+      isMetric ? { metricText: text } : { imperialText: text }
+    );
+  };
   const summary = seriesSummary({ name, points, format }, t);
   return { points, highlightIndex, name, format, summary };
 }
@@ -443,7 +463,7 @@ export const SectionInlinePlot = memo(
                         maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                         style={[styles.pace, isDark && styles.textLight]}
                       >
-                        {formatLap(encounter.lapPace, encounter.lapTime, sportType, isMetric)}
+                        {formatLap(encounter, sportType, isMetric)}
                       </FitText>
                     )}
                     {!metaStacked && meta}

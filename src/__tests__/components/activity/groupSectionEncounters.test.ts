@@ -26,6 +26,8 @@ function encounter(overrides: Partial<SectionEncounter> & { sectionId: string })
     isComplete: true,
     visitCount: 3,
     historyTimes: [],
+    historyPaceMetricTexts: [],
+    historyPaceImperialTexts: [],
     historyActivityIds: [],
     historyDates: [],
     ...overrides,

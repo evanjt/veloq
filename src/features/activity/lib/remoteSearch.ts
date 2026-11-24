@@ -21,7 +21,7 @@ export function canSearchAccount(filter: FeedFilter): boolean {
 }
 
 /** What decides the offer: the filter, and where the local read stands. */
-export interface RemoteSearchOfferState {
+interface RemoteSearchOfferState {
   filter: FeedFilter;
   /** The held source answers the account search. A source that does not is never offered one. */
   searchable: boolean;

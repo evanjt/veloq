@@ -16,7 +16,8 @@
  * by one, and the read reached a day further back than the first cell.
  */
 
-import { formatLocalDate, getMonday } from '@/shared/format/format';
+import { getMonday } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 
 /** The most weeks the grid draws, and the span it asks the engine for at most. */
 export const HEATMAP_WEEKS = 52;
@@ -33,13 +34,13 @@ export const HEATMAP_PITCH = HEATMAP_CELL_SIZE + HEATMAP_CELL_GAP;
 const LABEL_MIN_COLUMNS = 3;
 
 /** A cell's top-left corner, in the grid's own coordinates. */
-export interface CellPosition {
+interface CellPosition {
   x: number;
   y: number;
 }
 
 /** One drawn day. */
-export interface HeatmapCell {
+interface HeatmapCell {
   /** Local calendar day, `YYYY-MM-DD`. */
   date: string;
   col: number;
@@ -48,7 +49,7 @@ export interface HeatmapCell {
 }
 
 /** A month name over the first column whose Monday falls in that month. */
-export interface HeatmapMonthLabel {
+interface HeatmapMonthLabel {
   col: number;
   /** The first day of the month, for formatting its name. */
   date: Date;

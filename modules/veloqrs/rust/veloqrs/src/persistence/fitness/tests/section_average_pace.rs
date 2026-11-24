@@ -28,6 +28,8 @@ fn record(date: i64, distance: f64, time: f64, direction: &str) -> SectionPerfor
         estimated: false,
     };
     SectionPerformanceRecord {
+        avg_pace_text: None,
+        best_pace_text: None,
         activity_id: format!("act_{date}"),
         activity_name: "Run".to_string(),
         activity_date: crate::WholeNumber(date),

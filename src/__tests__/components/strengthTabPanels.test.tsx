@@ -9,7 +9,7 @@
  * its period totals whether or not the last four weeks reached it.
  */
 
-import { StartOutcome, SyncState } from 'veloqrs';
+import { FfiStartOutcome, SyncState } from 'veloqrs';
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -44,7 +44,7 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-const mockDiagramProps: { bodyData?: unknown; maxWeightedSets?: number } = {};
+const mockDiagramProps: { bodyData?: unknown; shadeCeilings?: readonly number[] } = {};
 
 jest.mock('@/features/strength/components/StrengthBodyDiagram', () => {
   const { Pressable, Text } = require('react-native');
@@ -55,13 +55,13 @@ jest.mock('@/features/strength/components/StrengthBodyDiagram', () => {
     StrengthBodyDiagram: ({
       onMuscleTap,
       bodyData,
-      maxWeightedSets,
+      shadeCeilings,
     }: {
       onMuscleTap: (slug: string) => void;
       bodyData: unknown;
-      maxWeightedSets: number;
+      shadeCeilings: readonly number[];
     }) => {
-      Object.assign(mockDiagramProps, { bodyData, maxWeightedSets });
+      Object.assign(mockDiagramProps, { bodyData, shadeCeilings });
       return (
         <>
           {['hamstring', 'quadriceps'].map((slug) => (
@@ -80,7 +80,7 @@ const engine = {
   getSyncStatus: jest.fn(() => ({ state: SyncState.Idle })),
   getStrengthScreenData: jest.fn(),
   getUnprocessedStrengthIds: jest.fn((): string[] => []),
-  batchFetchOwedFitFiles: jest.fn(() => ({ outcome: StartOutcome.NotOwed })),
+  batchFetchOwedFitFiles: jest.fn(() => ({ outcome: FfiStartOutcome.NotOwed })),
   getBodiesStored: jest.fn(() => 0),
 };
 
@@ -102,6 +102,7 @@ const summary = (muscleVolumes: ReturnType<typeof volume>[]) => ({
   activityCount: muscleVolumes.length > 0 ? 2 : 0,
   totalSets: muscleVolumes.reduce((sum, v) => sum + v.weightedSets, 0),
   maxWeightedSets: Math.max(0, ...muscleVolumes.map((v) => v.weightedSets)),
+  shadeCeilings: [0, 0, 0, 0, 0],
   balance: [],
 });
 
@@ -158,7 +159,7 @@ beforeEach(() => {
   engine.getStrengthScreenData.mockReturnValue(screenRead());
   engine.getSyncStatus.mockReturnValue({ state: SyncState.Idle });
   engine.getUnprocessedStrengthIds.mockReturnValue([]);
-  engine.batchFetchOwedFitFiles.mockReturnValue({ outcome: StartOutcome.NotOwed });
+  engine.batchFetchOwedFitFiles.mockReturnValue({ outcome: FfiStartOutcome.NotOwed });
 });
 
 afterEach(() => {
@@ -166,7 +167,7 @@ afterEach(() => {
 });
 
 /** Three strength sessions owe their files, and asking for them answers `outcome`. */
-function owesFiles(outcome: StartOutcome) {
+function owesFiles(outcome: FfiStartOutcome) {
   engine.getUnprocessedStrengthIds.mockReturnValue(['w1', 'w2', 'w3']);
   engine.batchFetchOwedFitFiles.mockReturnValue({ outcome });
 }
@@ -188,7 +189,7 @@ describe('an empty period whose workouts are owed their files', () => {
 
   it('asks for the files online, and offers a Retry once the wait runs out', async () => {
     jest.useFakeTimers();
-    owesFiles(StartOutcome.Started);
+    owesFiles(FfiStartOutcome.Started);
     emptyPeriodOwing();
 
     await renderTab();
@@ -208,8 +209,8 @@ describe('an empty period whose workouts are owed their files', () => {
   });
 
   it.each([
-    ['offline', StartOutcome.Offline, 'refresh.offline'],
-    ['signed out', StartOutcome.NotConfigured, 'settings.streamBackfillRefusedNotConfigured'],
+    ['offline', FfiStartOutcome.Offline, 'refresh.offline'],
+    ['signed out', FfiStartOutcome.NotConfigured, 'settings.streamBackfillRefusedNotConfigured'],
   ])('says what fixes a request refused %s, with no Retry', async (_state, outcome, reason) => {
     owesFiles(outcome);
     emptyPeriodOwing();
@@ -233,7 +234,7 @@ describe('an empty period whose workouts are owed their files', () => {
 
 describe('a period with no parsed sets', () => {
   vaultIt('says the workouts are not downloaded when the period still owes some', async () => {
-    owesFiles(StartOutcome.Offline);
+    owesFiles(FfiStartOutcome.Offline);
     engine.getStrengthScreenData.mockReturnValue(
       screenRead({
         summary: summary([]),
@@ -312,7 +313,7 @@ describe('a populated period that still owes some workouts', () => {
   });
 
   vaultIt('does not repeat the count in an empty period', async () => {
-    owesFiles(StartOutcome.Offline);
+    owesFiles(FfiStartOutcome.Offline);
     engine.getStrengthScreenData.mockReturnValue(
       screenRead({
         summary: summary([]),
@@ -475,6 +476,7 @@ describe('the body diagram', () => {
         summary: {
           ...summary([volume('hamstring', 12, 2), volume('quadriceps', 8, 1)]),
           maxWeightedSets: 30,
+          shadeCeilings: [6, 12, 18, 24, 30],
         },
       })
     );
@@ -486,7 +488,7 @@ describe('the body diagram', () => {
         { slug: 'quadriceps', intensity: 1 },
       ])
     );
-    expect(mockDiagramProps.maxWeightedSets).toBe(30);
+    expect(mockDiagramProps.shadeCeilings).toEqual([6, 12, 18, 24, 30]);
   });
 });
 

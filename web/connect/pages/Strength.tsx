@@ -69,6 +69,9 @@ type MuscleColumn = 'muscle' | 'sets' | 'reps' | 'volume';
 type WeekColumn = 'week' | 'sessions' | 'sets' | 'most';
 type ExerciseColumn = 'name' | 'muscles' | 'sets' | 'reps' | 'volume';
 
+/** The legend's labels before the engine has answered. */
+const NO_SHADE_CEILINGS: readonly number[] = [];
+
 const MUSCLE_ORDER = { column: 'sets', descending: true } as const;
 const WEEK_ORDER = { column: 'week', descending: true } as const;
 const EXERCISE_ORDER = { column: 'volume', descending: true } as const;
@@ -365,53 +368,53 @@ function StrengthPane({
 
       <PageGrid className="strength-overview">
         <GridCell>
-        <Card label={t('strength.muscleGroupVolume')}>
-          <CardHeader
-            title={t('strength.muscleGroupVolume')}
-            actions={
-              muscle === null ? null : (
-                <Button size="sm" variant="ghost" onClick={() => choose(muscle)}>
-                  {t('strength.clearMuscle', { muscle: names(muscle) })}
-                </Button>
-              )
-            }
-          />
-          <BodyFigure
-            volumes={volumes}
-            maxWeightedSets={screen?.summary.maxWeightedSets ?? 0}
-            sex={sex}
-            names={names}
-            chosen={muscle}
-            onChoose={choose}
-          />
-          <p className="meta">{t('strength.relativeWeightedSets')}</p>
-        </Card>
-</GridCell>
+          <Card label={t('strength.muscleGroupVolume')}>
+            <CardHeader
+              title={t('strength.muscleGroupVolume')}
+              actions={
+                muscle === null ? null : (
+                  <Button size="sm" variant="ghost" onClick={() => choose(muscle)}>
+                    {t('strength.clearMuscle', { muscle: names(muscle) })}
+                  </Button>
+                )
+              }
+            />
+            <BodyFigure
+              volumes={volumes}
+              shadeCeilings={screen?.summary.shadeCeilings ?? NO_SHADE_CEILINGS}
+              sex={sex}
+              names={names}
+              chosen={muscle}
+              onChoose={choose}
+            />
+            <p className="meta">{t('strength.relativeWeightedSets')}</p>
+          </Card>
+        </GridCell>
         <GridCell>
-        <Card label={t('connectPage.strength.balance')}>
-          <CardHeader title={t('connectPage.strength.balance')} />
-          <ul id="strength-balance" className="balance-list">
-            {(screen?.summary.balance ?? []).map((pair) => (
-              <BalanceRow key={pair.id} pair={pair} names={names} />
-            ))}
-          </ul>
-          <p className="meta">{t('strength.balanceFootnote')}</p>
-        </Card>
-</GridCell>
+          <Card label={t('connectPage.strength.balance')}>
+            <CardHeader title={t('connectPage.strength.balance')} />
+            <ul id="strength-balance" className="balance-list">
+              {(screen?.summary.balance ?? []).map((pair) => (
+                <BalanceRow key={pair.id} pair={pair} names={names} />
+              ))}
+            </ul>
+            <p className="meta">{t('strength.balanceFootnote')}</p>
+          </Card>
+        </GridCell>
         <GridCell>
-        <Card label={t('connectPage.strength.progressions')}>
-          <CardHeader title={t('connectPage.strength.progressions')} />
-          <ul id="strength-progressions" className="progression-list">
-            {(screen?.progressions ?? []).map((progression) => (
-              <ProgressionCard
-                key={progression.muscleSlug}
-                progression={progression}
-                name={names(progression.muscleSlug)}
-              />
-            ))}
-          </ul>
-        </Card>
-</GridCell>
+          <Card label={t('connectPage.strength.progressions')}>
+            <CardHeader title={t('connectPage.strength.progressions')} />
+            <ul id="strength-progressions" className="progression-list">
+              {(screen?.progressions ?? []).map((progression) => (
+                <ProgressionCard
+                  key={progression.muscleSlug}
+                  progression={progression}
+                  name={names(progression.muscleSlug)}
+                />
+              ))}
+            </ul>
+          </Card>
+        </GridCell>
       </PageGrid>
 
       <div className="strength-tables">

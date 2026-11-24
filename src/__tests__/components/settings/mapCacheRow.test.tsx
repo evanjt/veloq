@@ -11,7 +11,7 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import { StorageStatsPanel } from '@/features/settings/components/StorageStatsPanel';
-import { mapCacheTotal, MAP_CACHE_SOURCES } from '@/features/settings/lib/mapCacheTotal';
+import { mapCacheTotal } from '@/features/settings/lib/mapCacheTotal';
 
 // The maps barrel reaches the engine binding, which registers a TurboModule at
 // import time, so the graph this renders cannot load without the stub.
@@ -31,6 +31,15 @@ describe('the map cache total', () => {
     expect(total).toEqual({ bytes: 8, complete: false });
   });
 
+  it('reports a heatmap walk that failed as incomplete, not as zero', () => {
+    const total = mapCacheTotal({
+      terrainBytes: 14,
+      heatmapBytes: null,
+      tiles: { totalBytes: 7 },
+    });
+    expect(total).toEqual({ bytes: 21, complete: false });
+  });
+
   it('treats a real zero from a store that answered as a zero', () => {
     const total = mapCacheTotal({
       terrainBytes: 14,
@@ -38,10 +47,6 @@ describe('the map cache total', () => {
       tiles: { totalBytes: 0 },
     });
     expect(total).toEqual({ bytes: 14, complete: true });
-  });
-
-  vaultIt('names every store the row folds in, so the label can be checked against it', () => {
-    expect(MAP_CACHE_SOURCES).toEqual(['previews', 'heatmap', 'tiles']);
   });
 });
 

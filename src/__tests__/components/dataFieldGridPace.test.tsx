@@ -11,8 +11,20 @@ import { DataFieldGrid } from '@/features/recording/components/DataFieldGrid';
 import type { ActivityType, DataFieldType } from '@/types';
 import { formatRecordingSpeed } from '@/features/recording/lib/formatRecordingSpeed';
 
+import { recordings } from 'veloqrs';
+
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
+// The engine owns the pace rule, so each answer here is text no formatter in
+// the app would print for the speed: a tile that formats it itself fails.
+const livePace = recordings.livePace as jest.Mock;
+beforeEach(() => {
+  livePace.mockReset();
+  livePace.mockImplementation((speed: number, sport: string | undefined, isMetric: boolean) => ({
+    text: `engine ${speed} ${sport ?? 'none'} ${isMetric ? 'metric' : 'imperial'}`,
+    seconds: undefined,
+  }));
+});
 function metricsAt(speed: number, avgSpeed: number) {
   // The shape `useRecordingMetrics` returns, pace included.
   return {
@@ -54,34 +66,39 @@ async function tile(
     .findAll((n) => typeof n.children[0] === 'string')[0].children[0] as string;
 }
 
-it('reads the current pace of a 3 m/s run in both unit systems', async () => {
-  expect(await tile('pace', 3, 2.5, true)).toBe('5:33 /km');
-  expect(await tile('pace', 3, 2.5, false)).toBe('8:56 /mi');
+it('reads the current pace tile from the engine, for the speed and unit system', async () => {
+  expect(await tile('pace', 3, 2.5, true, 'Run')).toBe('engine 3 Run metric');
+  expect(await tile('pace', 3, 2.5, false, 'Run')).toBe('engine 3 Run imperial');
 });
 
-it('reads the average pace from the average speed, not the current one', async () => {
-  expect(await tile('avgPace', 2.5, 3, true)).toBe('5:33 /km');
-  expect(await tile('avgPace', 2.5, 3, false)).toBe('8:56 /mi');
+it('reads the average pace tile from the engine for the average speed, not the current one', async () => {
+  expect(await tile('avgPace', 2.5, 3, true, 'Run')).toBe('engine 3 Run metric');
+  expect(await tile('avgPace', 2.5, 3, false, 'Run')).toBe('engine 3 Run imperial');
 });
 
-vaultIt('reads a placeholder when standing still', async () => {
-  expect(await tile('pace', 0, 0, true)).toBe('--:--');
-  expect(await tile('avgPace', 0, 0, false)).toBe('--:--');
+it('hands the engine no sport when the recording has none', async () => {
+  expect(await tile('pace', 3, 2.5, true)).toBe('engine 3 none metric');
 });
 
 describe('an open-water swim', () => {
-  it('reads the pace tiles per 100 m or 100 yd', async () => {
-    expect(await tile('pace', 0.833, 0.833, true, 'OpenWaterSwim')).toBe('2:00 /100m');
-    expect(await tile('avgPace', 0.833, 0.833, false, 'OpenWaterSwim')).toBe('1:50 /100yd');
+  it('asks the engine for the swim pace on both pace tiles', async () => {
+    expect(await tile('pace', 0.833, 0.833, true, 'OpenWaterSwim')).toBe(
+      'engine 0.833 OpenWaterSwim metric'
+    );
+    expect(await tile('avgPace', 0.833, 0.833, false, 'OpenWaterSwim')).toBe(
+      'engine 0.833 OpenWaterSwim imperial'
+    );
   });
 
-  vaultIt('reads the same label on the notification and live activity text', () => {
-    expect(formatRecordingSpeed('OpenWaterSwim', 0.833, true)).toBe('2:00 /100m');
-    expect(formatRecordingSpeed('OpenWaterSwim', 0.833, false)).toBe('1:50 /100yd');
+  it('reads the notification and live activity text from the same engine pace', () => {
+    expect(formatRecordingSpeed('OpenWaterSwim', 0.833, true)).toBe(
+      'engine 0.833 OpenWaterSwim metric'
+    );
   });
 
-  it('keeps run pace and ride speed on the notification', () => {
-    expect(formatRecordingSpeed('Run', 3, true)).toBe('5:33 /km');
+  it('reads run pace from the engine and ride speed in the app', () => {
+    expect(formatRecordingSpeed('Run', 3, true)).toBe('engine 3 Run metric');
     expect(formatRecordingSpeed('Ride', 10, true)).toBe('36.0 km/h');
+    expect(livePace).toHaveBeenCalledTimes(1);
   });
 });

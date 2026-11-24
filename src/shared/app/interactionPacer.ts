@@ -14,7 +14,7 @@ export const IDLE_AFTER_MS = 1000;
 /** Under half of Rust's five second expiry, so a live gesture never ages out. */
 export const RESTATE_EVERY_MS = 2000;
 
-export interface InteractionPacer {
+interface InteractionPacer {
   /** Call on every touch. Cheap: it only reaches the engine on an edge or a restate. */
   touch(): void;
   /** Say idle now and drop the timer, for unmount. */

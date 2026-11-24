@@ -58,6 +58,8 @@ const SPARKLINES = {
   fitnessRiseDays: [1, 2],
   fatigue: [64, 68, 70],
   form: [-6, -8, -8],
+  formZone: Array(3).fill('greyZone'),
+  formText: Array(3).fill('0'),
   hrv: [55, 57, 58],
   rhr: [48, 47, 47],
   hrvRead: [true, true, true],

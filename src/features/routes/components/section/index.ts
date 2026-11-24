@@ -1,35 +1,13 @@
 export { SectionHeader, sectionHeroName } from './SectionHeader';
-export type { SectionHeaderProps } from './SectionHeader';
-export { SectionStatsCards } from './SectionStatsCards';
-export type { SectionStatsCardsProps, CalendarSummary } from './SectionStatsCards';
-export { SectionPerformanceSection, sectionStreamsState } from './SectionPerformanceSection';
-export type {
-  SectionPerformanceSectionProps,
-  SectionStreamsState,
-} from './SectionPerformanceSection';
-export { ScatterLegend } from './ScatterLegend';
+export { sectionStreamsState } from './SectionPerformanceSection';
 export { PerformanceChartPanel } from './PerformanceChartPanel';
-export type { PerformanceChartPanelProps, PerformancePlotType } from './PerformanceChartPanel';
-export { AttemptHistogramChart } from './AttemptHistogramChart';
-export { SectionDeltaChart } from './SectionDeltaChart';
-export type { SectionDeltaChartProps } from './SectionDeltaChart';
-export { SectionScatterChart } from './SectionScatterChart';
-export type { SectionScatterChartProps } from './SectionScatterChart';
 export { DirectionAverages } from './DirectionAverages';
-export type { DirectionAveragesProps } from './DirectionAverages';
-export { SectionEfficiencyCard } from './SectionEfficiencyCard';
-export type { SectionEfficiencyCardProps } from './SectionEfficiencyCard';
 export { SectionStatusLine } from './SectionStatusLine';
-export type { SectionStatusLineProps } from './SectionStatusLine';
 export { SectionOverflowMenu } from './SectionOverflowMenu';
 export { SectionContentArea } from './SectionContentArea';
-export type { SectionContentAreaProps } from './SectionContentArea';
 export { SectionDebugPanel } from './SectionDebugPanel';
-export type { SectionDebugPanelProps } from './SectionDebugPanel';
 export { styles as sectionDetailStyles } from './SectionDetail.styles';
 export { SectionHistoryPanel } from './SectionHistoryPanel';
-export type { SectionHistoryPanelProps } from './SectionHistoryPanel';
 export { SectionLapList } from './SectionLapList';
 export { SectionStreamsNotice } from './SectionStreamsNotice';
-export type { SectionLapListProps } from './SectionLapList';
 export { SectionDetailLinks } from './SectionDetailLinks';

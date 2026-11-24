@@ -9,7 +9,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
-import type { ActivityType, FeedCard } from '@/types';
+import type { FeedCard } from '@/types';
+import { toActivityType } from '@/types';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { sportMarkColour } from '@/shared/activity/sportCategories';
 import {
@@ -295,7 +296,7 @@ export const ActivityCard = React.memo(
 
     const { getStyleForActivity } = useMapPreferences();
     // A body with no sport falls back to Other in every helper, as it always has.
-    const sport = activity.sportType as ActivityType;
+    const sport = toActivityType(activity.sportType);
     const activityColor = sportMarkColour(sport, isDark);
     const iconName = getActivityIcon(sport);
     const mapStyle = getStyleForActivity(sport, activity.id);

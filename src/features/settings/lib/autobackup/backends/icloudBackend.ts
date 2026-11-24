@@ -200,10 +200,6 @@ export const icloudBackend: BackupBackend = {
     await copyOut('Download backup', backupId, destPath);
   },
 
-  async delete(): Promise<void> {
-    throw new Error("Veloq deletes nothing in the athlete's iCloud Drive");
-  },
-
   /** The native upload replaces a file of the same name. */
   async putObject(name: string, localPath: string): Promise<void> {
     const api = cloudStorage();

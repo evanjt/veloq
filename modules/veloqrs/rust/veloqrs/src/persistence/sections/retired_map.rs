@@ -21,6 +21,7 @@
 
 use super::history::RetiredSection;
 use super::history::pooled as history;
+use crate::poison::Recover;
 use crate::{
     FfiCurrentMapSection, FfiRetiredMapData, FfiRetiredMapPair, FfiRetiredMapSection,
     FfiRetiredPairLink,
@@ -564,7 +565,7 @@ static LEVEL_SLOT: (Mutex<bool>, Condvar) = (Mutex::new(false), Condvar::new());
 struct LevelClaim(());
 
 fn claim_level() -> Option<LevelClaim> {
-    let mut held = LEVEL_SLOT.0.lock().unwrap_or_else(|e| e.into_inner());
+    let mut held = LEVEL_SLOT.0.lock_recover();
     if *held {
         return None;
     }
@@ -574,7 +575,7 @@ fn claim_level() -> Option<LevelClaim> {
 
 impl Drop for LevelClaim {
     fn drop(&mut self) {
-        *LEVEL_SLOT.0.lock().unwrap_or_else(|e| e.into_inner()) = false;
+        *LEVEL_SLOT.0.lock_recover() = false;
         LEVEL_SLOT.1.notify_all();
     }
 }
@@ -582,13 +583,13 @@ impl Drop for LevelClaim {
 /// Whether a level holds the slot now, which a screen reads to know when to
 /// look at the pairs again.
 pub(crate) fn levelling() -> bool {
-    *LEVEL_SLOT.0.lock().unwrap_or_else(|e| e.into_inner())
+    *LEVEL_SLOT.0.lock_recover()
 }
 
 /// Wait until no level is in flight, and say whether that happened within `limit`.
 #[cfg(test)]
 pub(crate) fn wait_for_level(limit: Duration) -> bool {
-    let held = LEVEL_SLOT.0.lock().unwrap_or_else(|e| e.into_inner());
+    let held = LEVEL_SLOT.0.lock_recover();
     let (_held, wait) = LEVEL_SLOT
         .1
         .wait_timeout_while(held, limit, |held| *held)

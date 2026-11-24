@@ -493,6 +493,7 @@ fn an_expired_tombstone_takes_its_grave_with_it() {
     assert!(
         run.engine
             .section_ids_a_mint_must_avoid()
+            .expect("ids")
             .contains(&run.id_a),
         "the expired id left the ledger, so a mint could re-issue it"
     );

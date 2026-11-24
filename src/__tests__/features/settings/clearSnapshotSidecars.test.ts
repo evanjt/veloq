@@ -89,4 +89,20 @@ describe('clear rollback', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('rollback copy'), expect.any(Error));
     warn.mockRestore();
   });
+  it('reports a rollback copy that fails and still rejects with the clear error', async () => {
+    (FileSystem.copyAsync as jest.Mock).mockRejectedValueOnce(new Error('disk full'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(
+      withDatabaseSnapshot(engine(), DB, async () => {
+        throw new Error('clear failed');
+      })
+    ).rejects.toThrow('clear failed');
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('rollback'),
+      expect.objectContaining({ message: 'disk full' })
+    );
+    warn.mockRestore();
+  });
 });

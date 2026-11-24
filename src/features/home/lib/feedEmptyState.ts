@@ -1,4 +1,4 @@
-import { SyncErrorReason, SyncState } from 'veloqrs';
+import { FfiSyncErrorReason, SyncState } from 'veloqrs';
 
 import type { EngineReadState } from '@/shared/native/useEngineSubscription';
 
@@ -20,7 +20,7 @@ interface FeedEmptyInput {
   /** The engine's own sync state, or undefined before the first read. */
   syncState: SyncState | undefined;
   /** Why the engine's last sync failed, or null when it settled clean. */
-  lastErrorReason: SyncErrorReason | null;
+  lastErrorReason: FfiSyncErrorReason | null;
   /** When the engine's cooldown ends, or null when none holds. */
   retryAtMs: number | null;
   isError: boolean;
@@ -72,13 +72,13 @@ export function feedEmptyState({
   if (!hasFilter && syncState === SyncState.Syncing) return 'standby';
   if (isLoading) return 'skeletons';
   if (hasFilter) return 'empty';
-  if (syncState === SyncState.AuthExpired || lastErrorReason === SyncErrorReason.Unauthorized) {
+  if (syncState === SyncState.AuthExpired || lastErrorReason === FfiSyncErrorReason.Unauthorized) {
     return 'authExpired';
   }
   if (
     syncState === SyncState.Paused ||
     retryAtMs !== null ||
-    lastErrorReason === SyncErrorReason.RateLimited
+    lastErrorReason === FfiSyncErrorReason.RateLimited
   ) {
     return 'paused';
   }

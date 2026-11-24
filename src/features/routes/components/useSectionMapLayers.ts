@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import type { FrequentSection, RoutePoint } from '@/types';
 import { EMPTY_FEATURE_COLLECTION } from '@/features/maps';
+import { isPositioned } from '@/shared/geo/routePreview';
 
 type FeatureOrCollection = GeoJSON.FeatureCollection | GeoJSON.Feature;
 
@@ -30,7 +31,7 @@ export interface SectionMapLayers {
 }
 
 function isFinitePoint(p: RoutePoint): boolean {
-  return Number.isFinite(p.lat) && Number.isFinite(p.lng);
+  return isPositioned(p.lat, p.lng);
 }
 
 function lineFeature(
@@ -81,9 +82,7 @@ export function useSectionMapLayers({
 
   const shadowGeoJSON = useMemo<FeatureOrCollection>(() => {
     if (!shadowTrack || shadowTrack.length < 2) return EMPTY_FEATURE_COLLECTION;
-    const validCoords = shadowTrack.filter(
-      ([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng)
-    );
+    const validCoords = shadowTrack.filter(([lat, lng]) => isPositioned(lat, lng));
     if (validCoords.length < 2) return EMPTY_FEATURE_COLLECTION;
     return {
       type: 'Feature',

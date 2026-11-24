@@ -25,7 +25,6 @@ import type { WellnessData } from '@/types';
 import { stripMarks, stripKey, markFills, portionGap, noLoadMarkColour } from '../lib/stripMarks';
 import { dayLoadReadout } from '../lib/dayLoadReadout';
 import { groupColor } from '../lib/dayPillTone';
-import { formFromLoads } from '@/shared/math';
 import { formatShortDate } from '@/shared/format/format';
 import { Button, Icon } from '@/shared/ui';
 
@@ -43,10 +42,7 @@ interface ActivityDotsChartProps {
   gutterWidth?: number;
   selectedDate?: string | null;
   sharedSelectedIdx?: SharedValue<number>;
-  onDateSelect?: (
-    date: string | null,
-    values: { fitness: number; fatigue: number; form: number } | null
-  ) => void;
+  onDateSelect?: (date: string | null) => void;
   onInteractionChange?: (isInteracting: boolean) => void;
 }
 
@@ -56,7 +52,6 @@ interface DotData {
   activities: DayActivity[];
   fitness: number;
   fatigue: number;
-  form: number;
 }
 
 export const ActivityDotsChart = React.memo(function ActivityDotsChart({
@@ -106,10 +101,8 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     const sorted = sortByDateId(data);
 
     return sorted.map((day, idx) => {
-      const fitnessRaw = day.ctl ?? 0;
-      const fatigueRaw = day.atl ?? 0;
-      const fitness = Math.round(fitnessRaw);
-      const fatigue = Math.round(fatigueRaw);
+      const fitness = Math.round(day.ctl ?? 0);
+      const fatigue = Math.round(day.atl ?? 0);
       const dayActivities = activitiesByDate.get(day.id) || [];
 
       return {
@@ -118,25 +111,20 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
         activities: dayActivities,
         fitness,
         fatigue,
-        form: formFromLoads(fitnessRaw, fatigueRaw),
       };
     });
   }, [data, activitiesByDate]);
 
   const handleSelect = useCallback((point: DotData) => {
     selectedDataRef.current = point;
-    onDateSelectRef.current?.(point.date, {
-      fitness: point.fitness,
-      fatigue: point.fatigue,
-      form: point.form,
-    });
+    onDateSelectRef.current?.(point.date);
   }, []);
 
   const handleInteractionChange = useCallback((active: boolean) => {
     onInteractionChangeRef.current?.(active);
     if (active) return;
     selectedDataRef.current = null;
-    onDateSelectRef.current?.(null, null);
+    onDateSelectRef.current?.(null);
   }, []);
 
   // What a screen reader hears and the Show data sheet lists: the days marked, and what fell on each.
@@ -293,6 +281,15 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
             accessibilityLabel={t(sportFamilyLabel(group))}
           />
         ))}
+        {shownKey.noLoad ? (
+          <Icon
+            testID="fitness-strip-key-noLoad"
+            name="checkbox-blank-outline"
+            size={iconSize.sm}
+            color={mutedColor}
+            accessibilityLabel={t('fitness.loadUnavailable')}
+          />
+        ) : null}
       </View>
       <ChartSurface reading={reading} testID="activity-dots-plot" showDataButton={false}>
         <View style={styles.plotRow}>

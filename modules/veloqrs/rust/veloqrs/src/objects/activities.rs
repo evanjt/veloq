@@ -59,21 +59,17 @@ impl ActivityManager {
         sport_types: Vec<String>,
     ) -> Result<(), VeloqError> {
         if offsets.len() != activity_ids.len() {
-            return Err(VeloqError::Database {
-                msg: format!(
-                    "offsets length {} does not match activity_ids length {}",
-                    offsets.len(),
-                    activity_ids.len()
-                ),
-            });
+            return Err(VeloqError::database(format!(
+                "offsets length {} does not match activity_ids length {}",
+                offsets.len(),
+                activity_ids.len()
+            )));
         }
         if !all_coords.len().is_multiple_of(2) {
-            return Err(VeloqError::Database {
-                msg: format!(
-                    "all_coords length {} is not an even count of lat/lon values",
-                    all_coords.len()
-                ),
-            });
+            return Err(VeloqError::database(format!(
+                "all_coords length {} is not an even count of lat/lon values",
+                all_coords.len()
+            )));
         }
         let (mutated, install, scheduled) = with_engine(|engine| {
             let install = crate::persistence::engine_install();
@@ -90,9 +86,7 @@ impl ActivityManager {
             }
             let mutated = engine
                 .add_activities_batch(batch)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })?;
+                .map_err(|e| VeloqError::database(format!("{}", e)))?;
             // Junction rows now, so a stored ride shows its sections and PRs
             // without waiting on a detect run, which may be suspended.
             let (_, scheduled) = engine.attach_new_activities(&activity_ids);
@@ -158,11 +152,8 @@ impl ActivityManager {
     }
 
     fn get_ids(&self) -> Result<Vec<String>, VeloqError> {
-        with_reader(crate::persistence::activities::pooled::activity_ids).and_then(|r| {
-            r.map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })
-        })
+        with_reader(crate::persistence::activities::pooled::activity_ids)
+            .and_then(|r| r.map_err(|e| VeloqError::database(format!("{}", e))))
     }
 
     /// The tracks a GPS pass still owes between two local days, inclusive,
@@ -214,19 +205,12 @@ impl ActivityManager {
     /// lifted every id string across the bridge to decide one thing.
     fn has(&self, activity_id: String) -> Result<bool, VeloqError> {
         with_reader(|conn| crate::persistence::activities::pooled::has_activity(conn, &activity_id))
-            .and_then(|r| {
-                r.map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
-            })
+            .and_then(|r| r.map_err(|e| VeloqError::database(format!("{}", e))))
     }
 
     pub fn get_count(&self) -> Result<u32, VeloqError> {
-        with_reader(crate::persistence::activities::pooled::activity_count).and_then(|r| {
-            r.map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })
-        })
+        with_reader(crate::persistence::activities::pooled::activity_count)
+            .and_then(|r| r.map_err(|e| VeloqError::database(format!("{}", e))))
     }
 
     /// Store untyped activity bodies. Demo mode seeds the same table a live
@@ -241,9 +225,7 @@ impl ActivityManager {
                 .map(|r| (r.activity_id, r.date as i64, r.raw))
                 .collect();
             e.upsert_activity_bodies_with_metrics(&mapped)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })
+                .map_err(|err| VeloqError::database(format!("{}", err)))
         })?
     }
 
@@ -261,11 +243,8 @@ impl ActivityManager {
         activity_id: String,
     ) -> Result<Option<crate::FfiActivityRecord>, VeloqError> {
         with_reader(|conn| {
-            crate::persistence::activities::pooled::activity_record(conn, &activity_id).map_err(
-                |err| VeloqError::Database {
-                    msg: format!("{}", err),
-                },
-            )
+            crate::persistence::activities::pooled::activity_record(conn, &activity_id)
+                .map_err(|err| VeloqError::database(format!("{}", err)))
         })?
     }
 
@@ -278,11 +257,8 @@ impl ActivityManager {
         query: crate::FfiActivityBodiesQuery,
     ) -> Result<crate::FfiFeedCardsPage, VeloqError> {
         with_reader(|conn| {
-            crate::persistence::activities::pooled::feed_card_page(conn, &query).map_err(|err| {
-                VeloqError::Database {
-                    msg: format!("{}", err),
-                }
-            })
+            crate::persistence::activities::pooled::feed_card_page(conn, &query)
+                .map_err(|err| VeloqError::database(format!("{}", err)))
         })?
     }
 
@@ -291,11 +267,8 @@ impl ActivityManager {
     /// three draw their own range.
     fn get_feed_filter_bounds(&self) -> Result<crate::FfiFeedFilterBounds, VeloqError> {
         with_reader(|conn| {
-            crate::persistence::screens::pooled::feed_filter_bounds(conn).map_err(|err| {
-                VeloqError::Database {
-                    msg: format!("{}", err),
-                }
-            })
+            crate::persistence::screens::pooled::feed_filter_bounds(conn)
+                .map_err(|err| VeloqError::database(format!("{}", err)))
         })?
     }
 
@@ -313,9 +286,7 @@ impl ActivityManager {
     ) -> Result<Vec<crate::FfiActivityName>, VeloqError> {
         with_reader(|conn| {
             let named = crate::persistence::strength::pooled::activity_names(conn, &activity_ids)
-                .map_err(|err| VeloqError::Database {
-                msg: format!("{}", err),
-            })?;
+                .map_err(|err| VeloqError::database(format!("{}", err)))?;
             // In the order asked for, so the caller does not re-sort what it
             // already had in the right order.
             Ok(activity_ids
@@ -335,9 +306,7 @@ impl ActivityManager {
     fn set_interval_body(&self, activity_id: String, raw: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.set_interval_body(&activity_id, &raw)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })
+                .map_err(|err| VeloqError::database(format!("{}", err)))
         })?
     }
 
@@ -363,9 +332,7 @@ impl ActivityManager {
         };
         with_engine(|e| {
             e.set_curve_body(kind, &sport, days, gap, &raw)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })
+                .map_err(|err| VeloqError::database(format!("{}", err)))
         })?
     }
 
@@ -384,9 +351,7 @@ impl ActivityManager {
                 .map(|r| (r.event_id, r.date as i64, r.raw))
                 .collect();
             e.replace_calendar_events(oldest_ts, newest_ts, &mapped)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })
+                .map_err(|err| VeloqError::database(format!("{}", err)))
         })?
     }
 
@@ -403,9 +368,8 @@ impl ActivityManager {
     ) -> Result<Option<crate::FfiActivityStreams>, VeloqError> {
         let install = crate::persistence::engine_install();
         let (streams, stale) = with_reader(|conn| {
-            chart_streams_read(conn, &activity_id, &types).map_err(|err| VeloqError::Database {
-                msg: format!("{}", err),
-            })
+            chart_streams_read(conn, &activity_id, &types)
+                .map_err(|err| VeloqError::database(format!("{}", err)))
         })??;
         if stale {
             let touched = crate::persistence::try_with_persistent_engine_for(install, |engine| {
@@ -417,9 +381,7 @@ impl ActivityManager {
                     Some(rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)
                 )
             {
-                return Err(VeloqError::Database {
-                    msg: error.to_string(),
-                });
+                return Err(VeloqError::database(error.to_string()));
             }
         }
         Ok(streams)
@@ -526,9 +488,7 @@ impl ActivityManager {
                 });
             }
             e.remove_activity(&activity_id)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
+                .map_err(|e| VeloqError::database(format!("{}", e)))
         })?
     }
 
@@ -584,12 +544,10 @@ pub(crate) static PROVISIONAL_BUSY_RETRIES: std::sync::atomic::AtomicUsize =
 /// dropped before it is opened.
 fn fit_recording(path: &str) -> Result<crate::fit::FitRecording, VeloqError> {
     let path = crate::net::transport::strip_file_scheme(path);
-    let data = std::fs::read(path).map_err(|e| VeloqError::Database {
-        msg: format!("the recording's FIT could not be read: {e}"),
-    })?;
-    crate::fit::parse_fit_recording(&data).map_err(|e| VeloqError::Database {
-        msg: format!("the recording's FIT could not be parsed: {e}"),
-    })
+    let data = std::fs::read(path)
+        .map_err(|e| VeloqError::database(format!("the recording's FIT could not be read: {e}")))?;
+    crate::fit::parse_fit_recording(&data)
+        .map_err(|e| VeloqError::database(format!("the recording's FIT could not be parsed: {e}")))
 }
 
 /// The body with the elapsed time and top speed the ride's FIT records.
@@ -606,8 +564,8 @@ fn with_session_totals(
         return Ok(body);
     }
     let mut raw: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&body.raw)
-        .map_err(|e| VeloqError::Database {
-            msg: format!("the provisional body is not a JSON object: {e}"),
+        .map_err(|e| {
+            VeloqError::database(format!("the provisional body is not a JSON object: {e}"))
         })?;
     if let Some(elapsed) = recording.elapsed_seconds {
         raw.insert("elapsed_time".into(), (elapsed.round() as i64).into());
@@ -627,9 +585,9 @@ fn save_provisional_for(
     body: &crate::FfiActivityBody,
 ) -> Result<(), VeloqError> {
     if !coords.len().is_multiple_of(2) {
-        return Err(VeloqError::Database {
-            msg: "provisional coordinates must be lat/lon pairs".into(),
-        });
+        return Err(VeloqError::database(
+            "provisional coordinates must be lat/lon pairs",
+        ));
     }
     let has_track = !coords.is_empty();
     let points: Vec<crate::GpsPoint> = coords
@@ -658,14 +616,12 @@ fn save_provisional_for(
                 std::thread::sleep(std::time::Duration::from_millis(10));
             }
             Some(Err(error)) => {
-                return Err(VeloqError::Database {
-                    msg: error.to_string(),
-                });
+                return Err(VeloqError::database(error.to_string()));
             }
             None if crate::persistence::engine_install() != install => {
-                return Err(VeloqError::Database {
-                    msg: "the library changed before the recording was saved".into(),
-                });
+                return Err(VeloqError::database(
+                    "the library changed before the recording was saved",
+                ));
             }
             None => return Err(VeloqError::NotInitialized),
         }
@@ -686,8 +642,8 @@ async fn run_provisional_worker(
             work()
         })
         .await
-        .map_err(|error| VeloqError::Database {
-            msg: format!("Provisional activity worker failed: {error}"),
+        .map_err(|error| {
+            VeloqError::database(format!("Provisional activity worker failed: {error}"))
         })?
 }
 

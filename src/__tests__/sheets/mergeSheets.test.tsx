@@ -12,7 +12,7 @@ import React from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Platform, ScrollView } from 'react-native';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
-import { decodeCoords, type MergeCandidate } from 'veloqrs';
+import { decodeCoords, type FfiMergeCandidate } from 'veloqrs';
 
 import MergeCandidatesSheet from '@/app/sheets/merge-candidates';
 import MergeConfirmSheet from '@/app/sheets/merge-confirm';
@@ -47,7 +47,7 @@ jest.mock('@/features/routes/hooks/useMergeSections', () => ({
   useMergeSections: () => ({ merge: jest.fn(), previewDropped: mockPreviewDropped }),
 }));
 
-const candidate = (overrides: Partial<MergeCandidate> = {}): MergeCandidate =>
+const candidate = (overrides: Partial<FfiMergeCandidate> = {}): FfiMergeCandidate =>
   ({
     sectionId: 'sec-b',
     name: 'Other Climb',
@@ -58,7 +58,7 @@ const candidate = (overrides: Partial<MergeCandidate> = {}): MergeCandidate =>
     centerDistanceMeters: 120,
     encodedPolyline: new Uint8Array([1, 2, 3]).buffer,
     ...overrides,
-  }) as MergeCandidate;
+  }) as FfiMergeCandidate;
 
 const MAIN = {
   id: 'sec-a',
@@ -82,8 +82,8 @@ async function open<I, R>(route: string, input: I, Sheet: React.ComponentType) {
   return { result, tree };
 }
 
-const openCandidates = (candidates: MergeCandidate[]) =>
-  open<MergeCandidatesSheetInput, MergeCandidate>(
+const openCandidates = (candidates: FfiMergeCandidate[]) =>
+  open<MergeCandidatesSheetInput, FfiMergeCandidate>(
     'sheets/merge-candidates',
     { candidates },
     MergeCandidatesSheet

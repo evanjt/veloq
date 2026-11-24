@@ -1,11 +1,11 @@
 /**
  * Scenario: a wellness day whose loads sit either side of a half unit, so
  * rounding each load before subtracting and rounding the difference disagree.
- * The fitness tab rounded each load, while the activity Form card and the
- * Today banner rounded the difference.
+ * The engine states the day's form once, from the rounded loads.
  *
- * Expected behaviour: every surface prints rounded fitness minus rounded
- * fatigue, so a card's Form adds up from the Fitness and Fatigue beside it.
+ * Expected behaviour: the fitness tab, the activity Form card and the Today
+ * banner each print the figure and zone the engine stated, so a card's Form
+ * adds up from the Fitness and Fatigue beside it.
  */
 
 import React from 'react';
@@ -49,11 +49,9 @@ async function activityFormCard(day: WellnessData) {
   return result.current.stats.find((s) => s.title === 'activity.stats.yourForm');
 }
 
-async function todayBannerForm(day: WellnessData, shown: string) {
-  const tree = await render(
-    <TodayBanner form={{ ctl: day.ctl as number, atl: day.atl as number }} />
-  );
-  const escaped = shown.replace(/[+]/g, '\\+');
+async function todayBannerForm(text: string) {
+  const tree = await render(<TodayBanner form={{ zone: 'fresh', text, asPercent: false }} />);
+  const escaped = text.replace(/[+]/g, '\\+');
   return tree.queryByText(new RegExp(`activity\\.stats\\.formTSB ${escaped}$`));
 }
 
@@ -63,16 +61,24 @@ describe.each([
   [60.5, 60.4, 61, 60, '+1'],
   [60.4, 60.4, 60, 60, '0'],
 ])('ctl %d and atl %d', (ctl, atl, fitness, fatigue, shown) => {
-  const day = { id: '2026-09-05', ctl, atl } as WellnessData;
+  const day = {
+    id: '2026-09-05',
+    ctl,
+    atl,
+    form: Number(shown),
+    formZone: 'greyZone',
+    formText: shown,
+    tsbText: shown,
+  } as WellnessData;
 
-  it('the fitness tab shows rounded fitness minus rounded fatigue', async () => {
+  it('the fitness tab shows the form the engine stated beside rounded loads', async () => {
     const tree = await fitnessTabReadout(day);
     expect(tree.getByTestId('fitness-form-value')).toHaveTextContent(shown, { exact: true });
     expect(tree.getByTestId('fitness-ctl-value')).toHaveTextContent(`${fitness}`, { exact: true });
     expect(tree.getByTestId('fitness-atl-value')).toHaveTextContent(`${fatigue}`, { exact: true });
   });
 
-  it('the activity Form card agrees and adds up from its own details', async () => {
+  it('the activity Form card agrees and lists the absolute TSB with its loads', async () => {
     const card = await activityFormCard(day);
     expect(card?.value).toBe(shown);
     const details = Object.fromEntries(card!.details!.map((d) => [d.label, d.value]));
@@ -82,21 +88,21 @@ describe.each([
   });
 
   it('the Today banner agrees', async () => {
-    expect(await todayBannerForm(day, shown)).not.toBeNull();
+    expect(await todayBannerForm(shown)).not.toBeNull();
   });
 });
 
 describe.each([
-  [50.5, 45.6, '+5', 'Fresh'],
-  [60.4, 70.45, '-10', 'Grey zone'],
-  [60.4, 90.45, '-30', 'Optimal'],
-])('ctl %d and atl %d near a zone boundary', (ctl, atl, shown, zoneLabel) => {
+  ['fresh', '+5', 'Fresh'],
+  ['greyZone', '-10', 'Grey zone'],
+  ['optimal', '-30', 'Optimal'],
+] as const)('the engine states %s', (zone, shown, zoneLabel) => {
   beforeAll(async () => {
     await initialiseI18n('en-AU');
   });
 
-  it('the Today banner names the zone of the form it prints', async () => {
-    const tree = await render(<TodayBanner form={{ ctl, atl }} />);
+  it('the Today banner names that zone beside the form it prints', async () => {
+    const tree = await render(<TodayBanner form={{ zone, text: shown, asPercent: false }} />);
     const escaped = shown.replace(/[+]/g, '\\+');
     expect(
       tree.getByText(new RegExp(`^${zoneLabel} \u00B7 activity\\.stats\\.formTSB ${escaped}$`))

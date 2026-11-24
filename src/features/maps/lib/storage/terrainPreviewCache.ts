@@ -425,22 +425,28 @@ export async function saveTerrainPreview(
   // evict one key and settle one above it.
   // The drape finally rendered, so its stand-in is not just superseded, it is
   // wrong: leaving it indexed would report the activity as downgraded forever.
-  // Its file goes only once the drape has landed, so a failed write leaves the
-  // card the stand-in it was already served, and the index is put back.
+  // It stays indexed and served until the drape has landed, so a card that
+  // asks while the write is out still gets the image it was served, and a
+  // failed write leaves that image as it was. Only then is it dropped from the
+  // index and its file removed.
   let replacedStandIn: string | null = null;
   if (!options?.downgradedTo) {
     const stale = cacheKey(activityId, style, is3D, 'flat');
-    if (cachedKeys.includes(stale)) {
-      cachedKeys = cachedKeys.filter((k) => k !== stale);
-      replacedStandIn = stale;
-    }
+    if (cachedKeys.includes(stale)) replacedStandIn = stale;
   }
 
   // Saves in flight hold a slot already, though their key is not indexed yet.
+  // The stand-in being replaced keeps its slot until the drape lands, so it is
+  // neither counted against the cap nor chosen for eviction.
   if (!cachedKeys.includes(key) && !slotsInFlight.has(key)) {
-    while (cachedKeys.length + slotsInFlight.size >= MAX_CACHED_PREVIEWS && cachedKeys.length > 0) {
-      doomed.push(cachedKeys.shift() as string);
+    let held = cachedKeys.length - (replacedStandIn === null ? 0 : 1) + slotsInFlight.size;
+    for (const candidate of cachedKeys) {
+      if (held < MAX_CACHED_PREVIEWS) break;
+      if (candidate === replacedStandIn) continue;
+      doomed.push(candidate);
+      held--;
     }
+    cachedKeys = cachedKeys.filter((k) => !doomed.includes(k));
     slotsInFlight.add(key);
   }
 
@@ -465,14 +471,9 @@ export async function saveTerrainPreview(
     }
 
     // Update index - remove if already present, add to end
-    cachedKeys = cachedKeys.filter((k) => k !== key);
+    cachedKeys = cachedKeys.filter((k) => k !== key && k !== replacedStandIn);
     cachedKeys.push(key);
     bumpRevision(key);
-  } catch (error) {
-    if (replacedStandIn !== null && !cachedKeys.includes(replacedStandIn)) {
-      cachedKeys.push(replacedStandIn);
-    }
-    throw error;
   } finally {
     slotsInFlight.delete(key);
   }

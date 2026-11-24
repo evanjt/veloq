@@ -23,7 +23,7 @@ const DETAIL = 'detail';
 /** The tabs an activity card can show. */
 export type ActivityTab = 'charts' | 'exercises' | 'lengths' | 'routes' | 'sections';
 
-export const ACTIVITY_TABS: readonly ActivityTab[] = [
+const ACTIVITY_TABS: readonly ActivityTab[] = [
   'charts',
   'exercises',
   'lengths',
@@ -32,7 +32,7 @@ export const ACTIVITY_TABS: readonly ActivityTab[] = [
 ];
 
 /** The tab a card opens on: the one its link names, else Charts. */
-export function initialActivityTab(tab: string | undefined): ActivityTab {
+function initialActivityTab(tab: string | undefined): ActivityTab {
   return ACTIVITY_TABS.includes(tab as ActivityTab) ? (tab as ActivityTab) : 'charts';
 }
 
@@ -49,7 +49,7 @@ export function mountedActivityTab(
   return initialActivityTab(typeof kept === 'string' ? kept : tab);
 }
 
-export interface ActivityCardWriter {
+interface ActivityCardWriter {
   setActiveTab: (tab: ActivityTab) => void;
   /** The chart's scrub point, bound so it can be handed to a chart as a stable callback. */
   setHighlightIndex: (index: number | null) => void;

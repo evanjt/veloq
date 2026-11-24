@@ -6,7 +6,7 @@ export function formatSignedChange(delta: number | null | undefined): string | n
   return formatSigned(delta, 0);
 }
 
-export interface RisePlot {
+interface RisePlot {
   width: number;
   top: number;
   height: number;

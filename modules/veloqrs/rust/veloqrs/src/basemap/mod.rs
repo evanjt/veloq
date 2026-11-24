@@ -60,6 +60,7 @@ pub use preseed::{
 pub use store::{SourceTileCounts, TileCounts, TileStore, is_kept_offline};
 
 use crate::atomic_file::write_atomically;
+use crate::poison::Recover;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
@@ -76,12 +77,9 @@ static STORE: LazyLock<Mutex<Option<Arc<TileStore>>>> = LazyLock::new(|| Mutex::
 
 /// Point the store at a directory. Called once at engine init from JS.
 pub fn set_path(path: String) {
-    crate::atomic_file::sweep_stale_temp_files(
-        std::path::Path::new(&path),
-        crate::atomic_file::STALE_TEMP_AGE,
-    );
+    crate::atomic_file::sweep_stale_temp_files_detached(std::path::Path::new(&path));
     let store = Arc::new(TileStore::new(PathBuf::from(&path)));
-    let mut guard = STORE.lock().unwrap_or_else(|e| e.into_inner());
+    let mut guard = STORE.lock_recover();
     if let Some(previous) = guard.take() {
         // The outgoing store may hold read stamps nothing has written yet.
         let _ = previous.flush();
@@ -89,26 +87,19 @@ pub fn set_path(path: String) {
     *guard = Some(store);
     drop(guard);
     // A new store has a sidecar of its own that nothing has read yet.
-    SIDECAR_READ
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .clear();
+    SIDECAR_READ.lock_recover().clear();
     log::info!("[basemap] Tile store path set to: {}", path);
 }
 
 /// Forget the store, as a process no path has been handed to yet.
 #[cfg(test)]
 pub(crate) fn close() {
-    *STORE.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    *STORE.lock_recover() = None;
 }
 
 /// The live store, or `None` when no path has been handed over yet.
 pub fn store() -> Option<Arc<TileStore>> {
-    STORE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .as_ref()
-        .map(Arc::clone)
+    STORE.lock_recover().as_ref().map(Arc::clone)
 }
 
 /// The upstream URL template for each source, as `{z}/{x}/{y}` placeholders.
@@ -130,10 +121,7 @@ static INTERACTIVE: LazyLock<Option<TileFetcher>> =
 /// Record where one source's tiles come from.
 pub fn set_template(source: String, template: String) {
     log::info!("[basemap] {} <- {}", source, template);
-    TEMPLATES
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .insert(source, template);
+    TEMPLATES.lock_recover().insert(source, template);
 }
 
 /// Record the providers a composite source chooses among, in priority order.
@@ -224,8 +212,7 @@ static RESOLVING: LazyLock<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>> 
 fn resolve_turn(source: &str) -> Arc<tokio::sync::Mutex<()>> {
     Arc::clone(
         RESOLVING
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .lock_recover()
             .entry(source.to_string())
             .or_default(),
     )
@@ -277,11 +264,7 @@ fn read_resolved(path: &std::path::Path) -> HashMap<String, HeldTemplate> {
 /// This source's entry in the sidecar, read once per store.
 fn load_resolved(source: &str) -> Option<HeldTemplate> {
     let path = resolved_path()?;
-    if !SIDECAR_READ
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .insert(source.to_string())
-    {
+    if !SIDECAR_READ.lock_recover().insert(source.to_string()) {
         return None;
     }
     read_resolved(&path).remove(source)
@@ -309,15 +292,9 @@ fn save_resolved_at(path: &std::path::Path, source: &str, held: &HeldTemplate) {
 /// the next resolve reads the sidecar the way a fresh process does.
 #[doc(hidden)]
 pub fn forget_resolved_templates() {
-    RESOLVED.lock().unwrap_or_else(|e| e.into_inner()).clear();
-    REFRESH_STARTED
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .clear();
-    SIDECAR_READ
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .clear();
+    RESOLVED.lock_recover().clear();
+    REFRESH_STARTED.lock_recover().clear();
+    SIDECAR_READ.lock_recover().clear();
 }
 
 /// The wall clock in seconds since the epoch. A clock set before it reads as
@@ -344,7 +321,7 @@ fn started_within(started: &HashMap<String, u64>, source: &str, now: u64, retry:
 /// Claim the resolve for `source` at `now`, or `false` when one was started
 /// inside `retry`.
 fn claim_refresh(source: &str, now: u64, retry: Duration) -> bool {
-    let mut started = REFRESH_STARTED.lock().unwrap_or_else(|e| e.into_inner());
+    let mut started = REFRESH_STARTED.lock_recover();
     if started_within(&started, source, now, retry) {
         return false;
     }
@@ -358,18 +335,13 @@ fn held_template(source: &str) -> Option<HeldTemplate> {
     // The held lock is dropped before the sidecar read, which takes it again
     // to fill: one statement holding both is a self-deadlock, and the reader
     // is a mutex rather than a reentrant lock.
-    let held = RESOLVED
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .get(source)
-        .cloned();
+    let held = RESOLVED.lock_recover().get(source).cloned();
     match held {
         Some(held) => Some(held),
         None => {
             let stored = load_resolved(source)?;
             RESOLVED
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
+                .lock_recover()
                 .insert(source.to_string(), stored.clone());
             Some(stored)
         }
@@ -491,8 +463,7 @@ fn finish_resolve(
                 fetched_at: now,
             };
             RESOLVED
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
+                .lock_recover()
                 .insert(source.to_string(), fresh.clone());
             save_resolved(source, &fresh);
             log::info!("[basemap] {source} resolved to {resolved}");
@@ -587,7 +558,7 @@ fn template_in_hand(source: &str, registered: String) -> Result<Option<String>, 
             // A resolve in flight is waited for. One that has finished inside
             // the window failed, or a template would be held.
             let in_flight = resolve_turn(source).try_lock().is_err();
-            let started = REFRESH_STARTED.lock().unwrap_or_else(|e| e.into_inner());
+            let started = REFRESH_STARTED.lock_recover();
             if !in_flight && started_within(&started, source, now, UNRESOLVED_RETRY) {
                 Err(UPSTREAM_FAILED)
             } else {
@@ -616,11 +587,7 @@ fn is_https(url: &str) -> bool {
 }
 
 pub fn template_for(source: &str) -> Option<String> {
-    TEMPLATES
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .get(source)
-        .cloned()
+    TEMPLATES.lock_recover().get(source).cloned()
 }
 
 /// Open the connection to a source's tile host ahead of the burst a pan is
@@ -1119,6 +1086,38 @@ mod sidecar_tests {
             read_resolved(&path)["openfreemap"],
             held("https://tiles.example.test/2026-10-08/{z}/{x}/{y}.pbf", 2)
         );
+    }
+}
+
+#[cfg(test)]
+mod launch_sweep_tests {
+    use super::*;
+    use crate::atomic_file::sweep_probe::{await_sweep, plant_stale_temp, walked_on};
+    use crate::test_globals::serial_global_state;
+
+    /// Scenario: the athlete launches with a basemap tree that holds a temp file
+    /// a killed process left two hours ago, beside a tile it must keep.
+    ///
+    /// Expected behaviour: the sweep runs off the calling thread, so the launch
+    /// is not held by the walk, and it removes the stale temp file while the
+    /// tile stays.
+    #[test]
+    fn set_path_sweeps_stale_temp_files_off_the_calling_thread() {
+        let _guard = serial_global_state();
+        let root = tempfile::TempDir::new().unwrap();
+        let temp = plant_stale_temp(root.path(), "openmaptiles/14/1/2.pbf");
+        let tile = root.path().join("openmaptiles/14/1/2.pbf");
+
+        set_path(root.path().to_string_lossy().into_owned());
+        await_sweep(root.path());
+
+        assert_ne!(
+            walked_on(root.path()),
+            Some(std::thread::current().id()),
+            "the sweep ran on the calling thread"
+        );
+        assert!(!temp.exists(), "the stale temp file was not swept");
+        assert_eq!(std::fs::read(&tile).unwrap(), b"tile");
     }
 }
 

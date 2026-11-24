@@ -107,8 +107,8 @@ it('asks the engine to sync when the routes list refreshes', async () => {
 });
 
 it('spins the list while the engine reports a GPS pass, and only then', async () => {
-  const { TrackStep } = require('../__shared__/veloqrsStub');
-  mockTrackStage = { step: TrackStep.Downloading, completed: 2, total: 9, percent: 22 };
+  const { FfiTrackStep } = require('../__shared__/veloqrsStub');
+  mockTrackStage = { step: FfiTrackStep.Downloading, completed: 2, total: 9, percent: 22 };
   const during = await render(<InsightsScreen />);
   expect(screen.getByText('Refreshing routes')).toBeTruthy();
   await during.unmount();

@@ -1,11 +1,8 @@
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { getEngine } from '@/shared/native/engine';
-import { bodyNamed, useEngineBody } from '@/shared/native/engineBodies';
-import { useRangeCoverage } from '@/shared/native/useRangeCoverage';
 import { powerCurveOf } from '@/features/stats/lib/curveRecords';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { RangeCoverage } from 'veloqrs';
 import type { PowerCurve } from '@/types';
+import { useStoredCurve } from './useStoredCurve';
 
 interface UsePowerCurveOptions {
   sport?: string | undefined;
@@ -14,80 +11,18 @@ interface UsePowerCurveOptions {
   enabled?: boolean | undefined;
 }
 
-/** A parsed curve with the time the body behind it was fetched. */
-interface DatedPowerCurve {
-  curve: PowerCurve;
-  /** Epoch milliseconds, or null when the curve has never been fetched. */
-  fetchedAt: number | null;
-}
-
 export function usePowerCurve(options: UsePowerCurveOptions = {}) {
   const { sport = 'Ride', days = 365, enabled = true } = options;
-  const queryKey = queryKeys.charts.powerCurve.bySport(sport, days);
-
-  // The query is the only reader of the stored body. `null` is "never
-  // fetched", which is the cue to ask Rust for it; the empty curve is what the
-  // chart draws in the meantime.
-  const query = useQuery<DatedPowerCurve | null>({
-    queryKey,
-    queryFn: () => {
-      // The engine answers `null` for a window never fetched and for a body
-      // that will not parse, which the chart treats alike: it has no curve.
+  return useStoredCurve<PowerCurve>({
+    queryKey: queryKeys.charts.powerCurve.bySport(sport, days),
+    read: () => {
       const stored = getEngine()?.getPowerCurve(sport, days);
-      if (!stored) return null;
-      return { curve: powerCurveOf(stored), fetchedAt: stored.fetchedAt };
+      return stored ? { curve: powerCurveOf(stored), fetchedAt: stored.fetchedAt } : null;
     },
+    sync: () => getEngine()?.syncPowerCurve(sport, days),
+    bodyName: 'power_curve',
+    empty: { type: 'power', sport, secs: [], watts: [] },
+    days,
     enabled,
-    // SQLite is the source, so a sync decides freshness, not a clock.
-    staleTime: Infinity,
-    placeholderData: keepPreviousData, // Keep previous data visible while fetching new range
   });
-  const body = useEngineBody(
-    query.data !== null,
-    () => getEngine()?.syncPowerCurve(sport, days),
-    queryKey,
-    enabled && query.data !== undefined,
-    bodyNamed(['power_curve'])
-  );
-
-  // An empty activity census proves there is nothing to chart. Downloaded
-  // activities alone cannot prove the separate curve request has returned.
-  const coverage = useRangeCoverage(days, enabled);
-
-  return {
-    ...query,
-    data: query.data?.curve ?? emptyPowerCurve(sport),
-    fetchedAt: query.data?.fetchedAt ?? null,
-    coverage: query.data
-      ? RangeCoverage.Loaded
-      : coverage === RangeCoverage.Empty
-        ? RangeCoverage.Empty
-        : RangeCoverage.NotFetched,
-    bodyStatus: body.status,
-    retryBody: body.retry,
-  };
-}
-
-/** Empty axes while the separate coverage and body status explain the wait. */
-function emptyPowerCurve(sport: string): PowerCurve {
-  return { type: 'power', sport, secs: [], watts: [] };
-}
-
-// Get the array index for a given duration (exact or closest match)
-export function getIndexAtDuration(curve: PowerCurve | undefined, secs: number): number | null {
-  if (!curve?.secs || curve.secs.length === 0) return null;
-
-  const exactIndex = curve.secs.findIndex((s) => s === secs);
-  if (exactIndex !== -1) return exactIndex;
-
-  let closestIndex = 0;
-  let closestDiff = Math.abs(curve.secs[0] - secs);
-  for (let i = 1; i < curve.secs.length; i++) {
-    const diff = Math.abs(curve.secs[i] - secs);
-    if (diff < closestDiff) {
-      closestDiff = diff;
-      closestIndex = i;
-    }
-  }
-  return closestIndex;
 }

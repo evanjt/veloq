@@ -61,7 +61,6 @@ interface WellnessTrendsChartProps {
   height?: number | undefined;
   timeRange: TimeRange;
   smoothingWindow?: SmoothingWindow | undefined;
-  onDateSelect?: ((date: string | null) => void) | undefined;
   /**
    * Whether wellness was downloaded for the range drawn. `NotFetched` turns the
    * empty state into "not downloaded". Absent, the chart claims nothing.
@@ -161,7 +160,6 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
   height = 200,
   timeRange,
   smoothingWindow = 'auto',
-  onDateSelect,
   coverage,
   held = false,
 }: WellnessTrendsChartProps) {
@@ -399,20 +397,9 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     );
   }, [chartWidth, totalDays, leftPadding, sortedData]);
 
-  const handleSelect = useCallback(
-    (day: WellnessData) => {
-      onDateSelect?.(day.id);
-    },
-    [onDateSelect]
-  );
-
-  const handleInteractionChange = useCallback(
-    (active: boolean) => {
-      if (active) setExplored(true);
-      else onDateSelect?.(null);
-    },
-    [onDateSelect]
-  );
+  const handleInteractionChange = useCallback((active: boolean) => {
+    if (active) setExplored(true);
+  }, []);
 
   const describeDay = useCallback(
     (day: WellnessData, idx: number) =>
@@ -438,7 +425,6 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
   } = useChartGestures<WellnessData>({
     data: sortedData,
     accessibilityLabel: t('wellnessScreen.trends'),
-    onSelect: handleSelect,
     onInteractionChange: handleInteractionChange,
     describePoint: describeDay,
   });

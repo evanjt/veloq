@@ -39,6 +39,8 @@ function encounter(sectionId: string, sectionType: string): SectionEncounter {
     isComplete: true,
     visitCount: 8,
     historyTimes: [],
+    historyPaceMetricTexts: [],
+    historyPaceImperialTexts: [],
     historyActivityIds: [],
     historyDates: [],
   } as SectionEncounter;

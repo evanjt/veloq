@@ -17,8 +17,8 @@ use rusqlite::Connection;
 
 use crate::GpsPoint;
 use crate::persistence::codec;
+use crate::persistence::line_simplify::METRES_PER_DEGREE;
 use crate::persistence::route_lines::pooled::layer_with_generation;
-use crate::persistence::routes::follower::METRES_PER_DEGREE;
 use crate::persistence::under_point::Group;
 
 /// A path that is not `<kind>/<key>` with a key in the id alphabet.
@@ -226,8 +226,8 @@ pub(crate) fn route_lines_collection(conn: &Connection) -> rusqlite::Result<Stri
 /// with a line to draw, in the map read's order.
 ///
 /// Each carries the section's `id`, `name` or null, `visitCount`,
-/// `distanceMeters` and `palette`, the colour key the routes use too, which
-/// the page reduces modulo its section palette. A section whose polyline does
+/// `distanceMeters`, `palette`, the colour key the routes use too, and
+/// `colorIndex`, the section palette slot. A section whose polyline does
 /// not decode, or that is left under two finite points, is left out. Each line
 /// is thinned by [`for_collection`]; a section's own read keeps the full one.
 pub(crate) fn sections_collection(conn: &Connection) -> String {
@@ -260,9 +260,10 @@ pub(crate) fn sections_features<'a>(
         };
         let _ = write!(
             out,
-            r#"{{"type":"Feature","id":{id},"properties":{{"id":{id},"name":{name},"visitCount":{},"distanceMeters":{distance},"palette":{}}},"geometry":{{"type":"LineString","coordinates":["#,
+            r#"{{"type":"Feature","id":{id},"properties":{{"id":{id},"name":{name},"visitCount":{},"distanceMeters":{distance},"palette":{},"colorIndex":{}}},"geometry":{{"type":"LineString","coordinates":["#,
             section.visit_count,
             route_palette_key(&section.id),
+            section_colour_index(&section.id),
         );
         push_positions(&mut out, &points);
         out.push_str("]}}");
@@ -301,9 +302,16 @@ pub(crate) fn for_collection(points: &[GpsPoint]) -> Vec<GpsPoint> {
         .collect()
 }
 
-/// The colours the page's section palette holds; a section's `colorIndex` is
-/// its palette key modulo this.
-const SECTION_PALETTE_LEN: u32 = 8;
+/// The colours the section palette holds, as `sectionPalette` in the
+/// app theme does; a section's palette index is its palette key
+/// modulo this.
+const SECTION_PALETTE_LEN: u32 = 5;
+
+/// The palette slot a section's lines are drawn in, the one the phone's
+/// `sectionPaletteIndex` names for the same id.
+pub(crate) fn section_colour_index(section_id: &str) -> u32 {
+    route_palette_key(section_id) % SECTION_PALETTE_LEN
+}
 
 /// A section the activity matches, as the overlay draws it.
 pub(crate) struct OverlaySection<'a> {
@@ -369,7 +377,7 @@ pub(crate) fn activity_overlay_features(
         let _ = write!(
             out,
             r#"{{"type":"Feature","id":{id},"properties":{{"kind":"section","type":"section","id":{id},"overlayId":{id},"name":{name},"palette":{palette},"colorIndex":{},"isPR":{is_pr},"isPr":{is_pr}}},"geometry":{{"type":"LineString","coordinates":["#,
-            palette % SECTION_PALETTE_LEN,
+            section_colour_index(section.id),
         );
         push_positions(&mut out, &points);
         out.push_str("]}}");
@@ -422,7 +430,7 @@ pub(crate) fn activity_overlay_features(
         let _ = write!(
             out,
             r#"{{"type":"Feature","properties":{{"kind":"portion","type":"portion","id":{id},"sectionId":{id},"overlayId":{overlay_id},"direction":{direction},"order":{order},"palette":{palette},"colorIndex":{},"isPR":{is_pr},"isPr":{is_pr}}},"geometry":{{"type":"LineString","coordinates":["#,
-            palette % SECTION_PALETTE_LEN,
+            section_colour_index(section_id),
         );
         push_positions(&mut out, points);
         out.push_str("]}}");
@@ -444,7 +452,7 @@ pub(crate) fn activity_overlay_features(
         let _ = write!(
             out,
             r#"{{"type":"Feature","properties":{{"kind":"pr","type":"pr","id":{id},"overlayId":{id},"palette":{palette},"colorIndex":{},"isPR":true,"isPr":true}},"geometry":{{"type":"Point","coordinates":["#,
-            palette % SECTION_PALETTE_LEN,
+            section_colour_index(section.id),
         );
         // A point's coordinates are one position, not a list of them.
         let mut position = String::new();
@@ -570,7 +578,7 @@ pub(crate) fn section_version_feature(conn: &Connection, section_id: &str, versi
 /// activity's stored track at the portion's `start_index` to `end_index`
 /// inclusive, in the portion order the section detail lists them.
 ///
-/// Each carries `activityId`, `direction` and `distanceMeters`, and its line is
+/// Each carries `activityId`, `direction`, `distanceMeters` and `colorIndex`, and its line is
 /// thinned by [`for_collection`]. A portion
 /// whose activity holds no track, or whose range does not lie in it, is left
 /// out and counted in the collection's `withoutTrack`. An unknown section is
@@ -603,8 +611,9 @@ pub(crate) fn section_passes_collection(conn: &Connection, section_id: &str) -> 
         };
         let _ = write!(
             features,
-            r#"{{"type":"Feature","properties":{{"activityId":{activity},"direction":"{}","distanceMeters":{distance}}},"geometry":{{"type":"LineString","coordinates":["#,
+            r#"{{"type":"Feature","properties":{{"activityId":{activity},"direction":"{}","distanceMeters":{distance},"colorIndex":{}}},"geometry":{{"type":"LineString","coordinates":["#,
             portion.direction,
+            section_colour_index(section_id),
         );
         push_positions(&mut features, &pass);
         features.push_str("]}}");
@@ -954,6 +963,26 @@ mod tests {
             positions(&features[1].to_string()),
             vec![vec![8.0, 48.0], vec![8.2, 48.2]]
         );
+    }
+
+    /// Scenario: ids whose palette key modulo 8 is 5, 6 and 7, and one that
+    /// hashes under 5.
+    ///
+    /// Expected behaviour: the section line collection and the overlay both
+    /// write a `colorIndex` under the five-colour palette, equal to the key
+    /// modulo 5.
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn a_section_colour_slot_is_the_key_modulo_the_five_colour_palette() {
+        for id in ["climb", "s_b", "s_c", "hill"] {
+            assert_eq!(section_colour_index(id), route_palette_key(id) % 5, "{id}");
+            assert!(section_colour_index(id) < 5, "{id}");
+        }
+        assert_eq!(section_colour_index("climb"), 4);
+        let line = bent_line();
+        let text = sections_features([map_section("climb", &line)].iter());
+        let value: serde_json::Value = serde_json::from_str(&text).expect("JSON");
+        assert_eq!(value["features"][0]["properties"]["colorIndex"], 4);
     }
 
     #[test]

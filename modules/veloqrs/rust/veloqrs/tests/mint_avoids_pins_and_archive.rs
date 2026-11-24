@@ -32,6 +32,7 @@ fn a_pinned_id_is_never_free_to_mint() {
     assert!(
         engine
             .section_ids_a_mint_must_avoid()
+            .expect("ids")
             .contains("pinned-ghost"),
         "a pin outlives the sections row, so its id is still taken"
     );
@@ -53,7 +54,23 @@ fn an_archived_id_is_never_free_to_mint() {
     assert!(
         engine
             .section_ids_a_mint_must_avoid()
+            .expect("ids")
             .contains("archived-ghost"),
         "an archived state can be rolled back to, so its id is still spoken for"
+    );
+}
+
+#[test]
+fn an_unreadable_id_table_is_an_error_not_an_empty_set() {
+    let (_dir, engine, db_path) = open();
+
+    let conn = Connection::open(&db_path).expect("open");
+    conn.execute("DROP TABLE section_pins", [])
+        .expect("drop pins");
+    drop(conn);
+
+    assert!(
+        engine.section_ids_a_mint_must_avoid().is_err(),
+        "an empty set would let a mint take an id the database still names"
     );
 }

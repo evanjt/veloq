@@ -76,6 +76,20 @@ describe('isolateNumeric', () => {
   });
 });
 
+describe('a signed value under a right-to-left layout', () => {
+  it('keeps the minus with the digits', async () => {
+    await withRtl(async () => {
+      expect(isolateNumeric('-1:30')).toBe(`${FSI}-1:30${PDI}`);
+      expect(isolateNumeric('+1:30')).toBe(`${FSI}+1:30${PDI}`);
+      expect(signTouchesDigits(isolateNumeric('-5 s'))).toBe(true);
+    });
+  });
+
+  it('is unchanged left to right', () => {
+    expect(isolateNumeric('-1:30')).toBe('-1:30');
+  });
+});
+
 describe('the grade lane title under a right-to-left layout', () => {
   const streams = {
     time: Float64Array.from([0, 60, 120]),
@@ -124,7 +138,9 @@ describe('the grade lane title under a right-to-left layout', () => {
 describe('the TSB figure under a right-to-left layout', () => {
   it('keeps a negative balance signed', async () => {
     await withRtl(async () => {
-      const tree = await render(<TodayBanner form={{ ctl: 40, atl: 52 }} />);
+      const tree = await render(
+        <TodayBanner form={{ zone: 'optimal', text: '-12', asPercent: false }} />
+      );
       expect(tree.getByText(new RegExp(`${FSI}-12${PDI}`))).toBeTruthy();
     });
   });

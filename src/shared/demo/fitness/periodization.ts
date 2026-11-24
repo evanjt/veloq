@@ -1,6 +1,6 @@
 import { createDateSeededRandom } from '@/data/demo/random';
 
-export type TrainingPhase =
+type TrainingPhase =
   | 'offseason'
   | 'base'
   | 'build1'
@@ -13,7 +13,7 @@ export type TrainingPhase =
   | 'activeRecovery'
   | 'normal';
 
-export interface TrainingDayContext {
+interface TrainingDayContext {
   phase: TrainingPhase;
   volumeMultiplier: number;
   intensityMultiplier: number;

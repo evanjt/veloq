@@ -13,7 +13,7 @@ import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/char
 import type { ActivityStreams, ActivityInterval } from '@/types';
 import { minMaxBuckets } from '@/shared/charts/minMaxBuckets';
 import { streamsFromArrays, type StreamArrays } from '@/features/activity/lib/streams';
-import { IntervalKind } from 'veloqrs';
+import { FfiIntervalKind } from 'veloqrs';
 
 function powerConfig(): ChartConfig {
   return {
@@ -229,10 +229,10 @@ describe('computeIntervalBands', () => {
 
   vaultIt('assigns a distinct colour token to WORK/RECOVERY/WARMUP/COOLDOWN', () => {
     const intervals: ActivityInterval[] = [
-      { kind: IntervalKind.Warmup, startIndex: 0, endIndex: 2 } as ActivityInterval,
-      { kind: IntervalKind.Work, startIndex: 2, endIndex: 5, zone: 3 } as ActivityInterval,
-      { kind: IntervalKind.Recovery, startIndex: 5, endIndex: 7 } as ActivityInterval,
-      { kind: IntervalKind.Cooldown, startIndex: 7, endIndex: 9 } as ActivityInterval,
+      { kind: FfiIntervalKind.Warmup, startIndex: 0, endIndex: 2 } as ActivityInterval,
+      { kind: FfiIntervalKind.Work, startIndex: 2, endIndex: 5, zone: 3 } as ActivityInterval,
+      { kind: FfiIntervalKind.Recovery, startIndex: 5, endIndex: 7 } as ActivityInterval,
+      { kind: FfiIntervalKind.Cooldown, startIndex: 7, endIndex: 9 } as ActivityInterval,
     ];
     const bands = computeIntervalBands(intervals, 10, streams(), 'distance', true, 'Ride');
     expect(bands).toHaveLength(4);
@@ -246,14 +246,14 @@ describe('computeIntervalBands', () => {
   it('carries the average power and heart rate of WORK intervals only', () => {
     const intervals: ActivityInterval[] = [
       {
-        kind: IntervalKind.Work,
+        kind: FfiIntervalKind.Work,
         startIndex: 0,
         endIndex: 2,
         zone: 2,
         averageWatts: 200,
         averageHeartrate: 151,
       } as ActivityInterval,
-      { kind: IntervalKind.Recovery, startIndex: 2, endIndex: 4 } as ActivityInterval,
+      { kind: FfiIntervalKind.Recovery, startIndex: 2, endIndex: 4 } as ActivityInterval,
     ];
     const bands = computeIntervalBands(intervals, 10, streams(), 'distance', true, 'Ride');
     expect(bands[0].averages).toEqual({ power: 200, heartrate: 151 });
@@ -262,7 +262,7 @@ describe('computeIntervalBands', () => {
 
   vaultIt('falls back to the work role when a WORK interval has no zone', () => {
     const intervals: ActivityInterval[] = [
-      { kind: IntervalKind.Work, startIndex: 0, endIndex: 2 } as ActivityInterval,
+      { kind: FfiIntervalKind.Work, startIndex: 0, endIndex: 2 } as ActivityInterval,
     ];
     const bands = computeIntervalBands(intervals, 10, streams(), 'distance', true, 'Ride');
     expect(bands[0].isWork).toBe(true);

@@ -11,7 +11,7 @@
 
 import type { GroupingPreviewDiff } from './groupingParams';
 
-export interface ScopeArea {
+interface ScopeArea {
   binKey: string;
   lat: number;
   lng: number;
@@ -22,7 +22,7 @@ interface ScopeRoute {
   bounds?: { minLat: number; maxLat: number; minLng: number; maxLng: number } | undefined;
 }
 
-export interface AreaTally {
+interface AreaTally {
   routeCount: number;
   /** Routes the setting would merge with another route. */
   mergedCount: number;
@@ -32,14 +32,14 @@ export interface AreaTally {
   splitCount: number;
 }
 
-export interface AreaChange {
+interface AreaChange {
   binKey: string;
   mergedCount: number;
   droppedCount: number;
   splitCount: number;
 }
 
-export interface ScopedGroupingDiff {
+interface ScopedGroupingDiff {
   inArea: AreaTally;
   /** Other areas the setting changes, in the order the areas were given. */
   elsewhere: AreaChange[];

@@ -8,7 +8,7 @@
 
 import type { InsightsParams } from 'veloqrs';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
-import { trailingWeekRanges } from '@/shared/time/trailingWeeks';
+import { trailingDaysWindow, trailingWeekRanges } from '@/shared/time/trailingWeeks';
 
 import { INSIGHTS_CONFIG, maxAgeDaysFor, maxPerCategoryFor, minAgeDaysFor } from './config';
 import { wellnessWindow } from './wellnessWindow';
@@ -40,13 +40,7 @@ const STRENGTH_WEEKS = 4;
 
 /** The trailing 28 days the monthly strength summary covers. */
 function trailingStrengthMonth(): { startTs: number; endTs: number } {
-  const end = new Date();
-  end.setHours(23, 59, 59, 0);
-  const start = new Date(end);
-  start.setDate(start.getDate() - 27);
-  start.setHours(0, 0, 0, 0);
-
-  return { startTs: toTs(start), endTs: toTs(end) };
+  return trailingDaysWindow(27, new Date());
 }
 
 /**

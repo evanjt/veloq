@@ -8,17 +8,17 @@
  * the failure, so they read it from this one table.
  */
 
-import { SyncErrorReason } from 'veloqrs';
+import { FfiSyncErrorReason } from 'veloqrs';
 
 /** The line each reason names. Written out so the key type checks. */
 export const SYNC_ERROR_REASON_KEY = {
-  [SyncErrorReason.Unauthorized]: 'emptyState.syncError.reason.unauthorized',
-  [SyncErrorReason.RateLimited]: 'emptyState.syncError.reason.rateLimited',
-  [SyncErrorReason.Server]: 'emptyState.syncError.reason.server',
-  [SyncErrorReason.Network]: 'emptyState.syncError.reason.network',
-  [SyncErrorReason.Storage]: 'emptyState.syncError.reason.storage',
-  [SyncErrorReason.NotConfigured]: 'emptyState.syncError.reason.notConfigured',
-  [SyncErrorReason.Internal]: 'emptyState.syncError.reason.internal',
-  [SyncErrorReason.EngineClosed]: 'emptyState.syncError.reason.engineClosed',
-  [SyncErrorReason.StorageFull]: 'emptyState.syncError.reason.storageFull',
-} as const satisfies Record<SyncErrorReason, string>;
+  [FfiSyncErrorReason.Unauthorized]: 'emptyState.syncError.reason.unauthorized',
+  [FfiSyncErrorReason.RateLimited]: 'emptyState.syncError.reason.rateLimited',
+  [FfiSyncErrorReason.Server]: 'emptyState.syncError.reason.server',
+  [FfiSyncErrorReason.Network]: 'emptyState.syncError.reason.network',
+  [FfiSyncErrorReason.Storage]: 'emptyState.syncError.reason.storage',
+  [FfiSyncErrorReason.NotConfigured]: 'emptyState.syncError.reason.notConfigured',
+  [FfiSyncErrorReason.Internal]: 'emptyState.syncError.reason.internal',
+  [FfiSyncErrorReason.EngineClosed]: 'emptyState.syncError.reason.engineClosed',
+  [FfiSyncErrorReason.StorageFull]: 'emptyState.syncError.reason.storageFull',
+} as const satisfies Record<FfiSyncErrorReason, string>;

@@ -646,13 +646,13 @@ export function emitBodyPaths() {
   }
   return `${nativeHeader()}
 
-export type BodyPartPaths = {
+type BodyPartPaths = {
   slug?: string;
   color?: string;
   path?: { common?: string[]; left?: string[]; right?: string[] };
 };
 
-export type BodyDrawing = { viewBox: string; outline: string };
+type BodyDrawing = { viewBox: string; outline: string };
 
 type Bodies<T> = Record<'male' | 'female', Record<'front' | 'back', T>>;
 

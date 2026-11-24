@@ -6,9 +6,9 @@
 //! The engine knows each of these, so it names the cause once and both lists
 //! render it.
 
-use rusqlite::Connection;
-
+use crate::poison::Recover;
 use crate::{FfiCatalogueEmptyReason, FfiDetectionHold};
+use rusqlite::Connection;
 
 /// The detection state an empty catalogue is explained from, read once per
 /// screen read and shared by both lists.
@@ -86,9 +86,7 @@ pub(crate) fn regroup_hold(conn: &Connection, groups_dirty: bool) -> Option<FfiD
 }
 
 fn running_detect() -> Option<(String, u32)> {
-    let handle = super::persistent_engine_ffi::SECTION_DETECTION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let handle = super::persistent_engine_ffi::SECTION_DETECTION_HANDLE.lock_recover();
     handle
         .as_ref()
         .map(|handle| (handle.get_progress().0, handle.progress.get_percent()))

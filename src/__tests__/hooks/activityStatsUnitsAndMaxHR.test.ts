@@ -12,7 +12,7 @@ import { renderHook } from '@testing-library/react-native';
 
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 
-import { MaxHrSource } from 'veloqrs';
+import { FfiMaxHrSource } from 'veloqrs';
 import { activityRecord } from '../__shared__/activityRecord';
 import type { ActivityRecord } from 'veloqrs';
 
@@ -33,11 +33,11 @@ const ride = activityRecord({
 async function stat(
   activity: ActivityRecord,
   title: string,
-  options: { isMetric?: boolean; maxHR?: number; maxHrSource?: MaxHrSource }
+  options: { isMetric?: boolean; maxHR?: number; maxHrSource?: FfiMaxHrSource }
 ) {
   const isMetric = options.isMetric ?? true;
   const { maxHR } = options;
-  const maxHrSource = options.maxHrSource ?? MaxHrSource.SportSettings;
+  const maxHrSource = options.maxHrSource ?? FfiMaxHrSource.SportSettings;
   const { result } = await renderHook(() =>
     useActivityStats({ activity, isMetric, maxHR, maxHrSource })
   );
@@ -98,7 +98,7 @@ describe('one max HR for the stat card and the zones chart', () => {
   it('divides by the default, not 200, with no settings at all, and names it', async () => {
     const card = await stat(hr, 'activity.heartRate', {
       maxHR: 190,
-      maxHrSource: MaxHrSource.Default,
+      maxHrSource: FfiMaxHrSource.Default,
     });
     expect(row(card, 'activity.stats.percentOfDefaultMaxHRLabel:{"value":190}')).toBe('79%');
     expect(row(card, 'activity.stats.percentOfMaxHRLabel')).toBeUndefined();
@@ -115,7 +115,7 @@ describe('one max HR for the stat card and the zones chart', () => {
     const zoned = activityRecord({ ...hr });
     const card = await stat(zoned, 'activity.heartRate', {
       maxHR: 175,
-      maxHrSource: MaxHrSource.ActivityZones,
+      maxHrSource: FfiMaxHrSource.ActivityZones,
     });
     expect(row(card, 'activity.stats.percentOfMaxHRLabel')).toBe('86%');
   });
@@ -137,7 +137,7 @@ describe('activity stat card marks', () => {
         useActivityStats({
           activity,
           maxHR: 180,
-          maxHrSource: MaxHrSource.SportSettings,
+          maxHrSource: FfiMaxHrSource.SportSettings,
           isMetric: true,
         })
       );

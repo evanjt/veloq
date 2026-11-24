@@ -33,7 +33,7 @@ import { useAnnounceOnAppear } from './useAnnounceOnAppear';
 import { useLargeText } from './useLargeText';
 import { noticePalette, type NoticeTone } from './noticePalette';
 
-export { noticePalette, type NoticePalette, type NoticeTone } from './noticePalette';
+export { noticePalette, type NoticeTone } from './noticePalette';
 
 export interface NoticeAction {
   label: string;

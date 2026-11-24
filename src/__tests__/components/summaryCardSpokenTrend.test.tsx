@@ -63,7 +63,18 @@ function bundle(overrides: Record<string, unknown> = {}) {
     ftpTrend: { latestFtp: null, previousFtp: null },
     // 3.57 m/s is 4:40 per kilometre, faster than the 3.45 m/s before, so the
     // engine drew '↑'.
-    runPaceTrend: { latestPace: 3.57, previousPace: 3.45, previousDate: OCT_8, glyph: '↑' },
+    runPaceTrend: {
+      latestPace: 3.57,
+      previousPace: 3.45,
+      previousDate: OCT_8,
+      glyph: '↑',
+      latestPaceMetricText: '4:40',
+      latestPaceImperialText: '7:30',
+      latestPaceMetricParts: { minutes: 4, seconds: 40 },
+      latestPaceImperialParts: { minutes: 7, seconds: 30 },
+      previousPaceMetricParts: { minutes: 4, seconds: 55 },
+      previousPaceImperialParts: { minutes: 7, seconds: 55 },
+    },
     swimPaceTrend: {},
     ...overrides,
   };
@@ -98,6 +109,7 @@ describe('the summary card trend for a screen reader', () => {
     const label = metricLabel(0);
     expect(label).toContain('improved');
     expect(label).toContain('4 minutes 40 seconds per kilometre');
+    expect(label).toContain('4 minutes 55 seconds per kilometre');
     expect(label).not.toMatch(ARROWS);
     expect(label).not.toMatch(/\d:\d\d/);
   });

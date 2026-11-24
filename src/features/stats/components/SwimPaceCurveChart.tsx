@@ -6,15 +6,21 @@ import { useTranslation } from 'react-i18next';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { colors, typography, spacing, themedStyles, type Palette } from '@/theme';
-import { RangeCoverage } from 'veloqrs';
-import { BodyNotDownloaded, EmptyState, ErrorState } from '@/shared/ui';
+import { CurveEmptyState } from './CurveEmptyState';
+import { ErrorState } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
-import { CURVE_PLOT_HEIGHT, paceAxisUnit, paceChartSeries } from '../lib/curveChartSeries';
+import {
+  CURVE_PLOT_HEIGHT,
+  curvePaceText,
+  paceAxisUnit,
+  paceChartSeries,
+  paceCoordinate,
+} from '../lib/curveChartSeries';
+import type { FfiPaceText } from 'veloqrs';
 import { usePaceCurve } from '../hooks/usePaceCurve';
 import {
   formatDistance,
   formatMinSec,
-  formatSwimPace,
   paceSecondsForUnit,
   swimPaceUnitLabel,
 } from '@/shared/format/format';
@@ -50,19 +56,14 @@ export function formatTime(rawSeconds: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-// Convert m/s to seconds per 100m
-function speedToSecsPer100m(metersPerSecond: number): number {
-  if (metersPerSecond <= 0) return 0;
-  return 100 / metersPerSecond;
-}
-
 interface ChartPoint {
   x: number;
   y: number;
   distance: number;
   time: number;
   paceSecsPer100m: number;
-  paceMs: number; // Original m/s for display
+  /** The engine's text for this point's pace. */
+  paceText: FfiPaceText | undefined;
 }
 
 export function SwimPaceCurveChart({
@@ -113,7 +114,7 @@ export function SwimPaceCurveChart({
       };
     }
 
-    const series = paceChartSeries(curve, speedToSecsPer100m);
+    const series = paceChartSeries(curve, (speed) => paceCoordinate(speed, 100));
     if (!series) {
       return {
         chartData: [],
@@ -123,16 +124,16 @@ export function SwimPaceCurveChart({
     }
 
     // Use log scale for x-axis
-    const data: ChartPoint[] = series.points.map(({ distance, time, speed, pace }) => ({
+    const data: ChartPoint[] = series.points.map(({ distance, time, paceText, pace }) => ({
       x: Math.log10(distance),
       y: pace,
       distance,
       paceSecsPer100m: pace,
-      paceMs: speed,
+      paceText,
       time,
     }));
 
-    const cssSecsPer100m = curve?.criticalSpeed ? speedToSecsPer100m(curve.criticalSpeed) : null;
+    const cssSecsPer100m = curve?.criticalSpeed ? paceCoordinate(curve.criticalSpeed, 100) : null;
 
     return {
       chartData: data,
@@ -150,11 +151,11 @@ export function SwimPaceCurveChart({
       cssPace
         ? {
             value: cssPace,
-            label: `${t('metrics.css')} ${formatMinSec(paceSecondsForUnit(cssPace, 'swim', isMetric))}${swimPaceUnitLabel(isMetric)}`,
+            label: `${t('metrics.css')} ${curvePaceText(curve?.criticalPace, isMetric)}${swimPaceUnitLabel(isMetric)}`,
             testID: 'swim-pace-curve-css-label',
           }
         : null,
-    [cssPace, isMetric, t]
+    [cssPace, curve?.criticalPace, isMetric, t]
   );
 
   const awaitingBody = bodyStatus === 'waiting' && chartData.length === 0;
@@ -182,21 +183,15 @@ export function SwimPaceCurveChart({
 
   if (chartData.length === 0) {
     return (
-      <View style={[styles.container, { minHeight: plotHeight }]}>
-        <View style={styles.emptyState}>
-          {coverage === RangeCoverage.NotFetched ? (
-            <BodyNotDownloaded
-              testID="swim-pace-curve-not-downloaded"
-              style={styles.notDownloaded}
-              textStyle={styles.notDownloadedText}
-              message={t('stats.rangeNotDownloaded')}
-              status={bodyStatus}
-              onRetry={retryBody}
-            />
-          ) : (
-            <EmptyState variant="inline" title={t('stats.noSwimPaceData')} />
-          )}
-        </View>
+      <View style={styles.container}>
+        <CurveEmptyState
+          coverage={coverage}
+          bodyStatus={bodyStatus}
+          onRetry={retryBody}
+          plotHeight={plotHeight}
+          testIDPrefix="swim-pace-curve"
+          emptyTitle={t('stats.noSwimPaceData')}
+        />
       </View>
     );
   }
@@ -238,7 +233,7 @@ export function SwimPaceCurveChart({
             maxFontSizeMultiplier={DENSE_TEXT_SCALE}
             style={[styles.valueNumber, isDark && styles.textLight]}
           >
-            {formatSwimPace(displayData.paceMs, isMetric)}
+            {curvePaceText(displayData.paceText, isMetric)}
             {swimPaceUnitLabel(isMetric)}
           </Text>
         </View>
@@ -259,7 +254,7 @@ export function SwimPaceCurveChart({
           [
             formatDistance(p.distance, true),
             formatTime(p.time),
-            `${formatSwimPace(p.paceMs, isMetric)}${swimPaceUnitLabel(isMetric)}`,
+            `${curvePaceText(p.paceText, isMetric)}${swimPaceUnitLabel(isMetric)}`,
           ].join(', ')
         }
         onSelect={setTooltipData}
@@ -290,17 +285,5 @@ const makeStyles = (palette: Palette) =>
     },
     valueNumber: {
       ...typography.pillValue,
-    },
-    emptyState: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    notDownloaded: {
-      alignItems: 'center',
-    },
-    notDownloadedText: {
-      ...typography.bodyCompact,
-      color: palette.textSecondary,
     },
   });

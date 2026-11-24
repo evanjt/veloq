@@ -40,8 +40,12 @@ import {
   type SummarySeries,
 } from '@/shared/charts';
 import { GestureDetector } from 'react-native-gesture-handler';
-import { formatAxisDate, formatDuration, formatShortDate } from '@/shared/format/format';
-import { formatSectionSpeed } from '@/features/routes/lib/sectionSpeedFormat';
+import {
+  formatAxisDate,
+  formatDuration,
+  formatShortDate,
+  formatSportSpeedText,
+} from '@/shared/format/format';
 import { attemptBasis } from '@/features/routes/lib/attemptBasis';
 import { directionColour } from '@/features/routes/lib/directionColour';
 import {
@@ -73,7 +77,12 @@ import {
   spacing,
   typography,
 } from '@/theme';
-import type { FfiRecordProgressions, FfiScatterFocus, FfiSectionTrendCurves } from 'veloqrs';
+import type {
+  FfiPaceText,
+  FfiRecordProgressions,
+  FfiScatterFocus,
+  FfiSectionTrendCurves,
+} from 'veloqrs';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import type {
   DirectionBestRecord,
@@ -173,12 +182,6 @@ export function SectionScatterChart({
   const isMetric = useMetricSystem();
   const { width: plotWidth, onLayout: onPlotLayout } = useMeasuredWidth();
 
-  const formatValue = useCallback(
-    (value: number) =>
-      useTimeAxis ? formatDuration(value) : formatSectionSpeed(value, activityType, isMetric),
-    [useTimeAxis, activityType, isMetric]
-  );
-
   const { forwardPoints, reversePoints, allPoints, drawn } = useMemo(
     () => splitAndPositionChartData(chartData),
     [chartData]
@@ -206,6 +209,27 @@ export function SectionScatterChart({
   );
 
   const focus = scatterFocus[selectedDirection];
+  // The engine writes the pace of every speed the plot prints: each point's own
+  // and the axis marks'. A value that is neither prints no pace.
+  const paceTexts = useMemo(() => {
+    const texts = new Map<number, FfiPaceText>();
+    for (const point of allPoints) {
+      if (point.speedPace) texts.set(point.speed, point.speedPace);
+    }
+    if (focus) {
+      if (focus.lowPace) texts.set(focus.low, focus.lowPace);
+      if (focus.midPace) texts.set((focus.low + focus.high) / 2, focus.midPace);
+      if (focus.highPace) texts.set(focus.high, focus.highPace);
+    }
+    return texts;
+  }, [allPoints, focus]);
+  const formatValue = useCallback(
+    (value: number) =>
+      useTimeAxis
+        ? formatDuration(value)
+        : formatSportSpeedText(value, activityType, isMetric, paceTexts.get(value) ?? {}),
+    [useTimeAxis, activityType, isMetric, paceTexts]
+  );
   const range = useMemo(
     () => scatterRange(focus, drawnPoints.map(yOf)) ?? ([0, 1] as [number, number]),
     [focus, drawnPoints, yOf]
@@ -276,7 +300,6 @@ export function SectionScatterChart({
         recordsSettled
           ? scatterStanding(highlighted, recordProgression[selectedDirection], axis)
           : null,
-        highlighted,
         axis,
         activityType,
         isMetric,

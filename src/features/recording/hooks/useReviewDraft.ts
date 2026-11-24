@@ -5,7 +5,7 @@ import { writeReviewedRideBackup } from '../lib/rideBackup';
 import { useRecordingStore } from '../stores/RecordingStore';
 import type { ReviewDraft } from '../types';
 
-export interface UseReviewDraft {
+interface UseReviewDraft {
   /** The edits the ride carried when review opened, its trim only if it still fits the ride. */
   initial: ReviewDraft;
   /** Record an edit. */

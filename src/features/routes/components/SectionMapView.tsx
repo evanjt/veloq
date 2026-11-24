@@ -568,9 +568,9 @@ export const SectionMapView = memo(function SectionMapView({
     [isFullscreen, fullscreenSpecArgs]
   );
   const fullscreenLayers = useCallback(
-    (fullscreenPalette: MapPalette) =>
+    (fullscreenPalette: MapPalette, terrain: boolean) =>
       isFullscreen
-        ? buildSectionLayers({ ...fullscreenSpecArgs, palette: fullscreenPalette })
+        ? buildSectionLayers({ ...fullscreenSpecArgs, palette: fullscreenPalette, terrain })
         : EMPTY_LAYERS,
     [isFullscreen, fullscreenSpecArgs]
   );

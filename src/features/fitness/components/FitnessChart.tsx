@@ -19,9 +19,9 @@ import {
   themedStyles,
   type Palette,
 } from '@/theme';
-import { formFromLoads } from '@/shared/math';
 import { sortByDateId } from '@/shared/activity/activityUtils';
-import { formatLocalDate, formatShortDate } from '@/shared/format/format';
+import { formatShortDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import { ChartErrorBoundary, EmptyState, PressTarget } from '@/shared/ui';
 import { useSource } from '@/shared/app/source/useSource';
 import {
@@ -46,8 +46,7 @@ import {
 } from '@/shared/charts';
 import type { WellnessData } from '@/types';
 import { displayedDay, headerDay } from '../lib/pinnedDay';
-import { formatForm, formZoneColor, formZoneFromLoads, formZoneLabel } from '../lib';
-import { useFormPreference } from '@/shared/app/FormPreferenceStore';
+import { formZoneColor, formZoneLabel, type FormZone } from '../lib';
 import { eftpChangesOn, formatEftpChange, type EftpChange } from '../lib/eftpChanges';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
 import { formatSigned } from '@/shared/format';
@@ -60,10 +59,7 @@ interface FitnessChartProps {
   selectedDate?: string | null;
   /** Shared value for instant crosshair sync between charts */
   sharedSelectedIdx?: SharedValue<number>;
-  onDateSelect?: (
-    date: string | null,
-    values: { fitness: number; fatigue: number; form: number } | null
-  ) => void;
+  onDateSelect?: (date: string | null) => void;
   onInteractionChange?: (isInteracting: boolean) => void;
   /**
    * Whether wellness was downloaded for the range drawn. `NotFetched` turns the
@@ -83,7 +79,10 @@ interface ChartDataPoint {
   date: string;
   fitness: number;
   fatigue: number;
-  form: number;
+  /** The zone the engine judged the day's form to be in, null on a day it states none. */
+  formZone: FormZone | null;
+  /** The day's form as the engine prints it, null on a day it states none. */
+  formText: string | null;
   /** Fitness points a week as the wellness row logs it, null when it logs none. */
   rampRate: number | null;
 }
@@ -130,7 +129,6 @@ export const FitnessChart = React.memo(function FitnessChart({
   const { isDark } = useTheme();
   const styles = themedStyles(makeStyles, isDark);
   const largeText = useLargeText();
-  const asPercent = useFormPreference((state) => state.formAsPercent) === true;
   const chartColors = useChartColors();
   const [tooltipData, setTooltipData] = useState<ChartDataPoint | null>(null);
   const [visibleLines, setVisibleLines] = useState({
@@ -166,7 +164,6 @@ export const FitnessChart = React.memo(function FitnessChart({
     sorted.forEach((day, idx) => {
       const fitness = Math.round(day.ctl ?? 0);
       const fatigue = Math.round(day.atl ?? 0);
-      const form = formFromLoads(day.ctl, day.atl);
       maxF = Math.max(maxF, fitness, fatigue);
 
       points.push({
@@ -174,7 +171,8 @@ export const FitnessChart = React.memo(function FitnessChart({
         date: day.id,
         fitness,
         fatigue,
-        form,
+        formZone: day.formZone ?? null,
+        formText: day.formText ?? null,
         rampRate: day.rampRate ?? null,
       });
     });
@@ -214,24 +212,20 @@ export const FitnessChart = React.memo(function FitnessChart({
 
   const handleSelect = useCallback((point: ChartDataPoint) => {
     setTooltipData(point);
-    onDateSelectRef.current?.(point.date, {
-      fitness: point.fitness,
-      fatigue: point.fatigue,
-      form: point.form,
-    });
+    onDateSelectRef.current?.(point.date);
   }, []);
 
   const handleInteractionChange = useCallback((active: boolean) => {
     onInteractionChangeRef.current?.(active);
     if (!active) {
       setTooltipData(null);
-      onDateSelectRef.current?.(null, null);
+      onDateSelectRef.current?.(null);
     }
   }, []);
 
   const describePoint = useCallback(
     (point: ChartDataPoint) => {
-      const form = formatForm(point.form, point.fitness, asPercent);
+      const form = point.formText;
       return [
         formatShortDate(point.date),
         `${t('metrics.fitness')} ${point.fitness}`,
@@ -241,7 +235,7 @@ export const FitnessChart = React.memo(function FitnessChart({
           : `${t('metrics.form')} ${form}`,
       ].join(', ');
     },
-    [t, asPercent]
+    [t]
   );
 
   const { gesture, isActive, crosshairStyle, syncBounds, syncXCoords, accessibilityProps } =
@@ -304,11 +298,8 @@ export const FitnessChart = React.memo(function FitnessChart({
     selected: tooltipData,
     newest,
   });
-  const formZone = displayData
-    ? formZoneFromLoads(displayData.fitness, displayData.fatigue, asPercent)
-    : null;
-  const formText =
-    (displayData ? formatForm(displayData.form, displayData.fitness, asPercent) : null) ?? ABSENT;
+  const formZone = displayData?.formZone ?? null;
+  const formText = displayData?.formText ?? ABSENT;
   const fitnessText = displayData ? String(Math.round(displayData.fitness)) : ABSENT;
   const fatigueText = displayData ? String(Math.round(displayData.fatigue)) : ABSENT;
   const rampRate = displayData?.rampRate ?? null;

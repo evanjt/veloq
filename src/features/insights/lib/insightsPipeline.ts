@@ -6,6 +6,7 @@
  * engine: what differs between the two is passed in as `InsightsEnv`.
  */
 import type { SectionChangeInput } from '../generators/sectionChanged';
+import type { TrendDirection, TrendVerdict } from '@/shared/format/trend';
 import type {
   generateStrengthInsights,
   normaliseStrengthProgression,
@@ -26,6 +27,7 @@ import type { ConsolidationDrop } from './generateInsights';
 import { insightPairKeys, sectionPairKey } from './sectionIdentity';
 import { INSIGHTS_CONFIG } from './config';
 import { LOAD_METRIC } from './engineEnums';
+import { shortCoordsFromNative } from '@/shared/ffi/shortPoints';
 
 /** The engine's comparison, with its metric as the word the generators key on. */
 function toComparison(raw: EnginePeriodComparison | undefined): PeriodComparison | null {
@@ -36,6 +38,8 @@ function toComparison(raw: EnginePeriodComparison | undefined): PeriodComparison
     previous: raw.previous,
     ratio: raw.ratio,
     comparedStart: raw.comparedStart,
+    direction: raw.direction as TrendDirection,
+    verdict: raw.verdict as TrendVerdict,
   };
 }
 
@@ -59,10 +63,7 @@ function namedSectionChanges(
   return changes.map((c) => {
     let points: SectionChangeInput['points'];
     try {
-      points = decodeCoords(c.encodedPolyline).map((point) => ({
-        lat: point.latitude,
-        lng: point.longitude,
-      }));
+      points = shortCoordsFromNative(decodeCoords(c.encodedPolyline));
     } catch {
       points = undefined;
     }
@@ -77,7 +78,7 @@ function namedSectionChanges(
 }
 
 /** What the caller knows that the bundle does not. */
-export interface InsightsEnv {
+interface InsightsEnv {
   /** Whether the athlete has route matching on; sections-derived cards need it. */
   routeMatchingOn: boolean;
   /** Whether the experimental aerobic efficiency trend is on. */
@@ -325,10 +326,7 @@ export function computeInsightsFromData(
                 bestActivityId: pr.bestActivityId,
                 // Thinned by the engine to what a thumbnail draws, so this decodes
                 // tens of points per card rather than a consensus line.
-                previewPoints: decodeCoords(pr.encodedPolyline).map((p) => ({
-                  lat: p.latitude,
-                  lng: p.longitude,
-                })),
+                previewPoints: shortCoordsFromNative(decodeCoords(pr.encodedPolyline)),
               },
             ];
           } catch (err) {

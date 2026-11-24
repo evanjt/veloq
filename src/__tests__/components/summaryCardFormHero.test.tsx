@@ -36,11 +36,15 @@ it('keeps a stored Form hero and draws its value and zone', async () => {
     JSON.stringify({ ...DEFAULTS, heroMetric: 'form' })
   );
   await initialiseDashboardPreferences();
-  const card = summaryCardBundle({ wellness: { fitness: 40, form: 8 } });
+  const card = summaryCardBundle({
+    wellness: { fitness: 40, form: 8, formZone: 'greyZone', formText: '+8' },
+  });
   const sparklines = {
     fitness: [39, 40],
     fatigue: [32, 32],
     form: [7, 8],
+    formZone: ['greyZone', 'greyZone'],
+    formText: ['+7', '+8'],
     hrv: [],
     rhr: [],
     hrvRead: [],
@@ -67,6 +71,8 @@ it('keeps a stored Form hero and draws its value and zone', async () => {
       fitness: 39,
       fatigue: 32,
       form: 7,
+      formZone: 'greyZone',
+      formText: '+7',
       dateLabel: 'Earlier day',
     });
   });

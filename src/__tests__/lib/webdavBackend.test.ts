@@ -399,25 +399,6 @@ describe('webdavBackend.download', () => {
   });
 });
 
-describe('webdavBackend.delete', () => {
-  it('logs a rejected delete instead of failing the caller', async () => {
-    routeFetch({ DELETE: () => response(403) });
-
-    await expect(webdavBackend.delete('veloq-old.veloqdb')).resolves.toBeUndefined();
-
-    expect(mockWarn).toHaveBeenCalledTimes(2);
-    expect(String(mockWarn.mock.calls[0][0])).toContain('403');
-  });
-
-  it('stays quiet when the file was already gone', async () => {
-    routeFetch({ DELETE: () => response(404) });
-
-    await webdavBackend.delete('veloq-old.veloqdb');
-
-    expect(mockWarn).not.toHaveBeenCalled();
-  });
-});
-
 describe('webdavBackend credentials', () => {
   it('lists with a UTF-8 Basic header for a password outside Latin-1', async () => {
     await setWebdavConfig(SERVER, 'athlete', 'pałac');

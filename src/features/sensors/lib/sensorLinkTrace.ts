@@ -14,7 +14,7 @@
  * later frame is a counter increment on the manager's side.
  */
 
-export type SensorLinkEventKind =
+type SensorLinkEventKind =
   | 'connectStart'
   /** `ms` is how long the connect took. */
   | 'connected'
@@ -67,7 +67,7 @@ export interface SensorLinkEvent {
  */
 export const SENSOR_LINK_TRACE_CAPACITY = 256;
 
-export interface SensorLinkTrace {
+interface SensorLinkTrace {
   record: (event: Omit<SensorLinkEvent, 'at'>, now: number) => void;
   events: () => readonly SensorLinkEvent[];
   clear: () => void;

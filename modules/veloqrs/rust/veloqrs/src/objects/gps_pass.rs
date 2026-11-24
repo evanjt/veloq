@@ -7,9 +7,9 @@
 //! owed to the connection and started on the online edge. The screen that
 //! follows a pass asks for it and renders its progress, and schedules nothing.
 
-use std::sync::{Arc, LazyLock, Mutex};
-
+use crate::poison::Recover;
 use chrono::{DateTime, Utc};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use super::start::FfiStartOutcome;
 use crate::ffi::ActivitySportMapping;
@@ -168,7 +168,7 @@ impl GpsPassService {
     /// when the connection returns.
     pub(crate) fn request(&self, range: PassRange) -> PassStart {
         let (range, taken) = {
-            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            let mut inner = self.inner.lock_recover();
             if inner.running.is_some() {
                 owe_into(&mut inner.owed, range);
                 return PassStart::refused(FfiStartOutcome::Busy);
@@ -203,7 +203,7 @@ impl GpsPassService {
     /// for, and a taking that has already ended keeps nothing.
     fn begin(&self, range: PassRange, taken: u64) -> PassStart {
         let started = (self.start)(&range);
-        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let mut inner = self.inner.lock_recover();
         let ours = inner.running.as_mut().filter(|r| r.taken == taken);
         if started.outcome == FfiStartOutcome::Started {
             if let Some(running) = ours {
@@ -235,7 +235,7 @@ impl GpsPassService {
     /// The fetch run of the pass downloading now, or `None` when no pass holds
     /// the slot or its start has not returned yet.
     pub(crate) fn running_run(&self) -> Option<u64> {
-        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let inner = self.inner.lock_recover();
         inner.running.as_ref().and_then(|r| r.run)
     }
 
@@ -248,7 +248,7 @@ impl GpsPassService {
     /// loss in a row.
     pub(crate) fn finish(&self, end: PassEnd) {
         let wake = {
-            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            let mut inner = self.inner.lock_recover();
             let ended = inner.running.take();
             if !matches!(end, PassEnd::NetworkLost) {
                 inner.lost_online = 0;
@@ -283,7 +283,7 @@ impl GpsPassService {
     /// budget, which asks for the next wake.
     pub(crate) fn budget_lifted(&self) {
         {
-            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            let mut inner = self.inner.lock_recover();
             inner.held_until = None;
             if let Some(range) = inner.owed_to_budget.take() {
                 owe_into(&mut inner.owed, range);
@@ -299,14 +299,14 @@ impl GpsPassService {
 
     /// When the pass the budget is holding may go again, or `None` when none is held.
     pub(crate) fn held_until(&self) -> Option<DateTime<Utc>> {
-        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let inner = self.inner.lock_recover();
         inner.owed_to_budget.as_ref().and(inner.held_until)
     }
 
     /// The connection came back: the pass it cost joins the owed one.
     pub(crate) fn reconnected(&self) {
         {
-            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            let mut inner = self.inner.lock_recover();
             if let Some(range) = inner.owed_to_reconnect.take() {
                 owe_into(&mut inner.owed, range);
             }
@@ -318,7 +318,7 @@ impl GpsPassService {
     /// and behind a budget hold it waits for the lift.
     fn start_owed(&self) {
         let (range, taken) = {
-            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            let mut inner = self.inner.lock_recover();
             if inner.running.is_some() {
                 return;
             }

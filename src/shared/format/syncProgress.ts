@@ -13,23 +13,23 @@
  */
 
 import type { TFunction } from 'i18next';
-import { SyncStep } from 'veloqrs';
+import { FfiSyncStep } from 'veloqrs';
 import type { SyncStatus } from 'veloqrs';
 
 /** The line each step names. Written out so the key type checks. */
 const STEP_KEY = {
-  [SyncStep.Athlete]: 'settings.syncStep.athlete',
-  [SyncStep.SportSettings]: 'settings.syncStep.sportSettings',
-  [SyncStep.Wellness]: 'settings.syncStep.wellness',
-  [SyncStep.Census]: 'settings.syncStep.census',
-  [SyncStep.Activities]: 'settings.syncStep.activities',
-  [SyncStep.FirstActivities]: 'settings.syncStep.firstActivities',
-  [SyncStep.Curves]: 'settings.syncStep.curves',
-  [SyncStep.IntervalBodies]: 'settings.syncStep.intervalBodies',
-  [SyncStep.RemainingActivities]: 'settings.syncStep.remainingActivities',
-  [SyncStep.RecordActivities]: 'settings.syncStep.recordActivities',
-  [SyncStep.Calendar]: 'settings.syncStep.calendar',
-} as const satisfies Record<SyncStep, string>;
+  [FfiSyncStep.Athlete]: 'settings.syncStep.athlete',
+  [FfiSyncStep.SportSettings]: 'settings.syncStep.sportSettings',
+  [FfiSyncStep.Wellness]: 'settings.syncStep.wellness',
+  [FfiSyncStep.Census]: 'settings.syncStep.census',
+  [FfiSyncStep.Activities]: 'settings.syncStep.activities',
+  [FfiSyncStep.FirstActivities]: 'settings.syncStep.firstActivities',
+  [FfiSyncStep.Curves]: 'settings.syncStep.curves',
+  [FfiSyncStep.IntervalBodies]: 'settings.syncStep.intervalBodies',
+  [FfiSyncStep.RemainingActivities]: 'settings.syncStep.remainingActivities',
+  [FfiSyncStep.RecordActivities]: 'settings.syncStep.recordActivities',
+  [FfiSyncStep.Calendar]: 'settings.syncStep.calendar',
+} as const satisfies Record<FfiSyncStep, string>;
 
 export function formatSyncProgress(status: SyncStatus | null, t: TFunction): string {
   const step = status?.step;

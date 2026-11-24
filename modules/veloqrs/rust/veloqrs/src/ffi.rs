@@ -4,6 +4,8 @@
 //! to Kotlin and Swift. All FFI functions are prefixed with `ffi_` to avoid
 //! naming conflicts with the internal API.
 
+use crate::persistence::schema_info;
+use crate::poison::Recover;
 use std::time::Instant;
 
 use log::info;
@@ -193,20 +195,13 @@ pub struct FfiBackupValidation {
 pub fn validate_backup_database(path: String) -> Result<FfiBackupValidation, crate::VeloqError> {
     use rusqlite::{Connection, OpenFlags};
 
-    let conn =
-        Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(|e| {
-            crate::VeloqError::Database {
-                msg: format!("Cannot open backup: {}", e),
-            }
-        })?;
+    let conn = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|e| crate::VeloqError::database(format!("Cannot open backup: {}", e)))?;
 
-    let schema_version: String = conn
-        .query_row(
-            "SELECT value FROM schema_info WHERE key = 'schema_version'",
-            [],
-            |row| row.get(0),
-        )
-        .unwrap_or_else(|_| "0".to_string());
+    let schema_version: String = schema_info::get(&conn, "schema_version")
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "0".to_string());
 
     let athlete_id: Option<String> = conn
         .query_row(
@@ -249,7 +244,7 @@ pub async fn convert_legacy_database_to_record_backup(
         })
         .await
         .unwrap_or_else(|e| Err(format!("Backup conversion thread died: {e}")))
-        .map_err(|msg| crate::VeloqError::Database { msg })
+        .map_err(|msg| crate::VeloqError::database(msg))
 }
 
 /// Stored points for one fetched track.
@@ -1329,9 +1324,7 @@ fn next_fetch_run() -> u64 {
 }
 
 fn store_fetch_run_result(run: u64, result: FetchAndStoreResult) {
-    let mut guard = FETCH_AND_STORE_RESULTS
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let mut guard = FETCH_AND_STORE_RESULTS.lock_recover();
     guard.retain(|(id, _)| *id != run);
     guard.push((run, result));
     while guard.len() > MAX_UNREAD_FETCH_RESULTS {
@@ -1340,9 +1333,7 @@ fn store_fetch_run_result(run: u64, result: FetchAndStoreResult) {
 }
 
 fn take_fetch_run_result(run: u64) -> Option<FetchAndStoreResult> {
-    let mut guard = FETCH_AND_STORE_RESULTS
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let mut guard = FETCH_AND_STORE_RESULTS.lock_recover();
     let at = guard.iter().position(|(id, _)| *id == run)?;
     Some(guard.remove(at).1)
 }
@@ -1500,8 +1491,7 @@ pub fn is_elevation_backfill_paused() -> bool {
 }
 
 /// How many stored tracks the backfill still has to ask upstream about.
-/// Zero means the library has been fully asked, so the launch trigger can
-/// stop attempting runs for this install.
+/// Zero means the library has been fully asked.
 ///
 /// Raises rather than answering zero when it cannot answer at all. The launch
 /// trigger stamps the app version on a zero and the cutover start reads one
@@ -1514,9 +1504,7 @@ pub fn get_elevation_backfill_remaining() -> Result<u32, crate::VeloqError> {
     let remaining = crate::objects::error::with_reader(|conn| {
         crate::net::elevation_backfill::pooled_elevation_backfill_remaining(conn)
     })?
-    .map_err(|e| crate::VeloqError::Database {
-        msg: format!("{}", e),
-    })?;
+    .map_err(|e| crate::VeloqError::database(format!("{}", e)))?;
     Ok(remaining.try_into().unwrap_or(u32::MAX))
 }
 
@@ -1673,9 +1661,8 @@ pub struct FfiRoutesStatusData {
 #[uniffi::export]
 pub fn get_routes_status_data() -> FfiRoutesStatusData {
     let detection = {
-        let handle = crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let handle =
+            crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE.lock_recover();
         handle.as_ref().map(|handle| {
             let (phase, completed, total) = handle.get_progress();
             crate::FfiDetectionProgress {
@@ -1873,15 +1860,15 @@ pub(crate) fn fetch_and_index_activity_for(
     )
     .ok_or(crate::VeloqError::NotInitialized)?;
     if !stored {
-        return Err(crate::VeloqError::Database {
-            msg: format!("store failed for {}", activity_id),
-        });
+        return Err(crate::VeloqError::database(format!(
+            "store failed for {}",
+            activity_id
+        )));
     }
 
-    let summary =
-        index_stored_track(install, &activity_id)?.ok_or_else(|| crate::VeloqError::Database {
-            msg: format!("no stored track to index for {activity_id}"),
-        })?;
+    let summary = index_stored_track(install, &activity_id)?.ok_or_else(|| {
+        crate::VeloqError::database(format!("no stored track to index for {activity_id}"))
+    })?;
 
     info!(
         "[RUST: fetch_and_index_activity] {} ({} points) in {} ms",
@@ -1918,7 +1905,7 @@ pub(crate) fn index_stored_track(
         indexed.map(Some)
     })
     .ok_or(crate::VeloqError::NotInitialized)?
-    .map_err(|msg| crate::VeloqError::Database { msg })?;
+    .map_err(|msg| crate::VeloqError::database(msg))?;
     Ok(indexed.map(|(summary, scheduled)| {
         if let Some(scheduled) = scheduled {
             scheduled.start();
@@ -1930,6 +1917,7 @@ pub(crate) fn index_stored_track(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::poison::Recover;
 
     /// Scenario: a push names one activity and the fetch comes back. Three
     /// answers are not a track, and a caller with one notification to write
@@ -2082,7 +2070,7 @@ mod tests {
         }
 
         fn seen(&self) -> Vec<(String, bool, usize)> {
-            self.seen.lock().unwrap_or_else(|e| e.into_inner()).clone()
+            self.seen.lock_recover().clone()
         }
 
         /// How long a neighbour's hold is given to clear. Three orders of
@@ -2130,10 +2118,7 @@ mod tests {
             // of this, on a box where another test's background worker held the
             // lock for the moment the announcement fired.
             let (free, points) = Self::read_track_once_free(&activity_id);
-            self.seen
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .push((activity_id, free, points));
+            self.seen.lock_recover().push((activity_id, free, points));
         }
 
         fn sync_progress(&self) {}
@@ -2390,7 +2375,7 @@ mod tests {
         let neighbour = {
             let taken = taken.clone();
             std::thread::spawn(move || {
-                let _held = PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
+                let _held = PERSISTENT_ENGINE.lock_recover();
                 taken.wait();
                 std::thread::sleep(Duration::from_millis(100));
             })

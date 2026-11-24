@@ -38,6 +38,7 @@ function screenData(activityCount: number) {
       activityCount,
       totalSets: activityCount * 4,
       maxWeightedSets: 0,
+      shadeCeilings: [0, 0, 0, 0, 0],
       balance: [],
     },
     weekly: [],

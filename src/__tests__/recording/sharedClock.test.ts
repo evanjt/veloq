@@ -9,6 +9,8 @@ import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useTimer } from '@/features/recording/hooks/useTimer';
 import { useRecordingMetrics } from '@/features/recording/hooks/useRecordingMetrics';
 
+jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: null }) }));
+
 describe('recording clock', () => {
   beforeEach(() => {
     jest.useFakeTimers();

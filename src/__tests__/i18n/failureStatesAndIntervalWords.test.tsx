@@ -18,7 +18,7 @@ import { StartupErrorBanner } from '@/shared/ui/StartupErrorBanner';
 import { intervalTypeLabel } from '@/features/activity/lib/intervalTypeLabel';
 import { formatPrGap } from '@/shared/format/format';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
-import { IntervalKind } from 'veloqrs';
+import { FfiIntervalKind } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('@/shared/debug/boundaryCrash', () => ({ recordBoundaryCrash: jest.fn() }));
@@ -126,7 +126,11 @@ describe('the launch banner', () => {
 describe('interval type words', () => {
   vaultIt('reads a warm up in the athlete language, not the raw type', async () => {
     await changeLanguage('de-DE');
-    const shown = intervalTypeLabel({ kind: IntervalKind.Warmup, zone: null, zoneColoured: false });
+    const shown = intervalTypeLabel({
+      kind: FfiIntervalKind.Warmup,
+      zone: null,
+      zoneColoured: false,
+    });
 
     expect(shown).toBe(i18n.t('intervalTypes.warmup.short'));
     expect(shown).not.toBe('WARMUP');
@@ -136,7 +140,7 @@ describe('interval type words', () => {
   vaultIt('gives a screen reader the long form', async () => {
     await changeLanguage('de-DE');
     const spoken = intervalTypeLabel(
-      { kind: IntervalKind.Recovery, zone: null, zoneColoured: false },
+      { kind: FfiIntervalKind.Recovery, zone: null, zoneColoured: false },
       'long'
     );
 
@@ -145,7 +149,11 @@ describe('interval type words', () => {
   });
 
   vaultIt('calls a type it does not know other, rather than showing the raw type', async () => {
-    const shown = intervalTypeLabel({ kind: IntervalKind.Other, zone: null, zoneColoured: false });
+    const shown = intervalTypeLabel({
+      kind: FfiIntervalKind.Other,
+      zone: null,
+      zoneColoured: false,
+    });
 
     expect(shown).toBe(i18n.t('intervalTypes.other.short'));
   });

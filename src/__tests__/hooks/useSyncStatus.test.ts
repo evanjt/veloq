@@ -18,7 +18,7 @@ import {
   useTrackStage,
   useTrackStep,
 } from '@/shared/native/useSyncStatus';
-import { SyncState, TrackStep, type SyncStatus, type TrackStage } from 'veloqrs';
+import { SyncState, FfiTrackStep, type SyncStatus, type FfiTrackStage } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -161,16 +161,16 @@ vaultIt(
   }
 );
 
-function downloading(completed: number, total: number): TrackStage {
+function downloading(completed: number, total: number): FfiTrackStage {
   return {
-    step: TrackStep.Downloading,
+    step: FfiTrackStep.Downloading,
     completed,
     total,
     percent: Math.round((completed / total) * 100),
   };
 }
 
-function settledWith(tracks: TrackStage | undefined): SyncStatus {
+function settledWith(tracks: FfiTrackStage | undefined): SyncStatus {
   return { ...status(SyncState.Idle, 3), tracks } as SyncStatus;
 }
 
@@ -234,7 +234,7 @@ vaultIt('reports the track step alone, so progress alone does not re-render', as
     renders += 1;
     return useTrackStep();
   });
-  expect(result.current).toBe(TrackStep.Downloading);
+  expect(result.current).toBe(FfiTrackStep.Downloading);
   const before = renders;
 
   engine.setSnapshot(settledWith(downloading(6, 12)));
@@ -243,9 +243,9 @@ vaultIt('reports the track step alone, so progress alone does not re-render', as
   });
   expect(renders).toBe(before);
 
-  engine.setSnapshot(settledWith({ ...downloading(0, 0), step: TrackStep.Held }));
+  engine.setSnapshot(settledWith({ ...downloading(0, 0), step: FfiTrackStep.Held }));
   await act(() => {
     jest.advanceTimersByTime(TRACK_STAGE_REREAD_MS);
   });
-  expect(result.current).toBe(TrackStep.Held);
+  expect(result.current).toBe(FfiTrackStep.Held);
 });

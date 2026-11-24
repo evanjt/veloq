@@ -17,7 +17,7 @@ import { initialiseI18n } from '@/i18n';
 import { PerformanceCurveSection } from '@/features/fitness/components/sections/PerformanceCurveSection';
 import { FitnessChartCard } from '@/features/fitness/components/sections/FitnessChartCard';
 import type { PrimarySport } from '@/features/fitness/stores';
-import type { WellnessData } from '@/types';
+import { statedForm } from '../../__shared__/statedForm';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -76,10 +76,10 @@ describe('the performance curve section', () => {
 });
 
 /** Form -3 on fitness 40 sits in the grey zone. */
-const DAYS = [
+const DAYS = statedForm([
   { id: '2026-09-11', ctl: 39, atl: 41 },
   { id: '2026-09-12', ctl: 40, atl: 43 },
-] as WellnessData[];
+]);
 
 function Card() {
   const shared = useSharedValue(-1);

@@ -11,7 +11,7 @@
  * filter is on.
  */
 
-import { EngineSportFamily } from 'veloqrs';
+import { FfiSportFamily } from 'veloqrs';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
@@ -91,13 +91,13 @@ describe('useFeedSearch', () => {
   });
 
   vaultIt.each([
-    ['Ride', EngineSportFamily.Ride],
-    ['Winter', EngineSportFamily.Winter],
-    ['Run', EngineSportFamily.Run],
-    ['Water', EngineSportFamily.Water],
-    ['Foot', EngineSportFamily.Foot],
-    ['Strength', EngineSportFamily.Strength],
-    ['Other', EngineSportFamily.Other],
+    ['Ride', FfiSportFamily.Ride],
+    ['Winter', FfiSportFamily.Winter],
+    ['Run', FfiSportFamily.Run],
+    ['Water', FfiSportFamily.Water],
+    ['Foot', FfiSportFamily.Foot],
+    ['Strength', FfiSportFamily.Strength],
+    ['Other', FfiSportFamily.Other],
   ] as const)('reads the %s chip as the engine family of that name', async (chip, group) => {
     const { result } = await render('', chip);
 
@@ -137,7 +137,7 @@ describe('useFeedSearch', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(engine.searchFeedCards).toHaveBeenCalledWith({
       needle: 'ferry',
-      sportFamilies: [EngineSportFamily.Ride],
+      sportFamilies: [FfiSportFamily.Ride],
       minMovingTime: 3_600,
       maxMovingTime: 10_800,
       offset: 0,
@@ -152,7 +152,7 @@ describe('useFeedSearch', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(engine.searchFeedCards).toHaveBeenCalledWith({
       needle: '',
-      sportFamilies: [EngineSportFamily.Ride, EngineSportFamily.Other],
+      sportFamilies: [FfiSportFamily.Ride, FfiSportFamily.Other],
       offset: 0,
       limit: 30,
     });
@@ -187,7 +187,7 @@ describe('useFeedSearch', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(engine.searchFeedCards).toHaveBeenCalledWith({
       needle: '',
-      sportFamilies: [EngineSportFamily.Ride],
+      sportFamilies: [FfiSportFamily.Ride],
       oldestTs: dayStartEpochSeconds('2024-03-01'),
       newestTs: dayEndEpochSeconds('2024-03-31'),
       offset: 0,
@@ -295,7 +295,7 @@ describe('useFeedSearch', () => {
 
     expect(engine.searchFeedCards).toHaveBeenLastCalledWith({
       needle: '',
-      sportFamilies: [EngineSportFamily.Water],
+      sportFamilies: [FfiSportFamily.Water],
       offset: 30,
       limit: 30,
     });

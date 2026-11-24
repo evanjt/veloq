@@ -7,7 +7,7 @@ import { Button } from '@/shared/ui/Button';
 import { InlineNotice } from '@/shared/ui/InlineNotice';
 import { GrantAccessButton } from './GrantAccessButton';
 
-export interface SaveErrorBannerProps {
+interface SaveErrorBannerProps {
   /** Error text to display. If falsy, the banner renders nothing. */
   errorMessage: string | null | undefined;
   /** The server's own words behind the failure, shown smaller beneath the message. */

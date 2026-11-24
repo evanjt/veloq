@@ -155,7 +155,15 @@ const periodComparison = generatePeriodComparisonInsights(
     { start: DAY * 8, stats: week(200), partial: false },
     { start: DAY * 15, stats: week(300), partial: false },
   ],
-  { metric: 'tss', current: 400, previous: 300, ratio: 1 / 3, comparedStart: DAY * 15 },
+  {
+    metric: 'tss',
+    current: 400,
+    previous: 300,
+    ratio: 1 / 3,
+    comparedStart: DAY * 15,
+    direction: 'up',
+    verdict: 'moved',
+  },
   null,
   NOW,
   t

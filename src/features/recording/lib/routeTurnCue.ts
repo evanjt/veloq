@@ -1,12 +1,12 @@
 import type { FfiNextTurn } from 'veloqrs';
 
 /** The cue shows within this many metres of the turn, so it reads as a cue and not a list. */
-export const TURN_CUE_M = 150;
+const TURN_CUE_M = 150;
 
 /** A heading change over this many degrees is a hairpin, which reads as a turn back. */
-export const HAIRPIN_DEG = 150;
+const HAIRPIN_DEG = 150;
 
-export interface TurnCue {
+interface TurnCue {
   kind: 'left' | 'right' | 'back';
   distanceM: number;
 }

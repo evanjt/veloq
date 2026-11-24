@@ -3,7 +3,8 @@
  * haptic, where the same scrub on the fitness chart gives a light tick.
  *
  * Expected behaviour: the scrub fires one light impact when it starts, the
- * date under the finger is reported, and lifting the finger clears it.
+ * date under the finger is shown in the chart header, and lifting the finger
+ * returns the header to the newest reading.
  */
 
 import React from 'react';
@@ -11,6 +12,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
 
 import { WellnessTrendsChart } from '@/features/wellness/components/WellnessTrendsChart';
+import { formatShortDateWithWeekday } from '@/shared/format/format';
 import type { WellnessData } from '@/types';
 import { capturePans, scrub, scrubPan, pressAndLift, release } from '../__shared__/chartScrub';
 
@@ -77,37 +79,32 @@ describe('wellness trends scrub', () => {
     expect(Haptics.impactAsync).not.toHaveBeenCalled();
   });
 
-  it('reports the scrubbed date at the first and last day and clears it on release', async () => {
+  it('shows the first and last scrubbed day in the header and the newest reading on release', async () => {
     const built = capturePans();
-    const onDateSelect = jest.fn();
-    const tree = await render(
-      <WellnessTrendsChart data={DAYS} timeRange="1m" onDateSelect={onDateSelect} />
-    );
+    const tree = await render(<WellnessTrendsChart data={DAYS} timeRange="1m" />);
     await layout(tree);
 
     const pan = scrubPan(built);
     await scrub(pan, 300);
-    expect(onDateSelect).toHaveBeenLastCalledWith('2026-06-30');
+    expect(tree.getByText(formatShortDateWithWeekday('2026-06-30'))).toBeTruthy();
 
     await scrub(pan, 80);
-    expect(onDateSelect).toHaveBeenLastCalledWith('2026-06-01');
+    expect(tree.getByText(formatShortDateWithWeekday('2026-06-01'))).toBeTruthy();
 
     await release(pan);
-    expect(onDateSelect).toHaveBeenLastCalledWith(null);
+    expect(tree.queryByText(formatShortDateWithWeekday('2026-06-01'))).toBeNull();
+    expect(tree.getByText(formatShortDateWithWeekday('2026-06-30'))).toBeTruthy();
   });
 
   it('snaps to the day under the finger after the chart is resized', async () => {
     const built = capturePans();
-    const onDateSelect = jest.fn();
-    const tree = await render(
-      <WellnessTrendsChart data={DAYS} timeRange="1m" onDateSelect={onDateSelect} />
-    );
+    const tree = await render(<WellnessTrendsChart data={DAYS} timeRange="1m" />);
     await layout(tree, 360);
     await layout(tree, 560);
 
     // 360 wide puts day 30 near x=300; at 560 that x is only about two-thirds across.
     await scrub(scrubPan(built), 300);
 
-    expect(onDateSelect).toHaveBeenLastCalledWith('2026-06-16');
+    expect(tree.getByText(formatShortDateWithWeekday('2026-06-16'))).toBeTruthy();
   });
 });

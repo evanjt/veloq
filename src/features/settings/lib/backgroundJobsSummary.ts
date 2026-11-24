@@ -1,6 +1,6 @@
 import type { BackgroundJob } from '../hooks/useBackgroundJobs';
 
-export type BackgroundJobsSummary =
+type BackgroundJobsSummary =
   | { kind: 'running'; count: number }
   | { kind: 'failed'; count: number }
   | { kind: 'waiting'; count: number; until: number | null }

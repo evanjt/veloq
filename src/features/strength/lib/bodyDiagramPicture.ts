@@ -1,15 +1,15 @@
 import { Skia, PaintStyle, ClipOp, type SkPath, type SkPicture } from '@shopify/react-native-skia';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 
-import { bodyFills, type BodyFill, type BodyGender, type BodySide } from './bodyFills';
+import { bodyFills, type BodyGender, type BodySide } from './bodyFills';
 import { BODY_DRAWINGS } from './bodyPaths.generated';
 
 export { bodyFills };
 
-export type { BodyFill, BodyGender, BodySide };
+export type { BodyGender };
 
 /** The region of the drawing's coordinates one diagram shows. */
-export interface BodyViewBox {
+interface BodyViewBox {
   x: number;
   y: number;
   width: number;

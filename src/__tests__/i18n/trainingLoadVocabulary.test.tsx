@@ -16,7 +16,6 @@ import { render } from '@testing-library/react-native';
 
 import * as format from '@/shared/format/format';
 import { ABSENT } from '@/shared/format/absent';
-import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { TodayBanner } from '@/features/routes/components/TodayBanner';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -111,18 +110,20 @@ describe('the Today banner', () => {
     mockWorkout.todayWorkout = null;
     mockWorkout.tomorrowWorkout = null;
   });
-  afterEach(() => useFormPreference.setState({ formAsPercent: null }));
 
   vaultIt('names Form beside the balance', async () => {
-    const { getByText, queryByText } = await render(<TodayBanner form={{ ctl: 50, atl: 62 }} />);
+    const { getByText, queryByText } = await render(
+      <TodayBanner form={{ zone: 'optimal', text: '-12', asPercent: false }} />
+    );
 
     expect(getByText(/Form \(TSB\) -12/)).toBeTruthy();
     expect(queryByText(/-12 TSB/)).toBeNull();
   });
 
   it('names Form without the TSB abbreviation when form is shown as a percentage', async () => {
-    useFormPreference.setState({ formAsPercent: true });
-    const { getByText, queryByText } = await render(<TodayBanner form={{ ctl: 50, atl: 62 }} />);
+    const { getByText, queryByText } = await render(
+      <TodayBanner form={{ zone: 'optimal', text: '-24%', asPercent: true }} />
+    );
 
     expect(getByText(/Form -24%/)).toBeTruthy();
     expect(queryByText(/TSB/)).toBeNull();

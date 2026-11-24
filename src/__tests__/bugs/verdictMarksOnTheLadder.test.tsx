@@ -79,6 +79,7 @@ function summary(weightedSets: number, startTs?: number): StrengthSummary {
     activityCount: 4,
     totalSets: Math.round(weightedSets),
     maxWeightedSets: weightedSets,
+    shadeCeilings: [0, 0, 0, 0, 0],
     balance: [],
   };
 }

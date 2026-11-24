@@ -393,13 +393,6 @@ export const googleDriveBackend: BackupBackend = {
     await fetchContent('Download backup', backupId, destPath);
   },
 
-  async delete(backupId: string): Promise<void> {
-    const operation = 'Delete backup';
-    const id = await fileIdOf(operation, backupId);
-    await driveCall(operation, `${DRIVE}/files/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    fileIds.delete(backupId);
-  },
-
   /**
    * An object of the same name is found by name, not from memory, and its
    * content replaced in place, so the current month's pack is rewritten rather

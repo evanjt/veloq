@@ -15,7 +15,8 @@ import Svg, { Polyline, Rect } from 'react-native-svg';
 
 import { layout, mapPalette, stroke, type VectorMapPalette } from '@/theme';
 import type { LatLngShort } from '@/shared/geo/distance';
-import { projectRouteToBox } from '@/shared/geo/routePreview';
+import { nativeCoordFromShort } from '@/shared/ffi/shortPoints';
+import { isPositioned, projectRouteToBox } from '@/shared/geo/routePreview';
 import { TrackEndpointMarkers } from '@/shared/ui/TrackEndpointMarkers';
 
 export interface NormalisedPoint {
@@ -31,9 +32,7 @@ export interface NormalisedPoint {
  */
 export function normaliseTrackPoints(points: LatLngShort[]): NormalisedPoint[] {
   return projectRouteToBox(
-    points
-      .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng))
-      .map((p) => ({ latitude: p.lat, longitude: p.lng })),
+    points.filter((p) => isPositioned(p.lat, p.lng)).map(nativeCoordFromShort),
     1,
     1,
     0

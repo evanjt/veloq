@@ -12,7 +12,7 @@
 
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { InitOutcome } from 'veloqrs';
+import { FfiInitOutcome } from 'veloqrs';
 
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { buildCommit, formatVersionLine } from '@/shared/format/buildStamp';
@@ -36,7 +36,7 @@ function engineLine(): string {
   if (state === 'ready') return 'Engine open';
   if (state === 'closed') return 'Engine not open';
   const reason = useEngineStatus.getState().initFailureReason;
-  return `Engine failed to open: ${reason === null ? 'unknown' : typeof reason === 'string' ? reason : (InitOutcome[reason] ?? reason)}`;
+  return `Engine failed to open: ${reason === null ? 'unknown' : typeof reason === 'string' ? reason : (FfiInitOutcome[reason] ?? reason)}`;
 }
 
 function guarded(read: () => string, fallback: string): string {

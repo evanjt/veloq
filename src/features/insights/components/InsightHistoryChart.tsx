@@ -139,6 +139,7 @@ export const InsightHistoryChart = React.memo(function InsightHistoryChart({
           others={others}
           formatValue={formatValue}
           invert={timeline}
+          {...(series.marksOnSamples ? { marksOnSamples: true } : {})}
           bars={kind === 'bars'}
           marker={marker}
           band={band}

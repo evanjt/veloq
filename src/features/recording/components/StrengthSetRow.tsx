@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { WeightUnit } from 'veloqrs';
-import type { LiveStrengthEdit, LiveStrengthExercise, LiveStrengthSet } from 'veloqrs';
+import { FfiWeightUnit } from 'veloqrs';
+import type { LiveStrengthEdit, FfiLiveStrengthExercise, FfiLiveStrengthSet } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
 import { Button } from '@/shared/ui/Button';
@@ -18,17 +18,17 @@ import { StrengthStepper } from './StrengthStepper';
 const SIDES = ['left', 'right', 'both'] as const;
 
 /** A hold is timed: it has a duration and no reps. */
-function isTimed(set: LiveStrengthSet): boolean {
+function isTimed(set: FfiLiveStrengthSet): boolean {
   return set.durationSecs != null && set.reps == null;
 }
 
 interface StrengthSetRowProps {
   exerciseIndex: number;
   setIndex: number;
-  exercise: LiveStrengthExercise;
-  set: LiveStrengthSet;
+  exercise: FfiLiveStrengthExercise;
+  set: FfiLiveStrengthSet;
   /** The unit the athlete reads and enters weight in. */
-  weightUnit: WeightUnit;
+  weightUnit: FfiWeightUnit;
   /** The set the session is at. */
   current: boolean;
   edit: (change: LiveStrengthEdit) => void;
@@ -63,7 +63,9 @@ export function StrengthSetRow({
   const step = (kind: 'StepReps' | 'StepWeight' | 'StepDuration') => (direction: 1 | -1) =>
     edit({ kind, ...where, value: direction });
   const weightKey =
-    weightUnit === WeightUnit.Pound ? 'strength.recorder.weightLb' : 'strength.recorder.weightKg';
+    weightUnit === FfiWeightUnit.Pound
+      ? 'strength.recorder.weightLb'
+      : 'strength.recorder.weightKg';
   const unitLabel = t(weightKey, { value: '' }).trim();
   const confirmTyped = () => {
     const entered = Number((typed ?? '').trim().replace(',', '.'));

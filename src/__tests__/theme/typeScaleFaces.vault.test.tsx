@@ -19,7 +19,7 @@ import type { TextStyle } from 'react-native';
 import { initialiseI18n } from '@/i18n';
 import type { Insight } from '@/features/insights/types';
 import type { ActivityInterval } from '@/types';
-import { IntervalKind } from 'veloqrs';
+import { FfiIntervalKind } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -168,7 +168,7 @@ describe('surfaces drawing through the scale', () => {
     const { IntervalsTable } = require('@/features/activity/components/IntervalsTable');
     const interval = {
       id: 1,
-      kind: IntervalKind.Work,
+      kind: FfiIntervalKind.Work,
       startIndex: 0,
       endIndex: 100,
       distance: 1200,

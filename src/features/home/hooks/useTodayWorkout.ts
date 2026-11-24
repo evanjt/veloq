@@ -1,9 +1,10 @@
+import { addLocalDays, formatLocalDate } from '@/shared/time/localDay';
 import { useQuery } from '@tanstack/react-query';
 import type { FfiPlannedEvent } from 'veloqrs';
-import { formatLocalDate } from '@/shared/format/format';
 import { CACHE } from '@/shared/app/constants';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
+import { BODY_STORED_CHANNEL } from '@/shared/native/engineChannels';
 import { readPlannedWorkouts } from '@/features/home/lib/calendarEvents';
 import { queryKeys } from '@/shared/query/queryKeys';
 
@@ -19,8 +20,7 @@ export function useTodayWorkout() {
   // Calendar arithmetic, not 24 hours. A spring-forward day is 23 hours long,
   // so adding a fixed day skips a date in the hour before midnight.
   const dayFromNow = (offset: number) => {
-    const date = new Date();
-    date.setDate(date.getDate() + offset);
+    const date = addLocalDays(new Date(), offset);
     return formatLocalDate(date);
   };
 
@@ -30,7 +30,7 @@ export function useTodayWorkout() {
 
   const queryKey = queryKeys.calendar.events(today);
 
-  useEngineChannel('bodyStored', queryKey, 'calendar');
+  useEngineChannel(BODY_STORED_CHANNEL, queryKey, 'calendar');
 
   const query = useQuery<FfiPlannedEvent[]>({
     queryKey,

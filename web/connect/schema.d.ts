@@ -281,7 +281,7 @@ export type FfiActivityFitnessImpact = {
    */
   fatigue: number;
   /**
-   * Unit: tss_or_percent.
+   * Unit: tss.
    */
   form: number;
   /**
@@ -407,6 +407,15 @@ export type FfiActivityInterval = {
    * Unit: metre_per_second.
    */
   averageSpeed: number | null;
+  /**
+   * `average_speed` as pace text per kilometre (per 100 m for a swim), no
+   * unit. `None` for a sport read as a speed, and when there is no pace.
+   */
+  averageSpeedMetricText: string | null;
+  /**
+   * `average_speed` as pace text per mile (per 100 yd for a swim).
+   */
+  averageSpeedImperialText: string | null;
   /**
    * Seconds.
    * Unit: second.
@@ -825,6 +834,30 @@ export type FfiActivitySummary = {
    */
   maxSpeed: number | null;
   /**
+   * The speed the activity screen shows as its average: distance over
+   * moving time, else `average_speed`, which is often over elapsed time.
+   * Unit: metre_per_second.
+   */
+  shownAverageSpeed: number | null;
+  /**
+   * `shown_average_speed` as pace text per kilometre (per 100 m for a
+   * swim), no unit. `None` for a sport read as a speed.
+   */
+  shownAveragePaceMetricText: string | null;
+  /**
+   * `shown_average_speed` as pace text per mile (per 100 yd for a swim).
+   */
+  shownAveragePaceImperialText: string | null;
+  /**
+   * `max_speed` as pace text per kilometre (per 100 m for a swim), no unit.
+   * `None` for a sport read as a speed.
+   */
+  maxPaceMetricText: string | null;
+  /**
+   * `max_speed` as pace text per mile (per 100 yd for a swim).
+   */
+  maxPaceImperialText: string | null;
+  /**
    * Average cadence in `cadence_unit`: steps a minute on foot, where
    * intervals.icu stores strides
    * Unit: FfiCadenceUnit.
@@ -877,6 +910,12 @@ export type FfiAttemptHistogram = {
    * Unit: metre_per_second.
    */
   edgeSpeeds: number[] | null;
+  /**
+   * Each of `edge_speeds` as pace text, for a sport read as a pace. `None`
+   * where `edge_speeds` is, and for any other sport. An edge with no pace
+   * is `None` in its place.
+   */
+  edgePace: (FfiPaceText | null)[] | null;
   /**
    * Attempts in the bins.
    * Unit: count.
@@ -1025,6 +1064,15 @@ export type FfiBestEffort = {
    * as not cached.
    */
   activity: FfiActivityName | null;
+  /**
+   * The pace of the best per kilometre, or per 100 m for a swim, as minutes
+   * and seconds with no unit. Empty for power, and when there is no best.
+   */
+  paceMetricText: string | null;
+  /**
+   * The same pace per mile, or per 100 yd for a swim.
+   */
+  paceImperialText: string | null;
 };
 
 /**
@@ -1140,6 +1188,10 @@ export type FfiCalendarDirectionBest = {
    * Unit: metre_per_second.
    */
   bestPace: number;
+  /**
+   * `best_pace` as pace text for a sport read as a pace.
+   */
+  bestPaceText: FfiPaceText | null;
   /**
    * Activity ID of best traversal
    */
@@ -1601,6 +1653,10 @@ export type FfiDirectionStats = {
    * Unit: metre_per_second.
    */
   avgSpeed: number | null;
+  /**
+   * `avg_speed` as pace text for a sport read as a pace.
+   */
+  avgPaceText: FfiPaceText | null;
   /**
    * Timed route attempts outside the distance band, absent from the averages.
    * Unit: count.
@@ -2141,11 +2197,10 @@ export type FfiFitnessScreenData = {
    */
   ftpTrendCoverage: RangeCoverage;
   /**
-   * The last stored critical speeds, the threshold the running and
-   * swimming cards fall back on when no curve is to hand.
+   * The running and swimming threshold pace of each span the read was asked
+   * for, in that order, chosen and printed by the engine.
    */
-  runPaceTrend: FfiPaceTrend;
-  swimPaceTrend: FfiPaceTrend;
+  thresholdPaces: FfiSpanThresholdPaces[];
   /**
    * The rides, runs and swims among the latest activities, which the
    * primary sport defaults to until the athlete chooses one.
@@ -2253,18 +2308,9 @@ export type FfiFitnessScreenWindows = {
    */
   months: FfiTimestampRange;
   /**
-   * The year to date, and the same span of last year.
-   */
-  yearCurrent: FfiTimestampRange;
-  yearPrevious: FfiTimestampRange;
-  /**
-   * The month to date, and the same span of the month a year before.
-   */
-  monthCurrent: FfiTimestampRange;
-  monthPrevious: FfiTimestampRange;
-  /**
-   * The instant the weekly card's periods run to, in the wall-clock seconds
-   * an activity's date is recorded in.
+   * The instant the weekly card's periods and the season card's year and
+   * month to date run to, in the wall-clock seconds an activity's date is
+   * recorded in.
    * Unit: epoch_second.
    */
   nowWallSeconds: number;
@@ -2312,6 +2358,18 @@ export type FfiFocusRange = {
    * Unit: varies.
    */
   high: number;
+  /**
+   * `low` as pace text on a section read for a sport read as a pace.
+   */
+  lowPace: FfiPaceText | null;
+  /**
+   * The midpoint of `low` and `high` as pace text, as `low_pace`.
+   */
+  midPace: FfiPaceText | null;
+  /**
+   * `high` as pace text, as `low_pace`.
+   */
+  highPace: FfiPaceText | null;
   /**
    * Points drawn past the slow end.
    * Unit: count.
@@ -2699,6 +2757,14 @@ export type FfiInsightForm = {
    * Unit: tss_or_percent.
    */
   form: number | null;
+  /**
+   * The zone `form` falls in, absent where `form` is.
+   */
+  formZone: string | null;
+  /**
+   * `form` as printed in the athlete's unit, absent where `form` is.
+   */
+  formText: string | null;
   /**
    * Whether `form` is a percentage of fitness rather than absolute TSB.
    */
@@ -5081,7 +5147,8 @@ export type FfiMapScreenData = {
    */
   categoryCounts: FfiMapCategoryCount[];
   /**
-   * Activities inside the requested window and sport filter
+   * Activities inside the requested window that pass the sport, distance band
+   * and name filters
    */
   activities: MapActivityComplete[];
   /**
@@ -5485,6 +5552,12 @@ export type FfiPaceCurve = {
    * Unit: metre_per_second.
    */
   pace: number[];
+  /**
+   * `pace` as text in both unit systems, one entry per point: per kilometre
+   * and mile on foot, per 100 m and 100 yd in the water. None for a point
+   * with no pace and for every point of a sport read as a speed.
+   */
+  paceTexts: (FfiPaceText | null)[];
   activityIds: string[] | null;
   activities: Record<string, FfiCurveActivity>;
   /**
@@ -5492,6 +5565,10 @@ export type FfiPaceCurve = {
    * Unit: metre_per_second.
    */
   criticalSpeed: number | null;
+  /**
+   * `critical_speed` as pace text, as `pace_texts`.
+   */
+  criticalPace: FfiPaceText | null;
   /**
    * Unit: metre.
    */
@@ -5516,6 +5593,55 @@ export type FfiPaceCurve = {
    * the phone from the library's own streams, which the chart says.
    */
   source: string;
+};
+
+/**
+ * A difference between two paces, in seconds, in each unit system: per
+ * kilometre or mile for a pace sport, per 100 m or 100 yd for a swim.
+ */
+export type FfiPaceGap = {
+  /**
+   * Per kilometre, or per 100 m for a swim.
+   * Unit: second.
+   */
+  metric: number;
+  /**
+   * Per mile, or per 100 yd for a swim.
+   * Unit: second.
+   */
+  imperial: number;
+};
+
+/**
+ * A pace as whole minutes and whole seconds, the seconds under sixty.
+ */
+export type FfiPaceParts = {
+  /**
+   * Whole minutes, counted past sixty rather than carried into hours.
+   * Unit: count.
+   */
+  minutes: number;
+  /**
+   * Whole seconds, under sixty.
+   * Unit: second.
+   */
+  seconds: number;
+};
+
+/**
+ * A speed as pace text in both unit systems, no unit: per kilometre or mile on
+ * foot, per 100 m or 100 yd in the water. Present only for a sport read as a
+ * pace.
+ */
+export type FfiPaceText = {
+  /**
+   * Per kilometre, or per 100 m for a swim.
+   */
+  metricText: string;
+  /**
+   * Per mile, or per 100 yd for a swim.
+   */
+  imperialText: string;
 };
 
 /**
@@ -5563,6 +5689,42 @@ export type FfiPaceTrend = {
    */
   glyph: string | null;
   /**
+   * The latest pace as text per kilometre (per 100 m for swimming), no
+   * unit. `None` with no snapshot.
+   */
+  latestPaceMetricText: string | null;
+  /**
+   * The latest pace as text per mile (per 100 yd for swimming), no unit.
+   */
+  latestPaceImperialText: string | null;
+  /**
+   * `previous_pace` as text, metric, as `latest_pace_metric_text`.
+   */
+  previousPaceMetricText: string | null;
+  /**
+   * `previous_pace` as text, imperial, as `latest_pace_imperial_text`.
+   */
+  previousPaceImperialText: string | null;
+  /**
+   * The latest pace as whole minutes and seconds per kilometre (per 100 m
+   * for swimming), the figures `latest_pace_metric_text` prints, for a
+   * sentence the app words in its own language. `None` with no snapshot or
+   * a pace the text cannot print.
+   */
+  latestPaceMetricParts: FfiPaceParts | null;
+  /**
+   * The latest pace as parts per mile (per 100 yd for swimming).
+   */
+  latestPaceImperialParts: FfiPaceParts | null;
+  /**
+   * `previous_pace` as parts, metric, as `latest_pace_metric_parts`.
+   */
+  previousPaceMetricParts: FfiPaceParts | null;
+  /**
+   * `previous_pace` as parts, imperial, as `latest_pace_imperial_parts`.
+   */
+  previousPaceImperialParts: FfiPaceParts | null;
+  /**
    * Snapshots the trend was read from, for the same reason as
    * `FfiFtpTrend::sample_count`.
    * Unit: count.
@@ -5607,6 +5769,16 @@ export type FfiPeriodComparison = {
    * Unit: epoch_second.
    */
   comparedStart: number;
+  /**
+   * Which way the total moved, `up`, `down` or `flat` inside the metric's
+   * deadband in the trend table, with moving time judged in hours.
+   */
+  direction: string;
+  /**
+   * The judgement of that move off the trend table's polarity: `improved`,
+   * `declined`, `moved` for a metric with no polarity, or `flat`.
+   */
+  verdict: string;
 };
 
 /**
@@ -5754,6 +5926,11 @@ export type FfiPoolLength = {
    */
   speedMps: number | null;
   /**
+   * `speed_mps` as pace per 100 m and per 100 yd, as text with no unit.
+   * None for a rest and for a speed with no pace.
+   */
+  pace: FfiPaceText | null;
+  /**
    * Elapsed seconds plus strokes. None for a rest or a length with no
    * stroke count or no time.
    * Unit: swolf.
@@ -5788,6 +5965,10 @@ export type FfiPoolStrokeTotal = {
    * Unit: metre_per_second.
    */
   speedMps: number | null;
+  /**
+   * `speed_mps` as pace per 100 m and per 100 yd, as text with no unit.
+   */
+  pace: FfiPaceText | null;
   /**
    * The mean SWOLF of the lengths that have one.
    * Unit: swolf.
@@ -6173,6 +6354,12 @@ export type FfiRecordStep = {
    * Unit: metre_per_second.
    */
   improvementSpeed: number | null;
+  /**
+   * `improvement_speed` as a difference in pace, in both unit systems.
+   * `None` where it is, for a sport whose speed does not read as a pace,
+   * and where either speed has no pace.
+   */
+  improvementPace: FfiPaceGap | null;
 };
 
 /**
@@ -7118,6 +7305,10 @@ export type FfiSectionChartPoint = {
    */
   speed: number;
   /**
+   * `speed` as pace text for a sport read as a pace.
+   */
+  speedPace: FfiPaceText | null;
+  /**
    * Section time for this lap (seconds)
    * Unit: second.
    */
@@ -7174,6 +7365,12 @@ export type FfiSectionChartPoint = {
    * Unit: metre_per_second.
    */
   recordGapSpeed: number | null;
+  /**
+   * `record_gap_speed` as a difference in pace, in both unit systems. `None`
+   * where the gap is, for a sport whose speed does not read as a pace, and
+   * where either speed has no pace.
+   */
+  recordGapPace: FfiPaceGap | null;
   /**
    * The lap's time was projected to a gate over ground the recording did
    * not cover. Charted and ranked, and the record only when no lap in its
@@ -7317,6 +7514,15 @@ export type FfiSectionEncounter = {
    */
   lapPace: number;
   /**
+   * `lap_pace` as pace text per kilometre (per 100 m for a swim), no unit.
+   * `None` for a sport read as a speed.
+   */
+  lapPaceMetricText: string | null;
+  /**
+   * `lap_pace` as pace text per mile (per 100 yd for a swim).
+   */
+  lapPaceImperialText: string | null;
+  /**
    * Whether this activity holds the PR for this (section, direction)
    */
   isPr: boolean;
@@ -7341,6 +7547,16 @@ export type FfiSectionEncounter = {
    * Unit: second.
    */
   historyTimes: number[];
+  /**
+   * The speed of each entry of `history_times` over this section's length,
+   * as pace text per kilometre (per 100 m for a swim), no unit. Empty for a
+   * sport read as a speed.
+   */
+  historyPaceMetricTexts: string[];
+  /**
+   * The same speeds as pace text per mile (per 100 yd for a swim).
+   */
+  historyPaceImperialTexts: string[];
   /**
    * Activity IDs corresponding to history_times (for highlighting current activity)
    */
@@ -7738,6 +7954,10 @@ export type FfiSectionPerformanceRecord = {
    */
   bestPace: number;
   /**
+   * `best_pace` as pace text for a sport read as a pace.
+   */
+  bestPaceText: FfiPaceText | null;
+  /**
    * Best eligible forward lap time.
    * Unit: second.
    */
@@ -7762,6 +7982,10 @@ export type FfiSectionPerformanceRecord = {
    * Unit: metre_per_second.
    */
   avgPace: number;
+  /**
+   * `avg_pace` as pace text for a sport read as a pace.
+   */
+  avgPaceText: FfiPaceText | null;
   /**
    * Primary direction: "same" or "reverse"
    */
@@ -8005,6 +8229,16 @@ export type FfiSeriesPoint = {
    * behind it. A card marks and opens the activity a point stands on.
    */
   activityId: string | null;
+  /**
+   * For a pace series, `value` as pace text per kilometre (per 100 m for
+   * swimming), no unit. `None` for every other series.
+   */
+  metricText: string | null;
+  /**
+   * For a pace series, `value` as pace text per mile (per 100 yd for
+   * swimming). `None` for every other series.
+   */
+  imperialText: string | null;
 };
 
 /**
@@ -8020,6 +8254,25 @@ export type FfiSpanDecoupling = {
    * `None` when no ride inside the span qualifies.
    */
   source: FfiDecouplingSource | null;
+};
+
+/**
+ * The threshold pace the fitness cards print for one span of the range picker.
+ */
+export type FfiSpanThresholdPaces = {
+  /**
+   * The span's length in days, back from today.
+   * Unit: day.
+   */
+  days: number;
+  /**
+   * `None` when no setting, curve or stored speed names a running pace.
+   */
+  run: FfiThresholdPace | null;
+  /**
+   * `None` when no setting, curve or stored speed names a swimming pace.
+   */
+  swim: FfiThresholdPace | null;
 };
 
 /**
@@ -8167,6 +8420,23 @@ export type FfiStalePrOpportunity = {
    */
   gainPercent: number;
   /**
+   * `current_value` as pace text per kilometre (per 100 m for swimming),
+   * no unit. `None` for power.
+   */
+  currentMetricText: string | null;
+  /**
+   * `current_value` as pace text per mile (per 100 yd for swimming).
+   */
+  currentImperialText: string | null;
+  /**
+   * `previous_value` as pace text, metric, as `current_metric_text`.
+   */
+  previousMetricText: string | null;
+  /**
+   * `previous_value` as pace text, imperial, as `current_imperial_text`.
+   */
+  previousImperialText: string | null;
+  /**
    * "W" for power, "/km" for running, "/100m" for swimming
    */
   unit: string;
@@ -8204,6 +8474,15 @@ export type FfiStalePrOpportunity = {
    * Unit: metre_per_second.
    */
   prSpeed: number | null;
+  /**
+   * `pr_speed` as pace text per kilometre (per 100 m for swimming), no
+   * unit. Absent when `pr_speed` is.
+   */
+  prSpeedMetricText: string | null;
+  /**
+   * `pr_speed` as pace text per mile (per 100 yd for swimming).
+   */
+  prSpeedImperialText: string | null;
   /**
    * The record effort as a percent of the fitness held that day: power
    * over eFTP for cycling, speed over critical speed for running and
@@ -8477,6 +8756,12 @@ export type FfiStrengthSummary = {
    * Unit: count.
    */
   maxWeightedSets: number;
+  /**
+   * The most weighted sets each diagram shade covers, lightest first, to a
+   * tenth of a set, so the legend labels the shades the muscles are drawn in
+   * Unit: count.
+   */
+  shadeCeilings: number[];
 };
 
 /**
@@ -8692,6 +8977,24 @@ export type FfiThresholdFigure = {
    */
   value: number | null;
   source: FfiThresholdSource | null;
+};
+
+/**
+ * A threshold pace as a speed, with its text in both unit systems.
+ */
+export type FfiThresholdPace = {
+  /**
+   * Unit: metre_per_second.
+   */
+  speed: number;
+  /**
+   * Per kilometre for running, per 100 m for swimming, with no unit.
+   */
+  metricText: string;
+  /**
+   * Per mile for running, per 100 yd for swimming, with no unit.
+   */
+  imperialText: string;
 };
 
 /**
@@ -9024,6 +9327,22 @@ export type FfiWellnessDays = {
    */
   form: (number | null)[];
   /**
+   * Beside `form`, the zone each day's form falls in: `highRisk`,
+   * `optimal`, `greyZone`, `fresh` or `transition`. Absent where `form` is.
+   */
+  formZone: (string | null)[];
+  /**
+   * Beside `form`, each day's form as printed: the signed whole figure,
+   * with a percent sign under `form_as_percent`. Absent where `form` is.
+   */
+  formText: (string | null)[];
+  /**
+   * Beside `form`, each day's absolute TSB as printed whatever the
+   * setting: rounded fitness less rounded fatigue, signed. Absent on a day
+   * missing a load.
+   */
+  tsbText: (string | null)[];
+  /**
    * Whether `form` is a percentage of fitness rather than absolute TSB,
    * from the athlete's `icu_form_as_percent`.
    */
@@ -9052,9 +9371,20 @@ export type FfiWellnessSparklines = {
    */
   fatigue: number[];
   /**
-   * Unit: tss_or_percent.
+   * Unit: tss.
    */
   form: number[];
+  /**
+   * Beside `form`, one per day: the zone that day's form falls in on the
+   * athlete's denominator, each day against its own fitness. Absent on a
+   * day with no fitness under the percentage setting. Empty with `form`.
+   */
+  formZone: (string | null)[];
+  /**
+   * Beside `form`, one per day: that day's form as printed in the
+   * athlete's unit. Absent where `form_zone` is. Empty with `form`.
+   */
+  formText: (string | null)[];
   /**
    * Unit: millisecond.
    */
@@ -9106,10 +9436,23 @@ export type FfiWellnessSummary = {
   fitness: number | null;
   fitnessTrend: string | null;
   /**
-   * Unit: tss_or_percent.
+   * Unit: tss.
    */
   form: number | null;
   formTrend: string | null;
+  /**
+   * The zone `form` falls in on the athlete's denominator, absent with no
+   * form, or with no fitness under the percentage setting.
+   */
+  formZone: string | null;
+  /**
+   * `form` as printed in the athlete's unit, absent where `form_zone` is.
+   */
+  formText: string | null;
+  /**
+   * `form_previous` as printed, against the fitness of the day it was read.
+   */
+  formPreviousText: string | null;
   /**
    * Unit: millisecond.
    */
@@ -9140,7 +9483,7 @@ export type FfiWellnessSummary = {
   fitnessPreviousDate: number | null;
   fitnessBasis: FfiClaimBasis | null;
   /**
-   * Unit: tss_or_percent.
+   * Unit: tss.
    */
   formPrevious: number | null;
   /**

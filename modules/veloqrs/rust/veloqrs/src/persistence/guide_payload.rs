@@ -13,9 +13,9 @@
 use rusqlite::Connection;
 
 use crate::GpsPoint;
-use crate::persistence::line_simplify::{Metres, simplify_indices};
+use crate::persistence::line_simplify::{METRES_PER_DEGREE, Metres, simplify_indices};
+use crate::persistence::nearby_routes::NearbyKind;
 use crate::persistence::nearby_routes::pooled::{route_figures, section_figures};
-use crate::persistence::nearby_routes::{METRES_PER_DEGREE, NearbyKind};
 use crate::persistence::{routes::pooled as routes, sections::geometry};
 
 /// A vertex of the guide line with the elevation stored for it.

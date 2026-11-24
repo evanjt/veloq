@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getSetting, setSetting } from '@/shared/storage';
-import { calendarDaysBetween, formatLocalDate } from '@/shared/format/format';
+import { calendarDaysBetween } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 
 const STORAGE_KEY = 'veloq-support-store';
 
@@ -41,7 +42,7 @@ function intervalForCount(count: number): number {
 /** Distinct local days of use before a never-dismissed card first shows. */
 export const FIRST_SHOW_USE_DAYS = 5;
 /** Days since the first use before a never-dismissed card first shows. */
-export const FIRST_SHOW_MIN_DAYS = 14;
+const FIRST_SHOW_MIN_DAYS = 14;
 
 /** The install's days of use, counted with the launch asks' record. */
 export interface DaysOfUse {

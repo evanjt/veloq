@@ -6,7 +6,6 @@
 
 use chrono::{DateTime, Datelike};
 use rusqlite::{Result as SqlResult, params};
-use std::collections::HashMap;
 
 use super::super::PersistentEngine;
 
@@ -524,6 +523,8 @@ pub(crate) mod pooled {
         });
 
         let mut encounters = Vec::new();
+        let sport_name = crate::persistence::activities::pooled::activity_sport(conn, activity_id)
+            .unwrap_or_default();
 
         for trav in &traversals {
             // History for this (section, direction), in this activity's sport: a
@@ -609,6 +610,24 @@ pub(crate) mod pooled {
                     standing.iter().map(|(id, time, _)| (*id, *time)),
                 );
 
+            let (lap_pace_metric_text, lap_pace_imperial_text) =
+                crate::widget_snapshot::sport_pace_text(trav.lap_pace, &sport_name).unzip();
+            let (history_pace_metric_texts, history_pace_imperial_texts): (Vec<_>, Vec<_>) =
+                if crate::widget_snapshot::reads_as_pace(&sport_name) {
+                    let is_swim = crate::sport::is_swimming(&sport_name);
+                    history_times
+                        .iter()
+                        .map(|time| {
+                            let speed = trav.distance_meters / time;
+                            (
+                                crate::widget_snapshot::format_sport_pace(speed, is_swim, true),
+                                crate::widget_snapshot::format_sport_pace(speed, is_swim, false),
+                            )
+                        })
+                        .unzip()
+                } else {
+                    (Vec::new(), Vec::new())
+                };
             encounters.push(FfiSectionEncounter {
                 section_id: trav.section_id.clone(),
                 section_type: trav.section_type.clone(),
@@ -618,11 +637,15 @@ pub(crate) mod pooled {
                 start_index: trav.start_index,
                 lap_time: trav.lap_time,
                 lap_pace: trav.lap_pace,
+                lap_pace_metric_text,
+                lap_pace_imperial_text,
                 is_pr,
                 is_complete: trav.complete,
                 rank,
                 visit_count: history_times.len() as u32,
                 history_times,
+                history_pace_metric_texts,
+                history_pace_imperial_texts,
                 history_activity_ids: history_ids,
                 history_dates,
             });
@@ -634,13 +657,10 @@ pub(crate) mod pooled {
     use super::{day_offset, epoch_seconds, trend_days, utc_day};
     use rusqlite::{Connection, Result as SqlResult, params};
 
-    /// Route highlights for `activity_ids`, read from the tables the engine's
-    /// in-memory groups are loaded from.
-    ///
-    /// The same computation as [`super::PersistentEngine::get_activity_route_highlights`],
-    /// over committed rows. Only the groups holding a requested activity are
-    /// loaded in full, and only their members' efforts, so the cost is the
-    /// requested route rather than the library.
+    /// Route highlights for `activity_ids`, read from committed rows. Only the
+    /// groups holding a requested activity are loaded in full, and only their
+    /// members' efforts, so the cost is the requested route rather than the
+    /// library.
     pub fn route_highlights(
         conn: &Connection,
         activity_ids: &[String],
@@ -833,7 +853,7 @@ pub(crate) mod pooled {
     fn group_membership_of(conn: &Connection, ids: &[String]) -> Vec<(String, Vec<String>)> {
         let mut out = Vec::new();
         for chunk in ids.chunks(500) {
-            let marks = vec!["?"; chunk.len()].join(",");
+            let marks = crate::persistence::sql::question_marks(chunk.len());
             let Ok(mut stmt) = conn.prepare(&format!(
                 "SELECT id, activity_ids, activity_ids_blob FROM route_groups WHERE id IN ({marks})"
             )) else {
@@ -869,7 +889,7 @@ pub(crate) mod pooled {
             HashMap::new();
         let mut excluded_members: HashMap<String, HashSet<String>> = HashMap::new();
         for chunk in ids.chunks(500) {
-            let marks = vec!["?"; chunk.len()].join(",");
+            let marks = crate::persistence::sql::question_marks(chunk.len());
             let Ok(mut stmt) = conn.prepare(&format!(
                 "SELECT route_id, activity_id, direction, excluded FROM activity_matches
                  WHERE route_id IN ({marks})"
@@ -925,9 +945,7 @@ pub(crate) mod pooled {
         if group_ids.is_empty() {
             return out;
         }
-        let placeholders = std::iter::repeat_n("?", group_ids.len())
-            .collect::<Vec<_>>()
-            .join(",");
+        let placeholders = crate::persistence::sql::question_marks(group_ids.len());
         let sql = format!(
             "SELECT route_id, activity_id, direction FROM activity_matches WHERE excluded = 0 AND route_id IN ({placeholders})"
         );
@@ -975,9 +993,7 @@ pub(crate) mod pooled {
         // SQLite's default parameter limit is 999; stay well under it.
         const CHUNK: usize = 500;
         for chunk in activity_ids.chunks(CHUNK) {
-            let placeholders = std::iter::repeat_n("?", chunk.len())
-                .collect::<Vec<_>>()
-                .join(",");
+            let placeholders = crate::persistence::sql::question_marks(chunk.len());
             let sql = format!(
                 "SELECT activity_id, distance, moving_time, date, sport_type FROM activity_metrics
                  WHERE activity_id IN ({placeholders})"
@@ -1262,6 +1278,8 @@ pub(crate) mod pooled {
                 value,
                 date,
                 activity_id: None,
+                metric_text: None,
+                imperial_text: None,
             })
             .collect()
     }
@@ -1482,6 +1500,14 @@ pub(crate) mod pooled {
             delta_seconds: None,
             glyph: None,
             sample_count: 0,
+            latest_pace_metric_text: None,
+            latest_pace_imperial_text: None,
+            previous_pace_metric_text: None,
+            previous_pace_imperial_text: None,
+            latest_pace_metric_parts: None,
+            latest_pace_imperial_parts: None,
+            previous_pace_metric_parts: None,
+            previous_pace_imperial_parts: None,
         };
 
         // One window only. Two callers write this table with different ranges,
@@ -1550,7 +1576,22 @@ pub(crate) mod pooled {
             None => None,
         };
 
+        let is_swim = crate::sport::is_swimming(sport_type);
+        let text = |speed: f64, is_metric: bool| {
+            crate::widget_snapshot::format_sport_pace(speed, is_swim, is_metric)
+        };
+        let parts = |speed: f64, is_metric: bool| {
+            crate::widget_snapshot::sport_pace_parts(speed, is_swim, is_metric)
+        };
         crate::FfiPaceTrend {
+            latest_pace_metric_text: Some(text(latest_speed, true)),
+            latest_pace_imperial_text: Some(text(latest_speed, false)),
+            previous_pace_metric_text: previous.map(|(speed, _)| text(*speed, true)),
+            previous_pace_imperial_text: previous.map(|(speed, _)| text(*speed, false)),
+            latest_pace_metric_parts: parts(latest_speed, true),
+            latest_pace_imperial_parts: parts(latest_speed, false),
+            previous_pace_metric_parts: previous.and_then(|(speed, _)| parts(*speed, true)),
+            previous_pace_imperial_parts: previous.and_then(|(speed, _)| parts(*speed, false)),
             latest_pace: Some(latest_speed),
             latest_date: Some(latest_date as f64),
             previous_pace: previous.map(|(speed, _)| *speed),
@@ -1561,10 +1602,13 @@ pub(crate) mod pooled {
             sample_count: rows.len() as u32,
             // `rows` arrives newest first out of SQLite, so the series is
             // reversed into the oldest-first order every other one carries.
-            history: crate::persistence::screens::series_tail(
-                rows.iter().rev(),
-                crate::persistence::screens::TREND_HISTORY_POINTS,
-                |(speed, date)| (*speed, *date as f64),
+            history: crate::persistence::screens::with_pace_text(
+                crate::persistence::screens::series_tail(
+                    rows.iter().rev(),
+                    crate::persistence::screens::TREND_HISTORY_POINTS,
+                    |(speed, date)| (*speed, *date as f64),
+                ),
+                is_swim,
             ),
         }
     }
@@ -1989,60 +2033,6 @@ impl PersistentEngine {
     // Activity Section Highlights (batch PR detection)
     // ========================================================================
 
-    /// Batch-query route highlights for a list of activity IDs.
-    ///
-    /// Answered from the engine's in-memory groups, matches and metrics. The
-    /// same computation over rows a pooled read-only connection can see is
-    /// [`pooled::route_highlights`], and
-    /// `pooled_route_highlights_match_the_ones_a_lock_holder_gets` holds the
-    /// two together.
-    pub fn get_activity_route_highlights(
-        &self,
-        activity_ids: &[String],
-    ) -> Vec<crate::FfiActivityRouteHighlight> {
-        if activity_ids.is_empty() || self.groups.is_empty() {
-            log::debug!("route_highlights: groups=0 members=0 prs=0 trends=0");
-            return vec![];
-        }
-
-        let groups: Vec<highlights::GroupView<'_>> = self
-            .groups
-            .iter()
-            .map(|g| highlights::GroupView {
-                group_id: g.group_id.as_str(),
-                activity_ids: &g.activity_ids,
-            })
-            .collect();
-
-        let mut directions: HashMap<&str, HashMap<&str, tracematch::Direction>> = HashMap::new();
-        for group in &self.groups {
-            let gid = group.group_id.as_str();
-            if let Some(matches) = self.activity_matches.get(gid) {
-                directions.insert(
-                    gid,
-                    matches
-                        .iter()
-                        .map(|m| (m.activity_id.as_str(), m.direction))
-                        .collect(),
-                );
-            }
-        }
-
-        let route_names = highlights::route_names(&self.db);
-
-        // The lookup stays lazy rather than becoming a map of the whole
-        // library: only the members of the groups the requested activities
-        // are in are ever asked for.
-        highlights::route_highlights(
-            &groups,
-            &directions,
-            &highlights::excluded_members(&self.db),
-            &route_names,
-            |id| self.activity_metrics.get(id).map(highlights::Effort::from),
-            activity_ids,
-        )
-    }
-
     /// Get section encounters for an activity: one entry per
     /// `(section, direction)`, represented by the activity's fastest pass.
     /// Includes this activity's time, PR status, visit count, and sparkline
@@ -2132,6 +2122,7 @@ pub(crate) fn calendar_from(
     fn to_dir_best(perf: &DirPerf, count: u32) -> Option<crate::CalendarDirectionBest> {
         let (best_time, best_pace) = perf.best?;
         Some(crate::CalendarDirectionBest {
+            best_pace_text: None,
             count,
             best_time,
             best_pace,
@@ -3020,6 +3011,8 @@ mod tests {
         laps: Vec<crate::SectionLap>,
     ) -> crate::SectionPerformanceRecord {
         crate::SectionPerformanceRecord {
+            avg_pace_text: None,
+            best_pace_text: None,
             activity_id: activity.to_string(),
             activity_name: format!("{activity} ride"),
             activity_date: crate::WholeNumber(date),
@@ -4736,6 +4729,107 @@ mod tests {
         assert!((delta - 26.785_714_285).abs() < 1e-6, "{delta} s/km");
     }
 
+    /// Scenario: the milestone card prints the latest and previous pace.
+    ///
+    /// Expected behaviour: the trend carries each as text in both unit systems,
+    /// per kilometre or mile for a run and per 100 m or 100 yd for a swim, and
+    /// nothing with no snapshot.
+    #[test]
+    fn a_pace_trend_carries_its_latest_and_previous_pace_as_text() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        engine.save_pace_snapshot("Run", 3.0, None, None, 1_700_000_000, SYNC_PACE_WINDOW_DAYS);
+        engine.save_pace_snapshot("Run", 4.0, None, None, 1_700_200_000, SYNC_PACE_WINDOW_DAYS);
+        engine.save_pace_snapshot(
+            "Swim",
+            1.0,
+            None,
+            None,
+            1_700_000_000,
+            SYNC_PACE_WINDOW_DAYS,
+        );
+        engine.save_pace_snapshot(
+            "Swim",
+            1.25,
+            None,
+            None,
+            1_700_200_000,
+            SYNC_PACE_WINDOW_DAYS,
+        );
+
+        let run = engine.get_pace_trend("Run");
+        assert_eq!(run.latest_pace_metric_text.as_deref(), Some("4:10"));
+        assert_eq!(run.latest_pace_imperial_text.as_deref(), Some("6:42"));
+        assert_eq!(run.previous_pace_metric_text.as_deref(), Some("5:33"));
+        assert_eq!(run.previous_pace_imperial_text.as_deref(), Some("8:56"));
+        let history: Vec<_> = run
+            .history
+            .iter()
+            .map(|p| (p.metric_text.as_deref(), p.imperial_text.as_deref()))
+            .collect();
+        assert_eq!(
+            history,
+            [(Some("5:33"), Some("8:56")), (Some("4:10"), Some("6:42"))]
+        );
+
+        let swim = engine.get_pace_trend("Swim");
+        assert_eq!(swim.latest_pace_metric_text.as_deref(), Some("1:20"));
+        assert_eq!(swim.latest_pace_imperial_text.as_deref(), Some("1:13"));
+        assert_eq!(swim.previous_pace_metric_text.as_deref(), Some("1:40"));
+        assert_eq!(swim.previous_pace_imperial_text.as_deref(), Some("1:31"));
+        assert_eq!(swim.history[1].metric_text.as_deref(), Some("1:20"));
+        assert_eq!(swim.history[1].imperial_text.as_deref(), Some("1:13"));
+
+        let empty = engine.get_pace_trend("Ride");
+        assert_eq!(empty.latest_pace_metric_text, None);
+        assert_eq!(empty.previous_pace_imperial_text, None);
+    }
+
+    /// Scenario: a screen reader says the pace in words, which only the app's
+    /// language files hold, so the engine hands over the whole minutes and
+    /// seconds and the app writes the sentence.
+    ///
+    /// Expected behaviour: each pace carries its parts in both unit systems,
+    /// the same figures its text prints, and nothing with no snapshot.
+    #[test]
+    fn a_pace_trend_carries_its_pace_as_minutes_and_seconds() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        engine.save_pace_snapshot("Run", 3.0, None, None, 1_700_000_000, SYNC_PACE_WINDOW_DAYS);
+        engine.save_pace_snapshot("Run", 4.0, None, None, 1_700_200_000, SYNC_PACE_WINDOW_DAYS);
+        engine.save_pace_snapshot(
+            "Swim",
+            1.0,
+            None,
+            None,
+            1_700_000_000,
+            SYNC_PACE_WINDOW_DAYS,
+        );
+        engine.save_pace_snapshot(
+            "Swim",
+            1.25,
+            None,
+            None,
+            1_700_200_000,
+            SYNC_PACE_WINDOW_DAYS,
+        );
+        let parts = |minutes, seconds| Some(crate::FfiPaceParts { minutes, seconds });
+
+        let run = engine.get_pace_trend("Run");
+        assert_eq!(run.latest_pace_metric_parts, parts(4, 10));
+        assert_eq!(run.latest_pace_imperial_parts, parts(6, 42));
+        assert_eq!(run.previous_pace_metric_parts, parts(5, 33));
+        assert_eq!(run.previous_pace_imperial_parts, parts(8, 56));
+
+        let swim = engine.get_pace_trend("Swim");
+        assert_eq!(swim.latest_pace_metric_parts, parts(1, 20));
+        assert_eq!(swim.latest_pace_imperial_parts, parts(1, 13));
+        assert_eq!(swim.previous_pace_metric_parts, parts(1, 40));
+        assert_eq!(swim.previous_pace_imperial_parts, parts(1, 31));
+
+        let empty = engine.get_pace_trend("Ride");
+        assert_eq!(empty.latest_pace_metric_parts, None);
+        assert_eq!(empty.previous_pace_imperial_parts, None);
+    }
+
     /// Swimming is paced over a hundred metres, not a kilometre.
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
@@ -5030,15 +5124,14 @@ mod tests {
         assert!(engine.get_available_sport_types().is_empty());
     }
 
-    /// Scenario: the route highlight a detail screen and the widget snapshot
-    /// both read is computed from the engine's in-memory groups, so neither
-    /// can be answered from a pooled read-only connection.
+    /// Scenario: a detail screen and the activity list read the route
+    /// highlights through the pooled reader, from the committed rows.
     ///
-    /// Expected behaviour: the same library gives the same highlights through
-    /// the pool as through the lock. Two answers to one question is the
-    /// failure this guards, and it is the price of moving a read off the lock.
+    /// Expected behaviour: an id in no group is left out, and the quickest
+    /// real attempt holds the record.
     #[test]
-    fn pooled_route_highlights_match_the_ones_a_lock_holder_gets() {
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn pooled_route_highlights_leave_out_the_unknown_id_and_name_the_record() {
         let mut engine = PersistentEngine::in_memory().unwrap();
         engine
             .set_activity_metrics(vec![
@@ -5052,13 +5145,11 @@ mod tests {
         engine.load_activity_matches().unwrap();
 
         let ids = vec!["a1".to_string(), "a2".to_string(), "unknown".to_string()];
-        let through_the_lock = engine.get_activity_route_highlights(&ids);
-        let through_the_pool = super::pooled::route_highlights(&engine.db, &ids);
+        let highlights = super::pooled::route_highlights(&engine.db, &ids);
 
-        assert_eq!(through_the_lock.len(), 2, "the id in no group is left out");
-        assert_same_highlights(&through_the_pool, &through_the_lock);
+        assert_eq!(highlights.len(), 2, "the id in no group is left out");
         assert!(
-            through_the_lock.iter().any(|h| h.is_pr),
+            highlights.iter().any(|h| h.is_pr),
             "a2 is the quickest of the three, so one of them is a record"
         );
     }
@@ -5111,15 +5202,13 @@ mod tests {
             .map(|s| s.to_string())
             .collect();
 
-        let locked = engine.get_activity_route_highlights(&ids);
-        let pooled = super::pooled::route_highlights(&engine.db, &ids);
-        assert_same_highlights(&pooled, &locked);
+        let highlights = super::pooled::route_highlights(&engine.db, &ids);
 
         assert!(
-            locked.iter().all(|h| h.activity_id != "cut"),
+            highlights.iter().all(|h| h.activity_id != "cut"),
             "a partial match has no highlight"
         );
-        let rev1 = locked.iter().find(|h| h.activity_id == "rev1").unwrap();
+        let rev1 = highlights.iter().find(|h| h.activity_id == "rev1").unwrap();
         assert!(
             rev1.is_pr,
             "the quickest real reverse attempt is the record"
@@ -5154,11 +5243,15 @@ mod tests {
         let ids = vec!["a2".to_string(), "a3".to_string()];
 
         engine.exclude_activity_from_route("g1", "a2").unwrap();
-        let locked = engine.get_activity_route_highlights(&ids);
-        let pooled = super::pooled::route_highlights(&engine.db, &ids);
-        assert_same_highlights(&pooled, &locked);
-        assert!(locked.iter().all(|h| h.activity_id != "a2"));
-        assert!(locked.iter().find(|h| h.activity_id == "a3").unwrap().is_pr);
+        let highlights = super::pooled::route_highlights(&engine.db, &ids);
+        assert!(highlights.iter().all(|h| h.activity_id != "a2"));
+        assert!(
+            highlights
+                .iter()
+                .find(|h| h.activity_id == "a3")
+                .unwrap()
+                .is_pr
+        );
         assert_eq!(
             engine
                 .get_route_performances("g1", Some("a3"), None)
@@ -5169,9 +5262,7 @@ mod tests {
         );
 
         engine.include_activity_in_route("g1", "a2").unwrap();
-        let restored = engine.get_activity_route_highlights(&ids);
-        let restored_pooled = super::pooled::route_highlights(&engine.db, &ids);
-        assert_same_highlights(&restored_pooled, &restored);
+        let restored = super::pooled::route_highlights(&engine.db, &ids);
         assert!(
             restored
                 .iter()
@@ -5206,25 +5297,23 @@ mod tests {
         engine.load_groups().unwrap();
         engine.load_activity_matches().unwrap();
         let ids = vec!["run1".to_string(), "run2".to_string()];
-        let locked = engine.get_activity_route_highlights(&ids);
-        let pooled = super::pooled::route_highlights(&engine.db, &ids);
-        assert_same_highlights(&pooled, &locked);
+        let highlights = super::pooled::route_highlights(&engine.db, &ids);
         assert!(
-            !locked
+            !highlights
                 .iter()
                 .find(|h| h.activity_id == "run1")
                 .unwrap()
                 .is_pr
         );
         assert!(
-            locked
+            highlights
                 .iter()
                 .find(|h| h.activity_id == "run2")
                 .unwrap()
                 .is_pr
         );
         assert_eq!(
-            locked
+            highlights
                 .iter()
                 .find(|h| h.activity_id == "run2")
                 .unwrap()
@@ -5232,7 +5321,7 @@ mod tests {
             Some(30)
         );
         assert_eq!(
-            locked
+            highlights
                 .iter()
                 .find(|h| h.activity_id == "run1")
                 .unwrap()
@@ -5246,7 +5335,7 @@ mod tests {
     /// their sport and direction.
     ///
     /// Expected behaviour: none of the three reads as a record or carries a
-    /// gap against another sport's time, on either path.
+    /// gap against another sport's time.
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn test_route_highlights_a_lone_first_outing_is_no_record_and_no_delta() {
@@ -5275,19 +5364,16 @@ mod tests {
             "run".to_string(),
             "ride_rev".to_string(),
         ];
-        let locked = engine.get_activity_route_highlights(&ids);
-        let pooled = super::pooled::route_highlights(&engine.db, &ids);
-        assert_same_highlights(&pooled, &locked);
+        let highlights = super::pooled::route_highlights(&engine.db, &ids);
         for id in &ids {
-            let h = locked.iter().find(|h| &h.activity_id == id).unwrap();
+            let h = highlights.iter().find(|h| &h.activity_id == id).unwrap();
             assert!(!h.is_pr, "{id} is alone in its sport and direction");
             assert_eq!(h.time_delta_seconds, Some(0), "{id}");
             assert_eq!(h.pr_improvement_seconds, None, "{id}");
         }
     }
 
-    /// An activity in no group has no route to be measured against, on either
-    /// path.
+    /// An activity in no group has no route to be measured against.
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn pooled_route_highlights_are_empty_without_a_group() {
@@ -5297,7 +5383,6 @@ mod tests {
             .unwrap();
 
         let ids = vec!["a1".to_string()];
-        assert!(engine.get_activity_route_highlights(&ids).is_empty());
         assert!(super::pooled::route_highlights(&engine.db, &ids).is_empty());
     }
 
@@ -5322,12 +5407,8 @@ mod tests {
         engine.load_activity_matches().unwrap();
 
         let ids = vec!["a1".to_string()];
-        let through_the_pool = super::pooled::route_highlights(&engine.db, &ids);
-        assert_eq!(through_the_pool[0].route_name, "The river loop");
-        assert_same_highlights(
-            &through_the_pool,
-            &engine.get_activity_route_highlights(&ids),
-        );
+        let highlights = super::pooled::route_highlights(&engine.db, &ids);
+        assert_eq!(highlights[0].route_name, "The river loop");
     }
 
     /// A ride of `moving_time` seconds over a fixed distance, so the speed
@@ -5372,31 +5453,6 @@ mod tests {
                     rusqlite::params![group_id, m],
                 )
                 .unwrap();
-        }
-    }
-
-    /// Order is not part of either answer, so compare by activity.
-    fn assert_same_highlights(
-        pooled: &[crate::FfiActivityRouteHighlight],
-        through_the_lock: &[crate::FfiActivityRouteHighlight],
-    ) {
-        assert_eq!(pooled.len(), through_the_lock.len());
-        for expected in through_the_lock {
-            let actual = pooled
-                .iter()
-                .find(|h| h.activity_id == expected.activity_id)
-                .unwrap_or_else(|| {
-                    panic!("{} is missing from the pooled read", expected.activity_id)
-                });
-            assert_eq!(actual.route_id, expected.route_id);
-            assert_eq!(actual.route_name, expected.route_name);
-            assert_eq!(actual.is_pr, expected.is_pr);
-            assert_eq!(actual.trend, expected.trend);
-            assert_eq!(actual.time_delta_seconds, expected.time_delta_seconds);
-            assert_eq!(
-                actual.pr_improvement_seconds,
-                expected.pr_improvement_seconds
-            );
         }
     }
 

@@ -23,7 +23,7 @@ export interface DetailPeekInput {
 }
 
 /** The separator a Peek line draws between its parts. */
-export const PEEK_SEPARATOR = ' · ';
+const PEEK_SEPARATOR = ' · ';
 
 /**
  * The line under a card's name: what the attempts are narrowed to, when the sport or the range

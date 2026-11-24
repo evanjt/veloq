@@ -11,7 +11,7 @@ import * as FileSystem from 'expo-file-system/legacy';
  * full. A saved ride needs a few megabytes across its file and the library,
  * and the platform starts refusing writes before free space reaches zero.
  */
-export const LOW_FREE_SPACE_BYTES = 100 * 1024 * 1024;
+const LOW_FREE_SPACE_BYTES = 100 * 1024 * 1024;
 
 /** True when free space is below the threshold; false when it cannot be read. */
 export async function isDeviceLowOnSpace(): Promise<boolean> {

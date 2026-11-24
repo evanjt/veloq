@@ -49,7 +49,7 @@ const VERDICTS = {
   { word: string; verdict: TrendVerdict; direction: TrendDirection }
 >;
 
-export interface SectionEfficiencyCardProps {
+interface SectionEfficiencyCardProps {
   /** The performance read's trend for the sport on screen, absent while it is read. */
   trend: EfficiencyTrend | null | undefined;
   isDark: boolean;

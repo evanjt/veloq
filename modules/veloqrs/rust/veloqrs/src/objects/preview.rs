@@ -10,6 +10,7 @@ use crate::persistence::route_grouping_preview::{
 use crate::persistence::sections::preview::{
     PreviewCentre, PreviewOverlay, PreviewPoll, SECTION_PREVIEW_HANDLE,
 };
+use crate::poison::Recover;
 use log::info;
 use std::sync::Arc;
 
@@ -83,9 +84,7 @@ impl SectionPreview {
     /// read of progress can swallow how the run ended before the reader that
     /// settles it gets there.
     pub fn progress(&self) -> FfiRunProgress {
-        let mut slot = SECTION_PREVIEW_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut slot = SECTION_PREVIEW_HANDLE.lock_recover();
         let Some(handle) = slot.as_mut() else {
             return FfiRunProgress::at(FfiRunState::Idle);
         };
@@ -119,9 +118,7 @@ impl SectionPreview {
 
     /// The one payload, once. None while running or after taken.
     pub fn take(&self) -> Option<crate::FfiPreviewResult> {
-        let mut slot = SECTION_PREVIEW_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut slot = SECTION_PREVIEW_HANDLE.lock_recover();
         let payload = slot.as_mut()?.take_payload()?;
         *slot = None;
         Some(payload)
@@ -132,9 +129,7 @@ impl SectionPreview {
     /// Cooperative: aborts within one load chunk; once inside the detect the
     /// run completes and is discarded.
     pub fn cancel(&self) -> bool {
-        let slot = SECTION_PREVIEW_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let slot = SECTION_PREVIEW_HANDLE.lock_recover();
         match slot.as_ref() {
             Some(handle) => {
                 handle.request_cancel();
@@ -173,9 +168,7 @@ impl SectionPreview {
     ) -> Result<FfiStartResult, VeloqError> {
         // The slot mutex is held across reap, check, spawn and install, so two
         // concurrent starts cannot both pass the emptiness check.
-        let mut slot = SECTION_PREVIEW_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut slot = SECTION_PREVIEW_HANDLE.lock_recover();
 
         // Reap a terminal run first: a cancelled, dead or complete-but-untaken
         // preview must not occupy the slot forever once its poller has gone
@@ -211,9 +204,7 @@ impl SectionPreview {
         // is current as of this start; a detect that begins mid-spawn merely
         // overlaps a read-only run, it cannot corrupt anything.
         {
-            let detect_guard = SECTION_DETECTION_HANDLE
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
+            let detect_guard = SECTION_DETECTION_HANDLE.lock_recover();
             if detect_guard.is_some() {
                 info!("veloqrs: [SectionPreview] Start refused: a real detect is running");
                 return Ok(FfiStartOutcome::Busy.into());
@@ -329,9 +320,7 @@ pub struct FfiRouteGroupPreview {
 /// Tells the run in the slot, if any, to discard its result. The grouping
 /// cannot be interrupted, so the caller then waits for the slot to free.
 fn supersede_in_flight() -> bool {
-    let slot = ROUTE_GROUPING_PREVIEW_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let slot = ROUTE_GROUPING_PREVIEW_HANDLE.lock_recover();
     match slot.as_ref() {
         Some(latch) => {
             latch.store(true, std::sync::atomic::Ordering::SeqCst);
@@ -344,11 +333,7 @@ fn supersede_in_flight() -> bool {
 /// Blocks until the slot is empty. The slot is freed by the run's own thread
 /// when its grouping ends, so this is bounded by one run.
 fn wait_for_free_slot() {
-    while ROUTE_GROUPING_PREVIEW_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .is_some()
-    {
+    while ROUTE_GROUPING_PREVIEW_HANDLE.lock_recover().is_some() {
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
 }
@@ -394,15 +379,11 @@ impl RouteGroupingPreview {
                 crate::runtime::ASYNC_RUNTIME
                     .spawn_blocking(wait_for_free_slot)
                     .await
-                    .map_err(|e| VeloqError::Database {
-                        msg: format!("Preview wait died: {e}"),
-                    })?;
+                    .map_err(|e| VeloqError::database(format!("Preview wait died: {e}")))?;
             }
             // The slot mutex is held across check, spawn and install, so two
             // concurrent calls cannot both pass the emptiness check.
-            let mut slot = ROUTE_GROUPING_PREVIEW_HANDLE
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
+            let mut slot = ROUTE_GROUPING_PREVIEW_HANDLE.lock_recover();
             if slot.is_some() {
                 // Another call took the slot between the wait and here.
                 continue;
@@ -434,14 +415,12 @@ impl RouteGroupingPreview {
                 let outcome = handle.recv();
                 // The slot is the run's, not the waiter's: it is freed when the
                 // grouping ends, however the caller behaved.
-                *ROUTE_GROUPING_PREVIEW_HANDLE
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner()) = None;
+                *ROUTE_GROUPING_PREVIEW_HANDLE.lock_recover() = None;
                 outcome
             })
             .await
-            .map_err(|e| VeloqError::Database {
-                msg: format!("Preview thread died without a result: {e}"),
+            .map_err(|e| {
+                VeloqError::database(format!("Preview thread died without a result: {e}"))
             })?;
 
         Ok(match outcome {
@@ -459,9 +438,9 @@ impl RouteGroupingPreview {
             Some(GroupingOutcome::Cancelled) => FfiGroupingOutcome::Cancelled,
             None => {
                 log::error!("veloqrs: [RouteGroupingPreview] Preview thread died without a result");
-                return Err(VeloqError::Database {
-                    msg: "Preview thread died without a result".to_string(),
-                });
+                return Err(VeloqError::database(
+                    "Preview thread died without a result".to_string(),
+                ));
             }
         })
     }
@@ -470,9 +449,7 @@ impl RouteGroupingPreview {
     /// interrupted, so a cancel that arrives inside it discards the result
     /// rather than shortening the run.
     pub fn cancel(&self) -> Result<(), VeloqError> {
-        let slot = ROUTE_GROUPING_PREVIEW_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let slot = ROUTE_GROUPING_PREVIEW_HANDLE.lock_recover();
         if let Some(cancel) = slot.as_ref() {
             cancel.store(true, std::sync::atomic::Ordering::SeqCst);
             info!("veloqrs: [RouteGroupingPreview] Cancel requested");
@@ -484,12 +461,11 @@ impl RouteGroupingPreview {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::poison::Recover;
     use crate::test_globals::{init_global_engine, seeded_global_engine, serial_global_state};
 
     fn clear_slot() {
-        *SECTION_PREVIEW_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        *SECTION_PREVIEW_HANDLE.lock_recover() = None;
     }
 
     /// Scenario: the preview screen asks for a run. Four unrelated reasons
@@ -500,6 +476,7 @@ mod tests {
         use super::*;
         use crate::persistence::attempts::{JobKey, Release, attempt_backoff_ms};
         use crate::persistence::with_persistent_engine;
+        use crate::poison::Recover;
         use crate::test_globals::clear_detection_handle;
 
         /// The key `start` would take for this point, read the same way it
@@ -568,18 +545,13 @@ mod tests {
             let preview = SectionPreview::new();
             let first = preview.centres(1).unwrap().remove(0);
 
-            *crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE
-                .lock()
-                .unwrap_or_else(|e| e.into_inner()) =
+            *crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE.lock_recover() =
                 Some(crate::persistence::SectionDetectionHandle::finished_after_worker_apply());
 
             let outcome = preview
                 .start(first.lat, first.lng, crate::FfiSectionConfig::default())
                 .unwrap();
-            let slot_empty = SECTION_PREVIEW_HANDLE
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .is_none();
+            let slot_empty = SECTION_PREVIEW_HANDLE.lock_recover().is_none();
             clear_detection_handle();
 
             assert_eq!(outcome, FfiStartOutcome::Busy);
@@ -743,9 +715,7 @@ mod tests {
     }
 
     fn clear_grouping_slot() {
-        *ROUTE_GROUPING_PREVIEW_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        *ROUTE_GROUPING_PREVIEW_HANDLE.lock_recover() = None;
     }
 
     /// Every byte of the route-group tables and the state the grouping owns
@@ -901,18 +871,14 @@ mod tests {
         let preview = RouteGroupingPreview::new();
 
         let latch = Arc::new(AtomicBool::new(false));
-        *ROUTE_GROUPING_PREVIEW_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(latch.clone());
+        *ROUTE_GROUPING_PREVIEW_HANDLE.lock_recover() = Some(latch.clone());
         let finishing = std::thread::spawn(move || {
             let give_up = std::time::Instant::now() + std::time::Duration::from_secs(3);
             while !latch.load(Ordering::SeqCst) && std::time::Instant::now() < give_up {
                 std::thread::sleep(std::time::Duration::from_millis(2));
             }
             std::thread::sleep(std::time::Duration::from_millis(60));
-            *ROUTE_GROUPING_PREVIEW_HANDLE
-                .lock()
-                .unwrap_or_else(|e| e.into_inner()) = None;
+            *ROUTE_GROUPING_PREVIEW_HANDLE.lock_recover() = None;
         });
 
         let outcome = crate::runtime::block_on(preview.run(65.0, 500.0)).expect("the run");

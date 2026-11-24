@@ -64,7 +64,7 @@ export function DataCacheSection() {
   // Rust store, so the tile figures are the store's. The page buckets are what
   // the web transport writes, and nothing here measures them.
   const [terrainCacheSize, setTerrainCacheSize] = useState(0);
-  const [heatmapCacheSize, setHeatmapCacheSize] = useState(0);
+  const [heatmapCacheSize, setHeatmapCacheSize] = useState<number | null>(0);
   const [basemapTiles, setBasemapTiles] = useState<BasemapTileSizes | null>(null);
   const [athleteFilesSize, setAthleteFilesSize] = useState(0);
   const [freeStorage, setFreeStorage] = useState<number | null>(null);

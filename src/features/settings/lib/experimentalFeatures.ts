@@ -9,7 +9,7 @@ export type ExperimentalFeatureKey =
   | 'remoteLink'
   | 'strengthRecorder';
 
-export interface ExperimentalFeature {
+interface ExperimentalFeature {
   key: ExperimentalFeatureKey;
   titleKey: ParseKeys;
   blurbKey: ParseKeys;

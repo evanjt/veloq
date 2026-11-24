@@ -11,8 +11,8 @@ import { usePowerCurve } from '../hooks/usePowerCurve';
 import { formatDurationHuman, formatEnergy, formatPower } from '@/shared/format/format';
 import { getCurrentLanguage } from '@/i18n';
 import { formatWeightRounded } from '@/shared/format/weight';
-import { RangeCoverage } from 'veloqrs';
-import { BodyNotDownloaded, EmptyState, ErrorState, ToggleButton } from '@/shared/ui';
+import { CurveEmptyState } from './CurveEmptyState';
+import { ErrorState, ToggleButton } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
 import { formatDecimal } from '@/shared/format';
 
@@ -212,21 +212,15 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
 
   if (chartData.length === 0) {
     return (
-      <View style={[styles.container, { minHeight: plotHeight }]}>
-        <View style={styles.emptyState}>
-          {coverage === RangeCoverage.NotFetched ? (
-            <BodyNotDownloaded
-              testID="power-curve-not-downloaded"
-              style={styles.notDownloaded}
-              textStyle={styles.notDownloadedText}
-              message={t('stats.rangeNotDownloaded')}
-              status={bodyStatus}
-              onRetry={retryBody}
-            />
-          ) : (
-            <EmptyState variant="inline" title={t('stats.noPowerData')} />
-          )}
-        </View>
+      <View style={styles.container}>
+        <CurveEmptyState
+          coverage={coverage}
+          bodyStatus={bodyStatus}
+          onRetry={retryBody}
+          plotHeight={plotHeight}
+          testIDPrefix="power-curve"
+          emptyTitle={t('stats.noPowerData')}
+        />
       </View>
     );
   }
@@ -355,18 +349,6 @@ const makeStyles = (palette: Palette) =>
     },
     valueNumber: {
       ...typography.pillValue,
-    },
-    emptyState: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    notDownloaded: {
-      alignItems: 'center',
-    },
-    notDownloadedText: {
-      ...typography.bodyCompact,
-      color: palette.textSecondary,
     },
     models: {
       flexDirection: 'row',

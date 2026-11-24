@@ -34,6 +34,7 @@ import {
   STUN_SERVER,
 } from '../../../web/connect/link';
 import { VELOQ_TILE_SCHEME, tileExtension } from '@/features/maps/lib/tileTransport';
+import { sectionPalette } from '@/theme/colors';
 import { underPointKey } from '@/features/maps/lib/underPoint';
 import { FfiUnderPointKind } from '../__shared__/veloqrsStub';
 import { PAGE_REVISION_META } from '@/features/maps/lib/htmlBuilders/shared';
@@ -64,7 +65,6 @@ import { ENGINE_ERROR_TAGS } from '@/shared/native/engineError';
 import { PHASE_DISPLAY_KEYS } from '@/features/routes/lib/detectionProgress';
 import { SUPPORTED_LOCALES } from '@/i18n/types';
 import { MUSCLE_NAME_KEYS } from '@/features/strength/lib/muscleNames';
-import { FORM_ZONE_BOUNDARIES, formatForm, getFormZone } from '@/features/fitness/lib/fitness';
 import { AVAILABLE_METRICS, HERO_METRICS } from '@/features/settings/stores/summaryCardPreferences';
 import {
   ELEVATION_GAIN_HYSTERESIS_M,
@@ -2130,7 +2130,7 @@ const SETS: SetContract[] = [
       ['FfiPlanLineKind', stub.FfiPlanLineKind],
       ['FfiTargetMetric', stub.FfiTargetMetric],
       ['FfiAbsoluteUnits', stub.FfiAbsoluteUnits],
-      ['FfiRetiredPairLink', stub.RetiredPairLink],
+      ['FfiRetiredPairLink', stub.FfiRetiredPairLink],
       ['DisconnectReason', stub.DisconnectReason],
     ] as const
   ).map(([name, value]): SetContract => ({
@@ -2142,19 +2142,19 @@ const SETS: SetContract[] = [
   })),
   ...(
     [
-      ['FfiCallKind', stub.CallKind],
-      ['FfiUploadOutcome', stub.UploadOutcome],
+      ['FfiCallKind', stub.FfiCallKind],
+      ['FfiUploadOutcome', stub.FfiUploadOutcome],
       ['SyncState', stub.SyncState],
       ['RangeCoverage', stub.RangeCoverage],
-      ['FfiSyncErrorReason', stub.SyncErrorReason],
-      ['FfiSyncStep', stub.SyncStep],
-      ['FfiTrackStep', stub.TrackStep],
+      ['FfiSyncErrorReason', stub.FfiSyncErrorReason],
+      ['FfiSyncStep', stub.FfiSyncStep],
+      ['FfiTrackStep', stub.FfiTrackStep],
       ['BulkExportFormat', stub.BulkExportFormat],
       ['RecordScope', stub.RecordScope],
-      ['FfiStartOutcome', stub.StartOutcome],
-      ['FfiInitOutcome', stub.InitOutcome],
-      ['FfiPoolSwimState', stub.PoolSwimState],
-      ['FfiPoolUnit', stub.PoolUnit],
+      ['FfiStartOutcome', stub.FfiStartOutcome],
+      ['FfiInitOutcome', stub.FfiInitOutcome],
+      ['FfiPoolSwimState', stub.FfiPoolSwimState],
+      ['FfiPoolUnit', stub.FfiPoolUnit],
     ] as const
   ).map(([name, value]): SetContract => ({
     agree: `the binding stub carries ${name} as the generated binding declares it`,
@@ -2292,6 +2292,13 @@ describe('the engine heatmap palettes are the map palette heat steps', () => {
     expect(rows[0][3]).toBe(0);
     expect(rows.slice(1, 6).map(hex)).toEqual(mapPalette(base).heat.map((c) => c.toUpperCase()));
     expect(rows.slice(1, 6).every((row) => row[3] === 255)).toBe(true);
+  });
+});
+
+describe('the engine writes section colour slots over the section palette', () => {
+  it('SECTION_PALETTE_LEN is the length of sectionPalette', () => {
+    const len = read(`${RUST}/basemap/geo.rs`).match(/const SECTION_PALETTE_LEN: u32 = (\d+);/);
+    expect(Number(len?.[1])).toBe(sectionPalette.length);
   });
 });
 
@@ -2446,45 +2453,6 @@ describe('the renderer every map page asks for is the one both platforms ship', 
       'BasemapAssetPath.cacheControlFor(path)'
     );
     expect(read(`${TILE_IOS}/VeloqTileSchemeHandler.m`)).toContain(`@"${immutable}"`);
-  });
-});
-
-/** One day's form as the engine zones and prints it, from the vectors its widget suite writes. */
-interface FormVector {
-  tsb: number;
-  fitness: number | null;
-  asPercent: boolean;
-  zone: string | null;
-  text: string | null;
-}
-
-describe('form is zoned and printed as the widget zones and prints it', () => {
-  const vectors: { bounds: number[]; cases: FormVector[] } = JSON.parse(
-    read('modules/veloqrs/rust/veloqrs/tests/fixtures/form_zone_vectors.json')
-  );
-  const name = (v: FormVector) =>
-    `${v.tsb} on fitness ${v.fitness} ${v.asPercent ? 'as a percentage' : 'absolute'}`;
-
-  it('has vectors on every band edge', () => {
-    expect(vectors.bounds).toHaveLength(4);
-    expect(vectors.cases.length).toBeGreaterThan(vectors.bounds.length * 3);
-  });
-
-  it('the chart bands meet at the engine edges', () => {
-    const [highRisk, optimal, greyZone, fresh] = vectors.bounds;
-    expect(FORM_ZONE_BOUNDARIES.highRisk.max).toBe(highRisk);
-    expect(FORM_ZONE_BOUNDARIES.optimal).toMatchObject({ min: highRisk, max: optimal });
-    expect(FORM_ZONE_BOUNDARIES.greyZone).toMatchObject({ min: optimal, max: greyZone });
-    expect(FORM_ZONE_BOUNDARIES.fresh).toMatchObject({ min: greyZone, max: fresh });
-    expect(FORM_ZONE_BOUNDARIES.transition.min).toBe(fresh);
-  });
-
-  it.each(vectors.cases.map((v) => [name(v), v] as const))('zones %s', (_name, v) => {
-    expect(getFormZone(v.tsb, v.fitness, v.asPercent)).toBe(v.zone);
-  });
-
-  it.each(vectors.cases.map((v) => [name(v), v] as const))('prints %s', (_name, v) => {
-    expect(formatForm(v.tsb, v.fitness, v.asPercent)).toBe(v.text);
   });
 });
 

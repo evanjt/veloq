@@ -21,10 +21,10 @@ export type SetupAnswer = 'on' | 'never';
 export const SETUP_SLIDES: readonly SetupSlide[] = ['notifications', 'garmin', 'backup'];
 
 /** The setup slides a tour taken in the quiet period leaves out. */
-export const QUIET_PERIOD_HELD_SLIDES: readonly SetupSlide[] = ['notifications'];
+const QUIET_PERIOD_HELD_SLIDES: readonly SetupSlide[] = ['notifications'];
 
 /** The Not nows that end the offer. */
-export const TOUR_OFFER_DECLINES = 2;
+const TOUR_OFFER_DECLINES = 2;
 
 export interface TourOfferRecord {
   /** Not now pressed on the offer, counted across sessions. */
@@ -57,8 +57,7 @@ export interface TourOfferFacts {
 }
 
 /** The whole tour less the setup slides it holds back, or the slides a tour left unanswered. */
-export type TourOffer =
-  { kind: 'tour'; held: SetupSlide[] } | { kind: 'leftover'; slides: SetupSlide[] };
+type TourOffer = { kind: 'tour'; held: SetupSlide[] } | { kind: 'leftover'; slides: SetupSlide[] };
 
 export function offerEnded(record: TourOfferRecord): boolean {
   return record.declines >= TOUR_OFFER_DECLINES;

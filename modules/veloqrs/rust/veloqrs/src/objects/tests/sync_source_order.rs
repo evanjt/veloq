@@ -14,6 +14,7 @@ use crate::net::intervals::wire::{
     AthleteRecord, CensusRecord, WellnessRecord, activity_counts_by_year,
 };
 use crate::net::types::{ActivityCensusEntry, ActivityHistorySummary, ParsedStreams, StreamDto};
+use crate::poison::Recover;
 use serde_json::json;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -76,15 +77,12 @@ impl<'a> FakeSource<'a> {
         args: &[&str],
         dispatch: Option<Dispatch>,
     ) -> Result<(), NetError> {
-        self.calls
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .push(Call {
-                method,
-                args: args.iter().map(|a| a.to_string()).collect(),
-                dispatch,
-                step: self.svc.snapshot().step,
-            });
+        self.calls.lock_recover().push(Call {
+            method,
+            args: args.iter().map(|a| a.to_string()).collect(),
+            dispatch,
+            step: self.svc.snapshot().step,
+        });
         match self.refuse {
             Some(refused) if refused == method => Err(NetError::Unauthorized),
             _ => Ok(()),
@@ -92,7 +90,7 @@ impl<'a> FakeSource<'a> {
     }
 
     fn calls(&self) -> Vec<Call> {
-        self.calls.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        self.calls.lock_recover().clone()
     }
 
     fn methods(&self) -> Vec<&'static str> {
@@ -110,15 +108,12 @@ impl Source for FakeSource<'_> {
     }
 
     async fn confirm_rejected(&self) -> bool {
-        self.calls
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .push(Call {
-                method: "confirm_rejected",
-                args: Vec::new(),
-                dispatch: None,
-                step: self.svc.snapshot().step,
-            });
+        self.calls.lock_recover().push(Call {
+            method: "confirm_rejected",
+            args: Vec::new(),
+            dispatch: None,
+            step: self.svc.snapshot().step,
+        });
         self.rejected
     }
 

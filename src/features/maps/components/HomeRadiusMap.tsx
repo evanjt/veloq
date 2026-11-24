@@ -44,7 +44,7 @@ export interface HomeRadiusMapProps {
   testID?: string;
 }
 
-export function homeRadiusCamera(home: LngLat, radiusM: number): MapCameraSpec {
+function homeRadiusCamera(home: LngLat, radiusM: number): MapCameraSpec {
   return {
     bounds: circleBounds(home, Math.max(radiusM, MIN_FIT_M)),
     padding: FIT_PADDING,

@@ -7,7 +7,7 @@
  * beside the reading wherever the two can differ.
  */
 
-export interface WellnessPoint {
+interface WellnessPoint {
   x: number;
   date: string;
   /** The smoothed value the line is drawn through. */
@@ -16,7 +16,7 @@ export interface WellnessPoint {
   rawValue: number;
 }
 
-export interface WellnessRowReading {
+interface WellnessRowReading {
   x: number;
   date: string;
   /** The day's own reading, the printed figure. */
@@ -38,7 +38,7 @@ export function wellnessRowReading(
 }
 
 /** Where the scrub dot sits: on the drawn line at the scrubbed day. */
-export interface WellnessRowMarker {
+interface WellnessRowMarker {
   x: number;
   /** The smoothed value, the line's height at that day. */
   value: number;
@@ -58,7 +58,7 @@ export function wellnessRowMarker(
 }
 
 /** The low, high and average of a row's day readings over the period drawn. */
-export interface WellnessRowStats {
+interface WellnessRowStats {
   low: number;
   high: number;
   average: number;

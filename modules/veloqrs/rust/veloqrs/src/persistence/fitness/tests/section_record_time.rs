@@ -9,6 +9,8 @@ fn named(activity_id: &str, date: i64, distance: f64, time: f64) -> SectionPerfo
     let activity_id = activity_id.to_string();
     let pace = distance / time;
     SectionPerformanceRecord {
+        avg_pace_text: None,
+        best_pace_text: None,
         activity_id: activity_id.clone(),
         activity_name: activity_id.clone(),
         activity_date: crate::WholeNumber(date),

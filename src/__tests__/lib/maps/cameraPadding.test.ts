@@ -1,5 +1,5 @@
+import { visibleMapInset } from '@/features/maps/lib/activityCamera';
 import {
-  cameraPadding,
   fitZoom,
   openingCamera,
   paddedFit,
@@ -12,16 +12,11 @@ import { ROUTE_MAP_FIT_PADDING, routeCameraSpec } from '@/features/routes/lib/ro
 const bounds = { sw: [6.9, 46.2] as [number, number], ne: [7.0, 46.25] as [number, number] };
 const page = { width: 400, height: 600 };
 
-describe('cameraPadding', () => {
-  const covered = cameraPadding({ ...page, coveredBottom: 300 });
+describe('camera padding', () => {
+  const covered = visibleMapInset({ ...page, coveredBottom: 300 });
 
   it('pads the camera by the part the sheet covers', () => {
     expect(covered.bottom).toBeGreaterThanOrEqual(300);
-  });
-
-  it('gives the same padding for one input', () => {
-    const input = { ...page, coveredTop: 60, coveredBottom: 300, coveredRight: 48 };
-    expect(cameraPadding(input)).toEqual(cameraPadding({ ...input }));
   });
 
   describe('opening camera', () => {
@@ -36,7 +31,7 @@ describe('cameraPadding', () => {
     });
 
     it('refits when the zoom no longer holds the track in the visible frame', () => {
-      const full = fitZoom(bounds, page, cameraPadding(page), 20);
+      const full = fitZoom(bounds, page, visibleMapInset(page), 20);
       const tight = fitZoom(bounds, page, covered, 20);
       expect(tight).toBeLessThan(full);
       const atFull = { ...saved, zoom: (full + tight) / 2 + 0.001 };
@@ -78,7 +73,7 @@ describe('cameraPadding', () => {
   });
 
   describe('sheet settle', () => {
-    const peek = cameraPadding({ ...page, coveredBottom: 60 });
+    const peek = visibleMapInset({ ...page, coveredBottom: 60 });
 
     it('refits an unmoved map to the new inset', () => {
       expect(settleCameraAction({ previous: covered, next: peek, athleteMoved: false })).toEqual({
@@ -106,7 +101,7 @@ describe('cameraPadding', () => {
 });
 
 describe('detail map cameras', () => {
-  const inset = cameraPadding({ ...page, coveredTop: 60, coveredBottom: 300 });
+  const inset = visibleMapInset({ ...page, coveredTop: 60, coveredBottom: 300 });
 
   it('pads the section map camera to the visible part, as the activity map does', () => {
     expect(sectionCameraSpec(bounds, inset)).toEqual(paddedFit(bounds, inset));

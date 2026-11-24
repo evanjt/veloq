@@ -7,7 +7,7 @@
 // off-by-one drift we saw when we tried to derive the first-row top from
 // listContainer + paddingTop on Android.
 
-export interface ScrubHitTestParams {
+interface ScrubHitTestParams {
   /** Finger position in window coordinates (matches RNGH Pan `absoluteY`). */
   pageY: number;
   /** Window-Y of the first row's outer View (from `measureInWindow`). */

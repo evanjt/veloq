@@ -2,6 +2,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import type { ActivityBoundsItem } from '@/types';
+import { maps } from 'veloqrs';
 import type {
   FfiMapEmptyReason,
   FfiMapUnmapped,
@@ -138,8 +139,8 @@ export function useEngineMapActivities({
     const sportTypesArray = Array.from(selectedTypes);
     let data;
     try {
-      data = readEngine((engine) =>
-        engine.getMapScreenData(
+      data = readEngine(() =>
+        maps.getMapScreenData(
           startDate,
           endDate,
           sportTypesArray,

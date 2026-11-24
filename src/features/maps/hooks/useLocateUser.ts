@@ -15,13 +15,13 @@ export const LOCATION_CACHE_MAX_AGE_MS = 30000;
 export const LOCATE_ZOOM = 13;
 export const LOCATE_EASE_MS = cameraMove.move;
 
-export interface LocationFix {
+interface LocationFix {
   coords: [number, number]; // [lng, lat]
   timestamp: number;
 }
 
 /** The part of a map surface the locate flow drives. */
-export interface LocateCameraTarget {
+interface LocateCameraTarget {
   setCamera: (camera: { center: [number, number]; zoom: number }, durationMs: number) => void;
 }
 

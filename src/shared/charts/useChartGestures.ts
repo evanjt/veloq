@@ -72,7 +72,7 @@ export interface ChartBounds {
 export type ChartGesture = GestureType | LegacyComposedGesture;
 
 /** Spread on the gesture surface. Empty when the chart has nothing to step. */
-export interface ChartAccessibilityProps {
+interface ChartAccessibilityProps {
   accessible?: boolean;
   accessibilityRole?: 'adjustable';
   accessibilityLabel?: string;
@@ -569,5 +569,3 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     accessibilityProps,
   };
 }
-
-export default useChartGestures;

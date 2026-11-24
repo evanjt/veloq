@@ -283,10 +283,6 @@ fn read_every_screen(now: i64) -> Rows {
         heatmap_first_day: "2020-01-01".into(),
         heatmap_last_day: "2099-12-31".into(),
         months: range(now, 730),
-        year_current: range(now, 365),
-        year_previous: range(now, 730),
-        month_current: range(now, 30),
-        month_previous: range(now, 60),
         now_wall_seconds: now as f64,
     };
     let feed = with_reader(|conn| {

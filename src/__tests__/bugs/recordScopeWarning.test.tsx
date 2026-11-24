@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { fireEvent, render, renderHook, act } from '@testing-library/react-native';
-import { UploadOutcome } from 'veloqrs';
+import { FfiUploadOutcome } from 'veloqrs';
 
 import { RecordingGate } from '@/features/recording/components/RecordingGate';
 import { useReviewSave } from '@/features/recording/hooks/useReviewSave';
@@ -19,7 +19,7 @@ import { useRecordingPreferences } from '@/features/recording/stores/RecordingPr
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { saveRecording } from '@/features/recording/lib/storage/recordingLibrary';
 import { uploadRecordingNow } from '@/features/recording/lib/upload/intervalsUploads';
-import { generateFitFile } from '@/features/recording/lib/fitGenerator';
+import { writeRecordingFit } from '@/features/recording/lib/recordingFit';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import type { RecordingStreams } from '@/features/recording/types';
@@ -30,8 +30,8 @@ jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
 jest.mock('@/shared/app/useTheme', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('@/features/recording/lib/fitGenerator', () => ({
-  generateFitFile: jest.fn().mockResolvedValue(new ArrayBuffer(64)),
+jest.mock('@/features/recording/lib/recordingFit', () => ({
+  writeRecordingFit: jest.fn().mockReturnValue(new ArrayBuffer(64)),
 }));
 jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   saveRecording: jest.fn(),
@@ -89,7 +89,7 @@ beforeEach(() => {
     cb();
     return 0 as never;
   }) as never);
-  (generateFitFile as jest.Mock).mockResolvedValue(new ArrayBuffer(64));
+  (writeRecordingFit as jest.Mock).mockReturnValue(new ArrayBuffer(64));
   (saveRecording as jest.Mock).mockResolvedValue({ id: 'rec-1' });
   useRecordingPreferences.setState({ autoUploadEnabled: true });
   useUploadPermissionStore.setState({
@@ -137,7 +137,7 @@ describe('a ride recorded past the warning', () => {
   });
 
   it('is queued as usual once the scope is there again', async () => {
-    (uploadRecordingNow as jest.Mock).mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+    (uploadRecordingNow as jest.Mock).mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
     useUploadPermissionStore.setState({ hasWritePermission: true, recordingWithoutScope: false });
 
     const { result } = await renderHook(() => useReviewSave(saveArgs()));

@@ -11,9 +11,7 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
   useMetricSystem: () => true,
 }));
-jest.mock('@/features/routes/hooks/useEngine', () => ({
-  useRepresentativeRoute: () => ({ points: [] }),
-}));
+jest.mock('@/features/routes/hooks/useEngine', () => ({}));
 
 it('shows every sport icon and no scalar sport pace on a mixed route', async () => {
   const route = {

@@ -12,7 +12,7 @@ import { createLayerHold } from './mapLayerHold';
 import { createSectionLineCache } from './sectionLineCollection';
 
 /** The library's lines as a detail map draws them. */
-export interface ContextLayerData {
+interface ContextLayerData {
   /** The section lines, the same object while the engine's stamp is unchanged. */
   sections: GeoJSON.FeatureCollection;
   /** The route group generation the engine serves the route lines at, absent while there are none. */
@@ -24,7 +24,7 @@ export const NO_CONTEXT_LAYER_DATA: ContextLayerData = {
   routeGeneration: undefined,
 };
 
-export interface ContextLayerHold {
+interface ContextLayerHold {
   /** Reads the layers under the held stamps, or `undefined` while the engine is not open. */
   read(
     fetch: (heldSections?: number, heldRoutes?: number) => FfiMapContextLayers | undefined

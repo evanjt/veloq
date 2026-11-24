@@ -9,7 +9,7 @@ import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { shareFile } from '@/features/settings/lib/shareFile';
 import { spacing } from '@/theme';
 import { noticePalette } from '@/shared/ui/NoticeBanner';
-import { InitOutcome } from '../__shared__/veloqrsStub';
+import { FfiInitOutcome } from '../__shared__/veloqrsStub';
 
 type EngineStatusReason = Parameters<
   ReturnType<typeof useEngineStatus.getState>['setInitFailureReason']
@@ -56,7 +56,7 @@ jest.mock('@/shared/debug/crashLog', () => ({
  * The stub's enum is a separate declaration from the generated one the store
  * is typed against, and `ffiEnumStub.vault.test.ts` is what holds the two together.
  */
-function failedWith(reason: InitOutcome | null) {
+function failedWith(reason: FfiInitOutcome | null) {
   useEngineStatus.setState({
     initFailed: true,
     initFailureReason: reason as unknown as EngineStatusReason,
@@ -81,11 +81,11 @@ describe('EngineInitBanner', () => {
   });
 
   it.each([
-    [InitOutcome.Busy, 'engine.initReason.busy'],
-    [InitOutcome.ForwardSchema, 'engine.initReason.forwardSchema'],
-    [InitOutcome.StorageUnavailable, 'engine.initReason.storageUnavailable'],
-    [InitOutcome.Failed, 'engine.initReason.failed'],
-    [InitOutcome.VersionMismatch, 'engine.initReason.versionMismatch'],
+    [FfiInitOutcome.Busy, 'engine.initReason.busy'],
+    [FfiInitOutcome.ForwardSchema, 'engine.initReason.forwardSchema'],
+    [FfiInitOutcome.StorageUnavailable, 'engine.initReason.storageUnavailable'],
+    [FfiInitOutcome.Failed, 'engine.initReason.failed'],
+    [FfiInitOutcome.VersionMismatch, 'engine.initReason.versionMismatch'],
   ])('names reason %s with its own line', async (reason, key) => {
     failedWith(reason);
     const { getByText } = await render(<EngineInitBanner />);
@@ -94,7 +94,7 @@ describe('EngineInitBanner', () => {
 
   /** The engine names the bytes an upgrade needed; the banner states them rather than a generic line. */
   it('names the bytes an upgrade short of space needs', async () => {
-    failedWith(InitOutcome.StorageUnavailable);
+    failedWith(FfiInitOutcome.StorageUnavailable);
     useEngineStatus.setState({
       storageShortfall: { neededBytes: 52_400_000, freeBytes: 3_100_000 },
     });
@@ -103,13 +103,13 @@ describe('EngineInitBanner', () => {
   });
 
   it('keeps the generic storage line when the engine recorded no shortfall', async () => {
-    failedWith(InitOutcome.StorageUnavailable);
+    failedWith(FfiInitOutcome.StorageUnavailable);
     const { getByText } = await render(<EngineInitBanner />);
     expect(getByText('engine.initReason.storageUnavailable')).toBeTruthy();
   });
 
   it('ignores a shortfall left from an earlier attempt when another reason now applies', async () => {
-    failedWith(InitOutcome.Busy);
+    failedWith(FfiInitOutcome.Busy);
     useEngineStatus.setState({ storageShortfall: { neededBytes: 1 } });
     const { getByText } = await render(<EngineInitBanner />);
     expect(getByText('engine.initReason.busy')).toBeTruthy();
@@ -123,14 +123,14 @@ describe('EngineInitBanner', () => {
 
   /** An engine newer than the bundle answers with a variant that has no string. */
   it('falls back to the general line for a reason it has no string for', async () => {
-    failedWith(99 as InitOutcome);
+    failedWith(99 as FfiInitOutcome);
     const { getByText } = await render(<EngineInitBanner />);
     expect(getByText('engine.initFailed')).toBeTruthy();
   });
 
   /** Opened is not a failure, and must never reach the banner as one. */
   it('shows the general line rather than a reason when the engine opened', async () => {
-    failedWith(InitOutcome.Opened);
+    failedWith(FfiInitOutcome.Opened);
     const { getByText } = await render(<EngineInitBanner />);
     expect(getByText('engine.initFailed')).toBeTruthy();
   });
@@ -138,21 +138,21 @@ describe('EngineInitBanner', () => {
   /** A centre cut-out or status bar covers the top inset, so the text starts below it. */
   vaultIt('pads its top edge by the safe-area inset', async () => {
     mockInsets.top = 44;
-    failedWith(InitOutcome.Busy);
+    failedWith(FfiInitOutcome.Busy);
     const { getByTestId } = await render(<EngineInitBanner />);
     expect(StyleSheet.flatten(getByTestId('engine-init-banner').props.style).paddingTop).toBe(44);
   });
 
   /** The retry is the only way out of a failed open, so a screen reader has to name it. */
   vaultIt('names its retry control for a screen reader', async () => {
-    failedWith(InitOutcome.Busy);
+    failedWith(FfiInitOutcome.Busy);
     const { getByRole } = await render(<EngineInitBanner />);
     expect(getByRole('button', { name: 'common.retry' })).toBeTruthy();
   });
 
   /** With no inset to clear, the text keeps the room its own content gives it, and nothing more. */
   vaultIt('keeps its own padding when there is no inset', async () => {
-    failedWith(InitOutcome.Busy);
+    failedWith(FfiInitOutcome.Busy);
     const { getByTestId } = await render(<EngineInitBanner />);
     expect(StyleSheet.flatten(getByTestId('engine-init-banner').props.style).paddingTop).toBe(0);
     expect(
@@ -167,7 +167,7 @@ describe('EngineInitBanner', () => {
    * those three, and fixes the two whose cause can pass on its own.
    */
   describe('recovery actions', () => {
-    it.each([InitOutcome.Busy, InitOutcome.Failed])(
+    it.each([FfiInitOutcome.Busy, FfiInitOutcome.Failed])(
       'retries %s from a named button',
       async (reason) => {
         const requestRetry = jest.fn();
@@ -181,7 +181,7 @@ describe('EngineInitBanner', () => {
 
     it('opens the store page for a database a newer build wrote', async () => {
       const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
-      failedWith(InitOutcome.ForwardSchema);
+      failedWith(FfiInitOutcome.ForwardSchema);
       const { getByText, queryByText } = await render(<EngineInitBanner />);
       await fireEvent.press(getByText('engine.initAction.update'));
       expect(openURL).toHaveBeenCalledTimes(1);
@@ -193,7 +193,7 @@ describe('EngineInitBanner', () => {
     it('routes to the data cache for storage it cannot write, and still retries', async () => {
       const requestRetry = jest.fn();
       useEngineStatus.setState({ requestRetry });
-      failedWith(InitOutcome.StorageUnavailable);
+      failedWith(FfiInitOutcome.StorageUnavailable);
       const { getByText } = await render(<EngineInitBanner />);
       await fireEvent.press(getByText('engine.initAction.freeSpace'));
       expect(router.push).toHaveBeenCalledWith('/cache-settings');
@@ -202,7 +202,7 @@ describe('EngineInitBanner', () => {
     });
 
     it('shares the crash log and opens the forum for a file it kept aside', async () => {
-      failedWith(InitOutcome.VersionMismatch);
+      failedWith(FfiInitOutcome.VersionMismatch);
       const { getByText, queryByText } = await render(<EngineInitBanner />);
       await fireEvent.press(getByText('support.shareCrashLog'));
       await waitFor(() => expect(shareFile).toHaveBeenCalledTimes(1));
@@ -217,7 +217,7 @@ describe('EngineInitBanner', () => {
     });
 
     it('keeps a retry for a reason this bundle has no case for', async () => {
-      failedWith(99 as InitOutcome);
+      failedWith(99 as FfiInitOutcome);
       const { getByText } = await render(<EngineInitBanner />);
       expect(getByText('common.retry')).toBeTruthy();
     });
@@ -229,7 +229,7 @@ describe('EngineInitBanner', () => {
       [true, noticePalette('error', true)],
     ])('draws the banner for dark mode %s from the error tone', async (isDark, palette) => {
       mockIsDark = isDark;
-      failedWith(InitOutcome.Busy);
+      failedWith(FfiInitOutcome.Busy);
       const { getByTestId, getByText } = await render(<EngineInitBanner />);
       expect(
         StyleSheet.flatten(getByTestId('engine-init-banner').props.style).backgroundColor

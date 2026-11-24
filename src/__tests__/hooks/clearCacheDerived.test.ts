@@ -11,6 +11,7 @@ import { act, renderHook } from '@testing-library/react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { useActivityBoundsCache } from '@/features/activity/hooks/useActivityBoundsCache';
+import { clearBoundsCache } from '@/shared/storage/gpsStorage';
 import type { DerivedClearResult } from '@/shared/native/engineClears';
 
 jest.mock('veloqrs', () =>
@@ -35,13 +36,14 @@ const mockEngine = {
   writeClearSnapshot: jest.fn(() => Promise.resolve()),
 };
 
+let mockEngineOpen = true;
+
 jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => mockEngine,
+  getEngine: () => (mockEngineOpen ? mockEngine : null),
   getRouteDbPath: () => '/data/routes.db',
 }));
 
 jest.mock('@/shared/storage/gpsStorage', () => ({
-  clearAllGpsTracks: jest.fn(async () => {}),
   clearBoundsCache: jest.fn(async () => {}),
 }));
 
@@ -81,6 +83,7 @@ async function clear(): Promise<boolean> {
 describe('clearing the cache', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockEngineOpen = true;
     mockEngine.subscribe.mockReturnValue(() => {});
     mockEngine.initWithPath.mockReturnValue(true);
     mockEngine.writeClearSnapshot.mockResolvedValue(undefined);
@@ -120,6 +123,15 @@ describe('clearing the cache', () => {
       to: 'file:///data/routes.db',
     });
     expect(mockEngine.initWithPath).toHaveBeenCalledWith('/data/routes.db');
+  });
+
+  it('fails as not open, and wipes no files, when there is no engine to clear', async () => {
+    mockEngineOpen = false;
+
+    await expect(clear()).rejects.toMatchObject({ tag: 'NotInitialized' });
+
+    expect(mockEngine.runClearDerived).not.toHaveBeenCalled();
+    expect(clearBoundsCache).not.toHaveBeenCalled();
   });
 
   it('asks for a re-cut once the clear has landed', async () => {

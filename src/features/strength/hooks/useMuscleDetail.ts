@@ -2,10 +2,11 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import { strength } from 'veloqrs';
 
 import { muscleName } from '../lib/muscleNames';
 
-export interface ExerciseContribution {
+interface ExerciseContribution {
   name: string;
   role: 'primary' | 'secondary';
   sets: number;
@@ -13,7 +14,7 @@ export interface ExerciseContribution {
   volumeKg: number;
 }
 
-export interface MuscleGroupDetail {
+interface MuscleGroupDetail {
   name: string;
   slug: string;
   exercises: ExerciseContribution[];
@@ -27,7 +28,7 @@ export interface MuscleGroupDetail {
 /**
  * Per-activity, per-muscle-group breakdown of exercise contributions.
  *
- * Thin pass-through to `engine.getMuscleDetail` - grouping, role
+ * Thin pass-through to `strength.getMuscleDetail` - grouping, role
  * classification, and sorting all happen in Rust. TS only tacks on the
  * localized muscle display name.
  */
@@ -42,7 +43,7 @@ export function useMuscleDetail(
 
   return useMemo(() => {
     if (!slug || !activityId) return null;
-    const detail = readActivities((engine) => engine.getMuscleDetail(activityId, slug));
+    const detail = readActivities(() => strength.getMuscleDetail(activityId, slug));
     if (!detail || detail.exercises.length === 0) return null;
     return {
       name,

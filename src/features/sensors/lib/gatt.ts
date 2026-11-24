@@ -56,7 +56,7 @@ export interface CrankData {
   eventTime1024: number;
 }
 
-export interface CyclingPowerMeasurement {
+interface CyclingPowerMeasurement {
   /** Instantaneous power in watts. */
   power: number;
   crank: CrankData | null;
@@ -89,7 +89,7 @@ export function parseCyclingPower(bytes: Uint8Array): CyclingPowerMeasurement | 
   return { power, crank };
 }
 
-export interface CscMeasurement {
+interface CscMeasurement {
   wheel: { cumulativeRevs: number; eventTime1024: number } | null;
   crank: CrankData | null;
 }
@@ -122,7 +122,7 @@ export function parseCsc(bytes: Uint8Array): CscMeasurement | null {
   return { wheel, crank };
 }
 
-export interface RscMeasurement {
+interface RscMeasurement {
   /** Instantaneous speed in metres per second. */
   speed: number;
   /** Instantaneous cadence in steps per minute. */

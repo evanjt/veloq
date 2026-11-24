@@ -21,7 +21,7 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
 }));
 
 jest.mock('@/features/stats/hooks/useBestEfforts', () => {
-  const { BestEffortKind } = jest.requireActual('../__shared__/veloqrsStub');
+  const { FfiBestEffortKind } = jest.requireActual('../__shared__/veloqrsStub');
   return {
     useBestEfforts: () => ({
       data: {
@@ -31,7 +31,7 @@ jest.mock('@/features/stats/hooks/useBestEfforts', () => {
             fetched: true,
             efforts: [
               {
-                kind: BestEffortKind.Duration,
+                kind: FfiBestEffortKind.Duration,
                 checkpoint: 300,
                 value: 312.4,
                 activityId: 'ride-1',
@@ -44,10 +44,12 @@ jest.mock('@/features/stats/hooks/useBestEfforts', () => {
             fetched: true,
             efforts: [
               {
-                kind: BestEffortKind.Distance,
+                kind: FfiBestEffortKind.Distance,
                 checkpoint: 5000,
                 value: 3.5,
                 time: 1428,
+                paceMetricText: '4:46',
+                paceImperialText: '7:40',
                 activityId: 'run-1',
                 activity: { activityId: 'run-1', name: 'Harbour Steps', date: 1_775_721_600 },
               },

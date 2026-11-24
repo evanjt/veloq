@@ -112,27 +112,6 @@ fn assert_upgraded(conn: &Connection) {
 }
 
 #[test]
-fn test_pre_v4_metrics_backfill_with_stamped_and_absent_app_version() {
-    let _serial_state = super::serial_state();
-    for stamped in [true, false] {
-        let dir = TempDir::new().unwrap();
-        let path = dir.path().join("legacy.db");
-        {
-            let conn = seed_at_version(&path, 8);
-            seed_metrics(&conn);
-            if stamped {
-                stamp_app_schema_version(&conn, 3);
-            } else {
-                conn.execute("DELETE FROM schema_info WHERE key = 'schema_version'", [])
-                    .unwrap();
-            }
-        }
-        PersistentEngine::new(path.to_str().unwrap()).unwrap();
-        assert_upgraded(&Connection::open(&path).unwrap());
-    }
-}
-
-#[test]
 fn test_schema_12_upgrade_preserves_metrics_and_drops_unused_copies() {
     let _serial_state = super::serial_state();
     let dir = TempDir::new().unwrap();

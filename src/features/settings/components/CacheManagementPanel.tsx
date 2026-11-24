@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { iconSize, themePalette, typography } from '@/theme';
 import { Row } from '@/shared/ui/Row';
 
-export interface CacheManagementPanelProps {
+interface CacheManagementPanelProps {
   isDark: boolean;
   isDemoMode: boolean;
   onClearCache: () => void;

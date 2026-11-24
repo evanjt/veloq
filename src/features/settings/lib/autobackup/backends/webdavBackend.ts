@@ -24,7 +24,6 @@ import { addressFailure, transferFailure, transportFailure } from './errors';
 import { NET_DEADLINE_MS, fetchWithDeadline } from '@/shared/net/fetchWithDeadline';
 import { basicAuthHeader } from '@/shared/net/basicAuth';
 import { debug } from '@/shared/debug/debug';
-import { errorMessage } from '@/shared/format/errorMessage';
 
 const log = debug.create('WebdavBackend');
 
@@ -91,22 +90,6 @@ function joinUrl(base: string, ...parts: string[]): string {
 }
 
 const PROPFIND_BODY = `<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/></d:prop></d:propfind>`;
-
-/**
- * Retention is best effort, but a delete that always fails grows the remote
- * directory forever with no signal, so it is worth a line in the log.
- */
-async function deleteQuietly(url: string, headers: Record<string, string>): Promise<void> {
-  try {
-    const res = await request('Delete backup', url, { method: 'DELETE', headers });
-    // 404 means it is already gone, which is the outcome we wanted
-    if (!res.ok && res.status !== 404) {
-      log.warn(`Delete rejected (${res.status}): ${url}`);
-    }
-  } catch (error) {
-    log.warn('Delete failed:', errorMessage(error));
-  }
-}
 
 /**
  * Normalise a WebDAV URL: ensure trailing slash, handle common Nextcloud paths.
@@ -320,17 +303,6 @@ export const webdavBackend: BackupBackend = {
 
   async download(backupId: string, destPath: string): Promise<void> {
     await downloadNamed('Download backup', backupId, destPath);
-  },
-
-  async delete(backupId: string): Promise<void> {
-    if (webdavConfigProblem()) return;
-    const config = getWebdavConfig() as WebdavConfig;
-
-    const headers = authHeaders(config.username, config.password);
-    const fileUrl = joinUrl(config.url, REMOTE_DIR, backupId);
-
-    await deleteQuietly(fileUrl, headers);
-    await deleteQuietly(`${fileUrl}.meta.json`, headers);
   },
 
   /** One PUT, which replaces an object of the same name. The manifest is the listing, so no sidecar. */

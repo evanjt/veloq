@@ -31,7 +31,7 @@ export const LINE_CAP = 'round' as const;
 
 /** A dot is 8px across, set off from the line under it by a 2px ring in the surface colour. */
 export const DOT_RADIUS = 4;
-export const DOT_RING = chartStroke.ring;
+const DOT_RING = chartStroke.ring;
 
 /** The two discs a dot is drawn as, the surface ring under the fill. */
 export function dotDisks(): { ring: number; fill: number } {
@@ -43,7 +43,7 @@ export const BAR_MAX_WIDTH = 24;
 /** The surface gap left between neighbouring bars. */
 export const BAR_GAP = stroke.two;
 /** The radius of a bar's rounded ends. */
-export const BAR_RADIUS = 4;
+const BAR_RADIUS = 4;
 const BAR_MIN_WIDTH = stroke.one;
 
 /**
@@ -92,7 +92,7 @@ export const RECORD_RING_RADIUS = DOT_RADIUS + DOT_RING + chartStroke.ring / 2;
 
 /** Where the reticle's ticks start and how long each is, clear of a record ring. */
 export const RETICLE_INNER = RECORD_RING_RADIUS + chartStroke.ring + 1;
-export const RETICLE_TICK = 4;
+const RETICLE_TICK = 4;
 
 /** How far the reticle reaches from its point, which a plot pads its edges by. */
 export const RETICLE_REACH = RETICLE_INNER + RETICLE_TICK;

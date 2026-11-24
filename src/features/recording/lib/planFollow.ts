@@ -14,7 +14,7 @@ import { formatDurationHuman } from '@/shared/format/format';
  * convert a relative target by. This is the shape a recording freezes, so a
  * backup written by an earlier build reads back.
  */
-export interface StepTarget {
+interface StepTarget {
   metric: 'power' | 'hr' | 'pace';
   low: number;
   high: number;

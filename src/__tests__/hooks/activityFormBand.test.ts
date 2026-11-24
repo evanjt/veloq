@@ -1,20 +1,19 @@
 /**
  * Scenario: one athlete, one day, one TSB, shown on the fitness tab and on the
  * activity card.
- * Expected behaviour: both surfaces zone the number from the same five-band
- * ladder, `getFormZone`, on every band and at every boundary, and the card
- * names the zone in words rather than tinting itself. A card with no wellness
- * shows no form stat at all.
+ * Expected behaviour: the card shows the zone and the text the engine states
+ * for the day, names the zone in words rather than tinting itself, and draws
+ * nothing for a day with no stated form. A card with no wellness shows no
+ * form stat at all.
  */
 
-import { act, renderHook } from '@testing-library/react-native';
+import { renderHook } from '@testing-library/react-native';
 
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
-import { useFormPreference } from '@/shared/app/FormPreferenceStore';
-import { getFormZone, formZoneLabel, type FormZone } from '@/features/fitness/lib/fitness';
+import { formZoneLabel } from '@/features/fitness/lib/fitness';
 import type { StatDetail } from '@/features/activity/components/stats/types';
 import type { WellnessData } from '@/types';
-import { MaxHrSource } from 'veloqrs';
+import { FfiMaxHrSource } from 'veloqrs';
 import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
@@ -27,7 +26,7 @@ const activity = activityRecord({
 });
 
 // The athlete's own max, the source a percent of max was once graded against.
-const settings = { isMetric: true, maxHR: 185, maxHrSource: MaxHrSource.SportSettings };
+const settings = { isMetric: true, maxHR: 185, maxHrSource: FfiMaxHrSource.SportSettings };
 
 async function formStat(wellness?: WellnessData) {
   const { result } = await renderHook(() => useActivityStats({ activity, wellness, ...settings }));
@@ -35,69 +34,38 @@ async function formStat(wellness?: WellnessData) {
 }
 
 describe('the activity card form band', () => {
-  it('uses the displayed form when fractional loads round across a zone boundary', async () => {
-    const stat = await formStat({ ctl: 50.5, atl: 45.6 } as WellnessData);
-    expect(stat?.value).toBe('+5');
+  const stated = (over: Partial<WellnessData>) =>
+    ({ id: '2026-09-05', ctl: 50, atl: 45, ...over }) as WellnessData;
+
+  it('prints the form, zone and absolute TSB exactly as the engine stated them', async () => {
+    const stat = await formStat(
+      stated({ form: 11, formZone: 'fresh', formText: '+22%', tsbText: '+11' })
+    );
+    expect(stat?.value).toBe('+22%');
     expect(stat?.context).toBe(formZoneLabel('fresh'));
+    const details = Object.fromEntries(stat!.details!.map((d) => [d.label, d.value]));
+    expect(details['activity.stats.formTSB']).toBe('+11');
+    expect(stat?.stream).toBeUndefined();
   });
 
-  it('uses rounded fitness to zone the displayed percentage', async () => {
-    useFormPreference.getState().setFormAsPercent(true);
-    try {
-      const stat = await formStat({ ctl: 100.49, atl: 95.49 } as WellnessData);
-      expect(stat?.value).toBe('+5%');
-      expect(stat?.context).toBe(formZoneLabel('fresh'));
-    } finally {
-      useFormPreference.setState({ formAsPercent: null });
-    }
+  it('draws no value and names no zone on a day the engine states no form for', async () => {
+    const stat = await formStat(stated({}));
+    expect(stat).toBeDefined();
+    expect(stat?.value).toBe('');
+    expect(stat?.context).toBeUndefined();
   });
 
-  it('follows the percentage setting when it changes after mount', async () => {
-    useFormPreference.setState({ formAsPercent: false });
-    try {
-      const wellness = { ctl: 40, atl: 54 } as WellnessData;
-      const { result } = await renderHook(() =>
-        useActivityStats({ activity, wellness, ...settings })
-      );
-      const form = () => result.current.stats.find((s) => s.title === 'activity.stats.yourForm');
-      expect(form()?.value).toBe('-14');
-      expect(form()?.context).toBe(formZoneLabel('optimal'));
-
-      await act(async () => {
-        useFormPreference.getState().setFormAsPercent(true);
-      });
-
-      expect(form()?.value).toBe('-35%');
-      expect(form()?.context).toBe(formZoneLabel('highRisk'));
-    } finally {
-      useFormPreference.setState({ formAsPercent: null });
-    }
-  });
-
-  it.each([-35, -30, -20, -10, -5, 0, 5, 10, 25, 30])(
-    'zones a TSB of %d from the fitness ladder',
-    async (tsb) => {
-      const stat = await formStat({ ctl: 50, atl: 50 - tsb } as WellnessData);
-      expect(stat).toBeDefined();
-      expect(stat?.context).toBe(formZoneLabel(getFormZone(tsb) as FormZone));
-      expect(stat?.stream).toBeUndefined();
+  it.each(['highRisk', 'optimal', 'greyZone', 'fresh', 'transition'] as const)(
+    'names the %s zone in words',
+    async (zone) => {
+      const stat = await formStat(stated({ formZone: zone, formText: '0' }));
+      expect(stat?.context).toBe(formZoneLabel(zone));
     }
   );
 
   it('shows no form stat without wellness', async () => {
     expect(await formStat(undefined)).toBeUndefined();
     expect(await formStat({ ctl: 50 } as WellnessData)).toBeUndefined();
-  });
-});
-
-/**
- * Expected behaviour: the form card names its zone, so the zone reaches the
- * athlete in words.
- */
-describe('the form card names its zone', () => {
-  vaultIt.each([-35, -20, 0, 10, 30])('names the form zone at a TSB of %d', async (tsb) => {
-    const stat = await formStat({ ctl: 50, atl: 50 - tsb } as WellnessData);
-    expect(stat?.context).toBe(formZoneLabel(getFormZone(tsb) as FormZone));
   });
 });
 

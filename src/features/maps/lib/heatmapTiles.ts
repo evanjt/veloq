@@ -59,22 +59,17 @@ export function heatmapRasterSource(base: MapBase, generation = 0): MapRasterSou
 export const HEATMAP_TILES_DIR = HEATMAP_DIR;
 
 /**
- * Where builds before 0.3.0 drew the heatmap. An install upgraded from one can
- * still hold it, so turning the heatmap off and the wipe both delete it.
- */
-export const LEGACY_HEATMAP_TILES_DIR = `${FileSystem.documentDirectory}heatmap-tiles/`;
-
-/**
  * Total size of the heatmap tile cache in bytes, walked on a Rust thread and polled.
+ * Null when the walk could not say, which is not the same as an empty cache.
  *
  * Three mount effects ask for it and they share one walk, so the cost is one
  * pass however many screens are open.
  */
-export async function readHeatmapTilesCacheSize(): Promise<number> {
+export async function readHeatmapTilesCacheSize(): Promise<number | null> {
   try {
     return await readHeatmapCacheSize(heatmap, HEATMAP_DIR);
   } catch {
-    return 0;
+    return null;
   }
 }
 

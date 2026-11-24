@@ -8,7 +8,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import type { ExpandRangeResult } from '@/shared/app/SyncDateRangeStore';
-import { clearAllGpsTracks, clearBoundsCache } from '@/shared/storage/gpsStorage';
+import { clearBoundsCache } from '@/shared/storage/gpsStorage';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
 import { useEngineReady } from '@/shared/native/useEngineReady';
@@ -186,37 +186,40 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     if (landingClear) return false;
     const engine = getEngine();
     const dbPath = getRouteDbPath();
-    let cleared = true;
-    if (engine && dbPath) {
-      await withDatabaseSnapshot(engine, dbPath, async () => {
-        // 734 ms on a full library, the worst of the three wipes. It runs on a
-        // Rust thread and this waits for it, so the re-detect below still
-        // follows the wipe and the spinner this button already shows covers
-        // the wait instead of the frame being dropped.
-        const outcome = await runDerivedClear(engine);
-        cleared = outcome.state === 'complete';
-        if (outcome.state === 'complete') {
-          detection.forceRedetectSections();
-        } else {
-          // Past the wait the wipe still holds the write lock, so the re-cut
-          // follows it whenever it lands rather than now, and the caller says
-          // it is still running rather than reporting a cleared cache. A wipe
-          // that fails late rolled back, so there is nothing to re-cut.
-          const landing = outcome.landing;
-          landingClear = landing;
-          const settle = () => {
-            if (landingClear === landing) landingClear = null;
-          };
-          void landing.then(() => {
-            settle();
-            detection.forceRedetectSections();
-          }, settle);
-        }
-      });
+    // With no engine nothing was wiped, so it is a failure the caller names,
+    // never a cleared cache.
+    if (!engine || !dbPath) {
+      throw Object.assign(new Error('Engine not initialised'), { tag: 'NotInitialized' });
     }
+    let cleared = true;
+    await withDatabaseSnapshot(engine, dbPath, async () => {
+      // 734 ms on a full library, the worst of the three wipes. It runs on a
+      // Rust thread and this waits for it, so the re-detect below still
+      // follows the wipe and the spinner this button already shows covers
+      // the wait instead of the frame being dropped.
+      const outcome = await runDerivedClear(engine);
+      cleared = outcome.state === 'complete';
+      if (outcome.state === 'complete') {
+        detection.forceRedetectSections();
+      } else {
+        // Past the wait the wipe still holds the write lock, so the re-cut
+        // follows it whenever it lands rather than now, and the caller says
+        // it is still running rather than reporting a cleared cache. A wipe
+        // that fails late rolled back, so there is nothing to re-cut.
+        const landing = outcome.landing;
+        landingClear = landing;
+        const settle = () => {
+          if (landingClear === landing) landingClear = null;
+        };
+        void landing.then(() => {
+          settle();
+          detection.forceRedetectSections();
+        }, settle);
+      }
+    });
 
-    // Clear FileSystem caches (GPS tracks and bounds)
-    await Promise.all([clearAllGpsTracks(), clearBoundsCache()]);
+    // Clear the FileSystem bounds cache
+    await clearBoundsCache();
 
     // Do not write the count and range down by hand. What survived a clear is
     // the engine's answer, not this hook's assumption, and a clear that half

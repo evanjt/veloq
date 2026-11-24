@@ -3,6 +3,7 @@ use super::start::{FfiStartOutcome, FfiStartResult};
 use crate::persistence::attempts::{Claim, ClaimGuard, JobKey, Release, now_ms};
 use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::sections::DetectionRefusal;
+use crate::poison::Recover;
 use log::{info, warn};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, AtomicUsize, Ordering};
@@ -41,14 +42,16 @@ pub(crate) fn record_started_run(slot: &crate::persistence::CheckpointSlot) {
     crate::objects::observer::notify(crate::objects::observer::Announcement::SyncProgress);
 }
 
-fn record_run_outcome(slot: &crate::persistence::CheckpointSlot, outcome: u8) {
+/// `pool` is what the run's load found, read off its progress before the
+/// handle is cleared: the pool size and the unreadable count.
+fn record_run_outcome(slot: &crate::persistence::CheckpointSlot, outcome: u8, pool: (u32, u32)) {
     record_outcome(outcome);
     if outcome == OUTCOME_ERROR {
-        crate::persistence::sections::detection::record_failed_run(slot.install());
+        crate::persistence::sections::detection::record_failed_run(slot.install(), pool.0, pool.1);
     }
     let run_id = slot.run_id();
     if run_id != 0 {
-        let mut outcomes = RUN_OUTCOMES.lock().unwrap_or_else(|e| e.into_inner());
+        let mut outcomes = RUN_OUTCOMES.lock_recover();
         outcomes.latest = run_id;
         outcomes.terminal.insert(run_id, outcome);
     }
@@ -63,7 +66,7 @@ fn record_run_outcome(slot: &crate::persistence::CheckpointSlot, outcome: u8) {
 #[cfg(test)]
 pub(crate) fn reset_last_outcome() {
     record_outcome(OUTCOME_IDLE);
-    *RUN_OUTCOMES.lock().unwrap_or_else(|e| e.into_inner()) = RunOutcomes::default();
+    *RUN_OUTCOMES.lock_recover() = RunOutcomes::default();
 }
 
 #[derive(uniffi::Object)]
@@ -354,9 +357,7 @@ pub(crate) struct StartWindow {
 impl StartWindow {
     /// Take the slot, or `None` when a run or another start holds it.
     pub(crate) fn open() -> Option<Self> {
-        let guard = SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let guard = SECTION_DETECTION_HANDLE.lock_recover();
         if guard.is_some() || start_window_open() {
             return None;
         }
@@ -368,9 +369,7 @@ impl StartWindow {
     /// Put the built run in the slot, stopping it at once when a cancel
     /// arrived while it was being built.
     pub(crate) fn install(mut self, handle: crate::persistence::SectionDetectionHandle) {
-        let mut guard = SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut guard = SECTION_DETECTION_HANDLE.lock_recover();
         // The record describes the last run that finished. A run that has just
         // started has not, so the previous outcome stops being the answer the
         // moment this one takes the slot.
@@ -395,9 +394,7 @@ impl Drop for StartWindow {
 
 /// Settle only the self-applying run that still owns this slot.
 pub(crate) fn settle_finished_worker(slot: &Arc<crate::persistence::CheckpointSlot>) {
-    let mut guard = SECTION_DETECTION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let mut guard = SECTION_DETECTION_HANDLE.lock_recover();
     let Some(handle) = guard.as_ref() else {
         return;
     };
@@ -407,15 +404,16 @@ pub(crate) fn settle_finished_worker(slot: &Arc<crate::persistence::CheckpointSl
     let cancelled =
         handle.get_progress().0 == crate::persistence::sections::detection::PHASE_CANCELLED;
     let applied = handle.worker_apply() == crate::persistence::WorkerApply::Landed;
+    let pool = handle.progress.pool();
     *guard = None;
     if cancelled {
-        record_run_outcome(slot, OUTCOME_IDLE);
+        record_run_outcome(slot, OUTCOME_IDLE, pool);
         settle_claimed_detect(slot, Release::Done);
     } else if applied {
-        record_run_outcome(slot, OUTCOME_COMPLETE);
+        record_run_outcome(slot, OUTCOME_COMPLETE, pool);
         settle_claimed_detect(slot, Release::Done);
     } else {
-        record_run_outcome(slot, OUTCOME_ERROR);
+        record_run_outcome(slot, OUTCOME_ERROR, pool);
         settle_claimed_detect(
             slot,
             Release::failed(
@@ -446,9 +444,7 @@ fn poll_followed_run(run_id: &str) -> Result<String, VeloqError> {
 
 fn poll_followed_run_with(run_id: &str, after_prior: impl FnOnce()) -> Result<String, VeloqError> {
     let current = {
-        let guard = SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let guard = SECTION_DETECTION_HANDLE.lock_recover();
         // A start is building the next run: the recorded outcome belongs to
         // the run before it, so an unbound follower reports a run in flight.
         if run_id.is_empty() && guard.is_none() && start_window_open() {
@@ -459,10 +455,7 @@ fn poll_followed_run_with(run_id: &str, after_prior: impl FnOnce()) -> Result<St
             .map(|handle| handle.checkpoint_slot().run_id())
             .unwrap_or(0)
     };
-    let latest = RUN_OUTCOMES
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .latest;
+    let latest = RUN_OUTCOMES.lock_recover().latest;
     let expected = if run_id.is_empty() {
         if current == 0 { latest } else { current }
     } else {
@@ -498,12 +491,7 @@ fn poll_followed_run_with(run_id: &str, after_prior: impl FnOnce()) -> Result<St
 }
 
 fn recorded_run_outcome(run_id: u64) -> Option<u8> {
-    RUN_OUTCOMES
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .terminal
-        .get(&run_id)
-        .copied()
+    RUN_OUTCOMES.lock_recover().terminal.get(&run_id).copied()
 }
 
 fn outcome_name(outcome: u8) -> &'static str {
@@ -522,9 +510,7 @@ fn poll_detection_once_inner(
     after_slot_clear: impl FnOnce(),
     follow_idle: bool,
 ) -> Result<DetectionPoll, VeloqError> {
-    let mut handle_guard = SECTION_DETECTION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let mut handle_guard = SECTION_DETECTION_HANDLE.lock_recover();
 
     if handle_guard.is_none() {
         if start_window_open() {
@@ -564,17 +550,18 @@ fn poll_detection_once_inner(
             // The worker thread died without sending (panic or early
             // abort). Clear the handle so the next start() can run,
             // otherwise detection is blocked for the rest of the session.
+            let pool = handle_guard.as_ref().map_or((0, 0), |h| h.progress.pool());
             *handle_guard = None;
             if cancelled {
                 info!("veloqrs: [DetectionManager] Detection cancelled, the slot is free");
-                record_run_outcome(&slot, OUTCOME_IDLE);
+                record_run_outcome(&slot, OUTCOME_IDLE, pool);
                 // A run that was asked to stop did what it was told, so the
                 // key starts clean: backing it off would hold the next detect
                 // back for a cancel the athlete made.
                 settle_claimed_detect(&slot, Release::Done);
             } else {
                 log::error!("veloqrs: [DetectionManager] Detection thread died without a result");
-                record_run_outcome(&slot, OUTCOME_ERROR);
+                record_run_outcome(&slot, OUTCOME_ERROR, pool);
                 settle_claimed_detect(
                     &slot,
                     Release::failed(
@@ -590,6 +577,7 @@ fn poll_detection_once_inner(
                 .as_ref()
                 .map(|h| h.worker_apply())
                 .unwrap_or(crate::persistence::WorkerApply::Caller);
+            let pool = handle_guard.as_ref().map_or((0, 0), |h| h.progress.pool());
             *handle_guard = None;
             // A new start publishes Idle under this same slot lock. Publish
             // this run's verdict before the slot is free for that start.
@@ -600,6 +588,7 @@ fn poll_detection_once_inner(
                 } else {
                     OUTCOME_ERROR
                 },
+                pool,
             );
             drop(handle_guard);
             after_slot_clear();
@@ -621,9 +610,9 @@ fn poll_detection_once_inner(
                             Some("the run did not apply on its worker"),
                         ),
                     );
-                    Err(VeloqError::Database {
-                        msg: "detection did not apply on worker".to_string(),
-                    })
+                    Err(VeloqError::database(
+                        "detection did not apply on worker".to_string(),
+                    ))
                 }
             }
         }
@@ -659,8 +648,7 @@ fn spawn_checkpoint_driver(install: u64) {
     const DRIVER_POLL: Duration = Duration::from_millis(250);
 
     let Some(slot) = SECTION_DETECTION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .lock_recover()
         .as_ref()
         .map(|h| h.checkpoint_slot())
     else {
@@ -736,8 +724,7 @@ fn drive_checkpoints_with(
 /// Whether the run that owns `slot` still holds the shared handle.
 fn still_running(slot: &Arc<crate::persistence::CheckpointSlot>) -> bool {
     SECTION_DETECTION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .lock_recover()
         .as_ref()
         .is_some_and(|h| Arc::ptr_eq(&h.checkpoint_slot(), slot))
 }
@@ -781,9 +768,7 @@ fn persist_checkpoint_with(
 /// Whether a detection run currently holds the shared slot. A snapshot only:
 /// callers that must not lose the race hold the guard themselves.
 fn detection_running() -> bool {
-    let guard = SECTION_DETECTION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let guard = SECTION_DETECTION_HANDLE.lock_recover();
     guard.is_some() || start_window_open()
 }
 
@@ -793,9 +778,7 @@ fn detection_running() -> bool {
 fn cancel_running_preview() {
     // Recover the guard from a poisoned lock. Skipping the cancel would let a
     // detect start beside a preview that is still running.
-    let slot = crate::persistence::sections::preview::SECTION_PREVIEW_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let slot = crate::persistence::sections::preview::SECTION_PREVIEW_HANDLE.lock_recover();
     if let Some(handle) = slot.as_ref() {
         handle.request_cancel();
         info!("veloqrs: [DetectionManager] Cancelled the running preview");
@@ -1032,16 +1015,12 @@ impl DetectionManager {
         let owed = crate::objects::error::with_reader(
             crate::persistence::sections::pooled::activities_awaiting_detection,
         )?
-        .map_err(|e| VeloqError::Database {
-            msg: format!("{}", e),
-        })?;
+        .map_err(|e| VeloqError::database(format!("{}", e)))?;
         Ok(owed.try_into().unwrap_or(u32::MAX))
     }
 
     pub fn get_progress(&self) -> Result<Option<crate::FfiDetectionProgress>, VeloqError> {
-        let handle_guard = SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let handle_guard = SECTION_DETECTION_HANDLE.lock_recover();
 
         if handle_guard.is_none() && start_window_open() {
             // A run being built has reported nothing yet: answer what a fresh
@@ -1073,9 +1052,7 @@ impl DetectionManager {
     /// clock, at the next stage check or the next cluster the fold cuts. The
     /// run is discarded rather than saved as a partial catalogue.
     pub fn cancel(&self) -> bool {
-        let guard = SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let guard = SECTION_DETECTION_HANDLE.lock_recover();
         match guard.as_ref() {
             Some(handle) => {
                 handle.request_cancel();
@@ -1108,7 +1085,7 @@ impl DetectionManager {
         with_reader(|conn| {
             crate::persistence::settings::section_config_from(conn)
                 .map(|config| crate::FfiSectionConfig::from(&config))
-                .map_err(|e| VeloqError::Database { msg: e.to_string() })
+                .map_err(|e| VeloqError::database(e.to_string()))
         })?
     }
 
@@ -1128,7 +1105,7 @@ impl DetectionManager {
                     min_match_pct: config.min_match_percentage,
                     endpoint_threshold: config.endpoint_threshold,
                 })
-                .map_err(|e| VeloqError::Database { msg: e.to_string() })
+                .map_err(|e| VeloqError::database(e.to_string()))
         })?
     }
 }
@@ -1136,6 +1113,7 @@ impl DetectionManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::poison::Recover;
 
     /// The deadline on every wait for the detection slot.
     ///
@@ -1183,7 +1161,7 @@ mod tests {
                     stop_at_end,
                     || {
                         let next = self.answers.borrow_mut().pop().unwrap_or(self.last.clone());
-                        next.map_err(|msg| VeloqError::Database { msg })
+                        next.map_err(|msg| VeloqError::database(msg))
                     },
                     |d| {
                         self.slept.set(self.slept.get() + 1);
@@ -1348,7 +1326,7 @@ mod tests {
         let previous = std::panic::take_hook();
         std::panic::set_hook(Box::new(|_| {}));
         let result = catch_unwind(AssertUnwindSafe(|| {
-            let _guard = lock.lock().unwrap_or_else(|e| e.into_inner());
+            let _guard = lock.lock_recover();
             panic!("blew up under the lock");
         }));
         std::panic::set_hook(previous);
@@ -1369,6 +1347,7 @@ mod tests {
         use super::*;
         use crate::persistence::attempts::{Claim, Release, now_ms};
         use crate::persistence::with_persistent_engine;
+        use crate::poison::Recover;
 
         /// The taxonomy, read rather than exercised through a worker.
         #[test]
@@ -1447,10 +1426,7 @@ mod tests {
                 Some((row.last_attempt_at.expect("failure time") + 1_000) as f64),
             );
             assert!(
-                SECTION_DETECTION_HANDLE
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .is_none(),
+                SECTION_DETECTION_HANDLE.lock_recover().is_none(),
                 "nothing was installed, so the slot is free for the run that follows the backoff"
             );
             with_persistent_engine(|engine| {
@@ -1604,9 +1580,7 @@ mod tests {
         let install_unclaimed_recut = || {
             let handle = crate::persistence::SectionDetectionHandle::finished_after_worker_apply();
             let slot = handle.checkpoint_slot();
-            *SECTION_DETECTION_HANDLE
-                .lock()
-                .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+            *SECTION_DETECTION_HANDLE.lock_recover() = Some(handle);
             slot.mark_installed(install);
         };
         let outcome = if force {
@@ -1696,10 +1670,7 @@ mod tests {
             );
         }
         assert!(
-            SECTION_DETECTION_HANDLE
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .is_none(),
+            SECTION_DETECTION_HANDLE.lock_recover().is_none(),
             "a refused start installs nothing"
         );
 
@@ -1737,9 +1708,7 @@ mod tests {
         let first_slot = first.checkpoint_slot();
         record_started_run(&first_slot);
         let followed_id = first_slot.run_id();
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(first);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(first);
         first_slot.mark_installed(install);
         first_slot.mark_worker_finished();
 
@@ -1750,9 +1719,7 @@ mod tests {
         };
         let successor_slot = successor.checkpoint_slot();
         record_started_run(&successor_slot);
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(successor);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(successor);
         successor_slot.mark_installed(install);
         assert_eq!(
             poll_followed_run(&followed_id.to_string()).expect("followed verdict"),
@@ -1788,9 +1755,7 @@ mod tests {
             crate::persistence::SectionDetectionHandle::worker_that_never_answers();
         let first_slot = first.checkpoint_slot();
         record_started_run(&first_slot);
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(first);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(first);
         first_slot.mark_installed(install);
         let bound = poll_followed_run("").expect("first poll");
         assert_eq!(bound, format!("{}:running", first_slot.run_id()));
@@ -1804,9 +1769,7 @@ mod tests {
         let successor = crate::persistence::SectionDetectionHandle::finished_after_worker_apply();
         let successor_slot = successor.checkpoint_slot();
         record_started_run(&successor_slot);
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(successor);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(successor);
         successor_slot.mark_installed(install);
         assert_eq!(
             poll_followed_run(&first_slot.run_id().to_string()).expect("followed poll"),
@@ -1825,7 +1788,7 @@ mod tests {
         let first = crate::persistence::SectionDetectionHandle::finished_after_worker_apply();
         let first_slot = first.checkpoint_slot();
         record_started_run(&first_slot);
-        record_run_outcome(&first_slot, OUTCOME_COMPLETE);
+        record_run_outcome(&first_slot, OUTCOME_COMPLETE, (0, 0));
         first_slot.mark_installed(install);
         let finished_id = first_slot.run_id();
 
@@ -1853,9 +1816,7 @@ mod tests {
         let first = crate::persistence::SectionDetectionHandle::finished_after_worker_apply();
         let first_slot = first.checkpoint_slot();
         record_started_run(&first_slot);
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(first);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(first);
         first_slot.mark_installed(install);
         let followed_id = first_slot.run_id();
 
@@ -1865,9 +1826,7 @@ mod tests {
                 crate::persistence::SectionDetectionHandle::finished_without_its_worker_apply();
             let successor_slot = successor.checkpoint_slot();
             record_started_run(&successor_slot);
-            *SECTION_DETECTION_HANDLE
-                .lock()
-                .unwrap_or_else(|e| e.into_inner()) = Some(successor);
+            *SECTION_DETECTION_HANDLE.lock_recover() = Some(successor);
             successor_slot.mark_installed(install);
         });
         assert_eq!(
@@ -2008,10 +1967,7 @@ mod tests {
         );
 
         assert!(
-            SECTION_DETECTION_HANDLE
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .is_none(),
+            SECTION_DETECTION_HANDLE.lock_recover().is_none(),
             "a refused run must not occupy the slot"
         );
         assert_eq!(
@@ -2051,10 +2007,7 @@ mod tests {
         );
 
         assert!(
-            SECTION_DETECTION_HANDLE
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .is_none(),
+            SECTION_DETECTION_HANDLE.lock_recover().is_none(),
             "a refused run must not occupy the slot"
         );
         assert_eq!(
@@ -2984,9 +2937,7 @@ mod tests {
         let handle =
             crate::persistence::SectionDetectionHandle::finished_without_its_worker_apply();
         let slot = handle.checkpoint_slot();
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(handle);
         slot.mark_installed(crate::persistence::engine_install());
 
         assert!(
@@ -3015,9 +2966,7 @@ mod tests {
         let handle =
             crate::persistence::SectionDetectionHandle::finished_without_its_worker_apply();
         handle.checkpoint_slot().mark_installed(old_install);
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(handle);
 
         crate::persistence::clear_persistent_engine();
         assert!(
@@ -3062,9 +3011,7 @@ mod tests {
         let handle = crate::persistence::SectionDetectionHandle::finished_after_worker_apply();
         let slot = handle.checkpoint_slot();
         slot.mark_detect_claimed();
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(handle);
         slot.mark_worker_finished();
 
         assert_eq!(
@@ -3094,9 +3041,7 @@ mod tests {
             crate::persistence::SectionDetectionHandle::finished_without_its_worker_apply()
         };
         old_handle.checkpoint_slot().mark_installed(old_install);
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(old_handle);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(old_handle);
 
         crate::persistence::clear_persistent_engine();
         assert!(
@@ -3170,9 +3115,7 @@ mod tests {
         let handle =
             crate::persistence::SectionDetectionHandle::finished_without_its_worker_apply();
         let slot = handle.checkpoint_slot();
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(handle);
 
         slot.mark_installed(crate::persistence::engine_install());
         slot.mark_worker_finished();
@@ -3197,9 +3140,7 @@ mod tests {
             crate::persistence::SectionDetectionHandle::finished_without_its_worker_apply();
         let slot = handle.checkpoint_slot();
         slot.mark_detect_claimed();
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(handle);
 
         slot.mark_installed(install);
         slot.mark_worker_finished();
@@ -3230,9 +3171,7 @@ mod tests {
             };
             let slot = handle.checkpoint_slot();
             slot.mark_detect_claimed();
-            *SECTION_DETECTION_HANDLE
-                .lock()
-                .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+            *SECTION_DETECTION_HANDLE.lock_recover() = Some(handle);
             slot.mark_installed(install);
             slot.mark_worker_finished();
 
@@ -3423,9 +3362,7 @@ mod tests {
         clear_detection_handle();
         let handle = with_engine(|e| e.detect_sections_background()).expect("engine");
         let slot = handle.checkpoint_slot();
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(handle);
         slot.mark_installed(crate::persistence::engine_install());
 
         let deadline = Instant::now() + Duration::from_secs(30);

@@ -52,6 +52,7 @@ function summaryForRange(weightedSets: number) {
     activityCount: 3,
     totalSets: 12,
     maxWeightedSets: weightedSets + MUSCLES.length - 1,
+    shadeCeilings: [0, 0, 0, 0, 0],
     balance: [],
   };
 }

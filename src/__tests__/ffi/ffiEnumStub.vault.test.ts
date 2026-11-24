@@ -11,15 +11,15 @@
 
 import {
   BulkExportFormat,
-  CallKind,
-  InitOutcome,
+  FfiCallKind,
+  FfiInitOutcome,
   RecordScope,
-  StartOutcome,
-  SyncErrorReason,
+  FfiStartOutcome,
+  FfiSyncErrorReason,
   SyncState,
-  SyncStep,
-  TrackStep,
-  UploadOutcome,
+  FfiSyncStep,
+  FfiTrackStep,
+  FfiUploadOutcome,
 } from '../__shared__/veloqrsStub';
 
 /** The members of a TypeScript numeric enum, without the reverse mapping. */
@@ -33,16 +33,18 @@ function membersOf(value: Record<string, unknown>): Record<string, number> {
 
 describe('the binding stub enums', () => {
   it('start every member at one so none is falsy', () => {
-    for (const value of Object.values(membersOf(CallKind))) expect(value).toBeGreaterThan(0);
+    for (const value of Object.values(membersOf(FfiCallKind))) expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(SyncState))) expect(value).toBeGreaterThan(0);
-    for (const value of Object.values(membersOf(SyncErrorReason))) expect(value).toBeGreaterThan(0);
-    for (const value of Object.values(membersOf(SyncStep))) expect(value).toBeGreaterThan(0);
-    for (const value of Object.values(membersOf(TrackStep))) expect(value).toBeGreaterThan(0);
+    for (const value of Object.values(membersOf(FfiSyncErrorReason)))
+      expect(value).toBeGreaterThan(0);
+    for (const value of Object.values(membersOf(FfiSyncStep))) expect(value).toBeGreaterThan(0);
+    for (const value of Object.values(membersOf(FfiTrackStep))) expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(BulkExportFormat)))
       expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(RecordScope))) expect(value).toBeGreaterThan(0);
-    for (const value of Object.values(membersOf(StartOutcome))) expect(value).toBeGreaterThan(0);
-    for (const value of Object.values(membersOf(InitOutcome))) expect(value).toBeGreaterThan(0);
-    for (const value of Object.values(membersOf(UploadOutcome))) expect(value).toBeGreaterThan(0);
+    for (const value of Object.values(membersOf(FfiStartOutcome))) expect(value).toBeGreaterThan(0);
+    for (const value of Object.values(membersOf(FfiInitOutcome))) expect(value).toBeGreaterThan(0);
+    for (const value of Object.values(membersOf(FfiUploadOutcome)))
+      expect(value).toBeGreaterThan(0);
   });
 });

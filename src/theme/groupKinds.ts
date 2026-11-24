@@ -27,7 +27,7 @@
  */
 
 /** What kind of thing a group holds, and therefore how it is measured. */
-export type GroupKind = 'pair' | 'mark' | 'series';
+type GroupKind = 'pair' | 'mark' | 'series';
 
 /**
  * One foreground on one ground, both named so the test can find them. `on` is a
@@ -41,7 +41,7 @@ export interface PairSpec {
   bar: 'text' | 'mark';
 }
 
-export interface GroupSpec {
+interface GroupSpec {
   kind: GroupKind;
   /** Why it is that kind, in one line. */
   reason: string;

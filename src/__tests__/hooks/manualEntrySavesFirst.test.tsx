@@ -9,7 +9,7 @@
  */
 
 import { renderHook, act } from '@testing-library/react-native';
-import { UploadOutcome } from 'veloqrs';
+import { FfiUploadOutcome } from 'veloqrs';
 
 import { useReviewSave } from '@/features/recording/hooks/useReviewSave';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
@@ -31,8 +31,8 @@ jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
-jest.mock('@/features/recording/lib/fitGenerator', () => ({
-  generateFitFile: jest.fn(async () => new ArrayBuffer(8)),
+jest.mock('@/features/recording/lib/recordingFit', () => ({
+  writeRecordingFit: jest.fn(() => new ArrayBuffer(8)),
 }));
 jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   saveRecording: jest.fn(async () => ({ id: 'rec-man-1', kind: 'manual' })),
@@ -75,7 +75,7 @@ beforeEach(() => {
     cb();
     return 0 as never;
   }) as never);
-  (uploadRecordingNow as jest.Mock).mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+  (uploadRecordingNow as jest.Mock).mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
   useRecordingPreferences.setState({ autoUploadEnabled: true });
   useUploadPermissionStore.setState({ hasWritePermission: true, recordingWithoutScope: false });
 });
@@ -95,7 +95,7 @@ describe('saving a manual entry', () => {
     });
     (uploadRecordingNow as jest.Mock).mockImplementation(async () => {
       order.push('post');
-      return { outcome: UploadOutcome.Uploaded };
+      return { outcome: FfiUploadOutcome.Uploaded };
     });
 
     const { result } = await renderHook(() => useReviewSave(args()));
@@ -144,7 +144,7 @@ describe('saving a manual entry', () => {
 
   it('keeps the entry and offers it in place of a retry when the server refuses it', async () => {
     (uploadRecordingNow as jest.Mock).mockResolvedValue({
-      outcome: UploadOutcome.Rejected,
+      outcome: FfiUploadOutcome.Rejected,
       errorDetail: 'server said no',
     });
 
@@ -160,7 +160,7 @@ describe('saving a manual entry', () => {
 
   it('leaves it to the queue when the post cannot reach the server', async () => {
     (uploadRecordingNow as jest.Mock).mockResolvedValue({
-      outcome: UploadOutcome.Network,
+      outcome: FfiUploadOutcome.Network,
       errorDetail: 'offline',
     });
 

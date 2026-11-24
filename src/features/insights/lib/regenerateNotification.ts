@@ -6,7 +6,7 @@
 import { getNotificationPreferences, presentActivityNotification } from '@/features/settings/light';
 import { pushNotificationTemplates } from '@/i18n/notificationTemplates';
 
-export interface RegenerateNotificationDeps {
+interface RegenerateNotificationDeps {
   build: (
     activityId: string,
     name: string,

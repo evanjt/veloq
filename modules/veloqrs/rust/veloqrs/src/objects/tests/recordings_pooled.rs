@@ -1,4 +1,5 @@
 use super::*;
+use crate::persistence::recordings::UploadTransition;
 use crate::test_globals::{init_global_engine, read_while_writer_holds, serial_global_state};
 
 fn entry(id: &str, created_at: i64, status: &str) -> FfiRecordingEntry {
@@ -88,19 +89,21 @@ fn test_pooled_reads_match_the_engine() {
             .add_recording(entry("done", 3_000, "uploaded"))
             .unwrap()
     );
-    let begun = recordings
-        .transition("old".into(), UploadTransition::Begin, 9_000.0)
-        .unwrap();
-    recordings
-        .transition(
-            "old".into(),
-            UploadTransition::Failed {
+    crate::with_persistent_engine(|e| {
+        let begun = e
+            .transition_recording("old", &UploadTransition::Begin, 9_000)
+            .unwrap();
+        e.transition_recording(
+            "old",
+            &UploadTransition::Failed {
                 install: begun.install,
                 error: "offline".into(),
             },
-            10_000.0,
+            10_000,
         )
         .unwrap();
+    })
+    .unwrap();
 
     let (list, one, missing, next, count) = crate::with_persistent_engine(|e| {
         (
@@ -143,59 +146,4 @@ fn test_pooled_reads_match_the_engine() {
         count
     );
     assert_eq!(count, 2);
-}
-
-/// Scenario: an upload begins, and the athlete restores a backup while the
-/// request is in flight.
-/// Expected behaviour: the begin answers the install it ran under, and the
-/// outcome carrying it is refused once the install has moved, writing nothing
-/// into the library now open.
-#[test]
-fn an_outcome_from_another_install_writes_nothing() {
-    let _guard = serial_global_state();
-    let _tmp = init_global_engine("recordings_transition_install.db");
-    let recordings = RecordingManager::new();
-    recordings
-        .add_recording(entry("r1", 1_000, "pending"))
-        .unwrap();
-
-    let begun = recordings
-        .transition("r1".into(), UploadTransition::Begin, 2_000.0)
-        .unwrap();
-    assert!(begun.applied);
-    assert_eq!(begun.install, crate::persistence::engine_install() as f64);
-
-    crate::persistence::invalidate_engine_install();
-    let outcomes = [
-        UploadTransition::Failed {
-            install: begun.install,
-            error: "503".into(),
-        },
-        UploadTransition::Uploaded {
-            install: begun.install,
-            intervals_activity_id: Some("i77".into()),
-        },
-    ];
-    for outcome in outcomes {
-        let answer = recordings
-            .transition("r1".into(), outcome.clone(), 3_000.0)
-            .unwrap();
-        assert!(!answer.applied, "{outcome:?} was written");
-        assert_eq!(answer.refusal, Some(UploadRefusal::AnotherInstall));
-    }
-    let row = recordings.get_recording("r1".into()).unwrap().unwrap();
-    assert_eq!(row.upload_status, "uploading");
-    assert_eq!(row.retry_count, 0);
-    assert_eq!(row.intervals_activity_id, None);
-
-    let current = UploadTransition::Uploaded {
-        install: crate::persistence::engine_install() as f64,
-        intervals_activity_id: Some("i77".into()),
-    };
-    assert!(
-        recordings
-            .transition("r1".into(), current, 4_000.0)
-            .unwrap()
-            .applied
-    );
 }

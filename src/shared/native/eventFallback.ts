@@ -30,7 +30,7 @@ export const FALLBACK_TICK_MS = 1000;
  * handle did before `eventsAreLive` existed. A handle that throws is not: a
  * host that cannot answer a local read is not one to stake a screen on.
  */
-export function eventsAreLive(): boolean {
+function eventsAreLive(): boolean {
   const engine = getEngine();
   if (!engine?.eventsAreLive) return true;
   try {

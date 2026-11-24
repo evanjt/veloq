@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { MaxHrSource, type HrZoneBand } from 'veloqrs';
+import { FfiMaxHrSource, type HrZoneBand } from 'veloqrs';
 import { EmptyState } from '@/shared/ui';
 import { formatHeartRateRange } from '@/shared/format/format';
 import { ZoneTimeCard } from './ZoneTimeCard';
@@ -12,7 +12,7 @@ interface HRZonesChartProps {
   /** The max HR from the detail screen read, the one the heart rate stat card divides by */
   maxHR?: number | undefined;
   /** Where `maxHR` came from, from the same read */
-  maxHrSource?: MaxHrSource | undefined;
+  maxHrSource?: FfiMaxHrSource | undefined;
   movingTime: number;
 }
 
@@ -29,11 +29,11 @@ export function HRZonesChart({ hrZones, maxHR, maxHrSource, movingTime }: HRZone
 
   let headerLabel: string | undefined;
   let notes: string[] | undefined;
-  if (maxHR !== undefined && maxHrSource === MaxHrSource.ActivityZones) {
+  if (maxHR !== undefined && maxHrSource === FfiMaxHrSource.ActivityZones) {
     headerLabel = t('activity.zoneMaxFromActivity', { value: maxHR });
-  } else if (maxHR !== undefined && maxHrSource === MaxHrSource.SportSettings) {
+  } else if (maxHR !== undefined && maxHrSource === FfiMaxHrSource.SportSettings) {
     headerLabel = t('activity.zoneMaxFromSettings', { value: maxHR });
-  } else if (maxHR !== undefined && maxHrSource === MaxHrSource.Default) {
+  } else if (maxHR !== undefined && maxHrSource === FfiMaxHrSource.Default) {
     notes = [t('activity.zoneMaxDefault', { value: maxHR }), t('activity.zoneMaxDefaultHint')];
   }
 

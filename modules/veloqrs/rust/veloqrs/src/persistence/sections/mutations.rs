@@ -1147,7 +1147,11 @@ impl PersistentEngine {
 
     /// Record that the athlete attached a ride to a section by hand. A pair
     /// already recorded keeps the time it was first attached.
-    fn record_forced_match(&self, section_id: &str, activity_id: &str) -> Result<(), String> {
+    pub(super) fn record_forced_match(
+        &self,
+        section_id: &str,
+        activity_id: &str,
+    ) -> Result<(), String> {
         let forced_at = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()

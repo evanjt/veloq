@@ -9,7 +9,7 @@
  */
 
 /** Every name the bar's key can print. A key, never a literal. */
-export type StorageLabelKey =
+type StorageLabelKey =
   | 'settings.storageDatabase'
   | 'settings.storageHeatmap'
   | 'settings.storageVector'
@@ -24,9 +24,9 @@ export interface StorageCategory {
 }
 
 /** A step on the five-step sequential ramp, 5 the most. */
-export type RampStep = 1 | 2 | 3 | 4 | 5;
+type RampStep = 1 | 2 | 3 | 4 | 5;
 
-export interface StorageSegment {
+interface StorageSegment {
   labelKey: StorageLabelKey;
   bytes: number;
   step: RampStep;

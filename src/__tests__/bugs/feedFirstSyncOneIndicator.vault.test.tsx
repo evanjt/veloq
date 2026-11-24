@@ -11,7 +11,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { SyncState, SyncStep } from 'veloqrs';
+import { SyncState, FfiSyncStep } from 'veloqrs';
 
 import { getEngine } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -99,7 +99,7 @@ async function renderFeedDuringFirstSync() {
       inFlight: 1,
       completed: 4,
       total: 8,
-      step: SyncStep.FirstActivities,
+      step: FfiSyncStep.FirstActivities,
       stepItemsDone: 12,
       stepItemsTotal: 40,
     }),

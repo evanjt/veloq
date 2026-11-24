@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 
 /** The parts of a screen a fallback can name, each a key under `errorState.part`. */
-export type ErrorStatePart =
+type ErrorStatePart =
   | 'map'
   | 'map3d'
   | 'terrainSnapshots'
@@ -169,5 +169,3 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
 });
-
-export default ComponentErrorBoundary;

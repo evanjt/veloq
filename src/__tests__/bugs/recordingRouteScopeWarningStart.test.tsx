@@ -18,6 +18,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 
 let mockParams: Record<string, string | undefined> = { type: 'Ride' };
 
+jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: null }) }));
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   Stack: { Screen: () => null },

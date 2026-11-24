@@ -21,6 +21,8 @@ export interface StrengthSummary {
   totalSets: number;
   /** The most trained muscle's weighted sets, the top of the diagram's scale. */
   maxWeightedSets: number;
+  /** The most weighted sets each diagram shade covers, lightest first, from the engine. */
+  shadeCeilings: number[];
   /** The engine's verdict per opposing pair, one entry per pair, trained or not. */
   balance: EngineBalancePair[];
 }
@@ -39,7 +41,7 @@ export interface EngineBalancePair {
 
 export type { StrengthPeriod } from './periods';
 
-export interface StrengthProgressPoint {
+interface StrengthProgressPoint {
   label: string;
   startTs: number;
   endTs: number;
@@ -110,7 +112,7 @@ export interface MuscleExerciseSummary {
 }
 
 /** One muscle's exercises over the period, as the screen read carries them. */
-export interface MuscleExercises {
+interface MuscleExercises {
   muscleSlug: string;
   exercises: ExerciseSummary[];
 }

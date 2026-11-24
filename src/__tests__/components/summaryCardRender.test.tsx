@@ -20,7 +20,6 @@ import {
   useDashboardPreferences,
   type MetricId,
 } from '@/features/settings/stores/summaryCardPreferences';
-import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { ABSENT } from '@/shared/format/absent';
 import { colors } from '@/theme';
 import { summaryCardBundle } from '../__shared__/summaryCardBundle';
@@ -71,6 +70,8 @@ describe('the way into settings', () => {
       fitnessData: [40, 41],
       fatigueData: [42, 43],
       formData: [-2, -2],
+      formZoneData: ['greyZone', 'greyZone'],
+      formTextData: ['-2', '-2'],
     });
     expect(tree.queryByLabelText('common.openSettings')).toBeNull();
   });
@@ -78,7 +79,13 @@ describe('the way into settings', () => {
 
 describe('the fitness sparkline', () => {
   vaultIt('mounts no row on a single day, as the HRV one does not', async () => {
-    const one = await renderCard({ fitnessData: [40], fatigueData: [42], formData: [-2] });
+    const one = await renderCard({
+      fitnessData: [40],
+      fatigueData: [42],
+      formData: [-2],
+      formZoneData: ['greyZone'],
+      formTextData: ['-2'],
+    });
     expect(one.queryByTestId('summary-card-sparkline')).toBeNull();
 
     const hrv = await renderCard({ heroMetric: 'hrv', hrvData: [55], rhrData: [48] });
@@ -87,7 +94,14 @@ describe('the fitness sparkline', () => {
 
   vaultIt('draws nothing of its own on a single day, whoever mounts it', async () => {
     const tree = await render(
-      <SummaryCardSparkline fitnessData={[40]} fatigueData={[42]} formData={[-2]} width={300} />
+      <SummaryCardSparkline
+        fitnessData={[40]}
+        fatigueData={[42]}
+        formData={[-2]}
+        formZoneData={['greyZone']}
+        formTextData={['-2']}
+        width={300}
+      />
     );
 
     expect(tree.UNSAFE_queryAllByType(GestureDetector)).toHaveLength(0);
@@ -98,6 +112,8 @@ describe('the fitness sparkline', () => {
       fitnessData: [40, 41],
       fatigueData: [42, 41],
       formData: [-2, 0],
+      formZoneData: ['greyZone', 'greyZone'],
+      formTextData: ['-2', '0'],
     });
     expect(two.getByTestId('summary-card-sparkline')).toBeTruthy();
 
@@ -126,28 +142,27 @@ describe('the HRV hero', () => {
 });
 
 describe('the form bar under the fitness sparkline', () => {
-  afterEach(() => useFormPreference.setState({ formAsPercent: null }));
+  it('draws each day in the zone the engine judged for it', async () => {
+    mockFormBar.mockClear();
 
-  vaultIt.each([true, false])(
-    'zones each day on its own fitness with form as percent %s',
-    async (asPercent) => {
-      useFormPreference.setState({ formAsPercent: asPercent });
-      mockFormBar.mockClear();
+    await render(
+      <SummaryCardSparkline
+        fitnessData={[40, 100]}
+        formData={[-8, -8]}
+        formZoneData={['optimal', 'greyZone']}
+        formTextData={['-20%', '-8%']}
+        width={300}
+      />
+    );
 
-      await render(
-        <SummaryCardSparkline fitnessData={[40, 100]} formData={[-8, -8]} width={300} />
-      );
-
-      expect(mockFormBar).toHaveBeenLastCalledWith([-8, -8], [40, 100], asPercent, 300);
-    }
-  );
+    expect(mockFormBar).toHaveBeenLastCalledWith(['optimal', 'greyZone'], 300);
+  });
 });
 
 describe('form on a half-unit day', () => {
-  // What the engine answers for each day's loads: `sparklines_to` rounds each
-  // load and subtracts, and the bundle's `summary` does the same, which
-  // tests/wellness_form_rounding.rs pins. A renderer that re-derived form from
-  // the raw loads would print 10 for the first.
+  // What the engine answers for each day's loads: one rounded form, with its
+  // zone and text, for the hero, the supporting row and the sparkline. The
+  // card prints those and derives none of them.
   it.each([
     ['ctl 50.5, atl 40.4', { fitness: 51, fatigue: 40, form: 11 }],
     ['ctl 40.5, atl 30.5', { fitness: 41, fatigue: 31, form: 10 }],
@@ -155,11 +170,21 @@ describe('form on a half-unit day', () => {
     useDashboardPreferences.setState({
       summaryCard: { ...DEFAULTS, heroMetric: 'fitness', supportingMetrics: ['form'] },
     });
-    const card = summaryCardBundle({ wellness: { fitness: day.fitness, form: day.form } });
+    const printed = `+${day.form}`;
+    const card = summaryCardBundle({
+      wellness: {
+        fitness: day.fitness,
+        form: day.form,
+        formZone: 'fresh',
+        formText: printed,
+      },
+    });
     const sparklines = {
       fitness: [day.fitness - 1, day.fitness],
       fatigue: [day.fatigue, day.fatigue],
       form: [day.fitness - 1 - day.fatigue, day.form],
+      formZone: ['fresh', 'fresh'],
+      formText: [`+${day.fitness - 1 - day.fatigue}`, printed],
       hrv: [],
       rhr: [],
       hrvRead: [],
@@ -171,24 +196,25 @@ describe('form on a half-unit day', () => {
 
     const tree = await renderCard(result.current);
 
-    const printed = `+${day.form}`;
     expect(tree.getByText(new RegExp(`^\\${printed} formZones\\.`))).toBeTruthy();
     expect(tree.getByTestId('summary-card-metric-0')).toHaveTextContent(`metrics.form${printed}`);
   });
 });
 
-describe('form under the percentage preference', () => {
-  afterEach(() => useFormPreference.setState({ formAsPercent: null }));
-
-  async function supportingForm(fitness: number, form: number) {
+describe('form as the engine states it for the athlete', () => {
+  async function supportingForm(formText: string | undefined) {
     useDashboardPreferences.setState({
       summaryCard: { ...DEFAULTS, heroMetric: 'fitness', supportingMetrics: ['form'] },
     });
-    const card = summaryCardBundle({ wellness: { fitness, form } });
+    const card = summaryCardBundle({
+      wellness: { fitness: 40, form: -8, ...(formText === undefined ? {} : { formText }) },
+    });
     const sparklines = {
-      fitness: [fitness, fitness],
-      fatigue: [fitness - form, fitness - form],
-      form: [form, form],
+      fitness: [40, 40],
+      fatigue: [48, 48],
+      form: [-8, -8],
+      formZone: [undefined, undefined],
+      formText: [undefined, undefined],
       hrv: [],
       rhr: [],
       hrvRead: [],
@@ -201,19 +227,13 @@ describe('form under the percentage preference', () => {
     ).result.current.supportingMetrics[0].value;
   }
 
-  it('prints the supporting form as a signed percentage of fitness', async () => {
-    useFormPreference.setState({ formAsPercent: true });
-    expect(await supportingForm(40, -8)).toBe('-20%');
+  it('prints the supporting form as the engine wrote it', async () => {
+    expect(await supportingForm('-20%')).toBe('-20%');
+    expect(await supportingForm('-8')).toBe('-8');
   });
 
-  it('prints no number when fitness is zero', async () => {
-    useFormPreference.setState({ formAsPercent: true });
-    expect(await supportingForm(0, -8)).toBe(ABSENT);
-  });
-
-  vaultIt('prints the absolute number with the preference off', async () => {
-    useFormPreference.setState({ formAsPercent: false });
-    expect(await supportingForm(40, -8)).toBe('-8');
+  it('prints no number when the engine stated none', async () => {
+    expect(await supportingForm(undefined)).toBe(ABSENT);
   });
 });
 

@@ -125,6 +125,31 @@ pub const TREND_METRICS: &[TrendMetric] = &[
 /// precision.
 const DEADBAND_TOLERANCE: f64 = 1e-9;
 
+/// The direction and verdict of `current` against `baseline` on a named metric,
+/// as `("up" | "down" | "flat", "improved" | "declined" | "moved" | "flat")`.
+/// The boundary is the one [`glyph`] draws. A name the table does not carry, or
+/// a value that is not finite, is flat.
+pub fn judge(name: &str, current: f64, baseline: f64) -> (&'static str, &'static str) {
+    let Some(m) = metric(name) else {
+        return ("flat", "flat");
+    };
+    if !current.is_finite() || !baseline.is_finite() {
+        return ("flat", "flat");
+    }
+    let moved = current - baseline;
+    if moved == 0.0 || moved.abs() < m.deadband - DEADBAND_TOLERANCE {
+        return ("flat", "flat");
+    }
+    let up = moved > 0.0;
+    let direction = if up { "up" } else { "down" };
+    match m.polarity {
+        Polarity::None => (direction, "moved"),
+        Polarity::Higher if up => (direction, "improved"),
+        Polarity::Lower if !up => (direction, "improved"),
+        _ => (direction, "declined"),
+    }
+}
+
 /// The glyph a surface draws for a move of `current` against `baseline`, or
 /// `None` when there is nothing to compare with.
 ///

@@ -1,4 +1,5 @@
-import { formatDuration, formatLocalDate, formatRelativeDate } from '@/shared/format/format';
+import { formatDuration, formatRelativeDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import type { Insight, SectionPR, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { confidenceFrom, maxPerCategoryFor } from '../lib/config';

@@ -1,8 +1,8 @@
-import type { MergeCandidate } from 'veloqrs';
+import type { FfiMergeCandidate } from 'veloqrs';
 
 /** The candidates sheet is answered with the chosen candidate. */
 export interface MergeCandidatesSheetInput {
-  candidates: MergeCandidate[];
+  candidates: FfiMergeCandidate[];
 }
 
 export interface MergeSectionInfo {

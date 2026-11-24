@@ -6,7 +6,7 @@
  * query, so the order, the search and the filters run over the library rather
  * than over the fifty rows already loaded.
  */
-import { GroupSort, SectionSort } from 'veloqrs';
+import { FfiGroupSort, FfiSectionSort } from 'veloqrs';
 import {
   groupSortFor,
   sectionSortFor,
@@ -21,11 +21,11 @@ jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 describe('routesScreenQuery', () => {
   vaultIt('maps every routes order the screen offers', () => {
-    const expected: Record<RoutesSortOption, GroupSort> = {
-      nearby: GroupSort.Nearby,
-      activities: GroupSort.Activities,
-      distance: GroupSort.Distance,
-      name: GroupSort.Name,
+    const expected: Record<RoutesSortOption, FfiGroupSort> = {
+      nearby: FfiGroupSort.Nearby,
+      activities: FfiGroupSort.Activities,
+      distance: FfiGroupSort.Distance,
+      name: FfiGroupSort.Name,
     };
 
     for (const [option, sort] of Object.entries(expected)) {
@@ -34,12 +34,12 @@ describe('routesScreenQuery', () => {
   });
 
   vaultIt('maps every sections order the screen offers', () => {
-    const expected: Record<SectionsSortOption, SectionSort> = {
-      nearby: SectionSort.Nearby,
-      signature: SectionSort.Signature,
-      visits: SectionSort.Visits,
-      distance: SectionSort.Distance,
-      name: SectionSort.Name,
+    const expected: Record<SectionsSortOption, FfiSectionSort> = {
+      nearby: FfiSectionSort.Nearby,
+      signature: FfiSectionSort.Signature,
+      visits: FfiSectionSort.Visits,
+      distance: FfiSectionSort.Distance,
+      name: FfiSectionSort.Name,
     };
 
     for (const [option, sort] of Object.entries(expected)) {

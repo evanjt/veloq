@@ -12,6 +12,7 @@
 use chrono::NaiveDate;
 
 use super::pooled::fitness_screen_data;
+use super::season_windows;
 use crate::persistence::PersistentEngine;
 use crate::persistence::fitness::derivations::pooled::{
     activity_heatmap, monthly_stats, period_stats,
@@ -73,10 +74,6 @@ fn windows() -> FfiFitnessScreenWindows {
         heatmap_first_day: "2025-03-09".into(),
         heatmap_last_day: "2026-03-03".into(),
         months: days("2025-01-01", "2026-03-03"),
-        year_current: days("2026-01-01", "2026-03-03"),
-        year_previous: days("2025-01-01", "2025-03-03"),
-        month_current: days("2026-03-01", "2026-03-03"),
-        month_previous: days("2025-03-01", "2025-03-03"),
         now_wall_seconds: (day("2026-03-03") + 12 * 3_600) as f64,
     }
 }
@@ -115,6 +112,74 @@ fn season_totals(data: &crate::FfiFitnessScreenData) -> [&crate::FfiPeriodStats;
         &month.current_stats,
         &month.previous_stats,
     ]
+}
+
+/// The wall-clock second at `time` ("HH:MM:SS") on a calendar day.
+fn wall_at(date: &str, time: &str) -> i64 {
+    let time = chrono::NaiveTime::parse_from_str(time, "%H:%M:%S").unwrap();
+    day(date) + i64::from(chrono::Timelike::num_seconds_from_midnight(&time))
+}
+
+/// The four season windows as `(first day, last day)` pairs, the last day
+/// inclusive to its final second.
+fn season_days(now: i64) -> [(String, String); 4] {
+    let w = season_windows(now);
+    let date = |ts: i64| {
+        chrono::DateTime::from_timestamp(ts, 0)
+            .unwrap()
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+    };
+    [
+        w.year_current,
+        w.year_previous,
+        w.month_current,
+        w.month_previous,
+    ]
+    .map(|(start, end)| (date(start), date(end)))
+}
+
+/// Scenario: the season card sets the year and the month to date against the
+/// same elapsed days of last year, from the wall-clock instant the screen
+/// names, whatever the time of day.
+///
+/// Expected behaviour: each window runs from the first day's midnight to the
+/// last second of its last day, and the previous windows run as many days from
+/// their own start as the current one has.
+#[test]
+fn the_season_windows_follow_the_day_the_instant_falls_on() {
+    assert_eq!(
+        season_days(wall_at("2026-09-24", "07:15:00")),
+        [
+            ("2026-01-01 00:00:00".into(), "2026-09-24 23:59:59".into()),
+            ("2025-01-01 00:00:00".into(), "2025-09-24 23:59:59".into()),
+            ("2026-09-01 00:00:00".into(), "2026-09-24 23:59:59".into()),
+            ("2025-09-01 00:00:00".into(), "2025-09-24 23:59:59".into()),
+        ]
+    );
+    assert_eq!(
+        season_days(wall_at("2026-09-24", "23:59:59")),
+        season_days(wall_at("2026-09-24", "00:00:00")),
+    );
+}
+
+/// Expected behaviour: the previous month never runs past its own length, so
+/// 29 February is set against all of February the year before.
+#[test]
+fn the_previous_month_is_capped_at_its_length() {
+    let [_, _, _, month_previous] = season_days(wall_at("2024-02-29", "12:00:00"));
+    assert_eq!(month_previous.1, "2023-02-28 23:59:59");
+}
+
+/// Expected behaviour: the previous year is counted in days from its own
+/// first day, so after a leap year 1 March reaches 29 February and not
+/// 1 March, and 31 December stops at the previous year's last day.
+#[test]
+fn the_previous_year_runs_the_same_number_of_days_and_stops_at_its_end() {
+    let [_, year_previous, _, _] = season_days(wall_at("2025-03-01", "12:00:00"));
+    assert_eq!(year_previous.1, "2024-02-29 23:59:59");
+    let [_, year_previous, _, _] = season_days(wall_at("2024-12-31", "12:00:00"));
+    assert_eq!(year_previous.1, "2023-12-31 23:59:59");
 }
 
 #[test]
@@ -168,13 +233,13 @@ fn each_part_answers_what_its_own_query_answers() {
         format!("{:?}", data.months),
         format!("{:?}", monthly_stats(&engine.db, start, end).unwrap())
     );
-    for (got, window) in season_totals(&data).into_iter().zip([
-        &w.year_current,
-        &w.year_previous,
-        &w.month_current,
-        &w.month_previous,
+    let season = season_windows(w.now_wall_seconds as i64);
+    for (got, (start, end)) in season_totals(&data).into_iter().zip([
+        season.year_current,
+        season.year_previous,
+        season.month_current,
+        season.month_previous,
     ]) {
-        let (start, end) = span(window);
         assert_eq!(
             format!("{got:?}"),
             format!("{:?}", period_stats(&engine.db, start, end))
@@ -874,8 +939,8 @@ fn the_season_months_are_each_month_before_this_one_whole_then_this_month_to_dat
                 (day("2025-02-01"), day("2025-03-01") - 1)
             ),
             (
-                span(&windows().month_current),
-                span(&windows().month_previous)
+                season_windows(windows().now_wall_seconds as i64).month_current,
+                season_windows(windows().now_wall_seconds as i64).month_previous
             ),
         ]
     );
@@ -885,8 +950,8 @@ fn the_season_months_are_each_month_before_this_one_whole_then_this_month_to_dat
             span(&data.season_year.previous)
         ),
         (
-            span(&windows().year_current),
-            span(&windows().year_previous)
+            season_windows(windows().now_wall_seconds as i64).year_current,
+            season_windows(windows().now_wall_seconds as i64).year_previous
         )
     );
 }

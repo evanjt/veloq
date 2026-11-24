@@ -3,7 +3,7 @@ import { FRONT_POSITIONS, BACK_POSITIONS } from '../muscleHitRegions';
 import { FRONT_MALE, BACK_MALE } from './male.generated';
 import { FRONT_FEMALE, BACK_FEMALE } from './female.generated';
 
-export type Polygon = number[][];
+type Polygon = number[][];
 export type MusclePolygons = Record<string, Polygon[]>;
 
 const PRIORITY: string[] = [
@@ -24,7 +24,7 @@ const PRIORITY: string[] = [
   'lower-back',
 ];
 
-export type BodyGender = 'male' | 'female';
+type BodyGender = 'male' | 'female';
 
 const POLYGONS: Record<BodyGender, Record<'front' | 'back', MusclePolygons>> = {
   male: { front: FRONT_MALE, back: BACK_MALE },

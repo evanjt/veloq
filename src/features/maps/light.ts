@@ -8,7 +8,6 @@
  */
 export {
   deleteCameraOverride,
-  getCameraOverride,
   getCameraOverridesSnapshot,
   setCameraOverride,
   subscribeCameraOverrides,

@@ -56,6 +56,9 @@ const PERCENT_WELLNESS: Wellness = {
   days: [day('2026-03-01', 80, 60), day('2026-03-02', 100, 70), day('2026-03-03', 0, 10)],
   coverage: 'loaded',
   form: [25, 30, null],
+  formZone: ['fresh', 'transition', null],
+  formText: ['+25%', '+30%', null],
+  tsbText: ['+20', '+30', null],
   formAsPercent: true,
   formZoneEdges: [-20, -5, 10, 30],
 };
@@ -197,6 +200,8 @@ describe('the insights page', () => {
     ctl: 80,
     atl: 60,
     form: value,
+    formZone: null,
+    formText: null,
     formAsPercent,
   });
 

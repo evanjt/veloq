@@ -12,7 +12,7 @@ import { resolvedLocale } from './resolvedLocale';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { SyncStep } from '../__shared__/veloqrsStub';
+import { FfiSyncStep } from '../__shared__/veloqrsStub';
 
 const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 
@@ -67,7 +67,7 @@ const STEP_WORD: Record<string, string> = {
 
 describe('sync step strings', () => {
   it('has a key for every step the engine can report', () => {
-    const members = Object.values(SyncStep).filter((v) => typeof v === 'number');
+    const members = Object.values(FfiSyncStep).filter((v) => typeof v === 'number');
     expect(KEYS).toHaveLength(members.length);
   });
 

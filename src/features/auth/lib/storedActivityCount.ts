@@ -26,15 +26,6 @@ export async function resolveStoredActivityCount(): Promise<number> {
   return readStoredActivityCountMirror();
 }
 
-export async function shouldOfferBackupRestore(): Promise<boolean> {
-  if (await getCachedAthleteId()) return false;
-  return (await resolveStoredActivityCount()) === 0;
-}
-
-export function isRestoreEngineReady(): boolean {
-  return isEngineReady();
-}
-
 /**
  * What Try Demo owes whatever is already on the device.
  *

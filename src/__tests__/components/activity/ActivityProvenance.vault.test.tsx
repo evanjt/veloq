@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { configure, fireEvent, render, screen } from '@testing-library/react-native';
-import { ActivityProvenance } from 'veloqrs';
+import { FfiActivityProvenance } from 'veloqrs';
 
 import { ActivityProvenanceLine } from '@/features/activity/components/ActivityProvenance';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
@@ -33,13 +33,13 @@ describe('ActivityProvenanceLine', () => {
 
   it("shows nothing for a Garmin-filled ride while Garmin's experimental switch is off", () => {
     useDebugStore.setState({ experimentalFeatures: {} });
-    render(<ActivityProvenanceLine provenance={ActivityProvenance.GarminOnPhone} />);
+    render(<ActivityProvenanceLine provenance={FfiActivityProvenance.GarminOnPhone} />);
 
     expect(screen.queryByTestId('activity-provenance')).toBeNull();
   });
 
   it('says a Garmin file filled the ride, labelled with the same words, and opens the connector', () => {
-    render(<ActivityProvenanceLine provenance={ActivityProvenance.GarminOnPhone} />);
+    render(<ActivityProvenanceLine provenance={FfiActivityProvenance.GarminOnPhone} />);
 
     expect(screen.getByText('activity.provenance.garminOnPhone')).toBeTruthy();
     const line = screen.getByLabelText('activity.provenance.garminOnPhone');
@@ -48,7 +48,7 @@ describe('ActivityProvenanceLine', () => {
   });
 
   it("shows nothing for a ride that is intervals.icu's own copy", () => {
-    render(<ActivityProvenanceLine provenance={ActivityProvenance.Intervals} />);
+    render(<ActivityProvenanceLine provenance={FfiActivityProvenance.Intervals} />);
 
     expect(screen.queryByTestId('activity-provenance')).toBeNull();
     expect(screen.queryByText(/activity\.provenance\./)).toBeNull();

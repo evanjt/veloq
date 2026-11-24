@@ -3,15 +3,11 @@ use crate::net::upload_recording::{
     FfiUploadOutcome, FfiUploadResult, Live, set_files_root, upload_ride,
 };
 use crate::persistence::FfiRecordingEntry;
-use crate::persistence::recordings::{
-    FfiUploadTransitionAnswer, UploadRefusal, UploadTransition, pooled,
-};
+use crate::persistence::recordings::pooled;
 use std::sync::Arc;
 
 fn db(err: rusqlite::Error) -> VeloqError {
-    VeloqError::Database {
-        msg: err.to_string(),
-    }
+    VeloqError::database(err.to_string())
 }
 
 /// How finishing a live strength session ended.
@@ -103,45 +99,6 @@ impl RecordingManager {
             e.set_recording_engine_activity(&id, &engine_activity_id)
                 .map_err(db)
         })?
-    }
-
-    /// Move one recording's upload by a named transition, refused when the row
-    /// is in a state the transition may not leave from. A begin answers the
-    /// install it ran under; an outcome carries that install back, runs under
-    /// it, and is refused once a restore or wipe has moved it on.
-    fn transition(
-        &self,
-        id: String,
-        transition: UploadTransition,
-        now_ms: f64,
-    ) -> Result<FfiUploadTransitionAnswer, VeloqError> {
-        let now_ms = crate::ffi_types::int_from_wire(now_ms);
-        let apply = |e: &mut crate::persistence::PersistentEngine| {
-            // Read under the engine lock, so it names the engine written to.
-            let install = crate::persistence::engine_install() as f64;
-            let answer = e
-                .transition_recording(&id, &transition, now_ms)
-                .map_err(db)?;
-            Ok(FfiUploadTransitionAnswer { install, ..answer })
-        };
-        let Some(install) = transition.install() else {
-            return with_engine(apply)?;
-        };
-        let install = crate::ffi_types::uint_from_wire(install);
-        match crate::persistence::with_persistent_engine_for(install, apply) {
-            Some(answer) => answer,
-            None => {
-                let open = crate::persistence::engine_install();
-                if open == install {
-                    Err(VeloqError::NotInitialized)
-                } else {
-                    Ok(FfiUploadTransitionAnswer::refused_unread(
-                        UploadRefusal::AnotherInstall,
-                        open as f64,
-                    ))
-                }
-            }
-        }
     }
 
     /// An athlete signed in: stop auto-uploading every ride that is not
@@ -250,10 +207,27 @@ impl RecordingManager {
             Err(error @ FinishError::RecordingExists) => Err(VeloqError::Busy {
                 msg: error.to_string(),
             }),
-            Err(error) => Err(VeloqError::Database {
-                msg: error.to_string(),
-            }),
+            Err(error) => Err(VeloqError::database(error.to_string())),
         }
+    }
+
+    /// The FIT file of a recorded activity, written from the streams and laps
+    /// the recording store holds. Nothing is stored: the caller writes the
+    /// bytes under the recording's file name.
+    fn write_recording_fit(&self, recording: crate::fit_recording::FfiRecordingFit) -> Vec<u8> {
+        recording.to_fit()
+    }
+
+    /// The pace a live recording shows for a speed in metres per second, and
+    /// the seconds behind it. Pure arithmetic over its arguments, called once a
+    /// second per figure on screen.
+    fn live_pace(
+        &self,
+        meters_per_second: f64,
+        activity_type: Option<String>,
+        is_metric: bool,
+    ) -> crate::FfiLivePace {
+        crate::live_pace::live_pace(meters_per_second, activity_type.as_deref(), is_metric)
     }
 
     /// Remove one recording the signed-in athlete may see, handing back the

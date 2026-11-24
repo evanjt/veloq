@@ -1,5 +1,7 @@
 //! Route groups: loading, grouping, matching, representative routes, names.
 
+use crate::persistence::schema_info;
+use crate::persistence::sql::question_marks;
 use crate::{ActivityMatchInfo, Bounds, Direction, GpsPoint, RouteGroup, RouteSignature};
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, Row, params, types::Type};
 use std::collections::{HashMap, HashSet};
@@ -95,11 +97,7 @@ pub(crate) fn stamp_groups_match_rule(
     conn: &Connection,
     config: &tracematch::MatchConfig,
 ) -> SqlResult<()> {
-    conn.execute(
-        "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-        params![GROUPS_MATCH_RULE_KEY, match_rule_digest(config)],
-    )
-    .map(|_| ())
+    schema_info::set(conn, GROUPS_MATCH_RULE_KEY, &match_rule_digest(config))
 }
 
 /// Record a rule for groups that carry none, which are groups saved before the
@@ -118,14 +116,11 @@ pub(crate) fn stamp_groups_match_rule_if_absent(
 
 /// Record the stored signatures as built under the current matcher revision.
 pub(crate) fn stamp_signatures_matcher_revision(conn: &Connection) -> SqlResult<()> {
-    conn.execute(
-        "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-        params![
-            SIGNATURES_MATCHER_REVISION_KEY,
-            ROUTE_MATCHER_REVISION.to_string()
-        ],
+    schema_info::set(
+        conn,
+        SIGNATURES_MATCHER_REVISION_KEY,
+        &ROUTE_MATCHER_REVISION.to_string(),
     )
-    .map(|_| ())
 }
 
 /// Record a library holding no signature as at the current matcher revision,
@@ -146,14 +141,7 @@ pub(crate) fn stamp_signatures_matcher_revision_if_empty(conn: &Connection) -> S
 /// No stamp is revision 0. An unreadable stamp counts as current: a rebuild
 /// that cannot write would hold every regroup back.
 pub(crate) fn signatures_behind_matcher(conn: &Connection) -> bool {
-    match conn
-        .query_row(
-            "SELECT value FROM schema_info WHERE key = ?",
-            params![SIGNATURES_MATCHER_REVISION_KEY],
-            |row| row.get::<_, String>(0),
-        )
-        .optional()
-    {
+    match schema_info::get(conn, SIGNATURES_MATCHER_REVISION_KEY) {
         Ok(Some(stored)) => stored
             .parse::<u32>()
             .map_or(true, |revision| revision < ROUTE_MATCHER_REVISION),
@@ -179,13 +167,9 @@ pub(crate) fn rebuild_signatures(
         .prepare("SELECT activity_id FROM signatures")?
         .query_map([], |row| row.get(0))?
         .collect::<SqlResult<_>>()?;
-    let mut read = conn.prepare("SELECT track_data FROM gps_tracks WHERE activity_id = ?")?;
     let mut rebuilt = 0;
     for id in &ids {
-        let Some(blob) = read
-            .query_row(params![id], |row| row.get::<_, Vec<u8>>(0))
-            .optional()?
-        else {
+        let Some(blob) = codec::track_blob(conn, id)? else {
             continue;
         };
         let codec::TrackRead::Present(points) = codec::TrackRead::from_blob(&blob) else {
@@ -208,14 +192,7 @@ pub(crate) fn groups_match_rule_changed(
     conn: &Connection,
     config: &tracematch::MatchConfig,
 ) -> bool {
-    match conn
-        .query_row(
-            "SELECT value FROM schema_info WHERE key = ?",
-            params![GROUPS_MATCH_RULE_KEY],
-            |row| row.get::<_, String>(0),
-        )
-        .optional()
-    {
+    match schema_info::get(conn, GROUPS_MATCH_RULE_KEY) {
         Ok(Some(stored)) => stored != match_rule_digest(config),
         Ok(None) => false,
         Err(error) => {
@@ -979,7 +956,7 @@ fn route_display_names_for(
     let mut names = HashMap::new();
     let mut numbers = Vec::new();
     for chunk in ids.chunks(500) {
-        let marks = vec!["?"; chunk.len()].join(",");
+        let marks = question_marks(chunk.len());
         let bound = rusqlite::params_from_iter(chunk.iter());
         let mut stmt = conn.prepare(&format!(
             "SELECT route_id, custom_name FROM route_names WHERE route_id IN ({marks})"
@@ -1186,14 +1163,10 @@ impl PersistentEngine {
         // One-time migration: compute real AMD-based match percentages for
         // databases where all values are 0.0 (pre-fix data). Gated by a
         // schema_info flag so it runs exactly once per install.
-        let already_migrated: bool = self
-            .db
-            .query_row(
-                "SELECT value FROM schema_info WHERE key = 'match_pct_backfilled_v1'",
-                [],
-                |row| row.get::<_, String>(0),
-            )
-            .is_ok();
+        let already_migrated = schema_info::get(&self.db, "match_pct_backfilled_v1")
+            .ok()
+            .flatten()
+            .is_some();
 
         if !already_migrated && !self.activity_matches.is_empty() {
             let rep_ids: std::collections::HashSet<&str> = self
@@ -1216,11 +1189,7 @@ impl PersistentEngine {
                 self.activity_matches = self.recalculate_match_percentages_from_tracks(None, None);
                 match self.persist_match_percentages(None) {
                     Ok(()) => {
-                        let _ = self.db.execute(
-                            "INSERT OR REPLACE INTO schema_info (key, value)
-                             VALUES ('match_pct_backfilled_v1', '1')",
-                            [],
-                        );
+                        let _ = schema_info::set(&self.db, "match_pct_backfilled_v1", "1");
                     }
                     Err(e) => {
                         log::error!(
@@ -1230,11 +1199,7 @@ impl PersistentEngine {
                     }
                 }
             } else {
-                let _ = self.db.execute(
-                    "INSERT OR REPLACE INTO schema_info (key, value)
-                     VALUES ('match_pct_backfilled_v1', '1')",
-                    [],
-                );
+                let _ = schema_info::set(&self.db, "match_pct_backfilled_v1", "1");
             }
         }
 
@@ -1907,17 +1872,6 @@ impl PersistentEngine {
         Ok(())
     }
 
-    /// The name a route is shown under.
-    pub fn get_route_name(&self, route_id: &str) -> Option<String> {
-        if self.route_names_word != get_route_word() {
-            return pooled::all_route_names(&self.db).remove(route_id);
-        }
-        self.groups
-            .iter()
-            .find(|g| g.group_id == route_id)
-            .and_then(|g| g.custom_name.clone())
-    }
-
     /// The name every route is shown under, keyed by route.
     pub fn get_all_route_names(&self) -> HashMap<String, String> {
         pooled::all_route_names(&self.db)
@@ -2172,7 +2126,7 @@ pub(crate) mod pooled {
         if section_ids.is_empty() {
             return out;
         }
-        let placeholders = vec!["?"; section_ids.len()].join(", ");
+        let placeholders = crate::persistence::sql::question_marks(section_ids.len());
         // The floor is read off each matched group's own row. A group written
         // before the member count was stored has none, so its membership is
         // decoded, and only for that group.
@@ -2224,7 +2178,7 @@ pub(crate) mod pooled {
         if activity_ids.is_empty() {
             return HashMap::new();
         }
-        let placeholders = vec!["?"; activity_ids.len()].join(",");
+        let placeholders = crate::persistence::sql::question_marks(activity_ids.len());
         let query = format!(
             "SELECT activity_id, points FROM signatures WHERE activity_id IN ({placeholders})"
         );
@@ -2264,7 +2218,7 @@ pub(crate) mod pooled {
         if activity_ids.is_empty() {
             return HashMap::new();
         }
-        let placeholders = vec!["?"; activity_ids.len()].join(",");
+        let placeholders = crate::persistence::sql::question_marks(activity_ids.len());
         let query = format!(
             "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({placeholders})"
         );
@@ -2487,7 +2441,7 @@ pub(crate) mod pooled {
     ) -> HashMap<String, (u32, f64)> {
         let mut sizes = HashMap::new();
         for chunk in ids.chunks(500) {
-            let marks = vec!["?"; chunk.len()].join(",");
+            let marks = crate::persistence::sql::question_marks(chunk.len());
             for group in group_summaries_where(
                 conn,
                 "COALESCE(m.distance, 0.0)",
@@ -2930,7 +2884,7 @@ mod tests {
         assert_eq!(stored.get("r_a").map(String::as_str), Some("River loop"));
 
         engine.set_route_name("r_b", None).unwrap();
-        let shown = engine.get_route_name("r_b");
+        let shown = engine.get_all_route_names().remove("r_b");
         assert!(shown.is_some());
         assert_ne!(shown.as_deref(), Some("Orchard loop"));
         let typed: rusqlite::Result<String> = engine.db.query_row(
@@ -3007,7 +2961,8 @@ mod tests {
             .iter()
             .map(|id| {
                 engine
-                    .get_route_name(id)
+                    .get_all_route_names()
+                    .remove(*id)
                     .unwrap_or_else(|| own(&engine, id))
             })
             .collect();
@@ -3509,6 +3464,7 @@ mod tests {
 /// reads the table once rather than once per activity.
 #[cfg(test)]
 mod regroup_signature_reads {
+    use crate::poison::Recover;
     use std::sync::Mutex;
 
     use super::PersistentEngine;
@@ -3517,20 +3473,17 @@ mod regroup_signature_reads {
     static SQL: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
     fn record(sql: &str) {
-        SQL.lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .push(sql.to_string());
+        SQL.lock_recover().push(sql.to_string());
     }
 
     fn reset() {
-        SQL.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        SQL.lock_recover().clear();
     }
 
     /// Statements that read one activity's signature row, the per-activity
     /// shape the LRU miss runs.
     fn per_activity_reads() -> usize {
-        SQL.lock()
-            .unwrap_or_else(|e| e.into_inner())
+        SQL.lock_recover()
             .iter()
             .filter(|sql| sql.contains("FROM signatures WHERE activity_id ="))
             .count()

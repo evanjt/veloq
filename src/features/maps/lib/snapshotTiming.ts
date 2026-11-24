@@ -83,7 +83,7 @@ export function recordSnapshotTiming(name: string, startedAt: number | null, now
  */
 export const SNAPSHOT_PHASES = ['style', 'settle', 'probe', 'encode'] as const;
 
-export type SnapshotPhase = (typeof SNAPSHOT_PHASES)[number];
+type SnapshotPhase = (typeof SNAPSHOT_PHASES)[number];
 
 export function snapshotPhaseMetric(phase: SnapshotPhase): string {
   return `snapshot.phase.${phase}`;

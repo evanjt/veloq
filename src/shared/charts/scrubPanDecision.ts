@@ -6,9 +6,9 @@ import { startsInBackSwipeEdge } from '@/shared/ui/backSwipeEdge';
  */
 export const SCRUB_SLOP = 8;
 
-export type ScrubPanDecision = 'activate' | 'fail' | 'wait';
+type ScrubPanDecision = 'activate' | 'fail' | 'wait';
 
-export interface ScrubPanInput {
+interface ScrubPanInput {
   /** Where the touch began, in window coordinates. */
   startX: number;
   /** Travel since the touch began. */

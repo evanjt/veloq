@@ -16,21 +16,24 @@ import {
 } from '@/theme';
 import { CurveChart, useChartColors } from '@/shared/charts';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
-import { RangeCoverage } from 'veloqrs';
-import { BodyNotDownloaded, ErrorState, Row, Switch, EmptyState } from '@/shared/ui';
+import { CurveEmptyState } from './CurveEmptyState';
+import { ErrorState, Row, Switch } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
 import {
   CURVE_PLOT_HEIGHT,
   paceAxisUnit,
   paceChartSeries,
+  paceCoordinate,
   paceCurveAxisLabels,
+  curvePaceText,
 } from '../lib/curveChartSeries';
+import type { FfiPaceText } from 'veloqrs';
 import { usePaceCurve } from '../hooks/usePaceCurve';
 import {
   formatFullDate,
   formatDistance,
-  speedToSecsPerKm,
-  formatPaceFromSecsPerKm,
+  formatMinSec,
+  paceSecondsForUnit,
   paceUnitLabel,
   formatDuration,
 } from '@/shared/format/format';
@@ -52,6 +55,8 @@ interface ChartPoint {
   distance: number; // actual distance in meters
   time: number; // time in seconds to cover this distance
   paceSecsPerKm: number;
+  /** The engine's text for this point's pace. */
+  paceText: FfiPaceText | undefined;
   activityId?: string | undefined; // Activity that achieved this best effort
 }
 
@@ -73,7 +78,7 @@ export function PaceCurveChart({
   const isMetric = useMetricSystem();
   const isRunning = sport === 'Run';
   const formatPaceAxis = useCallback(
-    (secsPerKm: number) => formatPaceFromSecsPerKm(secsPerKm, isMetric),
+    (secsPerKm: number) => formatMinSec(paceSecondsForUnit(secsPerKm, 'run', isMetric)),
     [isMetric]
   );
   const reading = useMemo(
@@ -83,7 +88,7 @@ export function PaceCurveChart({
       unit: paceUnitLabel(isMetric),
       formatX: (x: number) => formatDistance(10 ** x, isMetric),
       formatValue: (secsPerKm: number) =>
-        `${formatPaceFromSecsPerKm(secsPerKm, isMetric)}${paceUnitLabel(isMetric)}`,
+        `${formatMinSec(paceSecondsForUnit(secsPerKm, 'run', isMetric))}${paceUnitLabel(isMetric)}`,
       lowerIsBetter: true,
       shape: 'curve' as const,
     }),
@@ -124,7 +129,7 @@ export function PaceCurveChart({
       };
     }
 
-    const series = paceChartSeries(curve, speedToSecsPerKm);
+    const series = paceChartSeries(curve, (speed) => paceCoordinate(speed, 1000));
     if (!series) {
       return {
         chartData: [],
@@ -134,17 +139,20 @@ export function PaceCurveChart({
       };
     }
 
-    const points: ChartPoint[] = series.points.map(({ distance, time, pace, activityId }) => ({
-      x: Math.log10(distance),
-      y: pace,
-      distance,
-      time,
-      paceSecsPerKm: pace,
-      activityId,
-    }));
+    const points: ChartPoint[] = series.points.map(
+      ({ distance, time, pace, paceText, activityId }) => ({
+        x: Math.log10(distance),
+        y: pace,
+        distance,
+        time,
+        paceSecsPerKm: pace,
+        paceText,
+        activityId,
+      })
+    );
 
     // Critical speed in seconds/km
-    const csSecsPerKm = curve.criticalSpeed ? speedToSecsPerKm(curve.criticalSpeed) : null;
+    const csSecsPerKm = curve.criticalSpeed ? paceCoordinate(curve.criticalSpeed, 1000) : null;
 
     return {
       chartData: points,
@@ -179,11 +187,11 @@ export function PaceCurveChart({
       criticalSpeedPace
         ? {
             value: criticalSpeedPace,
-            label: `${t('metrics.cs')} ${formatPaceFromSecsPerKm(criticalSpeedPace, isMetric)}${paceUnitLabel(isMetric)}`,
+            label: `${t('metrics.cs')} ${curvePaceText(curve?.criticalPace, isMetric)}${paceUnitLabel(isMetric)}`,
             testID: 'pace-curve-cs-label',
           }
         : null,
-    [criticalSpeedPace, isMetric, t]
+    [criticalSpeedPace, curve?.criticalPace, isMetric, t]
   );
 
   // A point scrubbed on another curve, before GAP or the range changed, names
@@ -232,21 +240,15 @@ export function PaceCurveChart({
 
   if (chartData.length === 0) {
     return (
-      <View style={[styles.container, { minHeight: plotHeight }]}>
-        <View style={styles.emptyState}>
-          {coverage === RangeCoverage.NotFetched ? (
-            <BodyNotDownloaded
-              testID="pace-curve-not-downloaded"
-              style={styles.notDownloaded}
-              textStyle={styles.notDownloadedText}
-              message={t('stats.rangeNotDownloaded')}
-              status={bodyStatus}
-              onRetry={retryBody}
-            />
-          ) : (
-            <EmptyState variant="inline" title={t('stats.noPaceData')} />
-          )}
-        </View>
+      <View style={styles.container}>
+        <CurveEmptyState
+          coverage={coverage}
+          bodyStatus={bodyStatus}
+          onRetry={retryBody}
+          plotHeight={plotHeight}
+          testIDPrefix="pace-curve"
+          emptyTitle={t('stats.noPaceData')}
+        />
       </View>
     );
   }
@@ -299,7 +301,7 @@ export function PaceCurveChart({
             maxFontSizeMultiplier={DENSE_TEXT_SCALE}
             style={[styles.valueNumber, isDark && styles.textLight]}
           >
-            {formatPaceFromSecsPerKm(displayData.paceSecsPerKm, isMetric)}
+            {curvePaceText(displayData.paceText, isMetric)}
             {paceUnitLabel(isMetric)}
           </Text>
         </View>
@@ -344,7 +346,7 @@ export function PaceCurveChart({
           [
             formatDistance(p.distance, isMetric),
             formatDuration(p.time),
-            `${formatPaceFromSecsPerKm(p.paceSecsPerKm, isMetric)}${paceUnitLabel(isMetric)}`,
+            `${curvePaceText(p.paceText, isMetric)}${paceUnitLabel(isMetric)}`,
           ].join(', ')
         }
         onSelect={handleSelect}
@@ -363,7 +365,7 @@ export function PaceCurveChart({
           </Text>
           {criticalSpeedPace ? (
             <Text style={styles.modelStats}>
-              {t('metrics.cs')} {formatPaceFromSecsPerKm(criticalSpeedPace, isMetric)}
+              {t('metrics.cs')} {curvePaceText(curve?.criticalPace, isMetric)}
               {paceUnitLabel(isMetric)} (
               {curve?.criticalSpeed != null ? formatDecimal(curve.criticalSpeed, 2) : ''}{' '}
               {t('units.metresPerSecond')})
@@ -430,18 +432,6 @@ const makeStyles = (palette: Palette) =>
     activityLabel: {
       ...typography.captionBold,
       color: colors.textPrimary,
-    },
-    emptyState: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    notDownloaded: {
-      alignItems: 'center',
-    },
-    notDownloadedText: {
-      ...typography.bodyCompact,
-      color: palette.textSecondary,
     },
     footer: {
       marginTop: spacing.xs,

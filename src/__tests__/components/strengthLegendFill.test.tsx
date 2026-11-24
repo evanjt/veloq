@@ -45,12 +45,12 @@ jest.mock('expo-linear-gradient', () => {
   };
 });
 
-async function draw(maxWeightedSets = 12) {
+async function draw(shadeCeilings: readonly number[] = [2.4, 4.8, 7.2, 9.6, 12]) {
   await render(
     <StrengthBodyDiagram
       bodyData={[]}
       gender="male"
-      maxWeightedSets={maxWeightedSets}
+      shadeCeilings={shadeCeilings}
       selectedVolume={null}
       tappableSlugs={new Set()}
       onMuscleTap={() => {}}
@@ -87,7 +87,7 @@ describe.each([
   });
 
   it('labels untrained with nought and each step with the most sets it covers', async () => {
-    await draw(12);
+    await draw([2.4, 4.8, 7.2, 9.6, 12]);
 
     const labels = screen
       .getAllByTestId(/^strength-legend-label-/)

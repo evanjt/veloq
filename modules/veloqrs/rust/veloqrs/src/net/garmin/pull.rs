@@ -19,6 +19,7 @@ use super::ingest::{IngestError, Ingested};
 use super::wire::ListedActivity;
 use super::{GarminClient, GarminError, dispatch};
 use crate::net::transport::NetError;
+use crate::poison::Recover;
 use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -98,12 +99,12 @@ static CANCEL: AtomicBool = AtomicBool::new(false);
 static RESUME_NOW: AtomicBool = AtomicBool::new(false);
 
 fn set_state(state: PullState) {
-    *STATE.lock().unwrap_or_else(|e| e.into_inner()) = state;
+    *STATE.lock_recover() = state;
 }
 
 /// The pull's state in this process.
 pub fn state() -> PullState {
-    STATE.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    STATE.lock_recover().clone()
 }
 
 /// What a pass reads and writes on the device.

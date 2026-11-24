@@ -15,7 +15,7 @@ import { useBestEfforts } from '@/features/stats/hooks/useBestEfforts';
 import { bestEffortsOf } from '@/features/stats/hooks/useSeasonBests';
 import { t } from 'i18next';
 import { getEngine } from '@/shared/native/engine';
-import { BestEffortKind, type BestEffortsData } from 'veloqrs';
+import { FfiBestEffortKind, type BestEffortsData } from 'veloqrs';
 import { initialiseI18n } from '@/i18n';
 
 jest.mock('@/shared/native/engine', () => ({
@@ -47,26 +47,28 @@ function screen(): BestEffortsData {
       {
         sport: 'Ride',
         fetched: false,
-        efforts: [{ kind: BestEffortKind.Duration, checkpoint: 300 }],
+        efforts: [{ kind: FfiBestEffortKind.Duration, checkpoint: 300 }],
       },
       {
         sport: 'Run',
         fetched: true,
         efforts: [
-          { kind: BestEffortKind.Distance, checkpoint: 1000 },
+          { kind: FfiBestEffortKind.Distance, checkpoint: 1000 },
           {
-            kind: BestEffortKind.Distance,
+            kind: FfiBestEffortKind.Distance,
             checkpoint: 5000,
             value: 4,
             time: 1250,
             activityId: 'tempo',
+            paceMetricText: '4:10',
+            paceImperialText: '6:43',
           },
         ],
       },
       {
         sport: 'Swim',
         fetched: false,
-        efforts: [{ kind: BestEffortKind.Distance, checkpoint: 400 }],
+        efforts: [{ kind: FfiBestEffortKind.Distance, checkpoint: 400 }],
       },
     ],
     climbing: [],
@@ -102,6 +104,8 @@ describe('the rows read from the screen read', () => {
         wattsPerKg: null,
         activityId: undefined,
         activity: undefined,
+        paceMetricText: null,
+        paceImperialText: null,
       },
       {
         label: '5K',
@@ -111,6 +115,8 @@ describe('the rows read from the screen read', () => {
         wattsPerKg: null,
         activityId: 'tempo',
         activity: undefined,
+        paceMetricText: '4:10',
+        paceImperialText: '6:43',
       },
     ]);
     expect(engine.getBestEffortsData).toHaveBeenCalledWith(42);
@@ -143,7 +149,7 @@ describe('the rows read from the screen read', () => {
           sport: 'Ride',
           fetched: true,
           efforts: [
-            { kind: BestEffortKind.Duration, checkpoint: 300, value: 300, wattsPerKg: 4.2 },
+            { kind: FfiBestEffortKind.Duration, checkpoint: 300, value: 300, wattsPerKg: 4.2 },
           ],
         },
       ],

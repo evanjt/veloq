@@ -127,12 +127,10 @@ fn main() {
     let whole = time(|| engine.get_routes_screen_data(screen_query()));
     let sections = time(|| engine.get_section_summaries());
     let groups = time(|| engine.get_group_summaries());
-    let retired = time(|| engine.get_retired_section_count());
 
     println!("median of {SAMPLES}, warm");
     println!("  {:<34} {:>10.2?}", "routes_screen_data, whole", whole);
     println!("  {:<34} {:>10.2?}", "get_section_summaries", sections);
     println!("  {:<34} {:>10.2?}", "get_group_summaries", groups);
-    println!("  {:<34} {:>10.2?}", "get_retired_section_count", retired);
     println!("\n  {:<34} {:>10.2?}", "routes_screen_data, cold", cold);
 }

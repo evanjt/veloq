@@ -48,7 +48,7 @@ function present(value: string | null | undefined): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-export interface StoredCredentials {
+interface StoredCredentials {
   apiKey: string | null;
   accessToken: string | null;
   athleteId: string | null;
@@ -57,7 +57,7 @@ export interface StoredCredentials {
   filesSource?: boolean;
 }
 
-export interface StoredSession {
+interface StoredSession {
   authMethod: Exclude<AuthMethod, 'demo'> | null;
   isAuthenticated: boolean;
 }

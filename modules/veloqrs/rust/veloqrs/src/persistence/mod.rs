@@ -22,6 +22,7 @@
 //!    - Computed route groups
 //!    - Detected sections
 
+use crate::poison::Recover;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc;
@@ -121,6 +122,8 @@ mod route_identity;
 pub(crate) mod route_lines;
 pub(crate) mod routes;
 mod schema;
+pub(crate) mod schema_info;
+pub(crate) mod sql;
 pub use record_backup::RecordScope;
 pub use schema::SUPPORTED_SCHEMA_VERSION;
 pub(crate) mod screens;
@@ -322,6 +325,11 @@ pub struct SectionDetectionProgress {
     pub completed: Arc<AtomicU32>,
     /// Total items in current phase
     pub total: Arc<AtomicU32>,
+    /// Stored tracks the run's load could not decode. Written once by the
+    /// worker right after the load; the run row's `failed` reads it.
+    pub unreadable: Arc<AtomicU32>,
+    /// Activities in the pool the run loaded, zero until it has loaded one.
+    pub pool_size: Arc<AtomicU32>,
 }
 
 impl SectionDetectionProgress {
@@ -330,11 +338,30 @@ impl SectionDetectionProgress {
             phase: Arc::new(std::sync::Mutex::new("loading".to_string())),
             completed: Arc::new(AtomicU32::new(0)),
             total: Arc::new(AtomicU32::new(0)),
+            unreadable: Arc::new(AtomicU32::new(0)),
+            pool_size: Arc::new(AtomicU32::new(0)),
         }
     }
 
+    /// Record what the load found: the pool's size and how many of its rows
+    /// would not decode.
+    pub fn set_pool(&self, pool_size: usize, unreadable: usize) {
+        self.pool_size
+            .store(pool_size.min(u32::MAX as usize) as u32, Ordering::SeqCst);
+        self.unreadable
+            .store(unreadable.min(u32::MAX as usize) as u32, Ordering::SeqCst);
+    }
+
+    /// The pool size and unreadable count the load recorded.
+    pub fn pool(&self) -> (u32, u32) {
+        (
+            self.pool_size.load(Ordering::SeqCst),
+            self.unreadable.load(Ordering::SeqCst),
+        )
+    }
+
     pub fn set_phase(&self, phase: &str, total: u32) {
-        *self.phase.lock().unwrap_or_else(|e| e.into_inner()) = phase.to_string();
+        *self.phase.lock_recover() = phase.to_string();
         self.completed.store(0, Ordering::SeqCst);
         self.total.store(total, Ordering::SeqCst);
     }
@@ -351,7 +378,7 @@ impl SectionDetectionProgress {
     }
 
     pub fn get_phase(&self) -> String {
-        self.phase.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        self.phase.lock_recover().clone()
     }
 
     pub fn get_completed(&self) -> u32 {
@@ -443,12 +470,12 @@ pub struct CheckpointSlot(
 impl CheckpointSlot {
     /// Replace whatever is held. Never blocks the fold for a reader.
     pub fn put(&self, update: CacheUpdate) {
-        *self.0.lock().unwrap_or_else(|e| e.into_inner()) = Some(update);
+        *self.0.lock_recover() = Some(update);
     }
 
     /// Take the held checkpoint, leaving the slot empty.
     pub fn take(&self) -> Option<CacheUpdate> {
-        self.0.lock().unwrap_or_else(|e| e.into_inner()).take()
+        self.0.lock_recover().take()
     }
 
     /// Record that this worker owns the shared detection slot.
@@ -620,12 +647,7 @@ impl SectionDetectionHandle {
     /// Call only after the main result is `Ready`/recv'd, the worker sends the
     /// cache first, so by then it is present.
     pub fn take_cache(&self) -> Option<CacheUpdate> {
-        if let Some(u) = self
-            .final_update
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .take()
-        {
+        if let Some(u) = self.final_update.lock_recover().take() {
             return Some(u);
         }
         while let Ok(u) = self.cache_receiver.try_recv() {
@@ -715,11 +737,7 @@ impl SectionDetectionHandle {
             Err(true) => WorkerPoll::Running,
             Err(false) => WorkerPoll::Died,
         };
-        let stashed = self
-            .final_update
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .take();
+        let stashed = self.final_update.lock_recover().take();
         let cache = stashed
             .or_else(|| {
                 loop {
@@ -2456,7 +2474,7 @@ impl PersistentEngine {
 pub(crate) fn pooled_stats(conn: &Connection) -> Result<PersistentEngineStats, VeloqError> {
     let count = |sql: &str| -> Result<u32, VeloqError> {
         conn.query_row(sql, [], |row| row.get(0))
-            .map_err(|e| VeloqError::Database { msg: e.to_string() })
+            .map_err(|e| VeloqError::database(e.to_string()))
     };
     let (oldest_date, newest_date): (Option<i64>, Option<i64>) = conn
         .query_row(
@@ -2464,7 +2482,7 @@ pub(crate) fn pooled_stats(conn: &Connection) -> Result<PersistentEngineStats, V
             [],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
-        .map_err(|e| VeloqError::Database { msg: e.to_string() })?;
+        .map_err(|e| VeloqError::database(e.to_string()))?;
     Ok(PersistentEngineStats {
         activity_count: count("SELECT COUNT(*) FROM activities")?,
         library_count: count("SELECT COUNT(*) FROM activity_metrics")?,
@@ -3256,9 +3274,9 @@ static ENGINE_LIFECYCLE: Mutex<()> = Mutex::new(());
 static RESTORE_CLOSING: AtomicBool = AtomicBool::new(false);
 
 pub fn close_for_restore() {
-    let _lifecycle = ENGINE_LIFECYCLE.lock().unwrap_or_else(|e| e.into_inner());
+    let _lifecycle = ENGINE_LIFECYCLE.lock_recover();
     RESTORE_CLOSING.store(true, Ordering::Release);
-    let mut engine = PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
+    let mut engine = PERSISTENT_ENGINE.lock_recover();
     *engine = None;
     ENGINE_INSTALL.fetch_add(1, Ordering::AcqRel);
     drop(engine);
@@ -3299,8 +3317,8 @@ pub fn engine_install() -> u64 {
 /// Invalidate work captured before an account wipe starts.
 pub fn invalidate_engine_install() {
     {
-        let _lifecycle = ENGINE_LIFECYCLE.lock().unwrap_or_else(|e| e.into_inner());
-        let _guard = PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
+        let _lifecycle = ENGINE_LIFECYCLE.lock_recover();
+        let _guard = PERSISTENT_ENGINE.lock_recover();
         ENGINE_INSTALL.fetch_add(1, Ordering::AcqRel);
     }
     #[cfg(test)]
@@ -3327,7 +3345,7 @@ fn run_after_invalidate() {
 
 #[cfg(test)]
 fn run_hook(slot: &Mutex<Option<AfterInvalidate>>) {
-    let hook = slot.lock().unwrap_or_else(|e| e.into_inner()).take();
+    let hook = slot.lock_recover().take();
     if let Some(hook) = hook {
         hook();
     }
@@ -3347,7 +3365,7 @@ pub(crate) fn wipe_with_persistent_engine_for<F, R>(install: u64, f: F) -> Optio
 where
     F: FnOnce(&mut PersistentEngine) -> R,
 {
-    let _lifecycle = ENGINE_LIFECYCLE.lock().unwrap_or_else(|e| e.into_inner());
+    let _lifecycle = ENGINE_LIFECYCLE.lock_recover();
     with_persistent_engine_for(install, |engine| {
         let result = f(engine);
         #[cfg(test)]
@@ -3400,7 +3418,7 @@ fn reload_after_poison(engine: &mut PersistentEngine) {
 /// `serial_global_state` first, so this cannot land under another test.
 #[cfg(test)]
 pub(crate) fn clear_persistent_engine() {
-    *PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    *PERSISTENT_ENGINE.lock_recover() = None;
     RESTORE_CLOSING.store(false, Ordering::Release);
     read_pool::close();
 }
@@ -3720,6 +3738,7 @@ pub(crate) fn transient_open_failure(e: &rusqlite::Error) -> Option<TransientOpe
 pub mod persistent_engine_ffi {
     use super::*;
     use crate::objects::init::{FfiInitOutcome, record_init_outcome, record_storage_shortfall};
+    use crate::poison::Recover;
     use log::info;
 
     /// Guards one-time installation of the Rust panic hook.
@@ -3803,7 +3822,7 @@ pub mod persistent_engine_ffi {
     /// Open the library and start nothing, for a caller that drives the owed
     /// elevation backfill and detector cutover by hand from a known state.
     pub fn persistent_engine_init_without_owed_work(db_path: String) -> bool {
-        let _lifecycle = ENGINE_LIFECYCLE.lock().unwrap_or_else(|e| e.into_inner());
+        let _lifecycle = ENGINE_LIFECYCLE.lock_recover();
         persistent_engine_init_locked(db_path, EngineOpenMode::Foreground)
     }
 
@@ -3828,17 +3847,13 @@ pub mod persistent_engine_ffi {
         owner_reopen: bool,
         mode: EngineOpenMode,
     ) -> Option<bool> {
-        let _lifecycle = ENGINE_LIFECYCLE.lock().unwrap_or_else(|e| e.into_inner());
+        let _lifecycle = ENGINE_LIFECYCLE.lock_recover();
         if owner_reopen {
             RESTORE_CLOSING.store(false, Ordering::Release);
         } else if RESTORE_CLOSING.load(Ordering::Acquire) {
             return None;
         }
-        if PERSISTENT_ENGINE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .is_some()
-        {
+        if PERSISTENT_ENGINE.lock_recover().is_some() {
             return Some(false);
         }
         persistent_engine_init_locked(db_path, mode).then_some(true)
@@ -4013,7 +4028,7 @@ pub mod persistent_engine_ffi {
             }
         }
 
-        let mut guard = PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = PERSISTENT_ENGINE.lock_recover();
         publish_for_readers(&engine);
         *guard = Some(engine);
         // Under the same lock as the install, so a worker taking the lock next

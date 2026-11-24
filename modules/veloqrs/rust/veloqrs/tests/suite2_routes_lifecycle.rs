@@ -21,7 +21,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
-use veloqrs::{ActivityMetrics, PersistentEngine};
+use veloqrs::{ActivityMetrics, FfiActivityRouteHighlight, PersistentEngine};
 
 use crate::lifecycle_support::*;
 
@@ -127,7 +127,23 @@ fn group_carrying(
         .map(|(id, g)| (id.clone(), g.clone()))
 }
 
-/// Synthetic metrics so `get_activity_route_highlights` has timed attempts to
+/// The route highlights the activity screen reads for `ids`: one detail read per
+/// activity, the same engine read the app makes.
+fn route_highlights_of(
+    engine: &PersistentEngine,
+    ids: &[String],
+) -> Vec<FfiActivityRouteHighlight> {
+    ids.iter()
+        .flat_map(|id| {
+            engine
+                .activity_detail_data(id, 0)
+                .highlights
+                .route_highlights
+        })
+        .collect()
+}
+
+/// Synthetic metrics so the route highlights have timed attempts to
 /// compare. Distance/date come from the activity; moving_time is supplied so we
 /// control the speed ordering.
 fn metrics_for(a: &LifecycleActivity, moving_time: u32) -> ActivityMetrics {
@@ -305,10 +321,8 @@ fn route_name_row_survives_resync_under_the_stable_id() {
     );
 }
 
-/// A user's custom route name survives a resync on the in-memory surface too.
-/// `recompute_groups` rebuilds the groups with `custom_name = None` and never
-/// re-hydrates from `route_names`, so `get_route_name` returns None even though
-/// the DB row is intact (asserted above). Green when the re-hydrate lands.
+/// A user's custom route name survives a resync: the name is still read back
+/// from its `route_names` row afterwards.
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn route_name_survives_resync() {
@@ -325,9 +339,12 @@ fn route_name_survives_resync() {
     let _after = route_snapshot(&mut engine);
 
     assert_eq!(
-        engine.get_route_name(&busiest_id).as_deref(),
+        engine
+            .get_all_route_names()
+            .get(&busiest_id)
+            .map(String::as_str),
         Some("My Climb"),
-        "custom route name did not survive the resync on the in-memory surface",
+        "custom route name did not survive the resync",
     );
 }
 
@@ -395,7 +412,7 @@ fn route_highlights_do_not_award_a_pr_for_a_tie() {
         .expect("set_activity_metrics");
 
     let ids: Vec<String> = members.iter().map(|s| (*s).clone()).collect();
-    let highlights = engine.get_activity_route_highlights(&ids);
+    let highlights = route_highlights_of(&engine, &ids);
     assert!(!highlights.is_empty(), "expected highlights for the route");
     assert!(
         highlights.iter().all(|h| !h.is_pr),
@@ -416,8 +433,7 @@ fn route_highlights_do_not_award_a_pr_for_a_tie() {
         .set_activity_metrics(metrics)
         .expect("set_activity_metrics");
 
-    let winners: Vec<&str> = engine
-        .get_activity_route_highlights(&ids)
+    let winners: Vec<&str> = route_highlights_of(&engine, &ids)
         .iter()
         .filter(|h| h.is_pr)
         .map(|h| h.activity_id.as_str())
@@ -465,7 +481,7 @@ fn route_highlights_trend_is_running_average_safe() {
         .expect("set_activity_metrics");
 
     let ids: Vec<String> = members.iter().map(|s| (*s).clone()).collect();
-    let highlights = engine.get_activity_route_highlights(&ids);
+    let highlights = route_highlights_of(&engine, &ids);
     assert!(
         !highlights.is_empty(),
         "expected highlights for a timed multi-member route"
@@ -504,7 +520,7 @@ fn route_highlights_trend_is_running_average_safe() {
     engine
         .set_activity_metrics(vec![metrics_for(corpus_activity(&corpus, &only), 900)])
         .expect("metrics");
-    let sh = engine.get_activity_route_highlights(std::slice::from_ref(&only));
+    let sh = route_highlights_of(&engine, std::slice::from_ref(&only));
     if let Some(h) = sh.first() {
         assert_eq!(h.trend, 0, "single attempt must be trend 0");
         assert!(!h.is_pr, "a single attempt has beaten nothing and is no PR");

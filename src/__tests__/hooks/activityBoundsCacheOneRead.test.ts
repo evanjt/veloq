@@ -33,7 +33,6 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 
 jest.mock('@/shared/storage/gpsStorage', () => ({
-  clearAllGpsTracks: jest.fn(async () => {}),
   clearBoundsCache: jest.fn(async () => {}),
 }));
 

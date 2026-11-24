@@ -9,6 +9,7 @@
  */
 
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
+import { getSetting } from '@/shared/storage';
 
 const KEY = '@terrain_camera_overrides';
 const mockSettings = new Map<string, string>();
@@ -87,6 +88,22 @@ describe('a camera written before the store was loaded', () => {
     expect(Object.keys(stored())).toEqual(['a2', 'a1']);
   });
 
+  it('a read that fails writes nothing over the stored cameras until a read succeeds', async () => {
+    jest.mocked(getSetting).mockRejectedValueOnce(new Error('storage unreadable'));
+    const store = freshStore();
+
+    await store.setCameraOverride('a3', camera(13));
+    await settle();
+
+    expect(Object.keys(stored())).toEqual(['a1', 'a2']);
+
+    await store.initCameraOverrides();
+    await settle();
+
+    expect(store.getCameraOverride('a1')).toEqual(camera(11));
+    expect(Object.keys(stored())).toEqual(['a1', 'a2', 'a3']);
+  });
+
   it('a load started by a reader and a write racing it agree', async () => {
     const store = freshStore();
 
@@ -131,5 +148,26 @@ describe('a camera written before the store was loaded', () => {
     await settle();
 
     expect(Object.keys(stored())).toEqual(['a3']);
+  });
+});
+
+describe('evicting the oldest saved camera', () => {
+  it("drops that activity's previews, which were drawn with the camera it no longer has", async () => {
+    let store!: Store;
+    let previews!: { deleteTerrainPreviewsForActivity: jest.Mock };
+    jest.isolateModules(() => {
+      store = require('@/features/maps/lib/storage/terrainCameraOverrides');
+      previews = require('@/features/maps/lib/storage/terrainPreviewCache');
+    });
+    await store.initCameraOverrides();
+    for (let i = 0; i < 98; i++) await store.setCameraOverride(`b${i}`, camera(20));
+    await settle();
+    expect(store.getCameraOverride('a1')).toEqual(camera(11));
+    expect(previews.deleteTerrainPreviewsForActivity).not.toHaveBeenCalledWith('a1');
+
+    await store.setCameraOverride('newest', camera(30));
+
+    expect(store.getCameraOverride('a1')).toBeUndefined();
+    expect(previews.deleteTerrainPreviewsForActivity).toHaveBeenCalledWith('a1');
   });
 });

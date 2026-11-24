@@ -77,11 +77,8 @@ impl FitnessManager {
     ) -> Result<Option<crate::persistence::curves::FfiPowerCurve>, VeloqError> {
         let days = crate::ffi_types::int_from_wire(days);
         let (_, curve) = with_reader(|conn| {
-            crate::persistence::curves::pooled::power_curve(conn, &sport, days).map_err(|err| {
-                VeloqError::Database {
-                    msg: err.to_string(),
-                }
-            })
+            crate::persistence::curves::pooled::power_curve(conn, &sport, days)
+                .map_err(|err| VeloqError::database(err.to_string()))
         })??;
         Ok(curve)
     }
@@ -93,11 +90,8 @@ impl FitnessManager {
         let days = crate::ffi_types::int_from_wire(days);
         let clock = crate::widget_snapshot::Clock::now();
         with_reader(|conn| {
-            crate::persistence::screens::pooled::best_efforts_data(conn, days, clock).map_err(
-                |err| VeloqError::Database {
-                    msg: format!("{}", err),
-                },
-            )
+            crate::persistence::screens::pooled::best_efforts_data(conn, days, clock)
+                .map_err(|err| VeloqError::database(format!("{}", err)))
         })?
     }
 
@@ -111,11 +105,8 @@ impl FitnessManager {
     ) -> Result<Option<crate::persistence::curves::FfiPaceCurve>, VeloqError> {
         let days = crate::ffi_types::int_from_wire(days);
         let (_, curve) = with_reader(|conn| {
-            crate::persistence::curves::pooled::pace_curve(conn, &sport, days, gap).map_err(|err| {
-                VeloqError::Database {
-                    msg: err.to_string(),
-                }
-            })
+            crate::persistence::curves::pooled::pace_curve(conn, &sport, days, gap)
+                .map_err(|err| VeloqError::database(err.to_string()))
         })??;
         Ok(curve)
     }
@@ -126,11 +117,8 @@ impl FitnessManager {
         activity_id: String,
     ) -> Result<Option<crate::persistence::intervals::FfiActivityIntervals>, VeloqError> {
         with_reader(|conn| {
-            crate::persistence::intervals::activity_intervals(conn, &activity_id).map_err(|err| {
-                VeloqError::Database {
-                    msg: format!("{}", err),
-                }
-            })
+            crate::persistence::intervals::activity_intervals(conn, &activity_id)
+                .map_err(|err| VeloqError::database(format!("{}", err)))
         })?
     }
 
@@ -146,9 +134,7 @@ impl FitnessManager {
         let newest_ts = crate::ffi_types::int_from_wire(newest_ts);
         with_reader(|conn| {
             crate::persistence::calendar::pooled::planned_events(conn, oldest_ts, newest_ts)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })
+                .map_err(|err| VeloqError::database(format!("{}", err)))
         })?
     }
 
@@ -192,9 +178,7 @@ impl FitnessManager {
                 &span_days,
                 &windows,
             )
-            .map_err(|err| VeloqError::Database {
-                msg: format!("{}", err),
-            })
+            .map_err(|err| VeloqError::database(format!("{}", err)))
         })?
     }
 
@@ -241,9 +225,7 @@ impl FitnessManager {
     ) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.upsert_wellness(&rows)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })
+                .map_err(|err| VeloqError::database(format!("{}", err)))
         })?
     }
 
@@ -259,9 +241,7 @@ impl FitnessManager {
     ) -> Result<crate::FfiWellnessDays, VeloqError> {
         with_reader(|conn| {
             crate::persistence::wellness::pooled::days_with_coverage(conn, &oldest, &newest)
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })
+                .map_err(|err| VeloqError::database(format!("{}", err)))
         })?
     }
 
@@ -279,9 +259,7 @@ impl FitnessManager {
                 days,
                 &crate::persistence::wellness::today_iso(),
             )
-            .map_err(|err| VeloqError::Database {
-                msg: format!("{}", err),
-            })
+            .map_err(|err| VeloqError::database(format!("{}", err)))
         })?
     }
 
@@ -377,11 +355,8 @@ impl FitnessManager {
                     .collect(),
                 exercise_sets,
             };
-            return crate::widget_snapshot::sample_snapshot_json(&library, &ctx, clock).map_err(
-                |e| VeloqError::Database {
-                    msg: format!("sample widget snapshot: {e}"),
-                },
-            );
+            return crate::widget_snapshot::sample_snapshot_json(&library, &ctx, clock)
+                .map_err(|e| VeloqError::database(format!("sample widget snapshot: {e}")));
         }
         // Off the engine lock: every read behind this is committed rows. The
         // writer runs on every background transition and every settled sync,
@@ -414,9 +389,7 @@ impl FitnessManager {
         }
         with_engine(|e| {
             e.set_widget_context(&ctx)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{e}"),
-                })
+                .map_err(|e| VeloqError::database(format!("{e}")))
         })?
     }
 }

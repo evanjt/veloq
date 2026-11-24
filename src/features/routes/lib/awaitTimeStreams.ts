@@ -7,7 +7,7 @@
  * which is what the timeout is for.
  */
 
-import { engine, hasStarted, startOutcome, StartOutcome, type StartResult } from 'veloqrs';
+import { engine, hasStarted, startOutcome, FfiStartOutcome, type FfiStartResult } from 'veloqrs';
 
 import { awaitEngineAnnouncement } from '@/shared/native/awaitEngineAnnouncement';
 
@@ -19,11 +19,11 @@ const STORED_CHANNEL = 'timeStreamsStored';
  * same batch already in flight, which announces them; any other refusal fetches
  * nothing, so waiting on it only holds the caller until its deadline.
  */
-export function willAnnounce(start: StartResult): boolean {
-  return hasStarted(start) || startOutcome(start) === StartOutcome.Busy;
+export function willAnnounce(start: FfiStartResult): boolean {
+  return hasStarted(start) || startOutcome(start) === FfiStartOutcome.Busy;
 }
 
-export interface AwaitTimeStreamsOptions {
+interface AwaitTimeStreamsOptions {
   /** Give up after this long, whatever is still outstanding. */
   timeoutMs: number;
   /** Ends the wait early, for a caller that has gone away. */

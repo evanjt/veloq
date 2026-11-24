@@ -6,9 +6,9 @@
  * broken. While the sync is still running the track is owed rather than
  * missing, so the card waits.
  */
-import { SyncState, TrackStep, type SyncStatus } from 'veloqrs';
+import { SyncState, FfiTrackStep, type SyncStatus } from 'veloqrs';
 
-export type MapPreviewState = 'noGps' | 'loading' | 'awaitingDownload' | 'track';
+type MapPreviewState = 'noGps' | 'loading' | 'awaitingDownload' | 'track';
 
 interface MapPreviewInputs {
   /** The server's stream types include latlng. */
@@ -41,7 +41,7 @@ export function mapPreviewState({
  */
 export function tracksOwed(
   syncState: SyncStatus['state'] | null,
-  trackStep: TrackStep | null
+  trackStep: FfiTrackStep | null
 ): boolean {
-  return syncState === SyncState.Syncing || trackStep === TrackStep.Downloading;
+  return syncState === SyncState.Syncing || trackStep === FfiTrackStep.Downloading;
 }

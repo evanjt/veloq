@@ -8,13 +8,13 @@
 import { barWidthFor } from '@/shared/charts/chartMarks';
 import type { FfiAttemptHistogram } from 'veloqrs';
 
-export interface HistogramFrame {
+interface HistogramFrame {
   width: number;
   height: number;
   padding: { left: number; right: number; top: number; bottom: number };
 }
 
-export interface HistogramBar {
+interface HistogramBar {
   /** The bar's left edge, its top, its width and its height. */
   x: number;
   y: number;
@@ -27,12 +27,12 @@ export interface HistogramBar {
   binRight: number;
 }
 
-export interface HistogramCountTick {
+interface HistogramCountTick {
   count: number;
   y: number;
 }
 
-export interface HistogramLayout {
+interface HistogramLayout {
   bars: HistogramBar[];
   /** The pixel row of a zero count. */
   baseline: number;

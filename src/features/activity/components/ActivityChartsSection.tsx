@@ -45,14 +45,14 @@ import { intervalsAreLaps } from '../lib/intervalTypeLabel';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { measuresPower, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import type {
-  ActivityHeldBack,
+  FfiActivityHeldBack,
   HrZoneBand,
   PowerZoneBand,
   ActivityFitnessImpact,
   ActivityRecord,
-  ActivityProvenance,
+  FfiActivityProvenance,
   ActivitySummary,
-  MaxHrSource,
+  FfiMaxHrSource,
 } from 'veloqrs';
 import type { LatLng } from '@/shared/geo/polyline';
 import type { EngineBodyStatus } from '@/shared/native/engineBodies';
@@ -130,7 +130,7 @@ interface ActivityChartsSectionProps {
   /** The max HR from the detail screen read, for the zones chart and the stat card */
   maxHR?: number | undefined;
   /** Where `maxHR` came from, from the same read */
-  maxHrSource?: MaxHrSource | undefined;
+  maxHrSource?: FfiMaxHrSource | undefined;
   fitnessImpact?: ActivityFitnessImpact | null | undefined;
   /** Tile coverage against earlier activities, for the new ground stat */
   newGround?: ActivityNewGround | undefined;
@@ -142,9 +142,9 @@ interface ActivityChartsSectionProps {
   powerZones?: PowerZoneBand[] | undefined;
   /** The intervals.icu id a web link may name, from the detail screen read */
   intervalsId?: string | null | undefined;
-  provenance?: ActivityProvenance | null | undefined;
+  provenance?: FfiActivityProvenance | null | undefined;
   /** The hold on the ride, from the detail screen read: its laps are not shared */
-  heldBack?: ActivityHeldBack | null | undefined;
+  heldBack?: FfiActivityHeldBack | null | undefined;
   /** The screen's opening transition has ended, so the content below the top chart may mount */
   transitionSettled: boolean;
   onPointSelect: (index: number | null) => void;

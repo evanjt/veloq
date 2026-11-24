@@ -60,7 +60,6 @@ function renderCard(props: Partial<React.ComponentProps<typeof WellnessTrendsCar
       held={false}
       readError={undefined}
       onRetry={onRetry}
-      onDateSelect={jest.fn()}
       {...props}
     />
   );

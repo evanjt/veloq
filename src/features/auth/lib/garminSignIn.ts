@@ -17,7 +17,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { clearLibraryForSignIn } from './libraryWipe';
 import { resolveLoginLibrary, type LoginLibraryOutcome } from './loginLibrary';
 
-export type GarminSignInOutcome =
+type GarminSignInOutcome =
   | { kind: 'signedIn' }
   /** The athlete backed out of the question about the library on the device. */
   | { kind: 'refused' }

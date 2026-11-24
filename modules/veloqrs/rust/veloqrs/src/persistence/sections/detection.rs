@@ -4,6 +4,8 @@
 use crate::GpsPoint;
 use crate::objects::observer::Announcement;
 use crate::persistence::codec;
+use crate::persistence::schema_info;
+use crate::poison::Recover;
 use crate::{FrequentSection, SectionEvidenceCache};
 
 /// How often a running fold checkpoints its progress at most; the last
@@ -91,10 +93,6 @@ const ABANDON_RETRY_SECONDS: i64 = 6 * 3600;
 /// and the two are not the same thing to report. This is what tells them apart,
 /// and it is already the state a progress reader watches.
 pub const PHASE_CANCELLED: &str = "cancelled";
-
-/// `schema_info` key holding the completeness of the pool the live catalogue
-/// was cut over.
-const POOL_INTEGRITY_KEY: &str = "detection_pool_integrity";
 
 /// `schema_info` key holding the pool an abandoned run gave up on.
 const ABANDONED_POOL_KEY: &str = "detection_abandoned_pool";
@@ -203,13 +201,7 @@ fn plan_pool(
 /// True when this exact pool was abandoned recently enough that loading it
 /// again can only reach the same verdict.
 fn abandon_window_active(conn: &Connection, activity_ids: &[String]) -> bool {
-    let stored: Option<String> = conn
-        .query_row(
-            "SELECT value FROM schema_info WHERE key = ?",
-            params![ABANDONED_POOL_KEY],
-            |row| row.get(0),
-        )
-        .ok();
+    let stored: Option<String> = schema_info::get(conn, ABANDONED_POOL_KEY).ok().flatten();
     let Some(stored) = stored else {
         return false;
     };
@@ -233,10 +225,7 @@ fn record_abandoned_pool(conn: &Connection, install: u64, activity_ids: &[String
     })
     .to_string();
     if let Err(e) = worker_write(conn, install, || {
-        conn.execute(
-            "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-            params![ABANDONED_POOL_KEY, value],
-        )?;
+        schema_info::set(conn, ABANDONED_POOL_KEY, &value)?;
         Ok(())
     }) {
         log::error!("veloqrs: [pool integrity] abandon record failed: {}", e);
@@ -246,10 +235,7 @@ fn record_abandoned_pool(conn: &Connection, install: u64, activity_ids: &[String
 /// Drop the abandon record once a pool is usable again.
 fn clear_abandoned_pool(conn: &Connection, install: u64) {
     let _ = worker_write(conn, install, || {
-        conn.execute(
-            "DELETE FROM schema_info WHERE key = ?",
-            params![ABANDONED_POOL_KEY],
-        )?;
+        schema_info::delete(conn, ABANDONED_POOL_KEY)?;
         Ok(())
     });
 }
@@ -280,52 +266,6 @@ pub(crate) fn log_corrupt_tracks(context: &str, readable: usize, corrupt: &[Corr
             context,
             corrupt.len() - CORRUPT_ID_LOG_CAP
         );
-    }
-}
-
-/// Record how complete the pool behind the live catalogue is, so an incomplete
-/// corpus is a durable fact rather than a log line that scrolls away.
-/// `abandoned` says whether the run gave up on this pool or cut a catalogue
-/// over it, which is the difference between an unchanged catalogue and a
-/// current one. A clean pool clears the record.
-fn record_pool_integrity(
-    conn: &Connection,
-    install: u64,
-    readable: usize,
-    corrupt: &[CorruptTrack],
-    abandoned: bool,
-) {
-    if corrupt.is_empty() {
-        let _ = worker_write(conn, install, || {
-            conn.execute(
-                "DELETE FROM schema_info WHERE key = ?",
-                params![POOL_INTEGRITY_KEY],
-            )?;
-            Ok(())
-        });
-        return;
-    }
-    let value = serde_json::json!({
-        "recorded_at": chrono::Utc::now().timestamp(),
-        "readable": readable,
-        "corrupt": corrupt.len(),
-        "abandoned": abandoned,
-        "activity_ids": corrupt
-            .iter()
-            .take(CORRUPT_ID_LOG_CAP)
-            .map(|c| c.activity_id.as_str())
-            .collect::<Vec<_>>(),
-        "first_reason": corrupt.first().map(|c| c.reason.as_str()).unwrap_or(""),
-    })
-    .to_string();
-    if let Err(e) = worker_write(conn, install, || {
-        conn.execute(
-            "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-            params![POOL_INTEGRITY_KEY, value],
-        )?;
-        Ok(())
-    }) {
-        log::error!("veloqrs: [pool integrity] record failed: {}", e);
     }
 }
 
@@ -377,9 +317,7 @@ pub(crate) fn worker_write(
             Some("the engine is suspended".to_string()),
         ));
     };
-    let _lifecycle = super::super::ENGINE_LIFECYCLE
-        .lock()
-        .unwrap_or_else(|error| error.into_inner());
+    let _lifecycle = super::super::ENGINE_LIFECYCLE.lock_recover();
     conn.execute_batch("BEGIN IMMEDIATE")?;
     let result = if super::super::engine_install() == install {
         write().and_then(|()| super::super::commit_write_txn(conn))
@@ -587,17 +525,22 @@ fn settle_on_worker(
                 err
             );
         }
+        let unreadable = progress.pool().1;
         super::super::job_runs::record_job_run(
             &e.db,
             &super::super::job_runs::JobRun {
                 job: super::super::job_runs::BackgroundJob::Detection,
                 finished_at: crate::WholeNumber(super::super::attempts::now_ms()),
-                outcome: super::super::job_runs::RunOutcome::Complete,
+                outcome: if unreadable > 0 {
+                    super::super::job_runs::RunOutcome::Partial
+                } else {
+                    super::super::job_runs::RunOutcome::Complete
+                },
                 handled: activity_ids.len().try_into().unwrap_or(u32::MAX),
                 added: counts.added,
                 changed: counts.changed,
                 retired: counts.retired,
-                failed: 0,
+                failed: unreadable,
             },
         );
         true
@@ -662,8 +605,15 @@ fn replay_off_lock(
                 .db
                 .query_row("PRAGMA data_version", [], |row| row.get::<_, i64>(0))
                 .ok()?;
+            let snapshot = match IdentityReplaySnapshot::capture(engine) {
+                Ok(snapshot) => snapshot,
+                Err(error) => {
+                    log::warn!("veloqrs: [detection] replay snapshot unreadable: {error}");
+                    return None;
+                }
+            };
             Some((
-                IdentityReplaySnapshot::capture(engine),
+                snapshot,
                 path,
                 super::super::ENGINE_ACCESS_EPOCH.load(Ordering::Acquire),
                 data_version,
@@ -692,7 +642,9 @@ fn replay_off_lock(
 
 /// Record that the run which started against `install` ended without applying,
 /// so the last-run line shows the failure rather than the success before it.
-pub(crate) fn record_failed_run(install: u64) {
+/// `handled` and `failed` are the pool the run loaded and its unreadable rows,
+/// zero for a run that returned before loading one.
+pub(crate) fn record_failed_run(install: u64, handled: u32, failed: u32) {
     super::super::with_persistent_engine_for(install, |e| {
         super::super::job_runs::record_job_run(
             &e.db,
@@ -700,11 +652,11 @@ pub(crate) fn record_failed_run(install: u64) {
                 job: super::super::job_runs::BackgroundJob::Detection,
                 finished_at: crate::WholeNumber(super::super::attempts::now_ms()),
                 outcome: super::super::job_runs::RunOutcome::Failed,
-                handled: 0,
+                handled,
                 added: 0,
                 changed: 0,
                 retired: 0,
-                failed: 0,
+                failed,
             },
         );
     });
@@ -1374,13 +1326,7 @@ impl PersistentEngine {
             let usable =
                 pool_is_usable(library_readable, corrupt_tracks.len()) && empty_pool_verified;
             log_corrupt_tracks("SectionDetection", library_readable, &corrupt_tracks);
-            record_pool_integrity(
-                &conn,
-                install_at_spawn,
-                library_readable,
-                &corrupt_tracks,
-                !usable,
-            );
+            progress_clone.set_pool(activity_ids.len(), corrupt_tracks.len());
 
             if !usable {
                 if tracks.is_empty() {
@@ -1684,12 +1630,15 @@ impl PersistentEngine {
         // the app renders. Run on a clone of the registry so a failed save never
         // advances identity past what is durable in the DB; commit it only on Ok.
         // With an ingest open the clone is the registry the ingest began on.
-        let (trial_identity, applied) = prepared.unwrap_or_else(|| {
-            let mut identity = self.identity.replay_origin();
-            let applied =
-                self.section_identity_apply_into(&mut identity, SectionReplay::whole(sections));
-            (identity, applied)
-        });
+        let (trial_identity, applied) = match prepared {
+            Some(prepared) => prepared,
+            None => {
+                let mut identity = self.identity.replay_origin();
+                let applied = self
+                    .section_identity_apply_into(&mut identity, SectionReplay::whole(sections))?;
+                (identity, applied)
+            }
+        };
         let ReplayApplied {
             mut visible,
             events,
@@ -2381,6 +2330,7 @@ mod detection_install_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::poison::Recover;
     use std::thread;
 
     #[test]
@@ -2495,9 +2445,9 @@ mod tests {
             ));
             assert_eq!(detection_row(), ("complete".to_string(), 2));
 
-            record_failed_run(engine_install());
+            record_failed_run(engine_install(), 7, 3);
 
-            assert_eq!(detection_row(), ("failed".to_string(), 0));
+            assert_eq!(detection_row(), ("failed".to_string(), 7));
         }
 
         #[test]
@@ -2890,11 +2840,11 @@ mod tests {
         }
 
         fn result_disconnected(&self) -> Option<bool> {
-            *self.result_gone.lock().unwrap_or_else(|e| e.into_inner())
+            *self.result_gone.lock_recover()
         }
 
         fn cache_disconnected(&self) -> Option<bool> {
-            *self.cache_gone.lock().unwrap_or_else(|e| e.into_inner())
+            *self.cache_gone.lock_recover()
         }
     }
 
@@ -2930,12 +2880,10 @@ mod tests {
         fn request_budget_changed(&self) {}
 
         fn detection_applied(&self) {
-            *self.result_gone.lock().unwrap_or_else(|e| e.into_inner()) = Some(
-                drained_to_disconnected(&self.results.lock().unwrap_or_else(|e| e.into_inner())),
-            );
-            *self.cache_gone.lock().unwrap_or_else(|e| e.into_inner()) = Some(
-                drained_to_disconnected(&self.cache.lock().unwrap_or_else(|e| e.into_inner())),
-            );
+            *self.result_gone.lock_recover() =
+                Some(drained_to_disconnected(&self.results.lock_recover()));
+            *self.cache_gone.lock_recover() =
+                Some(drained_to_disconnected(&self.cache.lock_recover()));
         }
     }
 

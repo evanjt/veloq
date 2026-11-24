@@ -10,14 +10,12 @@ import type {
 import {
   formatDuration,
   formatFullDate,
-  formatPaceCompact,
   formatPower,
-  formatSwimPace,
   paceUnitLabel,
   swimPaceUnitLabel,
 } from '@/shared/format/format';
 import type { StalePrOpportunity as EngineStalePrOpportunity } from 'veloqrs';
-import type { ActivityType } from '@/types';
+import { toActivityType } from '@/types';
 import {
   isCyclingActivity,
   isPaceSport,
@@ -31,6 +29,7 @@ import { TIME } from '@/shared/app/time';
 import { localWallClockToEpochSeconds, wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 import { formatDecimal, formatPercent, formatSignedPercentage } from '@/shared/format';
 import { printedValue } from '../lib/printedValue';
+import { paceSeriesFormat } from '../lib/paceSeriesFormat';
 
 /**
  * Stale PR / Opportunity Detection
@@ -57,6 +56,11 @@ export interface StalePROpportunity {
   fitnessMetric: 'power' | 'pace';
   currentValue: number;
   previousValue: number;
+  /** The pace the engine formatted for each unit system, absent for power. */
+  currentMetricText?: string | null | undefined;
+  currentImperialText?: string | null | undefined;
+  previousMetricText?: string | null | undefined;
+  previousImperialText?: string | null | undefined;
   gainPercent: number;
   /** Unit label: 'W' for power, '/km' for running, '/100m' for swimming */
   unit: string;
@@ -75,6 +79,9 @@ export interface StalePROpportunity {
   prPower?: number;
   /** The record effort's mean speed in m/s, running and swimming only. */
   prSpeed?: number;
+  /** `prSpeed` as the engine's pace text per unit system. */
+  prSpeedMetricText?: string | null | undefined;
+  prSpeedImperialText?: string | null | undefined;
   /** The record effort as a percent of that day's fitness. */
   prSharePercent?: number;
   /** The fitness from the first effort to now, with a point on the record's day. */
@@ -151,14 +158,39 @@ function gainFormula(
   return `${t('insights.stalePr.metricGain', { metric: metricLabel })} = (${current} - ${previous}) / ${previous} = ${gainText(opportunity.gainPercent)}`;
 }
 
-/** The fitness as the card prints it: watts, or a pace with its unit. */
-function fitnessText(opportunity: StalePROpportunity, value: number, isMetric: boolean): string {
-  if (opportunity.fitnessMetric === 'power') return formatPower(value);
-  const pace =
-    opportunity.unit === '/100m'
-      ? formatSwimPace(value, isMetric)
-      : formatPaceCompact(value, isMetric);
-  return `${pace}${displayUnit(opportunity, isMetric)}`;
+/** The fitness on the compared day or now as the card prints it: watts, or the engine's pace with its unit. */
+function fitnessText(
+  opportunity: StalePROpportunity,
+  which: 'current' | 'previous',
+  isMetric: boolean
+): string {
+  if (opportunity.fitnessMetric === 'power') {
+    return formatPower(which === 'current' ? opportunity.currentValue : opportunity.previousValue);
+  }
+  return `${opportunityPaceText(opportunity, which, isMetric)}${displayUnit(opportunity, isMetric)}`;
+}
+
+/** The fitness series' value as printed: every value on the chart is a point's, read as the engine's text. */
+function fitnessSeriesText(opportunity: StalePROpportunity, isMetric: boolean) {
+  if (opportunity.fitnessMetric === 'power') return (value: number) => formatPower(value);
+  return paceSeriesFormat(opportunity.fitnessHistory, isMetric, displayUnit(opportunity, isMetric));
+}
+
+/** The engine's pace text for the opportunity's current or previous fitness. */
+function opportunityPaceText(
+  opportunity: StalePROpportunity,
+  which: 'current' | 'previous',
+  isMetric: boolean
+): string {
+  const text =
+    which === 'current'
+      ? isMetric
+        ? opportunity.currentMetricText
+        : opportunity.currentImperialText
+      : isMetric
+        ? opportunity.previousMetricText
+        : opportunity.previousImperialText;
+  return text ?? '';
 }
 
 /**
@@ -166,7 +198,7 @@ function fitnessText(opportunity: StalePROpportunity, value: number, isMetric: b
  * "Swum once". A sport with no verb of its own is "done".
  */
 function visitedText(opportunity: StalePROpportunity, t: TFunc): string {
-  const sport = opportunity.sportType as ActivityType | undefined;
+  const sport = opportunity.sportType ? toActivityType(opportunity.sportType) : undefined;
   const count = { count: opportunity.traversalCount };
   if (sport == null) return t('insights.stalePr.visitedOther', count);
   if (isCyclingActivity(sport)) return t('insights.stalePr.visitedRide', count);
@@ -189,12 +221,13 @@ function effortText(opportunity: StalePROpportunity, t: TFunc, isMetric: boolean
       share: percent,
     });
   }
-  if (opportunity.prSpeed == null) return undefined;
+  const paceText = isMetric ? opportunity.prSpeedMetricText : opportunity.prSpeedImperialText;
+  if (opportunity.prSpeed == null || paceText == null) return undefined;
   return t(
     opportunity.unit === '/100m'
       ? 'insights.stalePr.sheetEffortSwim'
       : 'insights.stalePr.sheetEffortRun',
-    { pace: fitnessText(opportunity, opportunity.prSpeed, isMetric), share: percent }
+    { pace: `${paceText}${displayUnit(opportunity, isMetric)}`, share: percent }
   );
 }
 
@@ -227,7 +260,8 @@ function sheetSection(
   const fitnessSeries: HistorySeries = {
     label: metric,
     points: fitness,
-    format: (value) => fitnessText(opportunity, value, isMetric),
+    format: fitnessSeriesText(opportunity, isMetric),
+    ...(opportunity.fitnessMetric === 'power' ? {} : { marksOnSamples: true }),
   };
   const effortSeries: HistorySeries = {
     label: t('insights.stalePr.sheetEfforts'),
@@ -244,8 +278,8 @@ function sheetSection(
     summary: t('insights.stalePr.sheetSummary', {
       date: formatFullDate(wallClockSecondsToLocalDate(prDate)),
       metric,
-      previous: fitnessText(opportunity, opportunity.previousValue, isMetric),
-      current: fitnessText(opportunity, opportunity.currentValue, isMetric),
+      previous: fitnessText(opportunity, 'previous', isMetric),
+      current: fitnessText(opportunity, 'current', isMetric),
       gain: gainText(opportunity.gainPercent),
     }),
     effort: effortText(opportunity, t, isMetric),
@@ -290,14 +324,10 @@ export function stalePROpportunityToInsight(
   const metricLabel = metricLabelFor(opportunity, t);
   const currentStr = isPower
     ? formatPower(opportunity.currentValue)
-    : isSwimPace
-      ? formatSwimPace(opportunity.currentValue, isMetric)
-      : formatPaceCompact(opportunity.currentValue, isMetric);
+    : opportunityPaceText(opportunity, 'current', isMetric);
   const previousStr = isPower
     ? formatPower(opportunity.previousValue)
-    : isSwimPace
-      ? formatSwimPace(opportunity.previousValue, isMetric)
-      : formatPaceCompact(opportunity.previousValue, isMetric);
+    : opportunityPaceText(opportunity, 'previous', isMetric);
   const unit = displayUnit(opportunity, isMetric);
   const displayedCurrent = isPower ? currentStr : `${currentStr}${unit}`;
   const displayedPrevious = isPower ? previousStr : `${previousStr}${unit}`;
@@ -438,7 +468,7 @@ export function generateStalePRInsights(
     subtitleParts.push(
       t('insights.stalePr.groupSubtitle', {
         metric,
-        current: fitnessText(o, o.currentValue, isMetric),
+        current: fitnessText(o, 'current', isMetric),
       })
     );
   }

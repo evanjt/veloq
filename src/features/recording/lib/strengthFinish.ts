@@ -1,4 +1,4 @@
-import { UploadOutcome, type UploadResult } from 'veloqrs';
+import { FfiUploadOutcome, type FfiUploadResult } from 'veloqrs';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { sourceFor } from '@/shared/app/source';
@@ -10,9 +10,9 @@ import { useUploadPermissionStore } from '@/features/recording/stores/UploadPerm
 import type { RecordingLibraryEntry } from '@/types';
 
 /** Why a finished session stays on the device instead of going to intervals.icu. */
-export type KeptReason = 'sourceCannotUpload' | 'noUploadScope' | 'autoUploadOff';
+type KeptReason = 'sourceCannotUpload' | 'noUploadScope' | 'autoUploadOff';
 
-export type StrengthFinishOutcome =
+type StrengthFinishOutcome =
   /** No set was done: nothing was written and the live session is as it was. */
   | { kind: 'noSets' }
   | {
@@ -21,7 +21,7 @@ export type StrengthFinishOutcome =
       /** Set when the row was kept on the device, and then no upload was tried. */
       kept: KeptReason | null;
       /** The upload's answer, null when none was tried. */
-      upload: UploadResult | null;
+      upload: FfiUploadResult | null;
     };
 
 function keptReason(): KeptReason | null {
@@ -61,7 +61,7 @@ export async function finishStrengthSession(input: {
 }
 
 /** The translation keys a saved session's notice takes. */
-export type SavedNoticeKey =
+type SavedNoticeKey =
   | 'recording.savedLocally'
   | 'recording.savedLocallyNoScope'
   | 'recording.savedLocallyNoUpload'
@@ -88,16 +88,16 @@ export function savedNoticeKey(
   if (outcome.kept === 'noUploadScope') return 'recording.savedLocallyNoScope';
   if (outcome.kept === 'autoUploadOff') return 'recording.savedLocally';
   switch (outcome.upload?.outcome) {
-    case UploadOutcome.Uploaded:
+    case FfiUploadOutcome.Uploaded:
       return null;
-    case UploadOutcome.PermissionBlocked:
+    case FfiUploadOutcome.PermissionBlocked:
       return 'recording.savedLocallyNoScope';
-    case UploadOutcome.Rejected:
+    case FfiUploadOutcome.Rejected:
       return 'recording.uploadRejected';
-    case UploadOutcome.Missing:
+    case FfiUploadOutcome.Missing:
       return 'recording.uploadMissing';
-    case UploadOutcome.AuthExpired:
-    case UploadOutcome.OtherAthlete:
+    case FfiUploadOutcome.AuthExpired:
+    case FfiUploadOutcome.OtherAthlete:
       return 'recording.savedQueuedAuth';
     default:
       return 'recording.savedQueued';

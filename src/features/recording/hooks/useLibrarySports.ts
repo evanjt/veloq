@@ -3,9 +3,10 @@ import { settings } from 'veloqrs';
 
 import { getEngine } from '@/shared/native/engine';
 import type { ActivityType } from '@/types';
+import { toActivityType } from '@/types';
 
 function readLibrarySports(): ActivityType[] {
-  return (settings.getRecordScreenData()?.librarySports ?? []) as ActivityType[];
+  return (settings.getRecordScreenData()?.librarySports ?? []).map(toActivityType);
 }
 
 /**

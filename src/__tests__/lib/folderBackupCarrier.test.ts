@@ -456,14 +456,6 @@ describe('on Android, a storage-access folder', () => {
     expect(mockSettings.get('__backup_folder')).toBe(other);
     expect(mockNative.releaseFolderGrant).toHaveBeenCalledWith(TREE_URI);
   });
-
-  it('never deletes a zip in the folder', async () => {
-    await performBackup(true);
-    const [name] = [...mockFolder.files.keys()];
-
-    await expect(folderBackend.delete(name)).rejects.toThrow();
-    expect(mockFolder.files.has(name)).toBe(true);
-  });
 });
 
 /** The native side's media store writes to `Documents/Veloq`, on Android 10 and later. */

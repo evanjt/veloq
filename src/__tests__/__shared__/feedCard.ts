@@ -1,4 +1,4 @@
-import { StubVerdict } from 'veloqrs';
+import { FfiStubVerdict } from 'veloqrs';
 import type { FeedCard } from '@/types';
 
 /**
@@ -12,7 +12,7 @@ export function feedCard(overrides: Partial<FeedCard> & Pick<FeedCard, 'id'>): F
     hasWeather: false,
     hasGps: false,
     hasAltitude: false,
-    stub: StubVerdict.NotStub,
+    stub: FfiStubVerdict.NotStub,
     heatmapHidden: false,
     ...overrides,
   };

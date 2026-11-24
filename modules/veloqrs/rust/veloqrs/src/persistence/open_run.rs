@@ -10,10 +10,10 @@
 //! detector cutover: a start verdict, a progress read polled on a timer, and a
 //! terminal state that names how the open ended.
 
-use std::sync::Mutex;
-
 use crate::objects::init::FfiInitOutcome;
 use crate::objects::start::FfiStartOutcome;
+use crate::poison::Recover;
+use std::sync::Mutex;
 
 /// Where the off-thread open stands.
 ///
@@ -57,7 +57,7 @@ static STATE: Mutex<FfiOpenProgress> = Mutex::new(FfiOpenProgress {
 });
 
 fn state() -> std::sync::MutexGuard<'static, FfiOpenProgress> {
-    STATE.lock().unwrap_or_else(|e| e.into_inner())
+    STATE.lock_recover()
 }
 
 /// Where the off-thread open stands.

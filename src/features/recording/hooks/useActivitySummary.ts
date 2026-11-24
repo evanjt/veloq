@@ -20,12 +20,12 @@ export interface ActivitySummary {
 }
 
 /** The distance (metres) and moving time (seconds) a trim removes. */
-export interface TrimDelta {
+interface TrimDelta {
   distance: number;
   duration: number;
 }
 
-export interface UseActivitySummaryArgs {
+interface UseActivitySummaryArgs {
   streams: RecordingStreams;
   startTime: number | null;
   stopTime: number | null;
@@ -47,7 +47,7 @@ export interface UseActivitySummaryArgs {
   };
 }
 
-export interface UseActivitySummary {
+interface UseActivitySummary {
   summary: ActivitySummary;
   trimDelta: TrimDelta | null;
   getTrimmedStreams: () => RecordingStreams;

@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { render, screen, within } from '@testing-library/react-native';
-import { PoolSwimState, PoolUnit, type PoolSwim } from 'veloqrs';
+import { FfiPoolSwimState, FfiPoolUnit, type FfiPoolSwim } from 'veloqrs';
 
 import {
   PoolLengthsTable,
@@ -23,6 +23,14 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 beforeAll(async () => {
   await initialiseI18n();
 });
+
+/** The engine's text for a speed, with imperial a fixed amount faster than metric. */
+const swimPace = (speedMps: number) => {
+  const per100 = Math.round(100 / speedMps);
+  const text = (seconds: number) =>
+    `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  return { metricText: text(per100), imperialText: text(Math.round(per100 * 0.9144)) };
+};
 
 const active = (
   index: number,
@@ -39,13 +47,14 @@ const active = (
   elapsedSecs,
   strokes,
   speedMps,
+  pace: swimPace(speedMps),
   swolf: elapsedSecs + strokes,
 });
 
-const read: PoolSwim = {
-  state: PoolSwimState.Read,
+const read: FfiPoolSwim = {
+  state: FfiPoolSwimState.Read,
   poolLengthM: 25,
-  poolUnit: PoolUnit.Metres,
+  poolUnit: FfiPoolUnit.Metres,
   lengths: [
     active(0, 0, 'freestyle', 25, 18, 1),
     active(1, 0, 'freestyle', 25, 20, 1),
@@ -61,6 +70,7 @@ const read: PoolSwim = {
       distanceM: 50,
       elapsedSecs: 50,
       speedMps: 1,
+      pace: swimPace(1),
       avgSwolf: 44,
     },
     {
@@ -70,19 +80,26 @@ const read: PoolSwim = {
       distanceM: 50,
       elapsedSecs: 90,
       speedMps: 50 / 90,
+      pace: swimPace(50 / 90),
       avgSwolf: 59.5,
     },
   ],
 };
 
-const owed: PoolSwim = {
-  state: PoolSwimState.Owed,
-  poolUnit: PoolUnit.Metres,
+/** The row without the pace text, as the read gives it when the engine wrote none. */
+function omitPace<T extends { pace?: unknown }>(row: T): Omit<T, 'pace'> {
+  const { pace: _pace, ...rest } = row;
+  return rest;
+}
+
+const owed: FfiPoolSwim = {
+  state: FfiPoolSwimState.Owed,
+  poolUnit: FfiPoolUnit.Metres,
   lengths: [],
   strokeTotals: [],
 };
 
-const settled: PoolSwim = { ...owed, state: PoolSwimState.NoLengths };
+const settled: FfiPoolSwim = { ...owed, state: FfiPoolSwimState.NoLengths };
 
 function rowText(testID: string): string {
   return within(screen.getByTestId(testID))
@@ -118,16 +135,43 @@ describe('the lengths of a pool swim', () => {
   });
 
   it('reads a yard pool in yards and its pace per 100 yards', async () => {
-    const yards: PoolSwim = {
+    const yards: FfiPoolSwim = {
       ...read,
       poolLengthM: 22.86,
-      poolUnit: PoolUnit.Yards,
-      strokeTotals: [{ ...read.strokeTotals[0]!, distanceM: 45.72, speedMps: 0.9144 }],
+      poolUnit: FfiPoolUnit.Yards,
+      strokeTotals: [
+        { ...read.strokeTotals[0]!, distanceM: 45.72, speedMps: 0.9144, pace: swimPace(0.9144) },
+      ],
     };
     await render(<PoolLengthsTable poolSwim={yards} />);
 
     expect(screen.getByText('25 yd pool')).toBeTruthy();
     expect(rowText('pool-stroke-row-0')).toBe('Freestyle|2|50 yd|0:50|1:40|44');
+  });
+
+  it('prints the engine text for each length and total, whatever the speed would give', async () => {
+    const told: FfiPoolSwim = {
+      ...read,
+      lengths: [{ ...read.lengths[0]!, pace: { metricText: '7:77', imperialText: '6:66' } }],
+      strokeTotals: [
+        { ...read.strokeTotals[0]!, pace: { metricText: '8:88', imperialText: '5:55' } },
+      ],
+    };
+    await render(<PoolLengthsTable poolSwim={told} />);
+
+    expect(rowText('pool-length-row-0')).toBe('1|Freestyle|0:25|18|7:77|43');
+    expect(rowText('pool-stroke-row-0')).toBe('Freestyle|2|50 m|0:50|8:88|44');
+  });
+
+  it('prints the absent mark where the engine wrote no pace text', async () => {
+    const untold: FfiPoolSwim = {
+      ...read,
+      lengths: [omitPace(read.lengths[0]!)],
+      strokeTotals: [omitPace(read.strokeTotals[0]!)],
+    };
+    await render(<PoolLengthsTable poolSwim={untold} />);
+
+    expect(rowText('pool-length-row-0')).toBe('1|Freestyle|0:25|18|--|43');
   });
 
   it('shows the pending line and no rows while the file is owed', async () => {

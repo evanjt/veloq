@@ -4,6 +4,7 @@ import type { GroupWithPolyline } from 'veloqrs';
 import { computeCenter } from '@/shared/geo/distance';
 import type { RouteGroup } from '@/types';
 import { toActivityType } from '@/features/routes/types';
+import { shortCoordsFromNative } from '@/shared/ffi/shortPoints';
 
 /**
  * Convert batch GroupWithPolyline to RouteGroup with pre-loaded representative points.
@@ -11,10 +12,7 @@ import { toActivityType } from '@/features/routes/types';
  */
 export function batchGroupToRouteGroup(group: GroupWithPolyline): RouteGroup {
   // Decode delta+varint encoded polyline to RoutePoint[]
-  const representativePoints = decodeCoords(group.encodedPolyline).map((p) => ({
-    lat: p.latitude,
-    lng: p.longitude,
-  }));
+  const representativePoints = shortCoordsFromNative(decodeCoords(group.encodedPolyline));
   const center = group.bounds
     ? computeCenter({
         minLat: group.bounds.minLat,

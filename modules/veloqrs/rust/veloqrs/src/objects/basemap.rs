@@ -73,12 +73,6 @@ impl BasemapManager {
         None
     }
 
-    /// One tile's bytes, from the store if it is there and from the tile host
-    /// if it is not. Blocks until the tile is in hand.
-    fn get_or_fetch_tile(&self, source: String, z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
-        basemap::get_or_fetch(&source, z, x, y)
-    }
-
     /// Total bytes across every source, answered without a WebView.
     ///
     /// Async because the first read of a session loads every source's sidecar,

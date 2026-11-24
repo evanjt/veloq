@@ -18,9 +18,6 @@ export const TROPHY_ICON: MapImageSpec = {
   sdf: true,
 };
 
-/** Raw base64 for builders that inline the image into a page themselves. */
-export const TROPHY_ICON_BASE64 = TROPHY_BASE64;
-
 export const SECTION_START_ICON_ID = 'section-start';
 export const SECTION_END_ICON_ID = 'section-end';
 

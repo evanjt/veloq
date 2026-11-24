@@ -61,6 +61,8 @@ function encounter(overrides: Partial<SectionEncounter> = {}): SectionEncounter 
     isComplete: true,
     visitCount: 3,
     historyTimes: [250, 200, 220],
+    historyPaceMetricTexts: [],
+    historyPaceImperialTexts: [],
     historyActivityIds: ['act-a', 'act-b', 'act-c'],
     historyDates: [START, START + DAY, START + 31 * DAY],
     ...overrides,
@@ -112,6 +114,32 @@ describe('sectionSparklineData', () => {
     );
 
     expect(data?.points.map((p) => p.label)).toEqual(['5 Nov', '5 Nov', '6 Nov']);
+  });
+
+  it('prints each pace attempt as the engine wrote it, in the unit system shown', () => {
+    const pace = encounter({
+      historyPaceMetricTexts: ['4:01', '3:21', '3:41'],
+      historyPaceImperialTexts: ['6:28', '5:23', '5:56'],
+    });
+    const metric = sectionSparklineData(pace, 'act-b', 'Run', true, t)!;
+    const imperial = sectionSparklineData(pace, 'act-b', 'Run', false, t)!;
+
+    expect(metric.points.map((p) => metric.format(p.value))).toEqual([
+      '4:01 /km',
+      '3:21 /km',
+      '3:41 /km',
+    ]);
+    expect(imperial.points.map((p) => imperial.format(p.value))).toEqual([
+      '6:28 /mi',
+      '5:23 /mi',
+      '5:56 /mi',
+    ]);
+  });
+
+  it('prints a ride attempt as a speed', () => {
+    const data = sectionSparklineData(encounter(), 'act-b', 'Ride', true, t)!;
+
+    expect(data.format(5)).toBe('18.0 km/h');
   });
 
   it('has nothing to draw for a single attempt', () => {

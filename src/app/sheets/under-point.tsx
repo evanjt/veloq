@@ -24,7 +24,7 @@ import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { sportMarkColour } from '@/shared/activity/sportCategories';
 import { formatDistance, formatDuration, formatEpochDayUtc } from '@/shared/format/format';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
-import type { ActivityType } from '@/types';
+import { toActivityType } from '@/types';
 import { FfiUnderPointKind } from 'veloqrs';
 import type { FfiActivitiesUnderPoint, FfiUnderPointGroup } from 'veloqrs';
 
@@ -184,7 +184,9 @@ function UnderPointSheetContent() {
                     : 'maps.underPointOpenRoute',
                   { name: label(candidate) }
                 );
-          const sport = candidate.sportTypes[0] as ActivityType | undefined;
+          const sport = candidate.sportTypes[0]
+            ? toActivityType(candidate.sportTypes[0])
+            : undefined;
           return (
             <Row
               key={groupKey(candidate)}
@@ -246,9 +248,9 @@ function UnderPointSheetContent() {
               onPress={() => resolve(activity.id)}
             >
               <Icon
-                name={getActivityIcon(activity.sportType as ActivityType)}
+                name={getActivityIcon(toActivityType(activity.sportType))}
                 size={iconSize.lg}
-                color={sportMarkColour(activity.sportType as ActivityType, isDark)}
+                color={sportMarkColour(toActivityType(activity.sportType), isDark)}
               />
               <View style={styles.details}>
                 <NameText style={[styles.name, { color: textPrimary }]}>{activity.name}</NameText>

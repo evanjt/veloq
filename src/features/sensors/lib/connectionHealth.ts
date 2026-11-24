@@ -7,7 +7,7 @@ import type { SensorConnectionStatus } from '../types';
  */
 export const SENSOR_NO_DATA_MS = 10_000;
 
-export interface SensorLinkState {
+interface SensorLinkState {
   /** `first` for the initial connect, `retry` once a reconnect is driving it. */
   attempt: 'first' | 'retry';
   /** When the characteristic monitors were registered, null before that. */
@@ -41,7 +41,7 @@ export function sensorConnectionHealth({
   return lastSampleAt === null ? pending : 'connected';
 }
 
-export interface StuckBroadcastEvidence {
+interface StuckBroadcastEvidence {
   /** Whether the sensor's advertisement was heard while its subscription was silent. */
   advertisementSeen: boolean;
   /** Notifications delivered since the current subscription was made. */

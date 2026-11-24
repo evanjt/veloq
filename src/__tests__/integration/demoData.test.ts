@@ -4,7 +4,6 @@
  * and that fixtures themselves remain shape-valid, unique, and deterministic.
  */
 
-import { formFromLoads } from '@/shared/math/trainingLoad';
 import { sortByDateId } from '@/shared/activity/activityUtils';
 import {
   fixtures,
@@ -26,7 +25,10 @@ describe('Demo data integrity', () => {
 
   it('wellness TSB pipeline produces finite form values that track CTL - ATL', () => {
     const sorted = sortByDateId(fixtures.wellness);
-    const withTSB = sorted.map((day) => ({ ...day, tsb: formFromLoads(day.ctl, day.atl) }));
+    const withTSB = sorted.map((day) => ({
+      ...day,
+      tsb: Math.round(day.ctl ?? 0) - Math.round(day.atl ?? 0),
+    }));
 
     expect(withTSB.length).toBeGreaterThan(0);
     expect(sorted[sorted.length - 1].id).toBe(DEMO_REFERENCE_DATE);

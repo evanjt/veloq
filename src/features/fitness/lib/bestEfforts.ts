@@ -1,13 +1,7 @@
-import {
-  formatPaceCompact,
-  formatSwimPace,
-  paceUnitLabel,
-  swimPaceUnitLabel,
-  formatDecimal,
-} from '@/shared/format';
-import type { ClimbBest } from '@/features/stats';
+import { paceUnitLabel, swimPaceUnitLabel, formatDecimal } from '@/shared/format';
+import type { BestEffort as BestEffortValue, ClimbBest } from '@/features/stats';
 import { M_TO_FT, formatDurationHuman } from '@/shared/format/format';
-import { BestEffortKind, type BestEffort } from 'veloqrs';
+import { FfiBestEffortKind, type BestEffort } from 'veloqrs';
 import type { TFunction } from 'i18next';
 import type { PrimarySport } from '../stores/SportPreferenceStore';
 import { ABSENT } from '@/shared/format/absent';
@@ -22,12 +16,12 @@ export function bestEffortCheckpointLabel(
   effort: Pick<BestEffort, 'kind' | 'checkpoint'>,
   t: TFunction
 ): string {
-  if (effort.kind === BestEffortKind.Duration) return formatDurationHuman(effort.checkpoint);
-  if (effort.kind === BestEffortKind.HalfMarathon) {
+  if (effort.kind === FfiBestEffortKind.Duration) return formatDurationHuman(effort.checkpoint);
+  if (effort.kind === FfiBestEffortKind.HalfMarathon) {
     return t('bestEffortsScreen.checkpoint.halfMarathon');
   }
-  if (effort.kind === BestEffortKind.Marathon) return t('bestEffortsScreen.checkpoint.marathon');
-  if (effort.kind === BestEffortKind.Mile) return t('bestEffortsScreen.checkpoint.mile');
+  if (effort.kind === FfiBestEffortKind.Marathon) return t('bestEffortsScreen.checkpoint.marathon');
+  if (effort.kind === FfiBestEffortKind.Mile) return t('bestEffortsScreen.checkpoint.mile');
   return effort.checkpoint < 1000
     ? t('bestEffortsScreen.checkpoint.metres', { value: Math.round(effort.checkpoint) })
     : t('bestEffortsScreen.checkpoint.kilometres', {
@@ -37,29 +31,29 @@ export function bestEffortCheckpointLabel(
 
 // Power for cycling, pace per km or mile for running, pace per 100 m or 100 yd for swimming.
 export function formatEffortValue(
-  value: number | null,
+  effort: Pick<BestEffortValue, 'value' | 'paceMetricText' | 'paceImperialText'>,
   sport: PrimarySport,
   wattsUnit: string,
   isMetric: boolean
 ): string {
+  const { value } = effort;
   if (value === null || !Number.isFinite(value)) return ABSENT;
 
   if (sport === 'Cycling') {
     return `${Math.round(value)} ${wattsUnit}`;
   }
-  if (sport === 'Running') {
-    return `${formatPaceCompact(value, isMetric)}${paceUnitLabel(isMetric)}`;
-  }
-  if (sport === 'Swimming') {
-    return `${formatSwimPace(value, isMetric)}${swimPaceUnitLabel(isMetric)}`;
+  if (sport === 'Running' || sport === 'Swimming') {
+    const text = isMetric ? effort.paceMetricText : effort.paceImperialText;
+    if (text === null) return ABSENT;
+    return `${text}${sport === 'Running' ? paceUnitLabel(isMetric) : swimPaceUnitLabel(isMetric)}`;
   }
   return ABSENT;
 }
 
 /** Windows from this length up are read as climbing rate, shorter ones as vertical power. */
-export const VAM_FROM_WINDOW_S = 300;
+const VAM_FROM_WINDOW_S = 300;
 
-export interface ClimbUnits {
+interface ClimbUnits {
   wattsPerKg: string;
   metresPerHour: string;
   feetPerHour: string;

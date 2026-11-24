@@ -6,7 +6,7 @@
 export type PermissionOutcome = 'granted' | 'askable' | 'blocked';
 
 /** The shape every Expo permission response shares. */
-export interface PermissionAnswer {
+interface PermissionAnswer {
   status: string;
   canAskAgain?: boolean;
 }
@@ -20,7 +20,7 @@ export function permissionOutcome(answer: PermissionAnswer): PermissionOutcome {
   return answer.canAskAgain === false ? 'blocked' : 'askable';
 }
 
-export interface PermissionAsk {
+interface PermissionAsk {
   outcome: PermissionOutcome;
   /** The system dialog was raised by this ask, so the athlete has just answered it. */
   prompted: boolean;

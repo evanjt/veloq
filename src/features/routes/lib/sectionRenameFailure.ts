@@ -1,4 +1,4 @@
-export type SectionRenameFailure = 'nameTaken' | 'failed';
+type SectionRenameFailure = 'nameTaken' | 'failed';
 
 /**
  * What saving a typed name came to. A refused name carries the line the field

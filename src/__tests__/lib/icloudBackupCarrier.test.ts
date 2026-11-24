@@ -255,8 +255,6 @@ describe('on iPhone', () => {
 
     expect(containerFiles()).toHaveLength(2);
     expect(mockCloud.unlinks).toEqual([]);
-    await expect(icloudBackend.delete(containerFiles()[0])).rejects.toThrow();
-    expect(containerFiles()).toHaveLength(2);
   });
 
   it('reports a copy that did not read back the same as unverified and owes it', async () => {

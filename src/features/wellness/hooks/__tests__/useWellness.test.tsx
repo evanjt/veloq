@@ -31,7 +31,16 @@ function day(date: string): WellnessDay {
 }
 
 function stored(...days: WellnessDay[]): WellnessDays {
-  return { days, coverage: days.length > 0 ? RangeCoverage.Loaded : RangeCoverage.Empty };
+  return {
+    days,
+    coverage: days.length > 0 ? RangeCoverage.Loaded : RangeCoverage.Empty,
+    form: days.map(() => undefined),
+    formZone: days.map(() => undefined),
+    formText: days.map(() => undefined),
+    tsbText: days.map(() => undefined),
+    formAsPercent: false,
+    formZoneEdges: [-30, -10, 5, 25],
+  };
 }
 
 jest.mock('@/shared/native/useEngineChannel', () => ({
@@ -98,7 +107,12 @@ describe('useWellness', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     const key = queryKeys.wellness.byRange('7d', '2026-08-21', '2026-08-28');
-    expect(client.getQueryData(key)).toEqual({ days: [], coverage: RangeCoverage.Empty });
+    expect(client.getQueryData(key)).toEqual({
+      days: [],
+      coverage: RangeCoverage.Empty,
+      formAsPercent: false,
+      formZoneEdges: [-30, -10, 5, 25],
+    });
     expect(result.current.data).toEqual([]);
   });
 
@@ -155,6 +169,9 @@ describe('toWellnessData', () => {
         'atl',
         'ctl',
         'fatigue',
+        'form',
+        'formText',
+        'formZone',
         'hrv',
         'id',
         'mood',
@@ -166,6 +183,7 @@ describe('toWellnessData', () => {
         'soreness',
         'sportInfo',
         'stress',
+        'tsbText',
         'weight',
       ].sort()
     );

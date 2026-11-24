@@ -77,6 +77,34 @@ describe('a drape saved over its flat stand-in', () => {
     expect(mockFileStore.has(DRAPE_FILE)).toBe(false);
   });
 
+  it('keeps the stand-in indexed and served while the drape is still being written', async () => {
+    let finishWrite: () => void = () => {};
+    (FileSystem.writeAsStringAsync as jest.Mock).mockImplementationOnce(
+      (path: string, data: string) =>
+        new Promise<void>((resolve) => {
+          finishWrite = () => {
+            mockFileStore.set(path, data);
+            resolve();
+          };
+        })
+    );
+
+    const save = saveTerrainPreview('a1', 'light', DRAPED, 'DRAPE');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(hasTerrainPreview('a1', 'light', DRAPED)).toBe(true);
+    expect(isTerrainPreviewDowngraded('a1', 'light', DRAPED)).toBe(true);
+    expect(mockFileStore.get(getTerrainPreviewUri('a1', 'light', DRAPED).split('?')[0])).toBe(
+      'STANDIN'
+    );
+
+    finishWrite();
+    await save;
+
+    expect(mockFileStore.has(STAND_IN_FILE)).toBe(false);
+    expect(isTerrainPreviewDowngraded('a1', 'light', DRAPED)).toBe(false);
+  });
+
   it('serves the stand-in afterwards, so the card is not left without an image', async () => {
     (FileSystem.writeAsStringAsync as jest.Mock).mockRejectedValueOnce(new Error('disk full'));
     await expect(saveTerrainPreview('a1', 'light', DRAPED, 'DRAPE')).rejects.toThrow();

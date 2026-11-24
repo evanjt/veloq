@@ -47,6 +47,7 @@ function strengthSummary(): StrengthSummary {
     activityCount: 4,
     totalSets: 17,
     maxWeightedSets: 12,
+    shadeCeilings: [0, 0, 0, 0, 0],
     balance: [
       {
         id: 'quads_hamstrings',

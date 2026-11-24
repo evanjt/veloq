@@ -15,7 +15,7 @@ import type { CallPlace } from '../EngineClient';
  * bindings no longer export fails the pre-commit typecheck instead of the
  * user's session.
  */
-export type EngineHandle = VeloqEngineLike;
+type EngineHandle = VeloqEngineLike;
 
 export interface DelegateHost {
   /** Cached UniFFI VeloqEngine handle. Null before initWithPath(). */

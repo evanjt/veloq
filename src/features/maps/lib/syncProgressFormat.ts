@@ -5,7 +5,7 @@
 
 import { formatPercent } from '@/shared/format';
 import type { TFunction } from 'i18next';
-import { TrackStep, type TrackStage } from 'veloqrs';
+import { FfiTrackStep, type FfiTrackStage } from 'veloqrs';
 
 export interface SyncDisplayInfo {
   icon: string;
@@ -29,10 +29,13 @@ export function progressLine(stage: string, percent: number, t: TFunction): stri
 
 /** How each step of the track work is drawn: its icon and the key naming it. */
 const TRACK_STEPS = {
-  [TrackStep.Downloading]: { icon: 'download-outline', stageKey: 'routesScreen.downloadingGps' },
-  [TrackStep.Analysing]: { icon: 'map-marker-path', stageKey: 'cache.analyzingRoutes' },
-  [TrackStep.DrawingHeatmap]: { icon: 'map-marker-path', stageKey: 'cache.finalizingHeatmap' },
-} as const satisfies Record<Exclude<TrackStep, TrackStep.Held>, { icon: string; stageKey: string }>;
+  [FfiTrackStep.Downloading]: { icon: 'download-outline', stageKey: 'routesScreen.downloadingGps' },
+  [FfiTrackStep.Analysing]: { icon: 'map-marker-path', stageKey: 'cache.analyzingRoutes' },
+  [FfiTrackStep.DrawingHeatmap]: { icon: 'map-marker-path', stageKey: 'cache.finalizingHeatmap' },
+} as const satisfies Record<
+  Exclude<FfiTrackStep, FfiTrackStep.Held>,
+  { icon: string; stageKey: string }
+>;
 
 /**
  * The line for the track work the engine reports: the GPS download, section
@@ -43,16 +46,16 @@ const TRACK_STEPS = {
  * the request budget or intervals.icu holds back has no line: the wait is
  * routine, so nothing stands on screen until downloading resumes.
  */
-export function formatTrackStage(stage: TrackStage, t: TFunction): SyncDisplayInfo | null {
-  if (stage.step === TrackStep.Held) return null;
+export function formatTrackStage(stage: FfiTrackStage, t: TFunction): SyncDisplayInfo | null {
+  if (stage.step === FfiTrackStep.Held) return null;
   const { icon, stageKey } = TRACK_STEPS[stage.step];
-  const downloading = stage.step === TrackStep.Downloading;
+  const downloading = stage.step === FfiTrackStep.Downloading;
   return {
     icon,
     text: progressLine(t(stageKey) as string, stage.percent, t),
     percent: stage.percent,
     countText: downloading && stage.total > 0 ? `${stage.completed}/${stage.total}` : null,
-    indeterminate: stage.step === TrackStep.Analysing ? stage.percent === 0 : stage.total === 0,
+    indeterminate: stage.step === FfiTrackStep.Analysing ? stage.percent === 0 : stage.total === 0,
   };
 }
 
@@ -64,12 +67,12 @@ export function formatTrackStage(stage: TrackStage, t: TFunction): SyncDisplayIn
  * has no line.
  */
 export function formatTrackProgressParts(
-  stage: TrackStage | null,
+  stage: FfiTrackStage | null,
   t: TFunction
 ): { label: string; counts: string } | null {
-  if (!stage || stage.step !== TrackStep.Downloading || stage.total === 0) return null;
+  if (!stage || stage.step !== FfiTrackStep.Downloading || stage.total === 0) return null;
   return {
-    label: t(TRACK_STEPS[TrackStep.Downloading].stageKey) as string,
+    label: t(TRACK_STEPS[FfiTrackStep.Downloading].stageKey) as string,
     counts: `${stage.completed}/${stage.total}`,
   };
 }

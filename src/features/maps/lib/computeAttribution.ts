@@ -15,7 +15,7 @@ import {
 import { CREDIT_SEPARATOR } from '@/features/maps/lib/mapSourceCredits';
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
 
-export interface ComputeAttributionArgs {
+interface ComputeAttributionArgs {
   style: MapStyleType;
   is3D: boolean;
   /** Current viewport center in [lng, lat] format. Only used for satellite style. */

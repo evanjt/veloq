@@ -11,7 +11,6 @@ export {
   getDestinationLastBackup,
   getUnplacedBackupRecords,
   isPlatformRecordAnswered,
-  markPlatformRecordAnswered,
   getLastBackupFailure,
   getBackupFailures,
   cleanUpRetiredBackupSettings,
@@ -36,24 +35,14 @@ export {
   forgetBackupFolder,
   isSharedBackupFolder,
   stopBackupFolder,
-  googleDriveBackend,
-  signInToGoogleDrive,
-  forgetGoogleDrive,
-  getGoogleDriveAccount,
-  loadGoogleDriveAccount,
-  isGoogleDriveSupported,
   icloudBackend,
   isIcloudSupported,
 } from './backends';
-export { failureMessageKey, isBackupTransferError } from './backends/errors';
+export { failureMessageKey } from './backends/errors';
 export type { BackupBackend, BackupEntry } from './backends';
 export type {
   BackupDestination,
   BackupFailure,
   BackupRunResult,
-  CarrierOutcome,
   IcloudBackupState,
-  WebdavConfig,
-  WebdavUrlProblem,
 } from './autoBackup';
-export type { BackupFailureKind } from './backends/errors';

@@ -4,6 +4,8 @@
 //! for both route groups and detected sections (including their excluded variants).
 
 use crate::persistence::codec;
+use crate::persistence::schema_info;
+use crate::persistence::sql::question_marks;
 use crate::{
     ActivityMetrics, Direction, DirectionStats, RoutePerformance, RoutePerformanceResult,
     SectionLap, SectionPerformanceResult,
@@ -25,6 +27,7 @@ fn direction_stats(
     let total_time = counted.iter().map(|(time, _)| time).sum::<f64>();
     let total_distance = counted.iter().map(|(_, distance)| distance).sum::<f64>();
     DirectionStats {
+        avg_pace_text: None,
         avg_time: (count > 0).then(|| total_time / f64::from(count)),
         last_activity: last_activity.map(crate::WholeNumber),
         count,
@@ -432,6 +435,8 @@ pub(crate) mod laps {
                 let best_reverse_time = best_reverse.map(|lap| lap.time);
 
                 Some(SectionPerformanceRecord {
+                    avg_pace_text: None,
+                    best_pace_text: None,
                     activity_id: activity_id.to_string(),
                     activity_name,
                     activity_date: crate::WholeNumber(activity_date),
@@ -504,6 +509,8 @@ pub(crate) mod laps {
             .filter_map(|(activity_id, laps)| {
                 let (activity_name, activity_date) = meta_of(&activity_id)?;
                 Some(SectionPerformanceRecord {
+                    avg_pace_text: None,
+                    best_pace_text: None,
                     lap_count: laps.len() as u32,
                     laps,
                     activity_id,
@@ -838,7 +845,7 @@ impl PersistentEngine {
         if activity_ids.is_empty() {
             return;
         }
-        let placeholders = vec!["?"; activity_ids.len()].join(",");
+        let placeholders = question_marks(activity_ids.len());
         let sql = format!(
             "UPDATE section_activities
              SET lap_time = NULL, lap_pace = NULL, projected_m = NULL, time_empty = 0
@@ -1091,12 +1098,12 @@ impl PersistentEngine {
         };
         // The coverage updates would each recount their section's summary, so
         // the triggers are suspended and the changed sections recounted once.
-        if tx
-            .execute(
-                "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, '1')",
-                params![crate::persistence::schema::SECTION_SUMMARY_BULK_KEY],
-            )
-            .is_err()
+        if schema_info::set(
+            &tx,
+            crate::persistence::schema::SECTION_SUMMARY_BULK_KEY,
+            "1",
+        )
+        .is_err()
         {
             return 0;
         }
@@ -1154,12 +1161,7 @@ impl PersistentEngine {
                 return 0;
             }
         }
-        if tx
-            .execute(
-                "DELETE FROM schema_info WHERE key = ?",
-                params![crate::persistence::schema::SECTION_SUMMARY_BULK_KEY],
-            )
-            .is_err()
+        if schema_info::delete(&tx, crate::persistence::schema::SECTION_SUMMARY_BULK_KEY).is_err()
             || tx.commit().is_err()
         {
             return 0;
@@ -1477,18 +1479,8 @@ pub(crate) fn portion_coverage(
     if end < start + 2 {
         return None;
     }
-    let mut cumulative = Vec::with_capacity(line.len());
-    let mut run = 0.0;
-    cumulative.push(0.0);
-    for w in line.windows(2) {
-        run += crate::persistence::haversine_distance_meters(
-            w[0].latitude,
-            w[0].longitude,
-            w[1].latitude,
-            w[1].longitude,
-        );
-        cumulative.push(run);
-    }
+    let cumulative = tracematch::matching::cumulative_distances(line);
+    let run = cumulative.last().copied().unwrap_or(0.0);
     if run <= 0.0 {
         return None;
     }
@@ -1733,7 +1725,7 @@ where
         .cloned()
         .collect();
 
-    // Rank counts attempts strictly faster, as the podium does, and one is a record only when it strictly beats another attempt.
+    // Rank counts attempts strictly faster, as the podium does, and one is first only when it strictly beats another attempt, so a tie for first shows second.
     let current_rank = current_activity_id.and_then(|current_id| {
         let current = comparable.iter().find(|p| p.activity_id == current_id)?;
         let rivals: Vec<f64> = comparable
@@ -1741,7 +1733,7 @@ where
             .filter(|p| p.activity_id != current_id)
             .map(|p| f64::from(p.moving_time))
             .collect();
-        crate::persistence::records::rank_among(f64::from(current.moving_time), &rivals)
+        crate::persistence::records::tie_aware_rank(f64::from(current.moving_time), &rivals)
     });
 
     let forward_stats = best_sport.and_then(|_| route_direction_stats(&performances, "same"));
@@ -2210,26 +2202,24 @@ mod tests {
     /// makes. The trace hook takes a plain function pointer, so the sink
     /// is a static rather than a captured counter.
     mod traced {
+        use crate::poison::Recover;
         use std::sync::Mutex;
 
         static SQL: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
         pub fn record(sql: &str) {
-            SQL.lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .push(sql.to_string());
+            SQL.lock_recover().push(sql.to_string());
         }
 
         pub fn reset() {
-            SQL.lock().unwrap_or_else(|e| e.into_inner()).clear();
+            SQL.lock_recover().clear();
         }
 
         /// How many statements ran the backfill's own scan. Its predicate,
         /// rather than any mention of the column: the lap sensor enrichment
         /// pass reads the same table on `lap_time IS NULL OR avg_hr IS NULL`.
         pub fn lap_scans() -> usize {
-            SQL.lock()
-                .unwrap_or_else(|e| e.into_inner())
+            SQL.lock_recover()
                 .iter()
                 .filter(|sql| sql.contains("WHERE sa.lap_time IS NULL AND sa.time_empty = 0"))
                 .count()

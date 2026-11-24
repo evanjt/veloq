@@ -14,7 +14,7 @@ import { formatWeight } from '@/shared/format/weight';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
 import { DENSE_TEXT_SCALE, denseExtent } from '@/shared/ui/DenseText';
 import { RowDivider } from '@/shared/ui/RowGroup';
-import type { ExerciseGroup } from 'veloqrs';
+import type { FfiExerciseGroup } from 'veloqrs';
 import { Button, Card, ErrorState, InlineLink, Shimmer, SkeletonGroup } from '@/shared/ui';
 import { navigateTo } from '@/shared/app/navigation';
 
@@ -26,7 +26,7 @@ interface ExerciseTableProps {
   activityType: string;
   isDark: boolean;
   athleteSex?: string | undefined;
-  exerciseGroups?: ExerciseGroup[] | undefined;
+  exerciseGroups?: FfiExerciseGroup[] | undefined;
 }
 
 export function ExerciseTable({

@@ -87,7 +87,10 @@ fn test_feed_highlights_return_while_engine_writer_holds() {
             .unwrap();
         crate::FfiActivityHighlightsBundle {
             indicators: engine.get_activity_indicators(&["a1".into()]),
-            route_highlights: engine.get_activity_route_highlights(&["a1".into()]),
+            route_highlights: crate::persistence::fitness::derivations::pooled::route_highlights(
+                &engine.db,
+                &["a1".into()],
+            ),
             new_ground: Vec::new(),
             strength_cards: Vec::new(),
         }

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 
 import { getEngine } from '@/shared/native/engine';
+import { BODY_STORED_CHANNEL } from '@/shared/native/engineChannels';
 import { presentActivityNotification } from '@/features/settings/light';
 import {
   createPulledRidePoster,
@@ -29,7 +30,7 @@ export function usePulledRideNotification(): void {
           activityId,
         }),
     });
-    return engine.subscribe('bodyStored', (payload) => {
+    return engine.subscribe(BODY_STORED_CHANNEL, (payload) => {
       void post(payload);
     });
   }, []);

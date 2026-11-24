@@ -138,7 +138,7 @@ it('completes a flow the killed process started, showing progress, and signs the
   await act(async () => answer());
 
   await waitFor(() => expect(result.current.isLoading).toBe(false));
-  expect(mockSetOAuthCredentials).toHaveBeenCalledWith('resumed-token', 'i7', 'Ana');
+  expect(mockSetOAuthCredentials).toHaveBeenCalledWith('resumed-token', 'i7');
   expect(shown()).toBeNull();
   expect(mockKeychain.size).toBe(0);
 });
@@ -155,7 +155,7 @@ it('completes a redirect held after the sign-in screen is already showing', asyn
     holdInterruptedCallback(`veloq://oauth/callback?success=true&code=onetime&state=${state}`);
   });
 
-  await waitFor(() => expect(mockSetOAuthCredentials).toHaveBeenCalledWith('late-token', 'i7', ''));
+  await waitFor(() => expect(mockSetOAuthCredentials).toHaveBeenCalledWith('late-token', 'i7'));
   expect(result.current.isLoading).toBe(false);
 });
 

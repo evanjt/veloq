@@ -12,7 +12,7 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { SyncState, SyncStep } from 'veloqrs';
+import { SyncState, FfiSyncStep } from 'veloqrs';
 
 import { pillStack } from '@/shared/app/TopSafeAreaContext';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -21,7 +21,7 @@ import { FloatingPill } from '@/shared/ui/FloatingPill';
 import { FloatingPillStack } from '@/shared/ui/FloatingPillStack';
 import { SyncErrorBanner } from '@/shared/ui/SyncErrorBanner';
 import { colors, darkColors, shadows, spacing, stroke } from '@/theme';
-import { SyncErrorReason } from '../__shared__/veloqrsStub';
+import { FfiSyncErrorReason } from '../__shared__/veloqrsStub';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -51,7 +51,7 @@ jest.mock('@/shared/app/NetworkContext', () => ({
 
 let mockHealth = {
   lastError: null as string | null,
-  lastErrorReason: null as SyncErrorReason | null,
+  lastErrorReason: null as FfiSyncErrorReason | null,
   lastSuccessAt: null as string | null,
   retryAtMs: null as number | null,
 };
@@ -62,13 +62,13 @@ let mockQuietStep = false;
 const engine = {
   getSyncStatus: jest.fn(() =>
     mockSyncing && mockQuietStep
-      ? { state: SyncState.Syncing, completed: 3, total: 11, step: SyncStep.Census }
+      ? { state: SyncState.Syncing, completed: 3, total: 11, step: FfiSyncStep.Census }
       : mockSyncing
         ? {
             state: SyncState.Syncing,
             completed: 2,
             total: 11,
-            step: SyncStep.RemainingActivities,
+            step: FfiSyncStep.RemainingActivities,
             stepItemsDone: 1234,
             stepItemsTotal: 5678,
           }
@@ -204,7 +204,7 @@ describe('the paused sync', () => {
   beforeEach(() => {
     mockHealth = {
       lastError: 'HTTP 429',
-      lastErrorReason: SyncErrorReason.RateLimited,
+      lastErrorReason: FfiSyncErrorReason.RateLimited,
       lastSuccessAt: null,
       retryAtMs: RETRY_AT,
     };

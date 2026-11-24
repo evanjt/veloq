@@ -14,7 +14,7 @@ function isFiniteNumber(value: unknown): value is number {
 }
 
 /** A `[lng, lat]` pair inside the valid coordinate range. */
-export function isLngLat(value: unknown): value is [number, number] {
+function isLngLat(value: unknown): value is [number, number] {
   return (
     Array.isArray(value) &&
     value.length === 2 &&

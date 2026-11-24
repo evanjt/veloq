@@ -22,6 +22,7 @@
 //! and binds again, on the same ports where it can, so a page already holding
 //! the URLs keeps working.
 
+use crate::poison::Recover;
 use futures::FutureExt;
 use std::future::Future;
 use std::net::{Ipv4Addr, SocketAddr, TcpStream};
@@ -29,6 +30,7 @@ use std::pin::Pin;
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::sync::Semaphore;
 use tokio::task::JoinHandle;
 
 use super::{NO_TILE, TileLookup, UPSTREAM_FAILED};
@@ -36,6 +38,11 @@ use super::{NO_TILE, TileLookup, UPSTREAM_FAILED};
 /// Ports the listener answers on. Four measured as removing the six-wide
 /// connection queue on a handset's WebView for a 24-tile pan.
 pub const SHARDS: usize = 4;
+
+/// Connections held open across all shards at once: the six Chromium opens per
+/// host and port on each shard, with room for a connection being replaced and
+/// for the listener's own probe. A connection past it is closed unanswered.
+pub const MAX_CONNECTIONS: usize = SHARDS * 8;
 
 /// The origin every Android map page loads on, and the only one CORS admits.
 pub const PAGE_ORIGIN: &str = "https://veloq.fit";
@@ -91,6 +98,8 @@ pub struct TileListener {
     accepts: Vec<JoinHandle<()>>,
     answer: Answerer,
     warm: Warmer,
+    /// One permit per open connection, shared by every shard.
+    slots: Arc<Semaphore>,
 }
 
 impl TileListener {
@@ -117,6 +126,7 @@ impl TileListener {
             accepts: Vec::with_capacity(ports.len()),
             answer,
             warm,
+            slots: Arc::new(Semaphore::new(MAX_CONNECTIONS)),
         };
         for &wanted in ports {
             let socket = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, wanted))
@@ -138,6 +148,7 @@ impl TileListener {
             self.token.clone(),
             Arc::clone(&self.answer),
             Arc::clone(&self.warm),
+            Arc::clone(&self.slots),
         )))
     }
 
@@ -188,7 +199,7 @@ static LISTENER: LazyLock<Mutex<Option<(TileListener, Instant)>>> =
 /// The listener's ports and token, binding it on the first call and binding
 /// again when a probe finds a port that no longer answers.
 pub fn address() -> Result<ListenerAddress, String> {
-    let mut guard = LISTENER.lock().unwrap_or_else(|e| e.into_inner());
+    let mut guard = LISTENER.lock_recover();
     let now = Instant::now();
     let listener = match guard.take() {
         None => TileListener::bind(new_token()?, Arc::new(store_answer), Arc::new(store_warm))
@@ -236,13 +247,18 @@ async fn accept_loop(
     token: String,
     answer: Answerer,
     warm: Warmer,
+    slots: Arc<Semaphore>,
 ) {
     let token: Arc<str> = token.into();
     loop {
         match socket.accept().await {
             Ok((stream, _)) => {
+                let Ok(slot) = Arc::clone(&slots).try_acquire_owned() else {
+                    continue;
+                };
                 let _ = stream.set_nodelay(true);
                 tokio::spawn(serve_connection(
+                    slot,
                     stream,
                     Arc::clone(&token),
                     Arc::clone(&answer),
@@ -262,6 +278,7 @@ async fn accept_loop(
 /// Answer requests on one connection until the page closes it, asks for it to
 /// be closed, or leaves it idle.
 async fn serve_connection(
+    _slot: tokio::sync::OwnedSemaphorePermit,
     mut stream: tokio::net::TcpStream,
     token: Arc<str>,
     answer: Answerer,
@@ -725,6 +742,54 @@ mod tests {
             let (status, body, head) = parse_response(&response);
             assert_eq!((status, body.as_slice()), (200, HIT));
             assert!(head.contains("Connection: keep-alive"));
+        }
+    }
+
+    /// Connections past the cap are closed unanswered, and a slot freed by a
+    /// closed connection is taken by the next one.
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn connections_past_the_cap_are_closed_and_a_freed_slot_is_reused() {
+        let store = LatchedStore::new();
+        let listener =
+            TileListener::bind(TOKEN.to_string(), store.answerer(), no_warm()).expect("bind");
+        let ports = listener.address().ports;
+
+        let open = |port: u16| {
+            let stream = TcpStream::connect((Ipv4Addr::LOCALHOST, port)).unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(10)))
+                .unwrap();
+            stream
+        };
+        let answered = |mut stream: &TcpStream| {
+            let _ = write!(
+                stream,
+                "GET {} HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+                tile("held", 1)
+            );
+            let mut chunk = [0u8; 512];
+            matches!(stream.read(&mut chunk), Ok(n) if n > 0)
+        };
+
+        let mut held: Vec<TcpStream> = (0..MAX_CONNECTIONS)
+            .map(|i| open(ports[i % ports.len()]))
+            .collect();
+        // Each held connection is proven accepted, not merely queued.
+        assert!(held.iter().all(|stream| answered(stream)));
+
+        let excess = open(ports[0]);
+        assert!(!answered(&excess), "a connection past the cap was served");
+
+        held.pop();
+        // The permit returns when the server side notices the close.
+        let until = Instant::now() + Duration::from_secs(5);
+        loop {
+            if answered(&open(ports[0])) {
+                break;
+            }
+            assert!(Instant::now() < until, "a freed slot was never reused");
+            std::thread::sleep(Duration::from_millis(20));
         }
     }
 

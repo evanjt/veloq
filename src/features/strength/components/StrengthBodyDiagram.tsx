@@ -23,7 +23,6 @@ import type { MuscleVolume } from '@/types';
 
 import { BodyPairWithLoupe } from './BodyPairWithLoupe';
 import { BODY_INTRINSIC_H } from '../lib/bodyScale';
-import { volumeStepCeilings } from '../lib/volumeSteps';
 import { muscleName } from '../lib/muscleNames';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatWeightRounded } from '@/shared/format/weight';
@@ -37,7 +36,8 @@ interface StrengthBodyDiagramProps {
   /** The period's trained muscles, which the summary and the Show data table list. */
   volumes?: readonly MuscleVolume[];
   gender: 'male' | 'female';
-  maxWeightedSets: number;
+  /** The most weighted sets each volume step covers, lightest first, as the engine reports them. */
+  shadeCeilings: readonly number[];
   selectedVolume: MuscleVolume | null;
   tappableSlugs: Set<string>;
   onMuscleTap: (slug: string) => void;
@@ -49,7 +49,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
   bodyData,
   volumes = NO_VOLUMES,
   gender,
-  maxWeightedSets,
+  shadeCeilings,
   selectedVolume,
   tappableSlugs,
   onMuscleTap,
@@ -62,12 +62,11 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
   const roles = bodyDiagram[isDark ? 'dark' : 'light'];
   // The legend keys untrained first, then each step with the most sets it covers.
   const legend = useMemo(() => {
-    const ceilings = volumeStepCeilings(maxWeightedSets);
     return [
       { fill: roles.untrained, label: '0' },
-      ...roles.steps.map((fill, i) => ({ fill, label: String(ceilings[i] ?? 0) })),
+      ...roles.steps.map((fill, i) => ({ fill, label: String(shadeCeilings[i] ?? 0) })),
     ];
-  }, [roles, maxWeightedSets]);
+  }, [roles, shadeCeilings]);
   const selectedName = selectedVolume ? muscleName(selectedVolume.slug, t) : '';
   const selectedSummary = selectedVolume
     ? `${t('strength.setsCount', { count: Math.round(selectedVolume.weightedSets * 10) / 10 })} · ${formatWeightRounded(selectedVolume.volumeKg, isMetric)}`

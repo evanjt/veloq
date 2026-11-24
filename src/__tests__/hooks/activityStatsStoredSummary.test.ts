@@ -1,16 +1,17 @@
 /**
  * Expected behaviour: the stat cards show the summary the engine read from the
  * stored activity, average and max speed or pace, moving and elapsed time and
- * cadence, whether or not the activity's streams were ever fetched.
+ * cadence, whether or not the activity's streams were ever fetched. A pace is
+ * the engine's text, and the average shown is the one the engine chose.
  */
 
 import { renderHook } from '@testing-library/react-native';
 
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 import { initialiseI18n } from '@/i18n';
-import { formatDuration, formatSportSpeed } from '@/shared/format/format';
+import { formatDuration, formatSpeed } from '@/shared/format/format';
 
-import { CadenceUnit, type ActivityRecord, type ActivitySummary } from 'veloqrs';
+import { FfiCadenceUnit, type ActivityRecord, type ActivitySummary } from 'veloqrs';
 import { activityRecord } from '../__shared__/activityRecord';
 
 const ride = activityRecord({
@@ -25,9 +26,10 @@ const rideSummary: ActivitySummary = {
   movingTime: 3600,
   elapsedTime: 3720,
   averageSpeed: 8.2,
+  shownAverageSpeed: 8.2,
   maxSpeed: 15.4,
   averageCadence: 88.5,
-  cadenceUnit: CadenceUnit.Rpm,
+  cadenceUnit: FfiCadenceUnit.Rpm,
 };
 
 function stats(activity: ActivityRecord, summary: ActivitySummary | undefined, isMetric = true) {
@@ -52,38 +54,21 @@ describe('the stored summary on the activity stat cards', () => {
 
   it('shows a ride with no streams its average and max speed', () => {
     const list = stats(ride, rideSummary);
-    expect(card(list, 'Speed').value).toBe(formatSportSpeed(8.2, 'Ride', true));
-    expect(card(list, 'Speed').context).toBe(`Max ${formatSportSpeed(15.4, 'Ride', true)}`);
-    expect(row(list, 'Speed', 'Average')).toBe(formatSportSpeed(8.2, 'Ride', true));
-    expect(row(list, 'Speed', 'Max')).toBe(formatSportSpeed(15.4, 'Ride', true));
+    expect(card(list, 'Speed').value).toBe(formatSpeed(8.2, true));
+    expect(card(list, 'Speed').context).toBe(`Max ${formatSpeed(15.4, true)}`);
+    expect(row(list, 'Speed', 'Average')).toBe(formatSpeed(8.2, true));
+    expect(row(list, 'Speed', 'Max')).toBe(formatSpeed(15.4, true));
   });
 
-  it('shows distance over moving time when the stored average is over elapsed time', () => {
-    // 10 km, 3600 s moving of 6545 s elapsed: stored 1.528 m/s is the elapsed figure.
-    const stopped = activityRecord({ ...ride, distance: 10000, movingTime: 3600 });
-    const list = stats(stopped, {
-      ...rideSummary,
-      movingTime: 3600,
-      elapsedTime: 6545,
-      averageSpeed: 10000 / 6545,
-    });
-    expect(card(list, 'Speed').value).toBe(formatSportSpeed(10000 / 3600, 'Ride', true));
-    expect(row(list, 'Speed', 'Average')).toBe(formatSportSpeed(10000 / 3600, 'Ride', true));
-  });
-
-  it('keeps the stored average when the moving time or distance is absent', () => {
-    const noDistance = activityRecord({ ...ride, distance: 0 });
-    expect(card(stats(noDistance, rideSummary), 'Speed').value).toBe(
-      formatSportSpeed(8.2, 'Ride', true)
-    );
-    const { movingTime: _omitted, ...noMoving } = rideSummary;
-    const far = activityRecord({ ...ride, distance: 10000, movingTime: 0 });
-    expect(card(stats(far, noMoving), 'Speed').value).toBe(formatSportSpeed(8.2, 'Ride', true));
+  it('shows the average the engine chose, not the stored one', () => {
+    const list = stats(ride, { ...rideSummary, shownAverageSpeed: 10000 / 3600 });
+    expect(card(list, 'Speed').value).toBe(formatSpeed(10000 / 3600, true));
+    expect(row(list, 'Speed', 'Average')).toBe(formatSpeed(10000 / 3600, true));
   });
 
   vaultIt('reads speed in the athlete units', () => {
     const list = stats(ride, rideSummary, false);
-    expect(card(list, 'Speed').value).toBe(formatSportSpeed(8.2, 'Ride', false));
+    expect(card(list, 'Speed').value).toBe(formatSpeed(8.2, false));
   });
 
   it('gives moving and elapsed time apart', () => {
@@ -92,11 +77,26 @@ describe('the stored summary on the activity stat cards', () => {
     expect(row(list, 'Speed', 'Elapsed time')).toBe(formatDuration(3720));
   });
 
-  it('shows a run its pace, not its speed', () => {
+  it('shows a run the pace text the engine wrote, not a pace worked out from its speed', () => {
     const run = activityRecord({ ...ride, sportType: 'Run' });
-    const list = stats(run, { ...rideSummary, averageSpeed: 3, averageCadence: 172 });
+    const summary: ActivitySummary = {
+      ...rideSummary,
+      averageSpeed: 3,
+      shownAverageSpeed: 3,
+      shownAveragePaceMetricText: '5:34',
+      shownAveragePaceImperialText: '8:57',
+      maxSpeed: 4,
+      maxPaceMetricText: '4:11',
+      maxPaceImperialText: '6:43',
+      averageCadence: 172,
+    };
+    const list = stats(run, summary);
     expect(list.find((s) => s.title === 'Speed')).toBeUndefined();
-    expect(card(list, 'Pace').value).toBe(formatSportSpeed(3, 'Run', true));
+    expect(card(list, 'Pace').value).toBe('5:34 /km');
+    expect(card(list, 'Pace').context).toBe('Max 4:11 /km');
+    expect(row(list, 'Pace', 'Max')).toBe('4:11 /km');
+    expect(card(stats(run, summary, false), 'Pace').value).toBe('8:57 /mi');
+    expect(row(stats(run, summary, false), 'Pace', 'Max')).toBe('6:43 /mi');
   });
 
   it('shows cadence in the unit of the sport', () => {
@@ -105,7 +105,7 @@ describe('the stored summary on the activity stat cards', () => {
     const runSummary = {
       ...rideSummary,
       averageCadence: 172,
-      cadenceUnit: CadenceUnit.StepsPerMinute,
+      cadenceUnit: FfiCadenceUnit.StepsPerMinute,
     };
     expect(card(stats(run, runSummary), 'Cadence')).toMatchObject({
       value: '172',
@@ -114,13 +114,17 @@ describe('the stored summary on the activity stat cards', () => {
   });
 
   it('leaves out what the activity did not measure', () => {
-    const list = stats(ride, { movingTime: 1800, cadenceUnit: CadenceUnit.Rpm });
+    const list = stats(ride, { movingTime: 1800, cadenceUnit: FfiCadenceUnit.Rpm });
     expect(list.find((s) => s.title === 'Speed')).toBeUndefined();
     expect(list.find((s) => s.title === 'Cadence')).toBeUndefined();
   });
 
   it('shows a speed card with no max when only the average was stored', () => {
-    const list = stats(ride, { averageSpeed: 8.2, cadenceUnit: CadenceUnit.Rpm });
+    const list = stats(ride, {
+      averageSpeed: 8.2,
+      shownAverageSpeed: 8.2,
+      cadenceUnit: FfiCadenceUnit.Rpm,
+    });
     expect(card(list, 'Speed').context).toBeUndefined();
     expect(row(list, 'Speed', 'Max')).toBeUndefined();
     expect(row(list, 'Speed', 'Elapsed time')).toBeUndefined();

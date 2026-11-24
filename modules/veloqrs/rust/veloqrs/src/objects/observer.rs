@@ -12,6 +12,7 @@
 //! one. A call still has to be made after the write is committed and the engine
 //! lock released, since the reader it wakes reads through that lock.
 
+use crate::poison::{Recover, RecoverRw};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
@@ -280,7 +281,7 @@ impl Announcer {
     /// a new thread takes the queue. The new thread is spawned under the lock,
     /// so an announcement pushed meanwhile waits for it rather than being lost.
     fn replace_if_delivering(self: &Arc<Self>) {
-        let mut pending = self.pending.lock().unwrap_or_else(|e| e.into_inner());
+        let mut pending = self.pending.lock_recover();
         if !pending.delivering {
             return;
         }
@@ -296,11 +297,7 @@ impl Announcer {
     }
 
     fn push(&self, queued: Queued) {
-        self.pending
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .queued
-            .push(queued);
+        self.pending.lock_recover().queued.push(queued);
         self.changed.notify_all();
     }
 
@@ -309,7 +306,7 @@ impl Announcer {
     fn run(&self, generation: u64) {
         loop {
             let batch = {
-                let mut pending = self.pending.lock().unwrap_or_else(|e| e.into_inner());
+                let mut pending = self.pending.lock_recover();
                 while pending.queued.is_empty() {
                     pending = self
                         .changed
@@ -327,7 +324,7 @@ impl Announcer {
                 queued.release();
             }
 
-            let mut pending = self.pending.lock().unwrap_or_else(|e| e.into_inner());
+            let mut pending = self.pending.lock_recover();
             if pending.generation != generation {
                 return;
             }
@@ -345,7 +342,7 @@ impl Announcer {
     /// foreign side that panics on every call.
     fn drain(&self) {
         let deadline = Instant::now() + Duration::from_secs(10);
-        let mut pending = self.pending.lock().unwrap_or_else(|e| e.into_inner());
+        let mut pending = self.pending.lock_recover();
         while !pending.queued.is_empty() || pending.delivering {
             let left = deadline.saturating_duration_since(Instant::now());
             if left.is_zero() {
@@ -391,7 +388,7 @@ fn coalesce(batch: Vec<Queued>) -> Vec<Queued> {
 /// the queue would hold both. An announcement pushed while one observer was
 /// installed carries that observer and still reaches it, never its replacement.
 pub fn set_observer(observer: Option<Arc<dyn EngineObserver>>) {
-    *OBSERVER.write().unwrap_or_else(|e| e.into_inner()) = observer;
+    *OBSERVER.write_recover() = observer;
     UNOBSERVED_LOGGED.store(false, Ordering::Relaxed);
 }
 
@@ -411,7 +408,7 @@ pub fn set_observer(observer: Option<Arc<dyn EngineObserver>>) {
 #[unsafe(no_mangle)]
 pub extern "C" fn veloq_runtime_torn_down() {
     crate::ffi_refuse_on_panic("runtime teardown", (), || {
-        let mut observer = OBSERVER.write().unwrap_or_else(|e| e.into_inner());
+        let mut observer = OBSERVER.write_recover();
         RUNTIME.fetch_add(1, Ordering::SeqCst);
         if let Some(observer) = observer.take() {
             std::mem::forget(observer);
@@ -437,7 +434,7 @@ pub fn observer_panics() -> u32 {
 /// thread, so the caller never waits on the JavaScript thread.
 pub(crate) fn notify(announcement: Announcement) {
     let registered = {
-        let observer = OBSERVER.read().unwrap_or_else(|e| e.into_inner());
+        let observer = OBSERVER.read_recover();
         observer
             .as_ref()
             .map(|observer| (Arc::clone(observer), RUNTIME.load(Ordering::SeqCst)))
@@ -500,6 +497,7 @@ fn deliver(queued: &Queued) {
 #[cfg(test)]
 pub(crate) mod recorder {
     use super::EngineObserver;
+    use crate::poison::Recover;
     use std::sync::{Arc, Mutex};
 
     pub(crate) struct Recorder {
@@ -522,17 +520,11 @@ pub(crate) mod recorder {
         /// or not something was announced.
         pub(crate) fn events(&self) -> Vec<String> {
             super::flush();
-            self.events
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .clone()
+            self.events.lock_recover().clone()
         }
 
         fn push(&self, event: &str) {
-            self.events
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .push(event.to_string());
+            self.events.lock_recover().push(event.to_string());
         }
     }
 
@@ -604,6 +596,7 @@ pub(crate) mod recorder {
 mod tests {
     use super::recorder::Recorder;
     use super::*;
+    use crate::poison::Recover;
     use crate::test_globals::serial_global_state;
 
     #[test]
@@ -672,6 +665,7 @@ mod tests {
     /// and the repeats that pile up behind one slow delivery arrive as one.
     mod the_announce_thread_owns_the_boundary {
         use super::*;
+        use crate::poison::Recover;
         use std::sync::mpsc::{Receiver, Sender, channel};
         use std::time::Duration;
 
@@ -705,17 +699,11 @@ mod tests {
             }
 
             fn note(&self, event: &str) {
-                self.events
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .push(event.to_string());
+                self.events.lock_recover().push(event.to_string());
             }
 
             fn events(&self) -> Vec<String> {
-                self.events
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .clone()
+                self.events.lock_recover().clone()
             }
         }
 
@@ -728,20 +716,10 @@ mod tests {
                 self.note("activities_stored");
             }
             fn sync_settled(&self) {
-                if let Some(entered) = self
-                    .entered
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .as_ref()
-                {
+                if let Some(entered) = self.entered.lock_recover().as_ref() {
                     let _ = entered.send(());
                 }
-                if let Some(released) = self
-                    .release
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .as_ref()
-                {
+                if let Some(released) = self.release.lock_recover().as_ref() {
                     let _ = released.recv_timeout(Duration::from_secs(5));
                 }
                 self.note("sync_settled");
@@ -1119,22 +1097,25 @@ mod tests {
         .unwrap();
         let recorder = Recorder::new();
         set_observer(Some(recorder.clone()));
-        crate::runtime::block_on(store_time_stream(
+        let _ = crate::runtime::block_on(store_time_stream(
             crate::persistence::engine_install(),
             "a1".into(),
             vec![0, 5, 10],
-        ));
+        ))
+        .unwrap();
         crate::runtime::block_on(store_time_stream(
             crate::persistence::engine_install(),
             "a2".into(),
             vec![0, 7],
-        ));
+        ))
+        .unwrap();
         set_observer(None);
-        crate::runtime::block_on(store_time_stream(
+        let _ = crate::runtime::block_on(store_time_stream(
             crate::persistence::engine_install(),
             "a3".into(),
             vec![0, 9],
-        ));
+        ))
+        .unwrap();
 
         assert_eq!(
             recorder.events(),
@@ -1151,14 +1132,15 @@ mod tests {
         use crate::persistence::PERSISTENT_ENGINE;
 
         let _guard = serial_global_state();
-        *PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        *PERSISTENT_ENGINE.lock_recover() = None;
         let recorder = Recorder::new();
         set_observer(Some(recorder.clone()));
-        crate::runtime::block_on(store_time_stream(
+        let stored = crate::runtime::block_on(store_time_stream(
             crate::persistence::engine_install(),
             "a1".into(),
             vec![0, 5],
         ));
+        assert!(stored.is_err());
         set_observer(None);
 
         assert!(

@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import { InitOutcome } from 'veloqrs';
+import { FfiInitOutcome } from 'veloqrs';
 
 import { DetailFallback } from '@/features/routes/components/DetailFallback';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
@@ -106,7 +106,7 @@ describe('DetailFallback', () => {
 
   it('says why the engine failed to open, and Retry re-runs the open', async () => {
     mockReady.open = false;
-    useEngineStatus.setState({ initFailed: true, initFailureReason: InitOutcome.Failed });
+    useEngineStatus.setState({ initFailed: true, initFailureReason: FfiInitOutcome.Failed });
     const onRetry = jest.fn();
     const screen = await renderFallback({ kind: 'closed' }, onRetry);
     expect(screen.queryByTestId('detail-fallback-skeleton')).toBeNull();
@@ -119,7 +119,7 @@ describe('DetailFallback', () => {
 
   it('offers the update rather than a retry for a database a newer build wrote', async () => {
     mockReady.open = false;
-    useEngineStatus.setState({ initFailed: true, initFailureReason: InitOutcome.ForwardSchema });
+    useEngineStatus.setState({ initFailed: true, initFailureReason: FfiInitOutcome.ForwardSchema });
     const screen = await renderFallback({ kind: 'closed' });
     expect(screen.getByText('engine.initReason.forwardSchema')).toBeTruthy();
     expect(screen.getByText('engine.initAction.update')).toBeTruthy();

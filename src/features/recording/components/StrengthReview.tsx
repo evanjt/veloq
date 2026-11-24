@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { strength, type LiveStrengthSession } from 'veloqrs';
+import { strength, type FfiLiveStrengthSession } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -35,7 +35,7 @@ export function StrengthReview({
   activityType,
   pairedEventId,
 }: {
-  session: LiveStrengthSession;
+  session: FfiLiveStrengthSession;
   /** When the athlete finished, in epoch seconds. */
   finishedAt: number;
   activityType: ActivityType;

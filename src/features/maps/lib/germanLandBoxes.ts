@@ -12,25 +12,22 @@
  * a blank tile over the exclave.
  */
 
-export type GeoBox = [west: number, south: number, east: number, north: number];
+type GeoBox = [west: number, south: number, east: number, north: number];
 
-export const GERMAN_LAND_IDS = [
-  'berlin',
-  'bremen',
-  'baden-wuerttemberg',
-  'bavaria',
-  'brandenburg',
-  'hesse',
-  'lower-saxony',
-  'north-rhine-westphalia',
-  'rhineland-palatinate',
-  'saxony-anhalt',
-  'saxony',
-  'schleswig-holstein',
-  'thuringia',
-] as const;
-
-export type GermanLandId = (typeof GERMAN_LAND_IDS)[number];
+export type GermanLandId =
+  | 'berlin'
+  | 'bremen'
+  | 'baden-wuerttemberg'
+  | 'bavaria'
+  | 'brandenburg'
+  | 'hesse'
+  | 'lower-saxony'
+  | 'north-rhine-westphalia'
+  | 'rhineland-palatinate'
+  | 'saxony-anhalt'
+  | 'saxony'
+  | 'schleswig-holstein'
+  | 'thuringia';
 
 export const GERMAN_LAND_BOXES: Record<GermanLandId, GeoBox[]> = {
   berlin: [

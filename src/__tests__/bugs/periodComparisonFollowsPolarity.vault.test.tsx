@@ -70,6 +70,8 @@ const LOAD_RISE: PeriodComparison = {
   previous: 320,
   ratio: 0.25,
   comparedStart: 0,
+  direction: 'up',
+  verdict: 'moved',
 };
 const LOAD_FALL: PeriodComparison = {
   metric: 'tss',
@@ -77,6 +79,8 @@ const LOAD_FALL: PeriodComparison = {
   previous: 320,
   ratio: -0.22,
   comparedStart: 0,
+  direction: 'down',
+  verdict: 'moved',
 };
 const HOURS = 3600;
 const TIME_FALL: PeriodComparison = {
@@ -85,6 +89,8 @@ const TIME_FALL: PeriodComparison = {
   previous: 8 * HOURS,
   ratio: -0.25,
   comparedStart: 0,
+  direction: 'down',
+  verdict: 'declined',
 };
 const TIME_RISE: PeriodComparison = {
   metric: 'duration',
@@ -92,6 +98,8 @@ const TIME_RISE: PeriodComparison = {
   previous: 6 * HOURS,
   ratio: 1 / 3,
   comparedStart: 0,
+  direction: 'up',
+  verdict: 'improved',
 };
 
 describe('the period comparison verdict', () => {

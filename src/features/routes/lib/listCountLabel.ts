@@ -5,7 +5,7 @@ import type { TFunction } from 'i18next';
  * shown count out of the total. Both take the total as `count`, so the noun
  * agrees with it and stays inside the template in every locale.
  */
-export interface ListCountKeys {
+interface ListCountKeys {
   total: string;
   ofTotal: string;
 }

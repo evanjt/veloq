@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { CallKind, validateCredentials } from 'veloqrs';
+import { FfiCallKind, validateCredentials } from 'veloqrs';
 
 import { clearAuthOnly } from '@/shared/storage';
 import { clearLibraryForSignIn, signInFailureKey } from '@/features/auth/lib/libraryWipe';
@@ -19,7 +19,7 @@ import {
 } from '@/features/auth/lib/pendingSignIn';
 
 /** What became of a sign-in attempt. */
-type SignInOutcome = 'signedIn' | 'rejected' | 'unreachable' | 'refused';
+type SignInOutcome = 'signedIn' | 'rejected' | 'unreachable' | 'noConnection' | 'refused';
 
 interface UseApiKeyLoginParams {
   setError: (message: string | null) => void;
@@ -34,15 +34,17 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
   const [isApiKeyLoading, setIsApiKeyLoading] = useState(false);
   const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
   const [pendingRetryRun, setPendingRetryRun] = useState(0);
-  const { isOnline } = useNetwork();
+  const { isOnline, hasReading } = useNetwork();
   const pendingReadRef = useRef(false);
   const pendingValidationRef = useRef(false);
   const pendingRetryRef = useRef(false);
   const pendingGenerationRef = useRef(0);
 
   /**
-   * What became of an attempt: `unreachable` is the one outcome that keeps a
-   * held key, since the server never said anything about it.
+   * What became of an attempt: `unreachable` and `noConnection` keep a held
+   * key, since the server never said anything about it. `noConnection` is the
+   * call failing in transit, which a caller with no network reading yet reads
+   * as an offline start.
    */
   const signIn = useCallback(
     async (apiKey: string): Promise<SignInOutcome> => {
@@ -58,7 +60,7 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
         // engine-object form answered "unavailable", which this screen rendered
         // as a connection failure for a perfectly good key.
         const check = await validateCredentials('api_key', apiKey.trim());
-        if (check.kind === CallKind.RateLimited) {
+        if (check.kind === FfiCallKind.RateLimited) {
           // The service is refusing for quota, which says nothing about the key.
           // The key stays held, as it does for any refusal that is not a 401.
           setError(
@@ -68,11 +70,11 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
           );
           return 'unreachable';
         }
-        if (check.kind !== CallKind.Ok || !check.id) {
+        if (check.kind !== FfiCallKind.Ok || !check.id) {
           const rejected = check.status === 401;
           setError(rejected ? t('login.invalidApiKey') : t('login.connectionFailed'));
           if (rejected) await clearPendingApiKey();
-          return rejected ? 'rejected' : 'unreachable';
+          return rejected ? 'rejected' : 'noConnection';
         }
 
         // Account-identity check. Engine holds at most one account at a time,
@@ -123,10 +125,18 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
           return;
         case 'validate':
           setQueuedMessage(null);
-          await signIn(apiKey);
+          // `isOnline` is a seed until the first reading, so a check that
+          // cannot connect then is an offline start, not a server fault: the
+          // key is held for the reading or the reconnect to check.
+          if ((await signIn(apiKey)) === 'noConnection' && !hasReading) {
+            pendingGenerationRef.current += 1;
+            await savePendingApiKey(apiKey);
+            setError(null);
+            setQueuedMessage(t('login.queuedOffline'));
+          }
       }
     },
-    [isOnline, signIn, setError, t]
+    [isOnline, hasReading, signIn, setError, t]
   );
 
   const validatePending = useCallback(async () => {
@@ -170,6 +180,14 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
   useReconnect(() => {
     void validatePending();
   });
+
+  // A first reading of online is no reconnect edge, since `isOnline` was
+  // already true, so a key held through the seed is checked here.
+  const hadReadingRef = useRef(hasReading);
+  useEffect(() => {
+    if (hasReading && !hadReadingRef.current && isOnline) void validatePending();
+    hadReadingRef.current = hasReading;
+  }, [hasReading, isOnline, validatePending]);
 
   const discardQueuedKey = useCallback(async () => {
     pendingGenerationRef.current += 1;

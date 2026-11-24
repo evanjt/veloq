@@ -28,7 +28,8 @@ import type {
 } from 'veloqrs';
 import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 import type { ChartDirection } from '@/features/routes/lib/scatterData';
-import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
+import type { RoutePoint, PerformanceDataPoint } from '@/types';
+import { toActivityType } from '@/types';
 import { EmptyState, ErrorState, SelectButton, Shimmer } from '@/shared/ui';
 import { attemptBasis, readsPace } from '@/features/routes/lib/attemptBasis';
 import { FLOW_EXPAND, completeFlowAfterFrame, markFlow } from '@/shared/debug/flowTiming';
@@ -156,7 +157,7 @@ export function SectionPerformanceSection({
   const isRoute = subject === 'route';
   const method = t(isRoute ? 'routes.timeMethod' : 'sections.timeMethod');
   // A time or a pace reads lower as faster, so the line says which way is up.
-  const basis = attemptBasis(sportType as ActivityType, isRoute);
+  const basis = attemptBasis(toActivityType(sportType), isRoute);
   const orientedMethod =
     basis === 'time' || readsPace(basis) ? t('sections.methodFasterAtTop', { method }) : method;
   const methodLine = chartData.some((d) => d.estimated === true)
@@ -217,7 +218,7 @@ export function SectionPerformanceSection({
           onDeltaLineChange={onDeltaLineChange}
           onShownDirectionChange={onShownDirectionChange}
           onScrubDistanceChange={onScrubDistanceChange}
-          activityType={sportType as ActivityType}
+          activityType={toActivityType(sportType)}
           isDark={isDark}
           useTimeAxis={isRoute}
           bestForwardRecord={bestForwardRecord}

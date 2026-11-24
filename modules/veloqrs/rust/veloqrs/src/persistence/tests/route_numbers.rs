@@ -112,7 +112,10 @@ fn the_in_memory_names_follow_a_change_of_language() {
         engine.get_groups()[0].custom_name.as_deref(),
         Some("Strecke 1")
     );
-    assert_eq!(engine.get_route_name("r_1").as_deref(), Some("Strecke 1"));
+    assert_eq!(
+        engine.get_all_route_names().get("r_1").map(String::as_str),
+        Some("Strecke 1")
+    );
 }
 
 #[test]
@@ -138,13 +141,12 @@ fn a_typed_name_replaces_the_number_on_screen_and_clearing_it_brings_the_number_
 
     engine.set_route_name("r_1", Some("Harbour loop")).unwrap();
     assert_eq!(
-        engine.get_route_name("r_1").as_deref(),
+        engine.get_all_route_names().get("r_1").map(String::as_str),
         Some("Harbour loop")
     );
     assert_eq!(stored_numbers(&engine).get("r_1"), Some(&1));
 
     engine.set_route_name("r_1", None).unwrap();
-    assert_eq!(engine.get_route_name("r_1").as_deref(), Some("Route 1"));
     assert_eq!(
         engine.get_all_route_names().get("r_1").map(String::as_str),
         Some("Route 1")
@@ -179,7 +181,6 @@ fn a_name_another_route_shows_is_refused_and_changes_nothing() {
     // Taken as a typed name, and as the number another route is shown under.
     assert!(engine.set_route_name("r_1", Some("Harbour loop")).is_err());
     assert!(engine.set_route_name("r_1", Some("Route 3")).is_err());
-    assert_eq!(engine.get_route_name("r_1").as_deref(), Some("Route 1"));
     assert_eq!(
         engine.get_all_route_names().get("r_1").map(String::as_str),
         Some("Route 1")
@@ -190,7 +191,7 @@ fn a_name_another_route_shows_is_refused_and_changes_nothing() {
     engine.set_route_name("r_1", Some("Route 1")).unwrap();
     engine.set_route_name("r_1", Some("Quarry climb")).unwrap();
     assert_eq!(
-        engine.get_route_name("r_1").as_deref(),
+        engine.get_all_route_names().get("r_1").map(String::as_str),
         Some("Quarry climb")
     );
 }

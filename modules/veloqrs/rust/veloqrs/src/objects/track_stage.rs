@@ -11,6 +11,7 @@
 use crate::FfiHoldCause;
 use crate::net::resume::HoldCause;
 use crate::persistence::sections::detection::PHASE_CANCELLED;
+use crate::poison::Recover;
 
 /// Which piece of the track work is running.
 ///
@@ -161,9 +162,7 @@ fn read_held() -> Option<HeldDownload> {
 }
 
 fn read_detection() -> Option<DetectionWork> {
-    let guard = crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let guard = crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE.lock_recover();
     guard.as_ref().map(|handle| {
         let (phase, completed, total) = handle.get_progress();
         DetectionWork {
@@ -179,9 +178,7 @@ fn read_heatmap() -> Option<(u32, u32)> {
     if !crate::persistence::tiles::tile_pass_running() {
         return None;
     }
-    let guard = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let guard = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock_recover();
     Some(
         guard
             .as_ref()

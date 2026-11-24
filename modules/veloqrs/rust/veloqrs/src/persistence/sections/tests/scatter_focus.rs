@@ -52,6 +52,8 @@ fn outings(attempts: &[Attempt], excluded: bool) -> Vec<crate::SectionPerformanc
                 estimated: false,
             };
             crate::SectionPerformanceRecord {
+                avg_pace_text: None,
+                best_pace_text: None,
                 activity_id: a.activity.clone(),
                 activity_name: a.activity.clone(),
                 activity_date: crate::WholeNumber(now - (count - i as i64) * 86_400),
@@ -86,6 +88,53 @@ fn read_with(
         0,
         subject,
         highlight,
+        |_, _| Vec::new(),
+        |_| Some(std::sync::Arc::new(None)),
+        |_, _| None,
+        |_| Vec::new(),
+        |_, _| 0,
+        |_, rows| match rows {
+            laps::Rows::Included => all.clone(),
+            laps::Rows::Excluded => left_out.clone(),
+        },
+    )
+}
+
+fn sport_read(included: &[Attempt], sport: &str) -> FfiSectionPerformanceData {
+    let all = std::sync::Arc::new(laps::summarise(MILE_M, outings(included, false)));
+    crate::persistence::screens::section_detail_from(
+        &[],
+        Some(MILE_M),
+        Some(sport),
+        0,
+        FfiPerformanceSubject::Section,
+        None,
+        |_, _| Vec::new(),
+        |_| Some(std::sync::Arc::new(None)),
+        |_, _| None,
+        |_| Vec::new(),
+        |_, _| 0,
+        |_, rows| match rows {
+            laps::Rows::Included => all.clone(),
+            laps::Rows::Excluded => std::sync::Arc::new(laps::empty()),
+        },
+    )
+}
+
+fn read_with_sport(
+    included: &[Attempt],
+    excluded: &[Attempt],
+    sport: &str,
+) -> FfiSectionPerformanceData {
+    let all = std::sync::Arc::new(laps::summarise(MILE_M, outings(included, false)));
+    let left_out = std::sync::Arc::new(laps::summarise(MILE_M, outings(excluded, true)));
+    crate::persistence::screens::section_detail_from(
+        &[],
+        Some(MILE_M),
+        Some(sport),
+        0,
+        FfiPerformanceSubject::Section,
+        None,
         |_, _| Vec::new(),
         |_| Some(std::sync::Arc::new(None)),
         |_, _| None,
@@ -385,4 +434,226 @@ fn an_excluded_attempt_is_flagged_against_the_range_but_not_counted() {
         .as_ref()
         .expect("a forward range");
     assert_eq!((range.slow_count, range.fast_count), (0, 0));
+}
+
+#[test]
+fn a_run_carries_its_gap_and_its_gain_as_pace_seconds() {
+    let included = [
+        attempt("first", 600.0),
+        attempt("record", 580.0),
+        attempt("slower", 590.0),
+    ];
+
+    let data = sport_read(&included, "Run");
+
+    // Both are 10 s a mile behind or ahead, restated per kilometre.
+    let behind = point(&data, "slower").record_gap_pace.expect("a gap");
+    assert!((behind.imperial - 10.0).abs() < 0.01, "{behind:?}");
+    assert!((behind.metric - 10.0 * 0.621371).abs() < 0.01, "{behind:?}");
+    let holder = point(&data, "record").record_gap_pace.expect("a gap");
+    assert_eq!((holder.metric, holder.imperial), (0.0, 0.0));
+    let steps = &data.record_progression.forward;
+    assert_eq!(steps[0].improvement_pace, None);
+    let gain = steps[1].improvement_pace.expect("a gain");
+    assert!((gain.imperial - 20.0).abs() < 0.01, "{gain:?}");
+    assert!((gain.metric - 20.0 * 0.621371).abs() < 0.01, "{gain:?}");
+}
+
+#[test]
+fn a_swim_carries_its_gap_per_hundred() {
+    let data = sport_read(
+        &[attempt("record", 580.0), attempt("slower", 600.0)],
+        "Swim",
+    );
+
+    let gap = point(&data, "slower").record_gap_pace.expect("a gap");
+    // 1609.344 m in 600 s and in 580 s: 37 and 36 s per 100 m, 34 and 33 per 100 yd.
+    assert_eq!((gap.metric, gap.imperial), (1.0, 1.0));
+}
+
+#[test]
+fn a_ride_and_a_read_with_no_sport_carry_no_pace_gap() {
+    let attempts = [attempt("record", 580.0), attempt("slower", 600.0)];
+    for data in [sport_read(&attempts, "Ride"), section_read(&attempts, None)] {
+        assert!(
+            data.chart_data
+                .points
+                .iter()
+                .all(|p| p.record_gap_pace.is_none())
+        );
+        assert!(
+            data.record_progression
+                .forward
+                .iter()
+                .all(|s| s.improvement_pace.is_none())
+        );
+        assert!(point(&data, "slower").record_gap_speed.is_some());
+    }
+}
+
+#[test]
+fn an_attempt_with_no_gap_has_no_pace_gap() {
+    let mut wide = attempt("wide", 700.0);
+    wide.outside_band = true;
+    let data = sport_read(
+        &[attempt("record", 580.0), attempt("slower", 600.0), wide],
+        "Run",
+    );
+    assert_eq!(point(&data, "wide").record_gap_pace, None);
+}
+
+fn texts(pace: &Option<crate::FfiPaceText>) -> Option<(&str, &str)> {
+    pace.as_ref()
+        .map(|t| (t.metric_text.as_str(), t.imperial_text.as_str()))
+}
+
+#[test]
+fn a_run_read_carries_pace_text_for_every_speed_it_holds() {
+    let mut included = [attempt("fast", 600.0), attempt("slow", 720.0)];
+    included[1].direction = "reverse";
+    let data = sport_read(&included, "Run");
+
+    // 1609.344 m in 600 s is 6:13 a kilometre and 10:00 a mile.
+    assert_eq!(
+        texts(&point(&data, "fast").speed_pace),
+        Some(("6:13", "10:00"))
+    );
+    assert_eq!(
+        texts(&point(&data, "slow").speed_pace),
+        Some(("7:27", "12:00"))
+    );
+    let record = &data.performances.records[0];
+    assert_eq!(texts(&record.best_pace_text), Some(("6:13", "10:00")));
+    assert_eq!(texts(&record.avg_pace_text), Some(("6:13", "10:00")));
+    let best = data
+        .performances
+        .best_forward_record
+        .as_ref()
+        .expect("a forward best");
+    assert_eq!(texts(&best.best_pace_text), Some(("6:13", "10:00")));
+    let stats = data.performances.forward_stats.as_ref().expect("stats");
+    assert_eq!(texts(&stats.avg_pace_text), Some(("6:13", "10:00")));
+    let reverse = data.performances.reverse_stats.as_ref().expect("stats");
+    assert_eq!(texts(&reverse.avg_pace_text), Some(("7:27", "12:00")));
+    let calendar = data.calendar_summary.as_ref().expect("a calendar");
+    let year = calendar.years[0].forward.as_ref().expect("a forward best");
+    assert_eq!(texts(&year.best_pace_text), Some(("6:13", "10:00")));
+    let month = calendar.years[0].months[0]
+        .forward
+        .as_ref()
+        .expect("a forward best");
+    assert_eq!(texts(&month.best_pace_text), Some(("6:13", "10:00")));
+    let listed = data
+        .lap_records
+        .iter()
+        .find(|r| r.activity_id == "fast")
+        .expect("a listed outing");
+    assert_eq!(texts(&listed.best_pace_text), Some(("6:13", "10:00")));
+}
+
+#[test]
+fn the_calendar_record_carries_pace_text() {
+    let data = sport_read(&[attempt("fast", 600.0), attempt("slow", 720.0)], "Run");
+    let record = data
+        .calendar_summary
+        .as_ref()
+        .and_then(|c| c.forward_pr.as_ref())
+        .expect("a record");
+    assert_eq!(texts(&record.best_pace_text), Some(("6:13", "10:00")));
+}
+
+#[test]
+fn an_excluded_attempt_carries_pace_text() {
+    let data = read_with_sport(&[attempt("kept", 600.0)], &[attempt("left", 720.0)], "Run");
+    assert_eq!(
+        texts(&data.excluded_points[0].speed_pace),
+        Some(("7:27", "12:00"))
+    );
+}
+
+#[test]
+fn a_swim_read_carries_pace_text_per_hundred() {
+    let data = sport_read(&[attempt("swum", 1200.0)], "Swim");
+
+    // 1609.344 m in 1200 s: 1:15 per 100 m, 1:08 per 100 yd.
+    assert_eq!(
+        texts(&point(&data, "swum").speed_pace),
+        Some(("1:15", "1:08"))
+    );
+    let stats = data.performances.forward_stats.as_ref().expect("stats");
+    assert_eq!(texts(&stats.avg_pace_text), Some(("1:15", "1:08")));
+}
+
+#[test]
+fn a_ride_and_a_read_with_no_sport_carry_no_pace_text() {
+    let attempts = [attempt("a", 580.0), attempt("b", 600.0)];
+    for data in [sport_read(&attempts, "Ride"), section_read(&attempts, None)] {
+        assert!(
+            data.chart_data
+                .points
+                .iter()
+                .all(|p| p.speed_pace.is_none())
+        );
+        let record = &data.performances.records[0];
+        assert!(record.best_pace_text.is_none() && record.avg_pace_text.is_none());
+        let stats = data.performances.forward_stats.as_ref().expect("stats");
+        assert!(stats.avg_pace_text.is_none());
+        let calendar = data.calendar_summary.as_ref().expect("a calendar");
+        let year = calendar.years[0].forward.as_ref().expect("a best");
+        assert!(year.best_pace_text.is_none());
+    }
+}
+
+#[test]
+fn the_axis_marks_and_histogram_edges_carry_pace_text() {
+    let attempts = [
+        attempt("a", 600.0),
+        attempt("b", 640.0),
+        attempt("c", 700.0),
+        attempt("d", 760.0),
+    ];
+    let data = sport_read(&attempts, "Run");
+
+    let range = data.scatter_focus.forward.as_ref().expect("a range");
+    let mark = |speed: f64| crate::widget_snapshot::sport_pace_text(speed, "Run");
+    let as_pair = |pace: &Option<crate::FfiPaceText>| {
+        pace.as_ref()
+            .map(|t| (t.metric_text.clone(), t.imperial_text.clone()))
+    };
+    assert_eq!(as_pair(&range.low_pace), mark(range.low));
+    assert_eq!(as_pair(&range.high_pace), mark(range.high));
+    assert_eq!(
+        as_pair(&range.mid_pace),
+        mark((range.low + range.high) / 2.0)
+    );
+    assert!(range.low_pace.is_some());
+
+    let histogram = data.histograms.forward.as_ref().expect("a histogram");
+    let speeds = histogram.edge_speeds.as_ref().expect("edge speeds");
+    let edges = histogram.edge_pace.as_ref().expect("edge pace");
+    assert_eq!(edges.len(), speeds.len());
+    for (speed, edge) in speeds.iter().zip(edges) {
+        assert_eq!(as_pair(edge), mark(*speed));
+    }
+    // A zero edge has no pace.
+    assert!(
+        edges
+            .iter()
+            .zip(speeds)
+            .all(|(e, s)| (*s > 0.0) == e.is_some())
+    );
+}
+
+#[test]
+fn a_ride_has_no_pace_marks_or_edges() {
+    let attempts = [
+        attempt("a", 600.0),
+        attempt("b", 640.0),
+        attempt("c", 700.0),
+    ];
+    let data = sport_read(&attempts, "Ride");
+    let range = data.scatter_focus.forward.as_ref().expect("a range");
+    assert!(range.low_pace.is_none() && range.mid_pace.is_none() && range.high_pace.is_none());
+    let histogram = data.histograms.forward.as_ref().expect("a histogram");
+    assert!(histogram.edge_speeds.is_some() && histogram.edge_pace.is_none());
 }

@@ -15,7 +15,7 @@ import { DIRECTION_ICON, DIRECTION_ICON_ID } from '@/features/maps/lib/mapIcons'
 export const ENDPOINT_AND_DIRECTION_IMAGES: MapImageSpec[] = [...ENDPOINT_IMAGES, DIRECTION_ICON];
 
 /** Pixels between chevrons along the line. */
-export const DIRECTION_SPACING = 80;
+const DIRECTION_SPACING = 80;
 // The icon is a 64 px square, so this draws a chevron 10 px tall.
 const DIRECTION_ICON_SIZE = 0.25;
 // The chevron's distance field falls about 8 alpha per image pixel, and the

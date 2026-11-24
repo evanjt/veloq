@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import { InitOutcome, type FfiStorageShortfall } from 'veloqrs';
+import { FfiInitOutcome, type FfiStorageShortfall } from 'veloqrs';
 
 import type { EngineInitReason } from '@/features/routes/stores/EngineStatusStore';
 import { formatFileSize } from '@/shared/format/format';
@@ -24,15 +24,15 @@ import { offerCrashLog, openForum, openStorePage } from '@/shared/app/supportLin
  */
 export function engineInitReasonKey(reason: EngineInitReason | null) {
   switch (reason) {
-    case InitOutcome.Busy:
+    case FfiInitOutcome.Busy:
       return 'engine.initReason.busy';
-    case InitOutcome.ForwardSchema:
+    case FfiInitOutcome.ForwardSchema:
       return 'engine.initReason.forwardSchema';
-    case InitOutcome.StorageUnavailable:
+    case FfiInitOutcome.StorageUnavailable:
       return 'engine.initReason.storageUnavailable';
-    case InitOutcome.Failed:
+    case FfiInitOutcome.Failed:
       return 'engine.initReason.failed';
-    case InitOutcome.VersionMismatch:
+    case FfiInitOutcome.VersionMismatch:
       return 'engine.initReason.versionMismatch';
     case 'wipeFailed':
       return 'engine.initReason.wipeFailed';
@@ -51,7 +51,7 @@ export function engineInitReasonLine(
   shortfall: FfiStorageShortfall | null,
   t: TFunction
 ): string {
-  if (reason === InitOutcome.StorageUnavailable && shortfall) {
+  if (reason === FfiInitOutcome.StorageUnavailable && shortfall) {
     return t('engine.initReason.storageShortfall', {
       needed: formatFileSize(shortfall.neededBytes),
     });
@@ -59,7 +59,7 @@ export function engineInitReasonLine(
   return t(engineInitReasonKey(reason));
 }
 
-export interface EngineRecoveryAction {
+interface EngineRecoveryAction {
   label: string;
   onPress: () => void;
   testID: string;
@@ -78,7 +78,7 @@ export function engineRecoveryActions(
 ): EngineRecoveryAction[] {
   const retryAction = { label: t('common.retry'), onPress: retry, testID: 'engine-retry-button' };
   switch (reason) {
-    case InitOutcome.ForwardSchema:
+    case FfiInitOutcome.ForwardSchema:
       return [
         {
           label: t('engine.initAction.update'),
@@ -86,7 +86,7 @@ export function engineRecoveryActions(
           testID: 'engine-update-button',
         },
       ];
-    case InitOutcome.StorageUnavailable:
+    case FfiInitOutcome.StorageUnavailable:
       return [
         {
           label: t('engine.initAction.freeSpace'),
@@ -95,7 +95,7 @@ export function engineRecoveryActions(
         },
         retryAction,
       ];
-    case InitOutcome.VersionMismatch:
+    case FfiInitOutcome.VersionMismatch:
       return [
         {
           label: t('support.shareCrashLog'),

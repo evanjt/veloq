@@ -16,7 +16,7 @@ const FINE_AT = 60;
 /** How far back inside a threshold the finger must come to leave the level. */
 const LEAVE_MARGIN = 6;
 /** The shortest gap between two crossing haptics. */
-export const HAPTIC_FLOOR_MS = 80;
+const HAPTIC_FLOOR_MS = 80;
 
 /** How much of the finger's travel the handle takes at this level. */
 export function levelRatio(level: PrecisionLevel): number {

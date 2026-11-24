@@ -6,6 +6,7 @@ export {
   useWellnessForDate,
   useWellnessGeneration,
   useWellnessCoverage,
+  useFormZoneEdges,
   timeRangeToDays,
   type TimeRange,
 } from './hooks';

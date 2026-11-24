@@ -22,14 +22,7 @@ jest.mock('react-i18next', () => ({
 }));
 
 function renderChips() {
-  return render(
-    <FeedFilterChips
-      selected={new Set()}
-      onSelect={jest.fn()}
-      selectedRange={null}
-      onSelectRange={jest.fn()}
-    />
-  );
+  return render(<FeedFilterChips selected={new Set()} onSelect={jest.fn()} />);
 }
 
 describe('feed filter chips', () => {
@@ -71,14 +64,7 @@ describe('feed filter chips', () => {
   it('lets two sport chips stay selected together', async () => {
     const selected = new Set<FeedGroup>(['Ride', 'Other']);
     const onSelect = jest.fn();
-    await render(
-      <FeedFilterChips
-        selected={selected}
-        onSelect={onSelect}
-        selectedRange={null}
-        onSelectRange={jest.fn()}
-      />
-    );
+    await render(<FeedFilterChips selected={selected} onSelect={onSelect} />);
     expect(screen.getByTestId('home-filter-ride').props.accessibilityState.selected).toBe(true);
     expect(screen.getByTestId('home-filter-other').props.accessibilityState.selected).toBe(true);
     await fireEvent.press(screen.getByTestId('home-filter-run'));

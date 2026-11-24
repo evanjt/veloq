@@ -1,4 +1,4 @@
-import { formatPace } from '@/shared/format/format';
+import { formatRecordingPace } from './formatRecordingSpeed';
 import { pausedSecondsBetween, type PauseInterval } from './pausedTime';
 import { ABSENT } from '@/shared/format/absent';
 
@@ -34,5 +34,7 @@ export function calculateSplitPace(
   pauseIntervals: readonly PauseInterval[]
 ): string {
   const splitSeconds = splitMovingSeconds(distance, time, splitIndex, splitUnit, pauseIntervals);
-  return splitSeconds === null ? ABSENT : formatPace(splitUnit / splitSeconds, isMetric);
+  return splitSeconds === null
+    ? ABSENT
+    : formatRecordingPace(null, splitUnit / splitSeconds, isMetric);
 }

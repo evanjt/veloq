@@ -14,7 +14,6 @@ import {
   CREDIT_SEPARATOR,
   MAP_SOURCE_CREDITS,
 } from '@/features/maps/lib/mapSourceCredits';
-import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
 import { NATURAL_EARTH_ORIGIN } from '@/features/maps/styles/liberty/sources';
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
 import { GERMAN_LAND_BOXES, type GermanLandId } from '@/features/maps/lib/germanLandBoxes';
@@ -37,14 +36,6 @@ export type SatelliteSourceId =
   | 'wallonia'
   | 'slovenia'
   | GermanLandId;
-
-// Base styles the surfaces load. Liberty is embedded locally rather than
-// fetched, so a cold map does not wait on a style request and the CDN cannot
-// serve a build with fonts removed from under us.
-
-export const MAP_STYLE_URLS = {
-  light: LIBERTY_STYLE,
-} as const;
 
 // The map zoom from which each regional imagery provider is worth requesting. Where each
 // provider's imagery lies is the engine's, which answers every tile from the providers that hold it.
@@ -933,7 +924,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
 };
 
 // The combined satellite MapLibre style: two composite raster sources.
-export interface CombinedSatelliteMapStyle {
+interface CombinedSatelliteMapStyle {
   version: 8;
   glyphs?: string;
   sources: Record<
@@ -1006,14 +997,14 @@ const REGIONAL_STACK: { id: SatelliteSourceId; minZoom: number }[] = [
  * where none does. Its `maxzoom` is the global imagery's, which MapLibre
  * stretches past that.
  */
-export const SATELLITE_GLOBAL_SOURCE = 'satellite-global';
+const SATELLITE_GLOBAL_SOURCE = 'satellite-global';
 
 /**
  * The source that draws deeper than the global imagery goes. Rust answers each
  * of its tiles from the regional providers alone, and a tile no region holds is
  * a 404 the layer beneath covers.
  */
-export const SATELLITE_REGIONS_SOURCE = 'satellite-regions';
+const SATELLITE_REGIONS_SOURCE = 'satellite-regions';
 
 /** MapLibre asks for tile zoom = map zoom + this, for the declared tile size. */
 const TILE_ZOOM_OFFSET = Math.log2(512 / SATELLITE_TILE_SIZE);

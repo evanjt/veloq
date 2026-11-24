@@ -264,6 +264,8 @@ describe('the dense text cap', () => {
         <SummaryCardSparkline
           fitnessData={[40, 41, 42, 43]}
           formData={[-5, -3, 0, 2]}
+          formZoneData={['greyZone', 'greyZone', 'greyZone', 'greyZone']}
+          formTextData={['-5', '-3', '0', '+2']}
           width={300}
           showLabels
         />

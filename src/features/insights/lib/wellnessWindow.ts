@@ -1,4 +1,4 @@
-import { formatLocalDate } from '@/shared/format/format';
+import { addLocalDays, formatLocalDate } from '@/shared/time/localDay';
 
 /**
  * The wellness window the insight generators read, as the engine wants it.
@@ -9,8 +9,7 @@ import { formatLocalDate } from '@/shared/format/format';
  * headless push task runs after an overnight ride.
  */
 export function wellnessWindow(now: Date, days: number): { oldest: string; newest: string } {
-  const oldest = new Date(now);
-  oldest.setDate(oldest.getDate() - days);
+  const oldest = addLocalDays(now, -days);
 
   return { oldest: formatLocalDate(oldest), newest: formatLocalDate(now) };
 }

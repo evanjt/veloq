@@ -11,9 +11,9 @@
 //! both that a quarantine happened and how much came across. This is where
 //! that is kept until the app asks, once.
 
-use std::sync::Mutex;
-
 use crate::persistence::sections::SalvageCounts;
+use crate::poison::Recover;
+use std::sync::Mutex;
 
 /// One quarantine, and what came out of the file it replaced.
 ///
@@ -56,7 +56,7 @@ pub(crate) fn record_quarantine(salvaged: &SalvageCounts) {
         recordings: salvaged.recordings as u32,
         route_names: salvaged.route_names as u32,
     };
-    *LAST.lock().unwrap_or_else(|e| e.into_inner()) = Some(report);
+    *LAST.lock_recover() = Some(report);
 }
 
 /// The quarantine this launch did, if there was one, and never twice.
@@ -66,7 +66,7 @@ pub(crate) fn record_quarantine(salvaged: &SalvageCounts) {
 /// the resync. A launch that opened the file it was given answers `None`.
 #[uniffi::export]
 pub fn take_quarantine_report() -> Option<FfiQuarantineReport> {
-    LAST.lock().unwrap_or_else(|e| e.into_inner()).take()
+    LAST.lock_recover().take()
 }
 
 #[cfg(test)]

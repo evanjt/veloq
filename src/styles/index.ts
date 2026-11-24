@@ -6,4 +6,4 @@
  * import { createSharedStyles } from '@/styles';
  * ```
  */
-export { createSharedStyles, type SharedStyles } from './shared';
+export { createSharedStyles } from './shared';

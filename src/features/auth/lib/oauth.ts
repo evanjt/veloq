@@ -456,15 +456,6 @@ export function parseCallbackUrl(url: string): OAuthCallback | null {
 }
 
 /**
- * Validate the state parameter from the callback, spending the flow in progress
- * whether it matches or not.
- */
-export async function validateState(receivedState: string): Promise<boolean> {
-  const flow = await takePendingFlow();
-  return flow !== null && flow.state === receivedState;
-}
-
-/**
  * Redeem the one-time code for the token, presenting the verifier the challenge
  * was made from. Over HTTPS to the proxy, so nothing on the device sees it.
  */

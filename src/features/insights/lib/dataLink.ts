@@ -1,7 +1,7 @@
 import type { Insight, TFunc } from '../types';
 
 /** The screen a history was read from, unless it pictures the sheet's own rows. */
-export function historyTarget(insight: Insight): string | undefined {
+function historyTarget(insight: Insight): string | undefined {
   const history = insight.supportingData?.history;
   return history && history.kind !== 'changes' ? history.target : undefined;
 }

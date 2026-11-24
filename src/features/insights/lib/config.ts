@@ -15,7 +15,7 @@ import type { InsightCategory } from '../types';
  */
 export const ACTIVE_WINDOW_DAYS = 28;
 
-export type RecencyBounds = { min?: number; max?: number };
+type RecencyBounds = { min?: number; max?: number };
 
 export interface InsightsConfig {
   activeWindowDays: number;

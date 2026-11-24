@@ -12,12 +12,12 @@ import { unifySections } from '@/features/routes/lib/unifySections';
 /** One reference, so a caller with no page does not re-unify every render. */
 const EMPTY_SECTIONS: FrequentSection[] = [];
 
-export interface UseSectionsOptions {
+interface UseSectionsOptions {
   /** Pre-loaded engine sections from batch FFI call. When provided, skips useSectionSummaries FFI calls. */
   preloadedEngineSections?: FrequentSection[] | undefined;
 }
 
-export interface UseSectionsResult {
+interface UseSectionsResult {
   /** All sections combined */
   sections: FrequentSection[];
   /** Total section count */

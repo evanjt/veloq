@@ -18,8 +18,8 @@ import {
 import type { MapSubjectSpecs } from './mapSubjectSpecs';
 import { routeLinesSourceData } from './routeLineCollection';
 
-export const CONTEXT_SECTIONS_SOURCE_ID = 'context-sections';
-export const CONTEXT_ROUTES_SOURCE_ID = 'context-routes';
+const CONTEXT_SECTIONS_SOURCE_ID = 'context-sections';
+const CONTEXT_ROUTES_SOURCE_ID = 'context-routes';
 
 /** The layers a tap on library context is hit-tested on: the lines, not their outlines. */
 export const CONTEXT_SECTIONS_HIT_LAYER_ID = 'context-sections-line';
@@ -44,7 +44,7 @@ export interface ContextLayerInput {
   routes?: (ContextLineInput & { generation: number }) | null;
 }
 
-export interface ContextLayerSpecs {
+interface ContextLayerSpecs {
   sources: Record<string, MapSourceSpec>;
   layers: MapLayerSpec[];
 }

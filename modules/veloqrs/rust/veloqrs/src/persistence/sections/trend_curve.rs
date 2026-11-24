@@ -215,6 +215,7 @@ mod tests {
 
     fn point(day: f64, speed: f64, direction: &str) -> FfiSectionChartPoint {
         FfiSectionChartPoint {
+            speed_pace: None,
             lap_id: format!("lap{day}"),
             activity_id: format!("a{day}"),
             activity_name: String::new(),
@@ -230,6 +231,7 @@ mod tests {
             off_scale: crate::FfiOffScale::None,
             record_gap_secs: None,
             record_gap_speed: None,
+            record_gap_pace: None,
             estimated: false,
         }
     }

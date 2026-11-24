@@ -16,7 +16,7 @@ import { iconSize, spacing, themePalette, typography } from '@/theme';
 import type { DirectionStats } from '@/types';
 import { DirectionArrow, directionWord, type SectionDirection } from './DirectionCue';
 
-export interface DirectionAveragesProps {
+interface DirectionAveragesProps {
   forwardStats: DirectionStats | null | undefined;
   reverseStats: DirectionStats | null | undefined;
   /** What the average reads as, the basis the chart plots on. */
@@ -39,7 +39,7 @@ export function DirectionAverages({ forwardStats, reverseStats, basis }: Directi
       ? [
           {
             direction: direction as SectionDirection,
-            value: formatAttemptFigure(basis, stats.avgTime, stats.avgSpeed, isMetric),
+            value: formatAttemptFigure(basis, stats.avgTime, stats.avgPaceText, isMetric),
           },
         ]
       : []

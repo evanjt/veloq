@@ -4,8 +4,8 @@
  * A screen reader reads an accessible name as written, so '1:30' is spoken as
  * a clock time, '5:33 /km' as a ratio and '↑' as "up arrow" even when it marks
  * a pace that fell. Each function here is the spoken twin of a visual
- * formatter: it takes the same input, reaches the same quantity through the
- * same arithmetic, and says it in words in the app's language. Where the
+ * formatter: it takes the same input and says it in words in the app's
+ * language. Where the
  * visual form shows its absent mark, the spoken form says no value.
  */
 
@@ -16,9 +16,7 @@ import {
   elevationValue,
   getIntlLocale,
   MAX_DURATION_SECONDS,
-  paceSeconds,
   splitMinSec,
-  swimPaceSeconds,
   type DistanceUnit,
 } from './format';
 import type { TrendDirection, TrendVerdict } from './trend';
@@ -37,9 +35,17 @@ function count(unit: keyof typeof COUNT_KEY, n: number): string {
   return i18n.t(COUNT_KEY[unit], { count: n });
 }
 
+/**
+ * A pace as the engine splits it: whole minutes, counted past sixty rather
+ * than carried into hours, and whole seconds under sixty.
+ */
+export interface PaceParts {
+  minutes: number;
+  seconds: number;
+}
+
 /** Minutes and seconds in words, dropping a zero part: "5 minutes 33 seconds". */
-function minutesAndSeconds(totalSeconds: number): string {
-  const { minutes, seconds } = splitMinSec(totalSeconds);
+function minutesAndSeconds({ minutes, seconds }: PaceParts): string {
   if (minutes === 0) return count('seconds', seconds);
   if (seconds === 0) return count('minutes', minutes);
   return `${count('minutes', minutes)} ${count('seconds', seconds)}`;
@@ -64,21 +70,28 @@ export function spokenDuration(seconds: number | null | undefined): string {
   return parts.join(' ');
 }
 
-/** A pace in words, the twin of `formatPace`: "5 minutes 33 seconds per kilometre". */
-export function spokenPace(metersPerSecond: number, isMetric: boolean): string {
-  const totalSeconds = paceSeconds(metersPerSecond, isMetric);
-  if (totalSeconds == null) return noValue();
+/**
+ * A pace in words: "5 minutes 33 seconds per kilometre". The engine owns the
+ * figures and the app words them, so this takes the parts and no speed; none
+ * says no value, where the screen shows its absent mark.
+ */
+export function spokenPace(parts: PaceParts | null | undefined, isMetric: boolean): string {
+  if (!parts) return noValue();
   return i18n.t(isMetric ? 'spoken.perKilometre' : 'spoken.perMile', {
-    value: minutesAndSeconds(totalSeconds),
+    value: minutesAndSeconds(parts),
   });
 }
 
-/** A swim pace in words, the twin of `formatSwimPace`: "1 minute 20 seconds per 100 metres". */
-export function spokenSwimPace(metersPerSecond: number, isMetric: boolean): string {
-  const totalSeconds = swimPaceSeconds(metersPerSecond, isMetric);
-  if (totalSeconds == null) return noValue();
+/** A pace held in seconds per kilometre, or per mile when imperial, in words. */
+export function spokenPaceSeconds(totalSeconds: number, isMetric: boolean): string {
+  return spokenPace(splitMinSec(totalSeconds), isMetric);
+}
+
+/** A swim pace in words: "1 minute 20 seconds per 100 metres". */
+export function spokenSwimPace(parts: PaceParts | null | undefined, isMetric: boolean): string {
+  if (!parts) return noValue();
   return i18n.t(isMetric ? 'spoken.per100Metres' : 'spoken.per100Yards', {
-    value: minutesAndSeconds(totalSeconds),
+    value: minutesAndSeconds(parts),
   });
 }
 

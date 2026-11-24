@@ -97,6 +97,13 @@ pub mod fit_strength;
 // A route or section line written as a FIT course file
 pub mod fit_course;
 
+// A recorded activity written as a FIT file
+pub mod fit_recording;
+
+// The pace a live recording shows and speaks
+pub mod live_pace;
+pub use live_pace::FfiLivePace;
+
 // Activity FIT files built to the profile, for tests
 #[cfg(test)]
 pub(crate) mod fit_synthetic;
@@ -110,6 +117,8 @@ pub(crate) mod heatmap_ramp;
 // Files written through a temp file and a rename
 pub(crate) mod atomic_file;
 
+pub(crate) mod poison;
+
 // The Rust-owned basemap tile store: one z/x/y tree per source on disk
 pub mod basemap;
 
@@ -119,6 +128,10 @@ pub mod push;
 // The enriched activity notification: one ladder and one set of templates for
 // a native handler, for JavaScript and for the screen that shows the same line
 pub mod notifications;
+
+// Form: its zone edges, the number in the athlete's unit, its zone and its text,
+// decided once for every surface that states it
+pub(crate) mod form;
 
 // The home-screen widget snapshot, one composer for the app and the push worker alike
 pub mod widget_snapshot;
@@ -135,6 +148,7 @@ pub use push::FfiPulledRideEntry;
 /// fragment only it produces.
 #[cfg(test)]
 pub(crate) mod test_log {
+    use crate::poison::Recover;
     use log::{Level, Log, Metadata, Record};
     use std::sync::{Mutex, OnceLock};
 
@@ -152,8 +166,7 @@ pub(crate) mod test_log {
         }
         fn log(&self, record: &Record) {
             lines()
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
+                .lock_recover()
                 .push((record.level(), record.args().to_string()));
         }
         fn flush(&self) {}
@@ -169,8 +182,7 @@ pub(crate) mod test_log {
     /// Every warning captured so far carrying `fragment`.
     pub(crate) fn warnings_with(fragment: &str) -> Vec<String> {
         lines()
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .lock_recover()
             .iter()
             .filter(|(level, line)| *level <= Level::Warn && line.contains(fragment))
             .map(|(_, line)| line.clone())
@@ -179,8 +191,7 @@ pub(crate) mod test_log {
 
     pub(crate) fn errors_with(fragment: &str) -> Vec<String> {
         lines()
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .lock_recover()
             .iter()
             .filter(|(level, line)| *level == Level::Error && line.contains(fragment))
             .map(|(_, line)| line.clone())
@@ -275,6 +286,7 @@ pub(crate) mod test_globals {
     use crate::objects::detection::{DetectionPoll, poll_detection_once};
     use crate::persistence::persistent_engine_ffi::persistent_engine_init;
     use crate::persistence::with_persistent_engine;
+    use crate::poison::{Recover, RecoverRw};
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::sync::{
         Arc, Barrier, Condvar, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard,
@@ -304,10 +316,7 @@ pub(crate) mod test_globals {
         /// test holds detection workers, so the run can neither end nor free
         /// the slot until the test lets go.
         pub(crate) fn running(self) -> Self {
-            let held = DETECTION_WORKERS_HELD
-                .0
-                .lock()
-                .unwrap_or_else(|error| error.into_inner());
+            let held = DETECTION_WORKERS_HELD.0.lock_recover();
             drop(
                 DETECTION_WORKERS_HELD
                     .1
@@ -324,10 +333,7 @@ pub(crate) mod test_globals {
 
     impl Drop for DetectionWorkerHold {
         fn drop(&mut self) {
-            *DETECTION_WORKERS_HELD
-                .0
-                .lock()
-                .unwrap_or_else(|error| error.into_inner()) = false;
+            *DETECTION_WORKERS_HELD.0.lock_recover() = false;
             DETECTION_WORKERS_HELD.1.notify_all();
         }
     }
@@ -337,28 +343,19 @@ pub(crate) mod test_globals {
     /// alone: a racer the scheduler kept back past the winner's whole run
     /// would otherwise find the slot free again and legitimately win too.
     pub(crate) fn hold_detection_workers() -> DetectionWorkerHold {
-        *DETECTION_WORKERS_HELD
-            .0
-            .lock()
-            .unwrap_or_else(|error| error.into_inner()) = true;
+        *DETECTION_WORKERS_HELD.0.lock_recover() = true;
         DetectionWorkerHold
     }
 
     pub(crate) fn detection_worker_started() -> DetectionWorkerGuard {
-        let mut active = DETECTION_WORKERS
-            .0
-            .lock()
-            .unwrap_or_else(|error| error.into_inner());
+        let mut active = DETECTION_WORKERS.0.lock_recover();
         *active += 1;
         DetectionWorkerGuard
     }
 
     impl Drop for DetectionWorkerGuard {
         fn drop(&mut self) {
-            let mut active = DETECTION_WORKERS
-                .0
-                .lock()
-                .unwrap_or_else(|error| error.into_inner());
+            let mut active = DETECTION_WORKERS.0.lock_recover();
             *active -= 1;
             DETECTION_WORKERS.1.notify_all();
         }
@@ -367,10 +364,7 @@ pub(crate) mod test_globals {
     /// Wait until every detection worker has exited, which is after it has
     /// settled its run and is finished with the engine.
     pub(crate) fn wait_for_detection_workers() {
-        let active = DETECTION_WORKERS
-            .0
-            .lock()
-            .unwrap_or_else(|error| error.into_inner());
+        let active = DETECTION_WORKERS.0.lock_recover();
         let (active, wait) = DETECTION_WORKERS
             .1
             .wait_timeout_while(active, Duration::from_secs(120), |count| *count > 0)
@@ -409,7 +403,7 @@ pub(crate) mod test_globals {
     /// Held by a test that asserts on the pace or the retry ladder it really
     /// waits, so no crate-lock test turns its sleeps into records meanwhile.
     pub(crate) fn real_clock() -> RwLockReadGuard<'static, ()> {
-        clock_mode().read().unwrap_or_else(|e| e.into_inner())
+        clock_mode().read_recover()
     }
 
     /// Takes the wait for the recorder when a crate-lock test is running and
@@ -440,7 +434,7 @@ pub(crate) mod test_globals {
             crate::persistence::suspension::reset();
             crate::remote::import::reset_for_test();
             crate::remote::export::reset_for_test();
-            *SERIAL_HOLDER.lock().unwrap_or_else(|e| e.into_inner()) = None;
+            *SERIAL_HOLDER.lock_recover() = None;
         }
     }
 
@@ -450,8 +444,8 @@ pub(crate) mod test_globals {
     /// this one, never a private mutex of its own.
     pub(crate) fn serial_global_state() -> SerialGuard {
         static SERIAL: Mutex<()> = Mutex::new(());
-        let guard = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
-        let mode = clock_mode().write().unwrap_or_else(|e| e.into_inner());
+        let guard = SERIAL.lock_recover();
+        let mode = clock_mode().write_recover();
         PAUSED_NANOS.store(0, Ordering::SeqCst);
         PAUSES_RECORDED.store(true, Ordering::SeqCst);
         drain_backfill();
@@ -470,12 +464,12 @@ pub(crate) mod test_globals {
         crate::persistence::suspension::reset();
         crate::remote::import::reset_for_test();
         crate::remote::export::reset_for_test();
-        *SERIAL_HOLDER.lock().unwrap_or_else(|e| e.into_inner()) = Some(current().id());
+        *SERIAL_HOLDER.lock_recover() = Some(current().id());
         SerialGuard(guard, mode)
     }
 
     fn assert_serial_held() {
-        let holder = *SERIAL_HOLDER.lock().unwrap_or_else(|e| e.into_inner());
+        let holder = *SERIAL_HOLDER.lock_recover();
         assert_eq!(
             holder,
             Some(current().id()),
@@ -549,9 +543,7 @@ pub(crate) mod test_globals {
     }
 
     pub(crate) fn clear_detection_handle() {
-        *crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        *crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE.lock_recover() = None;
         // A driver from an earlier run polls the same slot every 250 ms and
         // applies whatever it finds. Emptying the slot is what ends it, but it
         // ends on its own next tick, and a run installed before then is one the

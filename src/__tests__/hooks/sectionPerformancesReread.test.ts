@@ -18,7 +18,7 @@ import {
 } from '@/features/routes/hooks/useSectionPerformances';
 import type { FrequentSection } from '@/types';
 import { engineErrorTag } from '@/shared/native/engineError';
-import { engine, StartOutcome } from 'veloqrs';
+import { engine, FfiStartOutcome } from 'veloqrs';
 
 type MockListener = (payload?: unknown) => void;
 
@@ -84,7 +84,7 @@ beforeEach(() => {
   getSectionPerformances.mockReset();
   getSectionPerformances.mockReturnValue(performances(['a1']));
   missing.mockReturnValue([]);
-  syncTimeStreams.mockReturnValue({ outcome: StartOutcome.Started });
+  syncTimeStreams.mockReturnValue({ outcome: FfiStartOutcome.Started });
 });
 
 it('reads the records again when the engine announces the sections moved', async () => {
@@ -131,7 +131,7 @@ describe('records read from a partial set', () => {
 
   it('holds back the PR verdict while a stream is missing', async () => {
     missing.mockReturnValue(['a2']);
-    syncTimeStreams.mockReturnValue({ outcome: StartOutcome.Held });
+    syncTimeStreams.mockReturnValue({ outcome: FfiStartOutcome.Held });
     getSectionPerformances.mockReturnValue(withPrs());
 
     const { result } = await renderHook(() => useSectionPerformances(twoActivities, 'Ride'));

@@ -13,7 +13,7 @@ import {
   HEATMAP_CELL_SIZE,
   HEATMAP_CELL_GAP,
 } from '@/features/stats/lib/heatmapGrid';
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 
 describe('health scrub re-renders', () => {
   it('places every day of the year it draws', () => {

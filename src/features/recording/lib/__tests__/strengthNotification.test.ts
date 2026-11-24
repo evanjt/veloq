@@ -5,7 +5,7 @@
  * Expected behaviour: a rest counts down to the engine's `restEndsAt` and names the next set, a
  * set shows the set and no countdown, a finished session clears the notification.
  */
-import { FocusPhase, WeightUnit, type FocusSet, type FocusState } from 'veloqrs';
+import { FfiFocusPhase, FfiWeightUnit, type FfiFocusSet, type FfiFocusState } from 'veloqrs';
 
 import {
   buildStrengthNotificationPayload,
@@ -16,7 +16,7 @@ import { focusNames, focusSetText } from '../strengthFocus';
 const translate = (_key: string, fallback: string, values: Record<string, string | number> = {}) =>
   fallback.replace(/\{\{(\w+)\}\}/g, (_, name: string) => String(values[name]));
 
-function set(overrides: Partial<FocusSet> = {}): FocusSet {
+function set(overrides: Partial<FfiFocusSet> = {}): FfiFocusSet {
   return {
     exerciseCategory: 28,
     exerciseName: 1,
@@ -25,17 +25,17 @@ function set(overrides: Partial<FocusSet> = {}): FocusSet {
     reps: 8,
     weightKg: 40,
     displayWeight: 40,
-    weightUnit: WeightUnit.Kilogram,
+    weightUnit: FfiWeightUnit.Kilogram,
     weightStep: 2.5,
     weightDownKg: 37.5,
     weightUpKg: 42.5,
     warmUp: false,
     ...overrides,
-  } as FocusSet;
+  } as FfiFocusSet;
 }
 
 /** A set with no reps and no weight, as the engine answers an unplanned one. */
-function unloaded(): FocusSet {
+function unloaded(): FfiFocusSet {
   const { reps: _reps, weightKg: _kg, displayWeight: _shown, ...rest } = set();
   return rest;
 }
@@ -47,19 +47,19 @@ const names: StrengthNotificationNames = {
 };
 
 /** The state with an optional field absent, as the engine answers it. */
-function without(state: FocusState, key: 'previous' | 'current'): FocusState {
+function without(state: FfiFocusState, key: 'previous' | 'current'): FfiFocusState {
   const { [key]: _omitted, ...rest } = state;
-  return rest as FocusState;
+  return rest as FfiFocusState;
 }
 
-function state(overrides: Partial<FocusState>): FocusState {
-  return { phase: FocusPhase.Set, current: set(), ...overrides } as FocusState;
+function state(overrides: Partial<FfiFocusState>): FfiFocusState {
+  return { phase: FfiFocusPhase.Set, current: set(), ...overrides } as FfiFocusState;
 }
 
 describe('buildStrengthNotificationPayload', () => {
   it('counts a timed rest down to the end the engine gives and names the next set', () => {
     const payload = buildStrengthNotificationPayload(
-      state({ phase: FocusPhase.Rest, restStartedAt: 1_000, restSecs: 90, restEndsAt: 1_090 }),
+      state({ phase: FfiFocusPhase.Rest, restStartedAt: 1_000, restSecs: 90, restEndsAt: 1_090 }),
       names,
       { translate, session: 7, nowMs: 1_010_000 }
     );
@@ -76,7 +76,7 @@ describe('buildStrengthNotificationPayload', () => {
 
   it('counts an untimed rest up from its start and does not vibrate', () => {
     const payload = buildStrengthNotificationPayload(
-      state({ phase: FocusPhase.Rest, restStartedAt: 1_000 }),
+      state({ phase: FfiFocusPhase.Rest, restStartedAt: 1_000 }),
       names,
       { translate, session: 7, nowMs: 1_010_000 }
     );
@@ -107,7 +107,7 @@ describe('buildStrengthNotificationPayload', () => {
     const options = { translate, session: 7, nowMs: 0 };
     expect(
       buildStrengthNotificationPayload(
-        without(state({ phase: FocusPhase.Finished }), 'current'),
+        without(state({ phase: FfiFocusPhase.Finished }), 'current'),
         names,
         options
       )

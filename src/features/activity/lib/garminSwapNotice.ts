@@ -1,4 +1,4 @@
-import { SwapOutcome } from 'veloqrs';
+import { FfiSwapOutcome } from 'veloqrs';
 
 import type { StatusTone } from '@/shared/ui';
 
@@ -31,32 +31,35 @@ export interface GarminSwapNotice {
  * words it, so a refusal is told apart from a failure: a refusal means
  * intervals.icu would not take the file and nothing changed.
  */
-export function garminSwapNotice(outcome: SwapOutcome, action: GarminSwapAction): GarminSwapNotice {
+export function garminSwapNotice(
+  outcome: FfiSwapOutcome,
+  action: GarminSwapAction
+): GarminSwapNotice {
   const line = (key: NoticeKey, tone: StatusTone, rereads = false): GarminSwapNotice => ({
     key,
     tone,
     rereads,
   });
   switch (outcome) {
-    case SwapOutcome.Replaced:
+    case FfiSwapOutcome.Replaced:
       return line('activity.garminSwap.replaced', 'success', true);
-    case SwapOutcome.Restored:
+    case FfiSwapOutcome.Restored:
       return line('activity.garminSwap.restored', 'success', true);
-    case SwapOutcome.Unchanged:
+    case FfiSwapOutcome.Unchanged:
       return line('activity.garminSwap.unchanged', 'info');
-    case SwapOutcome.Refused:
+    case FfiSwapOutcome.Refused:
       return line('activity.garminSwap.refused', 'error');
-    case SwapOutcome.PermissionBlocked:
+    case FfiSwapOutcome.PermissionBlocked:
       return line('activity.garminSwap.permission', 'error');
-    case SwapOutcome.AuthExpired:
+    case FfiSwapOutcome.AuthExpired:
       return line('activity.garminSwap.signedOut', 'error');
-    case SwapOutcome.NotEligible:
+    case FfiSwapOutcome.NotEligible:
       return line('activity.garminSwap.notEligible', 'error');
-    case SwapOutcome.Mismatch:
+    case FfiSwapOutcome.Mismatch:
       return line('activity.garminSwap.mismatch', 'error', true);
-    case SwapOutcome.GarminUnavailable:
+    case FfiSwapOutcome.GarminUnavailable:
       return line('activity.garminSwap.garminUnavailable', 'error');
-    case SwapOutcome.Failed:
+    case FfiSwapOutcome.Failed:
     default:
       return line(
         action === 'undo' ? 'activity.garminSwap.undoFailed' : 'activity.garminSwap.failed',

@@ -57,7 +57,7 @@ export interface ContextMenuAction {
   destructive?: boolean | undefined;
 }
 
-export interface ContextMenuGroup {
+interface ContextMenuGroup {
   key: string;
   label: string;
   icon: IconName;
@@ -73,10 +73,9 @@ export type MenuPopupAction = Omit<ContextMenuAction, 'icon' | 'systemIcon'> & {
   icon?: IconName | undefined;
 };
 
-export type MenuPopupEntry =
-  MenuPopupAction | { key: string; label: string; items: MenuPopupAction[] };
+type MenuPopupEntry = MenuPopupAction | { key: string; label: string; items: MenuPopupAction[] };
 
-export interface MenuPopupProps {
+interface MenuPopupProps {
   /** Names the list, read first. */
   title: string;
   entries: MenuPopupEntry[];
@@ -88,7 +87,7 @@ export interface MenuPopupProps {
   children: React.ReactElement;
 }
 
-export interface ContextMenuProps {
+interface ContextMenuProps {
   /** Names the menu, the source's own name. */
   title: string;
   /** Where the source leads, shown as the preview on iOS and opened by tapping it. */
@@ -119,7 +118,7 @@ function isGroup(entry: ContextMenuEntry | MenuPopupEntry) {
  * The tallest the popup draws before it scrolls: the window less its safe-area
  * insets and a margin at each end.
  */
-export function contextMenuMaxHeight(windowHeight: number, top: number, bottom: number): number {
+function contextMenuMaxHeight(windowHeight: number, top: number, bottom: number): number {
   return Math.max(0, windowHeight - top - bottom - 2 * spacing.md);
 }
 

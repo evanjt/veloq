@@ -11,7 +11,7 @@ interface FFITimerEntry {
   timestamp: number;
 }
 
-export interface SectionDebugPanelProps {
+interface SectionDebugPanelProps {
   section: FrequentSection;
   pageMetrics: FFITimerEntry[];
   isDark: boolean;

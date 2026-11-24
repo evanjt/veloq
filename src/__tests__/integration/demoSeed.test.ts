@@ -8,7 +8,7 @@ import { demoLibrary, seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { getEngine } from '@/shared/native/engine';
 import { PACE_SNAPSHOT_WINDOW_DAYS, TIME_RANGES } from '@/shared/app/constants';
 import { timeRangeToDays } from '@/features/wellness';
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import { dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared/time/startDate';
 import { atUtcOffset } from '../__shared__/fixedOffsetDate';
 

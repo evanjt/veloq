@@ -81,7 +81,7 @@ const EMPTY_EXCLUDED_POINTS: FfiSectionChartPoint[] = [];
 const NO_TREND_CURVES: FfiSectionTrendCurves = {};
 const NO_HISTOGRAMS: FfiAttemptHistograms = {};
 
-export interface SectionDetailCardProps {
+interface SectionDetailCardProps {
   /** The section's id. */
   id: string;
   /** The activity the section was opened from, which the chart and the map key mark. */

@@ -21,7 +21,7 @@ export function useFitnessWindow(entry: FitnessEntry, clearEntry: () => void) {
   const { range: entryRange, date: entryDate } = entry;
   const [timeRange, setTimeRange] = useState<TimeRange>(entryRange ?? FITNESS_DEFAULT_PERIOD);
   const interaction = useChartInteraction(entryDate);
-  const { setSelectedDate, setSelectedValues } = interaction;
+  const { setSelectedDate } = interaction;
   // Shared with the charts for the crosshair, so it moves with the selection.
   const sharedSelectedIdx = useSharedValue(-1);
 
@@ -34,7 +34,6 @@ export function useFitnessWindow(entry: FitnessEntry, clearEntry: () => void) {
     if (entryKey) {
       if (entryRange) setTimeRange(entryRange);
       setSelectedDate(entryDate);
-      setSelectedValues(null);
     }
   }
 
@@ -52,9 +51,8 @@ export function useFitnessWindow(entry: FitnessEntry, clearEntry: () => void) {
       setTimeRange(next);
       sharedSelectedIdx.set(-1);
       setSelectedDate(null);
-      setSelectedValues(null);
     },
-    [setSelectedDate, setSelectedValues, sharedSelectedIdx]
+    [setSelectedDate, sharedSelectedIdx]
   );
 
   // Runs after the commit that shows the range; with no mark pending it records nothing.

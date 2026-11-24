@@ -7,9 +7,6 @@
  */
 
 import type {
-  FfiMatchStrictness,
-  FfiMapScreenData,
-  MapDistanceBand,
   GroupSummary,
   AthleteProfile,
   FfiStartResult,
@@ -77,13 +74,10 @@ import type { DelegateHost } from './delegates/host';
 import * as activityDelegates from './delegates/activities';
 import * as fitnessDelegates from './delegates/fitness';
 import * as heatmapDelegates from './delegates/heatmap';
-import * as detectionDelegates from './delegates/detection';
-import * as mapsDelegates from './delegates/maps';
 import * as routeDelegates from './delegates/routes';
 import * as sectionDelegates from './delegates/sections';
 import type { SectionBoundsEdit } from './delegates/sections';
 import * as settingsDelegates from './delegates/settings';
-import * as strengthDelegates from './delegates/strength';
 import * as syncDelegates from './delegates/sync';
 import type { SyncAuthMethod, SyncStatus } from './delegates/sync';
 import type { HeatmapDay } from './delegates/shared-types';
@@ -734,54 +728,12 @@ class EngineClient implements DelegateHost {
   ): { totalCount: number; summaries: GroupSummary[] } =>
     routeDelegates.getFilteredGroupSummaries(this, minActivities, sortKey);
 
-  getMapScreenData = (
-    startDate: Date,
-    endDate: Date,
-    sportTypesArray: string[],
-    distanceBand: MapDistanceBand,
-    isMetric: boolean,
-    routeLines: boolean,
-    sections: boolean,
-    nameNeedle: string,
-    heldRouteLines?: number,
-    heldSections?: number
-  ): FfiMapScreenData | undefined =>
-    mapsDelegates.getMapScreenData(
-      this,
-      startDate,
-      endDate,
-      sportTypesArray,
-      distanceBand,
-      isMetric,
-      routeLines,
-      sections,
-      nameNeedle,
-      heldRouteLines,
-      heldSections
-    );
-
   /** Coordinate-encoded; put it through `decodeCoords`. */
   getRepresentativeRoute = (groupId: string): ArrayBuffer =>
     routeDelegates.getRepresentativeRoute(this, groupId);
 
   getRouteDetailData = (groupId: string): routeDelegates.RouteDetailData | undefined =>
     routeDelegates.getRouteDetailData(this, groupId);
-
-  getMuscleDetail = (
-    activityId: string,
-    muscleSlug: string
-  ): strengthDelegates.MuscleGroupDetailFfi | null =>
-    strengthDelegates.getMuscleDetail(this, activityId, muscleSlug);
-
-  /** Every strength activity still owed a FIT. */
-  getUnprocessedStrengthIds = (): string[] => strengthDelegates.getUnprocessedStrengthIds(this);
-
-  hasStrengthData = (): boolean => strengthDelegates.hasStrengthData(this);
-
-  setMatchStrictness = (minMatchPct: number, endpointThreshold: number): void =>
-    detectionDelegates.setMatchStrictness(this, minMatchPct, endpointThreshold);
-
-  getMatchStrictness = (): FfiMatchStrictness | null => detectionDelegates.getMatchStrictness(this);
 
   getSectionCount = (): number => sectionDelegates.getSectionCount(this);
 

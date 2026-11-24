@@ -22,7 +22,7 @@ import { CurveChart } from '@/shared/charts';
 import * as formatModule from '@/shared/format/format';
 import { initialiseI18n } from '@/i18n';
 import type { FeedCard, ActivityStreams as StreamsData, MuscleVolume, WellnessData } from '@/types';
-import { dayActivityRow } from '@/features/activity/light';
+import { dayActivityRow } from '../__shared__/dayActivityRow';
 
 const mockPush = jest.fn();
 let mockParams: { request?: string } = {};
@@ -279,7 +279,7 @@ describe('a chart can be read without seeing it', () => {
         bodyData={[]}
         volumes={[volume('chest', 4), volume('abs', 9)]}
         gender="male"
-        maxWeightedSets={9}
+        shadeCeilings={[1.8, 3.6, 5.4, 7.2, 9]}
         selectedVolume={null}
         tappableSlugs={new Set(['chest', 'abs'])}
         onMuscleTap={jest.fn()}

@@ -64,7 +64,7 @@ async function draw(selectedVolume: MuscleVolume | null) {
     <StrengthBodyDiagram
       bodyData={[]}
       gender="male"
-      maxWeightedSets={12}
+      shadeCeilings={[2.4, 4.8, 7.2, 9.6, 12]}
       selectedVolume={selectedVolume}
       tappableSlugs={new Set()}
       onMuscleTap={() => {}}

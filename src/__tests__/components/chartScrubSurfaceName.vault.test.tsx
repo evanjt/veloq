@@ -18,17 +18,18 @@ import { WellnessTrendsChart } from '@/features/wellness/components/WellnessTren
 import { CurveChart } from '@/shared/charts';
 import { useChartGestures } from '@/shared/charts/useChartGestures';
 import { initialiseI18n } from '@/i18n';
-import type { FeedCard, WellnessData } from '@/types';
-import { dayActivityRow } from '@/features/activity/light';
+import type { FeedCard } from '@/types';
+import { dayActivityRow } from '../__shared__/dayActivityRow';
+import { statedForm } from '../__shared__/statedForm';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
-const DAYS = [
+const DAYS = statedForm([
   { id: '2026-04-01', ctl: 40, atl: 48, restingHR: 50, hrv: 61 },
   { id: '2026-04-02', ctl: 41, atl: 49, restingHR: 51 },
   { id: '2026-04-03', ctl: 43, atl: 55, restingHR: 49, hrv: 70 },
-] as WellnessData[];
+]);
 
 const ACTIVITIES = [
   { id: 'k1', name: 'Kiln walk', sportType: 'Ride', startDateLocal: '2026-04-02T07:00:00' },

@@ -63,12 +63,26 @@ export function useFitnessScreenData({ timeRange, sportMode, place }: UseFitness
   // also the period the decoupling ride is picked from.
   const periodCoverage = useRangeCoverage(trendsDays ?? days, trendsDays !== undefined);
 
+  // Only the sport in view renders a threshold from these, so only that one is
+  // worth a download and a `curve_bodies` row. Both were on by default, which
+  // cost a cyclist up to ten curves a session, one per time range, each with a
+  // pace snapshot write behind it.
+  const { fetchedAt: runCurveFetchedAt } = usePaceCurve({
+    sport: 'Run',
+    days: curveDays ?? days,
+    enabled: curveDays !== undefined && sportMode === 'Running',
+  });
+  const { fetchedAt: swimCurveFetchedAt } = usePaceCurve({
+    sport: 'Swim',
+    days: curveDays ?? days,
+    enabled: curveDays !== undefined && sportMode === 'Swimming',
+  });
+
   const {
     eftpTrend,
     eftpCoverage,
     eftpChanges,
-    storedRunPace,
-    storedSwimPace,
+    thresholdPaces,
     librarySport,
     fitnessDays,
     fatigueDays,
@@ -78,22 +92,7 @@ export function useFitnessScreenData({ timeRange, sportMode, place }: UseFitness
     loadDots,
     uncountedImports,
     training,
-  } = useFitnessScreenRead();
-
-  // Only the sport in view renders a threshold from these, so only that one is
-  // worth a download and a `curve_bodies` row. Both were on by default, which
-  // cost a cyclist up to ten curves a session, one per time range, each with a
-  // pace snapshot write behind it.
-  const { data: runPaceCurve } = usePaceCurve({
-    sport: 'Run',
-    days: curveDays ?? days,
-    enabled: curveDays !== undefined && sportMode === 'Running',
-  });
-  const { data: swimPaceCurve } = usePaceCurve({
-    sport: 'Swim',
-    days: curveDays ?? days,
-    enabled: curveDays !== undefined && sportMode === 'Swimming',
-  });
+  } = useFitnessScreenRead([runCurveFetchedAt, swimCurveFetchedAt]);
 
   return {
     wellness,
@@ -108,15 +107,14 @@ export function useFitnessScreenData({ timeRange, sportMode, place }: UseFitness
     eftpTrend,
     eftpCoverage,
     eftpChanges,
-    storedRunPace,
-    storedSwimPace,
+    // The pace the engine chose for the span the curve pages are on.
+    thresholdPace: thresholdPaces.get(curveDays ?? days)?.run ?? undefined,
+    swimThresholdPace: thresholdPaces.get(curveDays ?? days)?.swim ?? undefined,
     librarySport,
     fitnessDays,
     fatigueDays,
     currentFTP: cyclingFtp,
     runLthr: runningLthr,
-    runPaceCurve,
-    swimPaceCurve,
     // The value intervals.icu stored on the ride, which is what its activity
     // screen prints, so the card and that screen cannot disagree.
     decouplingSource: decouplingBySpan.get(days) ?? null,

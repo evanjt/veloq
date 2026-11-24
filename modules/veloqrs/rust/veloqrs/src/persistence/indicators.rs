@@ -3,6 +3,7 @@
 //! Computed once after sync/detection, stored in `activity_indicators` table.
 //! Section badges are read from this table; route highlights are computed on read.
 
+use crate::persistence::schema_info;
 use rusqlite::{Result as SqlResult, params};
 use std::collections::{HashMap, HashSet};
 
@@ -117,9 +118,10 @@ impl PersistentEngine {
                 }
             }
             if stamp {
-                tx.execute(
-                    "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('indicator_version', ?)",
-                    params![INDICATOR_ALGORITHM_VERSION.to_string()],
+                schema_info::set(
+                    &tx,
+                    "indicator_version",
+                    &INDICATOR_ALGORITHM_VERSION.to_string(),
                 )?;
             }
             Ok(section_count)
@@ -166,13 +168,10 @@ impl PersistentEngine {
     /// and refusing to open the database over one would cost the athlete
     /// everything else.
     pub(super) fn recompute_indicators_if_stale(&self) {
-        let stored_version: i32 = self
-            .db
-            .query_row(
-                "SELECT CAST(value AS INTEGER) FROM schema_info WHERE key = 'indicator_version'",
-                [],
-                |r| r.get(0),
-            )
+        let stored_version: i32 = schema_info::get_integer(&self.db, "indicator_version")
+            .ok()
+            .flatten()
+            .and_then(|v| i32::try_from(v).ok())
             .unwrap_or(0);
 
         if stored_version >= INDICATOR_ALGORITHM_VERSION {
@@ -711,11 +710,7 @@ pub(crate) mod pooled {
             return vec![];
         }
 
-        let placeholders: String = activity_ids
-            .iter()
-            .map(|_| "?")
-            .collect::<Vec<_>>()
-            .join(",");
+        let placeholders: String = crate::persistence::sql::question_marks(activity_ids.len());
         let sql = format!(
             "SELECT activity_id, indicator_type, target_id, target_name, direction, lap_time, trend
              FROM activity_indicators

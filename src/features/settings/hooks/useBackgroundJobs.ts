@@ -152,7 +152,7 @@ function readDetection(
  * tracks the download can ask about, and the whole days the rest take on the
  * daily share (absent when they fit in one day).
  */
-export interface StagedHistory {
+interface StagedHistory {
   done: number;
   total: number;
   daysToFinish?: number;

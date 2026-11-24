@@ -21,6 +21,7 @@ import type { FrequentSection, RoutePoint } from '@/types';
 import { announceDepartedRides } from '../lib/departedRides';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 import { keepsEnoughPoints } from '@/shared/math/trimRange';
+import { shortCoordsFromNative } from '@/shared/ffi/shortPoints';
 
 /** Padded window context for expand mode */
 interface ExpandContext {
@@ -206,10 +207,7 @@ export function useSectionTrim(
         return;
       }
 
-      const fullPoints: RoutePoint[] = decodeCoords(result.encodedTrack).map((p) => ({
-        lat: p.latitude,
-        lng: p.longitude,
-      }));
+      const fullPoints: RoutePoint[] = shortCoordsFromNative(decodeCoords(result.encodedTrack));
       if (fullPoints.length < 2) {
         inform({
           title: t('sections.trimFailedTitle'),

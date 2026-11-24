@@ -53,12 +53,20 @@ class VeloqRecordingNotificationModule : Module() {
   }
   private var pendingRetry: ScheduledFuture<*>? = null
 
+  private val actionRoute = ActionRoute { action, session ->
+    sendEvent("onAction", mapOf("action" to action, "session" to session))
+  }
+
   override fun definition() = ModuleDefinition {
     Name("VeloqRecordingNotification")
 
     Events("onAction")
 
     OnCreate { live = this@VeloqRecordingNotificationModule }
+
+    OnStartObserving("onAction") { actionRoute.startObserving() }
+
+    OnStopObserving("onAction") { actionRoute.stopObserving() }
 
     OnDestroy {
       if (live === this@VeloqRecordingNotificationModule) live = null
@@ -340,15 +348,10 @@ class VeloqRecordingNotificationModule : Module() {
     // live module is reached through here rather than through an injection.
     private var live: VeloqRecordingNotificationModule? = null
 
-    /** True when a JavaScript runtime was listening and took the press. */
+    /** True when a JavaScript subscriber was attached and took the press. */
     fun dispatch(action: String, session: Long): Boolean {
       val module = live ?: return false
-      return try {
-        module.sendEvent("onAction", mapOf("action" to action, "session" to session))
-        true
-      } catch (e: Exception) {
-        false
-      }
+      return module.actionRoute.dispatch(action, session)
     }
   }
 }

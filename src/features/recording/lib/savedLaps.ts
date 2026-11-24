@@ -92,3 +92,38 @@ export function rebaseLaps(
   }
   return saved;
 }
+
+/**
+ * The laps of a saved ride, closed: the laps the athlete pressed, then one
+ * more from the last press to the end of the ride when time remains after it,
+ * or the one lap over the whole ride when none was pressed. The FIT writer
+ * takes laps that cover the ride, so every saved file goes through here.
+ * `pausedSeconds` is the pause inside the saved window, which the closing
+ * lap's moving time leaves out.
+ */
+export function withClosingLap(
+  streams: RecordingStreams,
+  laps: readonly RecordingLap[],
+  pausedSeconds: number
+): RecordingLap[] {
+  const closed = [...laps];
+  const elapsed = streams.time.at(-1) ?? 0;
+  const last = closed.at(-1);
+  if (!last || last.endTime < elapsed) {
+    closed.push(
+      summariseLap(
+        streams,
+        {
+          index: closed.length,
+          startTime: last?.endTime ?? 0,
+          endTime: elapsed,
+          startIndex: last ? last.endIndex + 1 : 0,
+          endIndex: streams.time.length - 1,
+          movingEndTime: Math.max(0, elapsed - Math.max(0, pausedSeconds)),
+        },
+        last?.movingEndTime ?? 0
+      )
+    );
+  }
+  return closed;
+}

@@ -14,7 +14,7 @@ export interface MapEdgeInset {
   left: number;
 }
 
-export interface VisibleMapInsetInput {
+interface VisibleMapInsetInput {
   /** The map's size, in pixels. */
   width: number;
   height: number;

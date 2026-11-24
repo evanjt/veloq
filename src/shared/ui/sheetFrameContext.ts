@@ -1,7 +1,7 @@
 import { createContext } from 'react';
 
 /** The fill and bottom padding a sheet frame that draws no view leaves to the scroll view under it. */
-export interface SheetFrameFill {
+interface SheetFrameFill {
   backgroundColor: string | undefined;
   paddingBottom: number;
 }

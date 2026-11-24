@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { AccessibilityInfo, Pressable } from 'react-native';
-import { StartOutcome } from 'veloqrs';
+import { FfiStartOutcome } from 'veloqrs';
 
 import { useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
@@ -43,12 +43,12 @@ describe('pull to refresh notice', () => {
   });
 
   it.each([
-    [StartOutcome.Busy, 'refresh.busy'],
-    [StartOutcome.Held, 'refresh.busy'],
-    [StartOutcome.NotReady, 'refresh.notReady'],
-    [StartOutcome.Offline, 'refresh.offline'],
-    [StartOutcome.NotConfigured, 'refresh.notConfigured'],
-    [StartOutcome.Failed, 'refresh.failed'],
+    [FfiStartOutcome.Busy, 'refresh.busy'],
+    [FfiStartOutcome.Held, 'refresh.busy'],
+    [FfiStartOutcome.NotReady, 'refresh.notReady'],
+    [FfiStartOutcome.Offline, 'refresh.offline'],
+    [FfiStartOutcome.NotConfigured, 'refresh.notConfigured'],
+    [FfiStartOutcome.Failed, 'refresh.failed'],
   ])('shows and announces the refusal %s, then clears it', async (outcome, key) => {
     request.mockReturnValue(outcome);
     await render(<PulledScreen />);
@@ -62,7 +62,9 @@ describe('pull to refresh notice', () => {
   });
 
   it('clears an earlier refusal when the next pull starts', async () => {
-    request.mockReturnValueOnce(StartOutcome.Offline).mockReturnValueOnce(StartOutcome.Started);
+    request
+      .mockReturnValueOnce(FfiStartOutcome.Offline)
+      .mockReturnValueOnce(FfiStartOutcome.Started);
     await render(<PulledScreen />);
 
     await pull();

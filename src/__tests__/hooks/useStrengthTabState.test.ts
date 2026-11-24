@@ -9,13 +9,25 @@ import { SyncState } from 'veloqrs';
 import { renderHook } from '@testing-library/react-native';
 import { useStrengthTabState } from '@/features/strength/hooks/useStrengthScreenData';
 
-jest.mock('veloqrs', () =>
-  require('../__shared__/veloqrsStub').withOverrides(
-    require('../__shared__/veloqrsStub').namespacesOver(() =>
-      require('@/shared/native/engine').getEngine()
-    )
-  )
-);
+// The strength namespace answers through the engine handle unless a test sets
+// its own answer here, so the handle and the namespace can be told apart.
+const mockStrengthAnswer: { hasSets?: boolean; unfetched?: string[] } = {};
+
+jest.mock('veloqrs', () => {
+  const stub = require('../__shared__/veloqrsStub');
+  const over = stub.namespacesOver(() => require('@/shared/native/engine').getEngine());
+  return stub.withOverrides({
+    ...over,
+    strength: {
+      ...over.strength,
+      hasStrengthData: () =>
+        mockStrengthAnswer.hasSets ?? (over.strength.hasStrengthData as () => boolean)(),
+      getUnprocessedStrengthIds: () =>
+        mockStrengthAnswer.unfetched ??
+        (over.strength.getUnprocessedStrengthIds as () => string[])(),
+    },
+  });
+});
 
 const mockEngine: Record<string, unknown> = {};
 
@@ -58,12 +70,36 @@ describe('useStrengthTabState', () => {
     mockEngine.hasStrengthData = () => {
       throw new Error('engine is gone');
     };
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     expect(await (await renderHook(() => useStrengthTabState())).result.current).toBe('hidden');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('[StrengthTab]'), expect.any(Error));
+    warn.mockRestore();
   });
 
-  vaultIt('falls back to the cached answer on a binary with no unprocessed queue', async () => {
-    engineWith(true, []);
+  it('reads the sets and the queue through the strength namespace, not the handle', async () => {
+    engineWith(false, []);
+    delete mockEngine.hasStrengthData;
     delete mockEngine.getUnprocessedStrengthIds;
-    expect(await (await renderHook(() => useStrengthTabState())).result.current).toBe('ready');
+    mockStrengthAnswer.hasSets = true;
+    mockStrengthAnswer.unfetched = [];
+    try {
+      expect(await (await renderHook(() => useStrengthTabState())).result.current).toBe('ready');
+    } finally {
+      delete mockStrengthAnswer.hasSets;
+      delete mockStrengthAnswer.unfetched;
+    }
+  });
+
+  it('awaits the download from the namespace queue when the handle has no queue method', async () => {
+    engineWith(false, []);
+    delete mockEngine.getUnprocessedStrengthIds;
+    mockStrengthAnswer.hasSets = false;
+    mockStrengthAnswer.unfetched = ['act-1'];
+    try {
+      expect(await (await renderHook(() => useStrengthTabState())).result.current).toBe('awaiting');
+    } finally {
+      delete mockStrengthAnswer.hasSets;
+      delete mockStrengthAnswer.unfetched;
+    }
   });
 });

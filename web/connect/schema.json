@@ -1771,7 +1771,7 @@
         },
         "form": {
           "type": "number",
-          "unit": "tss_or_percent"
+          "unit": "tss"
         },
         "fitnessDays": {
           "type": "number",
@@ -2001,6 +2001,28 @@
           "description": "Metres per second.",
           "unit": "metre_per_second"
         },
+        "averageSpeedMetricText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`average_speed` as pace text per kilometre (per 100 m for a swim), no\nunit. `None` for a sport read as a speed, and when there is no pace."
+        },
+        "averageSpeedImperialText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`average_speed` as pace text per mile (per 100 yd for a swim)."
+        },
         "movingTime": {
           "anyOf": [
             {
@@ -2048,6 +2070,8 @@
         "averageWatts",
         "averageHeartrate",
         "averageSpeed",
+        "averageSpeedMetricText",
+        "averageSpeedImperialText",
         "movingTime",
         "distance",
         "label"
@@ -2852,6 +2876,62 @@
           "description": "Max speed in m/s",
           "unit": "metre_per_second"
         },
+        "shownAverageSpeed": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The speed the activity screen shows as its average: distance over\nmoving time, else `average_speed`, which is often over elapsed time.",
+          "unit": "metre_per_second"
+        },
+        "shownAveragePaceMetricText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`shown_average_speed` as pace text per kilometre (per 100 m for a\nswim), no unit. `None` for a sport read as a speed."
+        },
+        "shownAveragePaceImperialText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`shown_average_speed` as pace text per mile (per 100 yd for a swim)."
+        },
+        "maxPaceMetricText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`max_speed` as pace text per kilometre (per 100 m for a swim), no unit.\n`None` for a sport read as a speed."
+        },
+        "maxPaceImperialText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`max_speed` as pace text per mile (per 100 yd for a swim)."
+        },
         "averageCadence": {
           "anyOf": [
             {
@@ -2876,6 +2956,11 @@
         "elapsedTime",
         "averageSpeed",
         "maxSpeed",
+        "shownAverageSpeed",
+        "shownAveragePaceMetricText",
+        "shownAveragePaceImperialText",
+        "maxPaceMetricText",
+        "maxPaceImperialText",
         "averageCadence",
         "cadenceUnit"
       ],
@@ -2934,6 +3019,27 @@
           "description": "A section's speed in m/s over each bin edge, `counts.len() + 1` values,\nso the axis is labelled in the scatter's unit. `None` for a route,\nwhose attempts differ in length and whose scatter plots time. An edge\nat zero seconds reads 0.",
           "unit": "metre_per_second"
         },
+        "edgePace": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FfiPaceText"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Each of `edge_speeds` as pace text, for a sport read as a pace. `None`\nwhere `edge_speeds` is, and for any other sport. An edge with no pace\nis `None` in its place."
+        },
         "binned": {
           "type": "number",
           "description": "Attempts in the bins.",
@@ -2950,6 +3056,7 @@
         "binWidthSecs",
         "counts",
         "edgeSpeeds",
+        "edgePace",
         "binned",
         "unbinnedOutsideBand"
       ],
@@ -3269,6 +3376,28 @@
             }
           ],
           "description": "The name and start of the activity holding the best, when the device\nholds that activity. Empty for one it does not, which the screen shows\nas not cached."
+        },
+        "paceMetricText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The pace of the best per kilometre, or per 100 m for a swim, as minutes\nand seconds with no unit. Empty for power, and when there is no best."
+        },
+        "paceImperialText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The same pace per mile, or per 100 yd for a swim."
         }
       },
       "required": [
@@ -3279,7 +3408,9 @@
         "activityId",
         "wattsPerKg",
         "wkgActivityId",
-        "activity"
+        "activity",
+        "paceMetricText",
+        "paceImperialText"
       ],
       "additionalProperties": false
     },
@@ -3458,6 +3589,17 @@
           "description": "Best pace in m/s",
           "unit": "metre_per_second"
         },
+        "bestPaceText": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiPaceText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`best_pace` as pace text for a sport read as a pace."
+        },
         "bestActivityId": {
           "type": "string",
           "description": "Activity ID of best traversal"
@@ -3471,6 +3613,7 @@
         "count",
         "bestTime",
         "bestPace",
+        "bestPaceText",
         "bestActivityId",
         "bestActivityName"
       ],
@@ -4430,6 +4573,17 @@
           "description": "Counted distance over counted time in this direction (m/s).",
           "unit": "metre_per_second"
         },
+        "avgPaceText": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiPaceText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`avg_speed` as pace text for a sport read as a pace."
+        },
         "outsideBandCount": {
           "type": "number",
           "description": "Timed route attempts outside the distance band, absent from the averages.",
@@ -4441,6 +4595,7 @@
         "lastActivity",
         "count",
         "avgSpeed",
+        "avgPaceText",
         "outsideBandCount"
       ],
       "additionalProperties": false,
@@ -5351,12 +5506,12 @@
           "$ref": "#/$defs/RangeCoverage",
           "description": "Whether the wellness the trend is read from was pulled for the days\nits chart draws. `NotFetched` makes an empty chart a download still\nowed rather than an athlete with no estimate."
         },
-        "runPaceTrend": {
-          "$ref": "#/$defs/FfiPaceTrend",
-          "description": "The last stored critical speeds, the threshold the running and\nswimming cards fall back on when no curve is to hand."
-        },
-        "swimPaceTrend": {
-          "$ref": "#/$defs/FfiPaceTrend"
+        "thresholdPaces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FfiSpanThresholdPaces"
+          },
+          "description": "The running and swimming threshold pace of each span the read was asked\nfor, in that order, chosen and printed by the engine."
         },
         "sportMix": {
           "$ref": "#/$defs/FfiSportMix",
@@ -5475,8 +5630,7 @@
       "required": [
         "ftpTrend",
         "ftpTrendCoverage",
-        "runPaceTrend",
-        "swimPaceTrend",
+        "thresholdPaces",
         "sportMix",
         "fitnessDays",
         "fatigueDays",
@@ -5512,23 +5666,9 @@
           "$ref": "#/$defs/FfiTimestampRange",
           "description": "The span the monthly rows cover."
         },
-        "yearCurrent": {
-          "$ref": "#/$defs/FfiTimestampRange",
-          "description": "The year to date, and the same span of last year."
-        },
-        "yearPrevious": {
-          "$ref": "#/$defs/FfiTimestampRange"
-        },
-        "monthCurrent": {
-          "$ref": "#/$defs/FfiTimestampRange",
-          "description": "The month to date, and the same span of the month a year before."
-        },
-        "monthPrevious": {
-          "$ref": "#/$defs/FfiTimestampRange"
-        },
         "nowWallSeconds": {
           "type": "number",
-          "description": "The instant the weekly card's periods run to, in the wall-clock seconds\nan activity's date is recorded in.",
+          "description": "The instant the weekly card's periods and the season card's year and\nmonth to date run to, in the wall-clock seconds an activity's date is\nrecorded in.",
           "unit": "epoch_second"
         }
       },
@@ -5536,10 +5676,6 @@
         "heatmapFirstDay",
         "heatmapLastDay",
         "months",
-        "yearCurrent",
-        "yearPrevious",
-        "monthCurrent",
-        "monthPrevious",
         "nowWallSeconds"
       ],
       "additionalProperties": false,
@@ -5604,6 +5740,39 @@
           "type": "number",
           "unit": "varies"
         },
+        "lowPace": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiPaceText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`low` as pace text on a section read for a sport read as a pace."
+        },
+        "midPace": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiPaceText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The midpoint of `low` and `high` as pace text, as `low_pace`."
+        },
+        "highPace": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiPaceText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`high` as pace text, as `low_pace`."
+        },
         "slowCount": {
           "type": "number",
           "description": "Points drawn past the slow end.",
@@ -5618,6 +5787,9 @@
       "required": [
         "low",
         "high",
+        "lowPace",
+        "midPace",
+        "highPace",
         "slowCount",
         "fastCount"
       ],
@@ -6296,6 +6468,28 @@
           "description": "Form in the unit the athlete reads it in, as `FfiWellnessDays::form`\ngives it for the same day.",
           "unit": "tss_or_percent"
         },
+        "formZone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The zone `form` falls in, absent where `form` is."
+        },
+        "formText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`form` as printed in the athlete's unit, absent where `form` is."
+        },
         "formAsPercent": {
           "type": "boolean",
           "description": "Whether `form` is a percentage of fitness rather than absolute TSB."
@@ -6306,6 +6500,8 @@
         "ctl",
         "atl",
         "form",
+        "formZone",
+        "formText",
         "formAsPercent"
       ],
       "additionalProperties": false,
@@ -10911,7 +11107,7 @@
           "items": {
             "$ref": "#/$defs/MapActivityComplete"
           },
-          "description": "Activities inside the requested window and sport filter"
+          "description": "Activities inside the requested window that pass the sport, distance band\nand name filters"
         },
         "routeCount": {
           "type": "number",
@@ -11590,6 +11786,20 @@
           "description": "Metres per second at each distance, zero where the time is.",
           "unit": "metre_per_second"
         },
+        "paceTexts": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/FfiPaceText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": "`pace` as text in both unit systems, one entry per point: per kilometre\nand mile on foot, per 100 m and 100 yd in the water. None for a point\nwith no pace and for every point of a sport read as a speed."
+        },
         "activityIds": {
           "anyOf": [
             {
@@ -11620,6 +11830,17 @@
           ],
           "description": "The critical-speed model's terms, when the server fitted one.",
           "unit": "metre_per_second"
+        },
+        "criticalPace": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiPaceText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`critical_speed` as pace text, as `pace_texts`."
         },
         "dPrime": {
           "anyOf": [
@@ -11689,9 +11910,11 @@
         "distances",
         "times",
         "pace",
+        "paceTexts",
         "activityIds",
         "activities",
         "criticalSpeed",
+        "criticalPace",
         "dPrime",
         "r2",
         "startDate",
@@ -11702,6 +11925,67 @@
       ],
       "additionalProperties": false,
       "description": "A pace curve for one sport and window, and when its body was fetched."
+    },
+    "FfiPaceGap": {
+      "type": "object",
+      "properties": {
+        "metric": {
+          "type": "number",
+          "description": "Per kilometre, or per 100 m for a swim.",
+          "unit": "second"
+        },
+        "imperial": {
+          "type": "number",
+          "description": "Per mile, or per 100 yd for a swim.",
+          "unit": "second"
+        }
+      },
+      "required": [
+        "metric",
+        "imperial"
+      ],
+      "additionalProperties": false,
+      "description": "A difference between two paces, in seconds, in each unit system: per\nkilometre or mile for a pace sport, per 100 m or 100 yd for a swim."
+    },
+    "FfiPaceParts": {
+      "type": "object",
+      "properties": {
+        "minutes": {
+          "type": "number",
+          "description": "Whole minutes, counted past sixty rather than carried into hours.",
+          "unit": "count"
+        },
+        "seconds": {
+          "type": "number",
+          "description": "Whole seconds, under sixty.",
+          "unit": "second"
+        }
+      },
+      "required": [
+        "minutes",
+        "seconds"
+      ],
+      "additionalProperties": false,
+      "description": "A pace as whole minutes and whole seconds, the seconds under sixty."
+    },
+    "FfiPaceText": {
+      "type": "object",
+      "properties": {
+        "metricText": {
+          "type": "string",
+          "description": "Per kilometre, or per 100 m for a swim."
+        },
+        "imperialText": {
+          "type": "string",
+          "description": "Per mile, or per 100 yd for a swim."
+        }
+      },
+      "required": [
+        "metricText",
+        "imperialText"
+      ],
+      "additionalProperties": false,
+      "description": "A speed as pace text in both unit systems, no unit: per kilometre or mile on\nfoot, per 100 m or 100 yd in the water. Present only for a sport read as a\npace."
     },
     "FfiPaceTrend": {
       "type": "object",
@@ -11789,6 +12073,94 @@
           ],
           "description": "The arrow the move draws, judged on pace in the unit the sport is paced\nin by [`crate::trend_table::glyph`]: up for faster. Flat when no earlier\nsnapshot differs, `None` with no snapshot at all."
         },
+        "latestPaceMetricText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The latest pace as text per kilometre (per 100 m for swimming), no\nunit. `None` with no snapshot."
+        },
+        "latestPaceImperialText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The latest pace as text per mile (per 100 yd for swimming), no unit."
+        },
+        "previousPaceMetricText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`previous_pace` as text, metric, as `latest_pace_metric_text`."
+        },
+        "previousPaceImperialText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`previous_pace` as text, imperial, as `latest_pace_imperial_text`."
+        },
+        "latestPaceMetricParts": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiPaceParts"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The latest pace as whole minutes and seconds per kilometre (per 100 m\nfor swimming), the figures `latest_pace_metric_text` prints, for a\nsentence the app words in its own language. `None` with no snapshot or\na pace the text cannot print."
+        },
+        "latestPaceImperialParts": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiPaceParts"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The latest pace as parts per mile (per 100 yd for swimming)."
+        },
+        "previousPaceMetricParts": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiPaceParts"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`previous_pace` as parts, metric, as `latest_pace_metric_parts`."
+        },
+        "previousPaceImperialParts": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiPaceParts"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`previous_pace` as parts, imperial, as `latest_pace_imperial_parts`."
+        },
         "sampleCount": {
           "type": "number",
           "description": "Snapshots the trend was read from, for the same reason as\n`FfiFtpTrend::sample_count`.",
@@ -11810,6 +12182,14 @@
         "gainPercent",
         "deltaSeconds",
         "glyph",
+        "latestPaceMetricText",
+        "latestPaceImperialText",
+        "previousPaceMetricText",
+        "previousPaceImperialText",
+        "latestPaceMetricParts",
+        "latestPaceImperialParts",
+        "previousPaceMetricParts",
+        "previousPaceImperialParts",
         "sampleCount",
         "history"
       ],
@@ -11842,6 +12222,14 @@
           "type": "number",
           "description": "Epoch seconds where the later period starts, the week the verdict is\nabout, so a graphic of the weekly totals can mark it.",
           "unit": "epoch_second"
+        },
+        "direction": {
+          "type": "string",
+          "description": "Which way the total moved, `up`, `down` or `flat` inside the metric's\ndeadband in the trend table, with moving time judged in hours."
+        },
+        "verdict": {
+          "type": "string",
+          "description": "The judgement of that move off the trend table's polarity: `improved`,\n`declined`, `moved` for a metric with no polarity, or `flat`."
         }
       },
       "required": [
@@ -11849,7 +12237,9 @@
         "current",
         "previous",
         "ratio",
-        "comparedStart"
+        "comparedStart",
+        "direction",
+        "verdict"
       ],
       "additionalProperties": false,
       "description": "One period measured against another, on whichever total both carry.\n\nThe card's threshold test is the reader's: this says how far apart the two\nperiods are and on what, not whether that is worth saying."
@@ -12137,6 +12527,17 @@
           "description": "Metres per second over the pool length. None for a rest.",
           "unit": "metre_per_second"
         },
+        "pace": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiPaceText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`speed_mps` as pace per 100 m and per 100 yd, as text with no unit.\nNone for a rest and for a speed with no pace."
+        },
         "swolf": {
           "anyOf": [
             {
@@ -12158,6 +12559,7 @@
         "elapsedSecs",
         "strokes",
         "speedMps",
+        "pace",
         "swolf"
       ],
       "additionalProperties": false,
@@ -12212,6 +12614,17 @@
           "description": "Distance over time. None when either is unknown or zero.",
           "unit": "metre_per_second"
         },
+        "pace": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiPaceText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`speed_mps` as pace per 100 m and per 100 yd, as text with no unit."
+        },
         "avgSwolf": {
           "anyOf": [
             {
@@ -12232,6 +12645,7 @@
         "distanceM",
         "elapsedSecs",
         "speedMps",
+        "pace",
         "avgSwolf"
       ],
       "additionalProperties": false,
@@ -12940,6 +13354,17 @@
           ],
           "description": "Metres per second faster than the step before. `None` on the first\nstep.",
           "unit": "metre_per_second"
+        },
+        "improvementPace": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiPaceGap"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`improvement_speed` as a difference in pace, in both unit systems.\n`None` where it is, for a sport whose speed does not read as a pace,\nand where either speed has no pace."
         }
       },
       "required": [
@@ -12949,7 +13374,8 @@
         "sectionTime",
         "speed",
         "improvementSecs",
-        "improvementSpeed"
+        "improvementSpeed",
+        "improvementPace"
       ],
       "additionalProperties": false,
       "description": "One step of a direction's record progression: an eligible lap strictly\nfaster than every eligible lap before it."
@@ -14828,6 +15254,17 @@
           "description": "m/s",
           "unit": "metre_per_second"
         },
+        "speedPace": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiPaceText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`speed` as pace text for a sport read as a pace."
+        },
         "sectionTime": {
           "type": "number",
           "description": "Section time for this lap (seconds)",
@@ -14901,6 +15338,17 @@
           "description": "Metres per second behind the direction's record, signed as\n`record_gap_secs` is: positive is slower. `None` where it is.",
           "unit": "metre_per_second"
         },
+        "recordGapPace": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiPaceGap"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`record_gap_speed` as a difference in pace, in both unit systems. `None`\nwhere the gap is, for a sport whose speed does not read as a pace, and\nwhere either speed has no pace."
+        },
         "estimated": {
           "type": "boolean",
           "description": "The lap's time was projected to a gate over ground the recording did\nnot cover. Charted and ranked, and the record only when no lap in its\ndirection was timed on the ground."
@@ -14912,6 +15360,7 @@
         "activityName",
         "activityDate",
         "speed",
+        "speedPace",
         "sectionTime",
         "sectionDistance",
         "direction",
@@ -14922,6 +15371,7 @@
         "offScale",
         "recordGapSecs",
         "recordGapSpeed",
+        "recordGapPace",
         "estimated"
       ],
       "additionalProperties": false,
@@ -15137,6 +15587,28 @@
           "description": "This activity's pace on this section in this direction",
           "unit": "metre_per_second"
         },
+        "lapPaceMetricText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`lap_pace` as pace text per kilometre (per 100 m for a swim), no unit.\n`None` for a sport read as a speed."
+        },
+        "lapPaceImperialText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`lap_pace` as pace text per mile (per 100 yd for a swim)."
+        },
         "isPr": {
           "type": "boolean",
           "description": "Whether this activity holds the PR for this (section, direction)"
@@ -15170,6 +15642,20 @@
           "description": "Historical lap times for sparkline (chronological, all activities in this direction)",
           "unit": "second"
         },
+        "historyPaceMetricTexts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The speed of each entry of `history_times` over this section's length,\nas pace text per kilometre (per 100 m for a swim), no unit. Empty for a\nsport read as a speed."
+        },
+        "historyPaceImperialTexts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The same speeds as pace text per mile (per 100 yd for a swim)."
+        },
         "historyActivityIds": {
           "type": "array",
           "items": {
@@ -15195,11 +15681,15 @@
         "startIndex",
         "lapTime",
         "lapPace",
+        "lapPaceMetricText",
+        "lapPaceImperialText",
         "isPr",
         "isComplete",
         "rank",
         "visitCount",
         "historyTimes",
+        "historyPaceMetricTexts",
+        "historyPaceImperialTexts",
         "historyActivityIds",
         "historyDates"
       ],
@@ -15894,6 +16384,17 @@
           "description": "Best pace in m/s",
           "unit": "metre_per_second"
         },
+        "bestPaceText": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiPaceText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`best_pace` as pace text for a sport read as a pace."
+        },
         "bestForwardTime": {
           "anyOf": [
             {
@@ -15932,6 +16433,17 @@
           "description": "Average pace in m/s",
           "unit": "metre_per_second"
         },
+        "avgPaceText": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiPaceText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`avg_pace` as pace text for a sport read as a pace."
+        },
         "direction": {
           "type": "string",
           "description": "Primary direction: \"same\" or \"reverse\""
@@ -15950,11 +16462,13 @@
         "lapCount",
         "bestTime",
         "bestPace",
+        "bestPaceText",
         "bestForwardTime",
         "bestReverseTime",
         "bestEstimated",
         "avgTime",
         "avgPace",
+        "avgPaceText",
         "direction",
         "sectionDistance"
       ],
@@ -16457,12 +16971,36 @@
             }
           ],
           "description": "The activity the value was recorded in, for a series whose points are\nefforts. Absent where a point is a day's estimate with no activity\nbehind it. A card marks and opens the activity a point stands on."
+        },
+        "metricText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "For a pace series, `value` as pace text per kilometre (per 100 m for\nswimming), no unit. `None` for every other series."
+        },
+        "imperialText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "For a pace series, `value` as pace text per mile (per 100 yd for\nswimming). `None` for every other series."
         }
       },
       "required": [
         "value",
         "date",
-        "activityId"
+        "activityId",
+        "metricText",
+        "imperialText"
       ],
       "additionalProperties": false,
       "description": "One point of a history series: a value and when it was recorded.\n\nEvery insight card draws a graphic of its own history, and the read carried\na series for two of eight generators. The rest carried summary numbers, so\na card either drew nothing or the sheet behind it read the engine again per\nopen. One shape serves all of them: a lap time against its activity date, an\neFTP against its day, a critical speed against its snapshot."
@@ -16493,6 +17031,45 @@
       ],
       "additionalProperties": false,
       "description": "The ride the decoupling card names for one span of the range picker."
+    },
+    "FfiSpanThresholdPaces": {
+      "type": "object",
+      "properties": {
+        "days": {
+          "type": "number",
+          "description": "The span's length in days, back from today.",
+          "unit": "day"
+        },
+        "run": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiThresholdPace"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`None` when no setting, curve or stored speed names a running pace."
+        },
+        "swim": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FfiThresholdPace"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`None` when no setting, curve or stored speed names a swimming pace."
+        }
+      },
+      "required": [
+        "days",
+        "run",
+        "swim"
+      ],
+      "additionalProperties": false,
+      "description": "The threshold pace the fitness cards print for one span of the range picker."
     },
     "FfiSplitSummary": {
       "type": "object",
@@ -16711,6 +17288,50 @@
           "type": "number",
           "unit": "percent"
         },
+        "currentMetricText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`current_value` as pace text per kilometre (per 100 m for swimming),\nno unit. `None` for power."
+        },
+        "currentImperialText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`current_value` as pace text per mile (per 100 yd for swimming)."
+        },
+        "previousMetricText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`previous_value` as pace text, metric, as `current_metric_text`."
+        },
+        "previousImperialText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`previous_value` as pace text, imperial, as `current_imperial_text`."
+        },
         "unit": {
           "type": "string",
           "description": "\"W\" for power, \"/km\" for running, \"/100m\" for swimming"
@@ -16766,6 +17387,28 @@
           "description": "The record effort's mean speed in m/s, for a running or swimming\nsection. Absent for cycling.",
           "unit": "metre_per_second"
         },
+        "prSpeedMetricText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`pr_speed` as pace text per kilometre (per 100 m for swimming), no\nunit. Absent when `pr_speed` is."
+        },
+        "prSpeedImperialText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`pr_speed` as pace text per mile (per 100 yd for swimming)."
+        },
         "prSharePercent": {
           "anyOf": [
             {
@@ -16796,6 +17439,10 @@
         "currentValue",
         "previousValue",
         "gainPercent",
+        "currentMetricText",
+        "currentImperialText",
+        "previousMetricText",
+        "previousImperialText",
         "unit",
         "sportType",
         "recentEfforts",
@@ -16803,6 +17450,8 @@
         "prDate",
         "prPower",
         "prSpeed",
+        "prSpeedMetricText",
+        "prSpeedImperialText",
         "prSharePercent",
         "fitnessHistory"
       ],
@@ -17201,6 +17850,14 @@
           "type": "number",
           "description": "The most trained muscle's weighted sets, the top of the diagram's\nscale, or zero when nothing was trained",
           "unit": "count"
+        },
+        "shadeCeilings": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "The most weighted sets each diagram shade covers, lightest first, to a\ntenth of a set, so the legend labels the shades the muscles are drawn in",
+          "unit": "count"
         }
       },
       "required": [
@@ -17209,7 +17866,8 @@
         "activityCount",
         "totalSets",
         "balance",
-        "maxWeightedSets"
+        "maxWeightedSets",
+        "shadeCeilings"
       ],
       "additionalProperties": false,
       "description": "Summary of strength training volume over a time period."
@@ -17598,6 +18256,30 @@
       ],
       "additionalProperties": false,
       "description": "One figure with its value and source, both unset when nothing gives it."
+    },
+    "FfiThresholdPace": {
+      "type": "object",
+      "properties": {
+        "speed": {
+          "type": "number",
+          "unit": "metre_per_second"
+        },
+        "metricText": {
+          "type": "string",
+          "description": "Per kilometre for running, per 100 m for swimming, with no unit."
+        },
+        "imperialText": {
+          "type": "string",
+          "description": "Per mile for running, per 100 yd for swimming, with no unit."
+        }
+      },
+      "required": [
+        "speed",
+        "metricText",
+        "imperialText"
+      ],
+      "additionalProperties": false,
+      "description": "A threshold pace as a speed, with its text in both unit systems."
     },
     "FfiThresholdSource": {
       "type": "string",
@@ -18190,6 +18872,48 @@
           "description": "Beside `days`, one per day: form in the unit the athlete reads it in,\nrounded fitness less rounded fatigue, or that as a percentage of\nrounded fitness under `form_as_percent`. Absent on a day missing a\nload, and under the percentage on a day whose fitness rounds to zero.",
           "unit": "tss_or_percent"
         },
+        "formZone": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": "Beside `form`, the zone each day's form falls in: `highRisk`,\n`optimal`, `greyZone`, `fresh` or `transition`. Absent where `form` is."
+        },
+        "formText": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": "Beside `form`, each day's form as printed: the signed whole figure,\nwith a percent sign under `form_as_percent`. Absent where `form` is."
+        },
+        "tsbText": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": "Beside `form`, each day's absolute TSB as printed whatever the\nsetting: rounded fitness less rounded fatigue, signed. Absent on a day\nmissing a load."
+        },
         "formAsPercent": {
           "type": "boolean",
           "description": "Whether `form` is a percentage of fitness rather than absolute TSB,\nfrom the athlete's `icu_form_as_percent`."
@@ -18207,6 +18931,9 @@
         "days",
         "coverage",
         "form",
+        "formZone",
+        "formText",
+        "tsbText",
         "formAsPercent",
         "formZoneEdges"
       ],
@@ -18235,7 +18962,35 @@
           "items": {
             "type": "number"
           },
-          "unit": "tss_or_percent"
+          "unit": "tss"
+        },
+        "formZone": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": "Beside `form`, one per day: the zone that day's form falls in on the\nathlete's denominator, each day against its own fitness. Absent on a\nday with no fitness under the percentage setting. Empty with `form`."
+        },
+        "formText": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": "Beside `form`, one per day: that day's form as printed in the\nathlete's unit. Absent where `form_zone` is. Empty with `form`."
         },
         "hrv": {
           "type": "array",
@@ -18290,6 +19045,8 @@
         "fitness",
         "fatigue",
         "form",
+        "formZone",
+        "formText",
         "hrv",
         "rhr",
         "hrvRead",
@@ -18333,7 +19090,7 @@
               "type": "null"
             }
           ],
-          "unit": "tss_or_percent"
+          "unit": "tss"
         },
         "formTrend": {
           "anyOf": [
@@ -18344,6 +19101,39 @@
               "type": "null"
             }
           ]
+        },
+        "formZone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The zone `form` falls in on the athlete's denominator, absent with no\nform, or with no fitness under the percentage setting."
+        },
+        "formText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`form` as printed in the athlete's unit, absent where `form_zone` is."
+        },
+        "formPreviousText": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`form_previous` as printed, against the fitness of the day it was read."
         },
         "hrv": {
           "anyOf": [
@@ -18461,7 +19251,7 @@
               "type": "null"
             }
           ],
-          "unit": "tss_or_percent"
+          "unit": "tss"
         },
         "formPreviousDate": {
           "anyOf": [
@@ -18586,6 +19376,9 @@
         "fitnessTrend",
         "form",
         "formTrend",
+        "formZone",
+        "formText",
+        "formPreviousText",
         "hrv",
         "hrvTrend",
         "rhr",

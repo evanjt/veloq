@@ -22,6 +22,7 @@ use crate::persistence::{
     PersistentEngine, codec, engine_install, settings_keys, suspend_detection,
     with_persistent_engine, with_persistent_engine_for,
 };
+use crate::poison::Recover;
 use log::info;
 use rusqlite::{OptionalExtension, params};
 use std::sync::Mutex;
@@ -172,12 +173,12 @@ impl<T: CutoverDetect + OrphanedDetect + Send> CutoverWorker for T {}
 static ORPHANED_DETECT: Mutex<Option<Box<dyn OrphanedDetect + Send>>> = Mutex::new(None);
 
 fn adopt_orphaned_detect(orphan: Box<dyn OrphanedDetect + Send>) {
-    *ORPHANED_DETECT.lock().unwrap_or_else(|e| e.into_inner()) = Some(orphan);
+    *ORPHANED_DETECT.lock_recover() = Some(orphan);
 }
 
 /// Whether an abandoned detect is still folding, forgetting it once it is not.
 fn orphaned_detect_running() -> bool {
-    let mut held = ORPHANED_DETECT.lock().unwrap_or_else(|e| e.into_inner());
+    let mut held = ORPHANED_DETECT.lock_recover();
     let running = held.as_ref().is_some_and(|orphan| orphan.still_running());
     if !running {
         *held = None;
@@ -346,12 +347,12 @@ pub const PHASE_FAILED_AFTER_APPLY: &str = "failed_after_apply";
 static CUTOVER_PHASE: Mutex<&'static str> = Mutex::new(PHASE_IDLE);
 
 fn set_phase(phase: &'static str) {
-    *CUTOVER_PHASE.lock().unwrap_or_else(|e| e.into_inner()) = phase;
+    *CUTOVER_PHASE.lock_recover() = phase;
 }
 
 /// The current phase, for the status surface.
 pub fn cutover_phase() -> &'static str {
-    *CUTOVER_PHASE.lock().unwrap_or_else(|e| e.into_inner())
+    *CUTOVER_PHASE.lock_recover()
 }
 
 /// Moves the phase and times each one on the way past.

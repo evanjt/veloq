@@ -11,7 +11,7 @@ import { render } from '@testing-library/react-native';
 
 import { HRZonesChart } from '@/features/activity/components/HRZonesChart';
 import { typography } from '@/theme';
-import { MaxHrSource } from 'veloqrs';
+import { FfiMaxHrSource } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
@@ -67,7 +67,7 @@ vaultIt('titles the card as a header in the card title role, with the max HR bes
     <HRZonesChart
       hrZones={bands}
       maxHR={200}
-      maxHrSource={MaxHrSource.SportSettings}
+      maxHrSource={FfiMaxHrSource.SportSettings}
       movingTime={120}
     />
   );

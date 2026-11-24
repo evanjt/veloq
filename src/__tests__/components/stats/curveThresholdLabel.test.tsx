@@ -32,6 +32,7 @@ interface Curve {
   times: number[];
   pace: number[];
   criticalSpeed?: number | undefined;
+  criticalPace?: { metricText: string; imperialText: string } | undefined;
   dPrime?: number | undefined;
   r2?: number | undefined;
   days?: number | undefined;
@@ -43,6 +44,7 @@ const RUN: Curve = {
   times: [80, 220, 1200, 2500],
   pace: [5, 4.55, 4.17, 4],
   criticalSpeed: 4.1667,
+  criticalPace: { metricText: '4:00', imperialText: '6:26' },
   dPrime: 180,
   r2: 0.98,
   days: 42,
@@ -54,6 +56,7 @@ const SWIM: Curve = {
   times: [70, 150, 320, 680],
   pace: [1.43, 1.33, 1.25, 1.18],
   criticalSpeed: 1.25,
+  criticalPace: { metricText: '1:20', imperialText: '1:13' },
   days: 365,
 };
 
@@ -137,7 +140,7 @@ describe('the pace curve threshold', () => {
   });
 
   it('draws no rule and no label for a curve with no critical speed', async () => {
-    mockPace.run = { ...RUN, criticalSpeed: undefined };
+    mockPace.run = { ...RUN, criticalSpeed: undefined, criticalPace: undefined };
     const tree = await render(<PaceCurveChart />);
     await layoutViews(tree, 320, 200);
 

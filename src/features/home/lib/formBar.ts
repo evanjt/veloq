@@ -1,12 +1,12 @@
 /**
  * The zone bar under the summary card's fitness sparkline.
  *
- * Each day is zoned on that day's form against that day's fitness, with the
- * athlete's form-as-percent setting, which is what the hero above it and the
- * widget's bar read. The two series are positional, oldest first.
+ * Each day is drawn in the zone the engine judged for it, on that day's form
+ * against that day's fitness under the athlete's setting, which is what the
+ * hero above it and the widget's bar read. The series is oldest first.
  */
 
-import { getFormZone, type FormZone } from '@/features/fitness';
+import type { FormZone } from '@/features/fitness';
 
 export interface FormBarRect {
   x: number;
@@ -21,14 +21,11 @@ export interface FormBarRect {
  * days whose zones differ.
  */
 export function formBarLayout(
-  form: readonly number[],
-  fitness: readonly number[],
-  asPercent: boolean,
+  zones: readonly (FormZone | null)[],
   width: number
 ): { rects: FormBarRect[]; transitions: number[] } {
-  const n = form.length;
+  const n = zones.length;
   const step = n > 1 ? width / (n - 1) : width;
-  const zones = form.map((value, i) => getFormZone(value, fitness[i], asPercent));
   const rects = zones.map((zone, i) => {
     const px = i * step;
     const left = i === 0 ? 0 : (px + (i - 1) * step) / 2;

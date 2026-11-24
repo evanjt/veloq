@@ -12,11 +12,12 @@ import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RangeCoverage } from 'veloqrs';
+import { NO_STATED_FORM } from '../__shared__/noStatedForm';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
 import { useWellness, useWellnessCoverage } from '@/features/wellness/hooks/useWellness';
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
@@ -24,6 +25,7 @@ const engine = {
   getWellnessDays: jest.fn((_oldest: string, _newest: string) => ({
     days: [] as { date: string; sportLoad: [] }[],
     coverage: RangeCoverage.NotFetched,
+    ...NO_STATED_FORM,
   })),
   subscribe: jest.fn(() => () => {}),
 };
@@ -49,7 +51,11 @@ afterEach(() => {
 
 describe('useWellnessCoverage', () => {
   it('answers the coverage of the thirty days back to today that the month range draws', async () => {
-    engine.getWellnessDays.mockReturnValue({ days: [], coverage: RangeCoverage.Empty });
+    engine.getWellnessDays.mockReturnValue({
+      days: [],
+      coverage: RangeCoverage.Empty,
+      ...NO_STATED_FORM,
+    });
 
     const { result } = await renderHook(() => useWellnessCoverage('1m'), { wrapper });
 
@@ -67,6 +73,7 @@ describe('useWellnessCoverage', () => {
     engine.getWellnessDays.mockReturnValue({
       days: [{ date: '2026-06-01', sportLoad: [] }],
       coverage: RangeCoverage.Loaded,
+      ...NO_STATED_FORM,
     });
 
     const { result } = await renderHook(

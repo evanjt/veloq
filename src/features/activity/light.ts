@@ -4,9 +4,5 @@
  * date window. `scripts/lint-feature-imports.mjs`
  * counts an import of it as a barrel import.
  */
-export {
-  dayActivityRow,
-  useOpenDayActivities,
-  type DayActivity,
-} from './hooks/useOpenDayActivities';
+export { useOpenDayActivities, type DayActivity } from './hooks/useOpenDayActivities';
 export { readFeedCards } from './lib/engineActivityRecord';

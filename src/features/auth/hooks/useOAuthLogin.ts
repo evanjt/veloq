@@ -67,11 +67,7 @@ export function useOAuthLogin({
       }
       resetSyncDateRange();
 
-      await setOAuthCredentials(
-        tokenResponse.access_token,
-        tokenResponse.athlete_id,
-        tokenResponse.athlete_name
-      );
+      await setOAuthCredentials(tokenResponse.access_token, tokenResponse.athlete_id);
 
       recordGrantedScope(tokenResponse.scope);
       // The root layout takes the athlete off the login screen once the

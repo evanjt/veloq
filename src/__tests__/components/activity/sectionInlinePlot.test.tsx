@@ -36,6 +36,8 @@ function encounter(overrides: Partial<SectionEncounter> & { sectionId: string })
     isComplete: true,
     visitCount: 8,
     historyTimes: [],
+    historyPaceMetricTexts: [],
+    historyPaceImperialTexts: [],
     historyActivityIds: [],
     historyDates: [],
     ...overrides,
@@ -164,6 +166,7 @@ describe('SectionInlinePlot row layout', () => {
       distanceMeters: 12_400,
       lapTime: 4_500,
       lapPace: 0.6,
+      lapPaceMetricText: '27:47',
       visitCount: 124,
       historyTimes: [4_500, 4_400],
       historyActivityIds: ['act-1', 'act-0'],
@@ -259,24 +262,54 @@ describe('SectionInlinePlot row layout', () => {
 });
 
 describe('SectionInlinePlot', () => {
-  it('shows the engine pace for a run even when distance and time imply another pace', async () => {
-    const { getByText } = await renderGroup(
-      [encounter({ sectionId: 'sec-pace', distanceMeters: 1000, lapTime: 100, lapPace: 2.5 })],
+  it('shows the engine pace text for a run, not a pace worked out from its speed', async () => {
+    const { getByText, queryByText } = await renderGroup(
+      [
+        encounter({
+          sectionId: 'sec-pace',
+          distanceMeters: 1000,
+          lapTime: 100,
+          lapPace: 2.5,
+          lapPaceMetricText: '7:11',
+          lapPaceImperialText: '11:34',
+        }),
+      ],
       0,
       'Run'
     );
 
-    expect(getByText('6:40 /km')).toBeTruthy();
+    expect(getByText('7:11 /km')).toBeTruthy();
+    expect(queryByText('6:40 /km')).toBeNull();
   });
 
-  it('shows the engine pace per 100 metres for a swim', async () => {
-    const { getByText } = await renderGroup(
-      [encounter({ sectionId: 'sec-swim', distanceMeters: 100, lapTime: 100, lapPace: 2.5 })],
+  it('shows the engine pace text per 100 metres for a swim', async () => {
+    const { getByText, queryByText } = await renderGroup(
+      [
+        encounter({
+          sectionId: 'sec-swim',
+          distanceMeters: 100,
+          lapTime: 100,
+          lapPace: 2.5,
+          lapPaceMetricText: '0:41',
+          lapPaceImperialText: '0:37',
+        }),
+      ],
       0,
       'Swim'
     );
 
-    expect(getByText('0:40 /100m')).toBeTruthy();
+    expect(getByText('0:41 /100m')).toBeTruthy();
+    expect(queryByText('0:40 /100m')).toBeNull();
+  });
+
+  it('shows the absent mark for a run whose pace the engine sent no text for', async () => {
+    const { getByText } = await renderGroup(
+      [encounter({ sectionId: 'sec-none', lapTime: 100, lapPace: 2.5 })],
+      0,
+      'Run'
+    );
+
+    expect(getByText('--:--')).toBeTruthy();
   });
 
   it('keeps elapsed time for a ride', async () => {

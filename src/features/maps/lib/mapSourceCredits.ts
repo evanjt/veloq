@@ -5,7 +5,7 @@ import type { SatelliteSourceId } from '@/features/maps/components/mapStyles';
 export type MapSourceId =
   'openstreetmap' | 'openmaptiles' | 'openfreemap' | SatelliteSourceId | 'terrain';
 
-export interface MapSourceCredit {
+interface MapSourceCredit {
   /** The source as the licences screen names it. */
   name: string;
   /** What the map line shows for this source. */
@@ -57,7 +57,7 @@ const TERRAIN_SOURCES = [
 export const CREDIT_SEPARATOR = ' · ';
 
 /** The map line for these sources: each one's short credit, in the order given. */
-export function joinShortCredits(ids: readonly MapSourceId[]): string {
+function joinShortCredits(ids: readonly MapSourceId[]): string {
   return ids.map((id) => MAP_SOURCE_CREDITS[id].shortCredit).join(CREDIT_SEPARATOR);
 }
 
@@ -304,7 +304,7 @@ export const BASE_MAP_ATTRIBUTION = joinShortCredits([
   'openstreetmap',
 ]);
 
-export interface MapDataLicenceEntry {
+interface MapDataLicenceEntry {
   id: MapSourceId;
   name: string;
   license: string;

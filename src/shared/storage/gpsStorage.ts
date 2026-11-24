@@ -1,9 +1,5 @@
 /**
  * FileSystem cleanup and size measurement for the caches the app writes outside Rust.
- *
- * GPS track storage functions have been removed - all GPS data is now stored
- * exclusively in the Rust SQLite engine (routes.db gps_tracks table).
- * The clearAllGpsTracks() function is retained for cleanup of any legacy files.
  */
 
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
@@ -13,10 +9,7 @@ import { Platform } from 'react-native';
 import { debug } from '@/shared/debug/debug';
 import { getPlatformAppStorageStats } from '@/shared/native/appStorageStats';
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
-import {
-  LEGACY_HEATMAP_TILES_DIR,
-  readHeatmapTilesCacheSize,
-} from '@/features/maps/lib/heatmapTiles';
+import { readHeatmapTilesCacheSize } from '@/features/maps/lib/heatmapTiles';
 import {
   clearTerrainPreviews,
   getTerrainPreviewCacheSize,
@@ -31,43 +24,6 @@ import { removeSetting } from './settingsStorage';
 import { forgetInsightFingerprint } from '@/features/insights/lib/fingerprintStore';
 
 const log = debug.create('GpsStorage');
-
-const GPS_DIR = `${FileSystem.documentDirectory}gps_tracks/`;
-
-/**
- * Clear all legacy GPS track files (cleanup only).
- * GPS data is now stored in the Rust SQLite engine.
- */
-export async function clearAllGpsTracks(): Promise<void> {
-  try {
-    const dirInfo = await FileSystem.getInfoAsync(GPS_DIR);
-    if (dirInfo.exists) {
-      await FileSystem.deleteAsync(GPS_DIR, { idempotent: true });
-      log.log('Cleared legacy GPS tracks directory');
-    }
-  } catch {
-    // Best effort cleanup
-  }
-}
-
-/**
- * Delete legacy GPS track files by activity ID (cleanup only).
- */
-export async function deleteGpsTracks(activityIds: string[]): Promise<void> {
-  if (activityIds.length === 0) return;
-
-  const results = await Promise.allSettled(
-    activityIds.map((id) => {
-      const safeId = id.replace(/[^a-zA-Z0-9_-]/g, '_');
-      return FileSystem.deleteAsync(`${GPS_DIR}${safeId}.json`, { idempotent: true });
-    })
-  );
-
-  const failedCount = results.filter((r) => r.status === 'rejected').length;
-  if (failedCount > 0) {
-    log.log(`Warning: ${failedCount}/${activityIds.length} GPS track deletes failed`);
-  }
-}
 
 // =============================================================================
 // Cache files owned by the account wipe below
@@ -136,7 +92,7 @@ export async function estimateRoutesDatabaseSize(): Promise<number> {
  * not worth losing the other three over: the figure is a subtitle, and the
  * engine is not open on every screen that reads it.
  */
-async function bucketSize(read: () => number | Promise<number>): Promise<number> {
+async function bucketSize(read: () => number | null | Promise<number | null>): Promise<number> {
   try {
     return (await read()) || 0;
   } catch {
@@ -408,6 +364,7 @@ export async function wipeLibrary(): Promise<void> {
   const { disconnectAllSensors } = require('@/features/sensors/lib/sensorManager');
   const { forgetCameraOverrides } = require('@/features/maps/lib/storage/terrainCameraOverrides');
   const { forgetTrackFetchDismissal } = require('@/features/routes/lib/trackFetchNotice');
+  const { forgetSectionsChangedDismissal } = require('@/features/settings/stores/WhatsNewStore');
   const { clearTaskRuns } = require('@/features/insights/lib/taskRunLog');
   const { cancelQueuedActivityPushes } = require('@/features/insights/lib/activityPushJobs');
   const {
@@ -427,7 +384,6 @@ export async function wipeLibrary(): Promise<void> {
   // still run: a rejection here would report a wipe that already happened as
   // failed and skip the steps after it.
   await settleWipeSteps([
-    () => clearAllGpsTracks(),
     () => clearBoundsCache(),
     () => FileSystem.deleteAsync(ROUTE_NAMES_FILE, { idempotent: true }),
     () =>
@@ -442,7 +398,6 @@ export async function wipeLibrary(): Promise<void> {
           ]
         : []
     ),
-    () => FileSystem.deleteAsync(LEGACY_HEATMAP_TILES_DIR, { idempotent: true }),
     () => clearTerrainPreviews(),
     () => clearBasemapTiles(),
     () => forgetCameraOverrides(),
@@ -454,6 +409,7 @@ export async function wipeLibrary(): Promise<void> {
         .then(() => forgetKnownSensors()),
     () => forgetActivityMapOverrides(),
     () => forgetTrackFetchDismissal(),
+    () => forgetSectionsChangedDismissal(),
     () => clearTaskRuns(),
     () => clearCrashLog(),
     ...LEGACY_LIBRARY_KEYS.map((key) => () => removeSetting(key)),

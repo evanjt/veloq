@@ -11,7 +11,6 @@
  */
 
 import { clearAccountData } from '@/shared/storage';
-import { getSetting, setSetting } from '@/shared/storage/settingsStorage';
 import {
   readInsightFingerprint,
   writeInsightFingerprint,
@@ -234,13 +233,5 @@ describe('an account wipe and the insights the next athlete has never seen', () 
     jest.mocked(isEngineReady).mockReturnValue(false);
     expect(await demoEntryAction()).toBe('keep');
     expect(accountChangeAction(await getCachedAthleteId(), 'athlete-b')).toBe('keep');
-  });
-
-  it('forgets the notified set an earlier release left on the device', async () => {
-    await setSetting('veloq-insights-notified-fingerprint', 'fitness_milestone-ftp|hrv_trend');
-
-    await clearAccountData({ clear: () => {} });
-
-    expect(await getSetting('veloq-insights-notified-fingerprint')).toBeNull();
   });
 });

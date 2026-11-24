@@ -17,7 +17,7 @@ import { awaitTimeStreams, willAnnounce } from './awaitTimeStreams';
  *  sync, so a slow drain never blocks the banner. */
 const BACKFILL_TIMEOUT_MS = 60_000;
 
-export interface TimeStreamBackfill {
+interface TimeStreamBackfill {
   /** How many activities the backfill was asked for. */
   total: number;
   /** How many were still missing when the wait ended. */

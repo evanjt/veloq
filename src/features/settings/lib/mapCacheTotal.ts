@@ -10,16 +10,14 @@
 
 import { type BasemapTileSizes } from '@/features/maps';
 
-/** The stores the row folds in, in the order the label names them. */
-export const MAP_CACHE_SOURCES = ['previews', 'heatmap', 'tiles'] as const;
-
-export interface MapCacheInput {
+interface MapCacheInput {
   terrainBytes: number;
-  heatmapBytes: number;
+  /** Null when the heatmap walk failed to say. */
+  heatmapBytes: number | null;
   tiles: Pick<BasemapTileSizes, 'totalBytes'> | null;
 }
 
-export interface MapCacheTotal {
+interface MapCacheTotal {
   bytes: number;
   /** False when a store has not answered, so the bytes are a floor. */
   complete: boolean;
@@ -27,7 +25,7 @@ export interface MapCacheTotal {
 
 export function mapCacheTotal({ terrainBytes, heatmapBytes, tiles }: MapCacheInput): MapCacheTotal {
   return {
-    bytes: terrainBytes + heatmapBytes + (tiles?.totalBytes ?? 0),
-    complete: tiles !== null,
+    bytes: terrainBytes + (heatmapBytes ?? 0) + (tiles?.totalBytes ?? 0),
+    complete: tiles !== null && heatmapBytes !== null,
   };
 }

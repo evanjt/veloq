@@ -57,7 +57,7 @@ export interface RendererRecovery {
 }
 
 /** How a page whose renderer died comes back on this platform. */
-export function rendererRestart(): RendererRestart {
+function rendererRestart(): RendererRestart {
   return Platform.OS === 'android' ? 'remount' : 'reload';
 }
 

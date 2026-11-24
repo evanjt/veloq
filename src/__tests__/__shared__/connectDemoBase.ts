@@ -418,11 +418,25 @@ export const stats = (from: number, to: number) => {
 
 export const lastDay = LOADS[LOADS.length - 1] as (typeof LOADS)[number];
 
+const FORM_ZONE_EDGES = [-30, -10, 5, 25];
+
+/** What the engine states for absolute form: the zone it falls in and its signed text. */
+const zoneOfForm = (form: number | null) => {
+  if (form === null) return null;
+  const at = FORM_ZONE_EDGES.findIndex((edge) => form < edge);
+  return ['highRisk', 'optimal', 'greyZone', 'fresh', 'transition'][at === -1 ? 4 : at] as string;
+};
+const textOfForm = (form: number | null) =>
+  form === null ? null : form > 0 ? `+${form}` : String(form === 0 ? 0 : form);
+
 export const SUMMARY: Result<'feed.summary'> = {
   wellness: {
     fitness: Math.round(lastDay.fitness),
     fitnessTrend: '↑',
     form: Math.round(lastDay.fitness - lastDay.fatigue),
+    formZone: zoneOfForm(Math.round(lastDay.fitness - lastDay.fatigue)),
+    formText: textOfForm(Math.round(lastDay.fitness - lastDay.fatigue)),
+    formPreviousText: null,
     formTrend: '↓',
     hrv: 62,
     hrvTrend: '→',
@@ -477,6 +491,14 @@ export function emptyPace() {
     gainPercent: null,
     deltaSeconds: null,
     glyph: null,
+    latestPaceMetricText: null,
+    latestPaceImperialText: null,
+    previousPaceMetricText: null,
+    previousPaceImperialText: null,
+    latestPaceMetricParts: null,
+    latestPaceImperialParts: null,
+    previousPaceMetricParts: null,
+    previousPaceImperialParts: null,
     sampleCount: 0,
     history: [],
   };
@@ -486,6 +508,8 @@ const SPARKS: Result<'feed.sparklines'> = {
   fitness: LOADS.slice(-42).map((d) => d.fitness),
   fatigue: LOADS.slice(-42).map((d) => d.fatigue),
   form: LOADS.slice(-42).map((d) => d.fitness - d.fatigue),
+  formZone: LOADS.slice(-42).map((d) => zoneOfForm(d.fitness - d.fatigue)),
+  formText: LOADS.slice(-42).map((d) => textOfForm(d.fitness - d.fatigue)),
   hrv: LOADS.slice(-42).map((_, at) => 60 + Math.sin(at / 3) * 6),
   rhr: LOADS.slice(-42).map((_, at) => 47 + Math.cos(at / 4) * 2),
   hrvRead: LOADS.slice(-42).map(() => true),
@@ -781,6 +805,8 @@ function fitnessScreen(): Result<'fitness.screen'> {
       ...SUMMARY.ftpTrend,
       history: Array.from({ length: 90 }, (_, n) => ({
         activityId: null,
+        metricText: null,
+        imperialText: null,
         date: Math.floor((LIBRARY_END - (89 - n) * DAY) / 1000),
         value: 240 + Math.round(12 * (n / 89) + 3 * Math.sin(n / 5)),
       })),
@@ -789,8 +815,7 @@ function fitnessScreen(): Result<'fitness.screen'> {
       ),
     },
     ftpTrendCoverage: 'loaded',
-    runPaceTrend: emptyPace(),
-    swimPaceTrend: emptyPace(),
+    thresholdPaces: [],
     sportMix: {
       rides: recent.filter((a) => a.sport.type === 'Ride').length,
       runs: recent.filter((a) => a.sport.type === 'Run').length,
@@ -909,8 +934,11 @@ export const WELLNESS = {
   days: WELLNESS_DAYS,
   coverage: 'loaded',
   form: WELLNESS_DAYS.map(formOfDay),
+  formZone: WELLNESS_DAYS.map((day) => zoneOfForm(formOfDay(day))),
+  formText: WELLNESS_DAYS.map((day) => textOfForm(formOfDay(day))),
+  tsbText: WELLNESS_DAYS.map((day) => textOfForm(formOfDay(day))),
   formAsPercent: false,
-  formZoneEdges: [-30, -10, 5, 25],
+  formZoneEdges: FORM_ZONE_EDGES,
 } satisfies Result<'fitness.wellness'>;
 
 function fitnessAnswers() {
@@ -952,6 +980,8 @@ function insights(): Result<'insights.data'> {
       value: best + (5 - at) * 4,
       date: seconds(LIBRARY_END - (5 - at) * 21 * DAY),
       activityId: null,
+      metricText: null,
+      imperialText: null,
     }));
   const weeks: Result<'insights.data'>['weeklyTotals'] = [];
   for (let back = 25; back >= 0; back--) {
@@ -1027,6 +1057,8 @@ function insights(): Result<'insights.data'> {
       ctl: lastDay.fitness,
       atl: lastDay.fatigue,
       form: formOfDay({ ctl: lastDay.fitness, atl: lastDay.fatigue }),
+      formZone: zoneOfForm(formOfDay({ ctl: lastDay.fitness, atl: lastDay.fatigue })),
+      formText: textOfForm(formOfDay({ ctl: lastDay.fitness, atl: lastDay.fatigue })),
       formAsPercent: false,
     },
     weekOverWeek: {
@@ -1035,6 +1067,8 @@ function insights(): Result<'insights.data'> {
       previous: stats(LIBRARY_END - 13 * DAY, LIBRARY_END - 6 * DAY).totalTss,
       ratio: 1.8,
       comparedStart: seconds(LIBRARY_END - 13 * DAY),
+      direction: 'up',
+      verdict: 'moved',
     },
     weekAgainstChronic: null,
     hrvTrend: null,

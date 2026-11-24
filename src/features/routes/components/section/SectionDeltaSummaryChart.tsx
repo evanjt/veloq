@@ -34,7 +34,7 @@ import { FfiReferenceSource, type FfiSplitSummary } from 'veloqrs';
 
 const CHART_PADDING = { left: 12, right: 8, top: 12, bottom: 12 } as const;
 
-export interface SectionDeltaSummaryChartProps {
+interface SectionDeltaSummaryChartProps {
   summary: FfiSplitSummary;
   referenceSource: FfiReferenceSource;
   /** Metres a split covers, the last one short. */

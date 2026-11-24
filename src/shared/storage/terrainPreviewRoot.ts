@@ -24,7 +24,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 export const TERRAIN_PREVIEW_DIR = `${FileSystem.documentDirectory}terrain_previews/`;
 
 /** Where they lived until 2026-09-13, so one launch can clear what it still holds. */
-export const LEGACY_TERRAIN_PREVIEW_DIR = `${FileSystem.cacheDirectory}terrain_previews/`;
+const LEGACY_TERRAIN_PREVIEW_DIR = `${FileSystem.cacheDirectory}terrain_previews/`;
 
 /**
  * Delete the previews left in the cache directory by a build before the move.

@@ -15,19 +15,18 @@ import {
   formatHeartRate,
   formatPower,
   formatSpeed,
-  formatPace,
-  formatSportSpeed,
   formatElevation,
 } from '@/shared/format/format';
 import { colors, darkColors, spacing, stroke, typography, zoneColour, zoneTint } from '@/theme';
 import type { ActivityType, DataFieldType } from '@/types';
-import { countsCadenceInSteps, isSwimmingActivity } from '@/shared/activity/activityUtils';
+import { countsCadenceInSteps } from '@/shared/activity/activityUtils';
 import { accessibleActions, KeyDot, PressTarget } from '@/shared/ui';
 import { FitText } from '@/shared/ui/FitText';
 import { useTextScaleColumns } from '@/shared/ui/useLargeText';
 import type { SensorKind } from '@/features/sensors';
 import { DELIBERATE_HOLD_MS } from '@/shared/ui/holdDurations';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
+import { formatRecordingPace } from '../lib/formatRecordingSpeed';
 
 export interface HrZoneInfo {
   zone: number;
@@ -85,7 +84,6 @@ function formatFieldValue(
   isMetric: boolean,
   activityType: ActivityType | null | undefined
 ): string {
-  const swimming = activityType != null && isSwimmingActivity(activityType);
   switch (field) {
     case 'speed':
       return formatSpeed(metrics.speed, isMetric);
@@ -110,16 +108,12 @@ function formatFieldValue(
       return formatElevation(metrics.elevation, isMetric);
     case 'elevationGain':
       return formatElevation(metrics.elevationGain, isMetric);
-    // The formatter takes metres per second and owns the conversion for both
-    // unit systems, so the pace tiles read the speeds.
+    // The engine reads the pace for a speed in metres per second, in both unit
+    // systems and for a swim.
     case 'pace':
-      return swimming
-        ? formatSportSpeed(metrics.speed, activityType, isMetric)
-        : formatPace(metrics.speed, isMetric);
+      return formatRecordingPace(activityType, metrics.speed, isMetric);
     case 'avgPace':
-      return swimming
-        ? formatSportSpeed(metrics.avgSpeed, activityType, isMetric)
-        : formatPace(metrics.avgSpeed, isMetric);
+      return formatRecordingPace(activityType, metrics.avgSpeed, isMetric);
     case 'calories':
       return formatCalories(metrics.calories);
     case 'lapDistance':

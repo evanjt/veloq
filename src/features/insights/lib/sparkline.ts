@@ -19,6 +19,8 @@ interface SparklineOptions {
   mark?: HistoryMark | undefined;
   /** Prints a value in the series' unit, for the sheet's ticks and readout. */
   format?: (value: number) => string;
+  /** Mark the value axis only on the points' own values. */
+  marksOnSamples?: boolean;
   /** The series' unit symbol, for a card that prints its values one at a time. */
   unit?: string;
 }
@@ -35,11 +37,17 @@ export function sparkline(
   points: SeriesPoint[] | undefined,
   label: string,
   target: string,
-  { kind = 'sparkline', mark, format, unit }: SparklineOptions = {}
+  { kind = 'sparkline', mark, format, unit, marksOnSamples }: SparklineOptions = {}
 ): { history?: InsightHistory; dataTarget: string } {
   if (!points || points.length < HISTORY_MIN_POINTS) return { dataTarget: target };
   const series: HistorySeries[] = [
-    { label, points, ...(unit ? { unit } : {}), ...(format ? { format } : {}) },
+    {
+      label,
+      points,
+      ...(unit ? { unit } : {}),
+      ...(format ? { format } : {}),
+      ...(marksOnSamples ? { marksOnSamples } : {}),
+    },
   ];
   return {
     history: {

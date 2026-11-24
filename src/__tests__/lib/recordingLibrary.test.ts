@@ -2,27 +2,22 @@
  * Tests for the recordings library storage.
  *
  * Covers: saveRecording (FIT + index, with the review's notes and effort),
- * listing order, status transitions (uploaded / retriable failure / rejection /
- * permission-blocked / requeue), the never-delete guarantee on exhausted
- * retries, exponential backoff eligibility, user deletion, counts, and legacy
- * pending_uploads migration.
+ * listing order, the requeue of permission-blocked entries after an upgrade,
+ * user deletion, counts, and legacy pending_uploads migration.
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
-import type { RecordingTransition } from 'veloqrs/src/delegates/recordings';
 import {
   saveRecording,
   listRecordings,
   getRecording,
   clearPermissionBlocked,
-  transitionRecording,
   deleteRecording,
   getVisibleUnuploadedCount,
   listVisibleRecordings,
   getVisibleRecording,
   holdsRecordingStartingIn,
   migrateLegacyUploadQueue,
-  adoptAsyncStorageIndex,
   adoptOwnerlessRecordings,
   recordingFitExists,
 } from '@/features/recording/lib/storage/recordingLibrary';
@@ -114,8 +109,6 @@ jest.mock('expo-file-system/legacy', () => ({
  * `persistence::recordings::tests`; what is under test here is the file
  * handling and the adoption around it.
  */
-const MAX_AUTO_RETRIES = 5;
-
 type Row = Record<string, unknown> & {
   id: string;
   createdAt: number;
@@ -154,56 +147,6 @@ const mockEngine = {
     if (row) row.engineActivityId = engineActivityId;
   },
   engineInstall: () => INSTALL,
-  transitionRecording: (id: string, transition: RecordingTransition, nowMs: number) => {
-    const row = rows.get(id);
-    if (!row) {
-      return { applied: false, refusal: 'NoRecording', retryCount: 0, install: INSTALL };
-    }
-    const found = row.uploadStatus;
-    const refuse = () => ({
-      applied: false,
-      refusal: 'IllegalTransition',
-      found,
-      retryCount: row.retryCount,
-      install: INSTALL,
-    });
-    switch (transition.kind) {
-      case 'begin':
-        row.uploadStatus = 'uploading';
-        break;
-      case 'requeue':
-        if (found === 'uploaded' || found === 'uploading') return refuse();
-        row.uploadStatus = 'pending';
-        row.retryCount = 0;
-        delete row.lastAttemptAt;
-        delete row.lastError;
-        break;
-      case 'uploaded':
-        row.uploadStatus = 'uploaded';
-        if (transition.intervalsActivityId === undefined) delete row.intervalsActivityId;
-        else row.intervalsActivityId = transition.intervalsActivityId;
-        delete row.lastError;
-        break;
-      case 'failed':
-        row.retryCount += 1;
-        row.lastAttemptAt = nowMs;
-        row.lastError = transition.error;
-        row.uploadStatus = row.retryCount >= MAX_AUTO_RETRIES ? 'failed' : 'pending';
-        break;
-      case 'rejected':
-        row.uploadStatus = 'failed';
-        row.lastError = transition.error;
-        row.lastAttemptAt = nowMs;
-        break;
-      case 'permissionBlocked':
-        row.uploadStatus = 'permissionBlocked';
-        row.lastAttemptAt = nowMs;
-        break;
-      default:
-        return refuse();
-    }
-    return { applied: true, found, retryCount: row.retryCount, install: INSTALL };
-  },
   stampOwnerlessRecordings: (athleteId: string) => {
     for (const row of rows.values()) if (row.athleteId == null) row.athleteId = athleteId;
   },
@@ -231,16 +174,10 @@ const mockEngine = {
       .length,
 };
 
-const markRecordingUploaded = (id: string, intervalsActivityId?: string) =>
-  transitionRecording(id, { kind: 'uploaded', install: INSTALL, intervalsActivityId });
-const markRecordingUploadFailed = (id: string, error: string) =>
-  transitionRecording(id, { kind: 'failed', install: INSTALL, error });
-const markRecordingRejected = (id: string, error: string) =>
-  transitionRecording(id, { kind: 'rejected', install: INSTALL, error });
-const markRecordingPermissionBlocked = (id: string) =>
-  transitionRecording(id, { kind: 'permissionBlocked', install: INSTALL });
-const requeueRecording = async (id: string) =>
-  (await transitionRecording(id, { kind: 'requeue' })).applied;
+const setUploadStatus = (id: string, uploadStatus: string) => {
+  const row = rows.get(id);
+  if (row) row.uploadStatus = uploadStatus;
+};
 
 let mockEngineOpen = true;
 
@@ -357,6 +294,69 @@ describe('saveRecording', () => {
     expect(rows.size).toBe(0);
   });
 
+  /**
+   * Scenario: the files are written and the engine then refuses the row.
+   * Expected behaviour: no file is left on disk that no row names.
+   */
+  it('removes the FIT and the manual body when the row insert throws', async () => {
+    jest.spyOn(mockEngine, 'addRecording').mockImplementationOnce(() => {
+      throw new Error('Database locked');
+    });
+    expect(
+      await saveRecording({
+        fitBuffer: makeBuffer(),
+        manualBody: { type: 'Ride' } as never,
+        activityType: 'Ride',
+        name: 'Morning Ride',
+        startTime: 1_700_000_000_000,
+        durationSeconds: 3600,
+        distanceMeters: 25_000,
+        uploadStatus: 'pending',
+        athleteId: 'athlete-a',
+      })
+    ).toBeNull();
+    expect(rows.size).toBe(0);
+    expect([...mockFileStore.keys()].filter((path) => path.includes('/recordings/'))).toEqual([]);
+  });
+
+  it('removes the FIT when the manual body cannot be written', async () => {
+    jest.mocked(FileSystem.writeAsStringAsync).mockRejectedValueOnce(new Error('Disk full'));
+    expect(
+      await saveRecording({
+        fitBuffer: makeBuffer(),
+        manualBody: { type: 'Ride' } as never,
+        activityType: 'Ride',
+        name: 'Morning Ride',
+        startTime: 1_700_000_000_000,
+        durationSeconds: 3600,
+        distanceMeters: 25_000,
+        uploadStatus: 'pending',
+        athleteId: 'athlete-a',
+      })
+    ).toBeNull();
+    expect([...mockFileStore.keys()].filter((path) => path.includes('/recordings/'))).toEqual([]);
+  });
+
+  it('removes the body file when the index insert throws on a manual entry', async () => {
+    jest.spyOn(mockEngine, 'addRecording').mockImplementationOnce(() => {
+      throw new Error('database is locked');
+    });
+
+    expect(
+      await saveRecording({
+        manualBody: { type: 'Ride' } as never,
+        activityType: 'Ride',
+        name: 'Manual',
+        startTime: 1_700_000_000_000,
+        durationSeconds: 3600,
+        distanceMeters: 0,
+        uploadStatus: 'pending',
+        athleteId: 'i296629',
+      })
+    ).toBeNull();
+    expect([...mockFileStore.keys()].filter((path) => path.endsWith('.manual.json'))).toEqual([]);
+  });
+
   it("keeps the review's notes and effort on the row, owed until sent", async () => {
     const entry = await saveOne({ notes: 'legs heavy', rpe: 8 });
     expect(rows.get(entry.id)).toMatchObject({ notes: 'legs heavy', rpe: 8, rpeSent: false });
@@ -438,61 +438,12 @@ describe('holdsRecordingStartingIn', () => {
   });
 });
 
-describe('status transitions', () => {
-  it('marks uploaded and keeps the file', async () => {
-    const entry = await saveOne();
-    await markRecordingUploaded(entry.id, 'i12345');
-    const updated = await getRecording(entry.id);
-    expect(updated?.uploadStatus).toBe('uploaded');
-    expect(updated?.intervalsActivityId).toBe('i12345');
-    expect(mockFileStore.has(entry.fitPath)).toBe(true);
-  });
-
-  it('keeps pending through retriable failures, parks as failed after max, never deletes', async () => {
-    const entry = await saveOne();
-    for (let i = 0; i < 4; i++) {
-      await markRecordingUploadFailed(entry.id, `boom ${i}`);
-      expect((await getRecording(entry.id))?.uploadStatus).toBe('pending');
-    }
-    await markRecordingUploadFailed(entry.id, 'boom 5');
-    const parked = await getRecording(entry.id);
-    expect(parked?.uploadStatus).toBe('failed');
-    expect(parked?.retryCount).toBe(5);
-    expect(mockFileStore.has(entry.fitPath)).toBe(true);
-  });
-
-  it('rejection parks as failed immediately without deleting', async () => {
-    const entry = await saveOne();
-    await markRecordingRejected(entry.id, 'duplicate activity');
-    const parked = await getRecording(entry.id);
-    expect(parked?.uploadStatus).toBe('failed');
-    expect(parked?.lastError).toBe('duplicate activity');
-    expect(mockFileStore.has(entry.fitPath)).toBe(true);
-  });
-
-  it('requeue reports the engine refusing a ride that already landed', async () => {
-    const entry = await saveOne();
-    await markRecordingUploaded(entry.id, 'i77');
-
-    expect(await requeueRecording(entry.id)).toBe(false);
-    expect((await getRecording(entry.id))?.uploadStatus).toBe('uploaded');
-  });
-
-  it('requeue resets the retry state', async () => {
-    const entry = await saveOne();
-    await markRecordingRejected(entry.id, 'oops');
-    await requeueRecording(entry.id);
-    const updated = await getRecording(entry.id);
-    expect(updated?.uploadStatus).toBe('pending');
-    expect(updated?.retryCount).toBe(0);
-    expect(updated?.lastError).toBeUndefined();
-  });
-
+describe('permission-blocked entries', () => {
   it("an upgrade requeues the upgrading athlete's blocked entries and nobody else's", async () => {
     const a = await saveOne();
     const b = await saveOne({ name: 'Second' });
     const theirs = await saveOne({ name: 'Theirs', athleteId: 'i100001' });
-    for (const entry of [a, b, theirs]) await markRecordingPermissionBlocked(entry.id);
+    for (const entry of [a, b, theirs]) setUploadStatus(entry.id, 'permissionBlocked');
     for (const entry of [a, b, theirs])
       expect((await getRecording(entry.id))?.uploadStatus).toBe('permissionBlocked');
 
@@ -554,8 +505,8 @@ describe('counts', () => {
     const a = await saveOne();
     await saveOne({ name: 'Local', uploadStatus: 'localOnly' });
     const c = await saveOne({ name: 'Done' });
-    await markRecordingUploaded(c.id);
-    await markRecordingRejected(a.id, 'no');
+    setUploadStatus(c.id, 'uploaded');
+    setUploadStatus(a.id, 'failed');
     expect(await getVisibleUnuploadedCount()).toBe(2);
   });
 });
@@ -820,225 +771,6 @@ describe('a data container that moved', () => {
 
     expect(mockFileStore.has(`/mock/docs/recordings/${entry.id}.fit`)).toBe(false);
   });
-
-  it('stores an adopted index entry relative to the documents directory', async () => {
-    mockStorage.set(
-      'veloq-recording-library',
-      JSON.stringify([
-        {
-          id: 'ix',
-          fitPath: `${OLD_DOCS}recordings/ix.fit`,
-          activityType: 'Ride',
-          name: 'Indexed',
-          startTime: 1,
-          durationSeconds: 1,
-          distanceMeters: 1,
-          createdAt: 1,
-          uploadStatus: 'pending',
-          retryCount: 0,
-        },
-      ])
-    );
-
-    await adoptAsyncStorageIndex();
-
-    expect(rows.get('ix')!.fitPath).toBe('recordings/ix.fit');
-  });
-});
-
-describe('adopting the AsyncStorage index', () => {
-  const stored = (entries: unknown[]) =>
-    mockStorage.set('veloq-recording-library', JSON.stringify(entries));
-
-  const legacyEntry = (id: string, overrides: Record<string, unknown> = {}) => ({
-    id,
-    fitPath: `/mock/docs/recordings/${id}.fit`,
-    streamsPath: `/mock/docs/recordings/${id}.streams.json`,
-    activityType: 'Ride',
-    name: `Ride ${id}`,
-    startTime: 1_700_000_000_000,
-    durationSeconds: 3600,
-    distanceMeters: 25_000,
-    createdAt: 1_700_000_000_000,
-    uploadStatus: 'pending',
-    retryCount: 2,
-    lastAttemptAt: 1_700_000_100_000,
-    lastError: 'network',
-    ...overrides,
-  });
-
-  it('carries every entry over with its retry state intact', async () => {
-    stored([legacyEntry('a'), legacyEntry('b', { uploadStatus: 'uploaded', retryCount: 0 })]);
-
-    expect(await adoptAsyncStorageIndex()).toBe(2);
-
-    const listed = await listRecordings();
-    expect(listed.map((e) => e.id).sort()).toEqual(['a', 'b']);
-    expect(listed.find((e) => e.id === 'a')).toMatchObject({
-      kind: 'fit',
-      retryCount: 2,
-      lastAttemptAt: 1_700_000_100_000,
-      lastError: 'network',
-      streamsPath: '/mock/docs/recordings/a.streams.json',
-    });
-  });
-
-  it('removes the key so the next launch does not adopt again', async () => {
-    stored([legacyEntry('a')]);
-    await adoptAsyncStorageIndex();
-
-    expect(mockStorage.has('veloq-recording-library')).toBe(false);
-    expect(await adoptAsyncStorageIndex()).toBe(0);
-    expect(await listRecordings()).toHaveLength(1);
-  });
-
-  it('takes the rest when a run is interrupted before the key is removed', async () => {
-    stored([legacyEntry('a'), legacyEntry('b')]);
-    await adoptAsyncStorageIndex();
-    stored([legacyEntry('a'), legacyEntry('b'), legacyEntry('c')]);
-
-    expect(await adoptAsyncStorageIndex()).toBe(1);
-    expect(await listRecordings()).toHaveLength(3);
-  });
-
-  it('archives an entry with no id or no FIT path and retires the key', async () => {
-    const nameless = { name: 'nameless' };
-    const noFit = legacyEntry('b', { fitPath: undefined });
-    stored([legacyEntry('a'), nameless, noFit]);
-
-    expect(await adoptAsyncStorageIndex()).toBe(1);
-    expect((await listRecordings()).map((e) => e.id)).toEqual(['a']);
-    expect(mockStorage.has('veloq-recording-library')).toBe(false);
-    expect(JSON.parse(mockStorage.get('veloq-recording-library-unadoptable')!)).toEqual([
-      nameless,
-      JSON.parse(JSON.stringify(noFit)),
-    ]);
-  });
-
-  it('archives an entry missing a field the engine row requires, before the insert', async () => {
-    const noName = legacyEntry('b', { name: undefined });
-    const noCount = legacyEntry('c', { retryCount: 'two' });
-    stored([legacyEntry('a'), noName, noCount]);
-    const insert = jest.spyOn(mockEngine, 'addRecording');
-
-    expect(await adoptAsyncStorageIndex()).toBe(1);
-
-    expect(insert).toHaveBeenCalledTimes(1);
-    expect(mockStorage.has('veloq-recording-library')).toBe(false);
-    const archived = JSON.parse(mockStorage.get('veloq-recording-library-unadoptable')!);
-    expect(archived.map((e: { id: string }) => e.id)).toEqual(['b', 'c']);
-    insert.mockRestore();
-  });
-
-  it('archives the whole value when the index does not parse, and retires the key', async () => {
-    const truncated = '[{"id":"a","fitPath":"/mock/docs/recordings/a.fit","na';
-    mockStorage.set('veloq-recording-library', truncated);
-
-    expect(await adoptAsyncStorageIndex()).toBe(0);
-
-    expect(mockStorage.has('veloq-recording-library')).toBe(false);
-    expect(mockStorage.get('veloq-recording-library-unadoptable')).toBe(truncated);
-  });
-
-  it('writes the archive before the key goes, so a failed archive keeps the key', async () => {
-    stored([legacyEntry('a'), { name: 'nameless' }]);
-    const AsyncStorage = jest.requireMock('@react-native-async-storage/async-storage').default;
-    AsyncStorage.setItem.mockRejectedValueOnce(new Error('quota'));
-
-    expect(await adoptAsyncStorageIndex()).toBe(0);
-    expect(rows.has('a')).toBe(true);
-    expect(mockStorage.has('veloq-recording-library')).toBe(true);
-    expect(mockStorage.has('veloq-recording-library-unadoptable')).toBe(false);
-
-    expect(await adoptAsyncStorageIndex()).toBe(0);
-    expect(mockStorage.has('veloq-recording-library')).toBe(false);
-    expect(mockStorage.has('veloq-recording-library-unadoptable')).toBe(true);
-  });
-
-  it('keeps the key and writes no archive while a good entry is still transient', async () => {
-    stored([legacyEntry('a'), { name: 'nameless' }]);
-    const insert = jest.spyOn(mockEngine, 'addRecording').mockImplementationOnce(() => {
-      throw new Error('write failed');
-    });
-
-    expect(await adoptAsyncStorageIndex()).toBe(0);
-    expect(mockStorage.has('veloq-recording-library')).toBe(true);
-    expect(mockStorage.has('veloq-recording-library-unadoptable')).toBe(false);
-    insert.mockRestore();
-
-    expect(await adoptAsyncStorageIndex()).toBe(1);
-    expect(mockStorage.has('veloq-recording-library')).toBe(false);
-    expect(JSON.parse(mockStorage.get('veloq-recording-library-unadoptable')!)).toEqual([
-      { name: 'nameless' },
-    ]);
-  });
-
-  it('continues after a failed row and retires the key only after a successful retry', async () => {
-    stored([legacyEntry('a'), legacyEntry('b'), legacyEntry('c')]);
-    const insert = jest.spyOn(mockEngine, 'addRecording');
-    insert.mockImplementationOnce((entry) => {
-      rows.set(entry.id, { ...entry });
-      return true;
-    });
-    insert.mockImplementationOnce(() => {
-      throw new Error('write failed');
-    });
-
-    expect(await adoptAsyncStorageIndex()).toBe(2);
-    expect([...rows.keys()]).toEqual(['a', 'c']);
-    expect(mockStorage.has('veloq-recording-library')).toBe(true);
-    insert.mockRestore();
-
-    expect(await adoptAsyncStorageIndex()).toBe(1);
-    expect([...rows.keys()]).toEqual(['a', 'c', 'b']);
-    expect(mockStorage.has('veloq-recording-library')).toBe(false);
-  });
-
-  it('keeps the index when an open engine declines a missing row', async () => {
-    stored([legacyEntry('a')]);
-    const insert = jest.spyOn(mockEngine, 'addRecording').mockReturnValueOnce(false);
-
-    expect(await adoptAsyncStorageIndex()).toBe(0);
-    expect(rows.has('a')).toBe(false);
-    expect(mockStorage.has('veloq-recording-library')).toBe(true);
-
-    expect(await adoptAsyncStorageIndex()).toBe(1);
-    expect(rows.has('a')).toBe(true);
-    expect(mockStorage.has('veloq-recording-library')).toBe(false);
-    insert.mockRestore();
-  });
-
-  it('is a no-op with no stored index, and clears a key that is not a list', async () => {
-    expect(await adoptAsyncStorageIndex()).toBe(0);
-
-    mockStorage.set('veloq-recording-library', '{"not":"a list"}');
-    expect(await adoptAsyncStorageIndex()).toBe(0);
-    expect(mockStorage.has('veloq-recording-library')).toBe(false);
-  });
-
-  it('takes what the legacy upload queue migrated, when it runs after it', async () => {
-    mockFileStore.set('/mock/docs/pending_uploads/q1.fit', 'RklU');
-    mockStorage.set(
-      'veloq-upload-queue',
-      JSON.stringify([
-        {
-          id: 'q1',
-          filePath: '/mock/docs/pending_uploads/q1.fit',
-          activityType: 'Run',
-          name: 'Queued run',
-          createdAt: 1_699_000_000_000,
-          retryCount: 0,
-        },
-      ])
-    );
-
-    await migrateLegacyUploadQueue();
-    await adoptAsyncStorageIndex();
-
-    const listed = await listRecordings();
-    expect(listed.map((e) => e.id)).toEqual(['q1']);
-    expect(listed[0].uploadStatus).toBe('pending');
-  });
 });
 
 /**
@@ -1048,9 +780,10 @@ describe('adopting the AsyncStorage index', () => {
  * a chunk boundary is not a place where a byte can go missing.
  */
 describe('adoptOwnerlessRecordings', () => {
-  const legacyRide = (id: string) => ({
+  const ownerless = (id: string): Row => ({
     id,
-    fitPath: `/mock/docs/recordings/${id}.fit`,
+    fitPath: `recordings/${id}.fit`,
+    kind: 'fit',
     activityType: 'Ride',
     name: `Ride ${id}`,
     startTime: 1_700_000_000_000,
@@ -1060,32 +793,30 @@ describe('adoptOwnerlessRecordings', () => {
     uploadStatus: 'pending',
     retryCount: 0,
   });
-  const storeIndex = (ids: string[]) =>
-    mockStorage.set('veloq-recording-library', JSON.stringify(ids.map(legacyRide)));
+  const seed = (...ids: string[]) => ids.forEach((id) => rows.set(id, ownerless(id)));
   const athletesOf = () => [...rows.values()].map((row) => row.athleteId);
 
-  it("stamps an upgrader's legacy rides with the library's athlete on the first launch", async () => {
-    storeIndex(['a', 'b']);
+  it("stamps an upgrader's ownerless rides with the library's athlete on the first launch", async () => {
+    seed('a', 'b');
 
     await adoptOwnerlessRecordings(async () => 'iA');
 
     expect(athletesOf()).toEqual(['iA', 'iA']);
-    expect(mockStorage.has('veloq-recording-library')).toBe(false);
   });
 
   it('stamps nothing at a later launch, when the library is named for someone else', async () => {
-    storeIndex(['a']);
+    seed('a');
     await adoptOwnerlessRecordings(async () => 'iA');
-    storeIndex(['a', 'b']);
+    seed('b');
 
     await adoptOwnerlessRecordings(async () => 'iB');
 
     expect(rows.get('a')?.athleteId).toBe('iA');
-    expect(rows.get('b')).toBeUndefined();
+    expect(rows.get('b')?.athleteId).toBeUndefined();
   });
 
   it('leaves rides unstamped and settles when no athlete is cached', async () => {
-    storeIndex(['a']);
+    seed('a');
 
     await adoptOwnerlessRecordings(async () => null);
     await adoptOwnerlessRecordings(async () => 'iB');
@@ -1093,36 +824,48 @@ describe('adoptOwnerlessRecordings', () => {
     expect(athletesOf()).toEqual([undefined]);
   });
 
-  it('retries on the next launch when the legacy index is left behind', async () => {
-    storeIndex(['a', 'b']);
-    const insert = jest.spyOn(mockEngine, 'addRecording');
-    insert.mockImplementationOnce((entry) => {
-      rows.set(entry.id, { ...entry });
-      return true;
-    });
-    insert.mockImplementationOnce(() => {
+  it('retries on the next launch when the legacy upload queue is left behind', async () => {
+    const filePath = '/mock/docs/pending_uploads/q1.fit';
+    mockFileStore.set(filePath, 'RklU');
+    mockStorage.set(
+      'veloq-upload-queue',
+      JSON.stringify([
+        { id: 'q1', filePath, activityType: 'Ride', name: 'Queued', createdAt: 1, retryCount: 0 },
+      ])
+    );
+    const insert = jest.spyOn(mockEngine, 'addRecording').mockImplementationOnce(() => {
       throw new Error('write failed');
     });
 
     await adoptOwnerlessRecordings(async () => 'iA');
-    expect(mockStorage.has('veloq-recording-library')).toBe(true);
+    expect(mockStorage.has('veloq-upload-queue')).toBe(true);
     insert.mockRestore();
 
     await adoptOwnerlessRecordings(async () => 'iA');
-    expect(athletesOf()).toEqual(['iA', 'iA']);
-    expect(mockStorage.has('veloq-recording-library')).toBe(false);
+    expect(athletesOf()).toEqual(['iA']);
+    expect(mockStorage.has('veloq-upload-queue')).toBe(false);
+  });
+
+  it('neither reads nor removes a retired index key, and still settles', async () => {
+    mockStorage.set('veloq-recording-library', JSON.stringify([ownerless('stale')]));
+
+    await adoptOwnerlessRecordings(async () => 'iA');
+
+    expect(rows.size).toBe(0);
+    expect(mockStorage.has('veloq-recording-library')).toBe(true);
+    expect(mockStorage.has('ownerless_recordings_settled')).toBe(true);
   });
 
   it('stamps nothing once an account change has settled the adoptions', async () => {
     const {
       settleOwnerlessAdoptions,
     } = require('@/features/recording/lib/storage/recordingBackup');
-    storeIndex(['a']);
+    seed('a');
     await settleOwnerlessAdoptions();
 
     await adoptOwnerlessRecordings(async () => 'iA');
 
-    expect(rows.size).toBe(0);
+    expect(athletesOf()).toEqual([undefined]);
   });
 });
 
@@ -1156,20 +899,6 @@ describe('closed engine persistence', () => {
       })
     ).toBeNull();
     expect(rows.size).toBe(0);
-  });
-
-  it('retains the index until a ready pass inserts or finds every entry', async () => {
-    const entry = await saveOne();
-    const second = { ...entry, id: 'second' };
-    mockStorage.set('veloq-recording-library', JSON.stringify([entry, second]));
-    mockEngine.ready = false;
-    expect(await adoptAsyncStorageIndex()).toBe(0);
-    expect(mockStorage.has('veloq-recording-library')).toBe(true);
-    mockEngine.ready = true;
-    expect(await adoptAsyncStorageIndex()).toBe(1);
-    expect(rows.size).toBe(2);
-    expect(mockStorage.has('veloq-recording-library')).toBe(false);
-    expect(await adoptAsyncStorageIndex()).toBe(0);
   });
 
   it('retains the queue and files while closed and retries once ready', async () => {
@@ -1223,22 +952,5 @@ it('retains a failed queue entry and adopts it on a second pass without losing F
   expect(rows.has('retry')).toBe(true);
   expect(mockStorage.has('veloq-upload-queue')).toBe(false);
   expect(mockFileStore.get('/mock/docs/recordings/retry.fit')).toBe('RklU');
-  insert.mockRestore();
-});
-
-it('retains the index after a failed insert and finds the successful entries on retry', async () => {
-  const entry = await saveOne();
-  mockStorage.set('veloq-recording-library', JSON.stringify([entry, { ...entry, id: 'retry' }]));
-  const insert = jest
-    .spyOn(mockEngine, 'addRecording')
-    .mockImplementationOnce(() => false)
-    .mockImplementationOnce(() => {
-      throw new Error('write failed');
-    });
-  expect(await adoptAsyncStorageIndex()).toBe(0);
-  expect(mockStorage.has('veloq-recording-library')).toBe(true);
-  expect(await adoptAsyncStorageIndex()).toBe(1);
-  expect(rows.size).toBe(2);
-  expect(mockStorage.has('veloq-recording-library')).toBe(false);
   insert.mockRestore();
 });

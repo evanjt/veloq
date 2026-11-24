@@ -1,4 +1,4 @@
-import type { FeedCard as EngineFeedCard } from 'veloqrs';
+import type { FeedCard as EngineFeedCard, FfiPaceText } from 'veloqrs';
 import type { ActivityType } from '@/shared/native/sportTaxonomy.generated';
 
 export type { ActivityType };
@@ -51,7 +51,6 @@ export interface Activity {
   // Weather data (when available from intervals.icu)
   has_weather?: boolean | undefined;
   average_weather_temp?: number | undefined; // Temperature in Celsius
-  average_weather_wind_speed?: number | undefined; // Deprecated: use average_wind_speed
   average_wind_gust?: number | undefined; // Wind gust in m/s
   average_clouds?: number | undefined; // Cloud cover percentage
   average_weather_humidity?: number | undefined; // Humidity percentage
@@ -88,6 +87,14 @@ export type { ActivityInterval } from 'veloqrs';
 export type { AthleteProfile as Athlete } from 'veloqrs';
 
 /**
+ * A form zone, lowest first, on the intervals.icu boundaries: significant
+ * accumulated fatigue, where most adaptation occurs, moderate load, well
+ * rested, and losing fitness from too little stimulus. The engine names the
+ * zone of every form it states, so a screen holds the name and never the edges.
+ */
+export type FormZone = 'highRisk' | 'optimal' | 'greyZone' | 'fresh' | 'transition';
+
+/**
  * One stored wellness day, as the screens read it.
  *
  * Exactly what `toWellnessData` writes out of the engine's typed day, and so
@@ -112,9 +119,20 @@ export interface WellnessData {
   stress?: number | undefined;
   mood?: number | undefined;
   motivation?: number | undefined;
+  /**
+   * The day's form in the unit the athlete reads it in, with its zone and its
+   * printed text, as the engine judged them. All three are absent on a day
+   * that cannot be read in that unit: a missing load, or no fitness to divide
+   * by under the percentage setting.
+   */
+  form?: number | undefined;
+  formZone?: FormZone | undefined;
+  formText?: string | undefined;
+  /** The day's absolute TSB as printed, whatever unit `form` is in. */
+  tsbText?: string | undefined;
 }
 
-export interface SportLoadInfo {
+interface SportLoadInfo {
   eftp?: number | undefined;
   sportGroup?: string | undefined;
   types?: string[] | undefined;
@@ -125,7 +143,7 @@ export interface SportLoadInfo {
 }
 
 /** One of the server's fitted critical-power models for a curve window. */
-export interface PowerModel {
+interface PowerModel {
   /** `MS_2P`, `MORTON_3P`, `FFT_CURVES` or `ECP`. */
   type: string;
   criticalPower: number;
@@ -137,7 +155,7 @@ export interface PowerModel {
 }
 
 /** An activity a curve point came from, as the body names it. */
-export interface CurveActivity {
+interface CurveActivity {
   id: string;
   name: string;
   distance: number;
@@ -182,11 +200,15 @@ export interface PaceCurve {
   distances: number[]; // Array of distances in meters
   times: number[]; // Array of times in seconds to cover each distance
   pace: number[]; // Pace in m/s at each distance (distance/time)
+  /** `pace` as the engine's text in both unit systems, one per point; none for a point with no pace. */
+  pace_texts?: (FfiPaceText | undefined)[] | undefined;
   activity_ids?: string[] | undefined;
   /** Every activity a point came from. */
   activities?: Record<string, CurveActivity> | undefined;
   // Critical Speed model data
   criticalSpeed?: number | undefined; // Critical speed from pace model (m/s) - use as threshold pace
+  /** `criticalSpeed` as the engine's pace text in both unit systems. */
+  criticalPace?: FfiPaceText | undefined;
   dPrime?: number | undefined; // D' (anaerobic distance capacity) in meters
   r2?: number | undefined; // R² (model fit quality)
   // Date range
@@ -289,7 +311,7 @@ export interface AthleteSummary {
 }
 
 // Per-sport breakdown within athlete summary
-export interface AthleteSummaryCategory {
+interface AthleteSummaryCategory {
   /** Sport category (e.g., 'Run', 'Ride') */
   category: string;
   /** Number of activities */

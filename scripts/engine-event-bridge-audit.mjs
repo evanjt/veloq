@@ -118,33 +118,53 @@ const EXEMPT = new Set(['src/features/routes/hooks/useCustomSections.ts']);
 // from GlobalDataSync's invalidation set. We scope the audit to exactly that
 // shape: useQuery + centralized query key. Derive-from-input useMemo hooks and
 // action hooks are excluded - they have no sync-driven refresh expectation.
+// A file's top-level declarations, so each hook is judged on its own source: a
+// subscription in one hook does not wake the query of another in the same file.
+function topLevelChunks(src) {
+  const starts = [
+    ...src.matchAll(/^(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function\b|const\s+\w+\s*=)/gm),
+  ];
+  if (starts.length === 0) return [src];
+  const chunks = starts.map((m, i) =>
+    src.slice(m.index, i + 1 < starts.length ? starts[i + 1].index : src.length)
+  );
+  return [src.slice(0, starts[0].index), ...chunks];
+}
+
 function findEngineHookOrphans(knownGroups, invalidatedGroups, memberRoots, invalidatedRoots) {
   const orphans = [];
   for (const file of [...walk(SHARED_APP_DIR), ...walk(FEATURES_DIR)]) {
-    const src = tree.text(file);
-    if (!ENGINE_READ.test(src)) continue;
-    if (!/\buseQuery\b/.test(src)) continue;
-
-    const usedGroups = new Set();
-    const re = /queryKeys\.(\w+)\b/g;
-    let m;
-    while ((m = re.exec(src))) {
-      if (knownGroups.has(m[1])) usedGroups.add(m[1]);
-    }
-    if (usedGroups.size === 0) continue;
-
-    if (SUBSCRIBES.test(src)) continue;
-    if (API_BACKED.test(src)) continue;
+    const fileSrc = tree.text(file);
+    if (!ENGINE_READ.test(fileSrc)) continue;
+    if (API_BACKED.test(fileSrc)) continue;
     if (EXEMPT.has(rel(file))) continue;
 
-    const uncovered = [...usedGroups].filter((g) => !invalidatedGroups.has(g));
-    // A used member with a known root is covered only when that root is
-    // invalidated, whatever its group's other members are.
-    const memberRe = /queryKeys\.(\w+)\.(\w+)\b/g;
-    while ((m = memberRe.exec(src))) {
-      const name = `${m[1]}.${m[2]}`;
-      const root = memberRoots.get(name);
-      if (root && !invalidatedRoots.has(root) && !uncovered.includes(name)) uncovered.push(name);
+    const uncovered = [];
+    for (const src of topLevelChunks(fileSrc)) {
+      if (!ENGINE_READ.test(src)) continue;
+      if (!/\buseQuery\b/.test(src)) continue;
+
+      const usedGroups = new Set();
+      const re = /queryKeys\.(\w+)\b/g;
+      let m;
+      while ((m = re.exec(src))) {
+        if (knownGroups.has(m[1])) usedGroups.add(m[1]);
+      }
+      if (usedGroups.size === 0) continue;
+
+      if (SUBSCRIBES.test(src)) continue;
+
+      for (const g of usedGroups) {
+        if (!invalidatedGroups.has(g) && !uncovered.includes(g)) uncovered.push(g);
+      }
+      // A used member with a known root is covered only when that root is
+      // invalidated, whatever its group's other members are.
+      const memberRe = /queryKeys\.(\w+)\.(\w+)\b/g;
+      while ((m = memberRe.exec(src))) {
+        const name = `${m[1]}.${m[2]}`;
+        const root = memberRoots.get(name);
+        if (root && !invalidatedRoots.has(root) && !uncovered.includes(name)) uncovered.push(name);
+      }
     }
     if (uncovered.length > 0) {
       orphans.push({

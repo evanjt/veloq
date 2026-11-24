@@ -12,7 +12,7 @@ import type { PreviewCentre, PreviewClient } from 'veloqrs';
 
 const DEFAULT_LIMIT = 6;
 
-export interface UsePreviewCentresResult {
+interface UsePreviewCentresResult {
   centres: PreviewCentre[];
   /** Aligned with centres; label null means use the numbered fallback. */
   labels: CentreLabel[];

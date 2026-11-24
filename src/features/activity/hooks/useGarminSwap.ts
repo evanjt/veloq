@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { SwapOutcome, SwapState, type GarminMatch } from 'veloqrs';
+import { FfiSwapOutcome, FfiSwapState, type FfiGarminMatch } from 'veloqrs';
 
 import {
   garminSwapCheck,
@@ -31,10 +31,10 @@ import {
  * hook reads that whenever the state says a check has been made or a swap can
  * be undone.
  */
-export function useGarminSwap(activityId: string, knownState?: SwapState) {
-  const [state, setState] = useState<SwapState>(knownState ?? SwapState.Hidden);
+export function useGarminSwap(activityId: string, knownState?: FfiSwapState) {
+  const [state, setState] = useState<FfiSwapState>(knownState ?? FfiSwapState.Hidden);
   const [busy, setBusy] = useState(false);
-  const [match, setMatch] = useState<GarminMatch | null>(null);
+  const [match, setMatch] = useState<FfiGarminMatch | null>(null);
   const [notice, setNotice] = useState<GarminSwapNotice | null>(null);
   const running = useRef(false);
 
@@ -42,7 +42,7 @@ export function useGarminSwap(activityId: string, knownState?: SwapState) {
     try {
       return await garminSwapState(activityId);
     } catch {
-      return SwapState.Hidden;
+      return FfiSwapState.Hidden;
     }
   }, [activityId]);
 
@@ -62,9 +62,9 @@ export function useGarminSwap(activityId: string, knownState?: SwapState) {
   useEffect(() => {
     let live = true;
     const held =
-      state === SwapState.Available ||
-      state === SwapState.Unchanged ||
-      state === SwapState.Undoable;
+      state === FfiSwapState.Available ||
+      state === FfiSwapState.Unchanged ||
+      state === FfiSwapState.Undoable;
     const read = async () => {
       try {
         const found = held ? await garminSwapMatch(activityId) : null;
@@ -97,7 +97,7 @@ export function useGarminSwap(activityId: string, knownState?: SwapState) {
           await queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
         }
       } catch {
-        setNotice(garminSwapNotice(SwapOutcome.Failed, action));
+        setNotice(garminSwapNotice(FfiSwapOutcome.Failed, action));
       } finally {
         running.current = false;
         setBusy(false);
@@ -114,7 +114,7 @@ export function useGarminSwap(activityId: string, knownState?: SwapState) {
     try {
       setState(await garminSwapCheck(activityId));
     } catch {
-      setNotice(garminSwapNotice(SwapOutcome.Failed, 'swap'));
+      setNotice(garminSwapNotice(FfiSwapOutcome.Failed, 'swap'));
     } finally {
       running.current = false;
       setBusy(false);

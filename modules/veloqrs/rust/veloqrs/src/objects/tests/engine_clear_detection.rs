@@ -1,3 +1,4 @@
+use crate::poison::Recover;
 use std::path::Path;
 use std::sync::mpsc;
 use std::time::Duration;
@@ -41,9 +42,7 @@ fn assert_clear_with_held_detection(clear: impl FnOnce(&VeloqEngine, &Path)) {
         engine.detect_sections_background_applying(ApplyOn::Worker)
     })
     .expect("engine");
-    *SECTION_DETECTION_HANDLE
-        .lock()
-        .unwrap_or_else(|error| error.into_inner()) = Some(detection);
+    *SECTION_DETECTION_HANDLE.lock_recover() = Some(detection);
     let group_count = entered
         .recv_timeout(Duration::from_secs(5))
         .expect("group write reached");
@@ -51,8 +50,7 @@ fn assert_clear_with_held_detection(clear: impl FnOnce(&VeloqEngine, &Path)) {
 
     clear(&VeloqEngine, &path);
     let detection = SECTION_DETECTION_HANDLE
-        .lock()
-        .unwrap_or_else(|error| error.into_inner())
+        .lock_recover()
         .take()
         .expect("detection");
     let cancelled = detection.cancel_requested();
@@ -106,9 +104,7 @@ fn assert_clear_with_detection_started_after_retire(clear: impl FnOnce(&VeloqEng
     let path = dir.path().join("detection.db");
     let (started_tx, started_rx) = mpsc::channel();
     let hook_path = path.clone();
-    *crate::persistence::AFTER_INVALIDATE
-        .lock()
-        .unwrap_or_else(|error| error.into_inner()) = Some(Box::new(move || {
+    *crate::persistence::AFTER_INVALIDATE.lock_recover() = Some(Box::new(move || {
         let install = crate::persistence::engine_install();
         let (entered, resume) = pause_next_group_write(&hook_path, install);
         let detection = with_persistent_engine(|engine| {
@@ -177,9 +173,7 @@ fn test_worker_write_in_the_gap_after_the_wipe_commits_is_refused() {
     let path = dir.path().join("detection.db");
     let (started_tx, started_rx) = mpsc::channel();
     let hook_path = path.clone();
-    *crate::persistence::AFTER_INVALIDATE
-        .lock()
-        .unwrap_or_else(|error| error.into_inner()) = Some(Box::new(move || {
+    *crate::persistence::AFTER_INVALIDATE.lock_recover() = Some(Box::new(move || {
         let install = crate::persistence::engine_install();
         let (entered, resume) = pause_next_group_write(&hook_path, install);
         let detection = with_persistent_engine(|engine| {
@@ -195,9 +189,7 @@ fn test_worker_write_in_the_gap_after_the_wipe_commits_is_refused() {
     }));
     let (released_tx, released_rx) = mpsc::channel();
     let probe_path = path.clone();
-    *crate::persistence::AFTER_WIPE
-        .lock()
-        .unwrap_or_else(|error| error.into_inner()) = Some(Box::new(move || {
+    *crate::persistence::AFTER_WIPE.lock_recover() = Some(Box::new(move || {
         let (detection, resume) = started_rx.try_recv().expect("detection started");
         resume.send(()).expect("release group write");
         // A write that is correctly held never lands here, so this waits out
@@ -310,17 +302,14 @@ fn test_run_clear_derived_gives_back_a_cancelled_detection_lease() {
         engine.detect_sections_background_applying(ApplyOn::Worker)
     })
     .expect("engine");
-    *SECTION_DETECTION_HANDLE
-        .lock()
-        .unwrap_or_else(|error| error.into_inner()) = Some(detection);
+    *SECTION_DETECTION_HANDLE.lock_recover() = Some(detection);
     entered
         .recv_timeout(Duration::from_secs(5))
         .expect("group write reached");
 
     crate::runtime::block_on(VeloqEngine.run_clear_derived()).unwrap();
     let detection = SECTION_DETECTION_HANDLE
-        .lock()
-        .unwrap_or_else(|error| error.into_inner())
+        .lock_recover()
         .take()
         .expect("detection");
     resume.send(()).expect("release group write");

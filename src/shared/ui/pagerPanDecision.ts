@@ -3,7 +3,7 @@ import { BACK_SWIPE_EDGE_WIDTH, startsInBackSwipeEdge } from './backSwipeEdge';
 /** Horizontal travel, in points, before the pager decides a pan. */
 export const PAGER_ACTIVATION_OFFSET = 10;
 
-export type PagerPanDecision = 'activate' | 'fail' | 'wait';
+type PagerPanDecision = 'activate' | 'fail' | 'wait';
 
 /** Which physical ends of a horizontal scroller its content is resting against. */
 export interface PagerScrollerEdges {
@@ -11,7 +11,7 @@ export interface PagerScrollerEdges {
   atRight: boolean;
 }
 
-export interface PagerPanInput {
+interface PagerPanInput {
   /** The page showing when the touch began. */
   index: number;
   tabCount: number;

@@ -19,9 +19,9 @@ import type {
   GroupWithPolyline,
   SectionWithPolyline,
   SectionHiddenFilters,
-  RetiredMapData,
+  FfiRetiredMapData,
 } from 'veloqrs';
-import { GroupSort, SectionSort, routes, sections } from 'veloqrs';
+import { FfiGroupSort, FfiSectionSort, routes, sections } from 'veloqrs';
 import type { LatLngShort } from '@/shared/geo/distance';
 import {
   mergeHasMore,
@@ -43,7 +43,7 @@ interface PaginatedRoutesData extends RoutesScreenData {
 }
 
 /** A failed read is its own state, so a screen never takes it for an empty library. */
-export type RoutesScreenStatus = 'loading' | 'error' | 'loaded';
+type RoutesScreenStatus = 'loading' | 'error' | 'loaded';
 
 interface PageRead {
   data: PaginatedRoutesData | null;
@@ -89,9 +89,9 @@ const NO_FILTERS: SectionHiddenFilters = {
 function readFirstPage(query: {
   groupLimit: number;
   sectionLimit: number;
-  groupSort: GroupSort;
+  groupSort: FfiGroupSort;
   groupSearch: string;
-  sectionSort: SectionSort;
+  sectionSort: FfiSectionSort;
   sectionSearch: string;
   sectionFilters: SectionHiddenFilters;
   groupSportType?: string | undefined;
@@ -154,9 +154,9 @@ function readFirstPage(query: {
 export function useRoutesScreenData(opts?: {
   groupLimit?: number;
   sectionLimit?: number;
-  groupSort?: GroupSort;
+  groupSort?: FfiGroupSort;
   groupSearch?: string;
-  sectionSort?: SectionSort;
+  sectionSort?: FfiSectionSort;
   sectionSearch?: string;
   sectionFilters?: SectionHiddenFilters;
   groupSportType?: string | undefined;
@@ -165,9 +165,9 @@ export function useRoutesScreenData(opts?: {
 }): UseRoutesScreenDataResult {
   const groupLimit = opts?.groupLimit ?? DEFAULT_PAGE_SIZE;
   const sectionLimit = opts?.sectionLimit ?? DEFAULT_PAGE_SIZE;
-  const groupSort = opts?.groupSort ?? GroupSort.Activities;
+  const groupSort = opts?.groupSort ?? FfiGroupSort.Activities;
   const groupSearch = opts?.groupSearch ?? '';
-  const sectionSort = opts?.sectionSort ?? SectionSort.Visits;
+  const sectionSort = opts?.sectionSort ?? FfiSectionSort.Visits;
   const sectionSearch = opts?.sectionSearch ?? '';
   const sectionFilters = opts?.sectionFilters ?? NO_FILTERS;
   const groupSportType = opts?.groupSportType;
@@ -508,9 +508,9 @@ export function useArchivedRetiredCount(): number {
 }
 
 /** What `useRetiredMapData` answers: the record, or why there is none. */
-export interface RetiredMapRead {
+interface RetiredMapRead {
   /** Null while the engine is closed or when the read failed. */
-  data: RetiredMapData | null;
+  data: FfiRetiredMapData | null;
   /** Set when the read threw, so a caller that must not show a failure as empty can raise it. */
   failure: { error: unknown } | null;
 }
@@ -568,9 +568,9 @@ function retiredCounts(): RetiredCounts {
       sectionLimit: 0,
       sectionOffset: 0,
       minGroupActivityCount: 0,
-      groupSort: GroupSort.Activities,
+      groupSort: FfiGroupSort.Activities,
       groupSearch: '',
-      sectionSort: SectionSort.Visits,
+      sectionSort: FfiSectionSort.Visits,
       sectionSearch: '',
       sectionFilters: NO_FILTERS,
       userLat: 0,

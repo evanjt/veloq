@@ -33,7 +33,7 @@ import { useMeasuredWidth } from './useMeasuredWidth';
 import { YAxisLabels } from './YAxisLabels';
 
 /** A drawn sample. A `partial` one, a total still accruing, is drawn in outline as a bar. */
-export interface ChartSample {
+interface ChartSample {
   x: number;
   y: number;
   partial?: boolean;
@@ -46,7 +46,7 @@ export interface PlacedLabel {
 }
 
 /** How the chart is read without being seen: its spoken summary and its Show data table. */
-export interface CurveReading {
+interface CurveReading {
   /** The series' name, which heads the summary, the sheet and the value column. */
   title: string;
   /** The x column's header. */
@@ -76,6 +76,8 @@ export interface CurveChartProps<T extends ChartSample> {
    */
   others?: readonly FurtherSeries<T>[];
   yDomain: Domain;
+  /** The values the value axis marks, top first. Defaults to the top, the middle and the bottom of `yDomain`. */
+  yMarks?: readonly number[];
   /** Defaults to the extent of the data. */
   xDomain?: Domain;
   color: string;
@@ -150,6 +152,7 @@ export function CurveChart<T extends ChartSample>({
   data,
   others = NO_OTHERS,
   yDomain,
+  yMarks,
   xDomain,
   color,
   referenceLine,
@@ -236,12 +239,12 @@ export function CurveChart<T extends ChartSample>({
   const labelStyle = [chartStyles.chartLabel, isDark && chartStyles.chartLabelDark];
   const yTicks = useMemo(
     () =>
-      [yDomain[1], (yDomain[0] + yDomain[1]) / 2, yDomain[0]].map((value, i) => ({
+      (yMarks ?? [yDomain[1], (yDomain[0] + yDomain[1]) / 2, yDomain[0]]).map((value, i) => ({
         value,
         label: formatY(value),
         testID: i === 0 ? topAxisTestID : undefined,
       })),
-    [yDomain, formatY, topAxisTestID]
+    [yDomain, yMarks, formatY, topAxisTestID]
   );
   const gridValues = useMemo(() => yTicks.map((tick) => tick.value), [yTicks]);
   const showReference = referenceLine != null && domainContains(yDomain, referenceLine.value);

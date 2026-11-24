@@ -83,7 +83,7 @@ function gapBackgroundFor(mapStyle: MapStyleType, style: unknown): [number, numb
   return mapStyle === 'satellite' ? styleBackgroundRgb(style) : null;
 }
 
-export type FitInset = number | { top: number; right: number; bottom: number; left: number };
+type FitInset = number | { top: number; right: number; bottom: number; left: number };
 
 export interface SnapshotRequest {
   activityId: string;

@@ -206,7 +206,7 @@ export function nativeHeatmapTileUrl(base: MapBase): string {
  * micro-degrees, the zoom it was made at, and a route id or `_` for the
  * activities in no route.
  */
-export type NativeGeoKind = 'track' | 'route-lines' | 'under-point';
+type NativeGeoKind = 'track' | 'route-lines' | 'under-point';
 
 /**
  * Where the page asks for GeoJSON the engine writes from what it stores, such

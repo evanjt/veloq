@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { RangeCoverage } from 'veloqrs';
 
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate, addLocalDays } from '@/shared/time/localDay';
 
 import { useEngineRead } from './useEngineSubscription';
 
@@ -23,8 +23,7 @@ import { useEngineRead } from './useEngineSubscription';
  */
 export function useRangeCoverage(days: number, enabled = true): RangeCoverage {
   const today = new Date();
-  const start = new Date(today);
-  start.setDate(start.getDate() - days);
+  const start = addLocalDays(today, -days);
   return useWindowCoverage(formatLocalDate(start), formatLocalDate(today), enabled);
 }
 

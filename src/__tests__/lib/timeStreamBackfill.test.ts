@@ -8,7 +8,7 @@
 
 import type { TFunction } from 'i18next';
 import { backfillTimeStreams, timeStreamsProgress } from '@/features/routes/lib/timeStreamBackfill';
-import { engine, StartOutcome } from 'veloqrs';
+import { engine, FfiStartOutcome } from 'veloqrs';
 
 type MockListener = (payload?: unknown) => void;
 
@@ -43,7 +43,7 @@ describe('backfillTimeStreams', () => {
     jest.useFakeTimers();
     mockListeners.clear();
     needing.mockReturnValue([]);
-    syncTimeStreams.mockReturnValue({ outcome: StartOutcome.Started });
+    syncTimeStreams.mockReturnValue({ outcome: FfiStartOutcome.Started });
   });
 
   afterEach(() => {
@@ -109,10 +109,10 @@ describe('backfillTimeStreams', () => {
   });
 
   it.each([
-    ['backing off', StartOutcome.NotReady],
-    ['offline', StartOutcome.Offline],
-    ['not configured', StartOutcome.NotConfigured],
-    ['owing nothing', StartOutcome.NotOwed],
+    ['backing off', FfiStartOutcome.NotReady],
+    ['offline', FfiStartOutcome.Offline],
+    ['not configured', FfiStartOutcome.NotConfigured],
+    ['owing nothing', FfiStartOutcome.NotOwed],
   ])('moves on at once when the start is refused for %s', async (_reason, outcome) => {
     needing.mockReturnValue(['local-recording']);
     syncTimeStreams.mockReturnValue({ outcome });
@@ -125,7 +125,7 @@ describe('backfillTimeStreams', () => {
 
   it('still waits when the same batch is already in flight', async () => {
     needing.mockReturnValue(['a1']);
-    syncTimeStreams.mockReturnValue({ outcome: StartOutcome.Busy });
+    syncTimeStreams.mockReturnValue({ outcome: FfiStartOutcome.Busy });
 
     const backfill = backfillTimeStreams(jest.fn());
     await Promise.resolve();

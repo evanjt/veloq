@@ -156,6 +156,8 @@ mod tests {
 
     fn record(id: &str, date: i64, laps: Vec<SectionLap>) -> SectionPerformanceRecord {
         SectionPerformanceRecord {
+            avg_pace_text: None,
+            best_pace_text: None,
             activity_id: id.into(),
             activity_name: id.into(),
             activity_date: crate::WholeNumber(date),

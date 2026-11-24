@@ -11,7 +11,7 @@ import { renderHook } from '@testing-library/react-native';
 
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 import { formatPercent } from '@/shared/format';
-import { MaxHrSource } from 'veloqrs';
+import { FfiMaxHrSource } from 'veloqrs';
 
 import { activityRecord } from '../__shared__/activityRecord';
 
@@ -47,7 +47,7 @@ async function statsOf(
       activity: ride,
       isMetric: true,
       maxHR,
-      maxHrSource: MaxHrSource.SportSettings,
+      maxHrSource: FfiMaxHrSource.SportSettings,
       newGround,
     })
   );

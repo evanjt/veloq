@@ -36,6 +36,8 @@ const WELLNESS: EngineSummaryCardData['wellness'] = {
   fitness: 62,
   fitnessTrend: '↑',
   form: 18,
+  formZone: 'fresh',
+  formText: '+18',
   formTrend: '→',
   hrv: 71,
   hrvTrend: '↓',
@@ -121,7 +123,14 @@ describe('the feed card wellness numbers', () => {
 it('keeps missing wellness distinct from measured zero after activities arrive', async () => {
   const missing = {
     ...CARD,
-    wellness: withoutReadings('fitness', 'fitnessTrend', 'form', 'formTrend'),
+    wellness: withoutReadings(
+      'fitness',
+      'fitnessTrend',
+      'form',
+      'formZone',
+      'formText',
+      'formTrend'
+    ),
   };
   const { result, rerender } = await renderHook(
     ({ card }: { card: typeof CARD }) => useSummaryCardData(card, { awaitPrecomputed: true }),
@@ -132,7 +141,12 @@ it('keeps missing wellness distinct from measured zero after activities arrive',
   });
   expect(result.current.isLoading).toBe(false);
   expect(result.current.heroValue).toBe(ABSENT);
-  await rerender({ card: { ...CARD, wellness: { ...WELLNESS, fitness: 0, form: 0 } } });
+  await rerender({
+    card: {
+      ...CARD,
+      wellness: { ...WELLNESS, fitness: 0, form: 0, formZone: 'greyZone', formText: '0' },
+    },
+  });
   expect(metric(result.current.supportingMetrics, 'metrics.fitness')).toMatchObject({ value: 0 });
 });
 
@@ -147,7 +161,14 @@ it('withholds the form zone until a form reading arrives', async () => {
         useSummaryCardData({ ...CARD, wellness }, { awaitPrecomputed: true }),
       {
         initialProps: {
-          wellness: withoutReadings('fitness', 'form', 'fitnessTrend', 'formTrend'),
+          wellness: withoutReadings(
+            'fitness',
+            'form',
+            'formZone',
+            'formText',
+            'fitnessTrend',
+            'formTrend'
+          ),
         },
       }
     );
@@ -156,7 +177,9 @@ it('withholds the form zone until a form reading arrives', async () => {
     });
     expect(result.current.heroZone).toBeUndefined();
     expect(result.current.heroKeyColor).toBeUndefined();
-    await rerender({ wellness: { ...WELLNESS, fitness: 0, form: 0 } });
+    await rerender({
+      wellness: { ...WELLNESS, fitness: 0, form: 0, formZone: 'greyZone', formText: '0' },
+    });
     expect(metric(result.current.supportingMetrics, 'metrics.form')).toMatchObject({
       value: '0',
     });

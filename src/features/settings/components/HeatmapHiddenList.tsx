@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { formatShortDateWithYear } from '@/shared/format/format';
 import { Row } from '@/shared/ui/Row';
-import { heatmap, type HeatmapHiddenActivity } from 'veloqrs';
+import { heatmap, type FfiHeatmapHiddenActivity } from 'veloqrs';
 import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 import { themedStyles, typography, type Palette } from '@/theme';
 
@@ -23,7 +23,7 @@ export function HeatmapHiddenList() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const styles = themedStyles(makeStyles, isDark);
-  const [hidden, setHidden] = useState<HeatmapHiddenActivity[]>(() =>
+  const [hidden, setHidden] = useState<FfiHeatmapHiddenActivity[]>(() =>
     heatmap.heatmapHiddenActivities()
   );
 

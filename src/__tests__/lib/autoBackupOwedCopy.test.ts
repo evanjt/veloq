@@ -72,7 +72,6 @@ function carrier(id: string, isRemote: boolean, upload: BackupBackend['upload'])
     listBackups: async () => [],
     upload,
     download: async () => {},
-    delete: async () => {},
     putObject: async () => {},
     listObjects: async () => [],
     fetchObject: async () => {},

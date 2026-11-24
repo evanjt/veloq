@@ -8,11 +8,11 @@
  * so the arrow described a change the number never made.
  */
 
-export interface SummaryCardFtpInput {
+interface SummaryCardFtpInput {
   trend: { latestFtp?: number | null; previousFtp?: number | null };
 }
 
-export interface SummaryCardFtp {
+interface SummaryCardFtp {
   value: number | null;
   previous: number | null;
 }

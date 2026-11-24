@@ -23,6 +23,13 @@ const overrides = new Map<string, TerrainCamera>();
 let initPromise: Promise<void> | null = null;
 /** Moved by a wipe or a reload, so a load already in flight discards its read. */
 let generation = 0;
+/**
+ * Set once a read of the stored map has succeeded. Until then the stored map is
+ * unknown, and a write would replace all of it with the few held in memory.
+ */
+let loaded = false;
+/** A change made while the stored map was unknown, written once it is read. */
+let unsaved = false;
 
 /**
  * What a reader renders from: replaced on every change, so a subscriber can
@@ -65,9 +72,17 @@ export function initCameraOverrides(): Promise<void> {
   if (initPromise) return initPromise;
   const loading = generation;
   initPromise = (async () => {
+    let raw: string | null;
+    try {
+      raw = await getSetting(STORAGE_KEY);
+    } catch {
+      // Nothing was read, so nothing may be written over what is stored. The
+      // next call reads again, and writes wait until a read has succeeded.
+      if (loading === generation) initPromise = null;
+      return;
+    }
     let stored: [string, TerrainCamera][] = [];
     try {
-      const raw = await getSetting(STORAGE_KEY);
       if (raw) {
         const parsed: unknown = JSON.parse(raw);
         // A restored backup writes this verbatim, so an entry that is not a
@@ -79,7 +94,7 @@ export function initCameraOverrides(): Promise<void> {
         }
       }
     } catch {
-      // Best effort - start with empty overrides
+      // Unparseable: nothing usable is stored, and the next write replaces it.
     }
     // A wipe or a reload while the read was out owns the map now.
     if (loading !== generation) return;
@@ -96,6 +111,11 @@ export function initCameraOverrides(): Promise<void> {
       overrides.set(id, camera);
     }
     publish();
+    loaded = true;
+    if (unsaved) {
+      unsaved = false;
+      persistOverrides();
+    }
   })();
   return initPromise;
 }
@@ -115,16 +135,22 @@ export function getCameraOverride(activityId: string): TerrainCamera | undefined
 export async function setCameraOverride(activityId: string, camera: TerrainCamera): Promise<void> {
   await initCameraOverrides();
   // LRU eviction: delete oldest entry when at capacity
+  let evicted: string | undefined;
   if (overrides.size >= MAX_OVERRIDES && !overrides.has(activityId)) {
     const oldestKey = overrides.keys().next().value;
-    if (oldestKey) overrides.delete(oldestKey);
+    if (oldestKey) {
+      overrides.delete(oldestKey);
+      evicted = oldestKey;
+    }
   }
   // Re-insert to move to end of Map iteration order (most recent)
   overrides.delete(activityId);
   overrides.set(activityId, camera);
   publish();
 
-  // Delete stale cached snapshots so they regenerate with new angle
+  // Delete stale cached snapshots so they regenerate with new angle. An evicted
+  // activity's previews were drawn with the camera it no longer has, so they go too.
+  if (evicted !== undefined) await deleteTerrainPreviewsForActivity(evicted);
   await deleteTerrainPreviewsForActivity(activityId);
 
   // Persist to AsyncStorage (fire-and-forget)
@@ -151,6 +177,7 @@ export async function deleteCameraOverride(activityId: string): Promise<void> {
 export async function reloadCameraOverrides(): Promise<void> {
   generation += 1;
   initPromise = null;
+  loaded = false;
   overrides.clear();
   await initCameraOverrides();
 }
@@ -162,15 +189,22 @@ export async function reloadCameraOverrides(): Promise<void> {
  */
 export async function forgetCameraOverrides(): Promise<void> {
   generation += 1;
-  // Nothing is stored once this returns, so there is nothing left to load.
+  // Nothing is stored once this returns, so there is nothing left to load, and
+  // a write may go ahead.
   initPromise = Promise.resolve();
+  loaded = true;
+  unsaved = false;
   overrides.clear();
   publish();
   await removeSetting(STORAGE_KEY).catch(() => {});
 }
 
-/** Persist current overrides map to AsyncStorage */
+/** Persist current overrides map to AsyncStorage, once the stored map has been read. */
 function persistOverrides(): void {
+  if (!loaded) {
+    unsaved = true;
+    return;
+  }
   const obj: Record<string, TerrainCamera> = {};
   for (const [id, camera] of overrides) {
     obj[id] = camera;

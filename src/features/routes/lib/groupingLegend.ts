@@ -2,9 +2,9 @@ import type { MapPalette } from '@/theme';
 import type { MapLayerSpec } from '@/features/maps';
 import { previewAreaLayerSpec } from './previewAreaOutline';
 
-export type GroupingLayerKind = 'largest' | 'merging' | 'other' | 'dropped';
+type GroupingLayerKind = 'largest' | 'merging' | 'other' | 'dropped';
 
-export type GroupingLayerPaint = Record<
+type GroupingLayerPaint = Record<
   GroupingLayerKind,
   { colour: string; opacity: number; width: number }
 >;
@@ -26,7 +26,7 @@ type LegendLabelKey =
   | 'settings.groupingLegendDropped'
   | 'settings.previewAreaLayer';
 
-export interface GroupingLegendRow {
+interface GroupingLegendRow {
   kind: GroupingLayerKind | 'area';
   colour: string;
   opacity: number;

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { getSetting, setSetting } from '@/shared/storage';
-import { formatLocalDate } from '@/shared/format/format';
+import { getSetting, removeSetting, setSetting } from '@/shared/storage';
+import { formatLocalDate } from '@/shared/time/localDay';
 import type { LaunchAsk, LaunchModal } from '../lib/launchSurfaces';
 import type { FoundBackup } from '../lib/restorePrompt';
 import {
@@ -28,7 +28,7 @@ const TOUR_OFFER_KEY = 'veloq-tour-offer';
 const SECTIONS_CHANGED_KEY = 'veloq-sections-changed-dismissed';
 
 /** Which of its two messages the sections-changed card is showing. */
-export type SectionsChangedState = 'owed' | 'final';
+type SectionsChangedState = 'owed' | 'final';
 
 const SECTIONS_CHANGED_STATES: readonly SectionsChangedState[] = ['owed', 'final'];
 
@@ -296,6 +296,15 @@ export const useWhatsNewStore = create<WhatsNewState>((set, get) => ({
     persistTourOffer(next);
   },
 }));
+
+/**
+ * Forget the sections-changed dismissal, in the store and in storage, so the
+ * card returns for the library the next athlete has. The account wipe calls it.
+ */
+export async function forgetSectionsChangedDismissal(): Promise<void> {
+  useWhatsNewStore.setState({ sectionsChangedDismissed: [] });
+  await removeSetting(SECTIONS_CHANGED_KEY).catch(() => {});
+}
 
 export async function initialiseWhatsNewStore(): Promise<void> {
   await useWhatsNewStore.getState().initialise();

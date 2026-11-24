@@ -19,7 +19,7 @@ import React from 'react';
 
 import { BODY_WAIT_MS, useEngineBody } from '@/shared/native/engineBodies';
 import { getEngine } from '@/shared/native/engine';
-import { StartOutcome } from 'veloqrs';
+import { FfiStartOutcome } from 'veloqrs';
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
@@ -455,7 +455,7 @@ describe('the reconnect edge', () => {
 
 describe('a request the engine answers with a verdict', () => {
   it('ends the wait at once on a missing credential, which signing in fixes', async () => {
-    const request = jest.fn(() => StartOutcome.NotConfigured);
+    const request = jest.fn(() => FfiStartOutcome.NotConfigured);
     const { result } = await renderHook(() => useEngineBody(false, request, KEY), { wrapper });
 
     expect(result.current.status).toBe('notConfigured');
@@ -467,7 +467,7 @@ describe('a request the engine answers with a verdict', () => {
 
   it('ends the wait at once on a start that threw', async () => {
     const { result } = await renderHook(
-      () => useEngineBody(false, () => StartOutcome.Failed, KEY),
+      () => useEngineBody(false, () => FfiStartOutcome.Failed, KEY),
       {
         wrapper,
       }
@@ -475,7 +475,7 @@ describe('a request the engine answers with a verdict', () => {
     expect(result.current.status).toBe('refused');
   });
 
-  it.each([StartOutcome.Busy, StartOutcome.Held, StartOutcome.NotReady])(
+  it.each([FfiStartOutcome.Busy, FfiStartOutcome.Held, FfiStartOutcome.NotReady])(
     'keeps waiting to the deadline on %s',
     async (outcome) => {
       const { result } = await renderHook(() => useEngineBody(false, () => outcome, KEY), {
@@ -499,9 +499,9 @@ describe('a request the engine answers with a verdict', () => {
 
   it('leaves the refusal when retry asks again and is accepted', async () => {
     const request = jest
-      .fn<StartOutcome, []>()
-      .mockReturnValueOnce(StartOutcome.NotConfigured)
-      .mockReturnValue(StartOutcome.Started);
+      .fn<FfiStartOutcome, []>()
+      .mockReturnValueOnce(FfiStartOutcome.NotConfigured)
+      .mockReturnValue(FfiStartOutcome.Started);
     const { result } = await renderHook(() => useEngineBody(false, request, KEY), { wrapper });
     expect(result.current.status).toBe('notConfigured');
 
@@ -521,7 +521,7 @@ describe('a request the engine answers with a verdict', () => {
  */
 describe('a request the engine answers offline', () => {
   it('reads offline at once and never times out', async () => {
-    const request = jest.fn(() => StartOutcome.Offline);
+    const request = jest.fn(() => FfiStartOutcome.Offline);
     const { result } = await renderHook(() => useEngineBody(false, request, KEY), { wrapper });
 
     expect(result.current.status).toBe('offline');
@@ -534,7 +534,7 @@ describe('a request the engine answers offline', () => {
 
   it('reads the verdict inside a start result too', async () => {
     const { result } = await renderHook(
-      () => useEngineBody(false, () => ({ outcome: StartOutcome.Offline }), KEY),
+      () => useEngineBody(false, () => ({ outcome: FfiStartOutcome.Offline }), KEY),
       { wrapper }
     );
     expect(result.current.status).toBe('offline');
@@ -542,9 +542,9 @@ describe('a request the engine answers offline', () => {
 
   it('asks again on the reconnect edge and waits for the landing', async () => {
     const request = jest
-      .fn<StartOutcome, []>()
-      .mockReturnValueOnce(StartOutcome.Offline)
-      .mockReturnValue(StartOutcome.Started);
+      .fn<FfiStartOutcome, []>()
+      .mockReturnValueOnce(FfiStartOutcome.Offline)
+      .mockReturnValue(FfiStartOutcome.Started);
     mockIsOnline = false;
     const { result, rerender } = await renderHook(() => useEngineBody(false, request, KEY), {
       wrapper,

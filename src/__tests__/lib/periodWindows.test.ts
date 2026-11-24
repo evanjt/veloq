@@ -1,34 +1,4 @@
-import { seasonWindows, seasonChange } from '@/features/stats/lib/periodWindows';
-
-const ymd = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-describe('seasonWindows', () => {
-  it('reads last year from 1 January to the same elapsed span', () => {
-    const w = seasonWindows(new Date(2026, 8, 24));
-    expect([ymd(w.yearCurrent.start), ymd(w.yearCurrent.end)]).toEqual([
-      '2026-01-01',
-      '2026-09-24',
-    ]);
-    expect([ymd(w.yearPrevious.start), ymd(w.yearPrevious.end)]).toEqual([
-      '2025-01-01',
-      '2025-09-24',
-    ]);
-    expect([ymd(w.monthCurrent.start), ymd(w.monthCurrent.end)]).toEqual([
-      '2026-09-01',
-      '2026-09-24',
-    ]);
-    expect([ymd(w.monthPrevious.start), ymd(w.monthPrevious.end)]).toEqual([
-      '2025-09-01',
-      '2025-09-24',
-    ]);
-  });
-
-  it('caps the previous month at its length on 29 February', () => {
-    const w = seasonWindows(new Date(2024, 1, 29));
-    expect(ymd(w.monthPrevious.end)).toBe('2023-02-28');
-  });
-});
+import { seasonChange } from '@/features/stats/lib/periodWindows';
 
 describe('seasonChange', () => {
   vaultIt.each([0, 0.3, -0.3, 0.49, -0.49])(

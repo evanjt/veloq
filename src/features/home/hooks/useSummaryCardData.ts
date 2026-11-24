@@ -3,24 +3,18 @@ import { summaryCardFtp } from '@/features/home/lib/summaryCardFtp';
 import { useTranslation } from 'react-i18next';
 import { useStableBy } from '@/shared/app/useStableBy';
 import { useWellnessGeneration } from '@/features/wellness';
-import { formatForm, getFormZone } from '@/features/fitness';
+import type { FormZone } from '@/features/fitness';
 import { summaryFormZoneColor, summarySeriesColor } from '@/features/home/lib/summaryMetricColour';
 import { useDashboardPreferences, type MetricId } from '@/features/settings';
 import { summaryCardTarget } from '@/features/home/lib/summaryCardTargets';
-import {
-  formatPaceCompact,
-  formatSwimPace,
-  paceUnitLabel,
-  swimPaceUnitLabel,
-  formatDurationHuman,
-} from '@/shared/format/format';
-import { spokenDuration, spokenPace, spokenSwimPace } from '@/shared/format/spoken';
+import { paceUnitLabel, swimPaceUnitLabel, formatDurationHuman } from '@/shared/format/format';
+import { spokenDuration, spokenPace, spokenSwimPace, type PaceParts } from '@/shared/format/spoken';
 import { formatWeightCompact } from '@/shared/format/weight';
+import { localizeFormText } from '@/shared/format/number';
 import { ABSENT } from '@/shared/format/absent';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
-import type { FfiSummaryCardData, WellnessSparklines } from 'veloqrs';
+import type { FfiPaceTrend, FfiSummaryCardData, WellnessSparklines } from 'veloqrs';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
-import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 import type { TrendGlyph } from '@/shared/format/trend';
@@ -69,6 +63,9 @@ export interface SummaryCardData {
   fitnessRiseDays?: number[] | undefined;
   fatigueData?: number[] | undefined;
   formData?: number[] | undefined;
+  /** Beside `formData`: the engine's zone and printed text for each day's form. */
+  formZoneData?: (FormZone | null)[] | undefined;
+  formTextData?: (string | null)[] | undefined;
   hrvData?: number[] | undefined;
   rhrData?: number[] | undefined;
   /** Beside `hrvData` and `rhrData`: whether each day had a reading of its own. */
@@ -109,6 +106,53 @@ function measuredSpeed(speed: number | null | undefined): number | null {
   return speed != null && speed > 0 ? speed : null;
 }
 
+/** The engine's text and spoken parts for a critical speed in each unit system. */
+interface PaceText {
+  metric?: string | undefined;
+  imperial?: string | undefined;
+}
+
+function paceText(trend: FfiPaceTrend | undefined): PaceText {
+  return { metric: trend?.latestPaceMetricText, imperial: trend?.latestPaceImperialText };
+}
+
+/** A pace in each unit system as the engine split it for a sentence. */
+interface PaceSpoken {
+  metric?: PaceParts | undefined;
+  imperial?: PaceParts | undefined;
+}
+
+function latestPaceSpoken(trend: FfiPaceTrend | undefined): PaceSpoken {
+  return { metric: trend?.latestPaceMetricParts, imperial: trend?.latestPaceImperialParts };
+}
+
+/** What a pace baseline was read as and the day it was read, with its parts per unit system. */
+interface PaceBaseline {
+  parts: PaceSpoken;
+  date: number;
+}
+
+function previousPaceBaseline(trend: FfiPaceTrend | undefined): PaceBaseline | undefined {
+  if (!trend || measuredSpeed(trend.previousPace) === null || trend.previousDate == null) {
+    return undefined;
+  }
+  return {
+    parts: { metric: trend.previousPaceMetricParts, imperial: trend.previousPaceImperialParts },
+    date: Number(trend.previousDate),
+  };
+}
+
+/** A pace baseline in the form the label names it, spoken in the athlete's units. */
+function paceOnDay(
+  baseline: PaceBaseline | undefined,
+  speak: (parts: PaceParts | undefined) => string,
+  isMetric: boolean
+): SummaryTrendBaseline | undefined {
+  if (!baseline) return undefined;
+  const parts = isMetric ? baseline.parts.metric : baseline.parts.imperial;
+  return { kind: 'day', previous: speak(parts), date: baseline.date };
+}
+
 /** An earlier reading and the day it was read, as the engine dated it. */
 interface DayReading {
   value: number;
@@ -127,14 +171,14 @@ function dayReading(
 interface Baselines {
   fitness?: DayReading | undefined;
   form?: DayReading | undefined;
-  /** The fitness beside the earlier form, which a percentage form is read against. */
-  fitnessForForm?: number | undefined;
+  /** The earlier form as the engine prints it, against the fitness of its own day. */
+  formText?: string | undefined;
   hrv?: DayReading | undefined;
   rhr?: DayReading | undefined;
   weight?: DayReading | undefined;
   ftp?: DayReading | undefined;
-  thresholdPace?: DayReading | undefined;
-  css?: DayReading | undefined;
+  thresholdPace?: PaceBaseline | undefined;
+  css?: PaceBaseline | undefined;
   weekHours?: number | undefined;
   weekCount?: number | undefined;
 }
@@ -209,6 +253,8 @@ export function useSummaryCardData(
       fitness: undefined as number | undefined,
       fitnessTrend: undefined as TrendGlyph | undefined,
       form: undefined as number | undefined,
+      formZone: undefined as FormZone | undefined,
+      formText: undefined as string | undefined,
       formTrend: undefined as TrendGlyph | undefined,
       hrv: null as number | null,
       hrvTrend: undefined as TrendGlyph | undefined,
@@ -224,8 +270,12 @@ export function useSummaryCardData(
       ftp: null as number | null,
       ftpTrend: undefined as TrendGlyph | undefined,
       thresholdPace: null as number | null,
+      thresholdPaceText: {} as PaceText,
+      thresholdPaceSpoken: {} as PaceSpoken,
       thresholdPaceTrend: undefined as TrendGlyph | undefined,
       css: null as number | null,
+      cssText: {} as PaceText,
+      cssSpoken: {} as PaceSpoken,
       cssTrend: undefined as TrendGlyph | undefined,
       baselines: {} as Baselines,
     };
@@ -269,22 +319,21 @@ export function useSummaryCardData(
       baselines: {
         fitness: dayReading(w.fitnessPrevious, w.fitnessPreviousDate),
         form: dayReading(w.formPrevious, w.formPreviousDate),
-        fitnessForForm: w.fitnessPrevious,
+        formText: localizeFormText(w.formPreviousText) ?? undefined,
         hrv: dayReading(w.hrvPrevious, w.hrvPreviousDate),
         rhr: dayReading(w.rhrPrevious, w.rhrPreviousDate),
         weight: dayReading(w.weightPrevious, w.weightPreviousDate),
         ftp: dayReading(prevFtp, ftpTrend?.previousDate),
-        thresholdPace: dayReading(
-          measuredSpeed(runPaceTrend?.previousPace),
-          runPaceTrend?.previousDate
-        ),
-        css: dayReading(measuredSpeed(swimPaceTrend?.previousPace), swimPaceTrend?.previousDate),
+        thresholdPace: previousPaceBaseline(runPaceTrend),
+        css: previousPaceBaseline(swimPaceTrend),
         weekHours: prevWeekHours,
         weekCount: cardData.prevWeek.count as number,
       },
       fitness: w.fitness,
       fitnessTrend: w.fitnessTrend as TrendGlyph | undefined,
       form: w.form,
+      formZone: w.formZone as FormZone | undefined,
+      formText: localizeFormText(w.formText) ?? undefined,
       formTrend: w.formTrend as TrendGlyph | undefined,
       hrv: w.hrv ?? null,
       hrvTrend: w.hrvTrend as TrendGlyph | undefined,
@@ -304,8 +353,12 @@ export function useSummaryCardData(
       // The arrow is the engine's, judged on pace in the sport's own unit:
       // judged here on m/s, a faster athlete drew a decline.
       thresholdPace: measuredSpeed(runPaceTrend?.latestPace),
+      thresholdPaceText: paceText(runPaceTrend),
+      thresholdPaceSpoken: latestPaceSpoken(runPaceTrend),
       thresholdPaceTrend: runPaceTrend?.glyph as TrendGlyph | undefined,
       css: measuredSpeed(swimPaceTrend?.latestPace),
+      cssText: paceText(swimPaceTrend),
+      cssSpoken: latestPaceSpoken(swimPaceTrend),
       cssTrend: swimPaceTrend?.glyph as TrendGlyph | undefined,
     };
   }, [precomputedCardData, awaitPrecomputed, readCardData]);
@@ -313,11 +366,7 @@ export function useSummaryCardData(
   // Merged quick stats - recomputes only when either source changes
   const quickStats = engineStats;
 
-  const asPercent = useFormPreference((state) => state.formAsPercent) === true;
-  const formZone =
-    quickStats.form == null
-      ? undefined
-      : getFormZone(quickStats.form, quickStats.fitness, asPercent);
+  const formZone = quickStats.formZone;
   // The form hero's key dot takes its zone's mark, and none before a form reading.
   const isDark = useResolvedColorScheme() === 'dark';
   const formKeyColor = formZone ? summaryFormZoneColor(formZone, isDark) : undefined;
@@ -344,7 +393,7 @@ export function useSummaryCardData(
         case 'form':
           return {
             name: t('metrics.form'),
-            baseline: onDay(b.form, (v) => formatForm(v, b.fitnessForForm, asPercent)),
+            baseline: onDay(b.form, () => b.formText ?? null),
           };
         case 'hrv':
           return { name: t('spoken.hrv'), baseline: onDay(b.hrv) };
@@ -363,14 +412,25 @@ export function useSummaryCardData(
             value:
               quickStats.thresholdPace == null
                 ? undefined
-                : spokenPace(quickStats.thresholdPace, isMetric),
-            baseline: onDay(b.thresholdPace, (v) => spokenPace(v, isMetric)),
+                : spokenPace(
+                    isMetric
+                      ? quickStats.thresholdPaceSpoken.metric
+                      : quickStats.thresholdPaceSpoken.imperial,
+                    isMetric
+                  ),
+            baseline: paceOnDay(b.thresholdPace, (p) => spokenPace(p, isMetric), isMetric),
           };
         case 'css':
           return {
             name: t('metrics.css'),
-            value: quickStats.css == null ? undefined : spokenSwimPace(quickStats.css, isMetric),
-            baseline: onDay(b.css, (v) => spokenSwimPace(v, isMetric)),
+            value:
+              quickStats.css == null
+                ? undefined
+                : spokenSwimPace(
+                    isMetric ? quickStats.cssSpoken.metric : quickStats.cssSpoken.imperial,
+                    isMetric
+                  ),
+            baseline: paceOnDay(b.css, (p) => spokenSwimPace(p, isMetric), isMetric),
           };
         case 'weekHours':
           return {
@@ -389,9 +449,10 @@ export function useSummaryCardData(
     [
       quickStats.baselines,
       quickStats.thresholdPace,
+      quickStats.thresholdPaceSpoken,
       quickStats.css,
+      quickStats.cssSpoken,
       quickStats.weekSeconds,
-      asPercent,
       isMetric,
       t,
     ]
@@ -427,10 +488,7 @@ export function useSummaryCardData(
           }
         : summaryCard.heroMetric === 'form'
           ? {
-              value:
-                (quickStats.form == null
-                  ? null
-                  : formatForm(quickStats.form, quickStats.fitness, asPercent)) ?? PLACEHOLDER,
+              value: quickStats.formText ?? PLACEHOLDER,
               label: t('metrics.form'),
               keyColor: formKeyColor,
               trend: quickStats.formTrend,
@@ -446,7 +504,7 @@ export function useSummaryCardData(
         ? summaryCard.heroMetric
         : 'fitness';
     return { ...hero, accessibilityLabel: describe(heroId, hero.value, hero.trend) };
-  }, [summaryCard.heroMetric, quickStats, t, asPercent, formKeyColor, describe, isDark]);
+  }, [summaryCard.heroMetric, quickStats, t, formKeyColor, describe, isDark]);
 
   // Sparklines pulled from Rust (wellness persisted in SQLite via
   // `upsertWellness` in useWellness). Rust does the 30-day slice, CTL/ATL
@@ -477,6 +535,12 @@ export function useSummaryCardData(
   const fitnessRiseDays = sparklines?.fitnessRiseDays;
   const fatigueData = sparklines?.fatigue;
   const formData = sparklines?.form;
+  // The engine's zone and printed text for each day, beside `formData`.
+  const formZoneData = useMemo(
+    () => sparklines?.formZone.map((zone) => (zone as FormZone | undefined) ?? null),
+    [sparklines]
+  );
+  const formTextData = useMemo(() => sparklines?.formText.map(localizeFormText), [sparklines]);
   const hrvData = sparklines?.hrv && sparklines.hrv.length > 0 ? sparklines.hrv : undefined;
   const rhrData = sparklines?.rhr && sparklines.rhr.length > 0 ? sparklines.rhr : undefined;
   // Which days of each series had a reading of their own, so a scrub onto a
@@ -520,10 +584,7 @@ export function useSummaryCardData(
         case 'form':
           return {
             label: t('metrics.form'),
-            value:
-              (quickStats.form == null
-                ? null
-                : formatForm(quickStats.form, quickStats.fitness, asPercent)) ?? PLACEHOLDER,
+            value: quickStats.formText ?? PLACEHOLDER,
             trend: quickStats.formTrend,
           };
         case 'hrv':
@@ -551,16 +612,23 @@ export function useSummaryCardData(
           return {
             label: t('metrics.pace'),
             value:
-              quickStats.thresholdPace == null
-                ? PLACEHOLDER
-                : formatPaceCompact(quickStats.thresholdPace, isMetric),
+              (quickStats.thresholdPace == null
+                ? null
+                : isMetric
+                  ? quickStats.thresholdPaceText.metric
+                  : quickStats.thresholdPaceText.imperial) ?? PLACEHOLDER,
             unit: quickStats.thresholdPace == null ? undefined : paceUnitLabel(isMetric),
             trend: quickStats.thresholdPaceTrend,
           };
         case 'css':
           return {
             label: t('metrics.css'),
-            value: quickStats.css == null ? PLACEHOLDER : formatSwimPace(quickStats.css, isMetric),
+            value:
+              (quickStats.css == null
+                ? null
+                : isMetric
+                  ? quickStats.cssText.metric
+                  : quickStats.cssText.imperial) ?? PLACEHOLDER,
             unit: quickStats.css == null ? undefined : swimPaceUnitLabel(isMetric),
             trend: quickStats.cssTrend,
           };
@@ -589,16 +657,7 @@ export function useSummaryCardData(
         }
       }
     }
-  }, [
-    summaryCard.supportingMetrics,
-    quickStats,
-    formattedWeight,
-    isMetric,
-    asPercent,
-    t,
-    describe,
-    spokenOf,
-  ]);
+  }, [summaryCard.supportingMetrics, quickStats, formattedWeight, isMetric, t, describe, spokenOf]);
 
   // Stabilize references to prevent downstream re-renders when values are unchanged
   const stableHeroData = useStableValue(
@@ -643,6 +702,8 @@ export function useSummaryCardData(
       fitnessRiseDays: stableRiseDays,
       fatigueData: stableFatigueData,
       formData: stableFormData,
+      formZoneData,
+      formTextData,
       hrvData: stableHrvData,
       rhrData: stableRhrData,
       hrvRead: stableHrvRead,
@@ -662,6 +723,8 @@ export function useSummaryCardData(
       stableRiseDays,
       stableFatigueData,
       stableFormData,
+      formZoneData,
+      formTextData,
       stableHrvData,
       stableRhrData,
       stableHrvRead,

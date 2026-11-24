@@ -1,11 +1,4 @@
 /**
- * The history slider reaches the athlete's first-ever activity, so a single
- * drag can start an arbitrarily large download. Past this many activities the
- * panel asks first.
- */
-export const LARGE_HISTORY_THRESHOLD = 500;
-
-/**
  * What the large-download confirm says. A range holding more activities than
  * one day's backfill share cannot finish in a day, so the confirm names the
  * days it takes at least; a range inside the share, or an engine that reports
@@ -15,7 +8,7 @@ export const LARGE_HISTORY_THRESHOLD = 500;
  * rounding `governor::days_to_draw` applies to the queue, taken here only
  * because the range's count is not in the queue yet.
  */
-export type HistoryConfirmCopy =
+type HistoryConfirmCopy =
   { kind: 'days'; count: number; days: number } | { kind: 'size'; count: number };
 
 export function historyConfirmCopy(

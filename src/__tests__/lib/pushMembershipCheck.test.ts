@@ -81,7 +81,6 @@ describe('the push task asking whether an activity is already held', () => {
       apiKey: null,
       accessToken: null,
       athleteId: null,
-      athlete: null,
       isLoading: true,
       isAuthenticated: false,
       isDemoMode: false,

@@ -1,23 +1,24 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { getEngine } from '@/shared/native/engine';
 import { attemptEngineRead } from '@/shared/native/engineError';
+import { BODY_STORED_CHANNEL, payloadKind } from '@/shared/native/engineChannels';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
-import { decodeCoords, PoolSwimState } from 'veloqrs';
+import { decodeCoords, FfiPoolSwimState } from 'veloqrs';
 import { requestFitFile } from '@/features/strength/light';
 import type {
   ActivityHighlightsBundle,
   ActivityLedgerChange,
   ActivityFitnessImpact,
   ActivitySummary,
-  ExerciseGroup,
+  FfiExerciseGroup,
   RouteGroup,
   HrZoneBand,
   PowerZoneBand,
-  MaxHrSource,
-  PoolSwim,
-  ActivitySyncFailure,
-  ActivityHeldBack,
-  ActivityProvenance,
+  FfiMaxHrSource,
+  FfiPoolSwim,
+  FfiActivitySyncFailure,
+  FfiActivityHeldBack,
+  FfiActivityProvenance,
   Section as NativeSection,
   SectionEncounter,
   SectionWithPolyline,
@@ -32,7 +33,7 @@ import type { LatLng } from '@/shared/geo/polyline';
  * these fields as pre-computed input instead of querying again.
  */
 export interface ActivityDetailBundle {
-  exerciseGroups: ExerciseGroup[];
+  exerciseGroups: FfiExerciseGroup[];
   /** Activities held by the engine, for the cached-days calculation */
   activityCount: number;
   /** Whether the engine holds this activity's track, which the map then draws by URL */
@@ -59,7 +60,7 @@ export interface ActivityDetailBundle {
   /** The max HR the stat card and the zones chart divide by, resolved by the engine */
   maxHR: number;
   /** Where `maxHR` came from, so the engine's default is never shown as the athlete's own */
-  maxHrSource: MaxHrSource;
+  maxHrSource: FfiMaxHrSource;
   /** The zone bands and the time in each, from the engine; empty with no heart rate time */
   hrZones: HrZoneBand[];
   /** The power zone bands in watts and the time in each, from the engine; empty with no power zone time */
@@ -73,19 +74,19 @@ export interface ActivityDetailBundle {
   /** The intervals.icu id a web link may name; null when intervals.icu holds no page for it */
   intervalsId: string | null;
   /** A pool swim's lengths, rests, SWOLF and per-stroke totals; null for every sport but a pool swim */
-  poolSwim: PoolSwim | null;
+  poolSwim: FfiPoolSwim | null;
   /** The fault the last sync met readying this activity; null when its last readying was clean */
-  syncFailure: ActivitySyncFailure | null;
+  syncFailure: FfiActivitySyncFailure | null;
   /** Set when intervals.icu holds this activity but does not serve it to apps; null for a served one */
-  heldBack: ActivityHeldBack | null;
+  heldBack: FfiActivityHeldBack | null;
   /** Where the ride's data was filled from; null only before the read answers */
-  provenance: ActivityProvenance | null;
+  provenance: FfiActivityProvenance | null;
   /** Whether the athlete hid this activity from the heatmap; it stays everywhere else */
   heatmapHidden: boolean;
 }
 
 /** Route groups on the detail screen need at least this many attempts. */
-export const MIN_ROUTE_ACTIVITIES = 1;
+const MIN_ROUTE_ACTIVITIES = 1;
 
 function buildTraces(
   traces: readonly { sectionId: string; encodedCoords: ArrayBuffer }[]
@@ -193,7 +194,7 @@ export function prefetchActivityDetailData(activityId: string): void {
   if (!engine) return;
   const unsubscribes = PREFETCH_EVENTS.map((event) => engine.subscribe(event, dropPrefetch));
   unsubscribes.push(
-    engine.subscribe('bodyStored', (payload) => {
+    engine.subscribe(BODY_STORED_CHANNEL, (payload) => {
       if (isDetailBodyFor(payload, activityId)) dropPrefetch();
     }),
     engine.subscribe('timeStreamsStored', (payload) => {
@@ -214,11 +215,9 @@ export function prefetchActivityDetailData(activityId: string): void {
  * announce on `bodyStored` rather than `activities`.
  */
 function isDetailBodyFor(payload: unknown, activityId: string): boolean {
-  if (!payload || typeof payload !== 'object') return false;
-  const body = payload as { kind?: unknown; activityId?: unknown };
-  return (
-    (body.kind === 'activity_detail' || body.kind === 'streams') && body.activityId === activityId
-  );
+  const kind = payloadKind(payload);
+  if (kind !== 'activity_detail' && kind !== 'streams') return false;
+  return (payload as { activityId?: unknown }).activityId === activityId;
 }
 
 /** Whether a `timeStreamsStored` announcement names this activity. */
@@ -302,7 +301,7 @@ export function useActivityDetailData(
   useEffect(() => {
     const engine = enabled && activityId ? getEngine() : null;
     if (!engine || !activityId) return undefined;
-    const offBody = engine.subscribe('bodyStored', (payload) => {
+    const offBody = engine.subscribe(BODY_STORED_CHANNEL, (payload) => {
       if (isDetailBodyFor(payload, activityId)) refresh();
     });
     const offTime = engine.subscribe('timeStreamsStored', (payload) => {
@@ -323,7 +322,7 @@ export function useActivityDetailData(
   // A pool swim opened before the background download reached it asks for its
   // file once; the parse announces `fitParsed`, which re-reads above.
   const askedFitFor = useRef<string | null>(null);
-  const fitOwed = data?.poolSwim?.state === PoolSwimState.Owed;
+  const fitOwed = data?.poolSwim?.state === FfiPoolSwimState.Owed;
   useEffect(() => {
     if (!fitOwed || !activityId || askedFitFor.current === activityId) return;
     askedFitFor.current = activityId;

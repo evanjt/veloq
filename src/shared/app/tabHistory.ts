@@ -19,7 +19,7 @@ type TabState = TabNavigationState<ParamListBase>;
 type TabHistory = NonNullable<TabState['history']>;
 
 /** The history a link into another tab leaves: what was there, then the tab it opened. */
-export function historyAfterLink(
+function historyAfterLink(
   before: TabHistory | undefined,
   openedKey: string
 ): TabHistory | undefined {

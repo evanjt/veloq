@@ -5,14 +5,14 @@
  */
 export type RoutesPageKind = 'both' | 'groups' | 'sections';
 
-export interface RoutesPaging {
+interface RoutesPaging {
   groupOffset: number;
   sectionOffset: number;
   groupLimit: number;
   sectionLimit: number;
 }
 
-export interface RoutesHasMore {
+interface RoutesHasMore {
   hasMoreGroups: boolean;
   hasMoreSections: boolean;
 }

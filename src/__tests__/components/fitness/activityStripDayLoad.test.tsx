@@ -14,7 +14,7 @@ import { controlHeight } from '@/theme';
 
 import { ActivityDotsChart } from '@/features/fitness/components/ActivityDotsChart';
 import type { FeedCard, WellnessData } from '@/types';
-import { dayActivityRow } from '@/features/activity/light';
+import { dayActivityRow } from '../../__shared__/dayActivityRow';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 
@@ -115,6 +115,18 @@ describe('the activity strip', () => {
     expect(tree.getByTestId('fitness-strip-key-Ride')).toBeTruthy();
     expect(tree.queryByTestId('fitness-strip-key-VirtualRide')).toBeNull();
     expect(tree.queryByTestId('fitness-strip-key-GravelRide')).toBeNull();
+  });
+
+  it('keys a window with an unloaded day in the neutral outline the strip draws for it', async () => {
+    const tree = await render(
+      strip(null, [
+        withLoad(activity('r1', '2026-03-10'), 'Ride', 50),
+        withLoad(activity('w1', '2026-03-11'), 'Walk', 0),
+      ])
+    );
+
+    expect(tree.getByTestId('fitness-strip-key-noLoad')).toBeTruthy();
+    expect(tree.getByLabelText('fitness.loadUnavailable')).toBeTruthy();
   });
 
   vaultIt('omits sports and the no-load entry that the window does not show', async () => {

@@ -34,7 +34,7 @@ const HANDLE_HIT_SLOP = { top: 15, bottom: 15, left: 15, right: 15 };
 const TRACK_HEIGHT = 4;
 const STEP_ACTIONS = [{ name: 'increment' }, { name: 'decrement' }];
 /** The span is cut into this many steps. */
-export const RANGE_BAR_STEPS = 1000;
+const RANGE_BAR_STEPS = 1000;
 /** A screen reader or keyboard step moves a bound by this many steps. */
 const ACTION_STEP = 20;
 

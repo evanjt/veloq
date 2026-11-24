@@ -11,10 +11,11 @@
 import { decodeCoords, type Section as NativeSection, type SectionWithPolyline } from 'veloqrs';
 import { convertActivityPortions } from '@/shared/ffi/ffiConversions';
 import type { FrequentSection, RoutePoint, SectionType } from '@/types';
+import { shortCoordsFromNative } from '@/shared/ffi/shortPoints';
 
 /** The engine sends coordinates encoded; every screen draws them decoded. */
 function decodePolyline(encoded: ArrayBuffer): RoutePoint[] {
-  return decodeCoords(encoded).map((p) => ({ lat: p.latitude, lng: p.longitude }));
+  return shortCoordsFromNative(decodeCoords(encoded));
 }
 
 /** "custom" or "auto", never the raw string the engine sent. */

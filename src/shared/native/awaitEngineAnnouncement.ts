@@ -12,7 +12,7 @@
  * the idea.
  */
 
-export interface AwaitAnnouncementOptions<T> {
+interface AwaitAnnouncementOptions<T> {
   /** The engine channel to listen on. */
   channel: string;
   /** Give up after this long. */

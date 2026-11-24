@@ -5,7 +5,7 @@
  * These eliminate duplicate conversion logic scattered across hooks.
  */
 
-import { FfiOffScale } from 'veloqrs';
+import { FfiOffScale, type FfiPaceText } from 'veloqrs';
 import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 import type { DirectionStats } from '@/types';
 
@@ -39,6 +39,7 @@ export function toDirectionStats(
         lastActivity?: number | null;
         count: number;
         avgSpeed?: number | null;
+        avgPaceText?: FfiPaceText | null;
         outsideBandCount?: number;
       }
     | null
@@ -50,6 +51,7 @@ export function toDirectionStats(
     lastActivity: fromWallClockSeconds(ffi.lastActivity),
     count: ffi.count,
     avgSpeed: ffi.avgSpeed ?? null,
+    avgPaceText: ffi.avgPaceText ?? null,
     outsideBandCount: ffi.outsideBandCount ?? 0,
   };
 }

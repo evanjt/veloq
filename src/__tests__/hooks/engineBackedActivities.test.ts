@@ -6,7 +6,7 @@
  * online edge it is pushed, so the reconnect edge asks nothing from here.
  */
 
-import { StartOutcome, activities } from 'veloqrs';
+import { FfiStartOutcome, activities } from 'veloqrs';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
@@ -57,7 +57,7 @@ beforeEach(() => {
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   engine.getFeedCards.mockReturnValue([]);
   engine.getSetting.mockReturnValue(null);
-  engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
+  engine.syncActivitiesWindow.mockReturnValue(FfiStartOutcome.Started);
   mockIsOnline = true;
   useAuthStore.setState({ isAuthenticated: true, athleteId: 'i1' });
 });
@@ -95,7 +95,7 @@ describe('useActivityWindowRequest', () => {
   });
 
   it('re-asks for a window the engine refused', async () => {
-    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Busy);
+    engine.syncActivitiesWindow.mockReturnValue(FfiStartOutcome.Busy);
 
     const { rerender, unmount } = await renderHook(
       () => useActivityWindowRequest('2024-01-01', '2024-06-01'),
@@ -104,7 +104,7 @@ describe('useActivityWindowRequest', () => {
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
     await unmount();
 
-    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
+    engine.syncActivitiesWindow.mockReturnValue(FfiStartOutcome.Started);
     await rerender({});
     await renderHook(() => useActivityWindowRequest('2024-01-01', '2024-06-01'), { wrapper });
 
@@ -122,7 +122,7 @@ describe('useActivityWindowRequest', () => {
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
     await first.unmount();
 
-    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
+    engine.syncActivitiesWindow.mockReturnValue(FfiStartOutcome.Started);
     await renderHook(() => useActivityWindowRequest('2024-01-01', '2024-06-01'), { wrapper });
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
@@ -167,7 +167,7 @@ describe('useActivityWindowRequest', () => {
   });
 
   it('names no running download for a window the engine says is not owed', async () => {
-    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.NotOwed);
+    engine.syncActivitiesWindow.mockReturnValue(FfiStartOutcome.NotOwed);
     const accepted = jest.spyOn(useSyncDateRange.getState(), 'windowAccepted');
 
     await renderHook(() => useActivityWindowRequest('2024-01-01', '2024-06-01'), { wrapper });

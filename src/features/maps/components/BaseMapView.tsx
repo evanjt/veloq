@@ -396,5 +396,3 @@ const styles = StyleSheet.create({
     zIndex: layers.mapOverlay,
   },
 });
-
-export type { MapPressEvent };

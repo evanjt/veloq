@@ -10,7 +10,7 @@
 import { stroke, themePalette } from '@/theme';
 
 /** Style-shaped, so a field spreads it straight onto its box or outline. */
-export interface FieldEdge {
+interface FieldEdge {
   borderColor: string;
   borderWidth: number;
 }

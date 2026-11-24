@@ -37,6 +37,7 @@
 //! construction and no mutation site needs to remember an invalidation call.
 //! With no named intents the refresh check is one counter read.
 
+use crate::poison::RecoverRw;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -176,10 +177,7 @@ impl PersistentEngine {
             )
             .unwrap_or(false);
         if !has_named {
-            let mut overlay = self
-                .named_overlay
-                .write()
-                .unwrap_or_else(|e| e.into_inner());
+            let mut overlay = self.named_overlay.write_recover();
             let was_empty = overlay.by_section.is_empty() && overlay.corridors.is_empty();
             *overlay = NamedOverlay::default();
             drop(overlay);
@@ -187,10 +185,7 @@ impl PersistentEngine {
             return !was_empty;
         }
         let overlay = self.compute_named_overlay();
-        *self
-            .named_overlay
-            .write()
-            .unwrap_or_else(|e| e.into_inner()) = overlay;
+        *self.named_overlay.write_recover() = overlay;
         self.named_overlay_stamp.store(stamp, Ordering::Release);
         true
     }
@@ -200,7 +195,7 @@ impl PersistentEngine {
     /// a section with no name of its own, read now.
     pub(crate) fn named_overlay_cached_names(&self) -> BTreeMap<String, String> {
         let mut names = super::numbers::unnamed_labels(&self.db);
-        let overlay = self.named_overlay.read().unwrap_or_else(|e| e.into_inner());
+        let overlay = self.named_overlay.read_recover();
         super::numbers::compose_split_labels(&self.db, &mut names, &overlay.by_section, || {
             Arc::new(super::numbers::split_lineage(&self.db))
         });
@@ -227,14 +222,14 @@ impl PersistentEngine {
     pub(crate) fn apply_named_overlay_to_section(&self, section: &mut crate::sections::Section) {
         if !section.is_user_defined && section.section_type == crate::sections::SectionType::Auto {
             self.ensure_named_overlay();
-            let overlay = self.named_overlay.read().unwrap_or_else(|e| e.into_inner());
+            let overlay = self.named_overlay.read_recover();
             if let Some(name) = overlay.by_section.get(&section.id) {
                 section.name = Some(name.clone());
             }
         }
         if section.name.is_none() {
             self.ensure_named_overlay();
-            let overlay = self.named_overlay.read().unwrap_or_else(|e| e.into_inner());
+            let overlay = self.named_overlay.read_recover();
             section.name =
                 super::numbers::unnamed_label(&self.db, &section.id, &overlay.by_section);
         }
@@ -249,14 +244,14 @@ impl PersistentEngine {
     ) {
         if !section.is_user_defined {
             self.ensure_named_overlay();
-            let overlay = self.named_overlay.read().unwrap_or_else(|e| e.into_inner());
+            let overlay = self.named_overlay.read_recover();
             if let Some(name) = overlay.by_section.get(&section.id) {
                 section.name = Some(name.clone());
             }
         }
         if section.name.is_none() {
             self.ensure_named_overlay();
-            let overlay = self.named_overlay.read().unwrap_or_else(|e| e.into_inner());
+            let overlay = self.named_overlay.read_recover();
             section.name =
                 super::numbers::unnamed_label(&self.db, &section.id, &overlay.by_section);
         }
@@ -267,7 +262,7 @@ impl PersistentEngine {
     /// the row has no name.
     pub(crate) fn named_overlay_name(&self, section_id: &str) -> Option<String> {
         self.ensure_named_overlay();
-        let overlay = self.named_overlay.read().unwrap_or_else(|e| e.into_inner());
+        let overlay = self.named_overlay.read_recover();
         overlay
             .by_section
             .get(section_id)
@@ -278,11 +273,7 @@ impl PersistentEngine {
     /// Every named corridor with its current resolution, dormant included.
     pub fn get_named_corridors(&self) -> Vec<NamedCorridor> {
         self.ensure_named_overlay();
-        self.named_overlay
-            .read()
-            .unwrap_or_else(|e| e.into_inner())
-            .corridors
-            .clone()
+        self.named_overlay.read_recover().corridors.clone()
     }
 
     /// Delete a named intent outright. The name is gone for good; the
@@ -357,7 +348,7 @@ impl PersistentEngine {
 
         self.ensure_named_overlay();
         let existing = {
-            let overlay = self.named_overlay.read().unwrap_or_else(|e| e.into_inner());
+            let overlay = self.named_overlay.read_recover();
             overlay
                 .corridors
                 .iter()
@@ -420,8 +411,7 @@ impl PersistentEngine {
         self.ensure_named_overlay();
         let adopted = self
             .named_overlay
-            .read()
-            .unwrap_or_else(|e| e.into_inner())
+            .read_recover()
             .corridors
             .iter()
             .find(|c| c.primary && c.section_id.as_deref() == Some(section_id))
@@ -447,8 +437,7 @@ impl PersistentEngine {
         self.ensure_named_overlay();
         let existing: Vec<String> = self
             .named_overlay
-            .read()
-            .unwrap_or_else(|e| e.into_inner())
+            .read_recover()
             .corridors
             .iter()
             .filter(|c| c.primary && c.section_id.as_deref() == Some(section_id))

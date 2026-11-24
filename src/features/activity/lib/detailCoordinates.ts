@@ -13,7 +13,7 @@
  */
 import { latLngsFromFlat, type LatLng } from '@/shared/geo/polyline';
 
-export interface DetailCoordinateSources {
+interface DetailCoordinateSources {
   /** `latlng` as the stream reader holds it, flat, when that body has landed. */
   streamLatLng?: Float64Array | undefined;
   /** The stored track, decoded from what `getGpsTrack` returns. */

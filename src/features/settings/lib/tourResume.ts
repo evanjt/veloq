@@ -1,5 +1,5 @@
 /** Where the tour carousel stands when the athlete comes back to it. */
-export interface TourResumeMotion {
+interface TourResumeMotion {
   /** The slide the card opens on. */
   openOn: number;
   /** The slide it then moves to with the normal slide transition, or null to stay. */

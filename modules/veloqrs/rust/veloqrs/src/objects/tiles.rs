@@ -1,13 +1,12 @@
 use super::error::{VeloqError, with_engine};
 use crate::objects::run::{FfiRunProgress, FfiRunState};
 use crate::objects::start::{FfiStartOutcome, FfiStartResult};
+use crate::poison::Recover;
 use std::sync::Arc;
 
 /// The figure a finished walk produced, until it is taken.
 fn last_cache_size() -> std::sync::MutexGuard<'static, Option<u64>> {
-    crate::persistence::persistent_engine_ffi::CACHE_SIZE_LAST
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+    crate::persistence::persistent_engine_ffi::CACHE_SIZE_LAST.lock_recover()
 }
 
 /// Total bytes under a `z/x/y` tile tree. A tree that is not there is zero,
@@ -50,8 +49,7 @@ pub struct HeatmapManager {
 /// The heatmap pass's progress as (processed, total), (0, 0) while none runs.
 pub(crate) fn tile_generation_progress() -> (u32, u32) {
     crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .lock_recover()
         .as_ref()
         .map_or((0, 0), |handle| handle.get_progress())
 }
@@ -91,11 +89,8 @@ impl HeatmapManager {
     /// again, by the sweep and the pass behind it. The activity stays in every
     /// list, statistic and section.
     fn set_activity_hidden(&self, activity_id: String, hidden: bool) -> Result<(), VeloqError> {
-        with_engine(|e| e.set_heatmap_hidden(&activity_id, hidden))?.map_err(|e| {
-            VeloqError::Database {
-                msg: format!("{e}"),
-            }
-        })
+        with_engine(|e| e.set_heatmap_hidden(&activity_id, hidden))?
+            .map_err(|e| VeloqError::database(format!("{e}")))
     }
 
     /// The activities hidden from the heatmap, newest first. Takes no engine
@@ -125,14 +120,13 @@ impl HeatmapManager {
         // that reads it is the same row the athlete just cleared from.
         *last_cache_size() = None;
         // The same variant the whole wipe fails with when its tiles would not go.
-        cleared.map_err(|msg| VeloqError::Database { msg })
+        cleared.map_err(|msg| VeloqError::database(msg))
     }
 
     /// Poll tile generation progress: "idle" | "running" | "complete"
     fn poll(&self) -> Result<String, VeloqError> {
-        let mut handle_guard = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut handle_guard =
+            crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock_recover();
 
         if handle_guard.is_none() {
             return Ok("idle".to_string());
@@ -165,8 +159,7 @@ impl HeatmapManager {
         let mut stopped = false;
 
         if let Some(handle) = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .lock_recover()
             .as_ref()
         {
             handle.cancel();
@@ -267,14 +260,13 @@ impl CacheSizeRun {
 
 fn cache_size_slot() -> std::sync::MutexGuard<'static, Option<crate::persistence::CacheSizeHandle>>
 {
-    crate::persistence::persistent_engine_ffi::CACHE_SIZE_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+    crate::persistence::persistent_engine_ffi::CACHE_SIZE_HANDLE.lock_recover()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::poison::Recover;
     use crate::test_globals::{init_global_engine, serial_global_state};
 
     #[test]
@@ -513,12 +505,8 @@ mod tests {
     /// `serial_global_state` before touching them: two walks at once and each
     /// clears the other's handle out from under it.
     fn clear_cache_size_slot() {
-        *crate::persistence::persistent_engine_ffi::CACHE_SIZE_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
-        *crate::persistence::persistent_engine_ffi::CACHE_SIZE_LAST
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        *crate::persistence::persistent_engine_ffi::CACHE_SIZE_HANDLE.lock_recover() = None;
+        *crate::persistence::persistent_engine_ffi::CACHE_SIZE_LAST.lock_recover() = None;
     }
 
     fn follow_until_complete(run: &CacheSizeRun) {
@@ -561,9 +549,7 @@ mod tests {
     fn a_poisoned_tile_lock_is_recovered_rather_than_reported_forever() {
         let _guard = serial_global_state();
         let heatmap = HeatmapManager::new();
-        *crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        *crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock_recover() = None;
 
         // Poison both slots the way a panicking tile job would.
         let _ = std::panic::catch_unwind(|| {
@@ -670,9 +656,7 @@ mod tests {
     fn generation_reads_idle_with_no_worker() {
         let _guard = serial_global_state();
         let heatmap = HeatmapManager::new();
-        *crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        *crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock_recover() = None;
         assert_eq!(heatmap.poll().unwrap(), "idle");
         assert_eq!(heatmap.get_progress().unwrap(), vec![0, 0]);
     }

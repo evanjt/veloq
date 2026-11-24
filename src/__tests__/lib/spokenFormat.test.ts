@@ -9,7 +9,7 @@
  */
 
 import { initialiseI18n } from '@/i18n';
-import { formatCalories, formatDistance, formatElevation, formatPace } from '@/shared/format';
+import { formatCalories, formatDistance, formatElevation } from '@/shared/format';
 import {
   spokenDistance,
   spokenDuration,
@@ -49,33 +49,36 @@ describe('spokenDuration', () => {
 });
 
 describe('spokenPace', () => {
-  it('says the metric pace per kilometre with the same minutes and seconds the screen shows', () => {
-    expect(formatPace(3.0, true)).toBe('5:33 /km');
-    expect(spokenPace(3.0, true)).toBe('5 minutes 33 seconds per kilometre');
+  it('says the minutes and seconds per kilometre', () => {
+    expect(spokenPace({ minutes: 5, seconds: 33 }, true)).toBe(
+      '5 minutes 33 seconds per kilometre'
+    );
   });
 
   it('says the imperial pace per mile', () => {
-    expect(formatPace(3.0, false)).toBe('8:56 /mi');
-    expect(spokenPace(3.0, false)).toBe('8 minutes 56 seconds per mile');
+    expect(spokenPace({ minutes: 8, seconds: 56 }, false)).toBe('8 minutes 56 seconds per mile');
   });
 
-  it('carries a rounded 60 seconds into the minute, as the screen does', () => {
-    // 1000 / 3.3378 = 299.6 s, which the screen prints as 5:00.
-    expect(formatPace(3.3378, true)).toBe('5:00 /km');
-    expect(spokenPace(3.3378, true)).toBe('5 minutes per kilometre');
+  it('drops a zero part, and counts minutes past an hour rather than carrying them', () => {
+    expect(spokenPace({ minutes: 5, seconds: 0 }, true)).toBe('5 minutes per kilometre');
+    expect(spokenPace({ minutes: 0, seconds: 45 }, true)).toBe('45 seconds per kilometre');
+    expect(spokenPace({ minutes: 6000, seconds: 0 }, true)).toBe('6000 minutes per kilometre');
   });
 
-  it.each([0, -2, NaN, Infinity, 1e-12])('says no value where the screen shows --:-- (%p)', (v) => {
-    expect(formatPace(v, true)).toBe('--:--');
-    expect(spokenPace(v, true)).toBe('no value');
+  it.each([null, undefined])('says no value where the engine sent no parts (%p)', (parts) => {
+    expect(spokenPace(parts, true)).toBe('no value');
   });
 });
 
 describe('spokenSwimPace', () => {
   it('says the pace per 100 metres or per 100 yards', () => {
-    expect(spokenSwimPace(1.25, true)).toBe('1 minute 20 seconds per 100 metres');
-    expect(spokenSwimPace(1.25, false)).toBe('1 minute 13 seconds per 100 yards');
-    expect(spokenSwimPace(0, true)).toBe('no value');
+    expect(spokenSwimPace({ minutes: 1, seconds: 20 }, true)).toBe(
+      '1 minute 20 seconds per 100 metres'
+    );
+    expect(spokenSwimPace({ minutes: 1, seconds: 13 }, false)).toBe(
+      '1 minute 13 seconds per 100 yards'
+    );
+    expect(spokenSwimPace(undefined, true)).toBe('no value');
   });
 });
 

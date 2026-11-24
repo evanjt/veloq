@@ -2,8 +2,9 @@
  * Scenario: a day selected on the calendar grid states the load figures and
  * each wellness value the athlete logged that day.
  *
- * Expected behaviour: form is fitness less fatigue, only logged values are
- * listed, in a fixed order, and a day with no stored row states none.
+ * Expected behaviour: form is the text the engine stated for the day, only
+ * logged values are listed, in a fixed order, and a day with no stored row
+ * states none.
  */
 
 import { calendarDayReadout } from '@/features/fitness/lib/calendarDayReadout';
@@ -13,15 +14,23 @@ const day = (over: Partial<WellnessData>): WellnessData =>
   ({ id: '2026-06-10', ...over }) as WellnessData;
 
 describe('calendarDayReadout', () => {
-  it('derives form from fitness and fatigue and lists the logged values in order', () => {
+  it('states the engine form and lists the logged values in order', () => {
     const readout = calendarDayReadout(
-      day({ ctl: 50.4, atl: 60.2, weight: 70, hrv: 62, restingHR: 48, sleepSecs: 7.5 * 3600 })
+      day({
+        ctl: 50.4,
+        atl: 60.2,
+        formText: '-10',
+        weight: 70,
+        hrv: 62,
+        restingHR: 48,
+        sleepSecs: 7.5 * 3600,
+      })
     );
 
     expect(readout).toEqual({
       fitness: 50.4,
       fatigue: 60.2,
-      form: -10,
+      form: '-10',
       logged: [
         { metric: 'hrv', value: 62 },
         { metric: 'restingHR', value: 48 },
@@ -31,12 +40,7 @@ describe('calendarDayReadout', () => {
     });
   });
 
-  it('rounds each load before the subtraction, as the chart does', () => {
-    expect(calendarDayReadout(day({ ctl: 50.4, atl: 39.6 }))?.form).toBe(10);
-    expect(calendarDayReadout(day({ ctl: 50.4, atl: 49.6 }))?.form).toBe(0);
-  });
-
-  it('states no form when either load figure is missing, and no values for an unlogged day', () => {
+  it('states no form when the engine stated none, and no values for an unlogged day', () => {
     expect(calendarDayReadout(day({ ctl: 40 }))).toEqual({
       fitness: 40,
       fatigue: null,

@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
-import { InitOutcome } from 'veloqrs';
+import { FfiInitOutcome } from 'veloqrs';
 
 import NamedCorridorsScreen from '@/app/named-corridors';
 import SectionRetiredScreen from '@/app/section-retired';
@@ -78,7 +78,7 @@ const CORRIDOR = {
 
 const RETIRED = { sectionId: 'sec-9', kind: 'merged', at: '2026-08-01 10:00:00', versions: [] };
 
-function failEngine(reason: InitOutcome) {
+function failEngine(reason: FfiInitOutcome) {
   useEngineStatus.setState({ initFailed: true, initFailureReason: reason });
 }
 
@@ -127,7 +127,7 @@ describe.each(SCREENS)('$name with an engine that is not open', (s) => {
   });
 
   it('says why the engine failed and offers a Retry that re-runs the open', () => {
-    failEngine(InitOutcome.Busy);
+    failEngine(FfiInitOutcome.Busy);
     const screen = render(<s.Screen />);
     expect(screen.queryByText(s.emptyKey)).toBeNull();
     expect(screen.queryByTestId('engine-read-placeholder')).toBeNull();
@@ -138,7 +138,7 @@ describe.each(SCREENS)('$name with an engine that is not open', (s) => {
   });
 
   vaultIt('offers the update rather than a retry for a database a newer build wrote', () => {
-    failEngine(InitOutcome.ForwardSchema);
+    failEngine(FfiInitOutcome.ForwardSchema);
     const screen = render(<s.Screen />);
     expect(screen.queryByText(s.emptyKey)).toBeNull();
     expect(screen.getByText('engine.initReason.forwardSchema')).toBeTruthy();
@@ -147,13 +147,13 @@ describe.each(SCREENS)('$name with an engine that is not open', (s) => {
   });
 
   vaultIt('falls back to the general line for a failure with no recorded reason', () => {
-    failEngine(InitOutcome.NotAttempted);
+    failEngine(FfiInitOutcome.NotAttempted);
     const screen = render(<s.Screen />);
     expect(screen.getByText('engine.initFailed')).toBeTruthy();
   });
 
   it('shows the rows once a retry opens the engine', () => {
-    failEngine(InitOutcome.Busy);
+    failEngine(FfiInitOutcome.Busy);
     const screen = render(<s.Screen />);
     expect(screen.queryByTestId(s.rowTestId)).toBeNull();
 

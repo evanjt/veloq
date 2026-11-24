@@ -91,6 +91,9 @@
     "smoothingTitle": "Smoothing"
   },
   "whatsNew": {
+    "tutorial": {
+      "notificationsExampleSection": "Harbor climb"
+    },
     "v022": {
       "fitnessBody": "Track your fitness, fatigue, and form with color-coded zones."
     },

@@ -8,14 +8,13 @@
  * Data persists across app restarts - GPS tracks, routes, sections are all cached in SQLite.
  */
 
-import { useEffect, useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   useEngineRead,
   useEngineSubscription,
   useReadRetry,
 } from '@/shared/native/useEngineSubscription';
-import { decodeCoords, type SectionSummary, type GroupSummary } from 'veloqrs';
-import type { LatLngShort } from '@/shared/geo/distance';
+import type { SectionSummary, GroupSummary } from 'veloqrs';
 
 // ============================================================================
 // Engine Type Helper
@@ -124,44 +123,4 @@ export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGr
     }
   }, [readGroups, minActivities, sortBy, enabled]);
   return useMemo(() => ({ ...read, retry }), [read, retry]);
-}
-
-// ============================================================================
-// Simple hooks without factory (unique patterns)
-// ============================================================================
-
-interface UseRepresentativeRouteResult {
-  /** Representative route points [{ lat, lng }, ...] or null if not available */
-  points: LatLngShort[] | null;
-  /** Whether the representative track is being loaded */
-  isLoading: boolean;
-}
-
-/**
- * Hook for getting the representative route for a group.
- */
-export function useRepresentativeRoute(groupId: string | null): UseRepresentativeRouteResult {
-  const readGroups = useEngineRead(groupId ? ['groups'] : []);
-  const [points, setPoints] = useState<LatLngShort[] | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    if (!groupId) {
-      setPoints(null);
-      return;
-    }
-
-    setIsLoading(true);
-    const encoded = readGroups((engine) => engine.getRepresentativeRoute(groupId));
-    const decoded = encoded ? decodeCoords(encoded) : [];
-
-    if (decoded.length > 0) {
-      setPoints(decoded.map((p) => ({ lat: p.latitude, lng: p.longitude })));
-    } else {
-      setPoints(null);
-    }
-    setIsLoading(false);
-  }, [groupId, readGroups]);
-
-  return { points, isLoading };
 }

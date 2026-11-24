@@ -22,7 +22,7 @@ import { useOpenDetail } from '@/shared/app/MapSheetCards';
 
 export const MAX_CHIPS = 3;
 
-export interface SectionHistoryPanelProps {
+interface SectionHistoryPanelProps {
   isDark: boolean;
   history: SectionHistoryEvent[];
   versions: SectionGeometryVersion[];
@@ -79,7 +79,7 @@ function SplitTarget({
  * A blank name is no name. It would draw an empty chip, which is worse than
  * the id it replaced.
  */
-export function chipLabel(id: string, names?: Record<string, string>): string {
+function chipLabel(id: string, names?: Record<string, string>): string {
   const name = names?.[id]?.trim();
   return name ? name : id;
 }

@@ -16,7 +16,7 @@ import { elevationOver } from './elevationChange';
  * over the window in one pass that allocates nothing.
  */
 
-export interface StreamPrefixes {
+interface StreamPrefixes {
   altitude: readonly number[];
   hrSum: number[];
   hrCount: number[];

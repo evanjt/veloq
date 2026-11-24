@@ -572,7 +572,7 @@ fn test_route_name_reaches_a_route_committed_behind_the_engine() {
 
     let named = with_persistent_engine(|engine| {
         engine.set_route_name("r_2", Some("Hill loop")).unwrap();
-        engine.get_route_name("r_2")
+        engine.get_all_route_names().get("r_2").cloned()
     })
     .expect("engine");
     assert_eq!(named.as_deref(), Some("Hill loop"));
@@ -788,7 +788,8 @@ fn test_route_name_read_follows_a_commit_behind_the_engine() {
     let dir = init_global_engine("regroup.db");
     commit_nobody_adopts(&dir, 44.0);
 
-    let named = with_persistent_engine(|engine| engine.get_route_name("r_2")).expect("engine");
+    let named = with_persistent_engine(|engine| engine.get_all_route_names().get("r_2").cloned())
+        .expect("engine");
     assert!(named.is_some(), "r_2 is stored and named");
 
     crate::persistence::clear_persistent_engine();
@@ -828,9 +829,13 @@ fn test_route_highlights_follow_a_commit_behind_the_engine() {
     let dir = init_global_engine("regroup.db");
     timed_commit_nobody_adopts(&dir);
 
-    let highlights =
-        with_persistent_engine(|engine| engine.get_activity_route_highlights(&["t".into()]))
-            .expect("engine");
+    let highlights = with_persistent_engine(|engine| {
+        crate::persistence::fitness::derivations::pooled::route_highlights(
+            &engine.db,
+            &["t".into()],
+        )
+    })
+    .expect("engine");
     let routes: Vec<&str> = highlights
         .iter()
         .map(|highlight| highlight.route_id.as_str())

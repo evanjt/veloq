@@ -30,9 +30,7 @@ use rusqlite::Connection;
 const SECONDS_PER_DAY: i64 = 86_400;
 
 fn database(error: impl std::fmt::Display) -> VeloqError {
-    VeloqError::Database {
-        msg: error.to_string(),
-    }
+    VeloqError::database(error.to_string())
 }
 
 impl From<LiveError> for VeloqError {
@@ -47,7 +45,7 @@ impl From<LiveError> for VeloqError {
             LiveError::LiveSessionExists => VeloqError::Busy {
                 msg: error.to_string(),
             },
-            LiveError::Sql(msg) => VeloqError::Database { msg },
+            LiveError::Sql(msg) => VeloqError::database(msg),
         }
     }
 }

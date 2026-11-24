@@ -8,7 +8,7 @@ import { getRecordingMode } from '../lib/recordingModes';
 import { readPlannedWorkout } from '../lib/plannedWorkout';
 import type { RecordingMode, RecordingStatus } from '../types';
 
-export interface InitRecordingState {
+interface InitRecordingState {
   /**
    * Begin the ride under the sport held now. This is the Start button on a
    * screen reached idle, and it begins nothing twice.

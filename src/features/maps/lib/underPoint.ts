@@ -27,7 +27,7 @@ const ROUTE_GROUP_PREFIX = 'route_';
 const SECTION_GROUP_PREFIX = 'section_';
 
 /** The part of a group the engine needs to name it again. */
-export type UnderPointGroupRef = Pick<FfiUnderPointGroup, 'kind' | 'id'>;
+type UnderPointGroupRef = Pick<FfiUnderPointGroup, 'kind' | 'id'>;
 
 /** The group part of a key: `_`, `route_<id>` or `section_<id>`. */
 function groupPart({ kind, id }: UnderPointGroupRef): string {

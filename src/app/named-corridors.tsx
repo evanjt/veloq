@@ -34,6 +34,7 @@ import { colors, darkColors, iconSize, layout, spacing, typography } from '@/the
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { navigateTo } from '@/shared/app/navigation';
 import { confirmAction } from '@/shared/ui/dialog';
+import { shortCoordsFromNative } from '@/shared/ffi/shortPoints';
 
 const PREVIEW_WIDTH = 64;
 const PREVIEW_HEIGHT = 44;
@@ -45,10 +46,7 @@ function FootprintPreview({
   footprint: NamedCorridor['footprint'];
   isDark: boolean;
 }) {
-  const points = useMemo(
-    () => normaliseTrackPoints(footprint.map((p) => ({ lat: p.latitude, lng: p.longitude }))),
-    [footprint]
-  );
+  const points = useMemo(() => normaliseTrackPoints(shortCoordsFromNative(footprint)), [footprint]);
   return (
     <TrackPreview points={points} isDark={isDark} width={PREVIEW_WIDTH} height={PREVIEW_HEIGHT} />
   );

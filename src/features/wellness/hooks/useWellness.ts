@@ -7,18 +7,20 @@
  * GlobalDataSync and by the engine's own change channel, so a finished sync
  * refreshes the charts without a second network call.
  */
+import { addLocalDays, formatLocalDate } from '@/shared/time/localDay';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { PERIOD_DAYS } from '@/shared/app/period';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { formatLocalDate } from '@/shared/format/format';
+import { localizeFormText } from '@/shared/format/number';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
-import type { WellnessData } from '@/types';
-import { RangeCoverage, type WellnessDay } from 'veloqrs';
+import { BODY_STORED_CHANNEL, payloadKind } from '@/shared/native/engineChannels';
+import type { FormZone, WellnessData } from '@/types';
+import { RangeCoverage, type WellnessDay, type WellnessDays } from 'veloqrs';
 import type { TimeRange } from '@/shared/app/timeRange';
 import { TIME } from '@/shared/app/time';
 
@@ -35,7 +37,7 @@ export type { TimeRange };
  * follow.
  */
 function useWellnessInvalidation(): void {
-  useEngineChannel('bodyStored', queryKeys.wellness.all, 'wellness');
+  useEngineChannel(BODY_STORED_CHANNEL, queryKeys.wellness.all, 'wellness');
 }
 
 export function timeRangeToDays(range: TimeRange): number {
@@ -46,8 +48,7 @@ function getDateRange(range: TimeRange): { oldest: string; newest: string } {
   const today = new Date();
   const newest = formatLocalDate(today);
 
-  const oldest = new Date(today);
-  oldest.setDate(oldest.getDate() - PERIOD_DAYS[range]);
+  const oldest = addLocalDays(today, -PERIOD_DAYS[range]);
 
   return {
     oldest: formatLocalDate(oldest),
@@ -59,7 +60,7 @@ function getDateRange(range: TimeRange): { oldest: string; newest: string } {
  * Read stored wellness days over a date window. The engine answers typed, so
  * this is a rename of its fields onto the shape the screens read.
  */
-export function toWellnessData(day: WellnessDay): WellnessData {
+export function toWellnessData(day: WellnessDay, form?: DayForm): WellnessData {
   return {
     id: day.date,
     ctl: day.ctl,
@@ -76,6 +77,27 @@ export function toWellnessData(day: WellnessDay): WellnessData {
     mood: day.mood,
     motivation: day.motivation,
     sportInfo: day.sportLoad.map((s) => ({ sportGroup: s.sportGroup, load: s.load })),
+    form: form?.value,
+    formZone: form?.zone,
+    formText: form?.text,
+    tsbText: form?.tsbText,
+  };
+}
+
+/** One day's form as the engine judged it, lifted from the window's parallel lists. */
+interface DayForm {
+  value: number | undefined;
+  zone: FormZone | undefined;
+  text: string | undefined;
+  tsbText: string | undefined;
+}
+
+function dayForm(window: WellnessDays, index: number): DayForm {
+  return {
+    value: window.form[index],
+    zone: window.formZone[index] as FormZone | undefined,
+    text: localizeFormText(window.formText[index]) ?? undefined,
+    tsbText: window.tsbText[index],
   };
 }
 
@@ -83,15 +105,29 @@ export function toWellnessData(day: WellnessDay): WellnessData {
 interface WellnessWindow {
   days: WellnessData[];
   coverage: RangeCoverage;
+  /** Whether the athlete reads form as a share of fitness, as the engine read the profile. */
+  formAsPercent: boolean;
+  /** Where the form zones change, lowest first, in either unit. Empty with no engine. */
+  formZoneEdges: readonly number[];
 }
 
-const NOTHING_KNOWN: WellnessWindow = { days: [], coverage: RangeCoverage.NotFetched };
+const NOTHING_KNOWN: WellnessWindow = {
+  days: [],
+  coverage: RangeCoverage.NotFetched,
+  formAsPercent: false,
+  formZoneEdges: [],
+};
 
 function readWellness(oldest: string, newest: string): WellnessWindow {
   const engine = getEngine();
   if (!engine?.getWellnessDays) return NOTHING_KNOWN;
   const window = engine.getWellnessDays(oldest, newest);
-  return { days: window.days.map(toWellnessData), coverage: window.coverage };
+  return {
+    days: window.days.map((day, index) => toWellnessData(day, dayForm(window, index))),
+    coverage: window.coverage,
+    formAsPercent: window.formAsPercent,
+    formZoneEdges: window.formZoneEdges,
+  };
 }
 
 const selectDays = (window: WellnessWindow): WellnessData[] => window.days;
@@ -127,8 +163,8 @@ export function useWellnessGeneration(): number {
     if (!engine) return undefined;
     // `setGeneration` is stable, so the subscription is set up once and needs
     // no ref to reach the current closure.
-    return engine.subscribe('bodyStored', (payload) => {
-      if ((payload as { kind?: string } | undefined)?.kind !== 'wellness') return;
+    return engine.subscribe(BODY_STORED_CHANNEL, (payload) => {
+      if (payloadKind(payload) !== 'wellness') return;
       setGeneration((g) => g + 1);
     });
   }, []);
@@ -142,6 +178,23 @@ export function useWellness(range: TimeRange = '3m') {
   useWellnessInvalidation();
 
   return useQuery({ ...wellnessWindowQuery(range, isAuthenticated), select: selectDays });
+}
+
+/**
+ * Where the form zones change, lowest first, as the engine sends them with every
+ * wellness read. The edges are the engine's own and do not move while the app
+ * runs, so a one-day read taken when a wellness sync lands is enough to draw
+ * the bands. Empty until the engine has answered, which draws no bands.
+ */
+export function useFormZoneEdges(): readonly number[] {
+  const generation = useWellnessGeneration();
+  return useMemo(() => readFormZoneEdges(generation), [generation]);
+}
+
+/** One day's read, which carries the edges whatever the day holds. The generation only keys the re-read. */
+function readFormZoneEdges(_generation: number): readonly number[] {
+  const today = formatLocalDate(new Date());
+  return readWellness(today, today).formZoneEdges;
 }
 
 const selectDaysByDate = (window: WellnessWindow): ReadonlyMap<string, WellnessData> =>

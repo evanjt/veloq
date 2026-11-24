@@ -6,7 +6,7 @@ import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import {
   strength,
   type StrengthStart as StrengthStartKind,
-  type StrengthStartGroup,
+  type FfiStrengthStartGroup,
 } from 'veloqrs';
 
 import { useAthlete, useTheme } from '@/shared/app';
@@ -44,7 +44,7 @@ function GroupCard({
   gender,
   onPress,
 }: {
-  group: StrengthStartGroup;
+  group: FfiStrengthStartGroup;
   index: number;
   gender: 'male' | 'female';
   onPress: () => void;

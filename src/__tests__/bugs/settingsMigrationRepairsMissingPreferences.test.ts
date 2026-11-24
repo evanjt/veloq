@@ -6,12 +6,14 @@ import {
 
 const mockRows = new Map<string, string>();
 const mockEngine = {
+  ready: true,
   getSetting: jest.fn((key: string) => mockRows.get(key)),
   setSetting: jest.fn((key: string, value: string) => mockRows.set(key, value)),
 };
 let mockEngineReady = true;
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => (mockEngineReady ? mockEngine : null),
+  isEngineReady: () => mockEngineReady && mockEngine.ready,
 }));
 
 const legacyPreferences = [
@@ -29,6 +31,7 @@ beforeEach(async () => {
   jest.clearAllMocks();
   mockRows.clear();
   mockEngineReady = true;
+  mockEngine.ready = true;
   await AsyncStorage.clear();
   for (const [key, value] of legacyPreferences) await AsyncStorage.setItem(key, value);
 });
@@ -84,6 +87,17 @@ it('waits for the engine before marking either pass complete', async () => {
   mockEngineReady = true;
   await migrateSettingsToSqlite();
   for (const [key, value] of legacyPreferences) expect(mockRows.get(key)).toBe(value);
+});
+
+it('does not mark either pass complete while the engine handle exists but is not open', async () => {
+  mockEngine.ready = false;
+  await migrateSettingsToSqlite();
+  expect(mockRows.has(SETTINGS_MIGRATED_KEY)).toBe(false);
+  expect(mockRows.has('__settings_missing_preferences_migrated')).toBe(false);
+  mockEngine.ready = true;
+  await migrateSettingsToSqlite();
+  for (const [key, value] of legacyPreferences) expect(mockRows.get(key)).toBe(value);
+  expect(mockRows.get(SETTINGS_MIGRATED_KEY)).toBe('1');
 });
 
 it('retries a failed read on the next boot without overwriting completed rows', async () => {

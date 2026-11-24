@@ -8,7 +8,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { isInfiniteActivitiesStale } from '@/shared/query/activitiesCache';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import { CLOCK_EDGES, localDay } from '../__shared__/clockEdges';
 
 const today = formatLocalDate(new Date());

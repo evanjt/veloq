@@ -6,18 +6,18 @@
  * Nothing here measures an overlap or finds a pair: it carries the engine's pairs onto the
  * features and onto the selection.
  */
-import { RetiredPairLink } from 'veloqrs';
-import type { RetiredMapData, RetiredMapPair } from 'veloqrs';
+import { FfiRetiredPairLink } from 'veloqrs';
+import type { FfiRetiredMapData, FfiRetiredMapPair } from 'veloqrs';
 import { decodeCoordsFlat } from 'veloqrs/src/coords';
 import type { LngLat, LngLatBounds } from '@/features/maps';
 import { previewAreaBounds, type PreviewAreaCentre } from './previewMapCamera';
 
-export type RetiredLineRole = 'idle' | 'selected' | 'pair' | 'other';
+type RetiredLineRole = 'idle' | 'selected' | 'pair' | 'other';
 
 /** How the engine tied a retired section to a current one. */
-export type RetiredPairKind = 'ledger' | 'supersedes' | 'ground';
+type RetiredPairKind = 'ledger' | 'supersedes' | 'ground';
 
-export interface RetiredLineOptions {
+interface RetiredLineOptions {
   /** Turns the stored bytes into points. Absent, the engine's own polyline decoder. */
   decode?: (polyline: ArrayBuffer) => LngLat[];
   /** The riding area the map is on. A line with no point inside it is not drawn. */
@@ -27,7 +27,7 @@ export interface RetiredLineOptions {
 }
 
 /** One retired section as the list shows it, drawn or not. */
-export interface RetiredLineRow {
+interface RetiredLineRow {
   id: string;
   hasLine: boolean;
 }
@@ -92,9 +92,9 @@ function decodeLngLat(polyline: ArrayBuffer): LngLat[] {
   return out;
 }
 
-function linkKind(link: RetiredMapPair['link']): RetiredPairKind {
-  if (link === RetiredPairLink.Ledger) return 'ledger';
-  if (link === RetiredPairLink.Supersedes) return 'supersedes';
+function linkKind(link: FfiRetiredMapPair['link']): RetiredPairKind {
+  if (link === FfiRetiredPairLink.Ledger) return 'ledger';
+  if (link === FfiRetiredPairLink.Supersedes) return 'supersedes';
   return 'ground';
 }
 
@@ -106,7 +106,7 @@ function touches(area: LngLatBounds | null | undefined, points: LngLat[]): boole
 }
 
 /** Pair ids by section id, from either side of each pair, in the engine's order. */
-function pairIndex(pairs: RetiredMapPair[]): Map<string, string[]> {
+function pairIndex(pairs: FfiRetiredMapPair[]): Map<string, string[]> {
   const index = new Map<string, string[]>();
   const add = (key: string, other: string) => {
     const held = index.get(key);
@@ -121,7 +121,7 @@ function pairIndex(pairs: RetiredMapPair[]): Map<string, string[]> {
 }
 
 export function buildRetiredLines(
-  data: RetiredMapData,
+  data: FfiRetiredMapData,
   { decode = decodeLngLat, area, selectedId = null }: RetiredLineOptions = {}
 ): RetiredLines {
   const pairsOf = pairIndex(data.pairs);
@@ -188,7 +188,7 @@ export function buildRetiredLines(
  * from whichever side was tapped. Null for an id the read does not hold.
  */
 export function describeRetiredSelection(
-  data: RetiredMapData,
+  data: FfiRetiredMapData,
   id: string
 ): RetiredSelection | null {
   const retiredRows = new Map(data.retired.map((r) => [r.section.sectionId, r.section]));
@@ -252,7 +252,7 @@ export function describeRetiredSelection(
  */
 export function busiestCentre<C extends PreviewAreaCentre>(
   centres: readonly C[],
-  data: RetiredMapData,
+  data: FfiRetiredMapData,
   decode: (polyline: ArrayBuffer) => LngLat[] = decodeLngLat
 ): C | null {
   const lines = data.retired.flatMap((r) => {
@@ -279,7 +279,7 @@ export function busiestCentre<C extends PreviewAreaCentre>(
  */
 export function centreHoldingRetired<C extends PreviewAreaCentre>(
   centres: readonly C[],
-  data: RetiredMapData,
+  data: FfiRetiredMapData,
   id: string,
   decode: (polyline: ArrayBuffer) => LngLat[] = decodeLngLat
 ): C | null {

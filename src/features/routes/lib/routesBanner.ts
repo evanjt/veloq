@@ -13,7 +13,7 @@ import type { FfiDetectionHold } from 'veloqrs';
 
 import { detectionHoldText } from './detectionHoldText';
 
-export interface RoutesBanner {
+interface RoutesBanner {
   text: string;
   /** Whether work is moving now, which is what an indicator beside it claims. */
   busy: boolean;

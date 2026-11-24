@@ -4,6 +4,8 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
+import type { ThresholdPace } from 'veloqrs';
+
 import { Card } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import {
@@ -17,13 +19,7 @@ import {
 } from '@/features/stats';
 import { useTheme } from '@/shared/app';
 import { type PrimarySport } from '@/features/fitness/stores';
-import {
-  formatPaceCompact,
-  formatPower,
-  formatSwimPace,
-  paceUnitLabel,
-  swimPaceUnitLabel,
-} from '@/shared/format/format';
+import { formatPower, paceUnitLabel, swimPaceUnitLabel } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { iconSize, spacing, themePalette, typography } from '@/theme';
 
@@ -31,8 +27,8 @@ interface PerformanceCurveSectionProps {
   sportMode: PrimarySport;
   days: number;
   currentFTP: number | null | undefined;
-  thresholdPace: number | undefined;
-  swimThresholdPace: number | undefined;
+  thresholdPace: ThresholdPace | undefined;
+  swimThresholdPace: ThresholdPace | undefined;
 }
 
 export const PerformanceCurveSection = React.memo(function PerformanceCurveSection({
@@ -90,9 +86,9 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
     sportMode === 'Cycling' && headerFtp
       ? t('statsScreen.ftpLabel', { value: formatPower(headerFtp) })
       : sportMode === 'Running' && headerRunPace
-        ? `${formatPaceCompact(headerRunPace, isMetric)}${paceUnitLabel(isMetric)}`
+        ? `${isMetric ? headerRunPace.metricText : headerRunPace.imperialText}${paceUnitLabel(isMetric)}`
         : sportMode === 'Swimming' && headerSwimPace
-          ? `${formatSwimPace(headerSwimPace, isMetric)}${swimPaceUnitLabel(isMetric)}`
+          ? `${isMetric ? headerSwimPace.metricText : headerSwimPace.imperialText}${swimPaceUnitLabel(isMetric)}`
           : null;
 
   return (

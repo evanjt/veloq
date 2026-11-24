@@ -31,7 +31,7 @@ export interface DeltaFrame {
   padding: { left: number; right: number; top: number; bottom: number };
 }
 
-export interface DeltaLapPath {
+interface DeltaLapPath {
   activityId: string;
   startIndex: number;
   /**
@@ -47,12 +47,12 @@ export interface DeltaLapPath {
  * closed subpath for each stretch the lap spends on one side, split where it
  * crosses zero and where its curve has a gap. Empty for a side it never reaches.
  */
-export interface DeltaFill {
+interface DeltaFill {
   ahead: string;
   behind: string;
 }
 
-export interface DeltaLayout {
+interface DeltaLayout {
   laps: DeltaLapPath[];
   fill: DeltaFill;
   /** The pixel row of the reference, zero seconds. */
@@ -64,7 +64,7 @@ export interface DeltaLayout {
 }
 
 /** The scrub readout moves in steps of this many metres. */
-export const SCRUB_SNAP_M = 100;
+const SCRUB_SNAP_M = 100;
 
 /** Smallest half-range of the y axis, so a level lap does not collapse it. */
 const MIN_EXTENT_SECS = 1;
@@ -417,7 +417,7 @@ export function scrubStops(
 }
 
 /** One split's bar in the typical-attempt plot, in pixels. */
-export interface SplitSummaryBar {
+interface SplitSummaryBar {
   index: number;
   left: number;
   right: number;
@@ -430,7 +430,7 @@ export interface SplitSummaryBar {
   whisker: { top: number; bottom: number } | null;
 }
 
-export interface SplitSummaryLayout {
+interface SplitSummaryLayout {
   bars: SplitSummaryBar[];
   zeroY: number;
   /** Seconds from the zero line to the top and bottom edge of the plot. */

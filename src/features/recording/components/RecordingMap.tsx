@@ -39,6 +39,7 @@ import {
 import type { NearbyRouteView } from '../lib/nearbyRouteView';
 import { FollowedRouteChip } from './FollowedRouteChip';
 import { LOCATE_GLYPH } from '@/features/maps';
+import { isPositioned } from '@/shared/geo/routePreview';
 
 /** Zoom held while the camera follows the current position. */
 const FOLLOW_ZOOM = 15;
@@ -224,7 +225,7 @@ function RecordingMapInner({
   const position = useMemo(() => {
     if (!currentLocation) return featureCollection([]);
     const { latitude, longitude } = currentLocation;
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return featureCollection([]);
+    if (!isPositioned(latitude, longitude)) return featureCollection([]);
     return featureCollection([pointFeature([longitude, latitude])]);
   }, [currentLocation]);
 
@@ -233,7 +234,7 @@ function RecordingMapInner({
   const accuracyRing = useMemo(() => {
     if (!currentLocation || accuracy == null) return featureCollection([]);
     const { latitude, longitude } = currentLocation;
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return featureCollection([]);
+    if (!isPositioned(latitude, longitude)) return featureCollection([]);
     return featureCollection([circlePolygon([longitude, latitude], accuracy)]);
   }, [currentLocation, accuracy]);
 
@@ -241,9 +242,7 @@ function RecordingMapInner({
   // camera effect below depends on.
   const followTarget: LngLat | null = useMemo(
     () =>
-      currentLocation &&
-      Number.isFinite(currentLocation.latitude) &&
-      Number.isFinite(currentLocation.longitude)
+      currentLocation && isPositioned(currentLocation.latitude, currentLocation.longitude)
         ? [currentLocation.longitude, currentLocation.latitude]
         : null,
     [currentLocation]

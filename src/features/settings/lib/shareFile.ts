@@ -178,7 +178,7 @@ export async function shareCopyAs(
   }
 }
 
-export interface ShareExistingFileOptions {
+interface ShareExistingFileOptions {
   /** The name the file is offered under, when the one on disk is not readable. */
   name?: string | undefined;
   anchor?: ShareAnchor | undefined;

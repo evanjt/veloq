@@ -5,7 +5,7 @@ import { initialiseI18n, changeLanguage } from '@/i18n';
 import { SectionsListHeader } from '@/features/routes/components/SectionsListHeader';
 import type { DetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import type { ElevationBackfillState } from '@/features/routes/hooks/useElevationBackfill';
-import { StartOutcome } from 'veloqrs';
+import { FfiStartOutcome } from 'veloqrs';
 
 /**
  * Scenario: an install upgrading from 0.3.x arrives with a catalogue the
@@ -145,21 +145,21 @@ describe('SectionsListHeader detection hold', () => {
       <SectionsListHeader
         {...BASE}
         detectionHold={null}
-        rescanRefusal={StartOutcome.NotConfigured}
+        rescanRefusal={FfiStartOutcome.NotConfigured}
       />
     );
     expect(off.getByTestId('rescan-refused')).toBeTruthy();
     expect(off.getByText('Route matching is off. Turn it on in Settings to scan.')).toBeTruthy();
 
     const busy = await render(
-      <SectionsListHeader {...BASE} detectionHold={null} rescanRefusal={StartOutcome.Busy} />
+      <SectionsListHeader {...BASE} detectionHold={null} rescanRefusal={FfiStartOutcome.Busy} />
     );
     expect(busy.getByText("A scan's already running.")).toBeTruthy();
   });
 
   it('says nothing about a refusal until there is one', async () => {
     const tree = await render(
-      <SectionsListHeader {...BASE} detectionHold={null} rescanRefusal={StartOutcome.Started} />
+      <SectionsListHeader {...BASE} detectionHold={null} rescanRefusal={FfiStartOutcome.Started} />
     );
 
     expect(tree.queryByTestId('rescan-refused')).toBeNull();

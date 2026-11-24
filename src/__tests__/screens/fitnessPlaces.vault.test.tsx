@@ -110,7 +110,6 @@ jest.mock('@/features/fitness', () => {
     ),
     BestEffortsHeaderButton: () => null,
     CalendarDayReadout: () => <View testID="calendar-day-readout" />,
-    resolveThresholdPace: () => null,
     useFitnessRefresh: () => ({ isRefreshing: false, onRefresh: jest.fn() }),
     useFitnessComputations: () => ({ ftpTrend: [], dominantZone: null }),
     useFitnessScreenData: () => ({

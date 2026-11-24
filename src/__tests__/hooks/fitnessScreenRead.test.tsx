@@ -36,7 +36,11 @@ function wallClockStamp(day: string, hour = 12): number {
 
 const midnightUtc = (day: string) => wallClockStamp(day, 0);
 
-const pace = (latestPace: number | undefined) => ({ latestPace, sampleCount: 1, history: [] });
+const paceText = (speed: number, metricText: string, imperialText: string) => ({
+  speed,
+  metricText,
+  imperialText,
+});
 
 function screenRead(
   over: { changes?: unknown[]; history?: unknown[]; dominant?: string | undefined } = {}
@@ -54,8 +58,14 @@ function screenRead(
       changes: over.changes ?? [],
     },
     ftpTrendCoverage: RangeCoverage.Loaded,
-    runPaceTrend: pace(3.8),
-    swimPaceTrend: pace(1.2),
+    thresholdPaces: [
+      { days: 7, run: undefined, swim: undefined },
+      {
+        days: 30,
+        run: paceText(3.8, '4:23', '7:03'),
+        swim: paceText(1.2, '1:23', '1:16'),
+      },
+    ] as unknown[],
     sportMix: {
       rides: 4,
       runs: 40,
@@ -93,7 +103,7 @@ beforeEach(() => {
 });
 
 describe('the fitness screen read', () => {
-  it('serves the trend, the markers and both stored speeds from one call', async () => {
+  it('serves the trend, the markers and both threshold paces from one call', async () => {
     const { result } = await renderHook(useFitnessScreenRead);
 
     expect(result.current.eftpTrend?.latest).toBe(260);
@@ -102,8 +112,9 @@ describe('the fitness screen read', () => {
       '2026-06-01',
       '2026-09-05',
     ]);
-    expect(result.current.storedRunPace).toBe(3.8);
-    expect(result.current.storedSwimPace).toBe(1.2);
+    expect(result.current.thresholdPaces.get(30)?.run?.metricText).toBe('4:23');
+    expect(result.current.thresholdPaces.get(30)?.swim?.imperialText).toBe('1:16');
+    expect(result.current.thresholdPaces.get(7)?.run).toBeUndefined();
     expect(result.current.librarySport).toBe('Running');
     expect(engine.getFitnessScreenData).toHaveBeenCalledTimes(1);
     expect(engine.getFtpTrend).not.toHaveBeenCalled();
@@ -212,11 +223,11 @@ describe('the fitness screen read', () => {
 
     engine.getFitnessScreenData.mockImplementation(() => ({
       ...screenRead(),
-      runPaceTrend: pace(4.0),
+      thresholdPaces: [{ days: 30, run: paceText(4.0, '4:10', '6:42'), swim: undefined }],
     }));
     await emit('activities');
 
-    expect(result.current.storedRunPace).toBe(4.0);
+    expect(result.current.thresholdPaces.get(30)?.run?.metricText).toBe('4:10');
     expect(engine.getFitnessScreenData).toHaveBeenCalledTimes(2);
   });
 
@@ -232,24 +243,23 @@ describe('the fitness screen read', () => {
     const { result, rerender } = await renderHook(useFitnessScreenRead);
     const first = result.current;
 
-    await rerender({});
+    await rerender([]);
 
     expect(result.current).toBe(first);
     expect(engine.getFitnessScreenData).toHaveBeenCalledTimes(1);
   });
 
-  it('answers no trend while no day carries an estimate, and no speed when none was stored', async () => {
+  it('answers no trend while no day carries an estimate, and no pace when none is named', async () => {
     engine.getFitnessScreenData.mockImplementation(() => ({
       ...screenRead({ history: [] }),
-      runPaceTrend: pace(undefined),
-      swimPaceTrend: pace(undefined),
+      thresholdPaces: [{ days: 30, run: undefined, swim: undefined }],
     }));
 
     const { result } = await renderHook(useFitnessScreenRead);
 
     expect(result.current.eftpTrend).toBeUndefined();
-    expect(result.current.storedRunPace).toBeNull();
-    expect(result.current.storedSwimPace).toBeNull();
+    expect(result.current.thresholdPaces.get(30)?.run).toBeUndefined();
+    expect(result.current.thresholdPaces.get(30)?.swim).toBeUndefined();
   });
 
   it('hands the chart the coverage of the wellness its trend is read from', async () => {
@@ -279,13 +289,13 @@ describe('the fitness screen read', () => {
 
     expect(result.current.eftpTrend).toBeUndefined();
     expect(result.current.eftpChanges).toEqual([]);
-    expect(result.current.storedRunPace).toBeNull();
+    expect(result.current.thresholdPaces.size).toBe(0);
     expect(result.current.eftpCoverage).toBe(RangeCoverage.NotFetched);
 
     engine.getFitnessScreenData.mockImplementation(() => screenRead());
     await emit('activities');
 
-    expect(result.current.storedRunPace).toBe(3.8);
+    expect(result.current.thresholdPaces.get(30)?.run?.metricText).toBe('4:23');
   });
 
   it('answers nothing while the engine is not open', async () => {
@@ -297,8 +307,20 @@ describe('the fitness screen read', () => {
 
     expect(result.current.eftpTrend).toBeUndefined();
     expect(result.current.eftpChanges).toEqual([]);
-    expect(result.current.storedSwimPace).toBeNull();
+    expect(result.current.thresholdPaces.size).toBe(0);
     expect(result.current.eftpCoverage).toBe(RangeCoverage.NotFetched);
+  });
+
+  it('reads again when a curve it depends on is fetched', async () => {
+    const { rerender } = await renderHook(
+      (fetches: readonly (number | null)[]) => useFitnessScreenRead(fetches),
+      { initialProps: [null] as readonly (number | null)[] }
+    );
+    expect(engine.getFitnessScreenData).toHaveBeenCalledTimes(1);
+
+    await rerender([1_780_000_000]);
+
+    expect(engine.getFitnessScreenData).toHaveBeenCalledTimes(2);
   });
 });
 

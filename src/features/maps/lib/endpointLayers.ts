@@ -30,7 +30,7 @@ export function endpointCasingRadius(scale = 1): number {
 const ENDPOINT_ICON_SIZE = 0.14;
 
 /** Where a page draws the endpoints, for a page whose names differ from the 2D surfaces'. */
-export interface EndpointLayerOptions {
+interface EndpointLayerOptions {
   /** The source holding the two points. */
   source?: string;
   /** The layer ids are this followed by `-border`, `-fill` and `-icon`. */

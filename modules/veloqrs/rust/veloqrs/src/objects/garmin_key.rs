@@ -5,6 +5,7 @@
 //! it, and it is never logged. Only the Garmin client reads it, and the client
 //! sends it to Garmin's token endpoint and nowhere else.
 
+use crate::poison::Recover;
 use std::future::Future;
 use std::sync::{Arc, LazyLock, Mutex};
 
@@ -43,7 +44,7 @@ struct Slot {
 
 impl GarminKeyHolder {
     fn slot(&self) -> std::sync::MutexGuard<'_, Slot> {
-        self.slot.lock().unwrap_or_else(|e| e.into_inner())
+        self.slot.lock_recover()
     }
 
     /// The client for the held key, for a caller that talks to Garmin with it.

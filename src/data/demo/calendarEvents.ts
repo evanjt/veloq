@@ -1,4 +1,4 @@
-import { formatLocalDate } from '@/shared/format/format';
+import { addLocalDays, formatLocalDate } from '@/shared/time/localDay';
 
 /** An event body in the shape intervals.icu sends, which the engine stores and reads. */
 export interface DemoCalendarEventBody {
@@ -13,8 +13,7 @@ export interface DemoCalendarEventBody {
  */
 export function getDemoCalendarEvents(): DemoCalendarEventBody[] {
   const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrow = addLocalDays(today, 1);
 
   const fmt = (d: Date): string => formatLocalDate(d);
 

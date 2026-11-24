@@ -54,12 +54,10 @@ import { ExcludedAttemptsLink } from './ExcludedAttemptsLink';
 import { SelectedAttemptCard } from './SelectedAttemptCard';
 import { SectionScatterChart, type SectionScatterChartProps } from './SectionScatterChart';
 
-export type { PerformancePlotType };
-
 const NO_HISTOGRAMS: FfiAttemptHistograms = {};
 const NO_PROGRESSION: FfiRecordProgressions = { forward: [], reverse: [] };
 
-export interface PerformanceChartPanelProps extends Omit<
+interface PerformanceChartPanelProps extends Omit<
   SectionScatterChartProps,
   'selectedDirection' | 'selectedPointId' | 'onSelectPoint' | 'showDataRowStart'
 > {

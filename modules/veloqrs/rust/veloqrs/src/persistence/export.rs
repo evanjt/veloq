@@ -13,6 +13,7 @@ use rusqlite::{OpenFlags, Result as SqlResult};
 use super::PersistentEngine;
 use super::codec::TrackRead;
 use crate::GpsPoint;
+use crate::persistence::line_simplify::METRES_PER_DEGREE;
 
 /// Why an activity is not in an export. The athlete acts on each differently:
 /// a trainer ride has nothing to export, a trimmed ride is the privacy setting
@@ -1170,14 +1171,11 @@ pub struct ExportPrivacyPreview {
     pub dropped: u32,
 }
 
-/// Metres of latitude per degree, close enough to bound a search box.
-const METRES_PER_DEGREE_LAT: f64 = 111_320.0;
-
 /// Longitude degrees spanning `radius_m` at this latitude, bounded so a
 /// latitude near the pole widens the box rather than dividing by zero.
 fn lng_span_degrees(lat: f64, radius_m: f64) -> f64 {
     let shrink = lat.to_radians().cos().abs().max(1e-6);
-    (radius_m / (METRES_PER_DEGREE_LAT * shrink)).min(180.0)
+    (radius_m / (METRES_PER_DEGREE * shrink)).min(180.0)
 }
 
 /// What a trim at this home and radius would do to the current library.
@@ -1207,7 +1205,7 @@ pub(crate) fn export_privacy_preview_from(
         });
     }
 
-    let lat_span = radius_m / METRES_PER_DEGREE_LAT;
+    let lat_span = radius_m / METRES_PER_DEGREE;
     let lng_span = lng_span_degrees(home_lat, radius_m);
     let (lat_lo, lat_hi) = (home_lat - lat_span, home_lat + lat_span);
     let (lng_lo, lng_hi) = (home_lng - lng_span, home_lng + lng_span);

@@ -10,6 +10,7 @@
 
 use super::*;
 use crate::governor::{Governor, NoopPolicy};
+use crate::poison::Recover;
 use httpmock::prelude::*;
 use serde_json::json;
 
@@ -22,7 +23,7 @@ static WELLNESS_OLDEST: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static ORDER: Mutex<Vec<&'static str>> = Mutex::new(Vec::new());
 
 fn note(name: &'static str) {
-    ORDER.lock().unwrap_or_else(|e| e.into_inner()).push(name);
+    ORDER.lock_recover().push(name);
 }
 
 fn note_wellness(req: &HttpMockRequest) -> bool {
@@ -32,10 +33,7 @@ fn note_wellness(req: &HttpMockRequest) -> bool {
         .find(|(k, _)| k == "oldest")
         .map(|(_, v)| v)
         .unwrap_or_default();
-    WELLNESS_OLDEST
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .push(oldest);
+    WELLNESS_OLDEST.lock_recover().push(oldest);
     note("wellness");
     true
 }
@@ -46,11 +44,11 @@ fn note_census(_: &HttpMockRequest) -> bool {
 }
 
 fn taken_wellness_oldest() -> Vec<String> {
-    std::mem::take(&mut *WELLNESS_OLDEST.lock().unwrap_or_else(|e| e.into_inner()))
+    std::mem::take(&mut *WELLNESS_OLDEST.lock_recover())
 }
 
 fn taken_order() -> Vec<&'static str> {
-    std::mem::take(&mut *ORDER.lock().unwrap_or_else(|e| e.into_inner()))
+    std::mem::take(&mut *ORDER.lock_recover())
 }
 
 fn transport_to(base: String) -> Transport {

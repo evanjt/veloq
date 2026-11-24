@@ -10,6 +10,7 @@
 //! every install draws on its share of the limits all of the app's users share,
 //! and the cooldown after a refusal.
 
+use crate::poison::Recover;
 use std::collections::VecDeque;
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
@@ -1298,7 +1299,7 @@ impl CountNotice {
     /// The count moved now.
     fn moved(&self) {
         let step = {
-            let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            let mut state = self.state.lock_recover();
             notice_step(&mut state, Instant::now(), self.window)
         };
         match step {
@@ -1315,19 +1316,13 @@ impl CountNotice {
             .name("veloq-count-notice".into())
             .spawn(move || {
                 std::thread::sleep(wait);
-                notice_sent(
-                    &mut state.lock().unwrap_or_else(|e| e.into_inner()),
-                    Instant::now(),
-                );
+                notice_sent(&mut state.lock_recover(), Instant::now());
                 sink();
             });
         if spawned.is_err() {
             // Without a thread the close cannot run later, so the held change is
             // announced now and the window restarts from here.
-            notice_sent(
-                &mut self.state.lock().unwrap_or_else(|e| e.into_inner()),
-                Instant::now(),
-            );
+            notice_sent(&mut self.state.lock_recover(), Instant::now());
             (self.sink)();
         }
     }
@@ -1483,7 +1478,7 @@ impl Governor {
     }
 
     fn garmin_state<R>(&self, f: impl FnOnce(&mut GarminLane) -> R) -> R {
-        f(&mut self.garmin.lock().unwrap_or_else(|e| e.into_inner()))
+        f(&mut self.garmin.lock_recover())
     }
 
     /// Until when the Garmin lane is held at `now`, or `None`.
@@ -1570,11 +1565,7 @@ impl Governor {
             return None;
         }
         let (result, moved) = {
-            let mut budget = self
-                .budget
-                .as_ref()?
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
+            let mut budget = self.budget.as_ref()?.lock_recover();
             let before = budget.today;
             let loaded = self.store.as_ref().and_then(|store| store.load());
             if let Some(stored) = &loaded {
@@ -1709,7 +1700,7 @@ impl Governor {
         self.yield_to_higher_lanes(lane).await;
         let interval = self.min_interval + self.policy.pace(lane);
         let scheduled = {
-            let mut next = self.next_at.lock().unwrap_or_else(|e| e.into_inner());
+            let mut next = self.next_at.lock_recover();
             let now = Instant::now();
             let scheduled = (*next).map_or(now, |t| t.max(now));
             *next = Some(scheduled + interval);
@@ -1738,7 +1729,7 @@ impl Governor {
         let mut waited = Duration::ZERO;
         while waited < MAX_LANE_YIELD {
             let backlog = {
-                let next = self.next_at.lock().unwrap_or_else(|e| e.into_inner());
+                let next = self.next_at.lock_recover();
                 (*next).map_or(Duration::ZERO, |t| {
                     t.saturating_duration_since(Instant::now())
                 })
@@ -1777,7 +1768,7 @@ impl Governor {
     #[cfg(test)]
     fn reset_budget(&self) {
         if let Some(budget) = &self.budget {
-            *budget.lock().unwrap_or_else(|e| e.into_inner()) = Budget::new(0);
+            *budget.lock_recover() = Budget::new(0);
         }
     }
 }

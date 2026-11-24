@@ -7,7 +7,7 @@
 //! nothing an exact row cannot rebuild. Only a consensus line, averaged across
 //! activities and belonging to none, has no triple to rebuild from.
 
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, params};
 use tracematch::GpsPoint;
 
 use crate::persistence::codec::{self, TrackRead};
@@ -74,16 +74,7 @@ pub(crate) fn locate_slice(track: &[GpsPoint], polyline: &[GpsPoint]) -> Option<
 /// One activity's stored stream. Free-standing rather than a method, so a read
 /// that already holds a prepared statement on the connection can still call it.
 pub(crate) fn stream(conn: &Connection, activity_id: &str) -> Option<Vec<GpsPoint>> {
-    let blob: Vec<u8> = conn
-        .query_row(
-            "SELECT track_data FROM gps_tracks WHERE activity_id = ?",
-            params![activity_id],
-            |row| row.get(0),
-        )
-        .optional()
-        .ok()
-        .flatten()?;
-    match TrackRead::from_blob(&blob) {
+    match codec::read_track(conn, activity_id) {
         TrackRead::Present(points) => Some(points),
         TrackRead::Missing => None,
         TrackRead::Corrupt(reason) => {

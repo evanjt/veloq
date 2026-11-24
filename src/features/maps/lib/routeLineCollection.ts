@@ -11,7 +11,7 @@
 import { EMPTY_FEATURE_COLLECTION } from './coordinates';
 import { nativeGeoUrl } from './tileTransport';
 
-export interface RouteLineInput {
+interface RouteLineInput {
   routeId: string;
   routeNumber?: number | undefined;
   /** The name the route is shown under, read with the map */

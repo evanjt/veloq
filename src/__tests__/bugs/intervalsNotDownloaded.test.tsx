@@ -20,7 +20,7 @@ import type { EngineBodyStatus } from '@/shared/native/engineBodies';
 import { layout } from '@/theme/layout';
 import type { ActivityInterval } from '@/types';
 import { activityRecord } from '../__shared__/activityRecord';
-import { IntervalKind, type ActivityHeldBack, type ActivityRecord } from 'veloqrs';
+import { FfiIntervalKind, type FfiActivityHeldBack, type ActivityRecord } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -98,7 +98,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 const intervals: ActivityInterval[] = [
   {
     id: 1,
-    kind: IntervalKind.Work,
+    kind: FfiIntervalKind.Work,
     zone: 3,
     movingTime: 300,
     startTime: 0,
@@ -122,7 +122,7 @@ function renderSection(props: {
   intervalsOutcome?: 'loaded' | 'empty' | 'pending';
   intervalsStatus?: EngineBodyStatus;
   onRetryIntervals?: () => void;
-  heldBack?: ActivityHeldBack | null;
+  heldBack?: FfiActivityHeldBack | null;
 }) {
   return render(
     <ActivityChartsSection

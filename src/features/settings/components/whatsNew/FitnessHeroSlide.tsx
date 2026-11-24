@@ -7,12 +7,8 @@ import { useTheme } from '@/shared/app';
 import { ChartCanvas, CurveArea, CurveLine, useChartColors } from '@/shared/charts';
 import { colors, darkColors, spacing, layout, typography, opacity, zoneColour } from '@/theme';
 import { tourPanelColour } from './tourPanel';
-import {
-  FORM_ZONE_BOUNDARIES,
-  FORM_ZONE_COLORS,
-  formZoneBandColor,
-  type FormZone,
-} from '@/features/fitness';
+import { formZoneBandColor, formZoneBands, formZoneColor, type FormZone } from '@/features/fitness';
+import { useFormZoneEdges } from '@/features/wellness';
 import {
   TOUR_FATIGUE_DAYS,
   TOUR_FITNESS_DAYS,
@@ -56,6 +52,8 @@ export function FitnessHeroSlide() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const chartColors = useChartColors();
+  // The bands sit where the engine says the zones change, and draw once it has said.
+  const bands = formZoneBands(useFormZoneEdges());
   const cardColor = tourPanelColour(isDark);
   const titleColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -87,7 +85,7 @@ export function FitnessHeroSlide() {
       key: 'fitnessScreen.formDescription',
       name: 'metrics.form',
       days: undefined,
-      dot: FORM_ZONE_COLORS.optimal,
+      dot: formZoneColor('optimal', isDark),
     },
   ];
 
@@ -132,8 +130,10 @@ export function FitnessHeroSlide() {
             {({ points, bounds, yFor }) => (
               <>
                 {FORM_ZONES.map((zone) => {
-                  const top = Math.max(bounds.top, yFor(FORM_ZONE_BOUNDARIES[zone].max));
-                  const bottom = Math.min(bounds.bottom, yFor(FORM_ZONE_BOUNDARIES[zone].min));
+                  const band = bands[zone];
+                  if (!band) return null;
+                  const top = Math.max(bounds.top, yFor(band.max));
+                  const bottom = Math.min(bounds.bottom, yFor(band.min));
                   return (
                     <Rect
                       key={zone}

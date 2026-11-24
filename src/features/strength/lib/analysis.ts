@@ -100,6 +100,7 @@ export function normaliseStrengthSummary(raw: {
   activityCount?: number;
   totalSets?: number;
   maxWeightedSets?: number;
+  shadeCeilings?: number[];
   balance?: {
     id: string;
     leftSlug: string;
@@ -126,6 +127,7 @@ export function normaliseStrengthSummary(raw: {
     activityCount: raw.activityCount ?? 0,
     totalSets: raw.totalSets ?? 0,
     maxWeightedSets: raw.maxWeightedSets ?? 0,
+    shadeCeilings: raw.shadeCeilings ?? [],
     balance: (raw.balance ?? []).map((pair) => ({
       id: pair.id,
       leftSlug: pair.leftSlug,

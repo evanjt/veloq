@@ -1,4 +1,5 @@
 import type { ActivityType, RecordingMode, RecordingStatus } from '@/types';
+import { toActivityType } from '@/types';
 
 const GPS_TYPES: ActivityType[] = [
   'Ride',
@@ -45,7 +46,7 @@ const INDOOR_TYPES: ActivityType[] = [
   'HighIntensityIntervalTraining',
 ];
 
-export const RECORDING_MODE_MAP: Record<ActivityType, RecordingMode> = Object.fromEntries([
+const RECORDING_MODE_MAP: Record<ActivityType, RecordingMode> = Object.fromEntries([
   ...GPS_TYPES.map((t) => [t, 'gps' as const]),
   ...INDOOR_TYPES.map((t) => [t, 'indoor' as const]),
   ...(
@@ -78,7 +79,7 @@ export function getRecordingMode(type: ActivityType): RecordingMode {
  */
 export function parseRecordingType(raw: string | string[] | undefined): ActivityType | null {
   if (typeof raw !== 'string' || !Object.hasOwn(RECORDING_MODE_MAP, raw)) return null;
-  return raw as ActivityType;
+  return toActivityType(raw);
 }
 
 /** The planned event a recording link pairs with, when it names a positive whole number. */

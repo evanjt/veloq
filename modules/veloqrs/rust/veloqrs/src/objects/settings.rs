@@ -22,9 +22,7 @@ fn with_settings_writer<T>(
 ) -> Result<T, VeloqError> {
     crate::persistence::settings_conn::with_settings_conn(write)
         .ok_or_else(engine_refused)?
-        .map_err(|error| VeloqError::Database {
-            msg: format!("{}", error),
-        })
+        .map_err(|error| VeloqError::database(format!("{}", error)))
 }
 
 fn write_setting_and_start(
@@ -60,9 +58,7 @@ impl SettingsManager {
     fn set_athlete_profile(&self, json: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.set_athlete_profile(&json)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
+                .map_err(|e| VeloqError::database(format!("{}", e)))
         })?
     }
 
@@ -76,9 +72,7 @@ impl SettingsManager {
     fn set_sport_settings(&self, json: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.set_sport_settings(&json)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
+                .map_err(|e| VeloqError::database(format!("{}", e)))
         })?
     }
 
@@ -160,9 +154,7 @@ impl SettingsManager {
             crate::persistence::export::export_privacy_preview_from(
                 conn, home_lat, home_lng, radius_m,
             )
-            .map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })
+            .map_err(|e| VeloqError::database(format!("{}", e)))
         })?
     }
 
@@ -188,7 +180,7 @@ impl SettingsManager {
                 time.as_deref(),
                 &points,
             )
-            .map_err(|msg| VeloqError::Database { msg })
+            .map_err(|msg| VeloqError::database(msg))
         })?
     }
 
@@ -202,7 +194,7 @@ impl SettingsManager {
     ) -> Result<Option<crate::persistence::export::GpxFile>, VeloqError> {
         with_reader(|conn| {
             crate::persistence::export::section_gpx_file_from(conn, &section_id, sport.as_deref())
-                .map_err(|msg| VeloqError::Database { msg })
+                .map_err(|msg| VeloqError::database(msg))
         })?
     }
 
@@ -217,7 +209,7 @@ impl SettingsManager {
     ) -> Result<Option<crate::persistence::export::GpxFile>, VeloqError> {
         with_reader(|conn| {
             crate::persistence::export::route_gpx_file_from(conn, &group_id, sport.as_deref())
-                .map_err(|msg| VeloqError::Database { msg })
+                .map_err(|msg| VeloqError::database(msg))
         })?
     }
 
@@ -231,7 +223,7 @@ impl SettingsManager {
     ) -> Result<Option<crate::persistence::export::FitCourseFile>, VeloqError> {
         with_reader(|conn| {
             crate::persistence::export::section_fit_course_from(conn, &section_id, sport.as_deref())
-                .map_err(|msg| VeloqError::Database { msg })
+                .map_err(|msg| VeloqError::database(msg))
         })?
     }
 
@@ -245,7 +237,7 @@ impl SettingsManager {
     ) -> Result<Option<crate::persistence::export::FitCourseFile>, VeloqError> {
         with_reader(|conn| {
             crate::persistence::export::route_fit_course_from(conn, &group_id, sport.as_deref())
-                .map_err(|msg| VeloqError::Database { msg })
+                .map_err(|msg| VeloqError::database(msg))
         })?
     }
 
@@ -257,11 +249,8 @@ impl SettingsManager {
     /// Get a single user preference by key.
     fn get_setting(&self, key: String) -> Result<Option<String>, VeloqError> {
         with_reader(|conn| {
-            crate::persistence::settings::setting_from(conn, &key).map_err(|e| {
-                VeloqError::Database {
-                    msg: format!("{}", e),
-                }
-            })
+            crate::persistence::settings::setting_from(conn, &key)
+                .map_err(|e| VeloqError::database(format!("{}", e)))
         })?
     }
 
@@ -303,9 +292,7 @@ impl SettingsManager {
             let owned: Vec<(String, String)> =
                 templates.into_iter().map(|p| (p.key, p.value)).collect();
             e.set_notification_templates(&locale, &owned)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
+                .map_err(|e| VeloqError::database(format!("{}", e)))
         })?
     }
 
@@ -315,9 +302,7 @@ impl SettingsManager {
         let days = crate::ffi_types::int_from_wire(days);
         with_engine(|e| {
             e.set_stream_retention_days(days)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
+                .map_err(|e| VeloqError::database(format!("{}", e)))
         })??;
         crate::net::stream_backfill::release_autostart_hold();
         crate::net::stream_backfill::autostart_stream_backfill();

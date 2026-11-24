@@ -69,7 +69,7 @@ const DAY_MS = 86_400_000;
  * ranks above it. A file time the restore scrambled is read back to its day,
  * and one that cannot be read back ranks below every dated backup.
  */
-export function undatedRecordRank(modifiedSeconds: number): number {
+function undatedRecordRank(modifiedSeconds: number): number {
   const asWritten = modifiedSeconds * 1000;
   const fileMs = asWritten >= EARLIEST_RECORD_MS ? asWritten : asWritten * 1000;
   if (!Number.isFinite(fileMs) || fileMs < EARLIEST_RECORD_MS) return -Infinity;

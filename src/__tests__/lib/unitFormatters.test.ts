@@ -7,14 +7,20 @@
  * from the value by a space, and energy in food calories reads kcal.
  */
 
+import { changeLanguage, initialiseI18n } from '@/i18n';
 import {
   formatCadence,
   formatCalorieRate,
   formatCalories,
+  formatDistance,
+  formatElevation,
   formatEnergy,
+  formatHeartRate,
   formatHeartRateRange,
   formatHrv,
+  formatPower,
   formatPowerRange,
+  formatTemperature,
 } from '@/shared/format/format';
 import { ABSENT } from '@/shared/format/absent';
 
@@ -106,5 +112,64 @@ describe('formatCadence', () => {
 
   it.each([NaN, Infinity, -1])('prints the absent mark for %p', (input) => {
     expect(formatCadence(input)).toBe(ABSENT);
+  });
+});
+
+describe('unit words follow the app language', () => {
+  beforeAll(async () => {
+    await initialiseI18n('en-GB');
+  });
+
+  afterEach(async () => {
+    await changeLanguage('en-GB');
+  });
+
+  it('writes energy in the language its unit table gives', async () => {
+    await changeLanguage('zh-Hans');
+    expect(formatCalories(350)).toBe('350 千卡');
+    expect(formatCalorieRate(546)).toBe('546 千卡/h');
+  });
+
+  it('writes heart rate in the language its unit table gives', async () => {
+    await changeLanguage('es');
+    expect(formatHeartRate(140)).toBe('140 lpm');
+    expect(formatHeartRateRange(120, 140)).toBe('120-140 lpm');
+    expect(formatHeartRateRange(180, null)).toBe('180+ lpm');
+  });
+
+  it('writes power in the language its unit table gives', async () => {
+    await changeLanguage('zh-Hans');
+    expect(formatPower(250)).toBe('250 瓦');
+    expect(formatPowerRange(200, 250)).toBe('200-250 瓦');
+    expect(formatPowerRange(300, null)).toBe('300+ 瓦');
+  });
+
+  it('keeps the English symbols under English', () => {
+    expect(formatHeartRate(140)).toBe('140 bpm');
+    expect(formatPower(250)).toBe('250 W');
+    expect(formatCalories(350)).toBe('350 kcal');
+  });
+});
+
+describe('the caller passes the unit system', () => {
+  it('prints each distance, elevation and temperature in the system given', () => {
+    expect(formatDistance(1500, true)).toBe('1.5 km');
+    expect(formatDistance(1500, false)).toBe('0.9 mi');
+    expect(formatElevation(100, true)).toBe('100 m');
+    expect(formatElevation(100, false)).toBe('328 ft');
+    expect(formatTemperature(20, true)).toBe('20°C');
+    expect(formatTemperature(20, false)).toBe('68°F');
+  });
+
+  it('does not compile a call that leaves the unit system to a metric default', () => {
+    // @ts-expect-error the unit system has no default: an imperial athlete would read metric
+    const distanceWithoutSystem = () => formatDistance(1500);
+    // @ts-expect-error the unit system has no default: an imperial athlete would read metric
+    const elevationWithoutSystem = () => formatElevation(100);
+    // @ts-expect-error the unit system has no default: an imperial athlete would read metric
+    const temperatureWithoutSystem = () => formatTemperature(20);
+    expect([distanceWithoutSystem, elevationWithoutSystem, temperatureWithoutSystem]).toHaveLength(
+      3
+    );
   });
 });

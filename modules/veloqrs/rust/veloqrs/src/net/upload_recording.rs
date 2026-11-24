@@ -12,6 +12,7 @@
 //! the server holds the activity by then, and each has a sweep that finishes
 //! it on a later pass.
 
+use crate::poison::Recover;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
@@ -333,8 +334,7 @@ const RECORDINGS_DIR: &str = "recordings";
 /// forgets it.
 pub(crate) fn set_files_root(root: &str) {
     let root = crate::net::transport::strip_file_scheme(root);
-    *DOCUMENTS_DIR.lock().unwrap_or_else(|e| e.into_inner()) =
-        (!root.is_empty()).then(|| PathBuf::from(root));
+    *DOCUMENTS_DIR.lock_recover() = (!root.is_empty()).then(|| PathBuf::from(root));
 }
 
 /// Where a file a row names sits now, `None` while it cannot be known.
@@ -349,10 +349,7 @@ pub(crate) fn recording_file(stored: &str) -> Option<PathBuf> {
     if stored.is_empty() {
         return None;
     }
-    let root = DOCUMENTS_DIR
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .clone();
+    let root = DOCUMENTS_DIR.lock_recover().clone();
     let path = Path::new(stored);
     if path.is_relative() {
         return root.map(|root| root.join(path));
@@ -598,7 +595,7 @@ static IN_FLIGHT: LazyLock<Mutex<HashMap<String, Vec<mpsc::Sender<FfiUploadResul
 
 fn in_flight() -> std::sync::MutexGuard<'static, HashMap<String, Vec<mpsc::Sender<FfiUploadResult>>>>
 {
-    IN_FLIGHT.lock().unwrap_or_else(|e| e.into_inner())
+    IN_FLIGHT.lock_recover()
 }
 
 /// One run's hold on a ride between its begin and its outcome. Dropped without

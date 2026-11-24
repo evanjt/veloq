@@ -1,4 +1,4 @@
-import { StartOutcome, startOutcome, type StartVerdict } from 'veloqrs';
+import { FfiStartOutcome, startOutcome, type StartVerdict } from 'veloqrs';
 
 /**
  * The line a refused rescan shows, or none when the run started.
@@ -9,7 +9,7 @@ import { StartOutcome, startOutcome, type StartVerdict } from 'veloqrs';
  * mapping lives here so the two screens that ask cannot disagree about what a
  * verdict means.
  */
-export type RescanRefusalKey =
+type RescanRefusalKey =
   | 'sections.rescanRefusedBusy'
   | 'sections.rescanRefusedHeld'
   | 'sections.rescanRefusedNotReady'
@@ -19,17 +19,17 @@ export type RescanRefusalKey =
 
 export function rescanRefusalKey(outcome: StartVerdict | null): RescanRefusalKey | null {
   switch (outcome === null ? null : startOutcome(outcome)) {
-    case StartOutcome.Busy:
+    case FfiStartOutcome.Busy:
       return 'sections.rescanRefusedBusy';
-    case StartOutcome.Held:
+    case FfiStartOutcome.Held:
       return 'sections.rescanRefusedHeld';
-    case StartOutcome.NotReady:
+    case FfiStartOutcome.NotReady:
       return 'sections.rescanRefusedNotReady';
-    case StartOutcome.NotConfigured:
+    case FfiStartOutcome.NotConfigured:
       return 'sections.rescanRefusedOff';
-    case StartOutcome.NotOwed:
+    case FfiStartOutcome.NotOwed:
       return 'sections.rescanRefusedNothingOwed';
-    case StartOutcome.Failed:
+    case FfiStartOutcome.Failed:
       return 'sections.rescanRefusedFailed';
     default:
       return null;

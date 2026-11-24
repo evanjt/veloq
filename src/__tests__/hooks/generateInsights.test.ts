@@ -6,6 +6,7 @@ import {
 import { consolidateInsights } from '@/features/insights/lib/computeInsightsData';
 import type { Insight } from '@/types';
 import type { PeriodComparison, PeriodStats } from '@/features/insights/types';
+import { trendOfMetric, trendVerdict } from '@/shared/format/trend';
 import { getEngine } from '@/shared/native/engine';
 import type { HrvTrend, StalePrOpportunity } from 'veloqrs';
 import { datedSeries } from '../__shared__/datedSeries';
@@ -52,7 +53,19 @@ function withComparisons(input: InsightInputData): InsightInputData {
     const cur = metric === 'tss' ? current.totalTss : current.totalDuration;
     const prev = metric === 'tss' ? previous.totalTss : previous.totalDuration;
     if (prev <= 0 || cur <= 0) return null;
-    return { metric, current: cur, previous: prev, ratio: cur / prev - 1, comparedStart: 0 };
+    const trendMetric = metric === 'tss' ? 'weekTss' : 'weekHours';
+    const scale = metric === 'tss' ? 1 : 1 / 3600;
+    const direction = trendOfMetric(trendMetric, cur * scale, prev * scale);
+    const verdict = trendVerdict(trendMetric, direction);
+    return {
+      metric,
+      current: cur,
+      previous: prev,
+      ratio: cur / prev - 1,
+      comparedStart: 0,
+      direction,
+      verdict,
+    };
   };
   const { currentPeriod, previousPeriod, chronicPeriod } = input;
   return {
@@ -354,6 +367,8 @@ describe('generateInsights', () => {
             previous: 200,
             ratio: 0.6,
             comparedStart: 0,
+            direction: 'up',
+            verdict: 'moved',
           },
           weekAgainstChronic: null,
         },
@@ -376,6 +391,8 @@ describe('generateInsights', () => {
             previous: 632,
             ratio: -0.29,
             comparedStart: 0,
+            direction: 'down',
+            verdict: 'moved',
           },
           weekAgainstChronic: null,
         },
@@ -399,6 +416,8 @@ describe('generateInsights', () => {
             previous: 200,
             ratio: -0.28,
             comparedStart: 0,
+            direction: 'down',
+            verdict: 'moved',
           },
         },
         mockT
@@ -435,6 +454,8 @@ describe('generateInsights', () => {
             previous: 100,
             ratio: 1,
             comparedStart: 0,
+            direction: 'up',
+            verdict: 'moved',
           },
         },
         mockT
@@ -621,6 +642,8 @@ describe('generateInsights', () => {
             fitnessMetric: 'pace',
             currentValue: 1.1,
             previousValue: 1.0,
+            currentMetricText: '1:31',
+            previousMetricText: '1:40',
             gainPercent: 10,
             unit: '/100m',
             sportType: 'Swim',

@@ -164,7 +164,7 @@ export function WhatsNewModal() {
 
   const tourSlides =
     tourState?.mode === 'tutorial'
-      ? getTutorialSlidesFor(tourState.only, tourState.held).filter(shown)
+      ? getTutorialSlidesFor(tourState.only, tourState.held).filter(forAthlete)
       : missedSlides.length > 0
         ? missedSlides
         : ALL_SLIDES.filter(forAthlete);

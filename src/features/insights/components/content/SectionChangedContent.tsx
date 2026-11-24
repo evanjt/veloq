@@ -6,6 +6,7 @@ import { PressTarget } from '@/shared/ui';
 import type { Insight, TFunc } from '../../types';
 import { dataLinkLabel } from '../../lib/dataLink';
 import { SheetTrackDrawing } from './SheetTrackDrawing';
+import { isPositioned } from '@/shared/geo/routePreview';
 
 interface SectionChangedContentProps {
   insight: Insight;
@@ -28,7 +29,7 @@ export const SectionChangedContent = React.memo(function SectionChangedContent({
     if (target) navigateTo(fromInsightsPath(target));
   }, [target]);
 
-  const drawable = line?.points.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+  const drawable = line?.points.filter((p) => isPositioned(p.lat, p.lng));
   if (!line || !drawable || drawable.length < 2) return null;
 
   return (

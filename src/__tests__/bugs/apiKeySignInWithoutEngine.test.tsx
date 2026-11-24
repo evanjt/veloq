@@ -9,7 +9,7 @@
  * the engine guard landed.
  */
 import { renderHook, act } from '@testing-library/react-native';
-import { CallKind, validateCredentials } from 'veloqrs';
+import { FfiCallKind, validateCredentials } from 'veloqrs';
 
 import { useApiKeyLogin } from '@/features/auth/hooks/useApiKeyLogin';
 import { formatClockOrDate } from '@/shared/format/format';
@@ -54,7 +54,7 @@ const mockValidateCredentials = validateCredentials as jest.Mock;
 describe('API key sign-in with no engine open', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockValidateCredentials.mockResolvedValue({ kind: CallKind.Ok, id: '900001' });
+    mockValidateCredentials.mockResolvedValue({ kind: FfiCallKind.Ok, id: '900001' });
     useAuthStore.setState({ setCredentials: jest.fn(async () => undefined) } as never);
   });
 
@@ -86,7 +86,7 @@ describe('API key sign-in with no engine open', () => {
   });
 
   it('still names a rejected key as invalid rather than as a connection failure', async () => {
-    mockValidateCredentials.mockResolvedValue({ kind: CallKind.Http, status: 401 });
+    mockValidateCredentials.mockResolvedValue({ kind: FfiCallKind.Http, status: 401 });
 
     const setError = await signIn();
 
@@ -96,7 +96,7 @@ describe('API key sign-in with no engine open', () => {
   it('says the service is busy until the refusal lifts, and keeps the key', async () => {
     const liftsAt = Date.UTC(2026, 10, 18, 15, 20);
     mockValidateCredentials.mockResolvedValue({
-      kind: CallKind.RateLimited,
+      kind: FfiCallKind.RateLimited,
       status: 429,
       retryAtMs: liftsAt,
     });
@@ -111,7 +111,7 @@ describe('API key sign-in with no engine open', () => {
   });
 
   it('says the service is busy without a time when the refusal names none', async () => {
-    mockValidateCredentials.mockResolvedValue({ kind: CallKind.RateLimited, status: 429 });
+    mockValidateCredentials.mockResolvedValue({ kind: FfiCallKind.RateLimited, status: 429 });
 
     const setError = await signIn();
 
@@ -121,7 +121,7 @@ describe('API key sign-in with no engine open', () => {
 
   it('says the service is busy for a deferral from the request budget', async () => {
     mockValidateCredentials.mockResolvedValue({
-      kind: CallKind.RateLimited,
+      kind: FfiCallKind.RateLimited,
       retryAtMs: Date.UTC(2026, 10, 18, 15, 20),
     });
 

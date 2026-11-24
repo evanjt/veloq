@@ -18,17 +18,9 @@ const FEED_TEST_IDS: Record<FeedGroup, { testID: string }> = {
 interface FeedFilterChipsProps {
   selected: ReadonlySet<FeedGroup>;
   onSelect: (group: FeedGroup) => void;
-  /** The preset chips follow the sport chips in the row when a handler is given. */
-  selectedRange?: FeedRangePreset | null;
-  onSelectRange?: (preset: FeedRangePreset) => void;
 }
 
-export function FeedFilterChips({
-  selected,
-  onSelect,
-  selectedRange,
-  onSelectRange,
-}: FeedFilterChipsProps) {
+export function FeedFilterChips({ selected, onSelect }: FeedFilterChipsProps) {
   return (
     <SportChipRow
       chips={FEED_GROUPS.map((group) => ({
@@ -38,11 +30,7 @@ export function FeedFilterChips({
       }))}
       selected={selected}
       onToggle={(key) => onSelect(key as FeedGroup)}
-    >
-      {onSelectRange ? (
-        <RangePresetChips selectedRange={selectedRange ?? null} onSelectRange={onSelectRange} />
-      ) : null}
-    </SportChipRow>
+    />
   );
 }
 

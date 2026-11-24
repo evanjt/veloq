@@ -54,7 +54,15 @@ describe('insight card captions', () => {
       stats(340),
       stats(1300),
       [],
-      { metric: 'tss', current: 450, previous: 340, ratio: 450 / 340 - 1, comparedStart: 0 },
+      {
+        metric: 'tss',
+        current: 450,
+        previous: 340,
+        ratio: 450 / 340 - 1,
+        comparedStart: 0,
+        direction: 'up',
+        verdict: 'moved',
+      },
       null,
       NOW,
       t
@@ -78,6 +86,8 @@ describe('insight card captions', () => {
         previous: 6 * 3600,
         ratio: -2 / 3,
         comparedStart: 0,
+        direction: 'down',
+        verdict: 'declined',
       },
       NOW,
       t
@@ -94,7 +104,15 @@ describe('insight card captions', () => {
       stats(0, 18_000),
       stats(0, 72_000),
       [],
-      { metric: 'duration', current: 23_400, previous: 18_000, ratio: 0.3, comparedStart: 0 },
+      {
+        metric: 'duration',
+        current: 23_400,
+        previous: 18_000,
+        ratio: 0.3,
+        comparedStart: 0,
+        direction: 'up',
+        verdict: 'improved',
+      },
       null,
       NOW,
       t

@@ -12,7 +12,7 @@ export type SummaryTrendBaseline =
   | { kind: 'day'; previous: string | number; date: number }
   | { kind: 'lastWeek'; previous: string | number };
 
-export interface SummaryMetricLabelInput {
+interface SummaryMetricLabelInput {
   /** The metric's name as a screen reader should say it. */
   name: string;
   value: string | number;

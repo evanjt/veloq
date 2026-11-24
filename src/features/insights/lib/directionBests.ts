@@ -32,10 +32,10 @@ export function prRecordOf(bests: DirectionBests): SectionPerformanceRecord | nu
   );
 }
 
-export type EffortDirection = 'forward' | 'reverse';
+type EffortDirection = 'forward' | 'reverse';
 
 /** One direction's effort on a section: an out-and-back activity yields two. */
-export interface DirectionEffort {
+interface DirectionEffort {
   record: SectionPerformanceRecord;
   direction: EffortDirection;
   time: number;

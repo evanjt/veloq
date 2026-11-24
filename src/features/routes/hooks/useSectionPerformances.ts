@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { engine, type SectionPerformanceResult } from 'veloqrs';
+import { engine, type FfiPaceText, type SectionPerformanceResult } from 'veloqrs';
 import type { FrequentSection, DirectionStats } from '@/types';
 import {
   toDirectionStats,
@@ -63,6 +63,8 @@ export interface SectionPerformanceRecord {
   bestTime: number;
   /** Best (highest) pace across all laps (m/s) */
   bestPace: number;
+  /** `bestPace` as the engine's pace text, null off a pace sport. */
+  bestPaceText: FfiPaceText | null;
   bestForwardTime: number | null;
   bestReverseTime: number | null;
   /** The engine timed `bestTime` by projection to a gate. */
@@ -71,6 +73,8 @@ export interface SectionPerformanceRecord {
   avgTime: number;
   /** Average pace across all laps (m/s) */
   avgPace: number;
+  /** `avgPace` as the engine's pace text, null off a pace sport. */
+  avgPaceText: FfiPaceText | null;
   /** Direction of the first/primary lap */
   direction: 'same' | 'reverse';
   /** Section distance */
@@ -153,11 +157,13 @@ export function toPerformanceRecord(
     lapCount: r.lapCount,
     bestTime: r.bestTime,
     bestPace: r.bestPace,
+    bestPaceText: r.bestPaceText ?? null,
     bestForwardTime: r.bestForwardTime ?? null,
     bestReverseTime: r.bestReverseTime ?? null,
     bestEstimated: r.bestEstimated,
     avgTime: r.avgTime,
     avgPace: r.avgPace,
+    avgPaceText: r.avgPaceText ?? null,
     direction: castDirection(r.direction),
     sectionDistance: r.sectionDistance,
   };

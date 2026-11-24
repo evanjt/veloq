@@ -102,7 +102,8 @@ const wallDay = (date: Date, end: boolean) => {
 
 /**
  * The screen read, asked once per connection: the calendar windows run from
- * the start of last year and from a year of heatmap days back to today.
+ * the start of last year and from a year of heatmap days back to today. The
+ * season windows follow from the instant, which the engine reads.
  */
 export function screenAsk(now: Date): PanelAsk {
   const today = midnight(now);
@@ -111,9 +112,6 @@ export function screenAsk(now: Date): PanelAsk {
     startTs: wallDay(start, false),
     endTs: wallDay(end, true),
   });
-  const sameDayLastYear = new Date(year - 1, today.getMonth(), today.getDate());
-  const monthStart = new Date(year, today.getMonth(), 1);
-  const lastYearMonthStart = new Date(year - 1, today.getMonth(), 1);
   return {
     slot: 'screen',
     method: 'fitness.screen',
@@ -123,10 +121,6 @@ export function screenAsk(now: Date): PanelAsk {
         heatmapFirstDay: dayOf(daysBefore(today, 364)),
         heatmapLastDay: dayOf(today),
         months: span(new Date(year - 1, 0, 1), today),
-        yearCurrent: span(new Date(year, 0, 1), today),
-        yearPrevious: span(new Date(year - 1, 0, 1), sameDayLastYear),
-        monthCurrent: span(monthStart, today),
-        monthPrevious: span(lastYearMonthStart, sameDayLastYear),
         nowWallSeconds: wallSeconds(now),
       },
     },

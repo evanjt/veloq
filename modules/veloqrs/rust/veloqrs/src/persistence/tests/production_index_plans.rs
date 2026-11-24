@@ -5,9 +5,9 @@
 //! statements SQLite was handed, and plans those. A statement that scans where
 //! an index was added for it fails here.
 
-use std::sync::Mutex;
-
 use crate::PersistentEngine;
+use crate::poison::Recover;
+use std::sync::Mutex;
 
 static STATEMENTS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
@@ -16,10 +16,7 @@ static STATEMENTS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
 
 fn record(sql: &str) {
-    STATEMENTS
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .push(sql.to_string());
+    STATEMENTS.lock_recover().push(sql.to_string());
 }
 
 /// The query plans of every statement `read` issues against `table`, one
@@ -29,14 +26,13 @@ fn plans_of(
     table: &str,
     read: impl FnOnce(&PersistentEngine),
 ) -> Vec<String> {
-    let _turn = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
-    STATEMENTS.lock().unwrap_or_else(|e| e.into_inner()).clear();
+    let _turn = ONE_AT_A_TIME.lock_recover();
+    STATEMENTS.lock_recover().clear();
     crate::test_trace::trace_statements!(engine.db, record);
     read(engine);
     crate::test_trace::untrace(&mut engine.db);
     let issued: Vec<String> = STATEMENTS
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .lock_recover()
         .iter()
         .filter(|sql| sql.contains(table) && !sql.starts_with("EXPLAIN"))
         .cloned()

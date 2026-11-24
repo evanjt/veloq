@@ -1,11 +1,11 @@
 import type { LngLatBounds } from './coordinates';
 import type { MapCameraSpec } from './htmlBuilders/mapSurface';
-import { visibleMapInset, type MapEdgeInset, type VisibleMapInsetInput } from './activityCamera';
+import type { MapEdgeInset } from './activityCamera';
 
 /** MapLibre's tile size, which the world measures in at zoom 0. */
 const WORLD_TILE = 512;
 
-export interface PaddedCamera {
+interface PaddedCamera {
   center: [number, number];
   zoom: number;
   bearing: number;
@@ -13,18 +13,10 @@ export interface PaddedCamera {
   padding: MapEdgeInset;
 }
 
-export type SettleCameraAction =
+type SettleCameraAction =
   | { kind: 'none' }
   | { kind: 'refit'; padding: MapEdgeInset }
   | { kind: 'ease'; padding: MapEdgeInset };
-
-/**
- * The one camera padding of a map: what covers it, as the part left visible. The flat and the 3D
- * surface both take it, so one input pads both the same.
- */
-export function cameraPadding(input: VisibleMapInsetInput): MapEdgeInset {
-  return visibleMapInset(input);
-}
 
 /**
  * The opening camera of a map that fits a track to the part of the page nothing covers: the inset
@@ -34,7 +26,7 @@ export function paddedFit(bounds: LngLatBounds, inset: MapEdgeInset): MapCameraS
   return { bounds, padding: inset, padCamera: true };
 }
 
-export function sameInset(a: MapEdgeInset, b: MapEdgeInset): boolean {
+function sameInset(a: MapEdgeInset, b: MapEdgeInset): boolean {
   return a.top === b.top && a.right === b.right && a.bottom === b.bottom && a.left === b.left;
 }
 

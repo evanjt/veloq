@@ -108,6 +108,38 @@ describe('route attempts on the chart', () => {
   });
 });
 
+describe('pace text on the chart points', () => {
+  const speedPace = { metricText: '2:46', imperialText: '4:27' };
+
+  it('carries the engine text of each counted and each excluded attempt', async () => {
+    const counted = await renderHook(() =>
+      useSectionChartData({ preComputedChart: chart([attempt('timed', { speedPace })]) })
+    );
+    expect(counted.result.current.chartData[0].speedPace).toEqual(speedPace);
+
+    const excluded = await renderHook(() =>
+      useSectionChartDataEnriched({
+        chartData: [],
+        showExcluded: true,
+        excludedPoints: [attempt('left-out', { speedPace })],
+        preComputedCalendarSummary: null,
+        bestForwardRecord: null,
+        bestReverseRecord: null,
+      })
+    );
+    expect(excluded.result.current.combinedChartData[0]).toEqual(
+      expect.objectContaining({ speedPace })
+    );
+  });
+
+  it('leaves the text absent for a sport read as a speed', async () => {
+    const { result } = await renderHook(() =>
+      useSectionChartData({ preComputedChart: chart([attempt('ride')]) })
+    );
+    expect(result.current.chartData[0].speedPace).toBeUndefined();
+  });
+});
+
 describe('estimated section passes', () => {
   it('carries the engine flag onto each chart point as read', async () => {
     const { result } = await renderHook(() =>

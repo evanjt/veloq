@@ -644,6 +644,20 @@ const GUARDS = [
       'an engine wall-clock date read as a true instant, which prints the neighbouring day outside UTC',
   },
   {
+    name: 'lint:form-zone-edges',
+    kind: 'correctness',
+    cmd: node('lint-form-zone-edges.mjs'),
+    catches:
+      'a screen holding the form zone edges or deriving a form, zone or text from loads, so two surfaces name different zones for the same day',
+  },
+  {
+    name: 'lint:device-locale-dates',
+    kind: 'correctness',
+    cmd: node('lint-device-locale-dates.mjs'),
+    catches:
+      'an athlete-facing date formatted with the device locale, which shows English month names under another app language',
+  },
+  {
     name: 'lint:engine-read-empty',
     kind: 'correctness',
     cmd: node('lint-engine-read-empty.mjs'),
@@ -933,6 +947,13 @@ const GUARDS = [
       'a module nothing imports, left behind after its caller went, and reads the whole tree',
   },
   {
+    name: 'lint:unused-exports',
+    kind: 'style',
+    cmd: node('lint-unused-exports.mjs'),
+    catches:
+      'an export, barrel line or star re-export that no import reaches, left behind after its only importer went, and reads the whole tree',
+  },
+  {
     name: 'lint:generated-typechecked',
     kind: 'correctness',
     cmd: node('lint-generated-typechecked.mjs'),
@@ -1120,6 +1141,14 @@ const GUARDS = [
     cmd: node('lint-point-shape.mjs'),
     catches:
       'a second lat/lng point declaration, which typechecks beside LatLngShort and ignores a change to it',
+  },
+  {
+    name: 'lint:generated-name-aliases',
+    kind: 'style',
+    paths: ['modules/veloqrs/src/', 'scripts/lint-generated-name-aliases.mjs', 'scripts/lib/'],
+    cmd: node('lint-generated-name-aliases.mjs'),
+    catches:
+      'a generated engine export renamed on its way out of the veloqrs barrel, so one export has two names and every stub mirrors one',
   },
   {
     name: 'lint:retired-names',

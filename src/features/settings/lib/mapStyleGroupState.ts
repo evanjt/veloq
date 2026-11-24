@@ -1,7 +1,7 @@
 import type { MapStyleType } from '@/features/maps';
 import type { ActivityType, Terrain3DMode } from '@/types';
 
-export type GroupColumnState<T extends string> = { mixed: true } | { mixed: false; value: T };
+type GroupColumnState<T extends string> = { mixed: true } | { mixed: false; value: T };
 
 function unanimous<T extends string>(values: T[]): GroupColumnState<T> {
   const first = values[0];

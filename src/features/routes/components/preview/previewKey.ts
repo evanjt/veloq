@@ -9,12 +9,9 @@ import type { MapPalette } from '@/theme';
 import type { PreviewResult } from 'veloqrs';
 import { buildPreviewLayers } from './previewMapLayerSpecs';
 
-export type PreviewKeyCounts = Pick<
-  PreviewResult['counts'],
-  'unchanged' | 'changed' | 'new' | 'gone'
->;
+type PreviewKeyCounts = Pick<PreviewResult['counts'], 'unchanged' | 'changed' | 'new' | 'gone'>;
 
-export type PreviewKeyId = 'current' | 'unchanged' | 'changed' | 'new' | 'gone' | 'area';
+type PreviewKeyId = 'current' | 'unchanged' | 'changed' | 'new' | 'gone' | 'area';
 
 export interface PreviewKeyEntry {
   id: PreviewKeyId;

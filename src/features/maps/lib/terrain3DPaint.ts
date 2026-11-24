@@ -13,16 +13,12 @@ import {
 } from '@/features/maps/lib/endpointLayers';
 import {
   MAP_3D_SCALE,
-  OVERLAY_LINE_WIDTH,
   SUBJECT_CASING_WIDTH,
   SUBJECT_LINE_WIDTH,
 } from '@/features/maps/lib/mapLineWidths';
 
 /** The subject line on a 3D page. */
 export const ROUTE_3D_LINE_WIDTH = SUBJECT_LINE_WIDTH * MAP_3D_SCALE;
-/** The matched route on a 3D page, the muted context line under the track. */
-export const OVERLAY_3D_LINE_WIDTH = OVERLAY_LINE_WIDTH * MAP_3D_SCALE;
-
 /** The base's sky, horizon and fog, as MapLibre's `sky` takes them. */
 export function terrainSky(palette: MapPalette) {
   return {

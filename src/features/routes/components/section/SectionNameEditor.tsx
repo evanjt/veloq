@@ -14,7 +14,7 @@ import type { NameSaveOutcome } from '@/features/routes/lib/sectionRenameFailure
 /** Delay before the input takes focus, so the row has mounted it. */
 const FOCUS_DELAY_MS = 100;
 
-export interface SectionNameEditorProps {
+interface SectionNameEditorProps {
   /** The name shown while not editing. */
   name: string;
   /** The text the input starts from, empty for a section that has no name. */

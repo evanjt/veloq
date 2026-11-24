@@ -12,7 +12,7 @@
  */
 
 /** How long a request waits for the page before it settles empty, in ms. */
-export const PENDING_REQUEST_DEADLINE_MS = 2000;
+const PENDING_REQUEST_DEADLINE_MS = 2000;
 
 type Waiting = {
   resolve: (value: unknown) => void;

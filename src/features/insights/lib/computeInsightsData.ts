@@ -18,8 +18,6 @@ import {
   type InsightsComputation,
 } from './insightsPipeline';
 
-export type { InsightsComputation };
-
 const log = debug.create('ComputeInsightsData');
 const devLog = __DEV__ ? (line: string) => log.log(line) : undefined;
 

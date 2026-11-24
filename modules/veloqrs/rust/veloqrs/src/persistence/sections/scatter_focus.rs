@@ -103,6 +103,9 @@ fn direction_range(
         low.abs() * FLAT_PADDING
     };
     Some(FfiFocusRange {
+        high_pace: None,
+        low_pace: None,
+        mid_pace: None,
         low: low - pad,
         high: high + pad,
         slow_count: 0,

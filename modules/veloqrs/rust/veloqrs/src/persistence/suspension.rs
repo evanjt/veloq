@@ -32,6 +32,7 @@
 //! already come back, is refused rather than leaving a foreground engine that
 //! cannot write.
 
+use crate::poison::Recover;
 use std::cell::Cell;
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -92,7 +93,7 @@ thread_local! {
 }
 
 fn state() -> MutexGuard<'static, State> {
-    STATE.lock().unwrap_or_else(|e| e.into_inner())
+    STATE.lock_recover()
 }
 
 #[derive(Clone, Copy)]

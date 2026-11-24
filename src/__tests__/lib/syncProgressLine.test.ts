@@ -9,7 +9,7 @@
  * the counters beside it are never called activities.
  */
 
-import { SyncState, SyncStep } from 'veloqrs';
+import { SyncState, FfiSyncStep } from 'veloqrs';
 import type { SyncStatus } from 'veloqrs';
 
 import { formatSyncProgress } from '@/shared/format/syncProgress';
@@ -32,14 +32,14 @@ function status(partial: Partial<SyncStatus>): SyncStatus {
 
 describe('the sync progress line', () => {
   vaultIt('names the step the engine is on, with the step count beside it', () => {
-    expect(formatSyncProgress(status({ step: SyncStep.Athlete, completed: 0 }), t)).toBe(
+    expect(formatSyncProgress(status({ step: FfiSyncStep.Athlete, completed: 0 }), t)).toBe(
       'settings.syncStepProgress:{"label":"settings.syncStep.athlete","completed":0,"total":9}'
     );
   });
 
   vaultIt('names every step the engine can report', () => {
-    const named = Object.values(SyncStep)
-      .filter((step): step is SyncStep => typeof step === 'number')
+    const named = Object.values(FfiSyncStep)
+      .filter((step): step is FfiSyncStep => typeof step === 'number')
       .map((step) => formatSyncProgress(status({ step }), t));
 
     expect(named).toEqual([
@@ -59,7 +59,7 @@ describe('the sync progress line', () => {
 
   /** A window sync declares one step, and "1 of 1" is noise, not progress. */
   vaultIt('drops the fraction from a single-step run', () => {
-    expect(formatSyncProgress(status({ step: SyncStep.Activities, total: 1 }), t)).toBe(
+    expect(formatSyncProgress(status({ step: FfiSyncStep.Activities, total: 1 }), t)).toBe(
       'settings.syncStep.activities'
     );
   });
@@ -69,7 +69,7 @@ describe('the sync progress line', () => {
     expect(
       formatSyncProgress(
         status({
-          step: SyncStep.IntervalBodies,
+          step: FfiSyncStep.IntervalBodies,
           completed: 6,
           stepItemsDone: 40,
           stepItemsTotal: 250,
@@ -85,7 +85,7 @@ describe('the sync progress line', () => {
     expect(
       formatSyncProgress(
         status({
-          step: SyncStep.IntervalBodies,
+          step: FfiSyncStep.IntervalBodies,
           completed: 6,
           stepItemsDone: 0,
           stepItemsTotal: 0,
@@ -104,13 +104,15 @@ describe('the sync progress line', () => {
 
   /** An engine newer than the bundle, the case the error banner also carries. */
   it('falls back for a step this build has no string for', () => {
-    expect(formatSyncProgress(status({ step: 99 as SyncStep }), t)).toBe('settings.syncActivities');
+    expect(formatSyncProgress(status({ step: 99 as FfiSyncStep }), t)).toBe(
+      'settings.syncActivities'
+    );
   });
 
   /** The defect itself: a step count was read as a count of activities. */
   it('never calls the step counters activities', () => {
-    const lines = Object.values(SyncStep)
-      .filter((step): step is SyncStep => typeof step === 'number')
+    const lines = Object.values(FfiSyncStep)
+      .filter((step): step is FfiSyncStep => typeof step === 'number')
       .map((step) => formatSyncProgress(status({ step, completed: 3 }), t));
 
     for (const line of lines) {

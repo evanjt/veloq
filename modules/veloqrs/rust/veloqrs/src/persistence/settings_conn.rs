@@ -13,9 +13,9 @@
 //! opened again whenever that binding moves, so a write after a quarantine or a
 //! restore lands in the file the engine now has open.
 
-use std::sync::{Mutex, MutexGuard};
-
+use crate::poison::Recover;
 use rusqlite::{Connection, OpenFlags};
+use std::sync::Mutex;
 
 struct Writer {
     generation: u64,
@@ -23,12 +23,6 @@ struct Writer {
 }
 
 static WRITER: Mutex<Option<Writer>> = Mutex::new(None);
-
-/// A poisoned slot still holds a usable connection or none, and refusing it
-/// would drop every later preference for the rest of the session.
-fn lock() -> MutexGuard<'static, Option<Writer>> {
-    WRITER.lock().unwrap_or_else(|e| e.into_inner())
-}
 
 /// Run `f` against the settings write connection. `None` when no engine is
 /// installed or the connection cannot be opened.
@@ -38,7 +32,7 @@ where
 {
     let _write = super::suspension::begin_write()?;
     let (generation, path) = super::read_pool::binding()?;
-    let mut slot = lock();
+    let mut slot = WRITER.lock_recover();
     if slot.as_ref().is_none_or(|w| w.generation != generation) {
         *slot = None;
         match open_writer(&path) {
@@ -55,13 +49,13 @@ where
 /// Drop the connection, as the read pool drops its idle ones, so none stays
 /// open on a file a quarantine or a restore has moved aside.
 pub(crate) fn forget() {
-    *lock() = None;
+    *WRITER.lock_recover() = None;
 }
 
 /// Hand back the page cache the connection holds. The connection itself stays
 /// open, because the next preference write is a tap away.
 pub(crate) fn release_memory() {
-    if let Some(writer) = lock().as_ref() {
+    if let Some(writer) = WRITER.lock_recover().as_ref() {
         super::release_connection_memory(&writer.conn, "SettingsConn");
     }
 }

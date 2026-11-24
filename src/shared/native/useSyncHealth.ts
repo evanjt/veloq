@@ -7,7 +7,7 @@
  * broken. The success time is the engine's own, stamped when a sync settles
  * clean and persisted, so a fresh process after a relaunch still has it.
  */
-import type { SyncErrorReason } from 'veloqrs';
+import type { FfiSyncErrorReason } from 'veloqrs';
 
 import {
   useLastSyncSuccessAt,
@@ -16,7 +16,7 @@ import {
   useSyncRetryAtMs,
 } from './useSyncStatus';
 
-export interface SyncHealth {
+interface SyncHealth {
   /** The error the last sync settled with, or null while it is healthy. */
   lastError: string | null;
   /**
@@ -24,7 +24,7 @@ export interface SyncHealth {
    * the banner can name it in the athlete's language instead of printing the
    * engine's own English.
    */
-  lastErrorReason: SyncErrorReason | null;
+  lastErrorReason: FfiSyncErrorReason | null;
   /** ISO time of the last sync that completed cleanly, or null if none has. */
   lastSuccessAt: string | null;
   /**

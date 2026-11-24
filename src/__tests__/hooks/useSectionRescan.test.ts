@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react-native';
-import { isRetryableStart, StartOutcome, type StartVerdict } from 'veloqrs';
+import { isRetryableStart, FfiStartOutcome, type StartVerdict } from 'veloqrs';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { DETECTION_FOREGROUND_MS } from '@/features/routes/lib/detectionRun';
 import { getEngine } from '@/shared/native/engine';
@@ -54,8 +54,8 @@ function engineWith(overrides: Record<string, unknown> = {}) {
     pollSectionDetectionRun: jest.fn((_runId: string) => '1:idle'),
     getSectionDetectionProgress: jest.fn(() => null),
     getSectionCount: jest.fn(() => 7),
-    startSectionDetection: jest.fn(() => StartOutcome.Started),
-    forceRedetectSections: jest.fn(() => StartOutcome.Started),
+    startSectionDetection: jest.fn(() => FfiStartOutcome.Started),
+    forceRedetectSections: jest.fn(() => FfiStartOutcome.Started),
     ...overrides,
   };
   engine.pollSectionDetectionRun = jest.fn(
@@ -313,25 +313,25 @@ describe('a refused rescan says why', () => {
 
   it('passes the engine refusal through rather than flattening it', async () => {
     const engine = engineWith({
-      startSectionDetection: jest.fn(() => StartOutcome.Busy),
-      forceRedetectSections: jest.fn(() => StartOutcome.Held),
+      startSectionDetection: jest.fn(() => FfiStartOutcome.Busy),
+      forceRedetectSections: jest.fn(() => FfiStartOutcome.Held),
     });
     mockedGetEngine.mockReturnValue(engine as never);
 
     const { result } = await renderHook(() => useSectionRescan());
 
-    let started: StartVerdict = StartOutcome.Started;
+    let started: StartVerdict = FfiStartOutcome.Started;
     await act(() => {
       started = result.current.rescan();
     });
-    expect(started).toBe(StartOutcome.Busy);
+    expect(started).toBe(FfiStartOutcome.Busy);
     expect(isRetryableStart(started)).toBe(true);
     expect(result.current.isScanning).toBe(false);
 
     await act(() => {
       started = result.current.forceRescan();
     });
-    expect(started).toBe(StartOutcome.Held);
+    expect(started).toBe(FfiStartOutcome.Held);
     expect(result.current.isScanning).toBe(false);
   });
 
@@ -340,11 +340,11 @@ describe('a refused rescan says why', () => {
 
     const { result } = await renderHook(() => useSectionRescan());
 
-    let started: StartVerdict = StartOutcome.Started;
+    let started: StartVerdict = FfiStartOutcome.Started;
     await act(() => {
       started = result.current.rescan();
     });
-    expect(started).toBe(StartOutcome.NotReady);
+    expect(started).toBe(FfiStartOutcome.NotReady);
     expect(isRetryableStart(started)).toBe(true);
   });
 });
@@ -370,7 +370,7 @@ describe('a refusal the screen can show', () => {
 
   it('holds the refusal until something clears it', async () => {
     const engine = engineWith({
-      startSectionDetection: jest.fn(() => StartOutcome.NotConfigured),
+      startSectionDetection: jest.fn(() => FfiStartOutcome.NotConfigured),
     });
     mockedGetEngine.mockReturnValue(engine as never);
 
@@ -380,7 +380,7 @@ describe('a refusal the screen can show', () => {
     await act(() => {
       result.current.rescan();
     });
-    expect(result.current.refusal).toBe(StartOutcome.NotConfigured);
+    expect(result.current.refusal).toBe(FfiStartOutcome.NotConfigured);
 
     await act(() => {
       result.current.clearResult();
@@ -391,8 +391,8 @@ describe('a refusal the screen can show', () => {
   vaultIt('drops the refusal the moment a rescan starts', async () => {
     const startSectionDetection = jest
       .fn()
-      .mockReturnValueOnce(StartOutcome.Busy)
-      .mockReturnValue(StartOutcome.Started);
+      .mockReturnValueOnce(FfiStartOutcome.Busy)
+      .mockReturnValue(FfiStartOutcome.Started);
     const engine = engineWith({ startSectionDetection });
     mockedGetEngine.mockReturnValue(engine as never);
 
@@ -400,7 +400,7 @@ describe('a refusal the screen can show', () => {
     await act(() => {
       result.current.rescan();
     });
-    expect(result.current.refusal).toBe(StartOutcome.Busy);
+    expect(result.current.refusal).toBe(FfiStartOutcome.Busy);
 
     // Read inside the same turn as the start: awaiting the act lets the first
     // status poll land, and the scan this asserts on is then already over.
@@ -413,7 +413,7 @@ describe('a refusal the screen can show', () => {
 
   vaultIt('records the force path refusal too', async () => {
     const engine = engineWith({
-      forceRedetectSections: jest.fn(() => StartOutcome.Held),
+      forceRedetectSections: jest.fn(() => FfiStartOutcome.Held),
     });
     mockedGetEngine.mockReturnValue(engine as never);
 
@@ -421,7 +421,7 @@ describe('a refusal the screen can show', () => {
     await act(() => {
       result.current.forceRescan();
     });
-    expect(result.current.refusal).toBe(StartOutcome.Held);
+    expect(result.current.refusal).toBe(FfiStartOutcome.Held);
   });
 
   vaultIt('records being early as a refusal the screen can name', async () => {
@@ -431,7 +431,7 @@ describe('a refusal the screen can show', () => {
     await act(() => {
       result.current.rescan();
     });
-    expect(result.current.refusal).toBe(StartOutcome.NotReady);
+    expect(result.current.refusal).toBe(FfiStartOutcome.NotReady);
   });
 });
 

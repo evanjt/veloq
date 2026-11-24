@@ -16,7 +16,7 @@ export interface TerrainCamera {
   pitch: number; // degrees
 }
 
-export interface TerrainCameraResult {
+interface TerrainCameraResult {
   camera: TerrainCamera;
   /** True when computeElevationCamera found meaningful terrain variation */
   hasInterestingTerrain: boolean;
@@ -276,7 +276,7 @@ export function isLikelyInterestingTerrain(
   return true;
 }
 
-export interface Terrain3DInput {
+interface Terrain3DInput {
   mode: 'off' | 'always' | 'smart';
   /** [lng, lat] points of the track, empty before it loads */
   coordinates: [number, number][];
@@ -287,7 +287,7 @@ export interface Terrain3DInput {
   override: TerrainCamera | null;
 }
 
-export interface Terrain3DVerdict {
+interface Terrain3DVerdict {
   show3D: boolean;
   camera: TerrainCamera | null;
   /**

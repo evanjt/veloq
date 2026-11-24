@@ -13,9 +13,7 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: mockIsDark }),
   useMetricSystem: () => true,
 }));
-jest.mock('@/features/routes/hooks/useEngine', () => ({
-  useRepresentativeRoute: () => ({ points: [] }),
-}));
+jest.mock('@/features/routes/hooks/useEngine', () => ({}));
 
 /**
  * Scenario: a route and a section with no polyline to draw sit on adjacent tabs.

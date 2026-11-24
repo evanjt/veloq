@@ -8,7 +8,7 @@ import type { UnderPointInput } from '@/app/sheets/under-point';
 import { underPointKey, underPointZoom } from '@/features/maps/lib/underPoint';
 import { nativeGeoUrl } from '@/features/maps/lib/tileTransport';
 
-export interface UnderPoint {
+interface UnderPoint {
   /** Lists the activities under a tap on the heatmap and opens the sheet that offers them. */
   lookUp: (latitude: number, longitude: number, zoom: number) => void;
   /**

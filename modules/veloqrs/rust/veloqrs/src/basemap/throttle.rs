@@ -7,6 +7,7 @@
 //! host's answer is kept here for a short while, and every miss for that
 //! source in the meantime is answered with it at once, without a request.
 
+use crate::poison::Recover;
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
@@ -25,15 +26,14 @@ pub(crate) fn remember(source: &str, status: u16, now: Instant) {
     if status != 429 && status != 503 {
         return;
     }
-    HELD.lock()
-        .unwrap_or_else(|e| e.into_inner())
+    HELD.lock_recover()
         .insert(source.to_string(), (status, now + HOLD));
 }
 
 /// The status this source's misses are answered with until the hold ends, or
 /// `None` when its host may be asked.
 pub(crate) fn holding(source: &str, now: Instant) -> Option<u16> {
-    let mut held = HELD.lock().unwrap_or_else(|e| e.into_inner());
+    let mut held = HELD.lock_recover();
     match held.get(source) {
         Some(&(status, until)) if now < until => Some(status),
         Some(_) => {

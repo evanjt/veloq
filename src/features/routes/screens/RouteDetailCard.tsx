@@ -75,7 +75,7 @@ const NO_ACTIVITY_IDS: string[] = [];
 /** A route opens on every attempt it has, whatever its age. */
 const ROUTE_DEFAULT_RANGE: SectionTimeRange = 'all';
 
-export interface RouteDetailCardProps {
+interface RouteDetailCardProps {
   /** The route's group id. */
   id: string;
   /** The activity the route was opened from, which the chart and the map key mark. */

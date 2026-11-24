@@ -44,8 +44,9 @@ describe('the Today banner form zone', () => {
     [true, darkColors.textPrimary],
   ])('sets the zone words in body text (dark %s)', async (dark, body) => {
     mockDark = dark;
-    // Fitness 50 and fatigue 70 is form -20, the optimal zone.
-    const tree = await render(<TodayBanner form={{ ctl: 50, atl: 70 }} />);
+    const tree = await render(
+      <TodayBanner form={{ zone: 'optimal', text: '-20', asPercent: false }} />
+    );
 
     const words = tree.getByText(new RegExp(`^${formZoneLabel('optimal')}`));
     expect(StyleSheet.flatten(words.props.style).color).toBe(body);

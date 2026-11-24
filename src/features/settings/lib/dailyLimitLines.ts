@@ -9,7 +9,7 @@ export interface DailyLimit {
 }
 
 /** The two lines the range panel prints under its progress bar. */
-export interface DailyLimitLines {
+interface DailyLimitLines {
   today: string;
   reset: string;
 }

@@ -10,10 +10,7 @@
  * the mirror the restore leaves behind.
  */
 
-import {
-  resolveStoredActivityCount,
-  shouldOfferBackupRestore,
-} from '@/features/auth/lib/storedActivityCount';
+import { resolveStoredActivityCount } from '@/features/auth/lib/storedActivityCount';
 import {
   rememberStoredActivityCount,
   readStoredActivityCountMirror,
@@ -21,7 +18,6 @@ import {
 } from '@/shared/storage';
 import { accountChangeAction } from '@/features/auth/lib/accountChange';
 import { DEMO_ATHLETE_ID } from '@/shared/app/AuthStore';
-import { rememberCachedAthleteId } from '@/shared/storage/cachedAthleteId';
 
 const mockEngineState = { ready: false, count: 0 };
 
@@ -90,19 +86,5 @@ describe('the count a destructive path reads', () => {
 
     const count = await resolveStoredActivityCount();
     expect(accountChangeAction(null, DEMO_ATHLETE_ID, count)).toBe('confirm-then-wipe');
-  });
-
-  it('hides the login restore offer when only the athlete mirror identifies a library', async () => {
-    await rememberCachedAthleteId('athlete-1');
-    expect(await shouldOfferBackupRestore()).toBe(false);
-  });
-
-  it('hides the login restore offer when only the activity mirror identifies a library', async () => {
-    await rememberStoredActivityCount(480);
-    expect(await shouldOfferBackupRestore()).toBe(false);
-  });
-
-  it('offers restore to an empty device', async () => {
-    expect(await shouldOfferBackupRestore()).toBe(true);
   });
 });

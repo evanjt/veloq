@@ -1,7 +1,7 @@
-import { DayLoadStatus, type DayLoad } from 'veloqrs';
+import { FfiDayLoadStatus, type DayLoad } from 'veloqrs';
 
 /** What the strip prints for a selected day's recorded activity load. */
-export interface DayLoadReadout {
+interface DayLoadReadout {
   status: 'complete' | 'partial' | 'unavailable';
   /** Rounded known total, absent when no activity that day carries a load. */
   total: number | null;
@@ -14,11 +14,11 @@ export interface DayLoadReadout {
 export function dayLoadReadout(day: DayLoad | undefined): DayLoadReadout | null {
   if (!day) return null;
   switch (day.status) {
-    case DayLoadStatus.Complete:
+    case FfiDayLoadStatus.Complete:
       return { status: 'complete', total: Math.round(day.total ?? 0) };
-    case DayLoadStatus.Partial:
+    case FfiDayLoadStatus.Partial:
       return { status: 'partial', total: Math.round(day.total ?? 0) };
-    case DayLoadStatus.Unavailable:
+    case FfiDayLoadStatus.Unavailable:
       return { status: 'unavailable', total: null };
     default:
       return null;

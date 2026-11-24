@@ -45,30 +45,6 @@ pub struct WellnessRow {
     pub raw: Option<String>,
 }
 
-/// Where the form zones change, lowest first, on the intervals.icu boundaries.
-/// They apply to whichever number the athlete reads form as, absolute TSB or a
-/// share of fitness, so the same four edges serve both units.
-pub(crate) const FORM_ZONE_EDGES: [f64; 4] = {
-    let [a, b, c, d] = crate::widget_snapshot::FORM_ZONE_BOUNDS;
-    [a as f64, b as f64, c as f64, d as f64]
-};
-
-/// One day's form in the unit the athlete reads it in: rounded fitness less
-/// rounded fatigue, so the figure agrees with the two printed beside it, and
-/// under the percentage setting that over rounded fitness. A day missing a
-/// load has none, and a percentage needs a fitness to divide by, so a day
-/// whose fitness rounds to zero has none under that setting rather than the
-/// absolute number beside a zone of another unit.
-pub(crate) fn form_in_unit(ctl: Option<f64>, atl: Option<f64>, as_percent: bool) -> Option<f64> {
-    let fitness = ctl.filter(|v| v.is_finite())?.round();
-    let fatigue = atl.filter(|v| v.is_finite())?.round();
-    let tsb = fitness - fatigue;
-    if !as_percent {
-        return Some(tsb);
-    }
-    (fitness != 0.0).then(|| tsb / fitness * 100.0)
-}
-
 /// Whether the athlete reads form as a share of fitness, from the stored
 /// profile; absent reads as absolute TSB.
 pub(crate) fn reads_form_as_percent(conn: &rusqlite::Connection) -> bool {
@@ -454,6 +430,8 @@ fn hrv_verdict(
 pub(crate) mod pooled {
     use rusqlite::{Connection, Result as SqlResult, params};
 
+    use crate::form::{FORM_ZONE_EDGES, form_reading, form_text, form_zone};
+
     use super::{
         WellnessRow, finite, forward_fill, forward_fill_round, iso_days_after, iso_days_before,
         read_days, rise_days, series_delta, sport_load,
@@ -468,16 +446,32 @@ pub(crate) mod pooled {
     ) -> SqlResult<crate::FfiWellnessDays> {
         let days = wellness_days(conn, oldest, newest)?;
         let form_as_percent = super::reads_form_as_percent(conn);
-        let form = days
+        let readings: Vec<_> = days
             .iter()
-            .map(|day| super::form_in_unit(day.ctl, day.atl, form_as_percent))
+            .map(|day| form_reading(day.ctl, day.atl, form_as_percent))
+            .collect();
+        let tsb_text = days
+            .iter()
+            .map(|day| form_reading(day.ctl, day.atl, false).map(|r| r.text))
             .collect();
         Ok(crate::FfiWellnessDays {
             days,
             coverage: coverage(conn, oldest, newest),
-            form,
+            form: readings
+                .iter()
+                .map(|r| r.as_ref().map(|r| r.value))
+                .collect(),
+            form_zone: readings
+                .iter()
+                .map(|r| r.as_ref().map(|r| r.zone.to_string()))
+                .collect(),
+            form_text: readings
+                .iter()
+                .map(|r| r.as_ref().map(|r| r.text.clone()))
+                .collect(),
+            tsb_text,
             form_as_percent,
-            form_zone_edges: super::FORM_ZONE_EDGES.to_vec(),
+            form_zone_edges: FORM_ZONE_EDGES.to_vec(),
         })
     }
 
@@ -578,6 +572,8 @@ pub(crate) mod pooled {
                     value: *value,
                     date: super::date_epoch(date),
                     activity_id: None,
+                    metric_text: None,
+                    imperial_text: None,
                 })
                 .collect(),
         }))
@@ -593,7 +589,17 @@ pub(crate) mod pooled {
     /// than [`crate::claim::MIN_PRIOR_READINGS`] earlier readings in its
     /// evidence window: a week before the day, a fortnight for weight.
     pub(crate) fn summary(conn: &Connection) -> crate::FfiWellnessSummary {
-        widget_summary(conn).into()
+        let as_percent = super::reads_form_as_percent(conn);
+        let w = widget_summary(conn);
+        let (fitness, fitness_previous) = (w.fitness, w.fitness_previous);
+        let (form, form_previous) = (w.form, w.form_previous);
+        let mut summary: crate::FfiWellnessSummary = w.into();
+        summary.form_zone =
+            form.and_then(|f| form_zone(f, fitness, as_percent).map(str::to_string));
+        summary.form_text = form.and_then(|f| form_text(f, fitness, as_percent));
+        summary.form_previous_text =
+            form_previous.and_then(|f| form_text(f, fitness_previous, as_percent));
+        summary
     }
 
     /// Wellness values with the baselines used by native widget composition.
@@ -753,11 +759,14 @@ pub(crate) mod pooled {
         let ctl = row.1.unwrap_or(0.0);
         let atl = row.2.unwrap_or(0.0);
         let form_as_percent = super::reads_form_as_percent(conn);
+        let reading = form_reading(Some(ctl), Some(atl), form_as_percent);
         Some(crate::FfiInsightForm {
             date: row.0,
             ctl,
             atl,
-            form: super::form_in_unit(Some(ctl), Some(atl), form_as_percent),
+            form: reading.as_ref().map(|r| r.value),
+            form_zone: reading.as_ref().map(|r| r.zone.to_string()),
+            form_text: reading.map(|r| r.text),
             form_as_percent,
         })
     }
@@ -993,6 +1002,14 @@ pub(crate) mod pooled {
         // Form is the difference of the rounded loads, as `summary` computes it,
         // so the card's hero line and its supporting row cannot differ by one.
         let form: Vec<i32> = fitness.iter().zip(&fatigue).map(|(c, a)| c - a).collect();
+        let as_percent = super::reads_form_as_percent(conn);
+        let form_zone_of = |(f, c): (&i32, &i32)| {
+            form_zone(f64::from(*f), Some(f64::from(*c)), as_percent).map(str::to_string)
+        };
+        let form_text_of =
+            |(f, c): (&i32, &i32)| form_text(f64::from(*f), Some(f64::from(*c)), as_percent);
+        let form_zone_days = form.iter().zip(&fitness).map(form_zone_of).collect();
+        let form_text_days = form.iter().zip(&fitness).map(form_text_of).collect();
 
         let hrv = forward_fill_round(window.iter().map(|w| w.hrv));
         let rhr = forward_fill_round(window.iter().map(|w| w.resting_hr));
@@ -1006,6 +1023,8 @@ pub(crate) mod pooled {
             fitness,
             fatigue,
             form,
+            form_zone: form_zone_days,
+            form_text: form_text_days,
             hrv,
             rhr,
             hrv_read,

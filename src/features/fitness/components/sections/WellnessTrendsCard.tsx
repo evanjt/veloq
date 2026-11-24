@@ -35,8 +35,6 @@ interface WellnessTrendsCardProps {
   /** The failed wellness read, which this card names and leaves the others standing. */
   readError: unknown;
   onRetry: () => void;
-  /** The day the scrub crosses, or null when it ends. */
-  onDateSelect?: ((date: string | null) => void) | undefined;
 }
 
 export function WellnessTrendsCard({
@@ -48,7 +46,6 @@ export function WellnessTrendsCard({
   held,
   readError,
   onRetry,
-  onDateSelect,
 }: WellnessTrendsCardProps) {
   const { t } = useTranslation();
   // Null until the stored choice is read, so neither the chip nor the chart names a window the athlete did not pick.
@@ -118,7 +115,6 @@ export function WellnessTrendsCard({
           height={CHART_HEIGHT}
           timeRange={timeRange}
           smoothingWindow={smoothingWindow}
-          onDateSelect={onDateSelect}
           held={held}
         />
       )}

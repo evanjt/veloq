@@ -5,10 +5,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { debug } from '@/shared/debug/debug';
 import { getEngine } from '@/shared/native/engine';
 import { present } from 'veloqrs/src/delegates/optional';
-import type {
-  RecordingTransition,
-  RecordingTransitionAnswer,
-} from 'veloqrs/src/delegates/recordings';
 import { getStoredCredentials } from '@/shared/app/AuthStore';
 import { OWNERLESS_RECORDINGS_SETTLED_KEY, adoptRecordingBackup } from './recordingBackup';
 import {
@@ -26,21 +22,12 @@ import type {
   RecordingLibraryEntry,
   RecordingUploadStatus,
 } from '@/types';
+import { toActivityType } from '@/types';
 import { recordings } from 'veloqrs';
 
 const log = debug.create('RecordingLibrary');
 
-/**
- * The index lived under this key until it became a table. Only development
- * builds wrote it, between 2026-07-18 and 2026-09-06: the last release, 0.3.8,
- * predates it. It is read once more, to adopt what such an install still
- * holds, and then removed.
- */
-const LEGACY_INDEX_KEY = 'veloq-recording-library';
 const LEGACY_QUEUE_KEY = 'veloq-upload-queue';
-
-// Automatic retry limit read by the failed-upload log line.
-export const MAX_AUTO_RETRIES = 5;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -53,9 +40,8 @@ type EngineEntry = ReturnType<typeof recordings.listRecordings>[number];
 
 /**
  * The app's entry as the engine row wants it. An absent average heart rate is
- * an absent field rather than a recorded `null`, a row adopted from the old
- * AsyncStorage index carries no reconcile or effort flag, which reads as owing
- * one, and each file is stored by its name relative to the documents
+ * an absent field rather than a recorded `null`, an entry with no reconcile or
+ * effort flag reads as owing one, and each file is stored by its name relative to the documents
  * directory, which is what survives a move of the app's container.
  */
 function toEngineEntry(entry: RecordingLibraryEntry): EngineEntry {
@@ -76,36 +62,12 @@ function toLibraryEntry(row: EngineEntry): RecordingLibraryEntry {
     ...rest,
     fitPath: recordingFilePath(row.fitPath),
     ...(streamsPath != null && { streamsPath: recordingFilePath(streamsPath) }),
-    activityType: row.activityType as ActivityType,
+    activityType: toActivityType(row.activityType),
     uploadStatus: row.uploadStatus as RecordingUploadStatus,
     // The column is NOT NULL with a 'fit' default, so anything else is a row
     // this build does not know about and a FIT is the safe reading.
     kind: row.kind === 'manual' ? 'manual' : 'fit',
   };
-}
-
-/** The fields the engine row cannot be built without, by the type each must hold. */
-const REQUIRED_STRING_FIELDS = ['id', 'fitPath', 'activityType', 'name', 'uploadStatus'] as const;
-const REQUIRED_NUMBER_FIELDS = [
-  'startTime',
-  'durationSeconds',
-  'distanceMeters',
-  'createdAt',
-  'retryCount',
-] as const;
-
-/**
- * Whether an index entry can become an engine row. One that cannot never will
- * on a later pass, so adopting it again is wasted work and holding the legacy
- * key for it keeps the pass running at every engine ready.
- */
-function isAdoptable(entry: unknown): entry is RecordingLibraryEntry {
-  if (typeof entry !== 'object' || entry === null) return false;
-  const fields = entry as Record<string, unknown>;
-  return (
-    REQUIRED_STRING_FIELDS.every((key) => typeof fields[key] === 'string' && fields[key] !== '') &&
-    REQUIRED_NUMBER_FIELDS.every((key) => Number.isFinite(fields[key]))
-  );
 }
 
 /**
@@ -224,6 +186,7 @@ export function finishStrengthRecording(
 export async function saveRecording(
   params: SaveRecordingParams
 ): Promise<RecordingLibraryEntry | null> {
+  const written: string[] = [];
   try {
     const engine = library(true);
     await ensureRecordingsDir();
@@ -238,12 +201,14 @@ export async function saveRecording(
     let fitPath = '';
     if (params.fitBuffer) {
       fitPath = `${RECORDINGS_DIR}${id}.fit`;
+      written.push(fitPath);
       new File(fitPath).write(new Uint8Array(params.fitBuffer));
     }
 
     let streamsPath: string | undefined;
     if (manual) {
       streamsPath = `${RECORDINGS_DIR}${id}.manual.json`;
+      written.push(streamsPath);
       await FileSystem.writeAsStringAsync(streamsPath, JSON.stringify(params.manualBody));
     }
 
@@ -283,6 +248,14 @@ export async function saveRecording(
     return entry;
   } catch (error) {
     log.error('Failed to save recording:', error);
+    // No row names these files, so nothing else would ever remove them.
+    for (const path of written) {
+      try {
+        await FileSystem.deleteAsync(path, { idempotent: true });
+      } catch {
+        // Best effort cleanup
+      }
+    }
     return null;
   }
 }
@@ -346,58 +319,6 @@ export async function attachEngineActivity(
 ): Promise<RecordingLibraryEntry | null> {
   store().attachRecordingEngineActivity(id, engineActivityId);
   return getRecording(id);
-}
-
-/**
- * The install the engine is open under. An upload outcome carries it back, so
- * one that outlived a restore or a wipe is refused rather than written into
- * another library. A begin answers the install its attempt ran under; work
- * that has no begin reads it before it starts.
- */
-export function recordingInstall(): number {
-  return library().engineInstall();
-}
-
-/**
- * Move one recording's upload by a named transition. The engine keeps the one
- * table of legal moves, so a refusal is an answer, not an error: nothing was
- * written and the caller stops.
- *
- * What an outcome means is logged here: a retriable failure counts an attempt,
- * a held ride keeps its attempts, a rejection parks the ride for the athlete.
- * The FIT file is never deleted by a transition.
- */
-export async function transitionRecording(
-  id: string,
-  transition: RecordingTransition
-): Promise<RecordingTransitionAnswer> {
-  const answer = store().transitionRecording(id, transition, Date.now());
-  if (!answer.applied) {
-    log.warn(`Upload move ${transition.kind} refused for ${id}: ${answer.refusal ?? 'unknown'}`);
-    return answer;
-  }
-  switch (transition.kind) {
-    case 'uploaded':
-      log.log(`Recording uploaded: ${id}`);
-      break;
-    case 'failed':
-      log.log(
-        `Upload failed for ${id} (retry ${answer.retryCount}/${MAX_AUTO_RETRIES}): ${transition.error}`
-      );
-      break;
-    case 'heldForNetwork':
-      log.log(`Upload held for the network: ${id} (${transition.error})`);
-      break;
-    case 'heldForAuth':
-      log.log(`Holding ${id}: the credential was refused`);
-      break;
-    case 'rejected':
-      log.warn(`Upload rejected for ${id}: ${transition.error}`);
-      break;
-    default:
-      break;
-  }
-  return answer;
 }
 
 /**
@@ -487,81 +408,13 @@ export async function getVisibleUnuploadedCount(): Promise<number> {
 // ─── Legacy migration ─────────────────────────────────────────────────────────
 
 /**
- * Adopt the AsyncStorage index into the table, once.
- *
- * Runs after `migrateLegacyUploadQueue`, which writes directly to the table.
- * Insert-if-absent lets a partial pass retry without duplicating rows. An
- * entry no retry can adopt (a value that does not parse, an entry the engine
- * row cannot be built from) is archived and counts as settled; a failed or
- * declined insert keeps the key, because a retry can still succeed.
- */
-export async function adoptAsyncStorageIndex(): Promise<number> {
-  try {
-    library(true);
-    const stored = await AsyncStorage.getItem(LEGACY_INDEX_KEY);
-    if (!stored) return 0;
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(stored);
-    } catch {
-      await archiveUnadoptable(LEGACY_INDEX_KEY, stored);
-      await AsyncStorage.removeItem(LEGACY_INDEX_KEY);
-      log.warn('Archived an AsyncStorage recording index that does not parse');
-      return 0;
-    }
-    if (!Array.isArray(parsed)) {
-      await AsyncStorage.removeItem(LEGACY_INDEX_KEY);
-      return 0;
-    }
-
-    let adopted = 0;
-    let complete = true;
-    const unadoptable: unknown[] = [];
-    for (const entry of parsed as unknown[]) {
-      if (!isAdoptable(entry)) {
-        unadoptable.push(entry);
-        continue;
-      }
-      try {
-        library(true);
-        if (recordings.addRecording(toEngineEntry({ ...entry, kind: entry.kind ?? 'fit' }))) {
-          adopted += 1;
-        } else if (!recordings.getRecording(entry.id)) {
-          complete = false;
-        }
-      } catch (error) {
-        complete = false;
-        log.warn(`Failed to adopt recording ${entry.id}:`, error);
-      }
-    }
-
-    if (!complete) return adopted;
-    if (unadoptable.length > 0) {
-      await archiveUnadoptable(LEGACY_INDEX_KEY, unadoptable);
-      log.warn(
-        `Archived ${unadoptable.length} AsyncStorage index entr(ies) that cannot be adopted`
-      );
-    }
-    await AsyncStorage.removeItem(LEGACY_INDEX_KEY);
-    log.log(`Adopted ${adopted} recording(s) from the AsyncStorage index`);
-    return adopted;
-  } catch (error) {
-    // Leave the key in place: the next launch tries again rather than losing
-    // the only record of a recording that has not been uploaded.
-    log.warn('Recording index adoption failed:', error);
-    return 0;
-  }
-}
-
-/**
- * Rides an older build left in AsyncStorage reach the table with no athlete,
- * and an unstamped ride is held from every upload. They belong to the athlete
- * whose library they were adopted beside, so the first launch that opens that
- * library adopts them and names that athlete, before a sign-in can wipe or
+ * Rides the old upload queue left in AsyncStorage reach the table with no
+ * athlete, and an unstamped ride is held from every upload. They belong to the
+ * athlete whose library they were adopted beside, so the first launch that
+ * opens that library stamps them with that athlete, before a sign-in can wipe or
  * rename it. It runs once: a library named later is not the one the rides were
  * recorded beside. With no library to name, nothing is stamped and the pass
- * still settles. The marker waits for both legacy keys to be gone, so a
+ * still settles. The marker waits for the legacy queue key to be gone, so a
  * partial adoption retries at the next launch.
  */
 export async function adoptOwnerlessRecordings(
@@ -574,13 +427,9 @@ export async function adoptOwnerlessRecordings(
   }
   try {
     await migrateLegacyUploadQueue();
-    await adoptAsyncStorageIndex();
     const athleteId = await libraryAthlete();
     if (athleteId) store(true).stampOwnerlessRecordings(athleteId);
-    const pending =
-      (await AsyncStorage.getItem(LEGACY_QUEUE_KEY)) ??
-      (await AsyncStorage.getItem(LEGACY_INDEX_KEY));
-    if (pending) return;
+    if (await AsyncStorage.getItem(LEGACY_QUEUE_KEY)) return;
     await AsyncStorage.setItem(OWNERLESS_RECORDINGS_SETTLED_KEY, '1');
   } catch (error) {
     log.warn('Ownerless recordings left unstamped:', error);

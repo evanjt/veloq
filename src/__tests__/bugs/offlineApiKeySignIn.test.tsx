@@ -8,7 +8,7 @@
  * real validation and the athlete-identity check run on the reconnect edge.
  */
 import { renderHook, act } from '@testing-library/react-native';
-import { CallKind, validateCredentials } from 'veloqrs';
+import { FfiCallKind, validateCredentials } from 'veloqrs';
 
 import { useApiKeyLogin } from '@/features/auth/hooks/useApiKeyLogin';
 import { readPendingApiKey, signInPlan } from '@/features/auth/lib/pendingSignIn';
@@ -39,8 +39,9 @@ jest.mock('@tanstack/react-query', () => ({
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 const mockIsOnline = jest.fn(() => true);
+const mockHasReading = jest.fn(() => true);
 jest.mock('@/shared/app/NetworkContext', () => ({
-  useNetwork: () => ({ isOnline: mockIsOnline() }),
+  useNetwork: () => ({ isOnline: mockIsOnline(), hasReading: mockHasReading() }),
   useIsOnline: () => mockIsOnline(),
 }));
 
@@ -81,7 +82,8 @@ describe('signing in with no network', () => {
     jest.clearAllMocks();
     held.key = null;
     mockIsOnline.mockReturnValue(true);
-    mockValidateCredentials.mockResolvedValue({ kind: CallKind.Ok, id: '900001' });
+    mockHasReading.mockReturnValue(true);
+    mockValidateCredentials.mockResolvedValue({ kind: FfiCallKind.Ok, id: '900001' });
     useAuthStore.setState({ setCredentials: jest.fn(async () => undefined) } as never);
   });
 
@@ -141,7 +143,7 @@ describe('signing in with no network', () => {
       await result.current.handleApiKeyLogin('a-stale-key');
     });
 
-    mockValidateCredentials.mockResolvedValue({ kind: CallKind.Http, status: 401 });
+    mockValidateCredentials.mockResolvedValue({ kind: FfiCallKind.Http, status: 401 });
     mockIsOnline.mockReturnValue(true);
     await act(async () => {
       await rerender({});
@@ -160,7 +162,7 @@ describe('signing in with no network', () => {
       await result.current.handleApiKeyLogin('a-valid-key');
     });
 
-    mockValidateCredentials.mockResolvedValue({ kind: CallKind.Http, status: 503 });
+    mockValidateCredentials.mockResolvedValue({ kind: FfiCallKind.Http, status: 503 });
     mockIsOnline.mockReturnValue(true);
     await act(async () => {
       await rerender({});
@@ -179,6 +181,52 @@ describe('signing in with no network', () => {
     expect(mockValidateCredentials).toHaveBeenCalledWith('api_key', 'a-valid-key');
     expect(useAuthStore.getState().setCredentials).toHaveBeenCalledWith('a-valid-key', '900001');
     expect(held.key).toBeNull();
+  });
+
+  describe('before the network has been read', () => {
+    beforeEach(() => {
+      mockHasReading.mockReturnValue(false);
+      mockValidateCredentials.mockResolvedValue({ kind: FfiCallKind.Network });
+    });
+
+    it('holds a key whose check cannot reach the server, since online is only a seed', async () => {
+      const { result } = await login();
+
+      await act(async () => {
+        await result.current.handleApiKeyLogin('a-valid-key');
+      });
+
+      expect(held.key).toBe('a-valid-key');
+      expect(result.current.queuedMessage).toBe('login.queuedOffline');
+    });
+
+    it('does not hold a key the server refused', async () => {
+      mockValidateCredentials.mockResolvedValue({ kind: FfiCallKind.Http, status: 401 });
+      const { result } = await login();
+
+      await act(async () => {
+        await result.current.handleApiKeyLogin('a-bad-key');
+      });
+
+      expect(held.key).toBeNull();
+      expect(result.current.queuedMessage).toBeNull();
+    });
+
+    it('checks the held key when the first reading says online', async () => {
+      const { result, rerender } = await renderHookWithNetwork();
+      await act(async () => {
+        await result.current.handleApiKeyLogin('a-valid-key');
+      });
+
+      mockValidateCredentials.mockResolvedValue({ kind: FfiCallKind.Ok, id: '900001' });
+      mockHasReading.mockReturnValue(true);
+      await act(async () => {
+        await rerender({});
+      });
+
+      expect(useAuthStore.getState().setCredentials).toHaveBeenCalledWith('a-valid-key', '900001');
+      expect(held.key).toBeNull();
+    });
   });
 
   it('validates a held key once on an online relaunch', async () => {

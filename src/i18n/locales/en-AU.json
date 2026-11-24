@@ -22,7 +22,7 @@
     "Soccer": "Soccer"
   },
   "alerts": {
-    "clearCacheMessage": "Clears out cached activity data, tracks and route matching, then reloads. Might take a few minutes. Local data then covers the last 90 days.",
+    "clearCacheMessage": "Clears out cached activity data, tracks, route matching and map cache, then reloads. Might take a few minutes. Local data then covers the last 90 days.",
     "disconnectOffline": "You're offline. Signing in again needs a connection, however you sign in, so wait till it's back.",
     "failedToClear": "Couldn't clear the cache. Give it another go.",
     "failedToDisconnect": "Couldn't disconnect. Give it another go.",

@@ -5,6 +5,7 @@
 //! handshake presents is checked again once the connection is up, so no
 //! request is read and no byte is answered for a peer that is not linked.
 
+use crate::poison::Recover;
 use std::collections::VecDeque;
 use std::io::ErrorKind;
 use std::net::{IpAddr, SocketAddr, UdpSocket};
@@ -232,10 +233,7 @@ impl Peer {
     /// End the connection and wait for its thread. The browser is told
     /// `reason` on the open channel first, within a bounded time.
     pub fn stop(mut self, reason: DisconnectReason) {
-        *self
-            .reason
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(reason);
+        *self.reason.lock_recover() = Some(reason);
         self.stop.store(true, Ordering::Relaxed);
         // An empty datagram ends the thread's read now; the loop drops it.
         if let Ok(waker) = UdpSocket::bind(SocketAddr::new(
@@ -567,9 +565,7 @@ fn serve(
             break;
         }
     }
-    let reason = *reason
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let reason = *reason.lock_recover();
     if let Some(reason) = reason
         && let Some(channel) = channel
         && rtc.is_alive()

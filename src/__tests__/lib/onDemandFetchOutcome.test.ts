@@ -9,7 +9,7 @@
  * retrying reads as retryable.
  */
 
-import { StartOutcome, isRetryableStart, hasStarted } from 'veloqrs';
+import { FfiStartOutcome, isRetryableStart, hasStarted } from 'veloqrs';
 // The module under test is this tree's, not whatever `node_modules/veloqrs`
 // currently points at, which is one symlink shared by every worktree.
 import {
@@ -37,41 +37,41 @@ function host(ready: boolean, answer: unknown): DelegateHost {
 }
 
 test('a busy key is retryable and a missing credential is not', () => {
-  const busy = syncPowerCurve(host(true, { outcome: StartOutcome.Busy }), 'Ride', 90);
+  const busy = syncPowerCurve(host(true, { outcome: FfiStartOutcome.Busy }), 'Ride', 90);
   const unconfigured = syncPowerCurve(
-    host(true, { outcome: StartOutcome.NotConfigured }),
+    host(true, { outcome: FfiStartOutcome.NotConfigured }),
     'Ride',
     90
   );
 
-  expect(busy).toEqual({ outcome: StartOutcome.Busy });
+  expect(busy).toEqual({ outcome: FfiStartOutcome.Busy });
   expect(isRetryableStart(busy)).toBe(true);
-  expect(unconfigured).toEqual({ outcome: StartOutcome.NotConfigured });
+  expect(unconfigured).toEqual({ outcome: FfiStartOutcome.NotConfigured });
   expect(isRetryableStart(unconfigured)).toBe(false);
 });
 
 vaultTest('a backed-off key carries its retry time through the delegate', () => {
-  const held = { outcome: StartOutcome.Held, retryAtMs: 1_500_000 };
+  const held = { outcome: FfiStartOutcome.Held, retryAtMs: 1_500_000 };
   expect(syncPowerCurve(host(true, held), 'Ride', 90)).toEqual(held);
 });
 
 test('an engine that is not open yet says so rather than refusing', () => {
-  const outcome = syncActivityDetail(host(false, StartOutcome.Started), 'a1');
+  const outcome = syncActivityDetail(host(false, FfiStartOutcome.Started), 'a1');
 
-  expect(outcome).toEqual({ outcome: StartOutcome.NotReady });
+  expect(outcome).toEqual({ outcome: FfiStartOutcome.NotReady });
   expect(isRetryableStart(outcome)).toBe(true);
 });
 
 test('an empty list of time streams is no work, not a refusal to do it', () => {
-  const outcome = syncTimeStreams(host(true, { outcome: StartOutcome.Started }), []);
+  const outcome = syncTimeStreams(host(true, { outcome: FfiStartOutcome.Started }), []);
 
-  expect(outcome).toEqual({ outcome: StartOutcome.NotOwed });
+  expect(outcome).toEqual({ outcome: FfiStartOutcome.NotOwed });
   expect(isRetryableStart(outcome)).toBe(false);
   expect(hasStarted(outcome)).toBe(false);
 });
 
 vaultTest('a started fetch reads as started', () => {
-  expect(hasStarted(syncTimeStreams(host(true, { outcome: StartOutcome.Started }), ['a1']))).toBe(
-    true
-  );
+  expect(
+    hasStarted(syncTimeStreams(host(true, { outcome: FfiStartOutcome.Started }), ['a1']))
+  ).toBe(true);
 });

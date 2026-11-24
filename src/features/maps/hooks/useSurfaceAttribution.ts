@@ -14,14 +14,14 @@ interface Viewport {
   bounds: LngLatBounds;
 }
 
-export interface SurfaceAttributionOptions {
+interface SurfaceAttributionOptions {
   /** Terrain is drawn, so its source is credited too. */
   is3D?: boolean | undefined;
   /** Where the map opens, which places a satellite credit before the camera settles. */
   center?: LngLat | null | undefined;
 }
 
-export interface SurfaceAttribution {
+interface SurfaceAttribution {
   /** Goes on the surface's `AttributionOverlay`. */
   attributionRef: React.RefObject<AttributionOverlayRef | null>;
   /** The overlay's text for its first paint. */

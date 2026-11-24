@@ -106,7 +106,7 @@ function ReviewScreenContent() {
   const { initial: draft, edit: editDraft } = useReviewDraft(pointCount);
   const [notes, setNotes] = useState(draft.notes ?? params.notes ?? '');
   const [selectedType, setSelectedType] = useState<ActivityType>(
-    draft.reviewedType ?? activityType ?? ('Ride' as ActivityType)
+    draft.reviewedType ?? activityType ?? 'Ride'
   );
   const { name, setName } = useActivityNameGeneration({
     initialName: draft.name ?? params.name,

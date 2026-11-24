@@ -12,6 +12,7 @@ import { i18n } from '@/i18n';
 import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import type { ActivityType } from '@/types';
 import { TIME } from '@/shared/app/time';
+import { addLocalDays } from '@/shared/time/localDay';
 
 import { ABSENT } from './absent';
 import { getIntlLocale } from './locale';
@@ -28,11 +29,9 @@ const MPS_TO_MPH = MPS_TO_KPH * KM_TO_MI;
 /** 100 yards in metres, the imperial swim pace distance. */
 export const YARDS_100_IN_METRES = 91.44;
 
-// Sanity ceilings. A tiny-but-finite speed makes pace/duration overflow to a
-// finite-but-absurd magnitude that slips past the Infinity guard and renders in
-// scientific notation (e.g. "1.66e+301:08"). These bounds are far beyond any real
-// value, so they only ever reject garbage, never a legitimate pace or duration.
-const MAX_PACE_SECONDS = 100 * 3600; // 100 h per km/mile/100m - non-physical
+// Sanity ceiling. A huge finite duration slips past the Infinity guard and
+// renders in scientific notation (e.g. "1.66e+301:08"). The bound is far beyond
+// any real value, so it only ever rejects garbage, never a legitimate duration.
 export const MAX_DURATION_SECONDS = 1e9; // ~31 years
 
 let hourCycle: 'h23' | 'h12' | undefined;
@@ -79,7 +78,7 @@ function readHourCycle(): 'h23' | 'h12' | undefined {
  * formatDistance(NaN);          // "--"
  * ```
  */
-export function formatDistance(meters: number, isMetric = true): string {
+export function formatDistance(meters: number, isMetric: boolean): string {
   const parts = distanceParts(meters, isMetric);
   if (!parts) return ABSENT;
   return `${formatDecimal(parts.value, parts.decimals)} ${parts.unit}`;
@@ -152,6 +151,23 @@ const DURATION_UNIT_FALLBACK = {
 } as const;
 
 type DurationUnitKey = keyof typeof DURATION_UNIT_FALLBACK;
+
+/** The locale `units` key and the English word for each measured unit a value is written with. */
+const MEASURE_UNIT = {
+  bpm: { key: 'units.bpm', fallback: 'bpm' },
+  watts: { key: 'units.watts', fallback: 'W' },
+  kcal: { key: 'units.kcal', fallback: 'kcal' },
+} as const;
+
+type MeasureUnit = keyof typeof MEASURE_UNIT;
+
+/** The word a value's unit is written in, read from the locale's `units` table and falling back to English when it has none. */
+function measureUnit(unit: MeasureUnit): string {
+  const { key, fallback } = MEASURE_UNIT[unit];
+  const text: unknown = i18n.t(key);
+  if (typeof text === 'string' && text !== '' && text !== key) return text;
+  return fallback;
+}
 
 function durationUnit(key: DurationUnitKey, params: Record<string, number | string> = {}): string {
   const text: unknown = i18n.t(key, params);
@@ -268,58 +284,6 @@ export function formatPrGap(seconds: number): string {
   return gap === ABSENT ? ABSENT : `+${gap}`;
 }
 
-/**
- * Format pace as minutes per kilometer (metric) or per mile (imperial).
- *
- * Shows running/cycling pace in MM:SS /km or /mi format.
- * Returns "--:--" for invalid or non-positive values.
- *
- * ```ts
- * formatPace(3.0);          // "5:33 /km" (≈ 10.8 km/h)
- * formatPace(3.0, false);   // "8:56 /mi"
- * formatPace(0);            // "--:--"
- * ```
- */
-export function formatPace(metersPerSecond: number, isMetric: boolean): string {
-  const totalSeconds = paceSeconds(metersPerSecond, isMetric);
-  if (totalSeconds == null) return '--:--';
-
-  return `${formatMinSec(totalSeconds)} ${paceUnitLabel(isMetric)}`;
-}
-
-/**
- * Seconds per kilometre, or per mile when imperial, for a speed. Null where
- * the pace formatters show '--:--'.
- */
-export function paceSeconds(metersPerSecond: number, isMetric: boolean): number | null {
-  if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return null;
-
-  // Seconds per km
-  const secondsPerKm = 1000 / metersPerSecond;
-  // Seconds per mile = seconds per km / KM_TO_MI
-  const totalSeconds = isMetric ? secondsPerKm : secondsPerKm / KM_TO_MI;
-  // A tiny-but-positive speed overflows 1000/mps to a finite-but-absurd value;
-  // reject both Infinity and the non-physical range.
-  if (!Number.isFinite(totalSeconds) || totalSeconds > MAX_PACE_SECONDS) return null;
-  return totalSeconds;
-}
-
-/**
- * Format a pace value already expressed in seconds per km as M:SS (no unit),
- * read per mile when imperial.
- *
- * Single source for pace formatting from a seconds-per-km scalar, so callers
- * that already hold pace in that unit don't re-roll the min/sec math.
- */
-export function formatPaceFromSecsPerKm(secondsPerKm: number, isMetric: boolean): string {
-  if (!Number.isFinite(secondsPerKm) || secondsPerKm <= 0) return '--:--';
-
-  const totalSeconds = isMetric ? secondsPerKm : secondsPerKm / KM_TO_MI;
-  if (totalSeconds > MAX_PACE_SECONDS) return '--:--';
-
-  return formatMinSec(totalSeconds);
-}
-
 /** A distance in metres as the long-distance unit the athlete reads: kilometres, or miles when imperial. */
 export function metersToLongDistance(meters: number, isMetric: boolean): number {
   const km = meters / 1000;
@@ -360,51 +324,22 @@ export function paceSecondsForUnit(
 }
 
 /**
- * Compact pace format for UI pills (no units).
- *
- * Same as formatPace but without the "/km" or "/mi" suffix for compact display.
+ * A speed the way its sport reads it, where the engine has already written the
+ * pace. A pace sport prints the engine's text for the unit system shown with
+ * its unit, and the absent mark when the engine sent none, since a pace it did
+ * not write is not one to work out here. Every other sport prints its speed.
  */
-export function formatPaceCompact(metersPerSecond: number, isMetric: boolean): string {
-  const totalSeconds = paceSeconds(metersPerSecond, isMetric);
-  return totalSeconds == null ? '--:--' : formatMinSec(totalSeconds);
-}
-
-/**
- * Format swim pace in minutes per 100 meters (metric) or per 100 yards (imperial).
- *
- * Swimming uses per-100m or per-100yd pace instead of per-km.
- */
-export function formatSwimPace(metersPerSecond: number, isMetric: boolean): string {
-  const totalSeconds = swimPaceSeconds(metersPerSecond, isMetric);
-  return totalSeconds == null ? '--:--' : formatMinSec(totalSeconds);
-}
-
-/** Whole seconds per 100 m, or per 100 yd when imperial. Null where the swim pace shows '--:--'. */
-export function swimPaceSeconds(metersPerSecond: number, isMetric: boolean): number | null {
-  if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return null;
-
-  const distance = isMetric ? 100 : YARDS_100_IN_METRES;
-  const totalSeconds = Math.round(distance / metersPerSecond);
-  if (!Number.isFinite(totalSeconds) || totalSeconds > MAX_PACE_SECONDS) return null;
-  return totalSeconds;
-}
-
-/**
- * Format a speed the way its sport reads it: swim pace per 100 m or 100 yd,
- * pace per km or mile for a pace sport, and speed otherwise. Each carries its
- * unit, except the absent mark.
- */
-export function formatSportSpeed(
+export function formatSportSpeedText(
   metersPerSecond: number,
   sportType: ActivityType,
-  isMetric: boolean
+  isMetric: boolean,
+  paceText: { metricText?: string | null | undefined; imperialText?: string | null | undefined }
 ): string {
-  if (isSwimmingActivity(sportType)) {
-    const pace = formatSwimPace(metersPerSecond, isMetric);
-    return pace === '--:--' ? pace : `${pace} ${isMetric ? '/100m' : '/100yd'}`;
-  }
-  if (isPaceSport(sportType)) return formatPace(metersPerSecond, isMetric);
-  return formatSpeed(metersPerSecond, isMetric);
+  const swimming = isSwimmingActivity(sportType);
+  if (!swimming && !isPaceSport(sportType)) return formatSpeed(metersPerSecond, isMetric);
+  const text = isMetric ? paceText.metricText : paceText.imperialText;
+  if (text == null) return '--:--';
+  return `${text} ${swimming ? swimPaceUnitLabel(isMetric) : paceUnitLabel(isMetric)}`;
 }
 
 /**
@@ -431,7 +366,7 @@ export function formatSpeed(metersPerSecond: number, isMetric: boolean): string 
  * Format elevation in meters (metric) or feet (imperial), or the absent mark
  * for an activity that carries none.
  */
-export function formatElevation(meters: number | undefined | null, isMetric = true): string {
+export function formatElevation(meters: number | undefined | null, isMetric: boolean): string {
   const value = elevationValue(meters, isMetric);
   if (value == null) return ABSENT;
   return `${formatDecimal(value, 0)} ${isMetric ? 'm' : 'ft'}`;
@@ -454,7 +389,7 @@ export function celsiusToFahrenheit(celsius: number): number {
 /**
  * Format temperature in Celsius (metric) or Fahrenheit (imperial).
  */
-export function formatTemperature(celsius: number | undefined | null, isMetric = true): string {
+export function formatTemperature(celsius: number | undefined | null, isMetric: boolean): string {
   if (celsius == null || !Number.isFinite(celsius)) return ABSENT;
 
   if (isMetric) {
@@ -466,12 +401,12 @@ export function formatTemperature(celsius: number | undefined | null, isMetric =
 
 export function formatHeartRate(bpm: number): string {
   if (!Number.isFinite(bpm) || bpm < 0) return ABSENT;
-  return `${Math.round(bpm)} bpm`;
+  return `${Math.round(bpm)} ${measureUnit('bpm')}`;
 }
 
 export function formatPower(watts: number): string {
   if (!Number.isFinite(watts) || watts < 0) return ABSENT;
-  return `${Math.round(watts)} W`;
+  return `${Math.round(watts)} ${measureUnit('watts')}`;
 }
 
 /** A whole, non-negative bound for a range, so an invalid one reads 0. */
@@ -485,8 +420,9 @@ function rangeBound(value: number): number {
  */
 export function formatPowerRange(lowWatts: number, highWatts: number | null): string {
   const low = rangeBound(lowWatts);
-  if (highWatts == null || !Number.isFinite(highWatts)) return `${low}+ W`;
-  return `${low}-${rangeBound(highWatts)} W`;
+  const unit = measureUnit('watts');
+  if (highWatts == null || !Number.isFinite(highWatts)) return `${low}+ ${unit}`;
+  return `${low}-${rangeBound(highWatts)} ${unit}`;
 }
 
 /**
@@ -495,8 +431,9 @@ export function formatPowerRange(lowWatts: number, highWatts: number | null): st
  */
 export function formatHeartRateRange(lowBpm: number, highBpm: number | null): string {
   const low = rangeBound(lowBpm);
-  if (highBpm == null || !Number.isFinite(highBpm)) return `${low}+ bpm`;
-  return `${low}-${rangeBound(highBpm)} bpm`;
+  const unit = measureUnit('bpm');
+  if (highBpm == null || !Number.isFinite(highBpm)) return `${low}+ ${unit}`;
+  return `${low}-${rangeBound(highBpm)} ${unit}`;
 }
 
 /** Joules as kilojoules to one decimal, `12.8 kJ`, a whole number left whole. */
@@ -953,31 +890,13 @@ export function formatLoad(load: number): string {
  */
 export function formatCalories(kcal: number): string {
   if (!Number.isFinite(kcal) || kcal < 0) return ABSENT;
-  return `${formatDecimal(kcal, 0)} kcal`;
+  return `${formatDecimal(kcal, 0)} ${measureUnit('kcal')}`;
 }
 
 /** An energy rate in kilocalories per hour, `546 kcal/h`. */
 export function formatCalorieRate(kcalPerHour: number): string {
   if (!Number.isFinite(kcalPerHour) || kcalPerHour < 0) return ABSENT;
-  return `${formatDecimal(kcalPerHour, 0)} kcal/h`;
-}
-
-/**
- * Format a date as YYYY-MM-DD using local timezone (not UTC).
- * Use this instead of toISOString().split('T')[0] to avoid timezone issues.
- */
-export function formatLocalDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-/**
- * Clamp a value between min and max bounds
- */
-export function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
+  return `${formatDecimal(kcalPerHour, 0)} ${measureUnit('kcal')}/h`;
 }
 
 /**
@@ -1016,10 +935,7 @@ export function getMonday(date: Date): Date {
  * Get Sunday of the week for a given date (ISO week: Monday-Sunday).
  */
 export function getSunday(date: Date): Date {
-  const monday = getMonday(date);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  return sunday;
+  return addLocalDays(getMonday(date), 6);
 }
 
 /**
@@ -1033,14 +949,6 @@ export function formatFileSize(bytes: number): string {
   if (roundTo(bytes / 1000, 1) < 1000) return `${formatDecimal(bytes / 1000, 1)} KB`;
   if (roundTo(bytes / 1000 ** 2, 1) < 1000) return `${formatDecimal(bytes / 1000 ** 2, 1)} MB`;
   return `${formatDecimal(bytes / 1000 ** 3, 1)} GB`;
-}
-
-/**
- * Convert speed in m/s to pace in seconds per km.
- */
-export function speedToSecsPerKm(metersPerSecond: number): number {
-  if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return 0;
-  return 1000 / metersPerSecond;
 }
 
 /** Safe getTime() that returns 0 for invalid/missing dates. Use in sort comparators. */

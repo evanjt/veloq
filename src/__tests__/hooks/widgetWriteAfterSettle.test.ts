@@ -12,7 +12,7 @@
  */
 
 import { act, renderHook } from '@testing-library/react-native';
-import { StartOutcome, SyncState, type SyncStatus } from 'veloqrs';
+import { FfiStartOutcome, SyncState, type SyncStatus } from 'veloqrs';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 
@@ -100,7 +100,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   idleScheduler = stubIdleScheduler('queued');
   mockStatus = null;
-  mockEngine.syncNow.mockReturnValue(StartOutcome.Started);
+  mockEngine.syncNow.mockReturnValue(FfiStartOutcome.Started);
   mockEngine.getInsightsData.mockReturnValue(null);
   mockEngine.composeWidgetSnapshot.mockReturnValue('{"schemaVersion":12}');
   mockEngine.setWidgetContext.mockReturnValue(true);

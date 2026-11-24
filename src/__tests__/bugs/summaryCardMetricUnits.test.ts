@@ -30,8 +30,20 @@ jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => mockMe
 const BUNDLE = summaryCardBundle({
   wellness: { hrv: 52, rhr: 48 },
   ftpTrend: { latestFtp: 262, previousFtp: 255 },
-  runPaceTrend: { latestPace: 3.5, previousPace: 3.4, glyph: '↑' },
-  swimPaceTrend: { latestPace: 1.35, previousPace: 1.25, glyph: '↑' },
+  runPaceTrend: {
+    latestPace: 3.5,
+    previousPace: 3.4,
+    glyph: '↑',
+    latestPaceMetricText: '4:46',
+    latestPaceImperialText: '7:40',
+  },
+  swimPaceTrend: {
+    latestPace: 1.35,
+    previousPace: 1.25,
+    glyph: '↑',
+    latestPaceMetricText: '1:14',
+    latestPaceImperialText: '1:08',
+  },
 });
 
 const DEFAULTS = useDashboardPreferences.getState().summaryCard;

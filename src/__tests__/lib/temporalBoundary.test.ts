@@ -4,13 +4,8 @@
  * year-end transitions, leap years, DST edges, ISO week boundaries.
  */
 
-import {
-  formatRelativeDate,
-  formatLocalDate,
-  getMonday,
-  getSunday,
-  formatShortDate,
-} from '@/shared/format/format';
+import { formatRelativeDate, getMonday, getSunday, formatShortDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 
 describe('temporal boundaries', () => {
   describe('year boundary', () => {

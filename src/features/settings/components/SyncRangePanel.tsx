@@ -6,7 +6,8 @@ import { useActivityBoundsCache } from '@/features/activity';
 import { useTheme } from '@/shared/app';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { useHistoryRangeEstimate } from '../hooks/useHistoryRangeEstimate';
-import { formatClockTime, formatLocalDate } from '@/shared/format/format';
+import { formatClockTime } from '@/shared/format/format';
+import { formatLocalDate, addLocalDays } from '@/shared/time/localDay';
 import { DEFAULT_ACTIVITY_DAYS } from '@/shared/native/activityWindow.generated';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
@@ -76,8 +77,7 @@ export function SyncRangePanel() {
     if (apiOldestDate) {
       return { minDateForSlider: new Date(apiOldestDate), maxDateForSlider: now };
     }
-    const d = new Date();
-    d.setDate(d.getDate() - DEFAULT_ACTIVITY_DAYS);
+    const d = addLocalDays(now, -DEFAULT_ACTIVITY_DAYS);
     return { minDateForSlider: d, maxDateForSlider: now };
   }, [apiOldestDate]);
 

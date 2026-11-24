@@ -18,17 +18,6 @@ export function jsLiteral(value: string | number | boolean | null | undefined): 
 }
 
 /**
- * A list of values as a JavaScript array literal.
- *
- * Each entry goes through `jsLiteral`, so the guarantee is the same one: a
- * quote inside any of them cannot close the literal and become code. Written
- * for a font stack, which is the one list the layer scripts interpolate.
- */
-export function jsLiteralList(values: readonly string[]): string {
-  return `[${values.map(jsLiteral).join(', ')}]`;
-}
-
-/**
  * A number as a JavaScript literal, or the fallback when it is not a finite
  * number.
  *

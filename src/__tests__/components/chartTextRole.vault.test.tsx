@@ -24,8 +24,8 @@ import { chartStyles, colors, darkColors, typography, zoneColour } from '@/theme
 import { initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
 import { fitnessScreenRead } from '../__shared__/fitnessScreenRead';
-import type { WellnessData } from '@/types';
 import { WithScreenRead } from '../__shared__/withScreenRead';
+import { statedForm } from '../__shared__/statedForm';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -84,15 +84,17 @@ function expectChartText(tree: Tree) {
   expect(tinted.map(({ text, style }) => `${text}: ${style.color}`)).toEqual([]);
 }
 
-const LOAD_DAYS = Array.from({ length: 14 }, (_, i) => ({
-  id: `2026-04-${String(i + 1).padStart(2, '0')}`,
-  ctl: 40 + i,
-  atl: 48 - (i % 6) * 3,
-  rampRate: i % 2 ? 1.4 : -0.8,
-  hrv: 60 + (i % 5),
-  restingHR: 50,
-  weight: 71.5,
-})) as WellnessData[];
+const LOAD_DAYS = statedForm(
+  Array.from({ length: 14 }, (_, i) => ({
+    id: `2026-04-${String(i + 1).padStart(2, '0')}`,
+    ctl: 40 + i,
+    atl: 48 - (i % 6) * 3,
+    rampRate: i % 2 ? 1.4 : -0.8,
+    hrv: 60 + (i % 5),
+    restingHR: 50,
+    weight: 71.5,
+  }))
+);
 
 beforeAll(async () => {
   await initialiseI18n();

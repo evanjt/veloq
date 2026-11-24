@@ -10,7 +10,7 @@
 import React from 'react';
 import { act, render } from '@testing-library/react-native';
 import { Text } from 'react-native';
-import { PoolSwimState } from 'veloqrs';
+import { FfiPoolSwimState } from 'veloqrs';
 
 import { useActivityDetailData } from '@/features/activity/hooks/useActivityDetailData';
 
@@ -43,14 +43,14 @@ function detail(poolSwim: unknown) {
   };
 }
 
-const owed = { state: PoolSwimState.Owed, lengths: [], strokeTotals: [] };
+const owed = { state: FfiPoolSwimState.Owed, lengths: [], strokeTotals: [] };
 const read = {
-  state: PoolSwimState.Read,
+  state: FfiPoolSwimState.Read,
   poolLengthM: 25,
   lengths: [{ index: 0, active: true, swolf: 43 }],
   strokeTotals: [],
 };
-const settled = { state: PoolSwimState.NoLengths, lengths: [], strokeTotals: [] };
+const settled = { state: FfiPoolSwimState.NoLengths, lengths: [], strokeTotals: [] };
 
 /** An engine whose detail read answers `answer()` and records its listeners. */
 function fakeEngine(answer: () => unknown) {
@@ -118,13 +118,13 @@ describe('the activity detail read of a pool swim', () => {
     let answer: unknown = owed;
     const engine = fakeEngine(() => detail(answer));
     const screen = await render(<Probe id="swim" />);
-    expect(screen.getByTestId('state')).toHaveTextContent(String(PoolSwimState.Owed));
+    expect(screen.getByTestId('state')).toHaveTextContent(String(FfiPoolSwimState.Owed));
 
     answer = read;
     await act(async () => engine.emit('fitParsed', { activityId: 'other' }));
-    expect(screen.getByTestId('state')).toHaveTextContent(String(PoolSwimState.Owed));
+    expect(screen.getByTestId('state')).toHaveTextContent(String(FfiPoolSwimState.Owed));
 
     await act(async () => engine.emit('fitParsed', { activityId: 'swim' }));
-    expect(screen.getByTestId('state')).toHaveTextContent(String(PoolSwimState.Read));
+    expect(screen.getByTestId('state')).toHaveTextContent(String(FfiPoolSwimState.Read));
   });
 });

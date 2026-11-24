@@ -101,6 +101,8 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
       fitness: 0,
       fatigue: 0,
       form: 0,
+      formZone: null,
+      formText: null,
       hrv: read.hrv?.[index] === false ? null : hrv[index],
       rhr: rhr ? (read.rhr?.[index] === false ? null : rhr[index]) : undefined,
       dateLabel,

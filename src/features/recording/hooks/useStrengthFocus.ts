@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { FocusState, LiveStrengthSession } from 'veloqrs';
+import type { FfiFocusState, FfiLiveStrengthSession } from 'veloqrs';
 
 import {
   clearRecordingNotification,
@@ -7,7 +7,7 @@ import {
 } from '@/features/recording/lib/recordingNotification';
 import { focusNames, type FocusNames } from '@/features/recording/lib/strengthFocus';
 
-export interface StrengthFocusHandle {
+interface StrengthFocusHandle {
   names: FocusNames;
   /** Epoch ms, advanced once a second while a rest runs, so the screen's countdown moves. */
   nowMs: number;
@@ -20,8 +20,8 @@ export interface StrengthFocusHandle {
  * the rest.
  */
 export function useStrengthFocus(
-  session: LiveStrengthSession | null,
-  focus: FocusState | null
+  session: FfiLiveStrengthSession | null,
+  focus: FfiFocusState | null
 ): StrengthFocusHandle {
   const names = useMemo(
     () => (session ? focusNames(session) : { current: '', previous: null, next: null }),

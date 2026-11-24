@@ -78,7 +78,6 @@ const testBackend: BackupBackend = {
   listBackups: async () => [],
   upload: async () => 'veloq-backup.zip',
   download: async () => {},
-  delete: async () => {},
   putObject: async () => {},
   listObjects: async () => [],
   fetchObject: async () => {},

@@ -11,7 +11,7 @@ import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { SyncState, SyncStep } from 'veloqrs';
+import { SyncState, FfiSyncStep } from 'veloqrs';
 
 import TabsLayout from '@/app/(tabs)/_layout';
 import FeedLayout from '@/app/(tabs)/(feed)/_layout';
@@ -47,7 +47,7 @@ const engine = {
     state: SyncState.Syncing,
     completed: 2,
     total: 10,
-    step: SyncStep.Activities,
+    step: FfiSyncStep.Activities,
     stepItemsDone: 2,
     stepItemsTotal: 10,
   })),

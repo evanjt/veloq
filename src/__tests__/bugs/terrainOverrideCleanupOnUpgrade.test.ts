@@ -6,10 +6,14 @@ const DONE = 'veloq-terrain-override-cleanup-done';
 
 const mockRows = new Map<string, string>();
 const mockEngine = {
+  ready: true,
   getSetting: jest.fn((key: string) => mockRows.get(key)),
   setSetting: jest.fn((key: string, value: string) => mockRows.set(key, value)),
 };
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => mockEngine,
+  isEngineReady: () => mockEngine.ready,
+}));
 
 const stored = {
   a: { style: 'dark', terrain3D: false },

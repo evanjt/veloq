@@ -5,11 +5,11 @@
  * step reports an item count, and an idle or failed sync draws nothing.
  */
 
-import { SyncState, SyncStep } from 'veloqrs';
+import { SyncState, FfiSyncStep } from 'veloqrs';
 
 import { SYNC_PILL_GRACE_MS, syncPillVisible } from '@/shared/ui/syncPillVisible';
 
-const census = { state: SyncState.Syncing, step: SyncStep.Census };
+const census = { state: SyncState.Syncing, step: FfiSyncStep.Census };
 
 test('a census step one second in stays hidden', () => {
   expect(syncPillVisible(census, 1000)).toBe(false);
@@ -23,7 +23,7 @@ test('the same step shows once the grace period has passed', () => {
 test('a step with an item count shows at once', () => {
   const remaining = {
     state: SyncState.Syncing,
-    step: SyncStep.RemainingActivities,
+    step: FfiSyncStep.RemainingActivities,
     stepItemsDone: 0,
     stepItemsTotal: 40,
   };

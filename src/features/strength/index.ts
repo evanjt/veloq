@@ -12,44 +12,24 @@ export { StrengthBalanceView } from './components/StrengthBalanceView';
 export { StrengthBalanceScale } from './components/StrengthBalanceScale';
 export { StrengthPairsInfoSheet } from './components/StrengthPairsInfoSheet';
 
-export { useExerciseSets, useMuscleGroups, useStrengthCardData } from './hooks/useExerciseSets';
-export { useMuscleDetail } from './hooks/useMuscleDetail';
-export type { MuscleGroupDetail } from './hooks/useMuscleDetail';
+export { useExerciseSets, useStrengthCardData } from './hooks/useExerciseSets';
 export {
   useOwedStrengthFiles,
   useStrengthScreenData,
   useStrengthTabState,
-  readExerciseDetailData,
 } from './hooks/useStrengthScreenData';
 export { generateStrengthInsights } from './hooks/strengthInsights';
 export { STRENGTH_PERIODS, strengthPeriodOf } from './periods';
 
 export { BODY_INTRINSIC_W } from './lib/bodyScale';
 export { type MuscleSlug } from './lib/exerciseMuscleMap';
-export { MUSCLE_NAME_KEYS, muscleName, balancePairName } from './lib/muscleNames';
+export { muscleName, balancePairName } from './lib/muscleNames';
 export {
   buildStrengthBalancePairs,
   normaliseStrengthProgression,
   normaliseStrengthSummary,
   selectExercises,
   selectProgression,
-  listBalancePairNames,
 } from './lib/analysis';
-export { formatSetCount, formatBalanceRatio } from './lib/formatting';
-export { findMuscleAtPoint } from './lib/polygons';
-export type { MusclePolygons, Polygon } from './lib/polygons';
 
-export type {
-  MuscleVolume,
-  StrengthSummary,
-  StrengthProgressionRecord,
-  StrengthPeriod,
-  StrengthProgressPoint,
-  StrengthProgressTrend,
-  StrengthProgression,
-  StrengthScreenData,
-  StrengthBalanceStatus,
-  StrengthBalancePair,
-  ExerciseSummary,
-  MuscleExerciseSummary,
-} from './types';
+export type { StrengthSummary, StrengthProgressionRecord } from './types';

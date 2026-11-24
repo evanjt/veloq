@@ -39,6 +39,13 @@ beforeEach(() => {
       { date: '2026-06-02', ctl: 51, atl: 55, sportLoad: [] },
     ],
     coverage: RangeCoverage.Loaded,
+    // The engine states each day's form once, from the rounded loads.
+    form: [-10, -4],
+    formZone: ['greyZone', 'greyZone'],
+    formText: ['-10', '-4'],
+    tsbText: ['-10', '-4'],
+    formAsPercent: false,
+    formZoneEdges: [-30, -10, 5, 25],
   });
 });
 
@@ -66,10 +73,16 @@ describe('CalendarDayReadout', () => {
     expect(line()).toMatch(/Fatigue 60 · Form -10 · HRV 62 · Resting HR 48$/);
   });
 
-  it('prints form as a percentage of fitness under the percentage setting', async () => {
+  it('prints the form text the engine stated under the percentage setting', async () => {
     mockGetWellnessDays.mockReturnValue({
       days: [{ date: '2026-06-01', ctl: 50.4, atl: 39.6, sportLoad: [] }],
       coverage: RangeCoverage.Loaded,
+      form: [10],
+      formZone: ['greyZone'],
+      formText: ['+20%'],
+      tsbText: ['+20%'],
+      formAsPercent: false,
+      formZoneEdges: [-30, -10, 5, 25],
     });
     useFormPreference.getState().setFormAsPercent(true);
     await show('2026-06-01');
@@ -78,10 +91,16 @@ describe('CalendarDayReadout', () => {
     expect(line()).toMatch(/Form \+20% · /);
   });
 
-  it('prints rounded absolute form with its sign otherwise', async () => {
+  it('prints the signed form text the engine stated otherwise', async () => {
     mockGetWellnessDays.mockReturnValue({
       days: [{ date: '2026-06-01', ctl: 50.4, atl: 39.6, sportLoad: [] }],
       coverage: RangeCoverage.Loaded,
+      form: [10],
+      formZone: ['greyZone'],
+      formText: ['+10'],
+      tsbText: ['+10'],
+      formAsPercent: false,
+      formZoneEdges: [-30, -10, 5, 25],
     });
     await show('2026-06-01');
 

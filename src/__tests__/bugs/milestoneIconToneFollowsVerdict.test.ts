@@ -27,6 +27,10 @@ const ftp = (over: Partial<FtpTrend>): FtpTrend => ({
 const pace = (over: Partial<PaceTrend>): PaceTrend => ({
   latestPace: 3.0,
   previousPace: 3.5,
+  latestPaceMetricText: '5:33',
+  latestPaceImperialText: '8:56',
+  previousPaceMetricText: '4:46',
+  previousPaceImperialText: '7:40',
   gainPercent: -14,
   deltaSeconds: -30,
   latestDate: NOW,

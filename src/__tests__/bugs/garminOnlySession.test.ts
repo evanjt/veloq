@@ -52,7 +52,6 @@ beforeEach(() => {
     apiKey: null,
     accessToken: null,
     athleteId: null,
-    athlete: null,
     isAuthenticated: false,
     isDemoMode: false,
     authMethod: null,

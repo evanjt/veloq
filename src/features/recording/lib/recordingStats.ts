@@ -8,11 +8,11 @@ import {
   formatElevation,
   formatHeartRate,
   formatPower,
-  formatSportSpeed,
 } from '@/shared/format/format';
+import { formatRecordingSpeed } from './formatRecordingSpeed';
 
 /** What a recording's stats are built from, on review and once saved. */
-export interface RecordingStatsInput {
+interface RecordingStatsInput {
   activityType: ActivityType;
   movingSeconds: number;
   /** Null when the elapsed time was not kept, as on a saved row. */
@@ -23,7 +23,7 @@ export interface RecordingStatsInput {
   avgPower: number | null | undefined;
 }
 
-export type RecordingStatKey =
+type RecordingStatKey =
   | 'movingTime'
   | 'elapsedTime'
   | 'distance'
@@ -32,7 +32,7 @@ export type RecordingStatKey =
   | 'avgHeartrate'
   | 'avgPower';
 
-export interface RecordingStat {
+interface RecordingStat {
   key: RecordingStatKey;
   label: string;
   value: string;
@@ -82,9 +82,9 @@ export function recordingStats(
     stats.push({
       key: 'avgSpeed',
       label: t(pace ? 'recording.fields.avgPace' : 'recording.fields.avgSpeed'),
-      value: formatSportSpeed(
-        input.distanceMeters / input.movingSeconds,
+      value: formatRecordingSpeed(
         input.activityType,
+        input.distanceMeters / input.movingSeconds,
         isMetric
       ),
     });

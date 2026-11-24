@@ -253,4 +253,21 @@ describe('StreamHistoryRow', () => {
     expect(getByTestId('settings-stream-failed').props.children).toBe('engine.failure.database');
     expect(queryByTestId('settings-stream-bytes')).toBeNull();
   });
+
+  it('names a failed window write and keeps the row alive', async () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockEngineHandle = {
+      ...buildEngine(),
+      setStreamRetentionDays: () => {
+        throw Object.assign(new Error('Busy'), { tag: 'Busy' });
+      },
+    };
+
+    const { getByTestId } = await render(<StreamHistoryRow isDark={false} />);
+    await act(async () => {
+      fireEvent.press(getByTestId('settings-stream-window'));
+    });
+
+    expect(getByTestId('settings-stream-failed').props.children).toBe('engine.failure.busy');
+  });
 });

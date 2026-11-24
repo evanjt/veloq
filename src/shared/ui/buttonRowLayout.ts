@@ -10,14 +10,14 @@
  * size, since they are measured from drawn text.
  */
 
-export type ButtonRowLayout = 'row' | 'stack';
+type ButtonRowLayout = 'row' | 'stack';
 
 /** The words of a label; a label breaks only at spaces, so each word must fit a line alone. */
 export function labelWords(label: string): string[] {
   return label.split(/\s+/).filter((word) => word.length > 0);
 }
 
-export interface ButtonRowMeasures {
+interface ButtonRowMeasures {
   /** The row's width. Zero until it has been laid out. */
   width: number;
   /** The space between neighbouring buttons. */

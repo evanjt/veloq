@@ -6,7 +6,7 @@
  * lists, so no sport is left under no chip.
  */
 
-import type { EngineSportFamily } from 'veloqrs';
+import type { FfiSportFamily } from 'veloqrs';
 
 import { toEngineSportFamily } from '@/shared/activity/engineSportFamily';
 import {
@@ -23,6 +23,6 @@ export const FEED_GROUPS: readonly FeedGroup[] = SPORT_FAMILY_ORDER;
 export const FEED_GROUP_LABELS = SPORT_FAMILY_LABELS;
 
 /** The engine's name for a chip. */
-export function feedSportGroup(group: FeedGroup): EngineSportFamily {
+export function feedSportGroup(group: FeedGroup): FfiSportFamily {
   return toEngineSportFamily(group);
 }

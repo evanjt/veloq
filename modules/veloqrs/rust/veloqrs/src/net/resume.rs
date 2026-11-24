@@ -10,9 +10,9 @@
 //! Each of them asks the governor before it sends anything, so a restart that
 //! comes too early is deferred again rather than sent.
 
-use std::sync::{Condvar, Mutex, MutexGuard};
-
+use crate::poison::Recover;
 use chrono::{DateTime, Utc};
+use std::sync::{Condvar, Mutex};
 
 /// When the sleeper next wakes, and whether its thread is running.
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -69,14 +69,10 @@ impl Sleeper {
         }
     }
 
-    fn lock(&self) -> MutexGuard<'_, Due> {
-        self.due.lock().unwrap_or_else(|e| e.into_inner())
-    }
-
     /// Ask for a wake at `at`. Returns whether the caller must start the
     /// sleeper thread, which is the case when none is running.
     fn ask(&self, at: DateTime<Utc>) -> bool {
-        let mut due = self.lock();
+        let mut due = self.due.lock_recover();
         due.schedule(at);
         let spawn = !due.running;
         due.running = true;
@@ -207,7 +203,7 @@ pub fn retry_downloads_with(hold: Option<DownloadsHold>, start: impl FnOnce()) -
 /// A request answered inside a cooldown and ended it, so whatever was waiting
 /// for the cooldown can go now.
 pub fn cooldown_cleared() {
-    let moved = SLEEPER.lock().bring_forward(Utc::now());
+    let moved = SLEEPER.due.lock_recover().bring_forward(Utc::now());
     if moved {
         SLEEPER.wake.notify_all();
     }
@@ -224,7 +220,7 @@ struct Running<'a, R: Fn()> {
 
 impl<R: Fn()> Drop for Running<'_, R> {
     fn drop(&mut self) {
-        let mut due = self.sleeper.lock();
+        let mut due = self.sleeper.due.lock_recover();
         if due.at.is_none() {
             due.running = false;
             return;
@@ -239,13 +235,13 @@ impl<R: Fn()> Drop for Running<'_, R> {
 /// asked for meanwhile either finds the flag set or is served by a new sleeper.
 fn sleep_until_idle(sleeper: &Sleeper, mut resume: impl FnMut(), respawn: impl Fn()) {
     let _claim = Running { sleeper, respawn };
-    let mut due = sleeper.lock();
+    let mut due = sleeper.due.lock_recover();
     loop {
         let now = Utc::now();
         if due.take_due(now) {
             drop(due);
             resume();
-            due = sleeper.lock();
+            due = sleeper.due.lock_recover();
             continue;
         }
         let Some(at) = due.at else {
@@ -270,7 +266,7 @@ fn spawn_sleeper() {
     });
     if let Err(err) = started {
         log::warn!("[Resume] could not start the resume sleeper, the next wake asks again: {err}");
-        SLEEPER.lock().running = false;
+        SLEEPER.due.lock_recover().running = false;
     }
 }
 
@@ -279,7 +275,7 @@ fn spawn_sleeper() {
 /// is tested on its own instead.
 #[cfg(test)]
 fn spawn_sleeper() {
-    SLEEPER.lock().running = false;
+    SLEEPER.due.lock_recover().running = false;
 }
 
 /// Restart everything a refusal stopped. Each start refuses on its own terms
@@ -364,7 +360,7 @@ mod tests {
             "a claimed sleeper is not asked to start another"
         );
         assert_eq!(handed_on.get(), 1, "the pending wake starts a new sleeper");
-        let due = sleeper.lock();
+        let due = sleeper.due.lock_recover();
         assert_eq!(due.at, Some(at("2026-03-04T11:00:00Z")));
         assert!(due.running, "the new sleeper inherits the claim");
     }
@@ -385,7 +381,7 @@ mod tests {
         );
         assert_eq!(resumed.get(), 1);
         assert_eq!(handed_on.get(), 0);
-        assert!(!sleeper.lock().running);
+        assert!(!sleeper.due.lock_recover().running);
     }
 
     #[test]

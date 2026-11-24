@@ -63,6 +63,8 @@ const CHARTS = [
         fitnessData={SERIES}
         fatigueData={SERIES.map((v) => v + 5)}
         formData={SERIES.map((v) => -v / 4)}
+        formZoneData={SERIES.map(() => 'greyZone')}
+        formTextData={SERIES.map((v) => String(-v / 4))}
         width={300}
         {...props}
       />

@@ -26,7 +26,7 @@ jest.mock('@/shared/native/useSyncStatus', () => ({
     state: require('../__shared__/veloqrsStub').SyncState.Syncing,
     completed: 4,
     total: 7,
-    step: require('../__shared__/veloqrsStub').SyncStep.Activities,
+    step: require('../__shared__/veloqrsStub').FfiSyncStep.Activities,
   }),
 }));
 

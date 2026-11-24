@@ -30,6 +30,7 @@ use crate::net::garmin::ingest::{
 };
 use crate::persistence::origin::file_source_key;
 use crate::persistence::ride_identity::Existing;
+use crate::poison::Recover;
 use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -123,7 +124,7 @@ static ACTIVE: AtomicBool = AtomicBool::new(false);
 static CANCEL: AtomicBool = AtomicBool::new(false);
 
 fn publish(snapshot: Snapshot) {
-    *SNAPSHOT.lock().unwrap_or_else(|e| e.into_inner()) = Some(snapshot);
+    *SNAPSHOT.lock_recover() = Some(snapshot);
 }
 
 /// The one place the job takes the engine's write lock: for a file's row and
@@ -137,11 +138,7 @@ fn write<R>(
 
 /// The job's progress in this process.
 pub fn progress_now() -> Snapshot {
-    SNAPSHOT
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .clone()
-        .unwrap_or_default()
+    SNAPSHOT.lock_recover().clone().unwrap_or_default()
 }
 
 /// The right to run the one importer, released when dropped.
@@ -177,7 +174,7 @@ pub fn start(install: u64, path: PathBuf) -> bool {
         let _claim = claim;
         let last = Mutex::new(Progress::default());
         let outcome = import_with(install, &path, &CANCEL, |progress| {
-            *last.lock().unwrap_or_else(|e| e.into_inner()) = progress.clone();
+            *last.lock_recover() = progress.clone();
             publish(Snapshot {
                 state: State::Running,
                 progress: progress.clone(),

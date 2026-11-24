@@ -1,5 +1,5 @@
-export { usePaceCurve, getIndexAtDistance, getTimeAtDistance } from './usePaceCurve';
-export { usePowerCurve, getIndexAtDuration } from './usePowerCurve';
+export { usePaceCurve } from './usePaceCurve';
+export { usePowerCurve } from './usePowerCurve';
 export {
   BEST_EFFORTS_SPORT,
   bestEffortsOf,

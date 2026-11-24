@@ -12,12 +12,7 @@ import type { StalePrOpportunity } from 'veloqrs';
 import { generateFitnessMilestoneInsights } from '@/features/insights/generators/fitnessMilestone';
 import { generateStalePRInsights } from '@/features/insights/generators/stalePr';
 import type { Insight, PaceTrend } from '@/features/insights/types';
-import {
-  formatPaceFromSecsPerKm,
-  paceSecondsForUnit,
-  paceUnitLabel,
-  swimPaceUnitLabel,
-} from '@/shared/format/format';
+import { paceSecondsForUnit, paceUnitLabel, swimPaceUnitLabel } from '@/shared/format/format';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
@@ -32,6 +27,10 @@ const t = (key: string, params?: Record<string, string | number>) =>
 const trend = (over: Partial<PaceTrend>): PaceTrend => ({
   latestPace: 3.5,
   previousPace: 3.2,
+  latestPaceMetricText: 'm-now',
+  latestPaceImperialText: 'i-now',
+  previousPaceMetricText: 'm-then',
+  previousPaceImperialText: 'i-then',
   latestDate: NOW,
   previousDate: NOW,
   sampleCount: 10,
@@ -60,12 +59,6 @@ describe('pace unit labels', () => {
     expect(paceSecondsForUnit(10, 'swim', true)).toBe(10);
     expect(paceSecondsForUnit(10, 'swim', false)).toBeCloseTo(9.14, 1);
   });
-
-  it('formats a seconds-per-kilometre pace per mile when imperial', () => {
-    expect(formatPaceFromSecsPerKm(300, true)).toBe('5:00');
-    expect(formatPaceFromSecsPerKm(300, false)).toBe('8:03');
-    expect(formatPaceFromSecsPerKm(0, false)).toBe('--:--');
-  });
 });
 
 describe('pace milestone under imperial units', () => {
@@ -74,17 +67,25 @@ describe('pace milestone under imperial units', () => {
 
     expect(insight.title).toContain('"delta":"16 s/mi"');
     expect(point(insight, 'insights.data.currentPace')).toMatchObject({
-      value: '7:40',
+      value: 'i-now',
       unit: '/mi',
     });
-    expect(point(insight, 'insights.data.previousPace')).toMatchObject({ unit: '/mi' });
+    expect(point(insight, 'insights.data.previousPace')).toMatchObject({
+      value: 'i-then',
+      unit: '/mi',
+    });
   });
 
   it('states the swim pace per 100 yd with the change in seconds per 100 yd', () => {
     const [insight] = generateFitnessMilestoneInsights(
       null,
       null,
-      trend({ latestPace: 1.2, previousPace: 1.1, deltaSeconds: 8 }),
+      trend({
+        latestPace: 1.2,
+        previousPace: 1.1,
+        latestPaceImperialText: 'swim-i-now',
+        deltaSeconds: 8,
+      }),
       NOW,
       t,
       false
@@ -92,7 +93,7 @@ describe('pace milestone under imperial units', () => {
 
     expect(insight.title).toContain('"delta":"7 s/100yd"');
     expect(point(insight, 'insights.data.currentPace')).toMatchObject({
-      value: '1:16',
+      value: 'swim-i-now',
       unit: '/100yd',
     });
   });
@@ -102,7 +103,7 @@ describe('pace milestone under imperial units', () => {
 
     expect(insight.title).toContain('"delta":"10 s/km"');
     expect(point(insight, 'insights.data.currentPace')).toMatchObject({
-      value: '4:46',
+      value: 'm-now',
       unit: '/km',
     });
   });
@@ -118,6 +119,10 @@ function opportunity(unit: '/km' | '/100m', current: number, previous: number, i
     fitnessMetric: 'pace',
     currentValue: current,
     previousValue: previous,
+    currentMetricText: `m-${id}-now`,
+    currentImperialText: `i-${id}-now`,
+    previousMetricText: `m-${id}-then`,
+    previousImperialText: `i-${id}-then`,
     gainPercent: 5,
     unit,
     sportType: unit === '/km' ? 'Run' : 'Swim',
@@ -128,7 +133,8 @@ describe('stale record card under imperial units', () => {
   it('prints a run pace per mile', () => {
     const [insight] = generateStalePRInsights([opportunity('/km', 3.5, 3.2)], t, NOW, false);
 
-    expect(insight.subtitle).toContain('7:40/mi');
+    expect(insight.subtitle).toContain('i-river-now/mi');
+    expect(insight.subtitle).toContain('i-river-then/mi');
     expect(insight.subtitle).not.toContain('/km');
     expect(
       point(
@@ -136,7 +142,7 @@ describe('stale record card under imperial units', () => {
         'insights.stalePr.currentMetric {"metric":"insights.stalePr.metricRunningCriticalSpeed"}'
       )
     ).toMatchObject({
-      value: '7:40',
+      value: 'i-river-now',
       unit: '/mi',
     });
   });
@@ -144,7 +150,7 @@ describe('stale record card under imperial units', () => {
   it('prints a swim pace per 100 yd', () => {
     const [insight] = generateStalePRInsights([opportunity('/100m', 1.2, 1.1)], t, NOW, false);
 
-    expect(insight.subtitle).toContain('1:16/100yd');
+    expect(insight.subtitle).toContain('i-river-now/100yd');
     expect(insight.subtitle).not.toContain('/100m');
   });
 
@@ -156,8 +162,8 @@ describe('stale record card under imperial units', () => {
       false
     );
 
-    expect(group.subtitle).toContain('7:40/mi');
-    expect(group.subtitle).toContain('1:16/100yd');
+    expect(group.subtitle).toContain('i-a-now/mi');
+    expect(group.subtitle).toContain('i-b-now/100yd');
     expect(group.subtitle).not.toContain('/km');
     expect(group.subtitle).not.toContain('/100m');
   });
@@ -165,6 +171,6 @@ describe('stale record card under imperial units', () => {
   it('keeps metric units when metric', () => {
     const [insight] = generateStalePRInsights([opportunity('/km', 3.5, 3.2)], t, NOW, true);
 
-    expect(insight.subtitle).toContain('4:46/km');
+    expect(insight.subtitle).toContain('m-river-now/km');
   });
 });

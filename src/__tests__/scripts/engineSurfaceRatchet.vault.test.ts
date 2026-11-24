@@ -59,7 +59,7 @@ function callSites(out: string): string[] {
 
 const IMPORTS_ENGINE = "import { getEngine } from '@/shared/native/engine';\n";
 const REQUIRES_ENGINE = "const { getEngine } = require('@/shared/native/engine');\n";
-const IMPORTS_VELOQRS_ENGINE = "import { CallKind, engine } from 'veloqrs';\n";
+const IMPORTS_VELOQRS_ENGINE = "import { FfiCallKind, engine } from 'veloqrs';\n";
 const IMPORTS_VELOQRS_ENGINE_BLOCK =
   "import {\n  engine,\n  startFetchAndStore,\n} from 'veloqrs';\n";
 const IMPORTS_VELOQRS_WITHOUT_ENGINE =

@@ -48,6 +48,7 @@ export function summary(
     activityCount,
     totalSets: sets,
     maxWeightedSets: sets,
+    shadeCeilings: [0, 0, 0, 0, 0],
     balance,
   };
 }
@@ -205,7 +206,15 @@ export function oneOfEach(t: TFunc, progressions: StrengthProgressionRecord[] = 
         { start: DAY * 8, stats: week(200), partial: false },
         { start: DAY * 15, stats: week(300), partial: false },
       ],
-      { metric: 'tss', current: 400, previous: 300, ratio: 1 / 3, comparedStart: 0 },
+      {
+        metric: 'tss',
+        current: 400,
+        previous: 300,
+        ratio: 1 / 3,
+        comparedStart: 0,
+        direction: 'up',
+        verdict: 'moved',
+      },
       null,
       NOW,
       t

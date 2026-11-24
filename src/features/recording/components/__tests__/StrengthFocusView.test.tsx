@@ -7,11 +7,11 @@
  */
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import { FocusPhase, WeightUnit, type FocusSet, type FocusState } from 'veloqrs';
+import { FfiFocusPhase, FfiWeightUnit, type FfiFocusSet, type FfiFocusState } from 'veloqrs';
 
 import { StrengthFocusView } from '../StrengthFocusView';
 
-const current: FocusSet = {
+const current: FfiFocusSet = {
   exerciseCategory: 28,
   exerciseName: 1,
   setNumber: 2,
@@ -19,7 +19,7 @@ const current: FocusSet = {
   reps: 8,
   weightKg: 40,
   displayWeight: 40,
-  weightUnit: WeightUnit.Kilogram,
+  weightUnit: FfiWeightUnit.Kilogram,
   weightStep: 2.5,
   weightDownKg: 37.5,
   weightUpKg: 42.5,
@@ -29,14 +29,14 @@ const current: FocusSet = {
 const names = { current: 'Squat', previous: 'Deadlift', next: 'Row' };
 
 /** The state with an optional field absent, as the engine answers it. */
-function without(state: FocusState, key: 'previous' | 'current'): FocusState {
+function without(state: FfiFocusState, key: 'previous' | 'current'): FfiFocusState {
   const { [key]: _omitted, ...rest } = state;
-  return rest as FocusState;
+  return rest as FfiFocusState;
 }
 
-function focus(overrides: Partial<FocusState> = {}): FocusState {
+function focus(overrides: Partial<FfiFocusState> = {}): FfiFocusState {
   return {
-    phase: FocusPhase.Set,
+    phase: FfiFocusPhase.Set,
     current,
     previous: { exerciseCategory: 5, setsDone: 3, setCount: 3 },
     next: { exerciseCategory: 23, setsDone: 0, setCount: 4 },
@@ -58,7 +58,7 @@ describe('StrengthFocusView', () => {
     const { getByTestId } = render(
       <StrengthFocusView
         focus={focus({
-          phase: FocusPhase.Rest,
+          phase: FfiFocusPhase.Rest,
           restStartedAt: 1_000,
           restSecs: 90,
           restEndsAt: 1_090,
@@ -95,7 +95,7 @@ describe('StrengthFocusView', () => {
   it('renders nothing when the session is finished', () => {
     const { queryByTestId } = render(
       <StrengthFocusView
-        focus={without(focus({ phase: FocusPhase.Finished }), 'current')}
+        focus={without(focus({ phase: FfiFocusPhase.Finished }), 'current')}
         names={names}
         nowMs={0}
         onAdvance={jest.fn()}

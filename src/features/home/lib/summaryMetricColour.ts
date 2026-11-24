@@ -2,7 +2,7 @@ import { colors, darkColors } from '@/theme';
 import { formZoneColor, type FormZone } from '@/features/fitness';
 
 /** The series the summary card's sparklines draw, each keyed by a dot beside its value. */
-export type SummarySeries = 'fitness' | 'fatigue' | 'hrv' | 'rhr';
+type SummarySeries = 'fitness' | 'fatigue' | 'hrv' | 'rhr';
 
 /**
  * The colour a summary card series is drawn in: its sparkline line and the key

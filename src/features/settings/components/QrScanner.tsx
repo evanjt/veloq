@@ -22,7 +22,7 @@ import { Icon } from '@/shared/ui/Icon';
 /** How long a code that is not wanted stays named before the camera reads again. */
 const MISMATCH_PAUSE_MS = 1000;
 
-export interface QrScannerProps {
+interface QrScannerProps {
   /** Takes a scanned code. True when it was the code wanted, which stops the camera. */
   read: (data: string) => boolean;
   title: string;

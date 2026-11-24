@@ -41,7 +41,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use rusqlite::Connection;
+use rusqlite::{Connection, Result as SqlResult};
 use serde::{Deserialize, Serialize};
 
 use crate::persistence::codec;
@@ -381,13 +381,13 @@ pub(crate) struct IdentityReplaySnapshot {
 }
 
 impl IdentityReplaySnapshot {
-    pub(crate) fn capture(engine: &PersistentEngine) -> Self {
-        Self {
-            context: ReplayContext::capture(engine),
+    pub(crate) fn capture(engine: &PersistentEngine) -> SqlResult<Self> {
+        Ok(Self {
+            context: ReplayContext::capture(engine)?,
             metadata: engine.activity_metadata.clone(),
             section_ids: engine.sections.iter().map(|s| s.id.clone()).collect(),
             identity: engine.identity.replay_origin(),
-        }
+        })
     }
 
     pub(crate) fn replay<K: Ord>(
@@ -821,24 +821,19 @@ impl PersistentEngine {
     /// would read as one section. The ledger and the pins outlive the
     /// `sections` wipe, so a mint that skipped them could re-issue an id a dead
     /// pin still claims.
-    fn stored_section_ids(&self) -> BTreeSet<String> {
-        self.db
-            .prepare(
-                "SELECT id FROM sections
-                 UNION SELECT section_id FROM section_history
-                 UNION SELECT section_id FROM section_geometry
-                 UNION SELECT section_id FROM section_pins",
-            )
-            .and_then(|mut stmt| {
-                stmt.query_map([], |row| row.get::<_, String>(0))
-                    .map(|rows| rows.filter_map(|r| r.ok()).collect())
-            })
-            .unwrap_or_default()
+    fn stored_section_ids(&self) -> SqlResult<BTreeSet<String>> {
+        let mut stmt = self.db.prepare(
+            "SELECT id FROM sections
+             UNION SELECT section_id FROM section_history
+             UNION SELECT section_id FROM section_geometry
+             UNION SELECT section_id FROM section_pins",
+        )?;
+        stmt.query_map([], |row| row.get::<_, String>(0))?.collect()
     }
 
     /// Read accessor for tests: every id a mint has to avoid.
     #[doc(hidden)]
-    pub fn section_ids_a_mint_must_avoid(&self) -> BTreeSet<String> {
+    pub fn section_ids_a_mint_must_avoid(&self) -> SqlResult<BTreeSet<String>> {
         self.stored_section_ids()
     }
 
@@ -1492,10 +1487,10 @@ impl PersistentEngine {
         &self,
         identity: &mut SectionIdentity,
         replay: SectionReplay<K>,
-    ) -> ReplayApplied {
-        let context = ReplayContext::capture(self);
+    ) -> SqlResult<ReplayApplied> {
+        let context = ReplayContext::capture(self)?;
         let section_ids = self.sections.iter().map(|s| s.id.clone()).collect();
-        ReplaySource::replay(
+        Ok(ReplaySource::replay(
             identity,
             replay,
             ReplaySource {
@@ -1505,12 +1500,12 @@ impl PersistentEngine {
                 section_ids: &section_ids,
                 conn: &self.db,
             },
-        )
+        ))
     }
 }
 
 impl ReplayContext {
-    fn capture(engine: &PersistentEngine) -> Self {
+    fn capture(engine: &PersistentEngine) -> SqlResult<Self> {
         let config = engine.section_config.clone();
         let (intent_grounds, intent_ids) = engine.durable_intent_rows();
         let sports = config.pool_sports.then(|| {
@@ -1521,9 +1516,9 @@ impl ReplayContext {
                 .collect()
         });
         let superseded_ids = engine.superseded_section_ids();
-        let mut stored_ids = engine.stored_section_ids();
+        let mut stored_ids = engine.stored_section_ids()?;
         stored_ids.retain(|id| !superseded_ids.contains(id));
-        Self {
+        Ok(Self {
             config,
             intent_grounds,
             intent_ids,
@@ -1532,7 +1527,7 @@ impl ReplayContext {
             superseded_ids,
             pool: engine.activity_metadata.keys().cloned().collect(),
             sports,
-        }
+        })
     }
 }
 
@@ -3133,6 +3128,7 @@ mod tests {
         let mut identity = SectionIdentity::default();
         let carried = engine
             .section_identity_apply_into(&mut identity, SectionReplay::whole(vec![cut]))
+            .expect("replay")
             .visible;
 
         assert_eq!(carried.len(), 1, "the cut is carried");
@@ -3616,7 +3612,9 @@ mod tests {
         let hill_pid = pure_id_of(&identity, &hill_row.real_id).expect("the hill pid");
         for (ride, catalogue) in VALLEY_RIDES[..3].iter().zip(valley_catalogues()) {
             add_valley_ride(&mut engine, ride);
-            engine.section_identity_apply_into(&mut identity, SectionReplay::whole(catalogue));
+            engine
+                .section_identity_apply_into(&mut identity, SectionReplay::whole(catalogue))
+                .expect("replay");
         }
         assert!(identity.hysteresis.is_tombstoned(&hill_pid));
 
@@ -3663,13 +3661,15 @@ mod tests {
             .add_activity("hill-2".into(), hill(), "Ride".into())
             .expect("add_activity");
         let mut restored = engine.identity.clone();
-        let applied = engine.section_identity_apply_into(
-            &mut restored,
-            SectionReplay::whole(vec![
-                raw_cut(valley_short(), &VALLEY_RIDES[..3]),
-                raw_cut(hill(), &["hill-1", "hill-2"]),
-            ]),
-        );
+        let applied = engine
+            .section_identity_apply_into(
+                &mut restored,
+                SectionReplay::whole(vec![
+                    raw_cut(valley_short(), &VALLEY_RIDES[..3]),
+                    raw_cut(hill(), &["hill-1", "hill-2"]),
+                ]),
+            )
+            .expect("replay");
 
         let hill = applied
             .visible
@@ -3866,10 +3866,12 @@ mod tests {
             .add_activity("hill-1".into(), hill(), "Ride".into())
             .expect("add_activity");
         let mut identity = SectionIdentity::default();
-        let seed = engine.section_identity_apply_into(
-            &mut identity,
-            SectionReplay::whole(vec![raw_cut(hill(), &["hill-1"])]),
-        );
+        let seed = engine
+            .section_identity_apply_into(
+                &mut identity,
+                SectionReplay::whole(vec![raw_cut(hill(), &["hill-1"])]),
+            )
+            .expect("replay");
         assert_eq!(seed.visible.len(), 1, "the seed holds the hill");
         (engine, identity)
     }
@@ -4005,10 +4007,12 @@ mod tests {
         let mut one_by_one_visible = Vec::new();
         for (ride, catalogue) in VALLEY_RIDES.iter().zip(valley_catalogues()) {
             add_valley_ride(&mut one_by_one, ride);
-            let applied = one_by_one.section_identity_apply_into(
-                &mut one_by_one_identity,
-                SectionReplay::whole(catalogue),
-            );
+            let applied = one_by_one
+                .section_identity_apply_into(
+                    &mut one_by_one_identity,
+                    SectionReplay::whole(catalogue),
+                )
+                .expect("replay");
             let rows = event_rows(&applied.events);
             let kinds: Vec<&str> = rows.iter().map(|e| e.1).collect();
             match *ride {
@@ -4040,7 +4044,9 @@ mod tests {
         for ride in VALLEY_RIDES {
             add_valley_ride(&mut replayed, ride);
         }
-        let applied = replayed.section_identity_apply_into(&mut replayed_identity, valley_replay());
+        let applied = replayed
+            .section_identity_apply_into(&mut replayed_identity, valley_replay())
+            .expect("replay");
 
         assert_eq!(
             catalogue_json(&applied.visible),
@@ -4109,8 +4115,9 @@ mod tests {
                 fork_record(&end, &["sec_ride_1", "sec_ride_2"], &["other-1"]),
                 fork_record(&away, &["sec_ride_0"], &["spur-2"]),
             ];
-            let applied =
-                engine.section_identity_apply_into(&mut identity, SectionReplay::whole(catalogue));
+            let applied = engine
+                .section_identity_apply_into(&mut identity, SectionReplay::whole(catalogue))
+                .expect("replay");
             engine.boundary_records.clear();
             if *ride != "valley-4" {
                 continue;
@@ -4203,8 +4210,9 @@ mod tests {
                     },
                 ),
             ];
-            let applied =
-                engine.section_identity_apply_into(&mut identity, SectionReplay::whole(catalogue));
+            let applied = engine
+                .section_identity_apply_into(&mut identity, SectionReplay::whole(catalogue))
+                .expect("replay");
             engine.boundary_records.clear();
             let rows = event_rows(&applied.events);
             let (latitude, longitude) = (end.latitude, end.longitude);
@@ -4277,8 +4285,9 @@ mod tests {
         let mut kinds = Vec::new();
         for (ride, catalogue) in VALLEY_RIDES.iter().zip(valley_catalogues()) {
             add_valley_ride(&mut engine, ride);
-            let applied =
-                engine.section_identity_apply_into(&mut identity, SectionReplay::whole(catalogue));
+            let applied = engine
+                .section_identity_apply_into(&mut identity, SectionReplay::whole(catalogue))
+                .expect("replay");
             for row in event_rows(&applied.events) {
                 assert!(boundaries_of(&row).is_none(), "{row:?}");
                 kinds.push(row.1);
@@ -4311,10 +4320,12 @@ mod tests {
             add_valley_ride(&mut engine, ride);
         }
 
-        let applied = engine.section_identity_apply_into(
-            &mut identity,
-            SectionReplay::whole(valley_catalogues().pop().expect("the last catalogue")),
-        );
+        let applied = engine
+            .section_identity_apply_into(
+                &mut identity,
+                SectionReplay::whole(valley_catalogues().pop().expect("the last catalogue")),
+            )
+            .expect("replay");
 
         assert!(applied.visible.iter().any(|s| s.id == hill_id));
         let hill_pid = pure_id_of(&identity, &hill_id).expect("the hill row");
@@ -4332,21 +4343,25 @@ mod tests {
         let whole_dir = TempDir::new().expect("tempdir");
         let (mut whole, mut whole_identity) = seeded(&whole_dir);
         add_valley_ride(&mut whole, VALLEY_RIDES[0]);
-        let whole_applied = whole.section_identity_apply_into(
-            &mut whole_identity,
-            SectionReplay::whole(catalogue.clone()),
-        );
+        let whole_applied = whole
+            .section_identity_apply_into(
+                &mut whole_identity,
+                SectionReplay::whole(catalogue.clone()),
+            )
+            .expect("replay");
 
         let step_dir = TempDir::new().expect("tempdir");
         let (mut step, mut step_identity) = seeded(&step_dir);
         add_valley_ride(&mut step, VALLEY_RIDES[0]);
-        let step_applied = step.section_identity_apply_into(
-            &mut step_identity,
-            SectionReplay::new(vec![ReplayStep {
-                arrival: Arrival::Activity(VALLEY_RIDES[0].to_string()),
-                changed: vec![((), Some(catalogue))],
-            }]),
-        );
+        let step_applied = step
+            .section_identity_apply_into(
+                &mut step_identity,
+                SectionReplay::new(vec![ReplayStep {
+                    arrival: Arrival::Activity(VALLEY_RIDES[0].to_string()),
+                    changed: vec![((), Some(catalogue))],
+                }]),
+            )
+            .expect("replay");
 
         assert_eq!(
             catalogue_json(&step_applied.visible),
@@ -4376,8 +4391,9 @@ mod tests {
         let held: Vec<Arc<FrequentSection>> =
             identity.rows.values().map(|r| r.section.clone()).collect();
 
-        let applied =
-            engine.section_identity_apply_into(&mut identity, SectionReplay::<()>::new(Vec::new()));
+        let applied = engine
+            .section_identity_apply_into(&mut identity, SectionReplay::<()>::new(Vec::new()))
+            .expect("replay");
 
         assert_eq!(codec::serialize_named(&identity).expect("encode"), before);
         assert!(applied.events.is_empty());

@@ -15,7 +15,7 @@ import { router } from 'expo-router';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { SyncErrorBanner } from '@/shared/ui/SyncErrorBanner';
 import { PausedSyncPill } from '@/shared/ui/StatusPills';
-import { SyncErrorReason } from '../__shared__/veloqrsStub';
+import { FfiSyncErrorReason } from '../__shared__/veloqrsStub';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -45,7 +45,7 @@ jest.mock('@/shared/app/NetworkContext', () => ({
 
 let mockHealth: {
   lastError: string | null;
-  lastErrorReason: SyncErrorReason | null;
+  lastErrorReason: FfiSyncErrorReason | null;
   lastSuccessAt: string | null;
   retryAtMs?: number | null;
 } = {
@@ -78,7 +78,7 @@ describe('SyncErrorBanner', () => {
     useAuthStore.setState({ isDemoMode: true });
     mockHealth = {
       lastError: 'No intervals.icu login stored',
-      lastErrorReason: SyncErrorReason.NotConfigured,
+      lastErrorReason: FfiSyncErrorReason.NotConfigured,
       lastSuccessAt: null,
     };
     const { queryByTestId } = await render(<SyncErrorBanner />);
@@ -145,14 +145,14 @@ describe('SyncErrorBanner', () => {
   });
 
   vaultIt.each([
-    [SyncErrorReason.Unauthorized, 'unauthorized'],
-    [SyncErrorReason.RateLimited, 'rateLimited'],
-    [SyncErrorReason.Server, 'server'],
-    [SyncErrorReason.Network, 'network'],
-    [SyncErrorReason.Storage, 'storage'],
-    [SyncErrorReason.NotConfigured, 'notConfigured'],
-    [SyncErrorReason.Internal, 'internal'],
-    [SyncErrorReason.StorageFull, 'storageFull'],
+    [FfiSyncErrorReason.Unauthorized, 'unauthorized'],
+    [FfiSyncErrorReason.RateLimited, 'rateLimited'],
+    [FfiSyncErrorReason.Server, 'server'],
+    [FfiSyncErrorReason.Network, 'network'],
+    [FfiSyncErrorReason.Storage, 'storage'],
+    [FfiSyncErrorReason.NotConfigured, 'notConfigured'],
+    [FfiSyncErrorReason.Internal, 'internal'],
+    [FfiSyncErrorReason.StorageFull, 'storageFull'],
   ])('translates reason %s rather than printing the engine string', async (reason, key) => {
     mockHealth = {
       lastError: 'HTTP 503: upstream refused',
@@ -168,7 +168,7 @@ describe('SyncErrorBanner', () => {
   it('offers to free space when the device is full, and goes where space is freed', async () => {
     mockHealth = {
       lastError: 'device storage is full: athlete profile store failed',
-      lastErrorReason: SyncErrorReason.StorageFull,
+      lastErrorReason: FfiSyncErrorReason.StorageFull,
       lastSuccessAt: null,
     };
     const { getByTestId } = await render(<SyncErrorBanner />);
@@ -178,7 +178,7 @@ describe('SyncErrorBanner', () => {
     expect(router.push).toHaveBeenCalledWith('/cache-settings');
   });
 
-  it.each([SyncErrorReason.Storage, SyncErrorReason.Network, null])(
+  it.each([FfiSyncErrorReason.Storage, FfiSyncErrorReason.Network, null])(
     'offers no space action for reason %s',
     async (reason) => {
       mockHealth = { lastError: 'timed out', lastErrorReason: reason, lastSuccessAt: null };
@@ -190,14 +190,14 @@ describe('SyncErrorBanner', () => {
 
   describe('every fault has a next step', () => {
     it.each([
-      SyncErrorReason.Network,
-      SyncErrorReason.Server,
-      SyncErrorReason.RateLimited,
-      SyncErrorReason.Internal,
-      SyncErrorReason.Storage,
-      SyncErrorReason.EngineClosed,
+      FfiSyncErrorReason.Network,
+      FfiSyncErrorReason.Server,
+      FfiSyncErrorReason.RateLimited,
+      FfiSyncErrorReason.Internal,
+      FfiSyncErrorReason.Storage,
+      FfiSyncErrorReason.EngineClosed,
       null,
-      99 as SyncErrorReason,
+      99 as FfiSyncErrorReason,
     ])('offers Retry for reason %s, which asks the engine for a sync', async (reason) => {
       mockHealth = { lastError: 'failed', lastErrorReason: reason, lastSuccessAt: null };
       const { getByTestId, queryByTestId } = await render(<SyncErrorBanner />);
@@ -208,7 +208,7 @@ describe('SyncErrorBanner', () => {
       expect(mockRequestSyncRefresh).toHaveBeenCalledTimes(1);
     });
 
-    it.each([SyncErrorReason.Unauthorized, SyncErrorReason.NotConfigured])(
+    it.each([FfiSyncErrorReason.Unauthorized, FfiSyncErrorReason.NotConfigured])(
       'offers Sign in again for reason %s, and goes to the login screen',
       async (reason) => {
         mockHealth = { lastError: 'refused', lastErrorReason: reason, lastSuccessAt: null };
@@ -224,7 +224,7 @@ describe('SyncErrorBanner', () => {
     it('keeps Free up space as the one action for a full device', async () => {
       mockHealth = {
         lastError: 'full',
-        lastErrorReason: SyncErrorReason.StorageFull,
+        lastErrorReason: FfiSyncErrorReason.StorageFull,
         lastSuccessAt: null,
       };
       const { getByTestId, queryByTestId } = await render(<SyncErrorBanner />);
@@ -237,12 +237,12 @@ describe('SyncErrorBanner', () => {
 
   describe('closing the banner', () => {
     vaultIt.each([
-      SyncErrorReason.Network,
-      SyncErrorReason.Storage,
-      SyncErrorReason.EngineClosed,
-      SyncErrorReason.Unauthorized,
-      SyncErrorReason.NotConfigured,
-      SyncErrorReason.StorageFull,
+      FfiSyncErrorReason.Network,
+      FfiSyncErrorReason.Storage,
+      FfiSyncErrorReason.EngineClosed,
+      FfiSyncErrorReason.Unauthorized,
+      FfiSyncErrorReason.NotConfigured,
+      FfiSyncErrorReason.StorageFull,
       null,
     ])('can be closed for reason %s', async (reason) => {
       mockHealth = { lastError: 'failed', lastErrorReason: reason, lastSuccessAt: null };
@@ -256,7 +256,7 @@ describe('SyncErrorBanner', () => {
     it('stays closed while the same reason is reported again', async () => {
       mockHealth = {
         lastError: 'disk I/O error',
-        lastErrorReason: SyncErrorReason.Storage,
+        lastErrorReason: FfiSyncErrorReason.Storage,
         lastSuccessAt: null,
       };
       const { getByTestId, queryByTestId, rerender } = await render(<SyncErrorBanner />);
@@ -271,7 +271,7 @@ describe('SyncErrorBanner', () => {
     it('shows again when the reason changes', async () => {
       mockHealth = {
         lastError: 'disk I/O error',
-        lastErrorReason: SyncErrorReason.Storage,
+        lastErrorReason: FfiSyncErrorReason.Storage,
         lastSuccessAt: null,
       };
       const { getByTestId, queryByTestId, rerender } = await render(<SyncErrorBanner />);
@@ -279,7 +279,7 @@ describe('SyncErrorBanner', () => {
 
       mockHealth = {
         lastError: 'refused',
-        lastErrorReason: SyncErrorReason.Unauthorized,
+        lastErrorReason: FfiSyncErrorReason.Unauthorized,
         lastSuccessAt: null,
       };
       await rerender(<SyncErrorBanner />);
@@ -290,7 +290,7 @@ describe('SyncErrorBanner', () => {
     vaultIt('shows again when a sync succeeds and then fails with the same reason', async () => {
       mockHealth = {
         lastError: 'disk I/O error',
-        lastErrorReason: SyncErrorReason.Storage,
+        lastErrorReason: FfiSyncErrorReason.Storage,
         lastSuccessAt: null,
       };
       const { getByTestId, queryByTestId, rerender } = await render(<SyncErrorBanner />);
@@ -304,7 +304,7 @@ describe('SyncErrorBanner', () => {
       await rerender(<SyncErrorBanner />);
       mockHealth = {
         lastError: 'disk I/O error',
-        lastErrorReason: SyncErrorReason.Storage,
+        lastErrorReason: FfiSyncErrorReason.Storage,
         lastSuccessAt: '2026-08-01T10:00:00.000Z',
       };
       await rerender(<SyncErrorBanner />);
@@ -317,7 +317,7 @@ describe('SyncErrorBanner', () => {
       async () => {
         mockHealth = {
           lastError: 'disk I/O error',
-          lastErrorReason: SyncErrorReason.Storage,
+          lastErrorReason: FfiSyncErrorReason.Storage,
           lastSuccessAt: '2026-08-01T10:00:00.000Z',
         };
         const { getByTestId, queryByTestId, rerender } = await render(<SyncErrorBanner />);
@@ -339,7 +339,7 @@ describe('SyncErrorBanner', () => {
     const retryAtMs = new Date(2026, 2, 4, 14, 30).getTime();
     mockHealth = {
       lastError: 'Athlete: rate limited (429) after retries',
-      lastErrorReason: SyncErrorReason.RateLimited,
+      lastErrorReason: FfiSyncErrorReason.RateLimited,
       lastSuccessAt: null,
       retryAtMs,
     };
@@ -361,7 +361,7 @@ describe('SyncErrorBanner', () => {
   vaultIt('falls back to the engine string for a reason it does not know', async () => {
     mockHealth = {
       lastError: 'something new the engine learnt to say',
-      lastErrorReason: 99 as SyncErrorReason,
+      lastErrorReason: 99 as FfiSyncErrorReason,
       lastSuccessAt: null,
     };
     const { getByText } = await render(<SyncErrorBanner />);
@@ -372,7 +372,7 @@ describe('SyncErrorBanner', () => {
   vaultIt('still says something when the engine gives neither a reason nor a message', async () => {
     mockHealth = {
       lastError: '',
-      lastErrorReason: SyncErrorReason.Internal,
+      lastErrorReason: FfiSyncErrorReason.Internal,
       lastSuccessAt: null,
     };
     const { getByText } = await render(<SyncErrorBanner />);

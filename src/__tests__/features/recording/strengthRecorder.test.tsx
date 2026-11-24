@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import type { LiveStrengthSession, StrengthStartData } from 'veloqrs';
+import type { FfiLiveStrengthSession, FfiStrengthStartData } from 'veloqrs';
 
 import { StrengthRecorder } from '@/features/recording/components/StrengthRecorder';
 
@@ -128,7 +128,7 @@ function exercise(displayName: string, sets: TestSet[], extra: Record<string, un
   };
 }
 
-function session(exercises: ReturnType<typeof exercise>[], extra = {}): LiveStrengthSession {
+function session(exercises: ReturnType<typeof exercise>[], extra = {}): FfiLiveStrengthSession {
   return {
     id: 'live-1',
     weightUnit: 0,
@@ -138,10 +138,10 @@ function session(exercises: ReturnType<typeof exercise>[], extra = {}): LiveStre
     currentExercise: 0,
     currentSet: 0,
     ...extra,
-  } as unknown as LiveStrengthSession;
+  } as unknown as FfiLiveStrengthSession;
 }
 
-const START: StrengthStartData = {
+const START: FfiStrengthStartData = {
   live: false,
   groups: [
     {
@@ -167,7 +167,7 @@ function editsSent() {
   return strength.editLiveStrengthSession.mock.calls.map((call) => call[0]);
 }
 
-function answerNextEditWith(next: LiveStrengthSession, prefilledDaysAgo?: number) {
+function answerNextEditWith(next: FfiLiveStrengthSession, prefilledDaysAgo?: number) {
   strength.editLiveStrengthSession.mockReturnValueOnce({
     session: next,
     prefilledDaysAgo,

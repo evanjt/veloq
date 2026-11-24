@@ -20,6 +20,7 @@ import {
 
 const mockCards: string[] = [];
 
+jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: null }) }));
 jest.mock('@/features/recording/lib/liveActivity/bridge', () => ({
   isLiveActivitySupported: () => true,
   startNativeLiveActivity: (_attributes: string, state: string) => mockCards.push(state),

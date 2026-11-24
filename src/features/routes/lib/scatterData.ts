@@ -19,7 +19,7 @@ import { wallClockSecondsToLocalDate } from '@/shared/time/startDate';
 export type ScatterChartPoint = PerformanceDataPoint & { x: number };
 
 /** Result of splitting chart data into forward + reverse buckets. */
-export interface ScatterSplitResult {
+interface ScatterSplitResult {
   /** All valid points sorted by date and x-normalised, union of both directions,
    *  excluded attempts included so they can be drawn and tapped. */
   allPoints: ScatterChartPoint[];
@@ -93,7 +93,7 @@ export function splitAndPositionChartData(
 }
 
 /** One point on the trend line with a confidence band. */
-export interface TrendBandPoint {
+interface TrendBandPoint {
   x: number;
   y: number;
   /** Upper band edge (y + std, clamped to chart range). */

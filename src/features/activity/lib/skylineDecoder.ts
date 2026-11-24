@@ -9,7 +9,7 @@
  *   field 5 (varint): zone basis - 1 = power, 2 = HR
  */
 
-export interface SkylineInterval {
+interface SkylineInterval {
   duration: number;
   zone: number;
 }

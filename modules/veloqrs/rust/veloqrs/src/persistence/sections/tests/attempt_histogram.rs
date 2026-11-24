@@ -6,6 +6,7 @@ fn histograms(points: &[FfiSectionChartPoint]) -> FfiAttemptHistograms {
 
 fn point(seconds: u32, direction: &str) -> FfiSectionChartPoint {
     FfiSectionChartPoint {
+        speed_pace: None,
         lap_id: format!("lap{seconds}"),
         activity_id: format!("a{seconds}"),
         activity_name: String::new(),
@@ -21,6 +22,7 @@ fn point(seconds: u32, direction: &str) -> FfiSectionChartPoint {
         off_scale: crate::FfiOffScale::None,
         record_gap_secs: None,
         record_gap_speed: None,
+        record_gap_pace: None,
         estimated: false,
     }
 }

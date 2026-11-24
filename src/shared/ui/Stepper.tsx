@@ -26,7 +26,7 @@ export interface StepperScale {
   step: number;
 }
 
-export interface StepperBounds {
+interface StepperBounds {
   /** Lower bound, in stored units. */
   min: number;
   /** Upper bound, in stored units. */

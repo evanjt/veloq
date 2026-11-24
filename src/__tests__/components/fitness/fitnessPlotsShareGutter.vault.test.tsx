@@ -14,7 +14,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { initialiseI18n } from '@/i18n';
 import { FitnessChartCard } from '@/features/fitness/components/sections/FitnessChartCard';
-import type { WellnessData } from '@/types';
+import { statedForm } from '../../__shared__/statedForm';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 
@@ -22,11 +22,11 @@ beforeAll(async () => {
   await initialiseI18n('en-AU');
 });
 
-const DAYS = [
+const DAYS = statedForm([
   { id: '2026-04-01', ctl: 40, atl: 48 },
   { id: '2026-04-02', ctl: 41, atl: 49 },
   { id: '2026-04-03', ctl: 42, atl: 47 },
-] as WellnessData[];
+]);
 
 function card() {
   return (

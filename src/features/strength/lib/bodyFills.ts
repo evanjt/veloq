@@ -4,7 +4,7 @@ export type BodyGender = 'male' | 'female';
 export type BodySide = 'front' | 'back';
 
 /** A muscle the body shades: its slug and the step or colour it takes. */
-export interface BodyMuscle {
+interface BodyMuscle {
   slug?: string;
   intensity?: number;
   color?: string;
@@ -14,7 +14,7 @@ export interface BodyMuscle {
 }
 
 /** One filled shape of a diagram, in the drawing's own coordinates. */
-export interface BodyFill {
+interface BodyFill {
   d: string;
   fill: string;
   /** The part the shape belongs to. */

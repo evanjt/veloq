@@ -13,7 +13,7 @@ import {
 export const CONTENT_STATE_MAX_BYTES = 3800;
 
 /** Normalised 0..1 outline of the ride so far, y growing downward like screen pixels. */
-export interface LiveActivityTrace {
+interface LiveActivityTrace {
   points: [number, number][];
   aspect: number;
 }
@@ -48,7 +48,7 @@ export interface LiveActivityContentState {
   staleAt: number;
 }
 
-export interface ContentStateInput {
+interface ContentStateInput {
   status: RecordingStatus;
   now: number;
   /** Moving milliseconds at `now`, from the store's one clock (`movingMsAt`). */

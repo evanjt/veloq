@@ -1,4 +1,4 @@
-export interface TabStripLayout {
+interface TabStripLayout {
   /** Whether the strip scrolls because a tab needs more than its equal share. */
   scrolls: boolean;
   /** Width of each tab. */

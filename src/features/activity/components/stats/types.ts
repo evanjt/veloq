@@ -8,7 +8,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 /** A recorded stream a stat can name, keyed on the tile in that stream's chart colour. */
-export type StatStream = 'power' | 'heartrate' | 'speed' | 'pace' | 'cadence';
+type StatStream = 'power' | 'heartrate' | 'speed' | 'pace' | 'cadence';
 
 export interface StatDetail {
   title: string;

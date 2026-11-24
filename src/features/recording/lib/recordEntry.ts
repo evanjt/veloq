@@ -16,7 +16,7 @@ import { gpsQuality } from './gpsQuality';
 export const DEFAULT_ENTRY_SPORTS: readonly ActivityType[] = ['Ride', 'Run', 'Walk', 'Hike'];
 
 /** Chips shown beside More. Enough to hold a week's habits on a narrow phone. */
-export const ENTRY_CHIP_COUNT = 4;
+const ENTRY_CHIP_COUNT = 4;
 
 /** The sport Start begins on arrival: the last one recorded. */
 export function defaultEntrySport(recent: readonly ActivityType[]): ActivityType {
@@ -70,7 +70,7 @@ export function entryGpsState(
 }
 
 /** What the entry screen knows about location before a ride. */
-export interface EntryGpsInput {
+interface EntryGpsInput {
   /** The device's location switch, null until it has been read. */
   servicesEnabled: boolean | null;
   permission: 'unknown' | 'granted' | 'denied';

@@ -18,6 +18,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::form::{FORM_ZONE_BOUNDS, form_zone};
 use crate::{
     FfiWidgetSnapshotData, GpsPoint, WidgetLatestComparison, WidgetRouteStanding,
     WidgetWellnessSummary,
@@ -35,11 +36,6 @@ pub const SPARKLINE_DAYS: u32 = 30;
 /// Trailing days of form the large widget draws, which is also how much
 /// wellness one read takes.
 pub const FORM_HISTORY_DAYS: u32 = 42;
-
-/// Where the form zones change, on the intervals.icu TSB boundaries: below the
-/// first is high risk, then optimal, grey zone, fresh, and from the last
-/// transition. Natives draw the bands from these and never hold a copy.
-pub(crate) const FORM_ZONE_BOUNDS: [i32; 4] = [-30, -10, 5, 25];
 
 /// The most points a route outline carries, which keeps the file small.
 pub const ROUTE_OUTLINE_MAX_POINTS: usize = 150;
@@ -68,7 +64,7 @@ pub(crate) const KM_TO_MI: f64 = 0.621371;
 const KG_TO_LB: f64 = 2.20462;
 const M_TO_FT: f64 = 3.28084;
 pub(crate) const YARDS_100_IN_METRES: f64 = 91.44;
-const MAX_PACE_SECONDS: f64 = 100.0 * 3600.0;
+pub(crate) const MAX_PACE_SECONDS: f64 = 100.0 * 3600.0;
 const MAX_DURATION_SECONDS: f64 = 1e9;
 
 // ============================================================================
@@ -875,7 +871,7 @@ fn finite(v: f64) -> f64 {
 }
 
 /// `Math.round`: halves go up, so -2.5 is -2, which is what the app printed.
-fn js_round(v: f64) -> f64 {
+pub(crate) fn js_round(v: f64) -> f64 {
     let floor = v.floor();
     if v - floor >= 0.5 { floor + 1.0 } else { floor }
 }
@@ -993,31 +989,6 @@ fn wellness_metric(value: Option<f64>, glyph: Option<&str>, previous: Option<f64
 // Form
 // ---------------------------------------------------------------------------
 
-/// The band a form number falls in, on the denominator the athlete chose. A
-/// percentage needs fitness, so a day with none has no zone under that setting.
-fn form_zone(tsb: f64, fitness: Option<f64>, as_percent: bool) -> Option<&'static str> {
-    let fitness = fitness.filter(|f| *f != 0.0 && !f.is_nan());
-    if as_percent && fitness.is_none() {
-        return None;
-    }
-    let value = match (as_percent, fitness) {
-        (true, Some(f)) => tsb / f * 100.0,
-        _ => tsb,
-    };
-    let [high_risk, optimal, grey, fresh] = FORM_ZONE_BOUNDS.map(f64::from);
-    Some(if value < high_risk {
-        "highRisk"
-    } else if value < optimal {
-        "optimal"
-    } else if value < grey {
-        "greyZone"
-    } else if value < fresh {
-        "fresh"
-    } else {
-        "transition"
-    })
-}
-
 /// Six weeks of form in the unit the athlete reads it in. The series runs
 /// beside fitness, so under the percentage setting each day is read against its
 /// own fitness and a day with none has no value.
@@ -1058,16 +1029,10 @@ fn signed(n: f64) -> String {
     }
 }
 
-/// A form number as the athlete reads it: the whole percentage of fitness under
-/// that setting, the signed TSB otherwise, and "-" with no fitness to divide by.
+/// A form number as the athlete reads it, or "-" with no fitness to divide by.
 fn form_text(tsb: f64, fitness: f64, as_percent: bool) -> String {
-    if as_percent {
-        if fitness == 0.0 || fitness.is_nan() {
-            return TEXT_NONE.to_string();
-        }
-        return format!("{}%", signed(js_round(tsb / fitness * 100.0)));
-    }
-    signed(js_round(tsb))
+    let fitness = (!fitness.is_nan()).then_some(fitness);
+    crate::form::form_text(tsb, fitness, as_percent).unwrap_or_else(|| TEXT_NONE.to_string())
 }
 
 /// The change in the headline's own unit. Under the percentage setting it is the
@@ -2240,33 +2205,41 @@ pub fn format_duration(seconds: f64) -> String {
 }
 
 /// Minutes and seconds, carrying a rounded 60 into the minutes.
-fn min_sec(total: f64) -> String {
+fn min_sec_parts(total: f64) -> (i64, i64) {
     let mut minutes = (total / 60.0).floor() as i64;
     let mut seconds = js_round(total % 60.0) as i64;
     if seconds == 60 {
         minutes += 1;
         seconds = 0;
     }
+    (minutes, seconds)
+}
+
+fn min_sec(total: f64) -> String {
+    let (minutes, seconds) = min_sec_parts(total);
     format!("{minutes}:{seconds:02}")
+}
+
+/// Seconds per kilometre, or per mile when imperial, for a speed. `None` for
+/// a speed that is not finite and positive, and for a pace past the cap.
+pub fn pace_seconds(meters_per_second: f64, is_metric: bool) -> Option<f64> {
+    if !meters_per_second.is_finite() || meters_per_second <= 0.0 {
+        return None;
+    }
+    let per_km = 1000.0 / meters_per_second;
+    let total = if is_metric { per_km } else { per_km / KM_TO_MI };
+    (total.is_finite() && total <= MAX_PACE_SECONDS).then_some(total)
 }
 
 /// Pace per kilometre or mile with no unit.
 pub fn format_pace_compact(meters_per_second: f64, is_metric: bool) -> String {
-    if !meters_per_second.is_finite() || meters_per_second <= 0.0 {
-        return "--:--".to_string();
-    }
-    let per_km = 1000.0 / meters_per_second;
-    let total = if is_metric { per_km } else { per_km / KM_TO_MI };
-    if !total.is_finite() || total > MAX_PACE_SECONDS {
-        return "--:--".to_string();
-    }
-    min_sec(total)
+    pace_seconds(meters_per_second, is_metric).map_or_else(|| "--:--".to_string(), min_sec)
 }
 
-/// Swim pace per 100 m, or per 100 yd.
-pub fn format_swim_pace(meters_per_second: f64, is_metric: bool) -> String {
+/// Seconds per 100 m or 100 yd, rounded to a whole second, or None.
+fn swim_pace_total_seconds(meters_per_second: f64, is_metric: bool) -> Option<f64> {
     if !meters_per_second.is_finite() || meters_per_second <= 0.0 {
-        return "--:--".to_string();
+        return None;
     }
     let distance = if is_metric {
         100.0
@@ -2274,10 +2247,63 @@ pub fn format_swim_pace(meters_per_second: f64, is_metric: bool) -> String {
         YARDS_100_IN_METRES
     };
     let total = js_round(distance / meters_per_second);
-    if !total.is_finite() || total > MAX_PACE_SECONDS {
-        return "--:--".to_string();
+    (total.is_finite() && total <= MAX_PACE_SECONDS).then_some(total)
+}
+
+/// Swim pace per 100 m, or per 100 yd.
+pub fn format_swim_pace(meters_per_second: f64, is_metric: bool) -> String {
+    swim_pace_total_seconds(meters_per_second, is_metric)
+        .map_or_else(|| "--:--".to_string(), min_sec)
+}
+
+/// A sport's pace without its unit: per 100 m or 100 yd for a swim, per
+/// kilometre or mile otherwise.
+pub fn format_sport_pace(meters_per_second: f64, is_swim: bool, is_metric: bool) -> String {
+    if is_swim {
+        format_swim_pace(meters_per_second, is_metric)
+    } else {
+        format_pace_compact(meters_per_second, is_metric)
     }
-    min_sec(total)
+}
+
+/// Whether the sport's speed reads as a pace: foot and water sports.
+pub fn reads_as_pace(sport: &str) -> bool {
+    crate::sport::is_swimming(sport) || crate::sport::shows_pace(sport)
+}
+
+/// A speed as pace text in both unit systems, metric first, for a sport read
+/// as a pace: per kilometre or mile on foot, per 100 m or 100 yd in the water.
+/// `None` for any other sport, which reads a speed, and for a speed that has no
+/// pace.
+pub fn sport_pace_text(meters_per_second: f64, sport: &str) -> Option<(String, String)> {
+    if !reads_as_pace(sport) {
+        return None;
+    }
+    let is_swim = crate::sport::is_swimming(sport);
+    sport_pace_parts(meters_per_second, is_swim, true)?;
+    Some((
+        format_sport_pace(meters_per_second, is_swim, true),
+        format_sport_pace(meters_per_second, is_swim, false),
+    ))
+}
+
+/// The figures [`format_sport_pace`] prints, as whole minutes and seconds, and
+/// None where it prints the absent mark.
+pub fn sport_pace_parts(
+    meters_per_second: f64,
+    is_swim: bool,
+    is_metric: bool,
+) -> Option<crate::FfiPaceParts> {
+    let total = if is_swim {
+        swim_pace_total_seconds(meters_per_second, is_metric)
+    } else {
+        pace_seconds(meters_per_second, is_metric)
+    }?;
+    let (minutes, seconds) = min_sec_parts(total);
+    Some(crate::FfiPaceParts {
+        minutes: u32::try_from(minutes).ok()?,
+        seconds: u32::try_from(seconds).ok()?,
+    })
 }
 
 /// "Today", "Yesterday", a weekday within the week, then a short date, with

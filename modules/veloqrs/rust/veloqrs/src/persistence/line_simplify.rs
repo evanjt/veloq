@@ -1,6 +1,10 @@
 //! Simplifying a line laid out in local metres, for the route follower, the lines under a tap
 //! and the watch guide read.
 
+/// Metres on the ground to one degree of latitude, the one figure every point-to-point distance
+/// in the engine's local reads is measured with.
+pub(crate) const METRES_PER_DEGREE: f64 = 111_320.0;
+
 /// A position in metres on a local flat plane, east then north.
 pub(crate) type Metres = [f64; 2];
 
@@ -59,4 +63,15 @@ pub(crate) fn simplify_indices(points: &[Metres], tolerance_m: f64) -> Vec<usize
         .enumerate()
         .filter_map(|(index, kept)| kept.then_some(index))
         .collect()
+}
+
+#[cfg(test)]
+mod scale_tests {
+    use super::*;
+
+    #[test]
+    fn one_degree_of_latitude_is_the_shared_scale_in_metres() {
+        assert_eq!(METRES_PER_DEGREE, 111_320.0);
+        assert!((distance([0.0, 0.0], [0.0, METRES_PER_DEGREE]) - 111_320.0).abs() < 1e-9);
+    }
 }

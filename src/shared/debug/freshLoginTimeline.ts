@@ -13,20 +13,20 @@
  * is kept only in a closure until a second activity paints, and never reaches a
  * run.
  */
-import { SyncStep, SyncState } from 'veloqrs';
+import { FfiSyncStep, SyncState } from 'veloqrs';
 
 import { buildCommit } from '@/shared/format/buildStamp';
 
-export type TimelineMilestone = 'firstCard' | 'firstMap' | 'secondMap' | 'backfillSettled';
-export type TimelineOutcome = 'running' | 'success' | 'failed' | 'cancelled' | 'abandoned';
+type TimelineMilestone = 'firstCard' | 'firstMap' | 'secondMap' | 'backfillSettled';
+type TimelineOutcome = 'running' | 'success' | 'failed' | 'cancelled' | 'abandoned';
 
-export interface TimelineStep {
+interface TimelineStep {
   step: string;
   startMs: number;
   durationMs: number | null;
 }
 
-export interface TimelineRun {
+interface TimelineRun {
   startedAtMs: number;
   totalMs: number | null;
   outcome: TimelineOutcome;
@@ -46,7 +46,7 @@ export interface TrackWait {
 
 interface SyncObservation {
   state: SyncState;
-  step?: SyncStep | undefined;
+  step?: FfiSyncStep | undefined;
   lastError?: string | undefined;
 }
 
@@ -61,7 +61,7 @@ export function createFreshLoginTimeline(options: {
   const { now, build } = options;
   const maxRuns = options.maxRuns ?? DEFAULT_MAX_RUNS;
   let runs: TimelineRun[] = [];
-  let currentStep: SyncStep | undefined;
+  let currentStep: FfiSyncStep | undefined;
   let cancelRequested = false;
   let firstMapActivity: string | undefined;
 
@@ -116,7 +116,7 @@ export function createFreshLoginTimeline(options: {
         currentStep = status.step;
         if (current.steps.length < MAX_STEPS_PER_RUN) {
           current.steps.push({
-            step: SyncStep[status.step] ?? String(status.step),
+            step: FfiSyncStep[status.step] ?? String(status.step),
             startMs: at - current.startedAtMs,
             durationMs: null,
           });

@@ -59,7 +59,6 @@ const testBackend: BackupBackend = {
   listBackups: async () => [],
   upload: (localPath, metadata) => upload(localPath, metadata),
   download: async () => {},
-  delete: async () => {},
   putObject: async () => {},
   listObjects: async () => [],
   fetchObject: async () => {},

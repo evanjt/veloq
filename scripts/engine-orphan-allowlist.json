@@ -33,7 +33,6 @@
     "compute_hrv_trend": "called by a bench only; the screen read uses the pooled trend",
     "get_exercise_sets_in_range": "called by a bench only",
     "get_group_count": "no caller anywhere",
-    "get_retired_section_count": "called by a bench only",
     "get_section_extension_track": "no caller anywhere",
     "latest_ramp_rate": "no caller; the screen read uses latest_ramp_rate_to"
   }

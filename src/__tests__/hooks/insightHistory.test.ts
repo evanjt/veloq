@@ -251,6 +251,10 @@ describe('insight card histories', () => {
       {
         previousPace: 3,
         latestPace: 3.5,
+        latestPaceMetricText: '4:46',
+        previousPaceMetricText: '5:33',
+        latestPaceImperialText: '7:40',
+        previousPaceImperialText: '8:56',
         gainPercent: 16,
         deltaSeconds: 20,
         previousDate,
@@ -294,7 +298,15 @@ describe('insight card histories', () => {
         { start: DAY * 29, stats: week(350), partial: false },
         { start: DAY * 36, stats: week(400), partial: false },
       ],
-      { metric: 'tss', current: 400, previous: 300, ratio: 1 / 3, comparedStart: DAY * 15 },
+      {
+        metric: 'tss',
+        current: 400,
+        previous: 300,
+        ratio: 1 / 3,
+        comparedStart: DAY * 15,
+        direction: 'up',
+        verdict: 'moved',
+      },
       null,
       NOW,
       t
@@ -403,9 +415,12 @@ describe('the values a history prints at its edges, in its own unit', () => {
       value,
       date: previousDate + index * DAY,
     }));
+    const paceTexts: Record<number, string> = { 3: '5:33', 3.5: '4:46' };
     const speeds = [3, 3.2, 3.1, 3.3, 3.4, 3.5].map((value, index) => ({
       value,
       date: previousDate + index * DAY,
+      metricText: paceTexts[value] ?? '5:00',
+      imperialText: '8:00',
     }));
     const [ftp, pace] = generateFitnessMilestoneInsights(
       {
@@ -420,6 +435,10 @@ describe('the values a history prints at its edges, in its own unit', () => {
       {
         previousPace: 3,
         latestPace: 3.5,
+        latestPaceMetricText: '4:46',
+        previousPaceMetricText: '5:33',
+        latestPaceImperialText: '7:40',
+        previousPaceImperialText: '8:56',
         gainPercent: 16,
         deltaSeconds: 20,
         previousDate,
@@ -459,7 +478,15 @@ describe('the values a history prints at its edges, in its own unit', () => {
       week(300),
       week(200),
       weeks,
-      { metric: 'tss', current: 400, previous: 300, ratio: 1 / 3, comparedStart: 0 },
+      {
+        metric: 'tss',
+        current: 400,
+        previous: 300,
+        ratio: 1 / 3,
+        comparedStart: 0,
+        direction: 'up',
+        verdict: 'moved',
+      },
       null,
       NOW,
       t
@@ -471,7 +498,15 @@ describe('the values a history prints at its edges, in its own unit', () => {
       week(0, 5400),
       week(0, 3600),
       weeks.map((row) => ({ ...row, stats: { ...row.stats, totalTss: 0 } })),
-      { metric: 'duration', current: 9000, previous: 5400, ratio: 2 / 3, comparedStart: 0 },
+      {
+        metric: 'duration',
+        current: 9000,
+        previous: 5400,
+        ratio: 2 / 3,
+        comparedStart: 0,
+        direction: 'up',
+        verdict: 'improved',
+      },
       null,
       NOW,
       t

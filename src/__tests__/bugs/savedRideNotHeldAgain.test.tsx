@@ -15,7 +15,7 @@
 import { Alert } from 'react-native';
 import { renderHook, act } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import { UploadOutcome } from 'veloqrs';
+import { FfiUploadOutcome } from 'veloqrs';
 
 import { useReviewSave } from '@/features/recording/hooks/useReviewSave';
 import {
@@ -71,8 +71,8 @@ jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
 
-jest.mock('@/features/recording/lib/fitGenerator', () => ({
-  generateFitFile: jest.fn(async () => new ArrayBuffer(64)),
+jest.mock('@/features/recording/lib/recordingFit', () => ({
+  writeRecordingFit: jest.fn(() => new ArrayBuffer(64)),
 }));
 
 const mockLibraryRows: Partial<RecordingLibraryEntry>[] = [];
@@ -211,7 +211,7 @@ afterEach(() => {
 
 it('does not hold or save again a ride whose upload met a rejected credential', async () => {
   await stopRide('athlete-a');
-  mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.AuthExpired });
+  mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.AuthExpired });
   const review = await renderHook(() => useReviewSave(reviewArgs));
   await act(() => review.result.current.handleSave());
   expect(await loadRecordingBackup()).toBeNull();
@@ -228,8 +228,8 @@ it('does not hold or save again a ride whose upload met a rejected credential', 
 });
 
 it.each([
-  ['network', UploadOutcome.Network],
-  ['retriable', UploadOutcome.Retriable],
+  ['network', FfiUploadOutcome.Network],
+  ['retriable', FfiUploadOutcome.Retriable],
 ] as const)(
   'does not hold a saved ride on an explicit sign-out inside the %s toast',
   async (_name, outcome) => {
@@ -266,7 +266,7 @@ it('does not hold a ride saved on the device alone when the athlete signs out in
 
 it('does not reopen a ride whose library write finished after the sign-out held it', async () => {
   await stopRide('athlete-a');
-  mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+  mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
   let finishSave!: (entry: unknown) => void;
   mockSaveRecording.mockImplementationOnce(
     () =>
@@ -300,7 +300,7 @@ it('does not reopen a ride whose library write finished after the sign-out held 
 
 it('does not hand a saved ride to its athlete again after another athlete signs in', async () => {
   await stopRide('athlete-a');
-  mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Network });
+  mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Network });
   const review = await renderHook(() => useReviewSave(reviewArgs));
   await act(() => review.result.current.handleSave());
   await review.unmount();
@@ -335,7 +335,7 @@ it('still holds a stopped ride that never reached the library', async () => {
 
 it('does not save from a second review of a ride the library already holds', async () => {
   await stopRide('athlete-a');
-  mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Network });
+  mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Network });
   const first = await renderHook(() => useReviewSave(reviewArgs));
   await act(() => first.result.current.handleSave());
 
@@ -346,7 +346,7 @@ it('does not save from a second review of a ride the library already holds', asy
 
 it('reopens nothing when the held ride stayed in memory and its save finished after', async () => {
   await stopRide('athlete-a');
-  mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+  mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
   let finishSave!: (entry: unknown) => void;
   mockSaveRecording.mockImplementationOnce(
     () =>
@@ -445,7 +445,7 @@ describe('a backup that outlived the library save of its ride', () => {
 
   it('is saved when the library still cannot be read at Save', async () => {
     await stopRide('athlete-a');
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
     mockLibraryUnreadable = true;
     const review = await renderHook(() => useReviewSave(reviewArgs));
     await act(() => review.result.current.handleSave());
@@ -465,7 +465,7 @@ vaultIt(
   "does not reopen a saved ride held in memory through another athlete's sign-in",
   async () => {
     await stopRide('athlete-a');
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
     let finishSave!: (entry: unknown) => void;
     mockSaveRecording.mockImplementationOnce(
       () =>
@@ -505,9 +505,9 @@ vaultIt(
 
 describe('a review left after its upload failed', () => {
   it.each([
-    ['rejected', UploadOutcome.Rejected],
-    ['missing', UploadOutcome.Missing],
-    ['permissionBlocked', UploadOutcome.PermissionBlocked],
+    ['rejected', FfiUploadOutcome.Rejected],
+    ['missing', FfiUploadOutcome.Missing],
+    ['permissionBlocked', FfiUploadOutcome.PermissionBlocked],
   ] as const)(
     'leaves nothing to return to once the athlete goes back after %s',
     async (_name, outcome) => {
@@ -530,7 +530,7 @@ describe('a review left after its upload failed', () => {
     await act(() => review.result.current.handleSave());
     expect(review.result.current.canRetry).toBe(true);
 
-    mockUploadRecording.mockResolvedValueOnce({ outcome: UploadOutcome.Uploaded });
+    mockUploadRecording.mockResolvedValueOnce({ outcome: FfiUploadOutcome.Uploaded });
     await act(() => review.result.current.handleSave());
     expect(mockUploadRecording).toHaveBeenCalledTimes(2);
     expect(mockSaveRecording).toHaveBeenCalledTimes(1);
@@ -539,7 +539,7 @@ describe('a review left after its upload failed', () => {
 
   it('settles a second review of it instead of offering a Save that does nothing', async () => {
     await stopRide('athlete-a');
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Rejected });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Rejected });
     const first = await renderHook(() => useReviewSave(reviewArgs));
     await act(() => first.result.current.handleSave());
 
@@ -556,7 +556,7 @@ describe('a review left after its upload failed', () => {
 
 it('stamps a ride whose save finishes after another athlete signs in with its own athlete', async () => {
   await stopRide('athlete-a');
-  mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+  mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
   let finishSave!: (entry: unknown) => void;
   mockSaveRecording.mockImplementationOnce(
     () =>
@@ -592,7 +592,7 @@ it('stamps a ride whose save finishes after another athlete signs in with its ow
 describe('a saved ride while the library cannot be read', () => {
   it('writes no backup when its athlete signs out with the review still open', async () => {
     await stopRide('athlete-a');
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Rejected });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Rejected });
     const review = await renderHook(() => useReviewSave(reviewArgs));
     await act(() => review.result.current.handleSave());
     expect(await loadRecordingBackup()).toBeNull();
@@ -609,7 +609,7 @@ describe('a saved ride while the library cannot be read', () => {
 
   it('writes no backup when another athlete signs in while it sits in the store', async () => {
     await stopRide('athlete-a');
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Rejected });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Rejected });
     const review = await renderHook(() => useReviewSave(reviewArgs));
     await act(() => review.result.current.handleSave());
     expect(useRecordingStore.getState()).toEqual(
@@ -630,7 +630,7 @@ describe('a saved ride while the library cannot be read', () => {
 });
 
 describe('a review left while its library write is in flight', () => {
-  async function leaveReviewMidSave(outcome: UploadOutcome) {
+  async function leaveReviewMidSave(outcome: FfiUploadOutcome) {
     await stopRide('athlete-a');
     mockUploadRecording.mockResolvedValue({ outcome });
     let finishSave!: (entry: unknown) => void;
@@ -657,9 +657,9 @@ describe('a review left while its library write is in flight', () => {
   }
 
   it.each([
-    ['rejected', UploadOutcome.Rejected],
-    ['missing', UploadOutcome.Missing],
-    ['permissionBlocked', UploadOutcome.PermissionBlocked],
+    ['rejected', FfiUploadOutcome.Rejected],
+    ['missing', FfiUploadOutcome.Missing],
+    ['permissionBlocked', FfiUploadOutcome.PermissionBlocked],
   ] as const)(
     'leaves nothing to return to once the save finishes and the upload is %s',
     async (_name, outcome) => {
@@ -672,14 +672,14 @@ describe('a review left while its library write is in flight', () => {
   );
 
   it('still makes the upload the save started', async () => {
-    await leaveReviewMidSave(UploadOutcome.Rejected);
+    await leaveReviewMidSave(FfiUploadOutcome.Rejected);
     expect(mockUploadRecording).toHaveBeenCalledTimes(1);
     expect(mockUploadRecording).toHaveBeenCalledWith('rec-1');
   });
 
   it('leaves another ride started meanwhile alone', async () => {
     await stopRide('athlete-a');
-    mockUploadRecording.mockResolvedValue({ outcome: UploadOutcome.Rejected });
+    mockUploadRecording.mockResolvedValue({ outcome: FfiUploadOutcome.Rejected });
     let finishSave!: (entry: unknown) => void;
     mockSaveRecording.mockImplementationOnce(
       () =>

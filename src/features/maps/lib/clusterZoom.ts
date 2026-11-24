@@ -10,9 +10,9 @@
  * `getClusterLeaves` from MapLibre returns the full set of points behind
  * a cluster id (up to `limit`), each as a GeoJSON `Point` feature. This
  * module extracts the bounds of those leaves and decides between a tight
- * fitBounds (the common case) and a looser zoomed-camera when the leaves
- * overlap so heavily that a bounds fit would be meaningless (e.g. 30 rides
- * that all start at the same garage door).
+ * fitBounds (the common case) and a spider fan-out, with no camera move, when
+ * the leaves overlap so heavily that a bounds fit would be meaningless (e.g. 30
+ * rides that all start at the same garage door).
  */
 
 import { cameraMove } from '@/theme';
@@ -23,7 +23,7 @@ const STACKED_LEAF_SPAN_DEG = 0.0002; // ≈20m at most latitudes
 /** Threshold below which we treat the cluster as "small" (task spec). */
 const SMALL_CLUSTER_LEAF_COUNT = 20;
 
-export interface LeafBounds {
+interface LeafBounds {
   ne: [number, number]; // [maxLng, maxLat]
   sw: [number, number]; // [minLng, minLat]
   spanLng: number;
@@ -62,7 +62,7 @@ export function computeLeafBounds(features: readonly GeoJSON.Feature[]): LeafBou
   };
 }
 
-export interface ClusterZoomPlanSmall {
+interface ClusterZoomPlanSmall {
   kind: 'fitBounds';
   bounds: LeafBounds;
   leafCount: number;
@@ -70,7 +70,7 @@ export interface ClusterZoomPlanSmall {
   durationMs: number;
 }
 
-export interface ClusterZoomPlanStacked {
+interface ClusterZoomPlanStacked {
   kind: 'stacked';
   center: [number, number];
   leafCount: number;
@@ -83,12 +83,12 @@ export interface ClusterZoomPlanStacked {
  * was in none of them. The caller falls back on supercluster's own split zoom,
  * so a tap moves the camera whichever it was.
  */
-export interface ClusterZoomPlanExpand {
+interface ClusterZoomPlanExpand {
   kind: 'expand';
   center: [number, number];
 }
 
-export type ClusterZoomPlan = ClusterZoomPlanSmall | ClusterZoomPlanStacked | ClusterZoomPlanExpand;
+type ClusterZoomPlan = ClusterZoomPlanSmall | ClusterZoomPlanStacked | ClusterZoomPlanExpand;
 
 /**
  * Decide how to zoom into a cluster given its leaves and tap coordinates.

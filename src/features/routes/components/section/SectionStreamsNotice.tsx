@@ -11,7 +11,7 @@ import { Button } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 
-export interface SectionStreamsNoticeProps {
+interface SectionStreamsNoticeProps {
   isDark: boolean;
   /** Activities whose time streams are still missing. */
   outstanding: number;

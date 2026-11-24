@@ -19,9 +19,9 @@ import {
 import { buildScrubLayers, SCRUB_SOURCE_ID, scrubMarkerCollection } from '../lib/scrubMarker';
 
 /** Room around the route's own line for traces that stray outside it, as a fraction of its span. */
-export const ROUTE_MAP_BOUNDS_PADDING = 0.1;
+const ROUTE_MAP_BOUNDS_PADDING = 0.1;
 
-export interface RouteMapSpecInput {
+interface RouteMapSpecInput {
   /** The route's representative line, as points and as the collection drawn. */
   routeCoords: readonly LngLat[];
   routeLine: GeoJSON.FeatureCollection;

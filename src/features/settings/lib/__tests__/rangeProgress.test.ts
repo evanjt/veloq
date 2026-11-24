@@ -8,7 +8,7 @@
  * nearly done while most of the range is still to come.
  */
 
-import { TrackStep, type LibraryCoverage, type TrackStage } from 'veloqrs';
+import { FfiTrackStep, type LibraryCoverage, type FfiTrackStage } from 'veloqrs';
 import type { TFunction } from 'i18next';
 
 import { rangeProgress } from '../rangeProgress';
@@ -18,7 +18,7 @@ jest.mock('veloqrs', () => require('../../../../__tests__/__shared__/veloqrsStub
 const t = ((key: string, opts?: Record<string, unknown>) =>
   opts ? `${key}:${JSON.stringify(opts)}` : key) as unknown as TFunction;
 
-function stage(step: TrackStep, percent: number, resumesAtMs?: number): TrackStage {
+function stage(step: FfiTrackStep, percent: number, resumesAtMs?: number): FfiTrackStage {
   const base = { step, completed: 0, total: 0, percent };
   return resumesAtMs === undefined ? base : { ...base, resumesAtMs };
 }
@@ -32,7 +32,7 @@ const tracksLine = (completed: number, total: number) =>
 
 describe('the widened range progress', () => {
   it('counts tracks held of tracks owed while detection is nearly through its batch', () => {
-    const progress = rangeProgress(stage(TrackStep.Analysing, 98), coverage(139, 600), false, t);
+    const progress = rangeProgress(stage(FfiTrackStep.Analysing, 98), coverage(139, 600), false, t);
 
     expect(progress).toMatchObject({ done: 139, total: 600 });
     expect(progress?.detail).toBe(tracksLine(139, 600));
@@ -41,7 +41,7 @@ describe('the widened range progress', () => {
   it('counts what the range owes while the download is held, with no hold line', () => {
     const resumesAt = new Date('2026-10-27T05:15:00Z').getTime();
     const progress = rangeProgress(
-      stage(TrackStep.Held, 0, resumesAt),
+      stage(FfiTrackStep.Held, 0, resumesAt),
       coverage(139, 600),
       false,
       t
@@ -57,7 +57,7 @@ describe('the widened range progress', () => {
   });
 
   it('follows the stage once every track is held', () => {
-    const progress = rangeProgress(stage(TrackStep.Analysing, 40), coverage(600, 600), false, t);
+    const progress = rangeProgress(stage(FfiTrackStep.Analysing, 40), coverage(600, 600), false, t);
 
     expect(progress).toMatchObject({ done: 40, total: 100, detail: null });
   });

@@ -153,12 +153,13 @@ export function sameFields(a: MapSourceSpec, b: MapSourceSpec): boolean {
 function sameTerrain(a: MapTerrainSpec | null, b: MapTerrainSpec | null): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-  return (
-    a.exaggeration === b.exaggeration &&
-    a.pitch === b.pitch &&
-    a.subjectSource === b.subjectSource &&
-    a.cameraPinned === b.cameraPinned
-  );
+  const left = a as unknown as Record<string, unknown>;
+  const right = b as unknown as Record<string, unknown>;
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+  for (const key of keys) {
+    if (left[key] !== right[key]) return false;
+  }
+  return true;
 }
 
 /** Stands in for an absent list, so an absent one keeps its identity too. */

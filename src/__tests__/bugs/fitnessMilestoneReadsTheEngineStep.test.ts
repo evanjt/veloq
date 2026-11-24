@@ -30,6 +30,10 @@ const ftp = (over: Partial<FtpTrend>): FtpTrend => ({
 const pace = (over: Partial<PaceTrend>): PaceTrend => ({
   latestPace: 3.5,
   previousPace: 3.2,
+  latestPaceMetricText: '4:46',
+  latestPaceImperialText: '7:40',
+  previousPaceMetricText: '5:12',
+  previousPaceImperialText: '8:23',
   latestDate: NOW,
   previousDate: NOW,
   sampleCount: 10,
@@ -80,7 +84,14 @@ describe('generateFitnessMilestoneInsights', () => {
     const insight = generateFitnessMilestoneInsights(
       {},
       null,
-      pace({ latestPace: 1.25, previousPace: 1.0, gainPercent: 25, deltaSeconds: 20 }),
+      pace({
+        latestPace: 1.25,
+        previousPace: 1.0,
+        latestPaceMetricText: '1:20',
+        previousPaceMetricText: '1:40',
+        gainPercent: 25,
+        deltaSeconds: 20,
+      }),
       NOW,
       t
     )[0];

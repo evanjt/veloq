@@ -22,7 +22,7 @@ import { cancelSyncRefresh } from '@/shared/native/syncRefresh';
 import { useEngineSync } from '@/shared/native/useEngineSync';
 import { useActivityWindowRequest } from '@/features/activity/hooks/useActivities';
 import { scheduleWidgetSnapshot } from '@/features/home/lib/widgetBridge';
-import { StartOutcome, SyncState, type SyncStatus } from 'veloqrs';
+import { FfiStartOutcome, SyncState, type SyncStatus } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -120,7 +120,7 @@ describe('useEngineSync', () => {
   });
 
   it('leaves the athlete profile to its age gate on launch', async () => {
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     await renderHook(() => useEngineSync());
@@ -139,7 +139,7 @@ describe('useEngineSync', () => {
    */
   it('asks no intervals.icu sync of a Garmin-only session and restarts the pull after a wipe', async () => {
     useAuthStore.setState({ authMethod: 'garmin', athleteId: 'garmin:8841' });
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     await renderHook(() => useEngineSync());
@@ -153,7 +153,7 @@ describe('useEngineSync', () => {
 
   it('leaves the Garmin pull alone for an intervals.icu session', async () => {
     useAuthStore.setState({ authMethod: 'apiKey', athleteId: 'i77' });
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     await renderHook(() => useEngineSync());
@@ -169,7 +169,7 @@ describe('useEngineSync', () => {
    */
   it('starts the launch sync only once the first network reading has landed', async () => {
     mockHasReading = false;
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = await renderHook(() => useEngineSync());
@@ -194,7 +194,7 @@ describe('useEngineSync', () => {
   it('starts no sync before the engine-ready nonce is bumped', async () => {
     useEngineStatus.setState({ readyNonce: 0 });
     mockHasReading = false;
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = await renderHook(() => useEngineSync());
@@ -210,8 +210,8 @@ describe('useEngineSync', () => {
   it('retries once the engine is ready when the first call found none', async () => {
     const syncNow = jest
       .fn()
-      .mockReturnValueOnce(StartOutcome.NotReady)
-      .mockReturnValue(StartOutcome.Started);
+      .mockReturnValueOnce(FfiStartOutcome.NotReady)
+      .mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     await renderHook(() => useEngineSync());
@@ -230,7 +230,7 @@ describe('useEngineSync', () => {
    */
   it('re-reads the library on a timer while the engine cannot announce', async () => {
     jest.useFakeTimers();
-    const engine = engineWith(jest.fn().mockReturnValue(StartOutcome.Started), false);
+    const engine = engineWith(jest.fn().mockReturnValue(FfiStartOutcome.Started), false);
     mockGetEngine.mockReturnValue(engine);
     mockStatus = {
       state: SyncState.Syncing,
@@ -255,7 +255,7 @@ describe('useEngineSync', () => {
 
   it('leaves the library alone once the sync has settled', async () => {
     jest.useFakeTimers();
-    const engine = engineWith(jest.fn().mockReturnValue(StartOutcome.Started), false);
+    const engine = engineWith(jest.fn().mockReturnValue(FfiStartOutcome.Started), false);
     mockGetEngine.mockReturnValue(engine);
     mockStatus = settled();
 
@@ -272,7 +272,7 @@ describe('useEngineSync', () => {
 
   vaultIt('costs no timer at all while the engine can announce', async () => {
     jest.useFakeTimers();
-    const engine = engineWith(jest.fn().mockReturnValue(StartOutcome.Started));
+    const engine = engineWith(jest.fn().mockReturnValue(FfiStartOutcome.Started));
     mockGetEngine.mockReturnValue(engine);
     mockStatus = {
       state: SyncState.Syncing,
@@ -296,7 +296,7 @@ describe('useEngineSync', () => {
   });
 
   vaultIt('starts once when the engine is already up', async () => {
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     await renderHook(() => useEngineSync());
@@ -311,7 +311,7 @@ describe('useEngineSync', () => {
    * would start it again for every mounted caller.
    */
   it('asks for no sync when the app returns from the background', async () => {
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     await renderHook(() => useEngineSync());
@@ -327,7 +327,7 @@ describe('useEngineSync', () => {
    * refill it and the library stayed empty until the next cold launch.
    */
   it('syncs again after the library is cleared', async () => {
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     await renderHook(() => useEngineSync());
@@ -339,7 +339,7 @@ describe('useEngineSync', () => {
   });
 
   it('hears the clear even when the engine opened after this hook mounted', async () => {
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(null);
 
     await renderHook(() => useEngineSync());
@@ -355,7 +355,7 @@ describe('useEngineSync', () => {
   });
 
   vaultIt('holds one listener, not one per return', async () => {
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     await renderHook(() => useEngineSync());
@@ -366,7 +366,7 @@ describe('useEngineSync', () => {
   });
 
   it('skips demo mode, which reads seeded rows', async () => {
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
     useAuthStore.setState({ isDemoMode: true });
 
@@ -376,7 +376,7 @@ describe('useEngineSync', () => {
   });
 
   it('leaves a sync that settled with an error to the engine on reconnect', async () => {
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = await renderHook(() => useEngineSync());
@@ -404,7 +404,7 @@ describe('useEngineSync', () => {
   });
 
   it('leaves a sync that settled with an error to the engine on foreground', async () => {
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = await renderHook(() => useEngineSync());
@@ -427,7 +427,7 @@ describe('useEngineSync', () => {
   });
 
   it('asks nothing on any foreground return after a successful sync', async () => {
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = await renderHook(() => useEngineSync());
@@ -459,8 +459,8 @@ describe('useEngineSync', () => {
       // The engine keeps a window it refused as busy owed and starts it when
       // the slot frees, so an ask from here on the settled edge would be a
       // second scheduler for the same work.
-      const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
-      const syncActivitiesWindow = jest.fn().mockReturnValue(StartOutcome.Busy);
+      const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
+      const syncActivitiesWindow = jest.fn().mockReturnValue(FfiStartOutcome.Busy);
       mockGetEngine.mockReturnValue({
         ...engineWith(syncNow),
         syncActivitiesWindow,
@@ -491,7 +491,7 @@ describe('useEngineSync', () => {
   );
 
   it('does not retry an expired credential, which no amount of network fixes', async () => {
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = await renderHook(() => useEngineSync());
@@ -525,7 +525,7 @@ describe('useEngineSync', () => {
     // The widget only had two writers, backgrounding and the silent-push task,
     // so a foreground sync left yesterday's numbers on the home screen until
     // the app was backgrounded.
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = await renderHook(() => useEngineSync());
@@ -550,7 +550,7 @@ describe('useEngineSync', () => {
   it('refreshes the widget after a sync that settled with an error', async () => {
     // A sync that failed part-way still wrote the activities it did fetch, so
     // the widget is stale rather than correct if the error skips it.
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = await renderHook(() => useEngineSync());
@@ -571,7 +571,7 @@ describe('useEngineSync', () => {
   });
 
   it('leaves the widget alone when no sync ever ran', async () => {
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = await renderHook(() => useEngineSync());
@@ -582,7 +582,7 @@ describe('useEngineSync', () => {
   });
 
   vaultIt('refreshes the widget once per sync, not once per settled render', async () => {
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = await renderHook(() => useEngineSync());
@@ -609,7 +609,7 @@ describe('useEngineSync', () => {
    * hold outlives the account it was made for.
    */
   it('drops a held refresh on sign-out', async () => {
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = await renderHook(() => useEngineSync());
@@ -622,7 +622,7 @@ describe('useEngineSync', () => {
   });
 
   it('drops a held refresh when the library is cleared', async () => {
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     await renderHook(() => useEngineSync());
@@ -643,8 +643,8 @@ describe('useEngineSync', () => {
   it('leaves a start the slot refused to the engine when the sync settles', async () => {
     const syncNow = jest
       .fn()
-      .mockReturnValueOnce(StartOutcome.Busy)
-      .mockReturnValue(StartOutcome.Started);
+      .mockReturnValueOnce(FfiStartOutcome.Busy)
+      .mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = await renderHook(() => useEngineSync());
@@ -676,7 +676,7 @@ describe('useEngineSync', () => {
    * on the rows rather than on the job.
    */
   it('wakes the activity readers when a sync step lands its rows', async () => {
-    const engine = engineWith(jest.fn().mockReturnValue(StartOutcome.Started));
+    const engine = engineWith(jest.fn().mockReturnValue(FfiStartOutcome.Started));
     mockGetEngine.mockReturnValue(engine);
 
     await renderHook(() => useEngineSync());
@@ -690,7 +690,7 @@ describe('useEngineSync', () => {
   vaultIt('asks nothing on the settle of a sync that failed', async () => {
     // The credential may be the thing that failed, and asking again straight
     // away hammers a 401 on every settle.
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    const syncNow = jest.fn().mockReturnValue(FfiStartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     const { rerender } = await renderHook(() => useEngineSync());

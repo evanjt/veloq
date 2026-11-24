@@ -338,9 +338,9 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       filter: ['!', ['has', 'point_count']],
       paint: {
         'circle-color': ['get', 'color'],
-        // One dot per activity at every zoom: the point sits at the activity's
-        // start, below the cluster handover it is a ride with no neighbour to
-        // cluster with, and from it up every activity is one.
+        // A dot per activity from the cluster handover up, at the activity's start.
+        // Below the handover an activity that falls in a cluster draws no dot of its own:
+        // the cluster circle counts it. Only an activity alone in its cluster draws one.
         'circle-radius': [
           'interpolate',
           ['linear'],

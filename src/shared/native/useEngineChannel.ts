@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 
 import { getEngine } from './engine';
+import { payloadKind } from './engineChannels';
 
 /**
  * `bodyStored` carries the kind of body that landed, so a reader that wants one
@@ -24,7 +25,7 @@ export function useEngineChannel(event: string, queryKey: QueryKey, kind?: strin
     const engine = getEngine();
     if (!engine) return undefined;
     return engine.subscribe(event, (payload) => {
-      if (kind !== undefined && (payload as { kind?: string } | undefined)?.kind !== kind) return;
+      if (kind !== undefined && payloadKind(payload) !== kind) return;
       queryClient.invalidateQueries({ queryKey });
     });
     // The key is a literal tuple from queryKeys, stable across renders by value.

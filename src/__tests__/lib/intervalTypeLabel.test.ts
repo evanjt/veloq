@@ -12,7 +12,7 @@
 
 import { intervalTypeLabel } from '@/features/activity/lib/intervalTypeLabel';
 import { initialiseI18n } from '@/i18n';
-import { IntervalKind } from 'veloqrs';
+import { FfiIntervalKind } from 'veloqrs';
 
 describe('intervalTypeLabel', () => {
   beforeAll(async () => {
@@ -22,7 +22,7 @@ describe('intervalTypeLabel', () => {
   it('shows the athlete words over the zone token', () => {
     expect(
       intervalTypeLabel({
-        kind: IntervalKind.Work,
+        kind: FfiIntervalKind.Work,
         zone: 4,
         label: '2km at 6:00/km',
         zoneColoured: true,
@@ -32,13 +32,13 @@ describe('intervalTypeLabel', () => {
 
   it('separates two intervals that share a zone', () => {
     const warmUp = intervalTypeLabel({
-      kind: IntervalKind.Work,
+      kind: FfiIntervalKind.Work,
       zone: 6,
       label: '1.5km warm up',
       zoneColoured: true,
     });
     const effort = intervalTypeLabel({
-      kind: IntervalKind.Work,
+      kind: FfiIntervalKind.Work,
       zone: 6,
       label: '1km at 5:50/km',
       zoneColoured: true,
@@ -49,27 +49,29 @@ describe('intervalTypeLabel', () => {
 
   it('keeps the zone token when there is no label', () => {
     expect(
-      intervalTypeLabel({ kind: IntervalKind.Work, zone: 4, label: null, zoneColoured: true })
+      intervalTypeLabel({ kind: FfiIntervalKind.Work, zone: 4, label: null, zoneColoured: true })
     ).toBe('Z4');
-    expect(intervalTypeLabel({ kind: IntervalKind.Work, zone: 4, zoneColoured: true })).toBe('Z4');
+    expect(intervalTypeLabel({ kind: FfiIntervalKind.Work, zone: 4, zoneColoured: true })).toBe(
+      'Z4'
+    );
   });
 
   it('falls back rather than rendering a blank cell', () => {
     expect(
-      intervalTypeLabel({ kind: IntervalKind.Work, zone: 4, label: '', zoneColoured: true })
+      intervalTypeLabel({ kind: FfiIntervalKind.Work, zone: 4, label: '', zoneColoured: true })
     ).toBe('Z4');
     expect(
-      intervalTypeLabel({ kind: IntervalKind.Work, zone: 4, label: '   ', zoneColoured: true })
+      intervalTypeLabel({ kind: FfiIntervalKind.Work, zone: 4, label: '   ', zoneColoured: true })
     ).toBe('Z4');
   });
 
   vaultIt('labels a work interval with no zone colour, as it did before', () => {
-    expect(intervalTypeLabel({ kind: IntervalKind.Work, zone: null, zoneColoured: false })).toBe(
+    expect(intervalTypeLabel({ kind: FfiIntervalKind.Work, zone: null, zoneColoured: false })).toBe(
       'Work'
     );
     expect(
       intervalTypeLabel({
-        kind: IntervalKind.Work,
+        kind: FfiIntervalKind.Work,
         zone: null,
         label: 'openers',
         zoneColoured: false,
@@ -79,9 +81,9 @@ describe('intervalTypeLabel', () => {
 
   vaultIt('names recovery and rest the way the table already does', () => {
     expect(
-      intervalTypeLabel({ kind: IntervalKind.Recovery, zone: null, zoneColoured: false })
+      intervalTypeLabel({ kind: FfiIntervalKind.Recovery, zone: null, zoneColoured: false })
     ).toBe('Rec');
-    expect(intervalTypeLabel({ kind: IntervalKind.Rest, zone: null, zoneColoured: false })).toBe(
+    expect(intervalTypeLabel({ kind: FfiIntervalKind.Rest, zone: null, zoneColoured: false })).toBe(
       'Rec'
     );
   });
@@ -89,7 +91,7 @@ describe('intervalTypeLabel', () => {
   vaultIt('lets an athlete name a recovery interval too', () => {
     expect(
       intervalTypeLabel({
-        kind: IntervalKind.Recovery,
+        kind: FfiIntervalKind.Recovery,
         zone: null,
         label: 'jog back',
         zoneColoured: false,
@@ -98,18 +100,18 @@ describe('intervalTypeLabel', () => {
   });
 
   vaultIt('names a warm up and a cool down from the locale, never by the raw type', () => {
-    expect(intervalTypeLabel({ kind: IntervalKind.Warmup, zone: null, zoneColoured: false })).toBe(
-      'WU'
-    );
     expect(
-      intervalTypeLabel({ kind: IntervalKind.Cooldown, zone: null, zoneColoured: false }, 'long')
+      intervalTypeLabel({ kind: FfiIntervalKind.Warmup, zone: null, zoneColoured: false })
+    ).toBe('WU');
+    expect(
+      intervalTypeLabel({ kind: FfiIntervalKind.Cooldown, zone: null, zoneColoured: false }, 'long')
     ).toBe('Cool-down');
   });
 
   it('trims the athlete words rather than rendering their padding', () => {
     expect(
       intervalTypeLabel({
-        kind: IntervalKind.Work,
+        kind: FfiIntervalKind.Work,
         zone: 4,
         label: '  1.5km cool down  ',
         zoneColoured: true,

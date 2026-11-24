@@ -71,6 +71,16 @@ pub fn rank_among(time_secs: f64, rivals: &[f64]) -> Option<u32> {
     Some(place)
 }
 
+/// The rank a route page shows for an effort: [`rank_among`], except that a
+/// tie for first, which is no record, shows second so that only a strict
+/// record is first. `None` when the effort or every other outing is unusable.
+pub fn tie_aware_rank(time_secs: f64, rivals: &[f64]) -> Option<u32> {
+    rank_among(time_secs, rivals).or_else(|| {
+        let usable = |t: f64| t.is_finite() && t > 0.0;
+        (usable(time_secs) && rivals.iter().any(|r| usable(*r))).then_some(2)
+    })
+}
+
 /// How far from a route's usual distance an attempt may be and still count
 /// toward the route's record, as a fraction of that distance.
 ///
@@ -411,6 +421,7 @@ pub fn section_record_progression(
             speed: lap.pace,
             improvement_secs: previous.map(|step| step.section_time - lap.time),
             improvement_speed: previous.map(|step| lap.pace - step.speed),
+            improvement_pace: None,
         });
         if is_holder {
             break;
@@ -558,6 +569,16 @@ mod tests {
     fn a_tie_for_second_is_second_for_both_and_a_tie_for_first_is_unplaced() {
         assert_eq!(podium_place(110.0, &[100.0, 110.0, 130.0]), Some(2));
         assert_eq!(podium_place(100.0, &[100.0, 110.0]), None);
+    }
+
+    #[test]
+    fn a_tie_for_first_shows_second_on_the_route_page() {
+        assert_eq!(tie_aware_rank(612.0, &[0.0, 612.0, 620.0]), Some(2));
+        assert_eq!(tie_aware_rank(590.0, &[600.0]), Some(1));
+        assert_eq!(tie_aware_rank(650.0, &[600.0, 610.0]), Some(3));
+        assert_eq!(tie_aware_rank(612.0, &[0.0]), None);
+        assert_eq!(tie_aware_rank(0.0, &[612.0]), None);
+        assert_eq!(tie_aware_rank(600.0, &[]), None);
     }
 
     #[test]

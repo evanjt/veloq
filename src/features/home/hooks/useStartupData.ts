@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { runWhenIdle } from '@/shared/async/runWhenIdle';
 import { useForeground } from '@/shared/app/useRetryTriggers';
 import { getEngine } from '@/shared/native/engine';
+import { BODY_STORED_CHANNEL, payloadKind } from '@/shared/native/engineChannels';
 import { timeAppWork } from '@/shared/debug/renderTimer';
 import { useEngineOpenCount, useEngineReady } from '@/shared/native/useEngineReady';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
@@ -136,8 +137,8 @@ function useEngineSignals(): { settled: number; wellnessStored: number } {
   useEffect(() => {
     if (!engine) return undefined;
     const offSettled = engine.subscribe('syncSettled', () => setSettled((n) => n + 1));
-    const offBody = engine.subscribe('bodyStored', (payload) => {
-      if ((payload as { kind?: string } | undefined)?.kind !== 'wellness') return;
+    const offBody = engine.subscribe(BODY_STORED_CHANNEL, (payload) => {
+      if (payloadKind(payload) !== 'wellness') return;
       setWellnessStored((n) => n + 1);
     });
     return () => {

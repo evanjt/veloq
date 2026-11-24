@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
-import { FocusPhase, type FocusNeighbour, type FocusState } from 'veloqrs';
+import { FfiFocusPhase, type FfiFocusNeighbour, type FfiFocusState } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
 import { Button } from '@/shared/ui/Button';
@@ -23,7 +23,7 @@ const clock = (seconds: number) => {
 
 interface StrengthFocusViewProps {
   /** The engine's focus read. The view keeps none of it. */
-  focus: FocusState;
+  focus: FfiFocusState;
   names: FocusNames;
   /** The clock the rest is read against, ms. The owner re-renders it once a second. */
   nowMs: number;
@@ -41,7 +41,7 @@ function Neighbour({
   testID: string;
   label: string;
   name: string;
-  neighbour: FocusNeighbour;
+  neighbour: FfiFocusNeighbour;
 }) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -87,11 +87,11 @@ export function StrengthFocusView({
   );
 
   const set = focus.current;
-  if (!set || focus.phase === FocusPhase.Finished) return null;
+  if (!set || focus.phase === FfiFocusPhase.Finished) return null;
 
   const translate = (key: string, fallback: string, values?: Record<string, string | number>) =>
     t(key, { defaultValue: fallback, ...values });
-  const resting = focus.phase === FocusPhase.Rest;
+  const resting = focus.phase === FfiFocusPhase.Rest;
   const remaining =
     focus.restEndsAt != null
       ? clock(focus.restEndsAt - nowMs / 1000)

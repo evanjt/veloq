@@ -1,5 +1,6 @@
 //! The tile tree and its per-source sidecar index.
 
+use crate::poison::Recover;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::io;
@@ -244,7 +245,7 @@ impl TileStore {
     }
 
     fn satellite_cache(&self) -> std::sync::MutexGuard<'_, SatelliteCache> {
-        self.satellite.lock().unwrap_or_else(|e| e.into_inner())
+        self.satellite.lock_recover()
     }
 
     /// Give back the satellite rasters held in memory, when the OS asks the
@@ -260,7 +261,7 @@ impl TileStore {
     }
 
     fn count(&self, source: &str, bump: impl FnOnce(&mut TileCounts)) {
-        let mut counts = self.counts.lock().unwrap_or_else(|e| e.into_inner());
+        let mut counts = self.counts.lock_recover();
         bump(counts.entry(source.to_string()).or_default());
     }
 
@@ -272,13 +273,13 @@ impl TileStore {
 
     /// One source's counts, zero for a source never asked for.
     pub fn tile_counts(&self, source: &str) -> TileCounts {
-        let counts = self.counts.lock().unwrap_or_else(|e| e.into_inner());
+        let counts = self.counts.lock_recover();
         counts.get(source).copied().unwrap_or_default()
     }
 
     /// Every source's counts, ordered by source name.
     pub fn all_tile_counts(&self) -> Vec<(String, TileCounts)> {
-        let counts = self.counts.lock().unwrap_or_else(|e| e.into_inner());
+        let counts = self.counts.lock_recover();
         let mut all: Vec<_> = counts.iter().map(|(s, c)| (s.clone(), *c)).collect();
         all.sort_by(|a, b| a.0.cmp(&b.0));
         all
@@ -299,10 +300,7 @@ impl TileStore {
 
     /// Zero every counter.
     pub fn reset_tile_counts(&self) {
-        self.counts
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clear();
+        self.counts.lock_recover().clear();
     }
 
     /// The count of clears so far. A long write pass reads it before it starts
@@ -367,7 +365,7 @@ impl TileStore {
     fn get_counted(&self, source: &str, z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
         let key = tile_key(z, x, y);
         let ext = {
-            let mut sources = self.lock();
+            let mut sources = self.sources.lock_recover();
             let index = self.index_for(&mut sources, source);
             index.sidecar.entries.get(&key)?.ext.clone()
         };
@@ -376,7 +374,7 @@ impl TileStore {
         let read = std::fs::read(&path);
 
         let stamp = self.next_stamp();
-        let mut sources = self.lock();
+        let mut sources = self.sources.lock_recover();
         let index = self.index_for(&mut sources, source);
         match read {
             Ok(bytes) => {
@@ -489,7 +487,7 @@ impl TileStore {
         }
         write_atomically(&path, bytes)?;
 
-        let mut sources = self.lock();
+        let mut sources = self.sources.lock_recover();
         if stale() {
             drop(sources);
             let _ = std::fs::remove_file(&path);
@@ -559,7 +557,7 @@ impl TileStore {
         // read: one mutex covers every source, and a pan running beside the
         // pass should not queue behind it.
         let ext = {
-            let mut sources = self.lock();
+            let mut sources = self.sources.lock_recover();
             let index = self.index_for(&mut sources, source);
             let entry = index.sidecar.entries.get(&key)?;
             if entry.superseded {
@@ -569,7 +567,7 @@ impl TileStore {
         };
         let present = self.tile_path(source, z, x, y, &ext).exists();
 
-        let mut sources = self.lock();
+        let mut sources = self.sources.lock_recover();
         let index = self.index_for(&mut sources, source);
         if !present {
             // Only if it is still the same file: a `put` that landed while the
@@ -604,7 +602,7 @@ impl TileStore {
     /// Return a source's former seed to ordinary eviction before rebuilding
     /// its ranked set under a possibly smaller budget.
     pub fn unpin_source(&self, source: &str) {
-        let mut sources = self.lock();
+        let mut sources = self.sources.lock_recover();
         let index = self.index_for(&mut sources, source);
         for entry in index.sidecar.entries.values_mut() {
             if entry.pinned {
@@ -616,7 +614,7 @@ impl TileStore {
 
     /// Bytes held for one source. Zero for a source that holds nothing.
     pub fn size_of(&self, source: &str) -> u64 {
-        let mut sources = self.lock();
+        let mut sources = self.sources.lock_recover();
         let index = self.index_for(&mut sources, source);
         index.sidecar.entries.values().map(|e| e.bytes).sum()
     }
@@ -639,7 +637,7 @@ impl TileStore {
         // Raised under the lock a put checks it beneath, so a put either lands
         // before the clear and is taken by it, or sees the new generation.
         self.generation.fetch_add(1, Ordering::SeqCst);
-        drop(self.lock());
+        drop(self.sources.lock_recover());
         self.satellite_cache().clear();
         let mut removed = 0;
         for source in self.sources_on_disk() {
@@ -659,7 +657,7 @@ impl TileStore {
             Err(e) if e.kind() == io::ErrorKind::NotFound => {}
             Err(e) => return Err(e),
         }
-        self.lock().clear();
+        self.sources.lock_recover().clear();
         Ok(removed)
     }
 
@@ -678,7 +676,7 @@ impl TileStore {
     pub fn clear_source(&self, source: &str) -> io::Result<u32> {
         self.satellite_cache().clear_source(source);
         let removed = {
-            let mut sources = self.lock();
+            let mut sources = self.sources.lock_recover();
             let index = self.index_for(&mut sources, source);
             let removed = index.sidecar.entries.len() as u32;
             index.sidecar.entries.clear();
@@ -691,7 +689,7 @@ impl TileStore {
             Err(e) if e.kind() == io::ErrorKind::NotFound => {}
             Err(e) => return Err(e),
         }
-        self.lock().remove(source);
+        self.sources.lock_recover().remove(source);
         Ok(removed)
     }
 
@@ -701,7 +699,7 @@ impl TileStore {
     /// For a source whose segment changed, use [`supersede`](Self::supersede),
     /// which also demotes the pinned tiles.
     pub fn clear_opportunistic(&self, source: &str) -> io::Result<u32> {
-        let mut sources = self.lock();
+        let mut sources = self.sources.lock_recover();
         let index = self.index_for(&mut sources, source);
         let going: Vec<(String, String)> = index
             .sidecar
@@ -731,7 +729,7 @@ impl TileStore {
     /// already superseded by an earlier change goes with the opportunistic
     /// ones. Answers how many tiles were dropped and how many demoted.
     pub fn supersede(&self, source: &str) -> io::Result<(u32, u32)> {
-        let mut sources = self.lock();
+        let mut sources = self.sources.lock_recover();
         let index = self.index_for(&mut sources, source);
         let going: Vec<(String, String)> = index
             .sidecar
@@ -811,7 +809,7 @@ impl TileStore {
     /// of storage.
     pub fn evict_to(&self, budget: u64) -> io::Result<u32> {
         let sources_on_disk = self.sources_on_disk();
-        let mut sources = self.lock();
+        let mut sources = self.sources.lock_recover();
 
         // Totalled before anything is ordered: every `put` asks, and a tree
         // under its budget should cost a sum and not a copy of every key.
@@ -873,7 +871,7 @@ impl TileStore {
 
     /// Write back any read stamps the store is still holding in memory.
     pub fn flush(&self) -> io::Result<()> {
-        let mut sources = self.lock();
+        let mut sources = self.sources.lock_recover();
         for (source, index) in sources.iter_mut() {
             if !index.dirty {
                 continue;
@@ -883,10 +881,6 @@ impl TileStore {
             index.since_flush = 0;
         }
         Ok(())
-    }
-
-    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, SourceIndex>> {
-        self.sources.lock().unwrap_or_else(|e| e.into_inner())
     }
 
     fn index_for<'a>(
@@ -922,7 +916,7 @@ impl TileStore {
     /// Every source directory under the root, whether or not it has been read
     /// into memory this session.
     fn sources_on_disk(&self) -> Vec<String> {
-        let mut sources: Vec<String> = self.lock().keys().cloned().collect();
+        let mut sources: Vec<String> = self.sources.lock_recover().keys().cloned().collect();
         for name in sources_under(&self.root) {
             if !sources.contains(&name) {
                 sources.push(name);

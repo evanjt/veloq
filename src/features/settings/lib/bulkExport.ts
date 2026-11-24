@@ -11,7 +11,7 @@
 
 import { withAwakeDeadline } from '@/shared/async/awakeDeadline';
 import { getEngine } from '@/shared/native/engine';
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import { exportFileUri } from '@/shared/storage/cacheFiles';
 import { shareExistingFile, type ShareAnchor } from '@/features/settings/lib/shareFile';
 import { BulkExportFormat } from 'veloqrs';

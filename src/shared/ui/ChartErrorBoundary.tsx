@@ -102,5 +102,3 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
 });
-
-export default ChartErrorBoundary;

@@ -11,29 +11,29 @@
  */
 
 import type { TFunction } from 'i18next';
-import { IntervalKind } from 'veloqrs';
+import { FfiIntervalKind } from 'veloqrs';
 
 import { i18n } from '@/i18n';
 
-export interface IntervalTypeLabelInput {
-  kind: IntervalKind;
+interface IntervalTypeLabelInput {
+  kind: FfiIntervalKind;
   zone?: number | null | undefined;
   label?: string | null | undefined;
   /** Whether the row draws a zone colour, which is what makes `Z<n>` readable. */
   zoneColoured: boolean;
 }
 
-export type IntervalTypeForm = 'short' | 'long';
+type IntervalTypeForm = 'short' | 'long';
 
-export type IntervalTypeKind = 'work' | 'recovery' | 'warmup' | 'cooldown' | 'lap' | 'other';
+type IntervalTypeKind = 'work' | 'recovery' | 'warmup' | 'cooldown' | 'lap' | 'other';
 
 /** The word family an interval's kind belongs to. */
-export function intervalTypeKind(kind: IntervalKind): IntervalTypeKind {
-  if (kind === IntervalKind.Work) return 'work';
-  if (kind === IntervalKind.Recovery || kind === IntervalKind.Rest) return 'recovery';
-  if (kind === IntervalKind.Warmup) return 'warmup';
-  if (kind === IntervalKind.Cooldown) return 'cooldown';
-  if (kind === IntervalKind.Lap) return 'lap';
+function intervalTypeKind(kind: FfiIntervalKind): IntervalTypeKind {
+  if (kind === FfiIntervalKind.Work) return 'work';
+  if (kind === FfiIntervalKind.Recovery || kind === FfiIntervalKind.Rest) return 'recovery';
+  if (kind === FfiIntervalKind.Warmup) return 'warmup';
+  if (kind === FfiIntervalKind.Cooldown) return 'cooldown';
+  if (kind === FfiIntervalKind.Lap) return 'lap';
   return 'other';
 }
 
@@ -42,9 +42,11 @@ export function intervalTypeKind(kind: IntervalKind): IntervalTypeKind {
  * detected, which is what its heading says.
  */
 export function intervalsAreLaps(
-  intervals: readonly { kind: IntervalKind }[] | undefined
+  intervals: readonly { kind: FfiIntervalKind }[] | undefined
 ): boolean {
-  return !!intervals && intervals.length > 0 && intervals.every((i) => i.kind === IntervalKind.Lap);
+  return (
+    !!intervals && intervals.length > 0 && intervals.every((i) => i.kind === FfiIntervalKind.Lap)
+  );
 }
 
 const TYPE_KEY = {

@@ -18,6 +18,7 @@ pub mod wire;
 
 use crate::governor::{self, AuthMethod, Dispatch, Governor, Lane};
 use crate::net::transport::{NetError, Transport};
+use crate::poison::Recover;
 use base64::Engine;
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use std::sync::{Arc, Mutex};
@@ -140,7 +141,7 @@ impl GarminClient {
 
     fn cached_token(&self) -> Option<String> {
         let now = self.governor.now();
-        let cached = self.cached.lock().unwrap_or_else(|e| e.into_inner());
+        let cached = self.cached.lock_recover();
         cached
             .as_ref()
             .filter(|c| c.expires_at - RENEW_BEFORE_EXPIRY > now)
@@ -148,7 +149,7 @@ impl GarminClient {
     }
 
     fn forget_token(&self) {
-        *self.cached.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        *self.cached.lock_recover() = None;
     }
 
     /// Exchange the key for a token and keep it.
@@ -163,7 +164,7 @@ impl GarminClient {
         let expires_at = token_expiry(&token).ok_or_else(|| {
             GarminError::Net(NetError::Decode("the token carries no expiry".into()))
         })?;
-        *self.cached.lock().unwrap_or_else(|e| e.into_inner()) = Some(CachedToken {
+        *self.cached.lock_recover() = Some(CachedToken {
             token: token.clone(),
             expires_at,
         });

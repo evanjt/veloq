@@ -29,10 +29,7 @@ interface FitnessChartCardProps {
   eftpChanges: EftpChange[];
   selectedDate: string | null;
   sharedSelectedIdx: SharedValue<number>;
-  onDateSelect: (
-    date: string | null,
-    values: { fitness: number; fatigue: number; form: number } | null
-  ) => void;
+  onDateSelect: (date: string | null) => void;
   onInteractionChange: (isInteracting: boolean) => void;
   /** What the wellness read threw, shown with a Retry in place of the charts. */
   readError?: unknown;

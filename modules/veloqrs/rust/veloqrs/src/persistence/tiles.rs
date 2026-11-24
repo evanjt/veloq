@@ -8,6 +8,8 @@ use super::attempts::{Claim, JobKey, Release, now_ms};
 use super::codec::TrackRead;
 use super::{PersistentEngine, TileGenerationHandle};
 use crate::objects::observer::Announcement;
+use crate::persistence::sql::question_marks;
+use crate::poison::{Recover, RecoverRw};
 use crate::tiles;
 use log::info;
 use rayon::prelude::*;
@@ -77,7 +79,7 @@ const SWEPT_RECORD: &str = "swept-tiles";
 static MARK_GATE: Mutex<()> = Mutex::new(());
 
 fn mark_gate() -> MutexGuard<'static, ()> {
-    MARK_GATE.lock().unwrap_or_else(|e| e.into_inner())
+    MARK_GATE.lock_recover()
 }
 
 /// The ground sweeps changed since the running pass claimed its slot, held in
@@ -167,8 +169,7 @@ pub fn hold_next_tile_pass_inside_a_tile() -> TilePassHold {
 fn hold_next_tile_pass_at(point: HoldPoint) -> TilePassHold {
     let (reached_tx, reached_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
-    *TILE_PASS_HOLD.lock().unwrap_or_else(|e| e.into_inner()) =
-        Some(((reached_tx, release_rx), point));
+    *TILE_PASS_HOLD.lock_recover() = Some(((reached_tx, release_rx), point));
     TilePassHold {
         reached: reached_rx,
         release: release_tx,
@@ -202,7 +203,7 @@ struct TilePassRetry {
 static TILE_PASS_RETRY: Mutex<Option<TilePassRetry>> = Mutex::new(None);
 
 fn tile_pass_retry() -> MutexGuard<'static, Option<TilePassRetry>> {
-    TILE_PASS_RETRY.lock().unwrap_or_else(|e| e.into_inner())
+    TILE_PASS_RETRY.lock_recover()
 }
 
 fn schedule_tile_pass_retry(engine: &PersistentEngine) {
@@ -244,7 +245,7 @@ fn run_tile_pass_retry() {
 const TILE_PASS_STOP_WAIT: Duration = Duration::from_secs(30);
 
 fn tile_pass_slot() -> MutexGuard<'static, Option<super::CancelToken>> {
-    TILE_PASS.lock().unwrap_or_else(|e| e.into_inner())
+    TILE_PASS.lock_recover()
 }
 
 /// Whether a tile pass is drawing now. The slot is held for the generation and
@@ -390,8 +391,7 @@ pub(crate) fn finish_test_tile_pass() {
     loop {
         stop_tile_pass(TILE_PASS_STOP_WAIT).expect("a tile pass did not stop after its test");
         let parked = super::persistent_engine_ffi::TILE_GENERATION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .lock_recover()
             .take();
         if let Some(handle) = parked {
             handle.recv_blocking();
@@ -689,10 +689,7 @@ fn draw_tile_on_request(source: &HeatmapSource, z: u8, x: u32, y: u32) -> Option
         .collect();
     #[cfg(any(test, feature = "synthetic"))]
     {
-        let held = TILE_DRAW_HOLD
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .take();
+        let held = TILE_DRAW_HOLD.lock_recover().take();
         if let Some((reached, release)) = held {
             let _ = reached.send(());
             let _ = release.recv();
@@ -815,7 +812,7 @@ struct TileDraw(TileKey);
 impl TileDraw {
     /// Wait out a draw of `key` already under way, then take it.
     fn claim(key: TileKey) -> Self {
-        let held = TILE_DRAWS.lock().unwrap_or_else(|e| e.into_inner());
+        let held = TILE_DRAWS.lock_recover();
         let mut held = TILE_DRAW_ENDED
             .wait_while(held, |drawing| drawing.contains(&key))
             .unwrap_or_else(|e| e.into_inner());
@@ -826,10 +823,7 @@ impl TileDraw {
 
 impl Drop for TileDraw {
     fn drop(&mut self) {
-        TILE_DRAWS
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(&self.0);
+        TILE_DRAWS.lock_recover().remove(&self.0);
         TILE_DRAW_ENDED.notify_all();
     }
 }
@@ -858,12 +852,12 @@ static ON_REQUEST_COUNTS: Mutex<OnRequestCounts> = Mutex::new(OnRequestCounts {
 #[cfg(any(test, feature = "synthetic"))]
 #[doc(hidden)]
 pub fn take_on_request_counts() -> OnRequestCounts {
-    std::mem::take(&mut *ON_REQUEST_COUNTS.lock().unwrap_or_else(|e| e.into_inner()))
+    std::mem::take(&mut *ON_REQUEST_COUNTS.lock_recover())
 }
 
 #[cfg(any(test, feature = "synthetic"))]
 fn count_on_request(add: impl FnOnce(&mut OnRequestCounts)) {
-    add(&mut ON_REQUEST_COUNTS.lock().unwrap_or_else(|e| e.into_inner()));
+    add(&mut ON_REQUEST_COUNTS.lock_recover());
 }
 
 #[cfg(not(any(test, feature = "synthetic")))]
@@ -880,7 +874,7 @@ static TILE_DRAW_HOLD: Mutex<Option<Hold>> = Mutex::new(None);
 pub fn hold_next_tile_draw() -> TilePassHold {
     let (reached_tx, reached_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
-    *TILE_DRAW_HOLD.lock().unwrap_or_else(|e| e.into_inner()) = Some((reached_tx, release_rx));
+    *TILE_DRAW_HOLD.lock_recover() = Some((reached_tx, release_rx));
     TilePassHold {
         reached: reached_rx,
         release: release_tx,
@@ -919,10 +913,7 @@ impl PersistentEngine {
         info!("[heatmap] Tiles path set to: {}", path);
         self.heatmap_tiles_path = Some(path.clone());
         self.publish_heatmap_source();
-        crate::atomic_file::sweep_stale_temp_files(
-            Path::new(&path),
-            crate::atomic_file::STALE_TEMP_AGE,
-        );
+        crate::atomic_file::sweep_stale_temp_files_detached(Path::new(&path));
 
         // Check tile format version - clear stale tiles on upgrade
         let version_file = Path::new(&path).join("version.txt");
@@ -992,9 +983,7 @@ impl PersistentEngine {
         let Some(handle) = self.generate_tiles_background() else {
             return false;
         };
-        *super::persistent_engine_ffi::TILE_GENERATION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+        *super::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock_recover() = Some(handle);
         // The sync status carries the pass from here, and the screens that
         // render it read again on this rather than polling an idle engine.
         crate::objects::observer::notify(Announcement::SyncProgress);
@@ -1357,7 +1346,7 @@ fn wipe_tile_sets_within_after_stop(
     wait: Duration,
     after_stop: impl FnOnce(),
 ) -> Result<(), String> {
-    let _gate = TILE_WIPE_GATE.write().unwrap_or_else(|e| e.into_inner());
+    let _gate = TILE_WIPE_GATE.write_recover();
     TILE_WIPES.fetch_add(1, Ordering::AcqRel);
     // A wipe drew a library that is gone and a clear was asked for, so the
     // set is owed a draw either way.
@@ -1468,7 +1457,7 @@ static DEFERRED_PASSES: Mutex<DeferredPasses> = Mutex::new(DeferredPasses {
 });
 
 fn deferred_passes() -> MutexGuard<'static, DeferredPasses> {
-    DEFERRED_PASSES.lock().unwrap_or_else(|e| e.into_inner())
+    DEFERRED_PASSES.lock_recover()
 }
 
 /// Holds back the passes sweeps and finished passes ask for, until dropped.
@@ -1816,11 +1805,7 @@ fn background_generate_tiles(
     // Taken at the start, so a pass that returns before drawing drops it and
     // the waiting test hears that rather than hanging.
     #[cfg(any(test, feature = "synthetic"))]
-    let (hold, hold_in_tile) = match TILE_PASS_HOLD
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .take()
-    {
+    let (hold, hold_in_tile) = match TILE_PASS_HOLD.lock_recover().take() {
         Some((hold, HoldPoint::BeforeDrawing)) => (Some(hold), Mutex::new(None)),
         Some((hold, HoldPoint::InTile)) => (None, Mutex::new(Some(hold))),
         None => (None, Mutex::new(None)),
@@ -2016,10 +2001,7 @@ fn background_generate_tiles(
             }
             #[cfg(any(test, feature = "synthetic"))]
             {
-                let held = hold_in_tile
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .take();
+                let held = hold_in_tile.lock_recover().take();
                 if let Some((reached, release)) = held {
                     let _ = reached.send(());
                     let _ = release.recv();
@@ -2117,9 +2099,7 @@ fn load_tracks_in_chunks(
         // resume. A refusal ends the load and with it the pass.
         let read = super::suspension::begin_read()?;
         let decoded = {
-            let placeholders: String = std::iter::repeat_n("?", chunk.len())
-                .collect::<Vec<_>>()
-                .join(",");
+            let placeholders: String = question_marks(chunk.len());
             let sql = format!(
                 "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({})",
                 placeholders

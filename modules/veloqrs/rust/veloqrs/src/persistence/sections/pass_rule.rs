@@ -7,10 +7,11 @@
 //! moves [`PASS_RULE_VERSION`] recounts every section against its stored line
 //! on the next open.
 
-use rusqlite::{OptionalExtension, params};
-
 use crate::persistence::PersistentEngine;
 use crate::persistence::job_runs::{BackgroundJob, JobRun, RunOutcome, record_job_run};
+use crate::persistence::schema_info;
+use crate::poison::Recover;
+use rusqlite::params;
 
 /// Bump this when what counts as a traversal of a section, or the time of one,
 /// changes.
@@ -31,19 +32,14 @@ pub(crate) struct RecountRunning(String);
 
 impl RecountRunning {
     pub(crate) fn begin(path: &str) -> Self {
-        RECOUNTING
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .push(path.to_string());
+        RECOUNTING.lock_recover().push(path.to_string());
         Self(path.to_string())
     }
 }
 
 impl Drop for RecountRunning {
     fn drop(&mut self) {
-        let mut running = RECOUNTING
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut running = RECOUNTING.lock_recover();
         if let Some(at) = running.iter().position(|path| *path == self.0) {
             running.swap_remove(at);
         }
@@ -53,8 +49,7 @@ impl Drop for RecountRunning {
 /// Whether the library at `path` has a recount running.
 pub(crate) fn pass_recount_running(path: &str) -> bool {
     RECOUNTING
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .lock_recover()
         .iter()
         .any(|running| running == path)
 }
@@ -113,15 +108,10 @@ impl PersistentEngine {
     }
 
     fn stored_pass_rule(&self) -> i32 {
-        self.db
-            .query_row(
-                "SELECT CAST(value AS INTEGER) FROM schema_info WHERE key = ?",
-                params![STAMP_KEY],
-                |r| r.get(0),
-            )
-            .optional()
+        schema_info::get_integer(&self.db, STAMP_KEY)
             .ok()
             .flatten()
+            .and_then(|v| i32::try_from(v).ok())
             .unwrap_or(0)
     }
 
@@ -188,12 +178,7 @@ impl PersistentEngine {
         }
         if complete {
             let stamped = guarded_write(install, || {
-                self.db
-                    .execute(
-                        "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-                        params![STAMP_KEY, PASS_RULE_VERSION.to_string()],
-                    )
-                    .map(|_| ())
+                schema_info::set(&self.db, STAMP_KEY, &PASS_RULE_VERSION.to_string())
                     .map_err(|e| e.to_string())
             });
             if let Err(e) = stamped {

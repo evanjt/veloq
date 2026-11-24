@@ -31,10 +31,10 @@ const MAP_CAMERA = 'mapCamera';
  * `activityId` is the activity the page was opened from, the only one the map key calls "This
  * activity", and `previewVersion` a stored version of a section that History asked to show.
  */
-export type DetailMapHostParams = MapSheetCardParams;
+type DetailMapHostParams = MapSheetCardParams;
 
 /** The key a subject is shown under: a card at another depth is another showing. */
-export function detailMapSubjectKey(subject: {
+function detailMapSubjectKey(subject: {
   kind: MapSheetCardKind;
   id: string;
   depth: number;

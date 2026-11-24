@@ -35,7 +35,7 @@ type DemoCurves = typeof import('@/shared/demo/fitness/curves');
  * sample the widgets draw while signed out both read it, so the two cannot show
  * different demo libraries.
  */
-export interface DemoLibrary {
+interface DemoLibrary {
   /** Raw JSON, matching what the live write-through stores. */
   athleteJson: string;
   sportSettingsJson: string;

@@ -12,7 +12,7 @@ import { formatPercent } from '@/shared/format';
 /** Attempts on the route with a percentile worth showing. */
 const PERCENTILE_MIN_ATTEMPTS = 5;
 
-export interface RouteStanding {
+interface RouteStanding {
   /** Rank of the current activity, 1 = fastest. `null` when it is not on the route. */
   currentRank: number | null;
   /** Attempts with a moving time. */

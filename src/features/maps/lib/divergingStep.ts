@@ -17,7 +17,7 @@ import type { MapDivStep } from '@/theme';
 export type DivergingKind = 'grade' | 'pace';
 
 /** One step of the ramp and the values it holds, from `from` to `to` percent. */
-export interface DivergingBand {
+interface DivergingBand {
   step: MapDivStep;
   from: number;
   to: number;

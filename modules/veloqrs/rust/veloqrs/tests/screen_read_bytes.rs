@@ -355,8 +355,7 @@ fn fitness(v: FfiFitnessScreenData) -> Lowered {
     lower!(FfiFitnessScreenData, v;
         ftp_trend,
         ftp_trend_coverage,
-        run_pace_trend,
-        swim_pace_trend,
+        threshold_paces,
         sport_mix,
         fitness_days,
         fatigue_days,
@@ -514,10 +513,6 @@ fn reads() -> Vec<(&'static str, Shape, Read)> {
                             heatmap_first_day: "2024-09-01".into(),
                             heatmap_last_day: "2025-09-04".into(),
                             months: span(730),
-                            year_current: span(365),
-                            year_previous: span(730),
-                            month_current: span(30),
-                            month_previous: span(60),
                             now_wall_seconds: NOW as f64,
                         },
                     )

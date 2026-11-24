@@ -9,10 +9,11 @@ import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useEngineBody, type EngineBodyWait } from '@/shared/native/engineBodies';
 import { requestOwedFitFiles } from '@/features/routes/light';
 import { useSyncState } from '@/shared/native/useSyncStatus';
-import { SyncState, type ExerciseDetailData, strength } from 'veloqrs';
+import { SyncState, type FfiExerciseDetailData, strength } from 'veloqrs';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { addLocalDays } from '@/shared/time/localDay';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 import { trailingWeekRanges } from '@/shared/time/trailingWeeks';
 
@@ -60,9 +61,8 @@ export function getTimestampRange(period: StrengthPeriod): { startTs: number; en
 
   // Today is one of the period's days, so `7d` is today and the six before
   // it: the same seven days as the trailing `This wk` bar.
-  const start = new Date(now);
+  const start = addLocalDays(now, -(PERIOD_DAYS[period] - 1));
   start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - (PERIOD_DAYS[period] - 1));
   const startTs = localWallClockToEpochSeconds(start);
 
   return { startTs, endTs };
@@ -84,7 +84,7 @@ export function getTrailingWeekRanges(weekCount: number): {
 const PROGRESSION_WEEKS = 4;
 
 /** Read the history surface through the existing strength engine boundary. */
-export function readExerciseDetailData(category: number): ExerciseDetailData | null {
+export function readExerciseDetailData(category: number): FfiExerciseDetailData | null {
   return strength.getExerciseDetailData(category) ?? null;
 }
 
@@ -100,11 +100,11 @@ export function readExerciseDetailData(category: number): ExerciseDetailData | n
 export function useStrengthScreenData(period: StrengthPeriod) {
   // A parse commits sets the read could not see before, so it is stale at once.
   useEngineChannel('fitParsed', queryKeys.strength.all);
+  const { startTs, endTs } = getTimestampRange(period);
   return useQuery<StrengthScreenData | null>({
-    queryKey: queryKeys.strength.screenData(period, PROGRESSION_WEEKS),
+    queryKey: queryKeys.strength.screenData(period, PROGRESSION_WEEKS, endTs),
     queryFn: () => {
       ensureDemoStrengthSeeded();
-      const { startTs, endTs } = getTimestampRange(period);
       const weeks = getTrailingWeekRanges(PROGRESSION_WEEKS);
       const data = strength.getStrengthScreenData(
         startTs,
@@ -162,18 +162,20 @@ export function useStrengthTabState(): StrengthTabState {
 
   return useMemo(
     () =>
-      readStrength((open) => {
-        if (typeof open.hasStrengthData !== 'function') return 'hidden' as StrengthTabState;
+      readStrength(() => {
         try {
           // The engine's own queue: every strength activity with no recorded
           // FIT outcome.
-          const unfetchedCount =
-            typeof open.getUnprocessedStrengthIds === 'function'
-              ? open.getUnprocessedStrengthIds().length
-              : 0;
-          return strengthTabState({ hasSets: open.hasStrengthData(), unfetchedCount, isSyncing });
-        } catch {
-          // empty-on-error: the strength tab stays hidden when the engine cannot say it has sets
+          const unfetchedCount = strength.getUnprocessedStrengthIds().length;
+          return strengthTabState({
+            hasSets: strength.hasStrengthData(),
+            unfetchedCount,
+            isSyncing,
+          });
+        } catch (err) {
+          // A read that threw hides the tab, so the cause is the only trace
+          // that the athlete's sets are there and unreadable.
+          console.warn('[StrengthTab] state read failed:', err);
           return 'hidden' as StrengthTabState;
         }
       }) ?? 'hidden',

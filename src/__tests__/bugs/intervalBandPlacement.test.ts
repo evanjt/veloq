@@ -14,7 +14,7 @@
 import { computeIntervalBands } from '@/features/stats/lib/combinedPlotData';
 import type { ActivityInterval, ActivityStreams } from '@/types';
 import { streamsFromArrays } from '@/features/activity/lib/streams';
-import { IntervalKind } from 'veloqrs';
+import { FfiIntervalKind } from 'veloqrs';
 
 /**
  * Ten seconds recorded, four of them without a fix. The reader keeps the six
@@ -33,7 +33,7 @@ function interval(over: {
 }): ActivityInterval {
   return {
     id: 1,
-    kind: IntervalKind.Work,
+    kind: FfiIntervalKind.Work,
     startIndex: 8,
     endIndex: 9,
     startTime: 8,

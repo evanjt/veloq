@@ -147,7 +147,6 @@ function stubCarrier(id: 'webdav' | 'folder'): StubCarrier {
         mockFiles.set(destPath, held);
       }
     },
-    delete: async () => {},
     putObject: async () => {},
     listObjects: async () => [],
     fetchObject: async () => {},

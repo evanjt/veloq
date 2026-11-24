@@ -1,10 +1,10 @@
 import type { TFunction } from 'i18next';
-import type { LibraryCoverage, TrackStage } from 'veloqrs';
+import type { LibraryCoverage, FfiTrackStage } from 'veloqrs';
 
 import { formatTrackStage } from '@/features/maps';
 
 /** What the range panel's progress row draws. */
-export interface RangeProgress {
+interface RangeProgress {
   done: number;
   total: number;
   label: string;
@@ -23,7 +23,7 @@ export interface RangeProgress {
  * a lost connection, because the range is still owed then.
  */
 export function rangeProgress(
-  stage: TrackStage | null,
+  stage: FfiTrackStage | null,
   coverage: LibraryCoverage | null,
   fetchingActivities: boolean,
   t: TFunction

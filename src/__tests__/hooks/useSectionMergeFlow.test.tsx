@@ -7,7 +7,7 @@
  * candidates sheet; a single candidate goes straight to the confirmation.
  */
 import { act, renderHook } from '@testing-library/react-native';
-import type { MergeCandidate } from 'veloqrs';
+import type { FfiMergeCandidate } from 'veloqrs';
 
 import { useSectionMergeFlow } from '@/features/routes/hooks/useSectionMergeFlow';
 import { answerSheet } from '../__shared__/answerSheet';
@@ -49,13 +49,13 @@ const candidate = (id: string, visitCount: number) =>
     distanceMeters: 650,
     overlapPct: 0.8,
     centerDistanceMeters: 30,
-  }) as MergeCandidate;
+  }) as FfiMergeCandidate;
 
 const TWO = [candidate('sec-b', 2), candidate('sec-c', 9)];
 
 const pushedPaths = () => mockPush.mock.calls.map(([target]) => target.pathname);
 
-function mount(candidates: MergeCandidate[]) {
+function mount(candidates: FfiMergeCandidate[]) {
   return renderHook(() => useSectionMergeFlow({ section: SECTION, candidates }));
 }
 

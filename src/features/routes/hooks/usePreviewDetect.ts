@@ -22,7 +22,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  StartOutcome,
+  FfiStartOutcome,
   startOutcome,
   type StartVerdict,
   type PreviewClient,
@@ -62,14 +62,14 @@ interface PreviewRequest {
   params: PreviewParams;
 }
 
-export interface PreviewProgress {
+interface PreviewProgress {
   phase: string;
   completed: number;
   total: number;
   percent: number;
 }
 
-export interface PreviewDetectState {
+interface PreviewDetectState {
   status: PreviewPollStatus;
   progress: PreviewProgress | null;
   result: PreviewResult | null;
@@ -108,7 +108,7 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
   // down.
   const pendingRef = useRef<PreviewRequest | null>(null);
   const startRef = useRef<(lat: number, lng: number, params: PreviewParams) => StartVerdict>(
-    () => StartOutcome.NotReady
+    () => FfiStartOutcome.NotReady
   );
 
   const stopRun = useCallback(() => {
@@ -189,9 +189,9 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
 
   const start = useCallback(
     (lat: number, lng: number, params: PreviewParams): StartVerdict => {
-      if (!client) return StartOutcome.NotReady;
+      if (!client) return FfiStartOutcome.NotReady;
       if (runningRef.current) {
-        if (!discardRef.current) return StartOutcome.Busy;
+        if (!discardRef.current) return FfiStartOutcome.Busy;
         // A cancelled run still holds the engine's slot until it notices, so
         // the tap is kept and started from that run's end. A refusal then
         // lands in `refusal` as it does for `request`.
@@ -200,12 +200,12 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
         setProgress(null);
         setLapsed(false);
         setStatus('running');
-        return StartOutcome.Started;
+        return FfiStartOutcome.Started;
       }
       const config = client.getSectionConfig();
       if (!config) {
         setStatus('error');
-        return StartOutcome.NotConfigured;
+        return FfiStartOutcome.NotConfigured;
       }
       setRefusal(null);
       // The previous result stands until this run settles. During a run there
@@ -216,7 +216,7 @@ export function usePreviewDetect(client: PreviewClient | null): PreviewDetectSta
       // case where the held diff is about somewhere else.
       setProgress(null);
       const outcome = client.startPreviewDetect(lat, lng, { ...config, ...params });
-      if (startOutcome(outcome) !== StartOutcome.Started) {
+      if (startOutcome(outcome) !== FfiStartOutcome.Started) {
         // The engine's own answer, kept whole: each refusal ends differently,
         // so the screen words each one.
         setRefusal(outcome);

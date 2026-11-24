@@ -1,4 +1,4 @@
-import { StartOutcome, startOutcome, type StartVerdict } from 'veloqrs';
+import { FfiStartOutcome, startOutcome, type StartVerdict } from 'veloqrs';
 
 /**
  * The line a refused preview start shows, or none when it started or the
@@ -8,7 +8,7 @@ import { StartOutcome, startOutcome, type StartVerdict } from 'veloqrs';
  * after a failed run, and only the first is elevation work: the caller says
  * which through `elevationHold`. `NotConfigured` is the run's error state.
  */
-export type PreviewRefusalKey =
+type PreviewRefusalKey =
   | 'settings.previewRefusedBusy'
   | 'settings.previewSuspended'
   | 'settings.previewRefusedRecentFailure'
@@ -21,15 +21,15 @@ export function previewRefusalKey(
   elevationHold: boolean
 ): PreviewRefusalKey | null {
   switch (outcome === null ? null : startOutcome(outcome)) {
-    case StartOutcome.Busy:
+    case FfiStartOutcome.Busy:
       return 'settings.previewRefusedBusy';
-    case StartOutcome.Held:
+    case FfiStartOutcome.Held:
       return elevationHold ? 'settings.previewSuspended' : 'settings.previewRefusedRecentFailure';
-    case StartOutcome.NotReady:
+    case FfiStartOutcome.NotReady:
       return 'sections.rescanRefusedNotReady';
-    case StartOutcome.NotOwed:
+    case FfiStartOutcome.NotOwed:
       return 'settings.previewRefusedNothingCovers';
-    case StartOutcome.Failed:
+    case FfiStartOutcome.Failed:
       return 'settings.previewRefusedFailed';
     default:
       return null;

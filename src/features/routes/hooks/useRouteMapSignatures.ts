@@ -3,6 +3,7 @@ import { decodeCoords, maps } from 'veloqrs';
 import type { RouteGroup as EngineRouteGroup, FfiMapSignature } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import type { LatLngShort } from '@/shared/geo/distance';
+import { shortCoordsFromNative } from '@/shared/ffi/shortPoints';
 
 /**
  * Each attempt's simplified track, keyed by activity, for the route map's
@@ -29,7 +30,7 @@ export function useRouteMapSignatures(
         if (!activityIdSet.has(sig.activityId)) continue;
         const decoded = decodeCoords(sig.encodedCoords);
         if (decoded.length < 2) continue;
-        const points = decoded.map((p) => ({ lat: p.latitude, lng: p.longitude }));
+        const points = shortCoordsFromNative(decoded);
         result[sig.activityId] = { points };
       }
       return result;

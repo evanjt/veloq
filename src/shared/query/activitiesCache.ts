@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import { queryKeys } from './queryKeys';
 
 /**

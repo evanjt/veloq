@@ -19,6 +19,7 @@
 //! many runs the cadence fired or which rides each one saw.
 
 use crate::objects::detection::{SlotWait, wait_on_slot};
+use crate::poison::Recover;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
@@ -167,7 +168,7 @@ impl Drop for IngestDownload {
 
 /// Record stores for the engine install that actually committed them.
 pub fn note_stored_for(install: u64, n: u32) {
-    let mut conditioner = CONDITIONER.lock().unwrap_or_else(|e| e.into_inner());
+    let mut conditioner = CONDITIONER.lock_recover();
     if conditioner.for_install(install).is_some() {
         conditioner.note_stored(n);
     }
@@ -193,20 +194,13 @@ fn condition_pending_for_with(install: Option<u64>, after_start: impl FnOnce()) 
         return false;
     }
     let install = install.unwrap_or_else(crate::persistence::engine_install);
-    let observed = CONDITIONER
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .for_install(install)
-        .unwrap_or(0);
+    let observed = CONDITIONER.lock_recover().for_install(install).unwrap_or(0);
     // A refused start (a run already active) keeps the count: the driver
     // flushes it when that run applies, so the follow-up fires on its own.
     let started = try_start_conditioning_inner(observed == 0, Some(install));
     after_start();
     if started {
-        CONDITIONER
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .consume(install, observed);
+        CONDITIONER.lock_recover().consume(install, observed);
     }
     started
 }
@@ -219,20 +213,13 @@ pub fn maybe_condition_backfill() -> bool {
         return false;
     }
     let install = crate::persistence::engine_install();
-    let observed = CONDITIONER
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .for_install(install)
-        .unwrap_or(0);
+    let observed = CONDITIONER.lock_recover().for_install(install).unwrap_or(0);
     if observed < CONDITIONING_BATCH_ADDS {
         return false;
     }
     let started = try_start_conditioning_inner(false, Some(install));
     if started {
-        CONDITIONER
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .consume(install, observed);
+        CONDITIONER.lock_recover().consume(install, observed);
     }
     started
 }
@@ -324,7 +311,7 @@ fn requeue_after_check_with(install: u64, after_check: impl FnOnce()) {
     if crate::persistence::engine_install() == install {
         after_check();
         crate::persistence::with_persistent_engine_for(install, |_| {
-            let mut conditioner = CONDITIONER.lock().unwrap_or_else(|e| e.into_inner());
+            let mut conditioner = CONDITIONER.lock_recover();
             if conditioner.for_install(install).is_some() {
                 conditioner.note_stored(CONDITIONING_BATCH_ADDS);
             }
@@ -383,6 +370,7 @@ fn spawn_conditioning_driver(install: u64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::poison::Recover;
 
     use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
     use crate::persistence::with_persistent_engine;
@@ -491,10 +479,7 @@ mod tests {
         );
         drop(guard);
         assert!(
-            CONDITIONER
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .take_batch(),
+            CONDITIONER.lock_recover().take_batch(),
             "the refused batch is still pending after release"
         );
     }
@@ -510,14 +495,9 @@ mod tests {
             engine.save_processed_activity_ids(&ids).expect("processed");
         })
         .expect("engine");
-        let pending_now = || {
-            CONDITIONER
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .adds_pending
-        };
+        let pending_now = || CONDITIONER.lock_recover().adds_pending;
         {
-            let mut c = CONDITIONER.lock().unwrap_or_else(|e| e.into_inner());
+            let mut c = CONDITIONER.lock_recover();
             c.adds_pending = 0;
         }
         assert!(!condition_pending(), "nothing pending, nothing to flush");
@@ -531,9 +511,7 @@ mod tests {
         // with the refusal this checks.
         let running = crate::persistence::SectionDetectionHandle::finished_after_worker_apply();
         let slot = running.checkpoint_slot();
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(running);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(running);
         slot.mark_installed(crate::persistence::engine_install());
 
         note_stored(3);
@@ -670,28 +648,20 @@ mod tests {
         let _serial = serial();
         let _tmp = seeded_global_engine();
         clear_detection_handle();
-        CONDITIONER
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .adds_pending = 0;
+        CONDITIONER.lock_recover().adds_pending = 0;
         // A worker that has sent its result and not yet settled, so the slot
         // stays held until the drain reads it. A live worker installed with
         // its install settles itself whenever it finishes, which is a race
         // with the refusal this checks.
         let running = crate::persistence::SectionDetectionHandle::finished_after_worker_apply();
         let slot = running.checkpoint_slot();
-        *SECTION_DETECTION_HANDLE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(running);
+        *SECTION_DETECTION_HANDLE.lock_recover() = Some(running);
         slot.mark_installed(crate::persistence::engine_install());
 
         note_stored(CONDITIONING_BATCH_ADDS);
         assert!(!maybe_condition_backfill(), "busy slot refuses the batch");
         assert_eq!(
-            CONDITIONER
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .adds_pending,
+            CONDITIONER.lock_recover().adds_pending,
             CONDITIONING_BATCH_ADDS,
             "the refused batch is still owed"
         );
@@ -716,10 +686,7 @@ mod tests {
             ),
             "the library reopens after a killed run"
         );
-        CONDITIONER
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .adds_pending = 0;
+        CONDITIONER.lock_recover().adds_pending = 0;
 
         assert!(
             condition_pending(),
@@ -744,10 +711,7 @@ mod tests {
             )
         );
         assert_ne!(crate::persistence::engine_install(), old_install);
-        CONDITIONER
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .adds_pending = 0;
+        CONDITIONER.lock_recover().adds_pending = 0;
 
         assert!(!flush_after_run(old_install));
         assert!(
@@ -764,10 +728,7 @@ mod tests {
         let tmp = seeded_global_engine();
         clear_detection_handle();
         let old_install = crate::persistence::engine_install();
-        CONDITIONER
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .adds_pending = 0;
+        CONDITIONER.lock_recover().adds_pending = 0;
 
         let started = flush_after_run_with(old_install, || {
             crate::persistence::clear_persistent_engine();
@@ -784,10 +745,7 @@ mod tests {
 
         assert!(!started, "an old driver cannot start a replacement engine");
         assert_eq!(
-            CONDITIONER
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .adds_pending,
+            CONDITIONER.lock_recover().adds_pending,
             7,
             "the old flush must not consume the replacement's count"
         );
@@ -803,10 +761,7 @@ mod tests {
         let tmp = seeded_global_engine();
         clear_detection_handle();
         let old_install = crate::persistence::engine_install();
-        CONDITIONER
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .adds_pending = 0;
+        CONDITIONER.lock_recover().adds_pending = 0;
 
         requeue_after_check_with(old_install, || {
             crate::persistence::clear_persistent_engine();
@@ -821,10 +776,7 @@ mod tests {
         });
 
         assert_eq!(
-            CONDITIONER
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .adds_pending,
+            CONDITIONER.lock_recover().adds_pending,
             0,
             "a timed-out old driver cannot requeue into the replacement"
         );
@@ -835,10 +787,7 @@ mod tests {
         let _serial = serial();
         let tmp = seeded_global_engine();
         clear_detection_handle();
-        CONDITIONER
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .adds_pending = 0;
+        CONDITIONER.lock_recover().adds_pending = 0;
         note_stored(3);
 
         assert!(condition_pending_for_with(None, || {
@@ -854,10 +803,7 @@ mod tests {
             note_stored(7);
         }));
         assert_eq!(
-            CONDITIONER
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .adds_pending,
+            CONDITIONER.lock_recover().adds_pending,
             7,
             "the old run must not consume the replacement's new stores"
         );
@@ -868,10 +814,7 @@ mod tests {
         );
         drain_detection();
         assert_eq!(
-            CONDITIONER
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .adds_pending,
+            CONDITIONER.lock_recover().adds_pending,
             0,
             "the replacement consumes its batch only after starting"
         );
@@ -896,10 +839,7 @@ mod tests {
         note_stored_for(new_install, 7);
         note_stored_for(old_install, 1);
         assert_eq!(
-            CONDITIONER
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .adds_pending,
+            CONDITIONER.lock_recover().adds_pending,
             7,
             "a store that finished against the old engine cannot join the new batch"
         );
@@ -927,23 +867,18 @@ mod tests {
     /// until enough further ones arrive.
     mod a_batch_whose_driver_gave_up {
         use super::*;
+        use crate::poison::Recover;
 
         #[test]
         fn is_put_back_rather_than_lost() {
             let _serial = serial();
             let _tmp = seeded_global_engine();
-            CONDITIONER
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .take_batch();
+            CONDITIONER.lock_recover().take_batch();
 
             requeue_abandoned_batch(crate::persistence::engine_install());
 
             assert!(
-                CONDITIONER
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .take_batch(),
+                CONDITIONER.lock_recover().take_batch(),
                 "the batch the driver abandoned is not due again"
             );
         }
@@ -957,15 +892,12 @@ mod tests {
         fn owes_a_run_however_many_times_it_is_put_back() {
             let _serial = serial();
             let _tmp = seeded_global_engine();
-            CONDITIONER
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .take_batch();
+            CONDITIONER.lock_recover().take_batch();
 
             requeue_abandoned_batch(crate::persistence::engine_install());
             requeue_abandoned_batch(crate::persistence::engine_install());
 
-            let mut guard = CONDITIONER.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = CONDITIONER.lock_recover();
             assert!(guard.take_batch(), "the batch is due");
             assert!(!guard.take_batch(), "and firing it consumes the count");
         }

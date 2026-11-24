@@ -26,7 +26,6 @@ import {
   BestEffortsHeaderButton,
   CalendarDayReadout,
   WellnessTrendsCard,
-  resolveThresholdPace,
   useFitnessRefresh,
   useFitnessComputations,
   useFitnessScreenData,
@@ -36,7 +35,7 @@ import {
   type PrimarySport,
 } from '@/features/fitness';
 import { timeRangeToDays } from '@/features/wellness';
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import { ActivityHeatmap, SeasonComparison, WeeklySummary } from '@/features/stats';
 import { useTheme, useCollapsibleSections } from '@/shared/app';
 import { spacing, layout } from '@/theme';
@@ -244,15 +243,13 @@ function FitnessScreenContent() {
     eftpTrend,
     eftpCoverage,
     eftpChanges,
-    storedRunPace,
-    storedSwimPace,
+    thresholdPace,
+    swimThresholdPace,
     librarySport,
     fitnessDays,
     fatigueDays,
     currentFTP,
     runLthr,
-    runPaceCurve,
-    swimPaceCurve,
     decouplingSource,
     training,
     isLoading,
@@ -267,13 +264,6 @@ function FitnessScreenContent() {
   useLayoutEffect(() => {
     if (sportLoaded) void adoptLibrarySport(librarySport);
   }, [adoptLibrarySport, librarySport, sportLoaded]);
-
-  // The curve is a download, so offline it is absent and the stored critical
-  // speed behind it is the only reading the screen has.
-  const thresholdPace =
-    resolveThresholdPace(runPaceCurve?.criticalSpeed, storedRunPace) ?? undefined;
-  const swimThresholdPace =
-    resolveThresholdPace(swimPaceCurve?.criticalSpeed, storedSwimPace) ?? undefined;
 
   // Memory profiling for crash investigation
   useEffect(() => {

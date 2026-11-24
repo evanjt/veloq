@@ -3,6 +3,7 @@
 //! a name and a search hit never disagree about the language.
 
 use super::exercise_search::ExerciseSearch;
+use crate::poison::RecoverRw;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
@@ -33,11 +34,11 @@ static CURRENT: RwLock<Option<Arc<ExerciseLabels>>> = RwLock::new(None);
 /// Replaces the held table. Called once per language change.
 pub fn install(table: HashMap<String, String>) {
     let labels = Arc::new(ExerciseLabels::new(table));
-    *CURRENT.write().unwrap_or_else(|p| p.into_inner()) = Some(labels);
+    *CURRENT.write_recover() = Some(labels);
 }
 
 fn current() -> Option<Arc<ExerciseLabels>> {
-    CURRENT.read().unwrap_or_else(|p| p.into_inner()).clone()
+    CURRENT.read_recover().clone()
 }
 
 /// The held label for a key, `None` until a table is installed or when it lacks the key.

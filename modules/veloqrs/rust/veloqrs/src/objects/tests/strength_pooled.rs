@@ -112,25 +112,6 @@ fn test_get_screen_data_writer_held() {
 
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
-fn test_get_activities_for_exercise_writer_held() {
-    let _guard = serial_global_state();
-    let _tmp = init_global_engine("strength_exercise_under_writer.db");
-    let strength = StrengthManager::new();
-    let result = read_while_writer_holds(|| {
-        strength
-            .get_activities_for_exercise(
-                BASE as f64,
-                (BASE + 7 * DAY) as f64,
-                primary_slug(),
-                CATEGORY,
-            )
-            .unwrap()
-    });
-    assert!(result.activities.is_empty());
-}
-
-#[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_has_strength_data_writer_held() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("strength_has_data_under_writer.db");
@@ -276,44 +257,7 @@ fn test_screen_data_counts_the_strength_activities_owed_in_the_window() {
 }
 
 #[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
-fn test_pooled_activities_for_exercise_carry_names_newest_first() {
-    let _guard = serial_global_state();
-    let _tmp = init_global_engine("strength_pooled_exercise.db");
-    seed_strength();
-    let strength = StrengthManager::new();
-
-    let result = strength
-        .get_activities_for_exercise(
-            BASE as f64,
-            (BASE + 7 * DAY) as f64,
-            primary_slug(),
-            CATEGORY,
-        )
-        .unwrap();
-
-    let rows: Vec<_> = result
-        .activities
-        .iter()
-        .map(|a| (a.activity_id.as_str(), a.activity_name.as_str(), a.sets))
-        .collect();
-    assert_eq!(rows, vec![("s2", "Pull day", 1.0), ("s1", "Push day", 2.0)]);
-    assert_eq!(result.activities[1].volume_kg, 40.0 * 8.0 + 42.5 * 8.0);
-    assert!(result.activities.iter().all(|a| a.is_primary));
-
-    let other = strength
-        .get_activities_for_exercise(
-            BASE as f64,
-            (BASE + 7 * DAY) as f64,
-            primary_slug(),
-            CATEGORY + 1,
-        )
-        .unwrap();
-    assert!(other.activities.is_empty());
-}
-
-#[test]
-fn secondary_exercise_activity_uses_the_muscle_share() {
+fn secondary_muscle_takes_half_of_each_set_in_the_period_read() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("strength_secondary_activity.db");
     seed_strength();
@@ -323,17 +267,19 @@ fn secondary_exercise_activity_uses_the_muscle_share() {
         .unwrap()
         .slug
         .clone();
-    let result = StrengthManager::new()
-        .get_activities_for_exercise(BASE as f64, (BASE + 7 * DAY) as f64, secondary, CATEGORY)
-        .unwrap();
-    let first = result
-        .activities
+    let sets =
+        with_reader(|conn| pooled::exercise_sets_in_range(conn, BASE, BASE + DAY - 1).unwrap())
+            .unwrap();
+    let muscles = exercises_by_muscle(&sets);
+    let exercise = &muscles
         .iter()
-        .find(|a| a.activity_id == "s1")
-        .unwrap();
-    assert_eq!(first.sets, 1.0);
-    assert_eq!(first.reps, 8.0);
-    assert_eq!(first.volume_kg, 330.0);
+        .find(|m| m.muscle_slug == secondary)
+        .unwrap()
+        .exercises[0];
+    assert_eq!(exercise.total_sets, 1.0);
+    assert_eq!(exercise.total_reps, 8.0);
+    assert_eq!(exercise.volume_kg, 330.0);
+    assert_eq!(exercise.activity_count, 1);
 }
 
 #[test]

@@ -80,7 +80,6 @@ export { useEngineMapActivities } from './hooks/useEngineMapActivities';
 export {
   clearHeatmapTileSets,
   HEATMAP_TILES_DIR,
-  LEGACY_HEATMAP_TILES_DIR,
   readHeatmapTilesCacheSize,
 } from './lib/heatmapTiles';
 export { useDrawnMapStyle, useMapStyleToggle } from './hooks/useDrawnMapStyle';
@@ -185,7 +184,6 @@ export {
 } from './lib/basemapCache';
 export { handOverGroundTemplates, registerTileListenerResume } from './lib/tileTransport';
 export {
-  MAX_MAP_CONTROLS,
   activityMapControlCount,
   mapControlColumnLayout,
   useMapControlColumn,

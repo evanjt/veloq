@@ -14,7 +14,6 @@ import { renderHook } from '@testing-library/react-native';
 
 import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { useDashboardPreferences } from '@/features/settings/stores/summaryCardPreferences';
-import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
 import { ABSENT } from '@/shared/format/absent';
 import type { FfiPaceTrend } from 'veloqrs';
 import { summaryCardBundle } from '../__shared__/summaryCardBundle';
@@ -78,32 +77,40 @@ describe('the pace arrows', () => {
 });
 
 describe('the pace values', () => {
-  const RUN = { latestPace: 3.5, previousPace: 3.4, glyph: '↑' };
-  const SWIM = { latestPace: 1.35, previousPace: 1.25, glyph: '↑' };
+  // Text unlike what either speed would format to, so a card that formats the
+  // speed itself fails and one that reads the engine's text passes.
+  const RUN = {
+    latestPace: 3.5,
+    previousPace: 3.4,
+    glyph: '↑',
+    latestPaceMetricText: '5:55',
+    latestPaceImperialText: '9:31',
+  };
+  const SWIM = {
+    latestPace: 1.35,
+    previousPace: 1.25,
+    glyph: '↑',
+    latestPaceMetricText: '2:22',
+    latestPaceImperialText: '2:09',
+  };
 
-  it('print the measured critical speed the arrow describes, not the setting', async () => {
+  it('print the engine text for the measured critical speed the arrow describes', async () => {
     const { pace, css } = await metrics(card(RUN, SWIM));
 
-    expect(css.value).toBe(formatSwimPace(1.35, true));
-    expect(pace.value).toBe(formatPaceCompact(3.5, true));
+    expect(css.value).toBe('2:22');
+    expect(pace.value).toBe('5:55');
   });
 
-  // The widget's entries are composed by the engine, whose tests pin the same
-  // four strings for the same bundle, so the card and the widget agree through
-  // them rather than through a shared call.
-  vaultIt.each([
-    [true, '4:46', '1:14'],
-    [false, '7:40', '1:08'],
-  ])(
-    'print what the widget prints for the same bundle (metric %s)',
-    async (isMetric, run, swim) => {
-      mockMetric = isMetric;
-      const { pace, css } = await metrics(card(RUN, SWIM));
+  it.each([
+    [true, '5:55', '2:22'],
+    [false, '9:31', '2:09'],
+  ])("print the text for the athlete's unit system (metric %s)", async (isMetric, run, swim) => {
+    mockMetric = isMetric;
+    const { pace, css } = await metrics(card(RUN, SWIM));
 
-      expect(pace.value).toBe(run);
-      expect(css.value).toBe(swim);
-    }
-  );
+    expect(pace.value).toBe(run);
+    expect(css.value).toBe(swim);
+  });
 
   vaultIt('print a placeholder with no measured pace', async () => {
     const { pace, css } = await metrics(card({}, {}));

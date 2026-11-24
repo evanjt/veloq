@@ -17,7 +17,7 @@ export const EMPTY_PICKER_FILTER: PickerFilterState = {
   query: '',
 };
 
-export interface PickerMuscle {
+interface PickerMuscle {
   slug: string;
   region: string;
 }

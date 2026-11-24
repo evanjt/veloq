@@ -13,12 +13,13 @@
  */
 
 import { awaitEngineAnnouncement } from '@/shared/native/awaitEngineAnnouncement';
+import { BODY_STORED_CHANNEL } from '@/shared/native/engineChannels';
 import {
   hasStarted,
   isRetryableStart,
   type ActivityRecord,
-  type StartOutcome,
-  type StartResult,
+  type FfiStartOutcome,
+  type FfiStartResult,
 } from 'veloqrs';
 
 /** Max time to wait for the engine to store the body. */
@@ -27,7 +28,7 @@ const DEFAULT_TIMEOUT_MS = 15_000;
 /** The engine surface this needs, so a caller can hand it a double. */
 export interface ActivityBodyReader {
   getActivityRecord: (activityId: string) => ActivityRecord | null;
-  syncActivityDetail: (activityId: string) => StartOutcome | StartResult;
+  syncActivityDetail: (activityId: string) => FfiStartOutcome | FfiStartResult;
   subscribe: (event: string, callback: (payload?: { activityId?: string }) => void) => () => void;
 }
 
@@ -59,7 +60,7 @@ export function awaitActivityBody(
   // announcement is the write, so the body should be there. If it is not,
   // keep waiting rather than reporting a body we have not read.
   const body = awaitEngineAnnouncement<ActivityRecord | null>({
-    channel: 'bodyStored',
+    channel: BODY_STORED_CHANNEL,
     timeoutMs,
     read: (payload) =>
       (payload as { activityId?: string } | undefined)?.activityId === activityId

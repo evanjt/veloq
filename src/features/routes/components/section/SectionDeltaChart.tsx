@@ -54,7 +54,7 @@ import type { FfiDirectionDeltas, FfiReferenceSource } from 'veloqrs';
 
 const CHART_PADDING = { left: 4, right: 8, top: 12, bottom: 12 } as const;
 
-export interface SectionDeltaChartProps {
+interface SectionDeltaChartProps {
   deltas: FfiDirectionDeltas;
   /** Metres between two points of a lap's curve. */
   gridStepM: number;

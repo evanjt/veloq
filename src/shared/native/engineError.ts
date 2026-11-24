@@ -29,7 +29,7 @@ export const ENGINE_ERROR_TAGS = [
   'Cancelled',
 ] as const;
 
-export type EngineErrorTag = (typeof ENGINE_ERROR_TAGS)[number];
+type EngineErrorTag = (typeof ENGINE_ERROR_TAGS)[number];
 
 /**
  * The variant, or `undefined` for anything that did not come from the engine:
@@ -43,6 +43,15 @@ export function engineErrorTag(error: unknown): EngineErrorTag | undefined {
   if (typeof error !== 'object' || error === null) return undefined;
   const tag = (error as { tag?: unknown }).tag;
   return ENGINE_ERROR_TAGS.find((known) => known === tag);
+}
+
+/**
+ * The failure as one line of text: the engine's tag when it sent one, the
+ * string form of anything else. A surface that names a failed read in a sentence
+ * takes this, so the tag and the fallback are spelled once.
+ */
+export function engineErrorText(error: unknown): string {
+  return engineErrorTag(error) ?? String(error);
 }
 
 /** The lines an engine failure can show. */

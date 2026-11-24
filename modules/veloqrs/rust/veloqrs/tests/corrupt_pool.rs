@@ -1,6 +1,6 @@
 //! A stored track that will not decode is never absorbed as an empty one.
 //!
-//! Detection records the pool it was cut over and abandons the run only when
+//! Detection abandons the run only when
 //! enough of the library is unreadable to rule out isolated rot, the heatmap
 //! redraws the tiles an unreadable activity reaches without paying a full pass
 //! per launch, and both exports name every omission.
@@ -23,7 +23,6 @@ use export_support::BulkExport;
 /// container claims it, so every decode path must report it as unreadable.
 const UNDECODABLE: &[u8] = &[0x7f, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07];
 
-const POOL_INTEGRITY_KEY: &str = "detection_pool_integrity";
 const ABANDONED_POOL_KEY: &str = "detection_abandoned_pool";
 
 /// `set_heatmap_tiles_path` parks its own run in a process-wide handle, so the
@@ -115,16 +114,6 @@ impl Setup {
             .map(|v| serde_json::from_str(&v).expect("record json"))
     }
 
-    fn integrity_record(&self) -> Option<serde_json::Value> {
-        self.record(POOL_INTEGRITY_KEY)
-    }
-
-    fn forget(&self, key: &str) {
-        self.raw
-            .execute("DELETE FROM schema_info WHERE key = ?", params![key])
-            .expect("schema_info delete");
-    }
-
     /// Configure the tiles directory and wait out the run `set_heatmap_tiles_path`
     /// starts by itself, so a test's own run is the only one in flight.
     fn tiles_dir(&mut self) -> PathBuf {
@@ -157,37 +146,21 @@ impl Setup {
 // ------------------------------------------------------------ detection
 
 /// Scenario: one unreadable track in a pool of twelve.
-/// Expected behaviour: the detect still runs, and the reduced pool is a
-/// durable record naming the activity, not an anonymous empty track.
+/// Expected behaviour: the detect still completes; one bad row is isolated rot
+/// and does not abandon the run.
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
-fn one_unreadable_track_is_named_in_the_pool_record() {
+fn one_unreadable_track_does_not_stop_the_detect() {
     let _serial_state = crate::serial_state();
     let mut s = setup(12);
     s.corrupt("a3");
 
     let handle = s.engine.detect_sections_background();
     assert!(handle.recv().is_ok(), "detect should still complete");
-
-    let record = s
-        .integrity_record()
-        .expect("an incomplete pool must be recorded");
-    assert_eq!(record["corrupt"], 1);
-    assert_eq!(record["readable"], 11);
-    assert_eq!(record["abandoned"], false);
-    assert_eq!(record["activity_ids"][0], "a3");
-    assert!(
-        record["first_reason"]
-            .as_str()
-            .expect("reason")
-            .contains("unrecognised container"),
-        "the record must carry a diagnosable reason, got {}",
-        record["first_reason"]
-    );
 }
 
 #[test]
-fn warm_detect_uses_the_whole_library_for_corrupt_pool_integrity() {
+fn warm_detect_accepts_the_same_bad_rows_the_cold_detect_did() {
     let _serial_state = crate::serial_state();
     let mut s = setup(100);
     for i in 0..100 {
@@ -231,15 +204,10 @@ fn warm_detect_uses_the_whole_library_for_corrupt_pool_integrity() {
     s.engine
         .save_processed_activity_ids(&processed_ids)
         .expect("save warm detect ids");
-
-    let record = s.integrity_record().expect("bad rows stay recorded");
-    assert_eq!(record["corrupt"], 8);
-    assert_eq!(record["readable"], 93);
-    assert_eq!(record["abandoned"], false);
 }
 
 #[test]
-fn a_narrowed_unreadable_track_uses_the_whole_library_for_integrity() {
+fn a_narrowed_unreadable_track_does_not_abandon_the_run() {
     let _serial_state = crate::serial_state();
     let mut s = setup(20);
     let cold = s.engine.detect_sections_background();
@@ -287,10 +255,6 @@ fn a_narrowed_unreadable_track_uses_the_whole_library_for_integrity() {
     }
     assert_eq!(after, before, "the catalogue is retained");
     assert!(!s.engine.detection_owed(), "the new id is processed");
-    let record = s.integrity_record().expect("corrupt row recorded");
-    assert_eq!(record["corrupt"], 1);
-    assert_eq!(record["readable"], 20);
-    assert_eq!(record["abandoned"], false);
 }
 
 /// Scenario: one unreadable track in a library of nine, which is 11% of the
@@ -309,10 +273,9 @@ fn a_single_bad_row_on_a_small_library_still_detects() {
         handle.recv().is_ok(),
         "one bad row must not abandon detection"
     );
-    assert_eq!(
-        s.integrity_record().expect("record")["abandoned"],
-        false,
-        "a run that completed must not be recorded as abandoned"
+    assert!(
+        s.record(ABANDONED_POOL_KEY).is_none(),
+        "a run that completed must not name an abandoned pool"
     );
 }
 
@@ -334,23 +297,17 @@ fn an_unreadable_pool_abandons_the_detect() {
         "an unreadable pool must not yield a catalogue"
     );
 
-    let record = s
-        .integrity_record()
-        .expect("an incomplete pool must be recorded");
-    assert_eq!(record["corrupt"], 12);
-    assert_eq!(record["readable"], 0);
-    assert_eq!(record["abandoned"], true);
     assert!(
         s.record(ABANDONED_POOL_KEY).is_some(),
         "the abandoned pool must be named so the next sync can recognise it"
     );
 }
 
-/// Scenario: a sync repeats over a pool that was already decoded and rejected.
-/// Expected behaviour: the second run gives up before loading anything, so an
+/// Scenario: a sync repeats over a pool that was already decoded and rejected,
+/// then a ride is added.
+/// Expected behaviour: the repeat gives up before loading anything, so an
 /// unreadable library costs one full decode per window rather than one per
-/// sync. The integrity record, written only by a run that got as far as
-/// loading, stays absent.
+/// sync; its progress holds a zero pool. The changed pool is loaded again.
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn an_abandoned_pool_is_not_reloaded_until_it_changes() {
@@ -359,51 +316,30 @@ fn an_abandoned_pool_is_not_reloaded_until_it_changes() {
     for i in 0..12 {
         s.corrupt(&format!("a{i}"));
     }
-    let _ = s.engine.detect_sections_background().recv();
-    s.forget(POOL_INTEGRITY_KEY);
+    let first = s.engine.detect_sections_background();
+    let first_pool = first.progress.clone();
+    assert!(first.recv().is_err());
+    assert_eq!(first_pool.pool(), (12, 12));
 
-    assert!(
-        s.engine.detect_sections_background().recv().is_err(),
-        "the pool is still unreadable"
-    );
-    assert!(
-        s.integrity_record().is_none(),
+    let repeat = s.engine.detect_sections_background();
+    let repeat_pool = repeat.progress.clone();
+    assert!(repeat.recv().is_err(), "the pool is still unreadable");
+    assert_eq!(
+        repeat_pool.pool(),
+        (0, 0),
         "the second run must return before loading the pool again"
     );
 
     s.engine
         .add_activities_batch(vec![("a12".to_string(), track(12, 80), "Ride".to_string())])
         .expect("add activity");
-    let _ = s.engine.detect_sections_background().recv();
-    assert!(
-        s.integrity_record().is_some(),
+    let changed = s.engine.detect_sections_background();
+    let changed_pool = changed.progress.clone();
+    let _ = changed.recv();
+    assert_eq!(
+        changed_pool.pool(),
+        (13, 12),
         "a changed pool must be loaded again rather than held off by the window"
-    );
-}
-
-/// Scenario: a pool that was incomplete becomes readable again.
-/// Expected behaviour: the record describes the live catalogue, so a clean
-/// pool clears it rather than leaving a stale warning behind.
-#[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
-fn a_clean_pool_clears_the_record() {
-    let _serial_state = crate::serial_state();
-    let mut s = setup(4);
-    s.raw
-        .execute(
-            "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-            params![POOL_INTEGRITY_KEY, "{\"corrupt\":9}"],
-        )
-        .expect("seed record");
-
-    let install = veloqrs::persistence::engine_install();
-    let handle = s.engine.detect_sections_background();
-    handle.recv().expect("clean detection must complete");
-    assert_eq!(veloqrs::persistence::engine_install(), install);
-
-    assert!(
-        s.integrity_record().is_none(),
-        "a clean pool must clear the record"
     );
 }
 

@@ -35,6 +35,14 @@ pub enum VeloqError {
     Cancelled,
 }
 
+impl VeloqError {
+    /// A database failure carrying `msg` as written. This is the one place a
+    /// `Database` error is built, so every site names it the same way.
+    pub(crate) fn database(msg: impl Into<String>) -> Self {
+        Self::Database { msg: msg.into() }
+    }
+}
+
 /// The answer for a call the engine gate refused and gave no engine for.
 ///
 /// `Suspended` while the engine is suspended, since the app left the
@@ -81,4 +89,31 @@ where
     F: FnOnce(&rusqlite::Connection) -> R,
 {
     crate::persistence::read_pool::with_read_conn(f).ok_or(VeloqError::NotInitialized)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::VeloqError;
+
+    #[test]
+    fn database_keeps_a_borrowed_message_verbatim() {
+        let error = VeloqError::database("disk I/O failed");
+
+        assert!(matches!(&error, VeloqError::Database { msg } if msg == "disk I/O failed"));
+        assert_eq!(error.to_string(), "Database error: disk I/O failed");
+    }
+
+    #[test]
+    fn database_accepts_an_owned_message() {
+        let error = VeloqError::database(format!("row {} unreadable", 7));
+
+        assert_eq!(error.to_string(), "Database error: row 7 unreadable");
+    }
+
+    #[test]
+    fn database_accepts_an_empty_message() {
+        let error = VeloqError::database("");
+
+        assert_eq!(error.to_string(), "Database error: ");
+    }
 }

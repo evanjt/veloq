@@ -18,10 +18,10 @@ import { spacing } from '@/theme';
 import type { WellnessData } from '@/types';
 import type {
   ActivityFitnessImpact,
-  ActivityHeldBack,
+  FfiActivityHeldBack,
   ActivityRecord,
   ActivitySummary,
-  MaxHrSource,
+  FfiMaxHrSource,
 } from 'veloqrs';
 import { useActivityStats } from './useActivityStats';
 import { StatCard } from './StatCard';
@@ -37,13 +37,13 @@ interface InsightfulStatsProps {
   /** The max HR from the detail screen read, the one the zones chart divides by. */
   maxHR?: number | undefined;
   /** Where `maxHR` came from, from the same read. */
-  maxHrSource?: MaxHrSource | undefined;
+  maxHrSource?: FfiMaxHrSource | undefined;
   fitnessImpact?: ActivityFitnessImpact | null | undefined;
   newGround?: ActivityNewGround | undefined;
   /** The stored summary from the detail screen read. */
   summary?: ActivitySummary | undefined;
   /** The hold on the ride, from the detail screen read. */
-  heldBack?: ActivityHeldBack | null | undefined;
+  heldBack?: FfiActivityHeldBack | null | undefined;
   /** The intervals.icu id the detail read names. Without one there is no page to link to. */
   intervalsId?: string | null | undefined;
 }

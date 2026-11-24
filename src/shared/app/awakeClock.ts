@@ -22,7 +22,7 @@
  * suspension. Generous, because a blocking engine call or a slow copy can hold
  * the thread for a second or two, and far short of either poller's deadline.
  */
-export const SUSPENSION_GRACE_MS = 5_000;
+const SUSPENSION_GRACE_MS = 5_000;
 
 /**
  * Reads the clock, discounting every gap that looks like a suspension.

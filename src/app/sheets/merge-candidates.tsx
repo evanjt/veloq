@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, FlatList, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { decodeCoords, type MergeCandidate } from 'veloqrs';
+import { decodeCoords, type FfiMergeCandidate } from 'veloqrs';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
@@ -20,10 +20,11 @@ import {
 } from '@/features/routes';
 import { goBack } from '@/shared/app/navigation';
 import { NameText } from '@/shared/ui/NameText';
+import { shortCoordsFromNative } from '@/shared/ffi/shortPoints';
 
 /**
  * The merge candidates list, a sheet route opened with `openSheet` when a section has several
- * candidates and answered with the chosen `MergeCandidate`.
+ * candidates and answered with the chosen `FfiMergeCandidate`.
  */
 
 /**
@@ -31,12 +32,15 @@ import { NameText } from '@/shared/ui/NameText';
  * sections can be told apart before one is merged into the other. The box keeps its size when the
  * line cannot be read, so the rows stay aligned.
  */
-function CandidatePreview({ candidate, isDark }: { candidate: MergeCandidate; isDark: boolean }) {
+function CandidatePreview({
+  candidate,
+  isDark,
+}: {
+  candidate: FfiMergeCandidate;
+  isDark: boolean;
+}) {
   const points = useMemo(
-    () =>
-      normaliseTrackPoints(
-        decodeCoords(candidate.encodedPolyline).map((p) => ({ lat: p.latitude, lng: p.longitude }))
-      ),
+    () => normaliseTrackPoints(shortCoordsFromNative(decodeCoords(candidate.encodedPolyline))),
     [candidate.encodedPolyline]
   );
   return (
@@ -56,14 +60,14 @@ function MergeCandidatesSheetContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
-  const { input, resolve } = useSheetRequest<MergeCandidatesSheetInput, MergeCandidate>();
+  const { input, resolve } = useSheetRequest<MergeCandidatesSheetInput, FfiMergeCandidate>();
   const candidates = input?.candidates ?? [];
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const border = isDark ? darkColors.border : colors.border;
 
-  const renderItem = ({ item }: { item: MergeCandidate }) => (
+  const renderItem = ({ item }: { item: FfiMergeCandidate }) => (
     <View style={[styles.row, { borderBottomColor: border }]}>
       <Row
         testID={`merge-candidate-${item.sectionId}`}

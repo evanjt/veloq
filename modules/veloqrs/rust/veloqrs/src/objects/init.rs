@@ -10,6 +10,7 @@
 //! a start refuses because something else is happening, init refuses because of
 //! the file on disk, and nothing sensible reads both.
 
+use crate::poison::Recover;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU8, Ordering};
 
@@ -95,7 +96,7 @@ pub struct FfiStorageShortfall {
 static SHORTFALL: Mutex<Option<FfiStorageShortfall>> = Mutex::new(None);
 
 fn set_shortfall(shortfall: Option<FfiStorageShortfall>) {
-    *SHORTFALL.lock().unwrap_or_else(|e| e.into_inner()) = shortfall;
+    *SHORTFALL.lock_recover() = shortfall;
 }
 
 /// Record an init that stopped for want of space, with the bytes it needed.
@@ -118,7 +119,7 @@ pub fn last_storage_shortfall() -> Option<FfiStorageShortfall> {
     if last_init_outcome() != FfiInitOutcome::StorageUnavailable {
         return None;
     }
-    *SHORTFALL.lock().unwrap_or_else(|e| e.into_inner())
+    *SHORTFALL.lock_recover()
 }
 
 /// How the last init in this process ended.

@@ -262,10 +262,10 @@ impl UploadMove {
 ///
 /// Every outcome carries `install`, the engine install the `Begin` it settles
 /// answered, or for an outcome with no begin the install open when the work
-/// that reached it started. The FFI call runs it under that install, so an
+/// that reached it started. The upload worker runs it under that install, so an
 /// outcome that outlived a restore is refused rather than written into
 /// another library.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Enum)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum UploadTransition {
     /// The request is about to go out.
@@ -309,24 +309,10 @@ impl UploadTransition {
             Self::Requeue => UploadMove::Requeue,
         }
     }
-
-    /// The install an outcome was issued under, `None` for a begin or a
-    /// requeue, which run against whichever install is open.
-    pub fn install(&self) -> Option<f64> {
-        match self {
-            Self::Begin | Self::Requeue => None,
-            Self::Uploaded { install, .. }
-            | Self::Failed { install, .. }
-            | Self::Rejected { install, .. }
-            | Self::PermissionBlocked { install }
-            | Self::HeldForAuth { install, .. }
-            | Self::HeldForNetwork { install, .. } => Some(*install),
-        }
-    }
 }
 
 /// Why a transition wrote nothing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum UploadRefusal {
     /// No recording has the id.
@@ -335,13 +321,11 @@ pub enum UploadRefusal {
     IllegalTransition,
     /// The ride is already uploaded under another intervals.icu id.
     AnotherActivity,
-    /// The outcome belongs to an install that is no longer open.
-    AnotherInstall,
 }
 
 /// What a transition did. A refusal is an answer, not an error, and writes
 /// nothing, so a caller can stop on it.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FfiUploadTransitionAnswer {
     pub applied: bool,

@@ -125,6 +125,7 @@ const EMPTY_SUMMARY: FfiStrengthSummary = {
   totalSets: 0,
   balance: [],
   maxWeightedSets: 0,
+  shadeCeilings: [0, 0, 0, 0, 0],
 };
 
 const EMPTY_SCREEN_DATA: FfiStrengthScreenData = {

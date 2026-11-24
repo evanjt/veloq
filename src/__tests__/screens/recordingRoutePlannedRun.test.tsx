@@ -28,6 +28,7 @@ let mockParams: Record<string, string | undefined> = {};
 let mockEvents: FfiPlannedEvent[] = [];
 const mockScreenColorsRender = jest.fn();
 
+jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: null }) }));
 jest.mock('@/features/recording/hooks/useRecordingScreenColors', () => {
   const actual = jest.requireActual('@/features/recording/hooks/useRecordingScreenColors');
   return {

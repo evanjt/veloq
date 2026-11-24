@@ -1,4 +1,4 @@
-import { StartOutcome } from 'veloqrs';
+import { FfiStartOutcome } from 'veloqrs';
 import React from 'react';
 import { Alert, ScrollView, StyleSheet } from 'react-native';
 import Slider from '@react-native-community/slider';
@@ -655,7 +655,7 @@ describe('the preview during the detector cutover', () => {
   /// ends differently, so each reads as its own line.
   /// Expected behaviour: the elevation line shows only under an elevation hold.
   describe('a refused start', () => {
-    function refusedWith(refusal: StartOutcome | null, hold: string | null) {
+    function refusedWith(refusal: FfiStartOutcome | null, hold: string | null) {
       mockEnv.hold = () => hold;
       mockEnv.detect = () => ({
         status: 'idle',
@@ -669,12 +669,12 @@ describe('the preview during the detector cutover', () => {
     }
 
     vaultIt.each([
-      [StartOutcome.Busy, null, 'settings.previewRefusedBusy'],
-      [StartOutcome.Held, 'elevation-running', 'settings.previewSuspended'],
-      [StartOutcome.Held, null, 'settings.previewRefusedRecentFailure'],
-      [StartOutcome.NotReady, null, 'sections.rescanRefusedNotReady'],
-      [StartOutcome.NotOwed, null, 'settings.previewRefusedNothingCovers'],
-      [StartOutcome.Failed, null, 'settings.previewRefusedFailed'],
+      [FfiStartOutcome.Busy, null, 'settings.previewRefusedBusy'],
+      [FfiStartOutcome.Held, 'elevation-running', 'settings.previewSuspended'],
+      [FfiStartOutcome.Held, null, 'settings.previewRefusedRecentFailure'],
+      [FfiStartOutcome.NotReady, null, 'sections.rescanRefusedNotReady'],
+      [FfiStartOutcome.NotOwed, null, 'settings.previewRefusedNothingCovers'],
+      [FfiStartOutcome.Failed, null, 'settings.previewRefusedFailed'],
     ])('gives %s under hold %s its own line', async (outcome, hold, key) => {
       const { getByTestId } = await refusedWith(outcome, hold);
 
@@ -779,8 +779,8 @@ describe('the stale catalogue notice', () => {
 describe('keeping a preview starts an observable re-cut', () => {
   const mockBack = router.back as jest.Mock;
   const mockSetSectionConfig = jest.fn();
-  const mockClientForceRedetect = jest.fn(() => StartOutcome.Started);
-  const mockForceRescan = jest.fn(() => StartOutcome.Started);
+  const mockClientForceRedetect = jest.fn(() => FfiStartOutcome.Started);
+  const mockForceRescan = jest.fn(() => FfiStartOutcome.Started);
 
   async function pressKeepAndConfirm() {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
@@ -851,8 +851,8 @@ describe('keeping a preview starts an observable re-cut', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockForceRescan.mockReturnValue(StartOutcome.Started);
-    mockClientForceRedetect.mockReturnValue(StartOutcome.Started);
+    mockForceRescan.mockReturnValue(FfiStartOutcome.Started);
+    mockClientForceRedetect.mockReturnValue(FfiStartOutcome.Started);
   });
 
   it('starts the re-cut through the rescan hook, not the raw client', async () => {
@@ -870,7 +870,7 @@ describe('keeping a preview starts an observable re-cut', () => {
   });
 
   it('stays on the screen when the engine refuses the re-cut', async () => {
-    mockForceRescan.mockReturnValue(StartOutcome.Held);
+    mockForceRescan.mockReturnValue(FfiStartOutcome.Held);
 
     await pressKeepAndConfirm();
 
@@ -1141,7 +1141,7 @@ describe('preview screen layout', () => {
  */
 describe('detection preview sensitivity controls', () => {
   const mockSetSectionConfig = jest.fn();
-  const mockForceRedetect = jest.fn(() => StartOutcome.Started);
+  const mockForceRedetect = jest.fn(() => FfiStartOutcome.Started);
   const mockGetSectionConfig = jest.fn(() => ({
     proximityThreshold: 50,
     minSectionLength: 500,
@@ -1209,7 +1209,7 @@ describe('detection preview sensitivity controls', () => {
   beforeEach(() => {
     mockSetSectionConfig.mockClear();
     mockForceRedetect.mockClear();
-    mockForceRedetect.mockReturnValue(StartOutcome.Started);
+    mockForceRedetect.mockReturnValue(FfiStartOutcome.Started);
     (router.back as jest.Mock).mockClear();
     mockStart.mockClear();
     mockResult = previewResult;
@@ -1294,7 +1294,7 @@ describe('detection preview sensitivity controls', () => {
   it('stays on the screen when the engine refuses the re-cut', async () => {
     // A refusal lands after the config is already persisted and the evidence
     // cache cleared, so closing here would report a change that never ran.
-    mockForceRedetect.mockReturnValue(StartOutcome.Held);
+    mockForceRedetect.mockReturnValue(FfiStartOutcome.Held);
     confirmNextAlert();
     const tree = await render(<DetectionPreviewScreen />);
     await fireEvent(tree.getByTestId('preview-keep-button'), 'press');
@@ -1304,7 +1304,7 @@ describe('detection preview sensitivity controls', () => {
   vaultIt('states why the re-cut did not start', async () => {
     mockEnv.realI18n = true;
     await initialiseI18n('en-GB');
-    mockForceRedetect.mockReturnValue(StartOutcome.Held);
+    mockForceRedetect.mockReturnValue(FfiStartOutcome.Held);
     const alert = confirmNextAlert();
     const tree = await render(<DetectionPreviewScreen />);
     await fireEvent(tree.getByTestId('preview-keep-button'), 'press');
@@ -1321,10 +1321,10 @@ describe('detection preview sensitivity controls', () => {
   });
 
   vaultIt.each([
-    [StartOutcome.Busy, 'sections.rescanRefusedBusy'],
-    [StartOutcome.Held, 'sections.rescanRefusedHeld'],
-    [StartOutcome.NotReady, 'sections.rescanRefusedNotReady'],
-    [StartOutcome.NotConfigured, 'sections.rescanRefusedOff'],
+    [FfiStartOutcome.Busy, 'sections.rescanRefusedBusy'],
+    [FfiStartOutcome.Held, 'sections.rescanRefusedHeld'],
+    [FfiStartOutcome.NotReady, 'sections.rescanRefusedNotReady'],
+    [FfiStartOutcome.NotConfigured, 'sections.rescanRefusedOff'],
   ])('gives each refusal its own reason (%s)', async (outcome, key) => {
     mockEnv.realI18n = true;
     await initialiseI18n('en-GB');
@@ -1337,11 +1337,11 @@ describe('detection preview sensitivity controls', () => {
   });
 
   it('lets a refused accept be retried without leaving the screen', async () => {
-    mockForceRedetect.mockReturnValue(StartOutcome.Held);
+    mockForceRedetect.mockReturnValue(FfiStartOutcome.Held);
     confirmNextAlert();
     const tree = await render(<DetectionPreviewScreen />);
     await fireEvent(tree.getByTestId('preview-keep-button'), 'press');
-    mockForceRedetect.mockReturnValue(StartOutcome.Started);
+    mockForceRedetect.mockReturnValue(FfiStartOutcome.Started);
     await fireEvent(tree.getByTestId('preview-keep-button'), 'press');
     expect(mockForceRedetect).toHaveBeenCalledTimes(2);
     expect(router.back).toHaveBeenCalledTimes(1);
@@ -1360,7 +1360,7 @@ describe('detection preview sensitivity controls', () => {
   });
 
   it('does not offer to discard values that are already stored after a refused re-cut', async () => {
-    mockForceRedetect.mockReturnValue(StartOutcome.Held);
+    mockForceRedetect.mockReturnValue(FfiStartOutcome.Held);
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const tree = await render(<DetectionPreviewScreen />);
     await fireEvent(sliders(tree)[0], 'valueChange', 150);
@@ -1392,7 +1392,7 @@ describe('detection preview sensitivity controls', () => {
 
     beforeEach(() => {
       mockBackHold.active = false;
-      mockForceRedetect.mockReturnValue(StartOutcome.Started);
+      mockForceRedetect.mockReturnValue(FfiStartOutcome.Started);
     });
 
     it('does not hold back while the values match the saved ones', async () => {
@@ -1440,7 +1440,7 @@ describe('detection preview sensitivity controls', () => {
     });
 
     it('Save stays when the engine refuses the re-cut', async () => {
-      mockForceRedetect.mockReturnValue(StartOutcome.Held);
+      mockForceRedetect.mockReturnValue(FfiStartOutcome.Held);
       const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
       const tree = await render(<DetectionPreviewScreen />);
       await fireEvent(sliders(tree)[0], 'valueChange', 150);
@@ -1835,7 +1835,7 @@ describe('the preview against a catalogue that has not caught up', () => {
  */
 describe('the retired layer on the detection preview', () => {
   const { encodeTrack } = require('../__shared__/trackBytes');
-  const { RetiredPairLink } = require('../__shared__/veloqrsStub');
+  const { FfiRetiredPairLink } = require('../__shared__/veloqrsStub');
   const { RetiredPairCard } = jest.requireActual(
     '@/features/routes/components/preview/RetiredPairCard'
   );
@@ -1894,7 +1894,9 @@ describe('the retired layer on the detection preview', () => {
         encodedPolyline: line(46.95, 7.44),
       },
     ],
-    pairs: [{ retiredId: 'old-1', currentId: 'new-1', link: RetiredPairLink.Ground, overlap: 0.8 }],
+    pairs: [
+      { retiredId: 'old-1', currentId: 'new-1', link: FfiRetiredPairLink.Ground, overlap: 0.8 },
+    ],
   };
 
   interface CapturedMapProps {

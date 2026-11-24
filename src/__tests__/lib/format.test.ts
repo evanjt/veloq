@@ -20,9 +20,6 @@ import {
   formatShortDateWithYear,
   formatDurationDelta,
   formatDurationHuman,
-  formatPace,
-  formatPaceCompact,
-  formatPaceFromSecsPerKm,
   formatSpeed,
   formatPower,
   formatHeartRate,
@@ -30,12 +27,10 @@ import {
   formatLoad,
   formatElevation,
   formatTemperature,
-  formatSwimPace,
   formatFileSize,
   formatRelativeDate,
   calendarDaysBetween,
   formatPrGap,
-  speedToSecsPerKm,
   getMonday,
   getSunday,
 } from '@/shared/format/format';
@@ -45,37 +40,20 @@ import { initialiseI18n } from '@/i18n';
 
 describe('formatDistance', () => {
   it('shows meters below 1km, kilometers above', () => {
-    expect(formatDistance(500)).toBe('500 m');
-    expect(formatDistance(1000)).toBe('1.0 km');
-    expect(formatDistance(42195)).toBe('42.2 km');
+    expect(formatDistance(500, true)).toBe('500 m');
+    expect(formatDistance(1000, true)).toBe('1.0 km');
+    expect(formatDistance(42195, true)).toBe('42.2 km');
   });
 });
 
 describe('formatDistance unit boundary', () => {
   it('chooses the unit from the value as it prints', () => {
-    expect(formatDistance(999.6)).toBe('1.0 km');
-    expect(formatDistance(999.4)).toBe('999 m');
+    expect(formatDistance(999.6, true)).toBe('1.0 km');
+    expect(formatDistance(999.4, true)).toBe('999 m');
   });
 
   it('gives the spoken form the same unit and value', () => {
     expect(distanceParts(999.6, true)).toEqual({ value: 1, unit: 'km', decimals: 1 });
-  });
-});
-
-describe('formatPace', () => {
-  it('converts m/s to min/km pace', () => {
-    // 5 m/s = 200 seconds/km = 3:20/km
-    expect(formatPace(5, true)).toBe('3:20 /km');
-    // 4 m/s = 250 seconds/km = 4:10/km
-    expect(formatPace(4, true)).toBe('4:10 /km');
-  });
-
-  it('handles rounding edge case where seconds would round to 60', () => {
-    // When seconds are >= 59.5, they round to 60, which should roll over to next minute
-    // Speed that gives exactly 5:59.5 /km: 1000 / (5*60 + 59.5) = 1000 / 359.5 = 2.78164116
-    expect(formatPace(2.78164116, true)).toBe('6:00 /km');
-    // Speed that gives exactly 5:59.6 /km: 1000 / (5*60 + 59.6) = 1000 / 359.6 = 2.78086420
-    expect(formatPace(2.7808642, true)).toBe('6:00 /km');
   });
 });
 
@@ -165,8 +143,11 @@ describe('getMonday / getSunday', () => {
 // can never be negative in the real world).
 describe.each([
   { name: 'formatDuration', fn: (v: unknown) => formatDuration(v as number), fallback: ABSENT },
-  { name: 'formatDistance', fn: (v: unknown) => formatDistance(v as number), fallback: ABSENT },
-  { name: 'formatPace', fn: (v: unknown) => formatPace(v as number, true), fallback: '--:--' },
+  {
+    name: 'formatDistance',
+    fn: (v: unknown) => formatDistance(v as number, true),
+    fallback: ABSENT,
+  },
   { name: 'formatSpeed', fn: (v: unknown) => formatSpeed(v as number, true), fallback: ABSENT },
   { name: 'formatPower', fn: (v: unknown) => formatPower(v as number), fallback: ABSENT },
   { name: 'formatHeartRate', fn: (v: unknown) => formatHeartRate(v as number), fallback: ABSENT },
@@ -183,12 +164,12 @@ describe.each([
 describe.each([
   {
     name: 'formatElevation',
-    fn: (v: unknown) => formatElevation(v as number | null),
+    fn: (v: unknown) => formatElevation(v as number | null, true),
     fallback: ABSENT,
   },
   {
     name: 'formatTemperature',
-    fn: (v: unknown) => formatTemperature(v as number | null),
+    fn: (v: unknown) => formatTemperature(v as number | null, true),
     fallback: ABSENT,
   },
 ])('$name invalid-input fallback', ({ fn, fallback }) => {
@@ -205,8 +186,6 @@ describe('zero-input handling', () => {
     ['formatDuration', formatDuration, 0, '0:00'],
     ['formatDistance', formatDistance, 0, '0 m'],
     ['formatFileSize', formatFileSize, 0, '0 B'],
-    ['formatPace', formatPace, 0, '--:--'],
-    ['speedToSecsPerKm', (v: number) => String(speedToSecsPerKm(v)), 0, '0'],
   ] as const)('%s(0) returns %p', (_, fn, input, expected) => {
     expect(fn(input as never, true)).toBe(expected);
   });
@@ -267,17 +246,6 @@ describe('formatFileSize edge cases', () => {
     [-1, /-/],
   ] as const)('%p does not leak %p', (input, banned) => {
     expect(formatFileSize(input)).not.toMatch(banned);
-  });
-});
-
-/**
- * speedToSecsPerKm must coerce invalid input to 0 (avoid NaN propagation).
- */
-describe('speedToSecsPerKm invalid-input coercion', () => {
-  it.each([NaN, Infinity, -5])('coerces %p to 0', (input) => {
-    const result = speedToSecsPerKm(input);
-    expect(Number.isNaN(result)).toBe(false);
-    expect(result).toBe(0);
   });
 });
 
@@ -361,22 +329,16 @@ describe('NaN/Infinity wall', () => {
 
   // Functions that accept a single number and return a string.
   vaultIt.each([
-    ['formatDistance', (v: number) => formatDistance(v)],
+    ['formatDistance', (v: number) => formatDistance(v, true)],
     ['formatDistance (imperial)', (v: number) => formatDistance(v, false)],
     ['formatDuration', (v: number) => formatDuration(v)],
     ['formatDurationDelta', (v: number) => formatDurationDelta(v)],
     ['formatDurationHuman', (v: number) => formatDurationHuman(v)],
-    ['formatPace', (v: number) => formatPace(v, true)],
-    ['formatPace (imperial)', (v: number) => formatPace(v, false)],
-    ['formatPaceCompact', (v: number) => formatPaceCompact(v, true)],
-    ['formatPaceCompact (imperial)', (v: number) => formatPaceCompact(v, false)],
-    ['formatSwimPace', (v: number) => formatSwimPace(v, true)],
-    ['formatSwimPace (imperial)', (v: number) => formatSwimPace(v, false)],
     ['formatSpeed', (v: number) => formatSpeed(v, true)],
     ['formatSpeed (imperial)', (v: number) => formatSpeed(v, false)],
-    ['formatElevation', (v: number) => formatElevation(v)],
+    ['formatElevation', (v: number) => formatElevation(v, true)],
     ['formatElevation (imperial)', (v: number) => formatElevation(v, false)],
-    ['formatTemperature', (v: number) => formatTemperature(v)],
+    ['formatTemperature', (v: number) => formatTemperature(v, true)],
     ['formatTemperature (imperial)', (v: number) => formatTemperature(v, false)],
     ['formatHeartRate', (v: number) => formatHeartRate(v)],
     ['formatPower', (v: number) => formatPower(v)],
@@ -385,13 +347,6 @@ describe('NaN/Infinity wall', () => {
     ['formatFileSize', (v: number) => formatFileSize(v)],
   ])('%s never leaks a banned token for any invalid input', (_name, fn) => {
     INVALID_INPUTS.forEach((input) => expectClean(fn(input as unknown as number)));
-  });
-
-  // speedToSecsPerKm returns a number - coerce to string for the banned-token check.
-  vaultIt('speedToSecsPerKm never leaks a banned token for any invalid input', () => {
-    INVALID_INPUTS.forEach((input) =>
-      expectClean(String(speedToSecsPerKm(input as unknown as number)))
-    );
   });
 });
 
@@ -403,34 +358,13 @@ describe('extreme finite magnitudes do not leak scientific-notation garbage', ()
   const SMALL = 1e-300;
   const HUGE = 1e308;
 
-  it.each([
-    ['formatPace', (v: number) => formatPace(v, true)],
-    ['formatPace (imperial)', (v: number) => formatPace(v, false)],
-    ['formatPaceCompact', (v: number) => formatPaceCompact(v, true)],
-    ['formatSwimPace', (v: number) => formatSwimPace(v, true)],
-  ])('%s returns the sentinel for tiny positive speeds', (_n, fn) => {
-    expect(fn(TINY)).toBe('--:--');
-    expect(fn(SMALL)).toBe('--:--');
-  });
-
-  it('formatPaceFromSecsPerKm rejects an absurdly large seconds-per-km value', () => {
-    expect(formatPaceFromSecsPerKm(HUGE, true)).toBe('--:--');
-  });
-
   it('formatDuration / formatDurationHuman reject an absurdly large duration', () => {
     expect(formatDuration(HUGE)).toBe(ABSENT);
     expect(formatDurationHuman(HUGE)).toBe(ABSENT);
   });
 
   it('no formatter emits scientific notation for extreme finite inputs', () => {
-    const fns = [
-      (v: number) => formatPace(v, true),
-      (v: number) => formatPaceCompact(v, true),
-      (v: number) => formatSwimPace(v, true),
-      (v: number) => formatPaceFromSecsPerKm(v, true),
-      (v: number) => formatDuration(v),
-      (v: number) => formatDurationHuman(v),
-    ];
+    const fns = [(v: number) => formatDuration(v), (v: number) => formatDurationHuman(v)];
     [TINY, SMALL, HUGE].forEach((v) => fns.forEach((fn) => expect(fn(v)).not.toMatch(/e[+-]\d/i)));
   });
 });
@@ -604,20 +538,5 @@ describe('shared date formatter', () => {
   vaultIt('formats in the locale it is given, whatever the app language', () => {
     expect(formatShortDateIn('2026-03-14', 'de-DE')).toBe('14. März');
     expect(formatShortDateIn('2026-03-14', 'en-AU')).toBe('14 Mar');
-  });
-});
-
-describe('formatPaceCompact against the engine case table', () => {
-  // The engine's pace rule is held to the same table in
-  // widget_snapshot/tests/pace.rs.
-  const cases: {
-    name: string;
-    speed: number;
-    isMetric: boolean;
-    expected: string;
-  }[] = require('../../../modules/veloqrs/rust/veloqrs/src/widget_snapshot/tests/pace_compact_cases.json');
-
-  it.each(cases.map((c) => [c.name, c] as const))('%s', (_name, c) => {
-    expect(formatPaceCompact(c.speed, c.isMetric)).toBe(c.expected);
   });
 });

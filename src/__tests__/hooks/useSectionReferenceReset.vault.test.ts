@@ -52,8 +52,7 @@ function sectionWith(isUserDefined: boolean): FrequentSection {
 }
 
 async function tapReference(isUserDefined: boolean, activityId: string) {
-  const getSectionReferenceInfo = jest.fn(() => ({ isUserDefined: false }));
-  mockedGetEngine.mockReturnValue({ getSectionReferenceInfo } as never);
+  mockedGetEngine.mockReturnValue({} as never);
   const section = sectionWith(isUserDefined);
   const hook = await renderHook(() =>
     useSectionActions({
@@ -67,7 +66,7 @@ async function tapReference(isUserDefined: boolean, activityId: string) {
     })
   );
   hook.result.current.handleSetAsReference(activityId);
-  return { getSectionReferenceInfo, title: (Alert.alert as jest.Mock).mock.calls[0]?.[0] };
+  return { title: (Alert.alert as jest.Mock).mock.calls[0]?.[0] };
 }
 
 describe('tapping the activity that is already the reference', () => {
@@ -77,17 +76,15 @@ describe('tapping the activity that is already the reference', () => {
   });
 
   it('offers a reset when the section carries a reference the athlete set', async () => {
-    const { title, getSectionReferenceInfo } = await tapReference(true, 'a1');
+    const { title } = await tapReference(true, 'a1');
 
     expect(title).toBe('sections.resetReference');
-    expect(getSectionReferenceInfo).not.toHaveBeenCalled();
   });
 
   it("offers to set it when the reference is the detector's own", async () => {
-    const { title, getSectionReferenceInfo } = await tapReference(false, 'a1');
+    const { title } = await tapReference(false, 'a1');
 
     expect(title).toBe('sections.setAsReference');
-    expect(getSectionReferenceInfo).not.toHaveBeenCalled();
   });
 
   it("offers to set a different activity even when the reference is the athlete's", async () => {

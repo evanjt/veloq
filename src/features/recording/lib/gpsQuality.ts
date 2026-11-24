@@ -12,7 +12,7 @@ import type { SignalLevel } from '@/shared/ui';
 export type GpsQuality = 'none' | 'good' | 'coarse' | 'discarded';
 
 /** A fix tighter than this is good. Below every reject threshold the athlete can set. */
-export const GPS_GOOD_ACCURACY_M = 5;
+const GPS_GOOD_ACCURACY_M = 5;
 
 export function gpsQuality(
   accuracy: number | null | undefined,

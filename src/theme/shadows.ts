@@ -111,7 +111,7 @@ export const shadows = {
 };
 
 /** The presets a raised surface reads through `raised`. */
-export type RaisedLevel = 'card' | 'elevated' | 'modal' | 'pill' | 'mapOverlay' | 'fab';
+type RaisedLevel = 'card' | 'elevated' | 'modal' | 'pill' | 'mapOverlay' | 'fab';
 
 type RaisedStyle = ShadowStyle & Pick<ViewStyle, 'borderWidth' | 'borderColor'>;
 

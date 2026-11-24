@@ -12,6 +12,7 @@
 //! order the page listed the members, so the page decides which provider
 //! draws on top where two overlap.
 
+use crate::poison::Recover;
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
@@ -43,16 +44,13 @@ static COMPOSITES: LazyLock<Mutex<HashMap<String, Vec<CompositeMember>>>> =
 
 /// Record the providers one composite source chooses among, in priority order.
 pub(crate) fn set(name: String, members: Vec<CompositeMember>) {
-    COMPOSITES
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .insert(name, members);
+    COMPOSITES.lock_recover().insert(name, members);
 }
 
 /// The members of a composite that hold every position, or `None` when `name`
 /// is not a composite.
 pub(crate) fn everywhere_of(name: &str) -> Option<Vec<String>> {
-    let composites = COMPOSITES.lock().unwrap_or_else(|e| e.into_inner());
+    let composites = COMPOSITES.lock_recover();
     composites.get(name).map(|members| {
         members
             .iter()
@@ -65,7 +63,7 @@ pub(crate) fn everywhere_of(name: &str) -> Option<Vec<String>> {
 /// The providers of a composite that hold this tile, in priority order, or
 /// `None` when `name` is not a composite.
 pub(crate) fn candidates_of(name: &str, z: u8, x: u32, y: u32) -> Option<Vec<String>> {
-    let composites = COMPOSITES.lock().unwrap_or_else(|e| e.into_inner());
+    let composites = COMPOSITES.lock_recover();
     composites
         .get(name)
         .map(|members| candidates(members, z, x, y))

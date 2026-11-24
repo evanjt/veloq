@@ -17,7 +17,7 @@
  * status reporting the slot held. `expired` is that gap running out, which is
  * a terminal state the banner stops on rather than "keep waiting".
  */
-export type ExtendedFetchPhase = 'idle' | 'awaitingPickup' | 'downloading' | 'expired';
+type ExtendedFetchPhase = 'idle' | 'awaitingPickup' | 'downloading' | 'expired';
 
 /** How long an accepted window waits for the engine to report the slot held. */
 export const PICKUP_DEADLINE_MS = 30_000;

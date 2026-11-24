@@ -15,7 +15,7 @@ import { Icon } from '@/shared/ui/Icon';
 import { RowDivider } from '@/shared/ui/RowGroup';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { SyncState, SyncStep } from 'veloqrs';
+import { SyncState, FfiSyncStep } from 'veloqrs';
 import type { FfiUnplacedRecord } from 'veloqrs';
 import {
   useExportRecordBackup,
@@ -289,7 +289,7 @@ export function BackupSection() {
   const fetchingActivities = unplacedRecords.some((record) => record.reason === 'activity_pending');
   const syncStatus = useSyncStatus();
   const fetchTotal =
-    syncStatus?.state === SyncState.Syncing && syncStatus.step === SyncStep.RecordActivities
+    syncStatus?.state === SyncState.Syncing && syncStatus.step === FfiSyncStep.RecordActivities
       ? syncStatus.stepItemsTotal
       : 0;
   const fetchDone = Math.min(syncStatus?.stepItemsDone ?? 0, fetchTotal);

@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import type { ActivityHeldBack } from 'veloqrs';
+import type { FfiActivityHeldBack } from 'veloqrs';
 import { EmptyState } from '@/shared/ui';
 import { navigateTo } from '@/shared/app/navigation';
 import { useExperimental } from '@/features/settings/light';
@@ -9,7 +9,7 @@ import { spacing } from '@/theme';
 
 interface Props {
   activityId: string;
-  heldBack: ActivityHeldBack;
+  heldBack: FfiActivityHeldBack;
 }
 
 /**

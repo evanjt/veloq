@@ -4,7 +4,7 @@ import { type TimeRange } from '@/shared/app/timeRange';
 export type SmoothingWindow = 'auto' | 'none' | 3 | 7 | 14 | 21 | 28;
 
 /** Default smoothing windows per time range */
-export const DEFAULT_SMOOTHING_WINDOWS: Record<TimeRange, number> = {
+const DEFAULT_SMOOTHING_WINDOWS: Record<TimeRange, number> = {
   '7d': 0, // No smoothing for 1 week - daily data is meaningful
   '1m': 3, // 3-day average reduces weekday/weekend variance
   '3m': 7, // Weekly average aligns with training weeks

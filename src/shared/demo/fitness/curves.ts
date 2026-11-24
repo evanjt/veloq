@@ -1,16 +1,15 @@
+import { addLocalDays } from '@/shared/time/localDay';
 import type { PowerCurve, PaceCurve } from '@/types';
 import { DEMO_REFERENCE_DATE, getDemoReferenceDate, formatDateId } from '@/data/demo/random';
 
 // Calculate deterministic date range (42 days before reference date)
 const referenceDate = getDemoReferenceDate();
-const startDate = new Date(referenceDate);
-startDate.setDate(startDate.getDate() - 42);
+const startDate = addLocalDays(referenceDate, -42);
 const paceCurveStartDate = formatDateId(startDate);
 
 // Generate demo activity IDs for curve best efforts
 function demoDateOffset(daysBack: number): string {
-  const d = new Date(referenceDate);
-  d.setDate(d.getDate() - daysBack);
+  const d = addLocalDays(referenceDate, -daysBack);
   return formatDateId(d);
 }
 

@@ -1,4 +1,4 @@
-import { StartOutcome } from 'veloqrs';
+import { FfiStartOutcome } from 'veloqrs';
 
 /**
  * The line a refused stream backfill start shows, or none when it started.
@@ -6,7 +6,7 @@ import { StartOutcome } from 'veloqrs';
  * Nothing in the engine waits for the connection or retries this pass, so a
  * refusal is the athlete's cue to try again, and each verdict says why.
  */
-export type StreamBackfillRefusalKey =
+type StreamBackfillRefusalKey =
   | 'settings.streamBackfillRefusedOffline'
   | 'settings.streamBackfillRefusedNotConfigured'
   | 'settings.streamBackfillRefusedNotReady'
@@ -14,18 +14,18 @@ export type StreamBackfillRefusalKey =
   | 'settings.streamBackfillRefusedFailed';
 
 export function streamBackfillRefusalKey(
-  outcome: StartOutcome | null
+  outcome: FfiStartOutcome | null
 ): StreamBackfillRefusalKey | null {
   switch (outcome) {
-    case StartOutcome.Offline:
+    case FfiStartOutcome.Offline:
       return 'settings.streamBackfillRefusedOffline';
-    case StartOutcome.NotConfigured:
+    case FfiStartOutcome.NotConfigured:
       return 'settings.streamBackfillRefusedNotConfigured';
-    case StartOutcome.NotReady:
+    case FfiStartOutcome.NotReady:
       return 'settings.streamBackfillRefusedNotReady';
-    case StartOutcome.Busy:
+    case FfiStartOutcome.Busy:
       return 'settings.streamBackfillRefusedBusy';
-    case StartOutcome.Failed:
+    case FfiStartOutcome.Failed:
       return 'settings.streamBackfillRefusedFailed';
     default:
       return null;

@@ -5,6 +5,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { type LatLng } from '@/shared/geo/polyline';
+import { shortCoordFromNative } from '@/shared/ffi/shortPoints';
 import type { RoutePoint } from '@/types';
 import type { CreationState } from '@/features/maps/components/SectionCreationOverlay';
 import type { SectionCreationResult } from '@/features/maps/components/ActivityMapView';
@@ -187,10 +188,7 @@ export function useSectionCreation({
 
     // Extract section polyline
     const sectionCoords = validCoordinates.slice(startIndex, endIndex + 1);
-    const polyline: RoutePoint[] = sectionCoords.map((c) => ({
-      lat: c.latitude,
-      lng: c.longitude,
-    }));
+    const polyline: RoutePoint[] = sectionCoords.map(shortCoordFromNative);
 
     // Calculate distance using Haversine
     let distance = 0;

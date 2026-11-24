@@ -70,7 +70,7 @@ import {
   installRecordingSession,
   startUploadQueue,
 } from '@/features/recording';
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import { seedSyncRange } from '@/shared/app/syncRangeSeed';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { i18n } from '@/i18n';

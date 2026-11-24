@@ -33,7 +33,13 @@ const SECTION: FrequentSection = {
   createdAt: '2026-01-01T00:00:00Z',
 };
 
-const stats = (avgTime: number, avgSpeed: number) => ({ avgTime, avgSpeed, count: 4 }) as never;
+const stats = (avgTime: number, avgSpeed: number) =>
+  ({
+    avgTime,
+    avgSpeed,
+    avgPaceText: { metricText: '5:34', imperialText: '8:57' },
+    count: 4,
+  }) as never;
 
 function header(props: Record<string, unknown>) {
   return render(
@@ -70,7 +76,7 @@ describe('section hero direction averages', () => {
       forwardStats: stats(600, 3),
       reverseStats: null,
     });
-    expect(getByTestId('section-avg-forward')).toHaveTextContent(/5:33 \/km/);
+    expect(getByTestId('section-avg-forward')).toHaveTextContent(/5:34 \/km/);
   });
 
   it('draws one figure when only one direction has laps', async () => {

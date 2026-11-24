@@ -23,7 +23,7 @@ import { formatFullDate } from '@/shared/format/format';
 import { colors, darkColors, typography, type MapPalette } from '@/theme';
 
 /** The attempt drawn over the subject's line, which the activity row names. */
-export interface PickedAttempt {
+interface PickedAttempt {
   activityId?: string | null | undefined;
   /** When it was ridden, absent when the pick carried no date. */
   date?: Date | undefined;
@@ -44,7 +44,7 @@ export interface DetailMapLegendLayers {
   direction?: LineDirection | null | undefined;
 }
 
-export interface DetailMapLegendProps extends DetailMapLegendLayers {
+interface DetailMapLegendProps extends DetailMapLegendLayers {
   isDark: boolean;
   /** The colours of the base map the key sits over, which its swatches repeat. */
   palette: MapPalette;

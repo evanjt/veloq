@@ -7,7 +7,7 @@
  */
 
 import { renderHook } from '@testing-library/react-native';
-import { UploadOutcome, recordings } from 'veloqrs';
+import { FfiUploadOutcome, recordings } from 'veloqrs';
 
 import { useAuthStore, type AuthMethod } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
@@ -22,11 +22,6 @@ jest.mock('veloqrs', () =>
     recordings: { uploadRecording: jest.fn() },
   })
 );
-
-jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
-  recordingInstall: jest.fn(() => 4),
-  transitionRecording: jest.fn(async () => ({ applied: true })),
-}));
 
 const mockEnsureRegistered = jest.fn(async (_athleteId: string) => true);
 jest.mock('@/features/settings/lib/pushTokenRegistration', () => ({
@@ -189,7 +184,7 @@ const mockUpload = recordings.uploadRecording as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockUpload.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+  mockUpload.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
   useUploadPermissionStore.setState({ hasWritePermission: false, isLoaded: true });
   useNotificationPreferences.setState({
     enabled: true,

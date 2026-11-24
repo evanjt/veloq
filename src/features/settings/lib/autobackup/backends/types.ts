@@ -76,9 +76,6 @@ export interface BackupBackend {
    */
   download(backupId: string, destPath: string): Promise<void>;
 
-  /** Delete a backup. */
-  delete(backupId: string): Promise<void>;
-
   /**
    * Store the file at `localPath` under exactly `name`, beside the record and
    * never as one: `listBackups` does not return it. An object of that name

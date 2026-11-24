@@ -7,6 +7,7 @@
 
 use super::TileStore;
 use super::encoding;
+use crate::poison::Recover;
 use futures::{Stream, StreamExt};
 use reqwest::header::{ACCEPT_ENCODING, CONTENT_ENCODING};
 use std::collections::HashMap;
@@ -230,7 +231,7 @@ impl TileFetcher {
             let leader = self.leader(&host);
             match leader.turn.try_lock() {
                 Ok(lead) => {
-                    *leader.sent.lock().unwrap_or_else(|e| e.into_inner()) = Some(Instant::now());
+                    *leader.sent.lock_recover() = Some(Instant::now());
                     let response = self.send(&host, url).await;
                     drop(lead);
                     return answered_body(response?, cap).await;
@@ -241,7 +242,7 @@ impl TileFetcher {
                 // failed releases them all, so an outage is not met one
                 // request at a time.
                 Err(_) => {
-                    let sent = *leader.sent.lock().unwrap_or_else(|e| e.into_inner());
+                    let sent = *leader.sent.lock_recover();
                     let until = sent.unwrap_or_else(Instant::now) + LEADER_WAIT;
                     let _ = tokio::time::timeout_at(until.into(), leader.turn.lock()).await;
                 }
@@ -279,7 +280,7 @@ impl TileFetcher {
         let Ok(lead) = leader.turn.try_lock() else {
             return;
         };
-        *leader.sent.lock().unwrap_or_else(|e| e.into_inner()) = Some(Instant::now());
+        *leader.sent.lock_recover() = Some(Instant::now());
         let _ = self.send_as(reqwest::Method::HEAD, &host, &origin).await;
         drop(lead);
     }
@@ -328,7 +329,7 @@ impl TileFetcher {
             .header(ACCEPT_ENCODING, "gzip")
             .send()
             .await;
-        let mut hosts = self.hosts.lock().unwrap_or_else(|e| e.into_inner());
+        let mut hosts = self.hosts.lock_recover();
         match sent {
             Ok(response) => {
                 let answer = HostAnswer {
@@ -350,18 +351,13 @@ impl TileFetcher {
     }
 
     fn answered(&self, host: &str) -> Option<HostAnswer> {
-        self.hosts
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .get(host)
-            .copied()
+        self.hosts.lock_recover().get(host).copied()
     }
 
     fn leader(&self, host: &str) -> Arc<Leader> {
         Arc::clone(
             self.leaders
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
+                .lock_recover()
                 .entry(host.to_string())
                 .or_default(),
         )
@@ -372,7 +368,7 @@ impl TileFetcher {
             return;
         }
         let wait = {
-            let mut next = self.next_slot.lock().unwrap_or_else(|e| e.into_inner());
+            let mut next = self.next_slot.lock_recover();
             let now = Instant::now();
             let slot = match *next {
                 Some(at) if at > now => at,

@@ -14,7 +14,7 @@ import { getEngine } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import FeedScreen from '@/app/(tabs)/(feed)';
-import { InitOutcome } from 'veloqrs';
+import { FfiInitOutcome } from 'veloqrs';
 
 jest.mock('@/shared/native/syncRefresh', () => ({
   requestSyncRefresh: jest.fn(),
@@ -110,7 +110,7 @@ beforeEach(() => {
 });
 
 it('says why the library could not be opened, not that there are no activities', () => {
-  useEngineStatus.setState({ initFailed: true, initFailureReason: InitOutcome.Busy });
+  useEngineStatus.setState({ initFailed: true, initFailureReason: FfiInitOutcome.Busy });
   renderFeed();
   expect(screen.queryByText('feed.emptyLibrary.emptyTitle')).toBeNull();
   expect(screen.getByText('engine.initReason.busy')).toBeTruthy();

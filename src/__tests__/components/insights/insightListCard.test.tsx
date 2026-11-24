@@ -110,6 +110,8 @@ function periodCard(weekCount = 6): Insight {
       previous: 340,
       ratio: 450 / 340 - 1,
       comparedStart: first + (weekCount - 1) * WEEK,
+      direction: 'up',
+      verdict: 'moved',
     },
     null,
     NOW,
@@ -179,6 +181,7 @@ function strengthBalanceCard(): Insight {
     activityCount: 1,
     totalSets: 4,
     maxWeightedSets: 3,
+    shadeCeilings: [0, 0, 0, 0, 0],
     balance,
     startTs,
   });

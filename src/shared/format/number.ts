@@ -88,6 +88,20 @@ export function formatSignedPercentage(percent: number, digits = 0): string {
   return percent > 0 && !roundsToZero(percent, digits) ? `+${text}` : text;
 }
 
+/**
+ * A form figure as the engine states it, written the locale's way.
+ *
+ * The engine prints form once, in plain text: a signed whole number, or one
+ * with a trailing percent sign under the percentage setting. The percentage is
+ * the only part a locale writes differently (a space before the sign in some),
+ * so that is the only part rewritten; an absolute figure is already final.
+ */
+export function localizeFormText(text: string | null | undefined): string | null {
+  if (text == null) return null;
+  if (!text.endsWith('%')) return text;
+  return formatSignedPercentage(Number(text.slice(0, -1)));
+}
+
 /** A signed fraction as a whole percentage: +14%, 0%, -150%. A rounded zero has no sign. */
 export function formatSignedPercent(fraction: number): string {
   return formatSignedPercentage(fraction * 100, 0);

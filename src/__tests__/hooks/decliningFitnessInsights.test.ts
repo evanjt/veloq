@@ -17,6 +17,10 @@ function pace(gainPercent: number): PaceTrend {
   return {
     latestPace: 3,
     previousPace: 3.5,
+    latestPaceMetricText: '5:33',
+    latestPaceImperialText: '8:56',
+    previousPaceMetricText: '4:46',
+    previousPaceImperialText: '7:40',
     gainPercent,
     deltaSeconds: -47.6,
     sampleCount: 20,

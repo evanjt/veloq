@@ -26,12 +26,12 @@ import { RestoreRefusedError } from './restoreRefusal';
 import type { RestoreReport } from './restoreNotice';
 
 /** What a restore placed and what it gave up on. */
-export interface CheckedRestoreOutcome extends RestoreReport {
+interface CheckedRestoreOutcome extends RestoreReport {
   unplaced: number;
 }
 
 /** A checked backup, restored only when `restore` is called. `release` deletes any copy it made. */
-export interface CheckedBackup {
+interface CheckedBackup {
   check: RestoreCheck;
   restore: () => Promise<CheckedRestoreOutcome>;
   release: () => Promise<void>;

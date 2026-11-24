@@ -9,7 +9,7 @@
  */
 
 import { Platform } from 'react-native';
-import { InitOutcome } from 'veloqrs';
+import { FfiInitOutcome } from 'veloqrs';
 
 import { formatCrashLog, type CrashEntry } from '@/shared/debug/crashLog';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
@@ -76,7 +76,7 @@ describe('the crash log header', () => {
   });
 
   vaultIt('names why the engine failed to open', () => {
-    useEngineStatus.setState({ initFailed: true, initFailureReason: InitOutcome.ForwardSchema });
+    useEngineStatus.setState({ initFailed: true, initFailureReason: FfiInitOutcome.ForwardSchema });
     const header = headerOf(formatCrashLog([entry]));
     expect(header).toMatch(/failed/i);
     expect(header).toContain('ForwardSchema');

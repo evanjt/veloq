@@ -1028,12 +1028,11 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: ['activities', 'names'],
-    where: 'Documents/gps_tracks/ and Documents/bounds_cache/, from builds before the engine',
+    where: 'Documents/bounds_cache/, from builds before the engine',
     writers: ['src/shared/storage/gpsStorage.ts'],
-    holds: 'GPS tracks, bounds and route names',
+    holds: 'bounds and route names',
     wiped: {
       files: [
-        'file:///docs/gps_tracks/i1.json',
         'file:///docs/bounds_cache/bounds.json',
         'file:///docs/bounds_cache/route_names.json',
       ],
@@ -1080,13 +1079,6 @@ const DEVICE_WRITES: DeviceWrite[] = [
     ],
     holds: "a heatmap of the athlete's rides",
     wiped: { engine: 'the clear-all wipe of the tile sets, wipe_tile_sets' },
-  },
-  {
-    confirm: [],
-    where: 'Documents/heatmap-tiles/, where builds before 0.3.0 drew the heatmap',
-    writers: ['src/features/maps/lib/heatmapTiles.ts'],
-    holds: "a heatmap of the athlete's rides, on an install upgraded from those builds",
-    wiped: { files: ['file:///docs/heatmap-tiles/12/2148/1436.png'] },
   },
   {
     confirm: [],
@@ -1277,7 +1269,6 @@ const DEVICE_WRITES: DeviceWrite[] = [
     confirm: [],
     where: 'the tray and the schedule',
     writers: [
-      'src/features/recording/lib/liveActivity/restAlert.ts',
       'src/features/settings/lib/notificationService.ts',
       'modules/veloqrs/android/src/main/java/com/veloq/ActivityNotificationPoster.kt',
     ],

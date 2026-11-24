@@ -13,10 +13,11 @@ import type { Section as NativeSection } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { Section } from '@/types';
 import { debug } from '@/shared/debug/debug';
+import { shortCoordsFromNative } from '@/shared/ffi/shortPoints';
 
 const log = debug.create('CustomSections');
 
-export interface UseCustomSectionsOptions {
+interface UseCustomSectionsOptions {
   /** Filter by sport type */
   sportType?: string | undefined;
   /** Whether to run the hook (default: true). When false, returns empty defaults without FFI calls. */
@@ -25,7 +26,7 @@ export interface UseCustomSectionsOptions {
   preComputedSections?: NativeSection[] | undefined;
 }
 
-export interface UseCustomSectionsResult {
+interface UseCustomSectionsResult {
   /** Custom sections */
   sections: Section[];
   /** Total count */
@@ -61,16 +62,13 @@ export interface CreateSectionParams {
 function toAppSections(sections: NativeSection[]): Section[] {
   return sections.map((s) => ({
     ...s,
-    polyline: decodeCoords(s.encodedPolyline).map((pt) => ({
-      lat: pt.latitude,
-      lng: pt.longitude,
-    })),
+    polyline: shortCoordsFromNative(decodeCoords(s.encodedPolyline)),
     sectionType: 'custom' as const,
     createdAt: s.createdAt || new Date().toISOString(),
   })) as Section[];
 }
 
-export type SectionCommands = Pick<
+type SectionCommands = Pick<
   UseCustomSectionsResult,
   'createSection' | 'removeSection' | 'renameSection'
 >;
@@ -121,10 +119,7 @@ export function useSectionCommands(): SectionCommands {
 
       const result = {
         ...section,
-        polyline: decodeCoords(section.encodedPolyline).map((pt) => ({
-          lat: pt.latitude,
-          lng: pt.longitude,
-        })),
+        polyline: shortCoordsFromNative(decodeCoords(section.encodedPolyline)),
         sectionType: 'custom' as const,
         createdAt: section.createdAt || new Date().toISOString(),
         activityPortions: section.activityPortions?.map((p) => ({

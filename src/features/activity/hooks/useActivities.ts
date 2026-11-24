@@ -1,3 +1,4 @@
+import { addLocalDays, formatLocalDate } from '@/shared/time/localDay';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { readActivityRecord, readFeedCards } from '@/features/activity/lib/engineActivityRecord';
@@ -6,7 +7,7 @@ import {
   readStreams,
   requestStreams,
 } from '@/features/activity/lib/engineStreams';
-import { epochDayKeyUtc, formatLocalDate } from '@/shared/format/format';
+import { epochDayKeyUtc } from '@/shared/format/format';
 import { addDaysToDay, dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared/time/startDate';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -118,8 +119,7 @@ export function useInfiniteActivities() {
     },
     initialPageParam: (() => {
       const today = new Date();
-      const thirtyDaysAgo = new Date(today);
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - PAGE_SIZE_DAYS);
+      const thirtyDaysAgo = addLocalDays(today, -PAGE_SIZE_DAYS);
       return {
         oldest: formatLocalDate(thirtyDaysAgo),
         newest: formatLocalDate(today),

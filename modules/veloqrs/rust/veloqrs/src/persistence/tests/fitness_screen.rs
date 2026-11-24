@@ -10,9 +10,7 @@ use super::pooled::{
     FITNESS_FTP_LOOKBACK_DAYS, SPORT_MIX_ACTIVITIES, fitness_screen_data, load_trend,
 };
 use crate::persistence::PersistentEngine;
-use crate::persistence::fitness::derivations::pooled::{
-    SYNC_PACE_WINDOW_DAYS, ftp_trend_to, pace_trend,
-};
+use crate::persistence::fitness::derivations::pooled::{SYNC_PACE_WINDOW_DAYS, ftp_trend_to};
 use crate::persistence::wellness::WellnessRow;
 
 const TODAY: &str = "2026-09-05";
@@ -30,10 +28,6 @@ fn windows() -> crate::FfiFitnessScreenWindows {
         heatmap_first_day: TODAY.into(),
         heatmap_last_day: TODAY.into(),
         months: today.clone(),
-        year_current: today.clone(),
-        year_previous: today.clone(),
-        month_current: today.clone(),
-        month_previous: today,
         now_wall_seconds: 1_788_609_600.0,
     }
 }
@@ -118,20 +112,9 @@ fn test_fitness_screen_read_uses_shared_ftp_comparison_and_stored_speeds() {
             .collect::<Vec<_>>(),
         vec!["r1"]
     );
-    assert_eq!(read.run_pace_trend.latest_pace, Some(3.8));
-    assert_eq!(read.swim_pace_trend.latest_pace, Some(1.2));
-
     assert_eq!(
         read.ftp_trend.previous_ftp,
         ftp_trend_to(conn, TODAY).previous_ftp
-    );
-    assert_eq!(
-        format!("{:?}", read.run_pace_trend),
-        format!("{:?}", pace_trend(conn, "Run"))
-    );
-    assert_eq!(
-        format!("{:?}", read.swim_pace_trend),
-        format!("{:?}", pace_trend(conn, "Swim"))
     );
 }
 
@@ -199,8 +182,7 @@ fn an_empty_library_answers_no_trend_and_no_speed() {
     assert!(read.ftp_trend.history.is_empty());
     assert_eq!(read.ftp_trend.latest_ftp, None);
     assert!(read.ftp_trend.changes.is_empty());
-    assert_eq!(read.run_pace_trend.latest_pace, None);
-    assert_eq!(read.swim_pace_trend.latest_pace, None);
+    assert!(read.threshold_paces.iter().all(|span| span.run.is_none()));
 }
 
 #[test]
@@ -789,5 +771,107 @@ fn each_eftp_point_names_the_day_it_is_the_estimate_of() {
     assert_eq!(
         read.ftp_trend.history_days.len(),
         read.ftp_trend.history.len()
+    );
+}
+
+fn pace_body(critical_speed: f64) -> String {
+    serde_json::json!({
+        "list": [{
+            "distance": [1000.0],
+            "values": [285.0],
+            "paceModels": [{ "type": "CS", "criticalSpeed": critical_speed }],
+        }]
+    })
+    .to_string()
+}
+
+fn store_pace_body(engine: &PersistentEngine, sport: &str, days: i64, critical_speed: f64) {
+    engine
+        .set_curve_body(
+            crate::persistence::bodies::CurveKind::Pace,
+            sport,
+            days,
+            false,
+            &pace_body(critical_speed),
+        )
+        .unwrap();
+}
+
+fn threshold_run(read: &crate::FfiFitnessScreenData, days: u32) -> Option<crate::FfiThresholdPace> {
+    read.threshold_paces
+        .iter()
+        .find(|span| span.days == days)
+        .expect("every span asked for is answered")
+        .run
+        .clone()
+}
+
+#[test]
+fn a_set_threshold_pace_outranks_the_curve_and_the_stored_speed() {
+    let engine = library();
+    engine
+        .set_sport_settings(r#"[{"types":["Run"],"threshold_pace":4.0}]"#)
+        .unwrap();
+    store_pace_body(&engine, "Run", 30, 3.5);
+
+    let read = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows()).unwrap();
+
+    for days in SPANS {
+        let pace = threshold_run(&read, days).expect("a pace");
+        assert_eq!(pace.speed, 4.0);
+        assert_eq!(pace.metric_text, "4:10");
+        assert_eq!(pace.imperial_text, "6:42");
+    }
+}
+
+#[test]
+fn a_curve_names_its_own_span_and_the_other_spans_use_the_stored_speed() {
+    let engine = library();
+    store_pace_body(&engine, "Run", 30, 3.5);
+
+    let read = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows()).unwrap();
+
+    let measured = threshold_run(&read, 30).expect("a pace");
+    assert_eq!(measured.speed, 3.5);
+    assert_eq!(measured.metric_text, "4:46");
+    assert_eq!(measured.imperial_text, "7:40");
+    let stored = threshold_run(&read, 90).expect("a pace");
+    assert_eq!(stored.speed, 3.8);
+    assert_eq!(stored.metric_text, "4:23");
+}
+
+#[test]
+fn a_curve_with_no_usable_speed_falls_through_to_the_stored_speed() {
+    let engine = library();
+    store_pace_body(&engine, "Run", 30, 0.0);
+
+    let read = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows()).unwrap();
+
+    assert_eq!(threshold_run(&read, 30).expect("a pace").speed, 3.8);
+}
+
+#[test]
+fn swimming_is_chosen_the_same_way_and_printed_per_hundred_metres() {
+    let engine = library();
+
+    let read = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows()).unwrap();
+
+    let swim = read.threshold_paces[0].swim.clone().expect("a pace");
+    assert_eq!(swim.speed, 1.2);
+    assert_eq!(swim.metric_text, "1:23");
+    assert_eq!(swim.imperial_text, "1:16");
+}
+
+#[test]
+fn with_no_setting_curve_or_stored_speed_there_is_no_threshold_pace() {
+    let engine = PersistentEngine::in_memory().unwrap();
+
+    let read = fitness_screen_data(engine.cold_connection(), TODAY, &SPANS, &windows()).unwrap();
+
+    assert_eq!(read.threshold_paces.len(), SPANS.len());
+    assert!(
+        read.threshold_paces
+            .iter()
+            .all(|span| span.run.is_none() && span.swim.is_none())
     );
 }

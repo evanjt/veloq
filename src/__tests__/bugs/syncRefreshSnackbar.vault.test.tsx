@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Pressable } from 'react-native';
-import { StartOutcome } from 'veloqrs';
+import { FfiStartOutcome } from 'veloqrs';
 
 import { useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 import { NoticeHost } from '@/shared/ui/Notice';
@@ -46,8 +46,8 @@ describe('pull to refresh snackbar', () => {
   afterEach(() => jest.useRealTimers());
 
   it.each([
-    [StartOutcome.Busy, 'refresh.busy'],
-    [StartOutcome.Offline, 'refresh.offline'],
+    [FfiStartOutcome.Busy, 'refresh.busy'],
+    [FfiStartOutcome.Offline, 'refresh.offline'],
   ])('shows the refusal %s in the snackbar for three seconds', async (outcome, key) => {
     request.mockReturnValue(outcome);
     await renderScreen();
@@ -63,7 +63,7 @@ describe('pull to refresh snackbar', () => {
   });
 
   it('restarts its time on a second pull rather than stacking', async () => {
-    request.mockReturnValue(StartOutcome.Busy);
+    request.mockReturnValue(FfiStartOutcome.Busy);
     await renderScreen();
 
     await pull();
@@ -79,7 +79,7 @@ describe('pull to refresh snackbar', () => {
   });
 
   it('shows nothing when the pull starts a sync', async () => {
-    request.mockReturnValue(StartOutcome.Started);
+    request.mockReturnValue(FfiStartOutcome.Started);
     await renderScreen();
 
     await pull();

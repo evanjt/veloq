@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import { SyncState, SyncStep } from 'veloqrs';
+import { SyncState, FfiSyncStep } from 'veloqrs';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import { ActivitySyncRow } from '@/features/settings/components/ActivitySyncRow';
@@ -31,7 +31,7 @@ let mockStatus: {
   state: SyncState;
   completed: number;
   total: number;
-  step?: SyncStep;
+  step?: FfiSyncStep;
 } | null = null;
 jest.mock('@/shared/native/useSyncStatus', () => ({
   useSyncStatus: () => mockStatus,
@@ -65,7 +65,7 @@ describe('ActivitySyncRow', () => {
   );
 
   vaultIt('offers a stop control while the sync runs', async () => {
-    mockStatus = { state: SyncState.Syncing, completed: 3, total: 8, step: SyncStep.Census };
+    mockStatus = { state: SyncState.Syncing, completed: 3, total: 8, step: FfiSyncStep.Census };
     const { getByTestId } = await render(<ActivitySyncRow />);
     expect(getByTestId('sync-stop-button')).toBeTruthy();
     expect(getByTestId('sync-progress-label').props.children).toContain(

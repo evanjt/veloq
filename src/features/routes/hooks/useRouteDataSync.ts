@@ -43,8 +43,6 @@ interface UseRouteDataSyncResult {
   activityCount: number | null;
 }
 
-export type { SyncProgress };
-
 /**
  * Ask for every FIT file the engine's queue still owes, strength sessions and pool swims
  * alike, as one batch.

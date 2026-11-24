@@ -22,6 +22,7 @@ let mockParams: Record<string, string | undefined> = { type: 'Ride' };
 let mockSegments: string[] = ['recording', '[type]'];
 const mockInsets = { top: 0, bottom: 0, left: 0, right: 0 };
 
+jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: null }) }));
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   Stack: { Screen: () => null },

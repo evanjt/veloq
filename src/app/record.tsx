@@ -64,13 +64,16 @@ import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { useNearbyRouteOverlay } from '@/shared/app/useNearbyRouteOverlay';
 import type { RouteOverlaySheetInput } from '@/app/sheets/route-overlay';
 import { getEngine } from '@/shared/native/engine';
+import { BODY_STORED_CHANNEL, payloadKind } from '@/shared/native/engineChannels';
 import { readPlannedWorkouts } from '@/features/home';
 import { replaceTo, navigateTo } from '@/shared/app/navigation';
-import { formatLocalDate, formatDuration, formatElevation } from '@/shared/format/format';
+import { formatDuration, formatElevation } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import { SessionSensorList, useEntrySensors } from '@/features/sensors';
 import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
 import type { FfiPlannedEvent } from 'veloqrs';
 import type { ActivityType } from '@/types';
+import { toActivityType } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { NameText } from '@/shared/ui/NameText';
 
@@ -163,8 +166,8 @@ function RecordScreenContent() {
     const engine = getEngine();
     if (!engine) return undefined;
     const reread = () => setTodayEvents(readPlannedWorkouts(today, today));
-    const offCalendar = engine.subscribe('bodyStored', (payload) => {
-      if ((payload as { kind?: string } | undefined)?.kind !== 'calendar') return;
+    const offCalendar = engine.subscribe(BODY_STORED_CHANNEL, (payload) => {
+      if (payloadKind(payload) !== 'calendar') return;
       reread();
     });
     const offActivities = engine.subscribe('activities', reread);
@@ -339,13 +342,13 @@ function RecordScreenContent() {
             key={event.id}
             testID={`record-event-${event.id}`}
             style={[styles.eventCard, { borderColor: border }]}
-            onPress={() => start(event.sport as ActivityType, event.id)}
+            onPress={() => start(toActivityType(event.sport), event.id)}
             accessibilityRole="button"
           >
             <Icon
-              name={getActivityIcon(event.sport as ActivityType)}
+              name={getActivityIcon(toActivityType(event.sport))}
               size={iconSize.lg}
-              color={sportMarkColour(event.sport as ActivityType, isDark)}
+              color={sportMarkColour(toActivityType(event.sport), isDark)}
               style={styles.eventIcon}
             />
             <View style={styles.eventDetails}>

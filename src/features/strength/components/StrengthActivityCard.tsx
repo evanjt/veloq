@@ -10,7 +10,8 @@ import { useTranslation } from 'react-i18next';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 
 import { useTheme, useMetricSystem, useAthlete } from '@/shared/app';
-import type { ActivityType, FeedCard } from '@/types';
+import type { FeedCard } from '@/types';
+import { toActivityType } from '@/types';
 import {
   ActivityCardContextMenu,
   SkylineBar,
@@ -121,7 +122,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
   }, []);
 
   // A body with no sport falls back to Other in every helper, as it always has.
-  const sport = activity.sportType as ActivityType;
+  const sport = toActivityType(activity.sportType);
   const activityColor = sportMarkColour(sport, isDark);
   const iconName = getActivityIcon(sport);
 

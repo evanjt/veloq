@@ -40,7 +40,7 @@ export type LaunchAsk =
   | 'support';
 
 /** The order a session after the quiet period picks its one ask in. */
-export const ASK_ORDER: readonly LaunchAsk[] = [
+const ASK_ORDER: readonly LaunchAsk[] = [
   'restore',
   'sectionsChanged',
   'seriesConsent',
@@ -51,7 +51,7 @@ export const ASK_ORDER: readonly LaunchAsk[] = [
 ];
 
 /** The asks the quiet period lets through, in `ASK_ORDER`. */
-export const QUIET_PERIOD_ASKS: readonly LaunchAsk[] = [
+const QUIET_PERIOD_ASKS: readonly LaunchAsk[] = [
   'restore',
   'sectionsChanged',
   'tourOffer',
@@ -59,10 +59,10 @@ export const QUIET_PERIOD_ASKS: readonly LaunchAsk[] = [
 ];
 
 /** The launch the notification card first asks on, so never the launch that ran the tour or carried What's New. */
-export const NOTIFICATION_CARD_LAUNCH = 2;
+const NOTIFICATION_CARD_LAUNCH = 2;
 
 /** Distinct local days of use the quiet period lasts into. */
-export const QUIET_PERIOD_USE_DAYS = 2;
+const QUIET_PERIOD_USE_DAYS = 2;
 
 export interface LaunchFacts {
   /** The modal this launch already raised, which keeps the slot. */
@@ -101,7 +101,7 @@ export interface LaunchSurfaces {
   whatsNewCard: WhatsNewCard | null;
 }
 
-export interface WhatsNewCard {
+interface WhatsNewCard {
   /** The running version, which dismissing the card marks seen. */
   version: string;
   /** Slides added since the seen version. */

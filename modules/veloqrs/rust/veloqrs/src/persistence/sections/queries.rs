@@ -969,7 +969,7 @@ pub(crate) mod pooled {
         let mut found: std::collections::HashMap<String, SectionSummary> =
             std::collections::HashMap::with_capacity(ids.len());
         for chunk in ids.chunks(500) {
-            let marks = vec!["?"; chunk.len()].join(",");
+            let marks = crate::persistence::sql::question_marks(chunk.len());
             let query = format!("SELECT {SUMMARY_COLUMNS} FROM sections WHERE id IN ({marks})");
             let bound: Vec<&dyn rusqlite::ToSql> =
                 chunk.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
@@ -1335,12 +1335,7 @@ pub(crate) mod pooled {
         let names = crate::persistence::sections::named::pooled::overlay_names(conn);
         // Distance ridden to each point, so a pass is placed along the ride in
         // metres rather than as a share of points, which recording density skews.
-        let ridden: Vec<f64> = std::iter::once(0.0)
-            .chain(track.windows(2).scan(0.0, |total, pair| {
-                *total += tracematch::geo_utils::haversine_distance(&pair[0], &pair[1]);
-                Some(*total)
-            }))
-            .collect();
+        let ridden = tracematch::matching::cumulative_distances(&track);
 
         matches
             .into_iter()

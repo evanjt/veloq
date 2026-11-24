@@ -11,10 +11,12 @@ import {
   scatterMarkFor,
   scatterRange,
   scatterStanding,
+  scatterStandingText,
 } from '@/features/routes/lib/scatterMarks';
 import { nearestScatterPointIndex } from '@/features/routes/lib/scatterData';
 import { fromWallClockSeconds } from '@/shared/ffi/ffiConversions';
 import type { PerformanceDataPoint } from '@/types';
+import type { TFunction } from 'i18next';
 import type { FfiRecordStep } from 'veloqrs';
 import { atUtcOffset } from '../../__shared__/fixedOffsetDate';
 
@@ -193,7 +195,7 @@ describe('scatterStanding', () => {
       [step({ lapId: 'lap-a', improvementSpeed: 0.08, improvementSecs: 9 })],
       'speed'
     );
-    expect(standing).toEqual({ kind: 'newRecord', gain: 0.08 });
+    expect(standing).toEqual({ kind: 'newRecord', gain: 0.08, pace: null });
   });
 
   it('reads the first record ever set as a new record with no gain', () => {
@@ -202,17 +204,86 @@ describe('scatterStanding', () => {
       [step({ lapId: 'lap-a' })],
       'time'
     );
-    expect(standing).toEqual({ kind: 'newRecord', gain: null });
+    expect(standing).toEqual({ kind: 'newRecord', gain: null, pace: null });
   });
 
   it('reads a slower attempt as off the record by the engine gap on the drawn axis', () => {
     const point = attempt({ recordGapSecs: 12, recordGapSpeed: 0.3 });
-    expect(scatterStanding(point, [], 'time')).toEqual({ kind: 'offRecord', gap: 12 });
-    expect(scatterStanding(point, [], 'speed')).toEqual({ kind: 'offRecord', gap: 0.3 });
+    expect(scatterStanding(point, [], 'time')).toEqual({
+      kind: 'offRecord',
+      gap: 12,
+      pace: null,
+    });
+    expect(scatterStanding(point, [], 'speed')).toEqual({
+      kind: 'offRecord',
+      gap: 0.3,
+      pace: null,
+    });
+  });
+
+  it('carries the engine pace gap of an off-record attempt and the pace gain of a new record', () => {
+    const pace = { metric: 12, imperial: 19.3 };
+    const off = scatterStanding(attempt({ recordGapSpeed: 0.3, recordGapPace: pace }), [], 'speed');
+    expect(off).toEqual({ kind: 'offRecord', gap: 0.3, pace });
+
+    const gain = { metric: 4, imperial: 6.4 };
+    const record = scatterStanding(
+      attempt({ isBest: true, recordGapSpeed: 0 }),
+      [step({ lapId: 'lap-a', improvementSpeed: 0.1, improvementPace: gain })],
+      'speed'
+    );
+    expect(record).toEqual({ kind: 'newRecord', gain: 0.1, pace: gain });
   });
 
   vaultIt('says nothing where the engine gives no gap', () => {
     expect(scatterStanding(attempt({}), [], 'speed')).toBeNull();
+  });
+});
+
+describe('scatterStandingText on a pace sport', () => {
+  const t = ((key: string, values?: Record<string, string>) =>
+    values ? `${key}:${JSON.stringify(values)}` : key) as unknown as TFunction;
+  const pace = { metric: 12, imperial: 19.3 };
+  const off = { kind: 'offRecord', gap: 0.3, pace } as const;
+
+  it('writes the engine pace gap in the unit system chosen, per kilometre or per mile', () => {
+    expect(scatterStandingText(off, 'speed', 'Run', true, t)).toBe(
+      'sections.scatterOffRecord:{"gap":"12 s /km"}'
+    );
+    expect(scatterStandingText(off, 'speed', 'Run', false, t)).toBe(
+      'sections.scatterOffRecord:{"gap":"19 s /mi"}'
+    );
+  });
+
+  it('writes a swim gap per 100 m or per 100 yd, and a gap past a minute as minutes', () => {
+    const swim = { kind: 'offRecord', gap: 0.1, pace: { metric: 65, imperial: 59 } } as const;
+    expect(scatterStandingText(swim, 'speed', 'Swim', true, t)).toBe(
+      'sections.scatterOffRecord:{"gap":"1:05 /100m"}'
+    );
+    expect(scatterStandingText(swim, 'speed', 'Swim', false, t)).toBe(
+      'sections.scatterOffRecord:{"gap":"59 s /100yd"}'
+    );
+  });
+
+  it('takes a new record gain as time taken off', () => {
+    const record = { kind: 'newRecord', gain: 0.1, pace: { metric: 4, imperial: 6.4 } } as const;
+    expect(scatterStandingText(record, 'speed', 'Run', true, t)).toBe(
+      'sections.scatterNewRecord:{"gain":"-4 s /km"}'
+    );
+  });
+
+  it('writes nothing for a gap and the first-record text for a gain the engine gave no pace', () => {
+    expect(scatterStandingText({ ...off, pace: null }, 'speed', 'Run', true, t)).toBeNull();
+    const record = { kind: 'newRecord', gain: 0.1, pace: null } as const;
+    expect(scatterStandingText(record, 'speed', 'Run', true, t)).toBe(
+      'sections.scatterNewRecordFirst'
+    );
+  });
+
+  it('writes a ride gap as speed and never reads the pace', () => {
+    expect(scatterStandingText(off, 'speed', 'Ride', true, t)).toBe(
+      'sections.scatterOffRecord:{"gap":"1.1 km/h"}'
+    );
   });
 });
 

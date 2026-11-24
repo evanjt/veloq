@@ -118,7 +118,6 @@ function FitnessCards() {
         held={false}
         readError={undefined}
         onRetry={jest.fn()}
-        onDateSelect={jest.fn()}
       />
       <Card variant="flat">
         <WithScreenRead>{(training) => <WeeklySummary training={training} />}</WithScreenRead>

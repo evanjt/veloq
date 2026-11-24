@@ -4,6 +4,7 @@ use super::super::protocol::{
     FRAME_BYTES, FRAME_GZIP, FRAME_HEADER_BYTES, FRAME_LAST, FRAME_VERSION,
 };
 use super::*;
+use crate::poison::Recover;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, AtomicUsize};
 
@@ -653,9 +654,7 @@ fn linked() -> (
     Peer,
     std::sync::MutexGuard<'static, ()>,
 ) {
-    let held = WORKERS
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let held = WORKERS.lock_recover();
     let (mut browser, offer) = Browser::new();
     let gate = TestGate::pinning(Some(&browser.fingerprint));
     let (answer, peer) =
@@ -742,9 +741,7 @@ fn some_channel() -> ChannelId {
 /// refused, and one is admitted again once a reply's last frame is written.
 #[test]
 fn an_ask_whose_reply_is_unsent_still_counts_as_outstanding() {
-    let _held = WORKERS
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _held = WORKERS.lock_recover();
     let gate = TestGate::pinning(None);
     let (asks, replies) = Conn::new(gate, "presented", "local");
     let pool = Pool::shared().expect("a pool");
@@ -776,9 +773,7 @@ fn an_ask_whose_reply_is_unsent_still_counts_as_outstanding() {
 #[test]
 fn an_outbox_behind_a_channel_that_never_drains_stays_within_sixteen_replies() {
     const SIZE: usize = 256 * 1024;
-    let _held = WORKERS
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _held = WORKERS.lock_recover();
     let gate = TestGate::pinning(None);
     let (asks, replies) = Conn::new(gate, "presented", "local");
     let admitted = Admitted {

@@ -40,12 +40,12 @@ jest.mock('@/features/routes/lib/timeStreamBackfill', () => ({
   backfillTimeStreams: jest.fn(async () => ({ total: 0, remaining: 0 })),
 }));
 
-const { engine, takeFetchAndStoreResult, StartOutcome } = require('veloqrs');
+const { engine, takeFetchAndStoreResult, FfiStartOutcome } = require('veloqrs');
 const { startGpsPass } = engine;
 
 /** The pass the engine starts, filed under `run`. */
 const started = (run: number) => (_oldest: string, _newest: string, head: string[]) => ({
-  outcome: StartOutcome.Started,
+  outcome: FfiStartOutcome.Started,
   run,
   total: head.length,
 });

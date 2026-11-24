@@ -4,7 +4,8 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 
-import { formatDateTime, formatLocalDate } from '@/shared/format/format';
+import { formatDateTime } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 
 import RecordingDetailScreen from '@/app/recordings/[id]';
 import {

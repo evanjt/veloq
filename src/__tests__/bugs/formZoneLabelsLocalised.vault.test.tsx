@@ -15,12 +15,12 @@ import { render, screen } from '@testing-library/react-native';
 import { initialiseI18n, changeLanguage } from '@/i18n';
 import { FitnessChart } from '@/features/fitness/components/FitnessChart';
 import { formZoneLabel } from '@/features/fitness/lib/fitness';
-import type { WellnessData } from '@/types';
+import { statedForm } from '../__shared__/statedForm';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 /** Form -3 on fitness 40 sits in the grey zone. */
-const DAYS = [{ id: '2026-09-12', ctl: 40, atl: 43 }] as WellnessData[];
+const DAYS = statedForm([{ id: '2026-09-12', ctl: 40, atl: 43 }]);
 
 describe('the form zone label', () => {
   beforeAll(async () => {

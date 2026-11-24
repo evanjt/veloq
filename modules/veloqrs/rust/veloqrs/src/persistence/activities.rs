@@ -1,5 +1,7 @@
 //! Activity management: CRUD, GPS tracks, signatures, spatial queries, time streams.
 
+use crate::persistence::schema_info;
+use crate::persistence::sql::question_marks;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, LazyLock};
 
@@ -1718,9 +1720,7 @@ pub(crate) mod pooled {
             return Vec::new();
         }
 
-        let placeholders = std::iter::repeat_n("?", ids.len())
-            .collect::<Vec<_>>()
-            .join(",");
+        let placeholders = crate::persistence::sql::question_marks(ids.len());
         let sql = format!(
             "SELECT activity_id, points FROM signatures WHERE activity_id IN ({})",
             placeholders
@@ -1797,19 +1797,7 @@ pub(crate) mod pooled {
     /// same way: a corrupt row is a warning and a `None`, never a track that
     /// was never synced.
     pub(crate) fn gps_track(conn: &Connection, activity_id: &str) -> Option<Vec<GpsPoint>> {
-        let blob: Option<Vec<u8>> = match conn
-            .prepare_cached("SELECT track_data FROM gps_tracks WHERE activity_id = ?")
-            .and_then(|mut stmt| {
-                stmt.query_row(params![activity_id], |row| row.get::<_, Vec<u8>>(0))
-                    .optional()
-            }) {
-            Ok(blob) => blob,
-            Err(e) => {
-                log::warn!("[gps_track] activity {activity_id}: query failed: {e}");
-                return None;
-            }
-        };
-        super::TrackRead::from_blob(&blob?).into_option("gps_track", activity_id)
+        super::codec::read_track(conn, activity_id).into_option("gps_track", activity_id)
     }
 
     /// The columns [`metrics_from_row`] reads, in its order.
@@ -1848,9 +1836,7 @@ pub(crate) mod pooled {
 
         let mut rows = HashMap::with_capacity(ids.len());
         for chunk in ids.chunks(CHUNK) {
-            let placeholders = std::iter::repeat_n("?", chunk.len())
-                .collect::<Vec<_>>()
-                .join(",");
+            let placeholders = crate::persistence::sql::question_marks(chunk.len());
             let sql = format!(
                 "SELECT {METRICS_COLUMNS} FROM activity_metrics WHERE activity_id IN ({placeholders})"
             );
@@ -1885,7 +1871,7 @@ pub(crate) mod pooled {
         const CHUNK: usize = 500;
         let mut found = std::collections::HashMap::with_capacity(activity_ids.len());
         for chunk in activity_ids.chunks(CHUNK) {
-            let marks = vec!["?"; chunk.len()].join(",");
+            let marks = crate::persistence::sql::question_marks(chunk.len());
             let sql = format!(
                 "SELECT activity_id, name, date, distance, moving_time, elapsed_time,
                         elevation_gain, avg_hr, avg_power, sport_type,
@@ -1923,7 +1909,7 @@ pub(crate) mod pooled {
         if activity_ids.is_empty() {
             return Vec::new();
         }
-        let placeholders: Vec<&str> = activity_ids.iter().map(|_| "?").collect();
+        let placeholders = crate::persistence::sql::question_marks(activity_ids.len());
         let query = format!(
             "SELECT ts.activity_id FROM time_streams ts
              LEFT JOIN gps_tracks g ON g.activity_id = ts.activity_id
@@ -1931,7 +1917,7 @@ pub(crate) mod pooled {
                AND (ts.point_count = 0
                     OR g.activity_id IS NULL
                     OR g.point_count = ts.point_count)",
-            placeholders.join(",")
+            placeholders
         );
         let mut stmt = match conn.prepare(&query) {
             Ok(s) => s,
@@ -1987,7 +1973,7 @@ pub(crate) mod pooled {
         days: i64,
     ) -> Option<f64> {
         let sports = crate::sport::family_of(sport_type);
-        let marks = vec!["?"; sports.len()].join(",");
+        let marks = crate::persistence::sql::question_marks(sports.len());
         let query = format!(
             "SELECT training_load FROM activity_metrics
              WHERE sport_type IN ({marks}) AND date >= ? AND date <= ?
@@ -2077,13 +2063,7 @@ pub(crate) mod pooled {
         if super::carries_elevation(&stored.points) {
             return None;
         }
-        let blob: Vec<u8> = conn
-            .prepare_cached("SELECT track_data FROM gps_tracks WHERE activity_id = ?")
-            .and_then(|mut stmt| {
-                stmt.query_row(params![id], |row| row.get::<_, Vec<u8>>(0))
-                    .optional()
-            })
-            .ok()??;
+        let blob: Vec<u8> = super::codec::track_blob(conn, id).ok()??;
         if super::codec::track_blob_carries_elevation(&blob) == Some(false) {
             return None;
         }
@@ -3262,10 +3242,7 @@ impl PersistentEngine {
             stmt.execute(params![key])?;
         }
         drop(stmt);
-        tx.execute(
-            "DELETE FROM schema_info WHERE key = ?",
-            params![super::routes::GROUPS_MATCH_RULE_KEY],
-        )?;
+        schema_info::delete(&tx, super::routes::GROUPS_MATCH_RULE_KEY)?;
         // No signature is left, so whatever is stored next is built by the
         // matcher in force.
         super::routes::stamp_signatures_matcher_revision(&tx)?;
@@ -3752,9 +3729,7 @@ impl PersistentEngine {
         for (state, ids) in by_state {
             let state = i64::from(state);
             for chunk in ids.chunks(CHUNK) {
-                let placeholders = std::iter::repeat_n("?", chunk.len())
-                    .collect::<Vec<_>>()
-                    .join(",");
+                let placeholders = question_marks(chunk.len());
                 let version = if state == i64::from(ELEVATION_STATE_UNAVAILABLE)
                     || state == i64::from(ELEVATION_STATE_WITHHELD)
                 {
@@ -3795,9 +3770,7 @@ impl PersistentEngine {
         for (source, ids) in by_source {
             let source = i64::from(source);
             for chunk in ids.chunks(CHUNK) {
-                let placeholders = std::iter::repeat_n("?", chunk.len())
-                    .collect::<Vec<_>>()
-                    .join(",");
+                let placeholders = question_marks(chunk.len());
                 let sql = format!(
                     "UPDATE gps_tracks SET elevation_source = ? WHERE activity_id IN ({})",
                     placeholders
@@ -3892,9 +3865,7 @@ impl PersistentEngine {
         const CHUNK: usize = 500;
         let mut retired = 0u64;
         for chunk in ids.chunks(CHUNK) {
-            let placeholders = std::iter::repeat_n("?", chunk.len())
-                .collect::<Vec<_>>()
-                .join(",");
+            let placeholders = question_marks(chunk.len());
             let ids_params: Vec<&dyn rusqlite::ToSql> =
                 chunk.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
 
@@ -4847,7 +4818,7 @@ impl PersistentEngine {
         if activity_ids.is_empty() {
             return out;
         }
-        let placeholders = vec!["?"; activity_ids.len()].join(",");
+        let placeholders = question_marks(activity_ids.len());
         let sql = format!(
             "SELECT activity_id, intervals_id FROM activity_bodies
              WHERE intervals_id IS NOT NULL AND activity_id IN ({placeholders})
@@ -4971,7 +4942,7 @@ impl PersistentEngine {
         if intervals_ids.is_empty() {
             return Ok(out);
         }
-        let placeholders = vec!["?"; intervals_ids.len()].join(",");
+        let placeholders = question_marks(intervals_ids.len());
         // A trackless row keeps its id on its body. The tracked rows come
         // second, so a server id both claim resolves to the row with the track.
         let sql = format!(
@@ -5154,27 +5125,10 @@ impl PersistentEngine {
     // ========================================================================
 
     /// Read one stored track, distinguishing an activity with no row from a row
-    /// that did not decode. The single decode path: every other track read on
-    /// this engine goes through here.
+    /// that did not decode. The engine's entry to [`codec::read_track`], the
+    /// one decode path every single-track read shares.
     pub fn track(&self, activity_id: &str) -> TrackRead {
-        let mut stmt = match self
-            .db
-            .prepare("SELECT track_data FROM gps_tracks WHERE activity_id = ?")
-        {
-            Ok(s) => s,
-            Err(e) => return TrackRead::Corrupt(format!("track query failed: {}", e)),
-        };
-        let blob: Option<Vec<u8>> = match stmt
-            .query_row(params![activity_id], |row| row.get::<_, Vec<u8>>(0))
-            .optional()
-        {
-            Ok(b) => b,
-            Err(e) => return TrackRead::Corrupt(format!("track row read failed: {}", e)),
-        };
-        match blob {
-            Some(bytes) => TrackRead::from_blob(&bytes),
-            None => TrackRead::Missing,
-        }
+        codec::read_track(&self.db, activity_id)
     }
 
     /// Read many tracks in one query per chunk. Ids with no row come back as
@@ -5191,9 +5145,7 @@ impl PersistentEngine {
         let mut decoded: HashMap<String, TrackRead> = HashMap::with_capacity(ids.len());
 
         for chunk in ids.chunks(CHUNK) {
-            let placeholders = std::iter::repeat_n("?", chunk.len())
-                .collect::<Vec<_>>()
-                .join(",");
+            let placeholders = question_marks(chunk.len());
             let sql = format!(
                 "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({})",
                 placeholders
@@ -5293,7 +5245,7 @@ impl PersistentEngine {
         if activity_ids.is_empty() {
             return std::collections::HashMap::new();
         }
-        let placeholders = vec!["?"; activity_ids.len()].join(",");
+        let placeholders = question_marks(activity_ids.len());
         let sql = format!(
             "SELECT activity_id, point_count FROM gps_tracks WHERE activity_id IN ({placeholders})"
         );
@@ -5316,13 +5268,7 @@ impl PersistentEngine {
     /// rather than points, so it must not go through a decode that would erase
     /// which container the row is in.
     fn load_gps_track_blob(&self, activity_id: &str) -> Option<Vec<u8>> {
-        self.db
-            .query_row(
-                "SELECT track_data FROM gps_tracks WHERE activity_id = ?",
-                params![activity_id],
-                |row| row.get::<_, Vec<u8>>(0),
-            )
-            .ok()
+        codec::track_blob(&self.db, activity_id).ok().flatten()
     }
 
     pub(super) fn load_gps_track_from_db(&self, activity_id: &str) -> Option<Vec<GpsPoint>> {

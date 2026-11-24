@@ -47,7 +47,7 @@ const DIRECTION_LABEL_KEYS: Record<string, string> = {
   reverse: 'sections.correlationDirectionReverse',
 };
 
-export interface SectionCorrelationCardProps {
+interface SectionCorrelationCardProps {
   correlations: FfiSectionCorrelation[];
   /** Attempts with a value the engine required before it reported a coefficient. */
   floor: number;

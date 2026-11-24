@@ -10,7 +10,6 @@ export {
   DateRangeSummary,
   DebugInfoPanel,
   DebugWarningBanner,
-  DetailFallback,
   GroupingParamPanel,
   GroupingPreviewMap,
   type GroupingRoute,
@@ -23,107 +22,53 @@ export {
   PreviewSectionPopover,
   RetiredPairCard,
   type RetiredLayerProps,
-  RouteDetailDebugPanel,
   DetailMapHost,
-  RouteDetailMap,
-  SectionDetailMap,
   SectionMapView,
-  routeDetailScreenStyles,
   RoutePerformanceSection,
   RoutesList,
   SectionsList,
   SectionSwipeAction,
   sectionSwipeAction,
   sectionSwipeKind,
-  type SectionSwipeKind,
-  SectionTrimOverlay,
-  SectionTrimToolBar,
-  SportSelectButton,
   SyncDebugSection,
   TodayBanner,
 } from './components';
 export { type RoutesSortOption } from './components/RoutesList';
-export {
-  SectionOverflowMenu,
-  SectionContentArea,
-  SectionDebugPanel,
-  SectionDetailLinks,
-  sectionDetailStyles,
-  SectionEfficiencyCard,
-  SectionHeader,
-  sectionHeroName,
-  SectionHistoryPanel,
-  SectionLapList,
-  SectionPerformanceSection,
-  sectionStreamsState,
-  SectionStreamsNotice,
-} from './components/section';
 export { SectionSparkline } from './components/section/SectionSparkline';
 export { type SectionsSortOption } from './components/SectionsList';
-export { RANGE_DAYS, type SectionTimeRange } from './constants';
 export {
   isElevationHold,
   type SectionPerformanceRecord,
   useCustomSections,
   useCutoverHeld,
   useDetectionHold,
-  useExcludedActivities,
-  useLedgerActivityNames,
   useRouteGroupingPreview,
-  useRouteMapSignatures,
   useRouteGroups,
   useRouteMatch,
-  useRoutePerformances,
-  useRouteReference,
-  useRouteRenaming,
   useArchivedRetiredCount,
   useRetiredMapData,
   useRetiredSectionCount,
   useRoutesScreenData,
-  useSectionActions,
-  useSectionChartData,
-  useSectionChartDataEnriched,
-  useSectionDataRefresh,
   useSectionMatches,
-  useSectionMergeFlow,
   useSectionPerformances,
   useSectionRescan,
-  useSectionUIState,
 } from './hooks';
 export { useCutoverSummary, type CutoverSummary } from './hooks/useCutoverSummary';
 export { useElevationBackfill } from './hooks/useElevationBackfill';
-export { useGroupSummaries, useRepresentativeRoute, useSectionSummaries } from './hooks/useEngine';
+export { useGroupSummaries, useSectionSummaries } from './hooks/useEngine';
 export { useMergeSections } from './hooks/useMergeSections';
 export { type NamedCorridor, useNamedCorridors } from './hooks/useNamedCorridors';
 export { usePreviewCentres } from './hooks/usePreviewCentres';
 export { usePreviewCurrentSections } from './hooks/usePreviewCurrentSections';
 export { usePreviewDetect } from './hooks/usePreviewDetect';
-export { useRouteDetailData } from './hooks/useRouteDetailData';
 export { DetailCardStack } from './screens/DetailCardStack';
-export { RouteDetailCard } from './screens/RouteDetailCard';
-export { SectionDetailCard } from './screens/SectionDetailCard';
 export { SectionHistoryCard } from './screens/SectionHistoryCard';
 export { SectionLapsCard } from './screens/SectionLapsCard';
 export { useRouteReoptimisation } from './hooks/useRouteReoptimisation';
 export { useRouteSettingsFollowsEngine } from './hooks/useRouteSettingsFollowsEngine';
-export {
-  useSectionDetailData,
-  useSectionDetailPerformance,
-  useRouteDetailPerformance,
-} from './hooks/useSectionDetailData';
 export { useSectionDisplayNames } from './hooks/useSectionDisplayNames';
-export { hasPartialExclusion, useSectionLaps } from './hooks/useSectionLaps';
 export { useSectionLedger } from './hooks/useSectionLedger';
 export { type SectionMatch } from './hooks/useSectionMatches';
-export {
-  EMPTY_PERFORMANCE_VIEW,
-  toPerformanceRecord,
-  toPerformanceView,
-  useSectionTimeStreamSync,
-  withoutRecordMarks,
-} from './hooks/useSectionPerformances';
-export { useSectionTrim } from './hooks/useSectionTrim';
-export { buildFinalRouteGroup, buildRouteGroupBase } from './lib/buildRouteGroup';
 export { getPhaseDisplayKey } from './lib/detectionProgress';
 export { routesBannerOf } from './lib/routesBanner';
 export { CUTOVER_FAILURE_KEYS } from './lib/cutoverPhaseKeys';
@@ -152,27 +97,18 @@ export {
   groupingParamsOf,
   paintPreview,
 } from './lib/groupingParams';
-export { scopeGroupingDiff, type ScopeArea } from './lib/groupingAreaScope';
+export { scopeGroupingDiff } from './lib/groupingAreaScope';
 export { previewNewNumber } from './lib/previewNewNumber';
 export { previewAreaBounds } from './lib/previewMapCamera';
 export {
   buildRetiredLines,
-  busiestCentre,
   centreHoldingRetired,
   describeRetiredSelection,
-  type RetiredLines,
 } from './lib/retiredLineCollection';
 export { previewRefusalKey } from './lib/previewRefusal';
 export { ROW_PREVIEW_HEIGHT, ROW_PREVIEW_WIDTH } from './lib/rowLayout';
-export { informSectionWriteRefused } from './lib/sectionWriteRefusal';
-export {
-  preferSectionWithUndo,
-  removeSectionWithUndo,
-  restoreSection,
-} from './lib/sectionVisibility';
+export { preferSectionWithUndo, removeSectionWithUndo } from './lib/sectionVisibility';
 export { rescanRefusalKey } from './lib/rescanRefusal';
-export { routeHeadline } from './lib/routeHeadline';
-export { elevationStat, sectionGradeStats, scopeLabels } from './lib/heroStats';
 export { directionColour } from './lib/directionColour';
 export { PLOT_LABEL_KEYS } from './lib/performancePanel';
 export {
@@ -184,9 +120,8 @@ export {
   sectionSortFor,
 } from './lib/routesScreenQuery';
 export { getAllSectionDisplayNames } from './lib/sectionDisplayNames';
-export { FIXED_LABEL_LEDGER_KINDS, ledgerDate } from './lib/sectionLedger';
+export { ledgerDate } from './lib/sectionLedger';
 export { changeCopy } from './lib/sectionChangeCopy';
-export { isSportOffered } from './lib/sectionSport';
 export { loadTrackFetchNotice } from './lib/trackFetchNotice';
 export { useEngineStatus } from './stores/EngineStatusStore';
 export {
@@ -194,6 +129,4 @@ export {
   isRouteMatchingEnabled,
   useRouteSettings,
 } from './stores/RouteSettingsStore';
-export { toActivityType } from './types';
 export type { SectionDeltaLine } from './lib/deltaLayout';
-export type { ChartDirection } from './lib/scatterData';

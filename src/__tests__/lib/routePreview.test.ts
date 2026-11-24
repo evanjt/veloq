@@ -1,4 +1,5 @@
-import { projectRouteToBox } from '@/shared/geo/routePreview';
+import { isPositioned, projectRouteToBox } from '@/shared/geo/routePreview';
+import { normaliseTrackPoints } from '@/shared/ui/TrackPreview';
 
 describe('projectRouteToBox', () => {
   const coords = [
@@ -64,5 +65,37 @@ describe('projectRouteToBox', () => {
       expect(p.x).toBeGreaterThanOrEqual(2 - 0.001);
       expect(p.x).toBeLessThanOrEqual(46 + 0.001);
     }
+  });
+});
+
+describe('isPositioned', () => {
+  it.each([
+    [46.5, 6.6, true],
+    [-33.9, 151.2, true],
+    [0, 6.6, true],
+    [46.5, 0, true],
+    [0, 0, false],
+    [Number.NaN, 6.6, false],
+    [46.5, Number.POSITIVE_INFINITY, false],
+    [91, 6.6, false],
+    [-91, 6.6, false],
+    [46.5, 181, false],
+    [46.5, -181, false],
+  ])('reads (%p, %p) as positioned: %p', (latitude, longitude, expected) => {
+    expect(isPositioned(latitude, longitude)).toBe(expected);
+  });
+});
+
+describe('normaliseTrackPoints', () => {
+  it('drops the origin placeholder and out-of-range points with the non-finite ones', () => {
+    const points = [
+      { lat: 46.5, lng: 6.6 },
+      { lat: 0, lng: 0 },
+      { lat: 95, lng: 6.6 },
+      { lat: Number.NaN, lng: 6.6 },
+      { lat: 46.52, lng: 6.62 },
+    ];
+
+    expect(normaliseTrackPoints(points)).toHaveLength(2);
   });
 });

@@ -16,15 +16,17 @@
 
 import type { LatLngShort } from '@/shared/geo/distance';
 
-/** Half-width of the cluster search, in degrees. About 200 km of latitude. */
+/** Width of one search cell, in degrees. About 200 km of latitude. */
 export const CLUSTER_RADIUS_DEG = 2;
 
 /**
  * Indices of the activities in the densest cluster, in input order.
  *
  * Every index when the whole library already fits one cluster. Otherwise the
- * fullest cell and the ring around it, which is the same region the pairwise
- * count was looking for.
+ * 3 by 3 block of cells around the occupied cell whose block holds the most
+ * activities. That block is six degrees across and aligned to the cell grid, so
+ * it is not the plus or minus 2 degree box the pairwise count searched: that box
+ * was four degrees across and centred on an activity.
  */
 export function densestClusterIndices(centres: LatLngShort[]): number[] {
   if (centres.length === 0) return [];

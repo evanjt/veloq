@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { StubVerdict, SwapState } from 'veloqrs';
+import { FfiStubVerdict, FfiSwapState } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
 import { navigateTo } from '@/shared/app/navigation';
@@ -16,7 +16,7 @@ import { useGarminSwap } from '../hooks/useGarminSwap';
 
 interface Props {
   activityId: string;
-  verdict: StubVerdict;
+  verdict: FfiStubVerdict;
 }
 
 /**
@@ -28,15 +28,15 @@ interface Props {
  */
 export function ActivityStubAction({ activityId, verdict }: Props) {
   const on = useExperimental('garminUpdate');
-  if (!on || verdict === StubVerdict.NotStub) return null;
-  if (verdict === StubVerdict.GarminUpdatable) return <UpdateLine activityId={activityId} />;
-  return <MutedLine activityId={activityId} linked={verdict === StubVerdict.NoKey} />;
+  if (!on || verdict === FfiStubVerdict.NotStub) return null;
+  if (verdict === FfiStubVerdict.GarminUpdatable) return <UpdateLine activityId={activityId} />;
+  return <MutedLine activityId={activityId} linked={verdict === FfiStubVerdict.NoKey} />;
 }
 
 function UpdateLine({ activityId }: { activityId: string }) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const { busy, notice, swap } = useGarminSwap(activityId, SwapState.Available);
+  const { busy, notice, swap } = useGarminSwap(activityId, FfiSwapState.Available);
   const { askToSwap, isUpgrading } = useAskGarminSwap(swap);
   const palette = isDark ? darkColors : colors;
 

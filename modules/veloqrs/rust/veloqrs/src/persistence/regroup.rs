@@ -5,6 +5,7 @@
 //! A detection run regroups through the same compute and save, and one slot
 //! keeps a single regroup in flight between that run and the worker here.
 
+use crate::poison::Recover;
 use rusqlite::{Connection, Result as SqlResult};
 use std::collections::{BTreeSet, HashMap, HashSet};
 #[cfg(test)]
@@ -371,18 +372,12 @@ fn measure_group_matches(
         &held,
         match_config,
         |id| {
-            let Some(read) = read_piece(|| {
-                conn.query_row(
-                    "SELECT track_data FROM gps_tracks WHERE activity_id = ?",
-                    [id],
-                    |row| row.get::<_, Vec<u8>>(0),
-                )
-            }) else {
+            let Some(read) = read_piece(|| super::codec::read_track(conn, id)) else {
                 refused.set(true);
                 return None;
             };
-            match read.map(|blob| TrackRead::from_blob(&blob)) {
-                Ok(TrackRead::Present(points)) => Some(points),
+            match read {
+                TrackRead::Present(points) => Some(points),
                 _ => None,
             }
         },
@@ -505,7 +500,7 @@ pub(crate) struct RegroupClaim(String);
 
 /// Take the library's slot, or `None` while another regroup holds it.
 pub(crate) fn claim_regroup(db_path: &str) -> Option<RegroupClaim> {
-    let mut held = REGROUP_SLOT.0.lock().unwrap_or_else(|e| e.into_inner());
+    let mut held = REGROUP_SLOT.0.lock_recover();
     if !held.insert(db_path.to_owned()) {
         return None;
     }
@@ -516,20 +511,12 @@ pub(crate) fn claim_regroup(db_path: &str) -> Option<RegroupClaim> {
 /// detection run, which is what a screen reads to say routes are being
 /// computed.
 pub(crate) fn regroup_in_flight(db_path: &str) -> bool {
-    REGROUP_SLOT
-        .0
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .contains(db_path)
+    REGROUP_SLOT.0.lock_recover().contains(db_path)
 }
 
 impl Drop for RegroupClaim {
     fn drop(&mut self) {
-        REGROUP_SLOT
-            .0
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(&self.0);
+        REGROUP_SLOT.0.lock_recover().remove(&self.0);
         REGROUP_SLOT.1.notify_all();
     }
 }
@@ -537,7 +524,7 @@ impl Drop for RegroupClaim {
 /// Wait until no regroup is in flight on the library, and say whether that
 /// happened within `limit`.
 pub(crate) fn wait_for_regroup(db_path: &str, limit: Duration) -> bool {
-    let held = REGROUP_SLOT.0.lock().unwrap_or_else(|e| e.into_inner());
+    let held = REGROUP_SLOT.0.lock_recover();
     let (_held, wait) = REGROUP_SLOT
         .1
         .wait_timeout_while(held, limit, |held| held.contains(db_path))
@@ -549,7 +536,7 @@ pub(crate) fn wait_for_regroup(db_path: &str, limit: Duration) -> bool {
 /// no path.
 #[cfg(test)]
 pub(crate) fn wait_for_every_regroup(limit: Duration) -> bool {
-    let held = REGROUP_SLOT.0.lock().unwrap_or_else(|e| e.into_inner());
+    let held = REGROUP_SLOT.0.lock_recover();
     let (_held, wait) = REGROUP_SLOT
         .1
         .wait_timeout_while(held, limit, |held| !held.is_empty())

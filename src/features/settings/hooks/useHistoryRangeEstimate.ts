@@ -2,9 +2,9 @@ import { useMemo } from 'react';
 import { settings } from 'veloqrs';
 
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 
-export interface HistoryRangeEstimate {
+interface HistoryRangeEstimate {
   /** Activities the widening would download that the library does not hold. */
   count: number;
   /** True when the engine only knew per-year counts and prorated them. */

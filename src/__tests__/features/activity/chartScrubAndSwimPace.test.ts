@@ -3,7 +3,7 @@
  * nulls, an imperial swimmer reads pace per 100 yd, and a run stops at lights.
  * Expected behaviour: the scrub chip reads the absent mark over a missing sample for every
  * metric, pace included, rather than NaN or a 0:00 pace nobody ran, and swim
- * pace per 100 yd agrees with `formatSwimPace` for the same speed. The idle
+ * pace per 100 yd is the speed's pace in yards. The idle
  * lane readout formats as the scrub does, and its pace is the pace of the mean moving
  * speed, so a stop neither reads as a faster pace nor stretches the axis.
  */
@@ -21,13 +21,7 @@ import {
   seriesAverage,
 } from '@/features/stats/lib/combinedPlotData';
 import { paceMinutesFromSample, paceMinutesFromSpeed } from '@/shared/math/kinematics';
-import {
-  formatPaceCompact,
-  formatSpeed,
-  formatSwimPace,
-  formatTemperature,
-  YARDS_100_IN_METRES,
-} from '@/shared/format/format';
+import { formatSpeed, formatTemperature, YARDS_100_IN_METRES } from '@/shared/format/format';
 import { stoppedSpeedMs } from '@/shared/recording';
 import { streamsFromArrays as streamsOf } from '@/features/activity/lib/streams';
 import { ABSENT } from '@/shared/format/absent';
@@ -131,18 +125,23 @@ describe('swim pace per 100 yd', () => {
     expect(formatScrubValue(swim, 2.0, false)).toBe('1:50');
   });
 
-  it('agrees with formatSwimPace for the same speed', () => {
-    for (const speed of [0.6, 0.8333, 1.0, 1.25, 1.6]) {
-      const perHundredMetres =
-        swim.getStream?.(streamsOf({ velocity_smooth: [speed] }))?.[0] ?? NaN;
-      expect(formatScrubValue(swim, perHundredMetres, false)).toBe(formatSwimPace(speed, false));
-      expect(formatScrubValue(swim, perHundredMetres, true)).toBe(formatSwimPace(speed, true));
-    }
+  it.each([
+    [0.6, '2:47', '2:32'],
+    [0.8333, '2:00', '1:50'],
+    [1.0, '1:40', '1:31'],
+    [1.25, '1:20', '1:13'],
+    [1.6, '1:03', '0:57'],
+  ])('reads %d m/s as %s per 100 m and %s per 100 yd', (speed, metric, imperial) => {
+    const perHundredMetres = swim.getStream?.(streamsOf({ velocity_smooth: [speed] }))?.[0] ?? NaN;
+    expect(formatScrubValue(swim, perHundredMetres, true)).toBe(metric);
+    expect(formatScrubValue(swim, perHundredMetres, false)).toBe(imperial);
   });
 
-  vaultIt('shares one yards constant with formatSwimPace', () => {
+  vaultIt('shares one yards constant with the swim pace chart', () => {
     expect(YARDS_100_IN_METRES).toBe(91.44);
-    expect(formatSwimPace(YARDS_100_IN_METRES / 110, false)).toBe('1:50');
+    const perHundredMetres =
+      swim.getStream?.(streamsOf({ velocity_smooth: [YARDS_100_IN_METRES / 110] }))?.[0] ?? NaN;
+    expect(formatScrubValue(swim, perHundredMetres, false)).toBe('1:50');
   });
 
   vaultIt('labels the swim pace per 100 and leaves other sports on per km', () => {
@@ -153,7 +152,13 @@ describe('swim pace per 100 yd', () => {
 });
 
 describe('the chart converts units as the shared formatters do', () => {
-  it.each([1.2, 2.5, 3.0, 4.4, 6.1])('agrees at %d m/s in both unit systems', (speed) => {
+  it.each([
+    [1.2, '13:53', '22:21'],
+    [2.5, '6:40', '10:44'],
+    [3.0, '5:33', '8:56'],
+    [4.4, '3:47', '6:06'],
+    [6.1, '2:44', '4:24'],
+  ])('agrees at %d m/s in both unit systems', (speed, metricPace, imperialPace) => {
     const streams = streamsOf({ velocity_smooth: [speed] });
     for (const isMetric of [true, false]) {
       const kph = CHART_CONFIGS.speed.getStream?.(streams)?.[0];
@@ -162,7 +167,7 @@ describe('the chart converts units as the shared formatters do', () => {
       ).toBe(formatSpeed(speed, isMetric));
       const pace = CHART_CONFIGS.pace.getStream?.(streams)?.[0];
       expect(formatScrubValue(CHART_CONFIGS.pace, pace, isMetric)).toBe(
-        formatPaceCompact(speed, isMetric)
+        isMetric ? metricPace : imperialPace
       );
     }
   });
@@ -229,7 +234,7 @@ describe('the idle pace readout over a run with stops', () => {
   ])('reads the moving pace and speed when %s', (_name, streams) => {
     for (const isMetric of [true, false]) {
       expect(idleChip(CHART_CONFIGS, streams, 'pace', isMetric)?.value).toBe(
-        formatPaceCompact(3, isMetric)
+        isMetric ? '5:33' : '8:56'
       );
       expect(
         `${idleChip(CHART_CONFIGS, streams, 'speed', isMetric)?.value} ${isMetric ? 'km/h' : 'mph'}`
@@ -239,7 +244,7 @@ describe('the idle pace readout over a run with stops', () => {
 
   it('is the pace of the mean speed, not the mean of the paces', () => {
     const streams = streamsOf({ velocity_smooth: [2, 4] });
-    expect(idleChip(CHART_CONFIGS, streams, 'pace')?.value).toBe(formatPaceCompact(3, true));
+    expect(idleChip(CHART_CONFIGS, streams, 'pace')?.value).toBe('5:33');
   });
 
   it('reads the moving grade adjusted pace', () => {
@@ -250,9 +255,8 @@ describe('the idle pace readout over a run with stops', () => {
   it('reads a swim pace per 100 of the moving speed', () => {
     const swim = chartConfigsFor('Swim');
     const streams = streamsOf({ velocity_smooth: [1, 1, 0, 0.05] });
-    for (const isMetric of [true, false]) {
-      expect(idleChip(swim, streams, 'pace', isMetric)?.value).toBe(formatSwimPace(1, isMetric));
-    }
+    expect(idleChip(swim, streams, 'pace', true)?.value).toBe('1:40');
+    expect(idleChip(swim, streams, 'pace', false)?.value).toBe('1:31');
   });
 
   it('reads the absent mark for a pace with no moving sample', () => {
@@ -265,6 +269,14 @@ describe('the idle pace readout over a run with stops', () => {
     expect(seriesAverage(CHART_CONFIGS.pace, pace)).toBeCloseTo(paceMinutesFromSpeed(3), 9);
     expect(seriesAverage(CHART_CONFIGS.heartrate, [140, NaN, 160])).toBe(150);
     expect(seriesAverage(CHART_CONFIGS.pace, [])).toBeNull();
+  });
+
+  it.each([
+    ['stopped', stopped],
+    ['crawling', crawling],
+  ])('draws the average speed line over the moving samples when %s', (_name, streams) => {
+    const speed = CHART_CONFIGS.speed.getStream?.(streams) ?? [];
+    expect(seriesAverage(CHART_CONFIGS.speed, speed)).toBeCloseTo(3 * 3.6, 9);
   });
 
   it('leaves stops and crawls out of the pace axis', () => {

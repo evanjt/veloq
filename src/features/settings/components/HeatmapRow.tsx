@@ -14,7 +14,6 @@ import { formatFileSize } from '@/shared/format/format';
 import {
   clearHeatmapTileSets,
   HEATMAP_TILES_DIR,
-  LEGACY_HEATMAP_TILES_DIR,
   readHeatmapTilesCacheSize,
   useHeatmapPreference,
 } from '@/features/maps';
@@ -26,7 +25,7 @@ export function HeatmapRow() {
   const { t } = useTranslation();
   const enabled = useHeatmapPreference((s) => s.enabled);
   const setEnabled = useHeatmapPreference((s) => s.setEnabled);
-  const [size, setSize] = useState(0);
+  const [size, setSize] = useState<number | null>(null);
 
   const refreshSize = useCallback(() => {
     readHeatmapTilesCacheSize().then(setSize);
@@ -49,7 +48,7 @@ export function HeatmapRow() {
       // wants. The clear itself waits out a pass that is still drawing.
       heatmap.disableHeatmapTiles();
       heatmap.cancelHeatmapWork();
-      if (!(await clearHeatmapTileSets([HEATMAP_TILES_DIR, LEGACY_HEATMAP_TILES_DIR]))) {
+      if (!(await clearHeatmapTileSets([HEATMAP_TILES_DIR]))) {
         inform({ title: t('alerts.clearFailedTitle'), message: t('alerts.failedToClear') });
       }
       refreshSize();
@@ -63,7 +62,7 @@ export function HeatmapRow() {
         icon="map-legend"
         title={t('settings.heatmapGeneration', 'Heatmap')}
         description={
-          enabled && size > 0
+          enabled && size !== null && size > 0
             ? t('settings.heatmapStorageUsed', {
                 defaultValue: 'Using {{size}} of device storage',
                 size: formatFileSize(size),

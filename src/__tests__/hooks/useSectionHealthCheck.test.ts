@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { StartOutcome } from 'veloqrs';
+import { FfiStartOutcome } from 'veloqrs';
 
 import {
   LEGACY_SECTION_HEALTH_CHECK_KEY,
@@ -25,7 +25,7 @@ const mockedGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 const settings = new Map<string, string>();
 
-function engineWith(outcome: StartOutcome, cutoverHeld = false) {
+function engineWith(outcome: FfiStartOutcome, cutoverHeld = false) {
   return {
     getSetting: jest.fn((key: string) => settings.get(key)),
     setSetting: jest.fn((key: string, value: string) => void settings.set(key, value)),
@@ -44,13 +44,13 @@ describe('section health check redetect', () => {
   });
 
   it.each([
-    StartOutcome.Held,
-    StartOutcome.Busy,
-    StartOutcome.NotReady,
-    StartOutcome.NotConfigured,
-    StartOutcome.NotOwed,
-    StartOutcome.Failed,
-    StartOutcome.Offline,
+    FfiStartOutcome.Held,
+    FfiStartOutcome.Busy,
+    FfiStartOutcome.NotReady,
+    FfiStartOutcome.NotConfigured,
+    FfiStartOutcome.NotOwed,
+    FfiStartOutcome.Failed,
+    FfiStartOutcome.Offline,
   ])('retries on a later launch after refusal %s', async (refusal) => {
     const refusedEngine = engineWith(refusal);
     mockedGetEngine.mockReturnValue(refusedEngine as never);
@@ -61,7 +61,7 @@ describe('section health check redetect', () => {
     expect(settings.get(SECTION_HEALTH_CHECK_SETTING)).toBeUndefined();
     await firstLaunch.unmount();
 
-    const acceptedEngine = engineWith(StartOutcome.Started);
+    const acceptedEngine = engineWith(FfiStartOutcome.Started);
     mockedGetEngine.mockReturnValue(acceptedEngine as never);
     await renderHook(() => useSectionHealthCheck(true));
     await waitFor(() => expect(acceptedEngine.forceRedetectSections).toHaveBeenCalledTimes(1));
@@ -69,7 +69,7 @@ describe('section health check redetect', () => {
   });
 
   it('runs again on a library whose engine stamp a wipe removed', async () => {
-    const engine = engineWith(StartOutcome.Started);
+    const engine = engineWith(FfiStartOutcome.Started);
     mockedGetEngine.mockReturnValue(engine as never);
 
     const first = await renderHook(() => useSectionHealthCheck(true));
@@ -84,7 +84,7 @@ describe('section health check redetect', () => {
 
   vaultIt('does not run again while the engine stamp stands', async () => {
     settings.set(SECTION_HEALTH_CHECK_SETTING, '1');
-    const engine = engineWith(StartOutcome.Started);
+    const engine = engineWith(FfiStartOutcome.Started);
     mockedGetEngine.mockReturnValue(engine as never);
 
     await renderHook(() => useSectionHealthCheck(true));
@@ -94,7 +94,7 @@ describe('section health check redetect', () => {
   });
 
   it('leaves the empty catalogue to a cutover that holds detection, and owes the check', async () => {
-    const engine = engineWith(StartOutcome.Started, true);
+    const engine = engineWith(FfiStartOutcome.Started, true);
     mockedGetEngine.mockReturnValue(engine as never);
 
     await renderHook(() => useSectionHealthCheck(true));
@@ -107,7 +107,7 @@ describe('section health check redetect', () => {
 
   it('carries a spent AsyncStorage stamp into the engine once and removes it', async () => {
     await AsyncStorage.setItem(LEGACY_SECTION_HEALTH_CHECK_KEY, 'done');
-    const engine = engineWith(StartOutcome.Started);
+    const engine = engineWith(FfiStartOutcome.Started);
     mockedGetEngine.mockReturnValue(engine as never);
 
     await renderHook(() => useSectionHealthCheck(true));

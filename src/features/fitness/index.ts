@@ -1,7 +1,4 @@
 export {
-  FitnessChart,
-  FormZoneChart,
-  ActivityDotsChart,
   BestEffortRow,
   BestEffortRowsSkeleton,
   BEST_EFFORT_ROW_COUNT,
@@ -22,33 +19,23 @@ export {
 } from './components/sections';
 
 export {
-  useZoneDistribution,
-  useAthleteSummary,
   useFitnessRefresh,
   useFitnessComputations,
   useFitnessScreenData,
   useFitnessWindow,
   useValueWhileActive,
-  type WeeklySummaryData,
 } from './hooks';
 export { getISOWeekNumber } from './lib/weekWindow';
 
 export type { FtpSeriesPoint } from './lib/ftpTrendView';
 
 export {
-  getFormZone,
-  formZoneFromLoads,
-  formatForm,
   bestEffortCheckpointLabel,
   formatEffortValue,
-  formChartSeries,
-  type FormChartPoint,
-  FORM_ZONE_COLORS,
-  FORM_ZONE_COLORS_DARK,
   formZoneColor,
   formZoneBandColor,
   formZoneLabel,
-  FORM_ZONE_BOUNDARIES,
+  formZoneBands,
   type FormZone,
 } from './lib';
 
@@ -58,4 +45,3 @@ export {
   PRIMARY_SPORT_FAMILY,
   type PrimarySport,
 } from './stores';
-export { resolveThresholdPace } from './lib/thresholdPace';

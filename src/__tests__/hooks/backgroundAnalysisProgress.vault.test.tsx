@@ -12,7 +12,7 @@ import { act, render } from '@testing-library/react-native';
 import { SyncRangePanel } from '@/features/settings/components/SyncRangePanel';
 import { getEngine } from '@/shared/native/engine';
 import { TRACK_STAGE_REREAD_MS } from '@/shared/native/useSyncStatus';
-import { SyncState, TrackStep, type SyncStatus, type TrackStage } from 'veloqrs';
+import { SyncState, FfiTrackStep, type SyncStatus, type FfiTrackStage } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -36,14 +36,14 @@ jest.mock('@/features/settings/hooks/useHistoryRangeEstimate', () => ({
   useHistoryRangeEstimate: () => undefined,
 }));
 
-const analysing: TrackStage = {
-  step: TrackStep.Analysing,
+const analysing: FfiTrackStage = {
+  step: FfiTrackStep.Analysing,
   completed: 3,
   total: 8,
   percent: 40,
 };
 
-let tracks: TrackStage | undefined;
+let tracks: FfiTrackStage | undefined;
 const listeners = new Map<string, Set<() => void>>();
 
 function settledSync(): SyncStatus {

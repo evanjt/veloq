@@ -1,7 +1,7 @@
 import { layout, spacing } from '@/theme';
 
 /** The space the tour card leaves either side of it in the window. */
-export const TOUR_CARD_MARGIN = spacing.xl;
+const TOUR_CARD_MARGIN = spacing.xl;
 
 /**
  * The tour card's width, which every slide in it shares: the window less its margin on a phone,
@@ -48,7 +48,7 @@ export function tourPictureScale(naturalHeight: number, space: number): number {
  */
 export const TOUR_PICTURE_FLOOR = 0.5;
 
-export interface TourSlideLayout {
+interface TourSlideLayout {
   pictureScale: number;
   scrolls: boolean;
   /** The height the scrolling title and body may take; undefined when they do not scroll. */
@@ -83,7 +83,7 @@ export function tourSlideLayout(
 export const TOUR_FOOTER_GAP = spacing.sm;
 
 /** The natural widths of the tour's footer buttons; zero for one the slide does not show. */
-export interface TourFooterWidths {
+interface TourFooterWidths {
   skip: number;
   showMe: number;
   next: number;

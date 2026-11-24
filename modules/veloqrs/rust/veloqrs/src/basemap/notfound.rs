@@ -13,6 +13,7 @@
 //! Only 404 is remembered. A 5xx or a timeout is the host having a bad minute
 //! and must be asked again.
 
+use crate::poison::Recover;
 use std::collections::{HashMap, HashSet};
 use std::sync::{LazyLock, Mutex};
 
@@ -30,7 +31,7 @@ static REFUSED: LazyLock<Mutex<HashMap<String, HashSet<TileKey>>>> =
 
 /// Remember that this source's host answered 404 for this tile.
 pub(crate) fn remember_refused(source: &str, z: u8, x: u32, y: u32) {
-    let mut refused = REFUSED.lock().unwrap_or_else(|e| e.into_inner());
+    let mut refused = REFUSED.lock_recover();
     let tiles = refused.entry(source.to_string()).or_default();
     if tiles.len() < PER_SOURCE_CAP {
         tiles.insert((z, x, y));
@@ -39,7 +40,7 @@ pub(crate) fn remember_refused(source: &str, z: u8, x: u32, y: u32) {
 
 /// Whether this tile, or any tile it sits under, has already been refused.
 pub(crate) fn is_refused(source: &str, z: u8, x: u32, y: u32) -> bool {
-    let refused = REFUSED.lock().unwrap_or_else(|e| e.into_inner());
+    let refused = REFUSED.lock_recover();
     let Some(tiles) = refused.get(source) else {
         return false;
     };
@@ -52,6 +53,7 @@ pub(crate) fn is_refused(source: &str, z: u8, x: u32, y: u32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::poison::Recover;
 
     /// Each test names its own source, because the table is process-wide and
     /// the suite runs its tests on threads of one process.
@@ -106,7 +108,7 @@ mod tests {
             remember_refused("capped", 14, x, 0);
         }
 
-        let refused = REFUSED.lock().unwrap_or_else(|e| e.into_inner());
+        let refused = REFUSED.lock_recover();
         assert_eq!(refused["capped"].len(), PER_SOURCE_CAP);
     }
 }

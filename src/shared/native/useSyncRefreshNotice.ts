@@ -1,6 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StartOutcome } from 'veloqrs';
+import { FfiStartOutcome } from 'veloqrs';
 
 import { hideNotice, showNotice } from '@/shared/ui/Notice';
 
@@ -16,18 +16,18 @@ type NoticeKey =
   | 'refresh.notConfigured'
   | 'refresh.failed';
 
-export function syncRefreshNoticeKey(outcome: StartOutcome): NoticeKey | null {
+function syncRefreshNoticeKey(outcome: FfiStartOutcome): NoticeKey | null {
   switch (outcome) {
-    case StartOutcome.Busy:
-    case StartOutcome.Held:
+    case FfiStartOutcome.Busy:
+    case FfiStartOutcome.Held:
       return 'refresh.busy';
-    case StartOutcome.NotReady:
+    case FfiStartOutcome.NotReady:
       return 'refresh.notReady';
-    case StartOutcome.Offline:
+    case FfiStartOutcome.Offline:
       return 'refresh.offline';
-    case StartOutcome.NotConfigured:
+    case FfiStartOutcome.NotConfigured:
       return 'refresh.notConfigured';
-    case StartOutcome.Failed:
+    case FfiStartOutcome.Failed:
       return 'refresh.failed';
     default:
       return null;

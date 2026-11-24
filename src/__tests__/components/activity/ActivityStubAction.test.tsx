@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { configure, fireEvent, render, screen } from '@testing-library/react-native';
-import { StubVerdict } from 'veloqrs';
+import { FfiStubVerdict } from 'veloqrs';
 
 import { ActivityStubAction } from '@/features/activity/components/ActivityStubAction';
 import { navigateTo } from '@/shared/app/navigation';
@@ -41,7 +41,7 @@ jest.mock('@/features/recording', () => ({
 
 const garminState = require('@/shared/native/garminSwap').garminSwapState as jest.Mock;
 
-const draw = (verdict: StubVerdict) =>
+const draw = (verdict: FfiStubVerdict) =>
   render(<ActivityStubAction activityId="a1" verdict={verdict} />);
 
 beforeEach(() => {
@@ -52,7 +52,7 @@ beforeEach(() => {
 });
 
 it('offers the update for a Garmin stub, asks first, and reads no state to draw it', async () => {
-  await draw(StubVerdict.GarminUpdatable);
+  await draw(FfiStubVerdict.GarminUpdatable);
   fireEvent.press(screen.getByText('activity.stubCard.update'));
   await screen.findByTestId('activity-card-a1-stub-update');
   expect(confirmAction).toHaveBeenCalledTimes(1);
@@ -60,26 +60,26 @@ it('offers the update for a Garmin stub, asks first, and reads no state to draw 
 });
 
 vaultIt('points a stub with no key at the connector', async () => {
-  await draw(StubVerdict.NoKey);
+  await draw(FfiStubVerdict.NoKey);
   fireEvent.press(screen.getByText('activity.stubCard.noKey'));
   expect(navigateTo).toHaveBeenCalledWith('/garmin-connector');
   expect(screen.queryByText('activity.stubCard.update')).toBeNull();
 });
 
 vaultIt('draws a plain line with no action for a stub from another source', async () => {
-  await draw(StubVerdict.OtherSource);
+  await draw(FfiStubVerdict.OtherSource);
   expect(screen.getByText('activity.stubCard.otherSource')).toBeTruthy();
   expect(screen.queryByText('activity.stubCard.update')).toBeNull();
   expect(screen.queryByTestId('activity-card-a1-stub-connect')).toBeNull();
 });
 
 vaultIt('draws nothing for a served card', async () => {
-  await draw(StubVerdict.NotStub);
+  await draw(FfiStubVerdict.NotStub);
   expect(screen.toJSON()).toBeNull();
 });
 
 vaultIt('draws nothing while the experimental switch is off', async () => {
   useDebugStore.setState({ experimentalFeatures: {} });
-  await draw(StubVerdict.GarminUpdatable);
+  await draw(FfiStubVerdict.GarminUpdatable);
   expect(screen.toJSON()).toBeNull();
 });

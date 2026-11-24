@@ -141,6 +141,54 @@ fn is_forced(engine: &PersistentEngine, section_id: &str, activity_id: &str) -> 
 const PAST_STRICT: f64 = 300.0;
 const PAST_RELAXED: f64 = 800.0;
 
+fn retire(engine: &mut PersistentEngine, section_id: &str) {
+    let freed = engine
+        .in_write_txn(|e| e.retire_section_to_ledger(section_id, "dissolved", None))
+        .unwrap();
+    engine.finish_retirement(section_id, &freed);
+}
+
+/// Scenario: a ride was attached by hand to a drawn section, and the section
+/// is retired to the ledger and then rolled back.
+/// Expected behaviour: the ride is attached again, at the relaxed bar, and
+/// stays recorded as forced.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_deleted_section_brought_back_keeps_its_forced_ride() {
+    let (mut engine, sid) = engine_with_section(true);
+    add_ride(&mut engine, "wide", ride(PAST_STRICT));
+    assert!(engine.rematch_activity_to_section("wide", &sid).unwrap());
+    assert!(is_forced(&engine, &sid, "wide"));
+
+    retire(&mut engine, &sid);
+    assert!(!is_forced(&engine, &sid, "wide"));
+    let version =
+        crate::persistence::sections::history::pooled::restorable_version_of(&engine.db, &sid)
+            .expect("the retired section has a state to roll back to");
+
+    engine.revert_section_to_version(&sid, version.0).unwrap();
+    assert!(is_forced(&engine, &sid, "wide"), "the record comes back");
+    assert_eq!(rows(&engine, &sid, "wide").len(), 1, "and so does its row");
+}
+
+/// A forced ride deleted from the library while its section is retired is not
+/// brought back.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_forced_ride_gone_while_its_section_was_retired_is_not_restored() {
+    let (mut engine, sid) = engine_with_section(true);
+    add_ride(&mut engine, "wide", ride(PAST_STRICT));
+    assert!(engine.rematch_activity_to_section("wide", &sid).unwrap());
+    retire(&mut engine, &sid);
+    engine.remove_activity("wide").unwrap();
+    let version =
+        crate::persistence::sections::history::pooled::restorable_version_of(&engine.db, &sid)
+            .unwrap();
+
+    engine.revert_section_to_version(&sid, version.0).unwrap();
+    assert!(!is_forced(&engine, &sid, "wide"));
+}
+
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_ride_forced_past_the_strict_bar_keeps_its_row_through_a_trim() {
@@ -309,7 +357,7 @@ fn deleting_the_section_or_the_ride_deletes_the_record() {
     assert!(!is_forced(&engine, &sid, "other"));
     assert!(is_forced(&engine, &sid, "wide"));
 
-    engine.delete_section(&sid).unwrap();
+    retire(&mut engine, &sid);
     assert!(!is_forced(&engine, &sid, "wide"));
 }
 

@@ -8,7 +8,7 @@ import { ChartErrorBoundary, CardHeader } from '@/shared/ui';
 import { formatDurationHuman } from '@/shared/format/format';
 
 /** One zone as the engine resolved it, in the unit the card's formatter prints. */
-export interface ZoneTimeBand {
+interface ZoneTimeBand {
   zone: number;
   min: number;
   /** Absent for an open top zone */

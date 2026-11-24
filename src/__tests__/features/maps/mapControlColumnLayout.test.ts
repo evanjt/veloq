@@ -14,11 +14,13 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { layout } from '@/theme';
 import { MAP_CONTROL_GAP, MAP_CONTROL_SIZE } from '@/features/maps/components/MapControlButton';
 import {
-  MAX_MAP_CONTROLS,
   activityMapControlCount,
   mapControlColumnLayout,
   useMapControlColumn,
 } from '@/features/maps/lib/mapControlColumnLayout';
+
+/** The most buttons the activity hero's column draws: the scenario's six. */
+const MAX_CONTROLS = 6;
 
 const SMALLEST_HERO = Math.round(560 * 0.42);
 const TOP = 48;
@@ -27,10 +29,10 @@ const GAP = MAP_CONTROL_GAP;
 
 describe('mapControlColumnLayout', () => {
   it('keeps every button inside the hero at the smallest hero height with six buttons', () => {
-    const result = mapControlColumnLayout(MAX_MAP_CONTROLS, SMALLEST_HERO, TOP);
+    const result = mapControlColumnLayout(MAX_CONTROLS, SMALLEST_HERO, TOP);
     expect(TOP + result.maxHeight).toBeLessThanOrEqual(SMALLEST_HERO);
     const perColumn = Math.floor((result.maxHeight + GAP) / (BUTTON + GAP));
-    expect(perColumn * result.columns).toBeGreaterThanOrEqual(MAX_MAP_CONTROLS);
+    expect(perColumn * result.columns).toBeGreaterThanOrEqual(MAX_CONTROLS);
   });
 
   vaultIt('uses one column when the buttons fit', () => {
@@ -41,7 +43,7 @@ describe('mapControlColumnLayout', () => {
 
   vaultIt('widens the footprint by one button and gap per extra column', () => {
     const one = mapControlColumnLayout(1, 600, TOP);
-    const two = mapControlColumnLayout(MAX_MAP_CONTROLS, SMALLEST_HERO, TOP);
+    const two = mapControlColumnLayout(MAX_CONTROLS, SMALLEST_HERO, TOP);
     expect(two.footprint).toBe(one.footprint + (two.columns - 1) * (BUTTON + GAP));
   });
 
@@ -49,7 +51,7 @@ describe('mapControlColumnLayout', () => {
     'is drawn as wide as every column, since layout sizes a wrapping column to its first',
     () => {
       const one = mapControlColumnLayout(3, 600, TOP);
-      const two = mapControlColumnLayout(MAX_MAP_CONTROLS, SMALLEST_HERO, TOP);
+      const two = mapControlColumnLayout(MAX_CONTROLS, SMALLEST_HERO, TOP);
       expect(one.width).toBe(BUTTON);
       expect(two.columns).toBeGreaterThan(1);
       expect(two.width).toBe(two.columns * BUTTON + (two.columns - 1) * GAP);
@@ -81,7 +83,7 @@ describe('activityMapControlCount', () => {
         hasRoute: true,
         enableFullscreen: true,
       })
-    ).toBe(MAX_MAP_CONTROLS);
+    ).toBe(MAX_CONTROLS);
   });
 
   vaultIt('counts each optional button on its own', () => {
@@ -114,7 +116,7 @@ describe('useMapControlColumn', () => {
   vaultIt('reserves one column for three buttons on a hero where six would wrap', async () => {
     const height = 280;
     const { result: three } = await renderHook(() => useMapControlColumn(height, 3), { wrapper });
-    const { result: six } = await renderHook(() => useMapControlColumn(height, MAX_MAP_CONTROLS), {
+    const { result: six } = await renderHook(() => useMapControlColumn(height, MAX_CONTROLS), {
       wrapper,
     });
     expect(six.current.columns).toBeGreaterThan(1);

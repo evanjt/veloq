@@ -36,10 +36,7 @@ import {
 import { Button, Row } from '@/shared/ui';
 import { confirmAction } from '@/shared/ui/dialog';
 
-export {
-  STREAM_RETENTION_CHOICES_DAYS,
-  DEFAULT_STREAM_RETENTION_DAYS,
-} from '../lib/streamRetention';
+export { STREAM_RETENTION_CHOICES_DAYS } from '../lib/streamRetention';
 
 interface StreamHistoryRowProps {
   isDark: boolean;
@@ -92,7 +89,16 @@ export function StreamHistoryRow({ isDark }: StreamHistoryRowProps) {
   const write = useCallback((next: number) => {
     const engine = getEngine();
     if (!engine) return;
-    engine.setStreamRetentionDays(next);
+    try {
+      engine.setStreamRetentionDays(next);
+    } catch (error) {
+      console.warn(
+        '[StreamHistory] Could not write the stream window:',
+        engineErrorTag(error) ?? error
+      );
+      setStore({ failureKey: engineErrorKey(error, 'engine.failure.database') });
+      return;
+    }
     setStore(readStore());
   }, []);
 

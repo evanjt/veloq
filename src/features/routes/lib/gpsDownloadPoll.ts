@@ -20,15 +20,15 @@
 import { createAwakeClock } from '@/shared/app/awakeClock';
 
 /** What one poll of the engine reports. */
-export interface DownloadProgressRead {
+interface DownloadProgressRead {
   active: boolean;
   completed: number;
   total: number;
 }
 
-export type PollOutcome = 'settled' | 'cancelled' | 'stalled';
+type PollOutcome = 'settled' | 'cancelled' | 'stalled';
 
-export interface PollOptions {
+interface PollOptions {
   /** Reads the engine's download progress. */
   read: () => DownloadProgressRead;
   /** Called with each reading while the download is still running. */

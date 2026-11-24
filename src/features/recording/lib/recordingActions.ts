@@ -3,7 +3,7 @@ import type { RecordingLibraryEntry } from '@/types';
 // Sharing requires a retained FIT, regardless of upload status. Uploading
 // requires a source that can upload: one that cannot keeps every ride on the
 // device, so Upload now has nowhere to send it.
-export interface RecordingActions {
+interface RecordingActions {
   isUploading: boolean;
   canUpload: boolean;
   canShare: boolean;

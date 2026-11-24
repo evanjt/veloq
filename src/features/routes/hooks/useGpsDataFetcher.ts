@@ -12,7 +12,7 @@ import { useCallback } from 'react';
 import { i18n } from '@/i18n';
 import { getNativeModule } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
-import { engine, StartOutcome, type ActivitySportMapping, detection } from 'veloqrs';
+import { engine, FfiStartOutcome, type ActivitySportMapping, detection } from 'veloqrs';
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import type { SyncProgress } from './useRouteSyncProgress';
@@ -25,6 +25,7 @@ import {
   detectionEngineOf,
 } from '@/features/routes/lib/detectionRun';
 import { scalePercent } from '@/features/routes/lib/scalePercent';
+import { isPositioned } from '@/shared/geo/routePreview';
 import {
   abandonDownload,
   pollDownloadProgress,
@@ -38,7 +39,7 @@ import {
 
 const log = debug.create('GpsDataFetcher');
 
-export interface GpsFetchResult {
+interface GpsFetchResult {
   /** Activity IDs that were successfully synced */
   syncedIds: string[];
   /** Number of activities that had GPS data */
@@ -169,20 +170,6 @@ export function useGpsDataFetcher() {
       let failedNoCoords = 0;
       let skippedInvalidCoords = 0;
 
-      /**
-       * Validates GPS coordinates are within valid bounds.
-       */
-      const isValidCoordinate = (lat: number, lng: number): boolean => {
-        return (
-          Number.isFinite(lat) &&
-          Number.isFinite(lng) &&
-          lat >= -90 &&
-          lat <= 90 &&
-          lng >= -180 &&
-          lng <= 180
-        );
-      };
-
       // What was actually stored per activity, which a dropped coordinate makes
       // shorter than the fixture's track.
       const storedTrackLength = new Map<string, number>();
@@ -210,7 +197,7 @@ export function useGpsDataFetcher() {
             const lat = coord[0];
             const lng = coord[1];
             // Validate coordinate bounds before passing to Rust
-            if (isValidCoordinate(lat, lng)) {
+            if (isPositioned(lat, lng)) {
               allCoords.push(lat, lng);
             } else {
               skippedInvalidCoords++;
@@ -435,7 +422,7 @@ export function useGpsDataFetcher() {
         // arriving mid-sync starts its own run.
         const { oldest, newest } = useSyncDateRange.getState();
         const pass = engine.startGpsPass(oldest, newest, ids);
-        if (pass.outcome !== StartOutcome.Started) return pass.outcome;
+        if (pass.outcome !== FfiStartOutcome.Started) return pass.outcome;
         const run = pass.run;
         const total = pass.total;
 

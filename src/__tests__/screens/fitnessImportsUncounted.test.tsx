@@ -12,7 +12,7 @@ import { render } from '@testing-library/react-native';
 
 import { initialiseI18n } from '@/i18n';
 import { FitnessChartCard } from '@/features/fitness/components/sections/FitnessChartCard';
-import type { WellnessData } from '@/types';
+import { statedForm } from '../__shared__/statedForm';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -30,7 +30,7 @@ beforeEach(() => {
 function card(uncountedImports: number) {
   return (
     <FitnessChartCard
-      wellness={[{ id: '2026-04-01', ctl: 40, atl: 48 }] as WellnessData[]}
+      wellness={statedForm([{ id: '2026-04-01', ctl: 40, atl: 48 }])}
       wellnessCoverage={'Fetched' as never}
       loadDots={[]}
       dailyLoads={[]}

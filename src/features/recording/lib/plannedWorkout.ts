@@ -1,5 +1,5 @@
 import { readPlannedWorkouts } from '@/features/home';
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import { followablePlan, type PlanLine } from './planFollow';
 
 /**

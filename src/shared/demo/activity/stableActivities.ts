@@ -1,5 +1,6 @@
 import type { ApiActivity } from './types';
 import { getDemoReferenceDate, formatLocalISOString } from '@/data/demo/random';
+import { addLocalDays } from '@/shared/time/localDay';
 
 // Permanent demo-test-N ids so e2e flows can target activities regardless of reference date.
 export function generateStableTestActivities(): (ApiActivity & { _routeId: string | null })[] {
@@ -11,8 +12,7 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
     {
       id: 'demo-test-0',
       start_date_local: (() => {
-        const d = new Date(referenceDate);
-        d.setDate(d.getDate() - 1);
+        const d = addLocalDays(referenceDate, -1);
         d.setHours(8, 30, 0, 0);
         return formatLocalISOString(d);
       })(),
@@ -69,8 +69,7 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
     {
       id: 'demo-test-1',
       start_date_local: (() => {
-        const d = new Date(referenceDate);
-        d.setDate(d.getDate() - 2);
+        const d = addLocalDays(referenceDate, -2);
         d.setHours(7, 0, 0, 0);
         return formatLocalISOString(d);
       })(),
@@ -118,8 +117,7 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
     {
       id: 'demo-test-2',
       start_date_local: (() => {
-        const d = new Date(referenceDate);
-        d.setDate(d.getDate() - 3);
+        const d = addLocalDays(referenceDate, -3);
         d.setHours(18, 30, 0, 0);
         return formatLocalISOString(d);
       })(),
@@ -176,8 +174,7 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
     {
       id: 'demo-test-3',
       start_date_local: (() => {
-        const d = new Date(referenceDate);
-        d.setDate(d.getDate() - 4);
+        const d = addLocalDays(referenceDate, -4);
         d.setHours(9, 0, 0, 0);
         return formatLocalISOString(d);
       })(),
@@ -216,8 +213,7 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
     {
       id: 'demo-test-4',
       start_date_local: (() => {
-        const d = new Date(referenceDate);
-        d.setDate(d.getDate() - 5);
+        const d = addLocalDays(referenceDate, -5);
         d.setHours(7, 30, 0, 0);
         return formatLocalISOString(d);
       })(),
@@ -258,8 +254,7 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
     {
       id: 'demo-test-5',
       start_date_local: (() => {
-        const d = new Date(referenceDate);
-        d.setDate(d.getDate() - 6);
+        const d = addLocalDays(referenceDate, -6);
         d.setHours(6, 45, 0, 0);
         return formatLocalISOString(d);
       })(),
@@ -308,8 +303,7 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
     {
       id: 'demo-test-6',
       start_date_local: (() => {
-        const d = new Date(referenceDate);
-        d.setDate(d.getDate() - 7);
+        const d = addLocalDays(referenceDate, -7);
         d.setHours(18, 0, 0, 0);
         return formatLocalISOString(d);
       })(),
@@ -352,8 +346,7 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
     {
       id: 'demo-test-7',
       start_date_local: (() => {
-        const d = new Date(referenceDate);
-        d.setDate(d.getDate() - 1);
+        const d = addLocalDays(referenceDate, -1);
         d.setHours(19, 30, 0, 0);
         return formatLocalISOString(d);
       })(),
@@ -403,8 +396,7 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
     {
       id: 'demo-test-8',
       start_date_local: (() => {
-        const d = new Date(referenceDate);
-        d.setDate(d.getDate() - 9);
+        const d = addLocalDays(referenceDate, -9);
         d.setHours(7, 0, 0, 0);
         return formatLocalISOString(d);
       })(),
@@ -453,8 +445,7 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
     {
       id: 'demo-test-9',
       start_date_local: (() => {
-        const d = new Date(referenceDate);
-        d.setDate(d.getDate() - 10);
+        const d = addLocalDays(referenceDate, -10);
         d.setHours(6, 30, 0, 0);
         return formatLocalISOString(d);
       })(),
@@ -531,8 +522,7 @@ function weeklyStrengthSessions(
   const sessions: (ApiActivity & { _routeId: string | null })[] = [];
   for (let weeksAgo = 0; weeksAgo < STRENGTH_WEEKS; weeksAgo++) {
     for (const template of STRENGTH_TEMPLATES) {
-      const d = new Date(referenceDate);
-      d.setDate(d.getDate() - weeksAgo * 7 - template.dayOfWeek);
+      const d = addLocalDays(referenceDate, -(weeksAgo * 7 + template.dayOfWeek));
       d.setHours(18, 0, 0, 0);
       // Heart rate drifts over the weeks rather than repeating one value.
       const drift = (weeksAgo % 3) * 2 - 2;

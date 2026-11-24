@@ -1,6 +1,5 @@
 export type { BackupBackend, BackupEntry } from './types';
 export { localBackend } from './localBackend';
-export { backupCarriers } from './carriers';
 export { webdavBackend, testWebdavConnection } from './webdavBackend';
 export {
   folderBackend,
@@ -10,12 +9,5 @@ export {
   isSharedBackupFolder,
   stopBackupFolder,
 } from './folderBackend';
-export {
-  googleDriveBackend,
-  signInToGoogleDrive,
-  forgetGoogleDrive,
-  getGoogleDriveAccount,
-  loadGoogleDriveAccount,
-  isGoogleDriveSupported,
-} from './googleDriveBackend';
-export { icloudBackend, isIcloudReachable, isIcloudSupported } from './icloudBackend';
+export { googleDriveBackend } from './googleDriveBackend';
+export { icloudBackend, isIcloudSupported } from './icloudBackend';

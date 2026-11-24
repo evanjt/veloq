@@ -55,11 +55,11 @@ export const queryKeys = {
     exerciseSets: (activityId: string) => ['strength', 'exercise-sets', activityId] as const,
     exerciseDetail: (category: number) => ['strength', 'exercise-detail', category] as const,
     muscleGroups: (activityId: string) => ['strength', 'muscle-groups', activityId] as const,
-    // The whole strength tab, keyed on the period alone: nothing it draws
-    // depends on which muscle is selected, so one entry serves a drag across
-    // the diagram.
-    screenData: (period: string, weekCount: number) =>
-      ['strength', 'screen-data', period, weekCount] as const,
+    // The whole strength tab, keyed on the period and the window's end: nothing
+    // it draws depends on which muscle is selected, so one entry serves a drag
+    // across the diagram, and the window slides with the day.
+    screenData: (period: string, weekCount: number, endTs: number) =>
+      ['strength', 'screen-data', period, weekCount, endTs] as const,
   },
 
   wellness: {

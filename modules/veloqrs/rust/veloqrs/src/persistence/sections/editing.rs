@@ -1100,6 +1100,10 @@ impl PersistentEngine {
             section_id,
             &mut snapshot,
         );
+        let forced = self.forced_activity_ids(section_id);
+        if !forced.is_empty() {
+            snapshot.insert("forced_activity_ids".into(), serde_json::json!(forced));
+        }
         let freed: Vec<String> = self
             .db
             .prepare("SELECT id FROM sections WHERE superseded_by = ?")
@@ -1332,6 +1336,33 @@ impl PersistentEngine {
                 ],
             )
             .map_err(|e| format!("Failed to recreate section: {e}"))?;
+        self.restore_forced_matches(section_id)
+    }
+
+    /// Record again the rides the athlete attached by hand before the section
+    /// was retired, which its departure snapshot names, for each one still
+    /// in the library. The caller's junction rebuild then re-cuts them at the
+    /// relaxed bar.
+    fn restore_forced_matches(&self, section_id: &str) -> Result<(), String> {
+        let mut stmt = self
+            .db
+            .prepare(
+                "SELECT details FROM section_history
+                 WHERE section_id = ? AND details IS NOT NULL ORDER BY id DESC",
+            )
+            .map_err(|e| format!("Failed to read the retirement: {e}"))?;
+        let rows = stmt
+            .query_map(params![section_id], |row| row.get::<_, String>(0))
+            .map_err(|e| format!("Failed to read the retirement: {e}"))?;
+        let forced: Option<Vec<String>> = rows.flatten().find_map(|details| {
+            let value: serde_json::Value = serde_json::from_str(&details).ok()?;
+            serde_json::from_value(value.get("forced_activity_ids")?.clone()).ok()
+        });
+        for activity_id in forced.unwrap_or_default() {
+            if self.get_gps_track(&activity_id).is_some() {
+                self.record_forced_match(section_id, &activity_id)?;
+            }
+        }
         Ok(())
     }
 
@@ -1628,6 +1659,12 @@ impl PersistentEngine {
         done.map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))
     }
 
+    fn reanchor_track(&self, id: &str) -> Option<Vec<GpsPoint>> {
+        #[cfg(test)]
+        REANCHOR_DECODES.with(|count| count.set(count.get() + 1));
+        self.get_gps_track(id)
+    }
+
     fn reanchor_rows(
         &mut self,
         section_id: &str,
@@ -1675,41 +1712,62 @@ impl PersistentEngine {
         // the row holds is located in a member's track, which covers a member
         // whose stored range is unusable. A member that rode against the line gives its slice
         // read backwards, so the line keeps the direction it ran.
-        let mut tracks: Vec<(String, Vec<GpsPoint>)> = Vec::new();
-        for (member_id, _, _, _) in &members {
-            if let Some(track) = self.get_gps_track(member_id) {
-                tracks.push((member_id.clone(), track));
+        // Tracks decode on first use, so the usual case (the closest member
+        // carries the line) reads one stream, not every member's.
+        let mut tracks: Vec<(String, Option<Vec<GpsPoint>>)> = Vec::new();
+        let track_of =
+            |engine: &Self, tracks: &mut Vec<(String, Option<Vec<GpsPoint>>)>, id: &str| {
+                tracks
+                    .iter()
+                    .position(|(known, _)| known == id)
+                    .unwrap_or_else(|| {
+                        tracks.push((id.to_string(), engine.reanchor_track(id)));
+                        tracks.len() - 1
+                    })
+            };
+        let mut located = None;
+        for (member_id, start, end, reversed) in &members {
+            let at = track_of(self, &mut tracks, member_id);
+            let (lo, hi) = (*start as usize, *end as usize);
+            if tracks[at]
+                .1
+                .as_ref()
+                .is_some_and(|track| lo + 1 < hi && hi <= track.len())
+            {
+                located = Some((member_id.clone(), *start, *end, *reversed));
+                break;
             }
         }
-        if let Some(successor) = successor.filter(|id| {
-            *id != vanished_activity_id
-                && !members.iter().any(|(member_id, _, _, _)| member_id == id)
-        }) && let Some(track) = self.get_gps_track(successor)
+        if located.is_none()
+            && let Ok(line) = self.stored_section_polyline(section_id)
         {
-            tracks.push((successor.to_string(), track));
-        }
-        let from_slice = members
-            .iter()
-            .find_map(|(member_id, start, end, reversed)| {
-                let (_, track) = tracks.iter().find(|(id, _)| id == member_id)?;
-                let (lo, hi) = (*start as usize, *end as usize);
-                (lo + 1 < hi && hi <= track.len())
-                    .then(|| (member_id.clone(), *start, *end, *reversed))
+            let others = successor.filter(|id| {
+                *id != vanished_activity_id
+                    && !members.iter().any(|(member_id, _, _, _)| member_id == id)
             });
-        let located = || {
-            let line = self.stored_section_polyline(section_id).ok()?;
-            tracks.iter().find_map(|(member_id, track)| {
-                let (start, end, reversed) = geometry::locate_reference(track, &line)?;
-                Some((member_id.clone(), start, end, reversed))
-            })
-        };
-        let Some((new_id, start, end, reversed)) = from_slice.or_else(located) else {
+            let candidates = members
+                .iter()
+                .map(|(member_id, _, _, _)| member_id.as_str())
+                .chain(others);
+            for id in candidates {
+                let at = track_of(self, &mut tracks, id);
+                if let Some((start, end, reversed)) = tracks[at]
+                    .1
+                    .as_ref()
+                    .and_then(|track| geometry::locate_reference(track, &line))
+                {
+                    located = Some((id.to_string(), start, end, reversed));
+                    break;
+                }
+            }
+        }
+        let Some((new_id, start, end, reversed)) = located else {
             return Ok(None);
         };
         let Some(track) = tracks
             .iter()
             .find(|(id, _)| *id == new_id)
-            .map(|(_, track)| track)
+            .and_then(|(_, track)| track.as_ref())
         else {
             return Ok(None);
         };
@@ -1798,6 +1856,11 @@ impl PersistentEngine {
 }
 
 #[cfg(test)]
+thread_local! {
+    static REANCHOR_DECODES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::persistence::codec;
@@ -1842,6 +1905,43 @@ mod tests {
             )
             .unwrap();
         (engine, polyline)
+    }
+
+    /// Scenario: a section is anchored to a ride that is removed, and three
+    /// other rides hold its line.
+    ///
+    /// Expected behaviour: the line moves onto the closest member and only
+    /// that member's stream is decoded.
+    #[test]
+    fn a_reanchor_decodes_only_the_member_that_carries_the_line() {
+        let (mut engine, polyline) = engine_with_section(10, "auto");
+        engine
+            .db
+            .execute(
+                "UPDATE sections SET source_activity_id = 'a1', start_index = 0, end_index = 9",
+                [],
+            )
+            .unwrap();
+        for (id, distance) in [("a2", 100.0), ("a3", 150.0), ("a4", 200.0)] {
+            engine
+                .add_activity(id.to_string(), polyline.clone(), "Ride".to_string())
+                .unwrap();
+            engine
+                .db
+                .execute(
+                    "INSERT INTO section_activities
+                     (section_id, activity_id, direction, start_index, end_index, distance_meters)
+                     VALUES ('s1', ?, 'same', 0, 10, ?)",
+                    params![id, distance],
+                )
+                .unwrap();
+        }
+        REANCHOR_DECODES.with(|count| count.set(0));
+
+        let moved = engine.reanchor_section_reference("s1", "a1", None).unwrap();
+
+        assert_eq!(moved.as_deref(), Some("a2"));
+        assert_eq!(REANCHOR_DECODES.with(|count| count.get()), 1);
     }
 
     fn traversals(engine: &PersistentEngine) -> i64 {

@@ -7,14 +7,14 @@
  * per ride.
  */
 
-export const RIDE_NOTIFICATION_KIND = 'ride_notification';
+const RIDE_NOTIFICATION_KIND = 'ride_notification';
 
 export interface PulledRideEntry {
   title: string;
   body: string;
 }
 
-export interface PulledRideDeps {
+interface PulledRideDeps {
   /** The title and body the engine recorded for the ride, or null when it recorded none. */
   readEntry: (activityId: string) => PulledRideEntry | null | Promise<PulledRideEntry | null>;
   present: (activityId: string, title: string, body: string) => Promise<void>;

@@ -10,7 +10,7 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { act, render } from '@testing-library/react-native';
-import { FfiHoldCause, SyncState, SyncStep, TrackStep, type TrackStage } from 'veloqrs';
+import { FfiHoldCause, SyncState, FfiSyncStep, FfiTrackStep, type FfiTrackStage } from 'veloqrs';
 
 import { SyncPill, SYNC_MESSAGE_HOLD_MS } from '@/shared/ui/SyncPill';
 import { SYNC_PILL_GRACE_MS } from '@/shared/ui/syncPillVisible';
@@ -37,10 +37,10 @@ let status: {
   state: SyncState;
   completed?: number;
   total?: number;
-  step?: SyncStep;
+  step?: FfiSyncStep;
   stepItemsDone?: number;
   stepItemsTotal?: number;
-  tracks?: TrackStage;
+  tracks?: FfiTrackStage;
 } = { state: SyncState.Idle };
 const listeners: (() => void)[] = [];
 
@@ -89,7 +89,7 @@ vaultTest('an idle sync draws nothing', async () => {
 });
 
 vaultTest('the pill passes touches through', async () => {
-  status = { state: SyncState.Syncing, completed: 2, total: 8, step: SyncStep.Wellness };
+  status = { state: SyncState.Syncing, completed: 2, total: 8, step: FfiSyncStep.Wellness };
   const { getByTestId } = await renderPastGrace();
 
   expect(getByTestId('sync-progress-pill').props.pointerEvents).toBe('none');
@@ -101,7 +101,7 @@ vaultTest.each([
 ])('the pill draws the status pill on the raised surface in %s mode', async (_, isDark) => {
   mockIsDark = isDark;
   const palette = isDark ? darkColors : colors;
-  status = { state: SyncState.Syncing, completed: 2, total: 8, step: SyncStep.Wellness };
+  status = { state: SyncState.Syncing, completed: 2, total: 8, step: FfiSyncStep.Wellness };
   const { getByTestId } = await renderPastGrace();
 
   const pill = StyleSheet.flatten(getByTestId('sync-progress-pill').props.style);
@@ -127,7 +127,7 @@ vaultTest.each([
   async (_, isDark) => {
     mockIsDark = isDark;
     const palette = isDark ? darkColors : colors;
-    status = { state: SyncState.Syncing, completed: 2, total: 8, step: SyncStep.Wellness };
+    status = { state: SyncState.Syncing, completed: 2, total: 8, step: FfiSyncStep.Wellness };
     const { getByTestId } = await renderPastGrace();
 
     const ring = StyleSheet.flatten(getByTestId('sync-progress-mark').props.style);
@@ -154,7 +154,7 @@ vaultTest('a long label wraps and the counts stay whole', async () => {
     state: SyncState.Syncing,
     completed: 2,
     total: 11,
-    step: SyncStep.RemainingActivities,
+    step: FfiSyncStep.RemainingActivities,
     stepItemsDone: 1234,
     stepItemsTotal: 5678,
   };
@@ -175,7 +175,7 @@ vaultTest('a long label wraps and the counts stay whole', async () => {
 });
 
 vaultTest('a new step cross-fades in at the message duration', async () => {
-  status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.Athlete };
+  status = { state: SyncState.Syncing, completed: 1, total: 8, step: FfiSyncStep.Athlete };
   const { getByTestId } = await renderPastGrace();
 
   const message = getByTestId('sync-progress-pill-title');
@@ -184,7 +184,7 @@ vaultTest('a new step cross-fades in at the message duration', async () => {
 });
 
 test('a step holds the line for the minimum time when the next arrives sooner', async () => {
-  status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.Athlete };
+  status = { state: SyncState.Syncing, completed: 1, total: 8, step: FfiSyncStep.Athlete };
   const { getByTestId } = await renderPastGrace();
 
   await wait(200);
@@ -192,10 +192,10 @@ test('a step holds the line for the minimum time when the next arrives sooner', 
     state: SyncState.Syncing,
     completed: 2,
     total: 8,
-    step: SyncStep.SportSettings,
+    step: FfiSyncStep.SportSettings,
   });
   await wait(200);
-  await announce({ state: SyncState.Syncing, completed: 3, total: 8, step: SyncStep.Wellness });
+  await announce({ state: SyncState.Syncing, completed: 3, total: 8, step: FfiSyncStep.Wellness });
 
   expect(getByTestId('sync-progress-pill-title').props.children).toBe('settings.syncStep.athlete');
   expect(getByTestId('sync-progress-pill-detail').props.children).toBe('1/8');
@@ -209,11 +209,11 @@ test('a step holds the line for the minimum time when the next arrives sooner', 
 });
 
 vaultTest('a step that outlasts the hold changes the line at once', async () => {
-  status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.Athlete };
+  status = { state: SyncState.Syncing, completed: 1, total: 8, step: FfiSyncStep.Athlete };
   const { getByTestId, getAllByTestId } = await renderPastGrace();
 
   await wait(SYNC_MESSAGE_HOLD_MS + 500);
-  await announce({ state: SyncState.Syncing, completed: 3, total: 8, step: SyncStep.Census });
+  await announce({ state: SyncState.Syncing, completed: 3, total: 8, step: FfiSyncStep.Census });
 
   expect(getAllByTestId('sync-progress-mark')).toHaveLength(1);
   expect(getByTestId('sync-progress-pill-title').props.children).toBe('settings.syncStep.census');
@@ -224,7 +224,7 @@ vaultTest('the item count inside one step follows at once', async () => {
     state: SyncState.Syncing,
     completed: 4,
     total: 8,
-    step: SyncStep.Activities,
+    step: FfiSyncStep.Activities,
     stepItemsDone: 12,
     stepItemsTotal: 40,
   };
@@ -237,7 +237,7 @@ vaultTest('the item count inside one step follows at once', async () => {
 });
 
 vaultTest('a sync that ends inside the hold stays on its last message, then goes', async () => {
-  status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.SportSettings };
+  status = { state: SyncState.Syncing, completed: 1, total: 8, step: FfiSyncStep.SportSettings };
   const { getByTestId, queryByTestId } = await renderPastGrace();
 
   await wait(300);
@@ -252,7 +252,7 @@ vaultTest('a sync that ends inside the hold stays on its last message, then goes
 });
 
 vaultTest('a sync that settles after the hold goes at once', async () => {
-  status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.SportSettings };
+  status = { state: SyncState.Syncing, completed: 1, total: 8, step: FfiSyncStep.SportSettings };
   const { queryByTestId } = await render(<SyncPill />);
 
   await wait(SYNC_MESSAGE_HOLD_MS);
@@ -262,7 +262,7 @@ vaultTest('a sync that settles after the hold goes at once', async () => {
 });
 
 test('a quick sync draws nothing and a long one draws its pill at the grace period', async () => {
-  status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.Census };
+  status = { state: SyncState.Syncing, completed: 1, total: 8, step: FfiSyncStep.Census };
   const { queryByTestId } = await render(<SyncPill />);
 
   await wait(SYNC_PILL_GRACE_MS - 1);
@@ -273,7 +273,7 @@ test('a quick sync draws nothing and a long one draws its pill at the grace peri
 });
 
 vaultTest('a sync that settles inside the grace period never draws', async () => {
-  status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.Athlete };
+  status = { state: SyncState.Syncing, completed: 1, total: 8, step: FfiSyncStep.Athlete };
   const { queryByTestId } = await render(<SyncPill />);
 
   await wait(1000);
@@ -288,7 +288,7 @@ vaultTest('a step that counts items draws at once', async () => {
     state: SyncState.Syncing,
     completed: 5,
     total: 8,
-    step: SyncStep.RemainingActivities,
+    step: FfiSyncStep.RemainingActivities,
     stepItemsDone: 0,
     stepItemsTotal: 30,
   };
@@ -297,8 +297,8 @@ vaultTest('a step that counts items draws at once', async () => {
   expect(getByTestId('sync-progress-pill-detail').props.children).toBe('5/8 · 0/30');
 });
 
-function downloading(completed: number, total: number): TrackStage {
-  return { step: TrackStep.Downloading, completed, total, percent: 0 };
+function downloading(completed: number, total: number): FfiTrackStage {
+  return { step: FfiTrackStep.Downloading, completed, total, percent: 0 };
 }
 
 test('a track download the metadata sync has left draws its count past the grace period', async () => {
@@ -326,7 +326,7 @@ test('a held track download draws nothing, as the banner draws none', async () =
   status = {
     state: SyncState.Idle,
     tracks: {
-      step: TrackStep.Held,
+      step: FfiTrackStep.Held,
       completed: 0,
       total: 0,
       percent: 0,
@@ -344,7 +344,7 @@ test('a metadata step running takes the pill over the track download', async () 
     state: SyncState.Syncing,
     completed: 2,
     total: 8,
-    step: SyncStep.Wellness,
+    step: FfiSyncStep.Wellness,
     tracks: downloading(120, 148),
   };
   const { getByTestId } = await renderPastGrace();

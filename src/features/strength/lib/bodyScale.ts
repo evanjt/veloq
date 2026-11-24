@@ -28,7 +28,7 @@ export function viewBoxStroke(width: number, scale: number): number {
  */
 const MIN_SIDE_BY_SIDE_SCALE = 0.4;
 
-export interface BodyPairLayout {
+interface BodyPairLayout {
   scale: number;
   /** The centre column is drawn under the figures rather than between them. */
   stackCenter: boolean;

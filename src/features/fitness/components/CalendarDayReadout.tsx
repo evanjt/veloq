@@ -9,9 +9,7 @@ import { formatDecimal } from '@/shared/format/number';
 import { formatWeight } from '@/shared/format/weight';
 import { colors, spacing, typography } from '@/theme';
 import { useWellnessDays } from '@/features/wellness';
-import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 
-import { formatForm } from '../lib/fitness';
 import { calendarDayReadout, type LoggedMetric } from '../lib/calendarDayReadout';
 
 interface CalendarDayReadoutProps {
@@ -31,7 +29,6 @@ export function CalendarDayReadout({ date, firstDay, lastDay }: CalendarDayReado
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
   const days = useWellnessDays(firstDay, lastDay);
-  const asPercent = useFormPreference((state) => state.formAsPercent) === true;
 
   if (!date)
     return (
@@ -68,11 +65,7 @@ export function CalendarDayReadout({ date, firstDay, lastDay }: CalendarDayReado
   if (readout) {
     if (readout.fitness !== null) parts.push(`${t('metrics.fitness')} ${whole(readout.fitness)}`);
     if (readout.fatigue !== null) parts.push(`${t('metrics.fatigue')} ${whole(readout.fatigue)}`);
-    const form =
-      readout.form === null
-        ? null
-        : formatForm(readout.form, Math.round(readout.fitness ?? 0), asPercent);
-    if (form !== null) parts.push(`${t('metrics.form')} ${form}`);
+    if (readout.form !== null) parts.push(`${t('metrics.form')} ${readout.form}`);
     for (const l of readout.logged) parts.push(`${labels[l.metric]} ${format(l.metric, l.value)}`);
   }
   if (days && (!readout || readout.logged.length === 0)) parts.push(t('stats.noWellnessLogged'));

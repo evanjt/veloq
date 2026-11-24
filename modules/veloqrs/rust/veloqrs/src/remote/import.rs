@@ -20,6 +20,7 @@
 //! lost, repeated or reordered is dropped and the spool is never written
 //! out of place.
 
+use crate::poison::Recover;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -407,7 +408,7 @@ fn commit_shared(
     digest: impl FnOnce(&Path) -> std::io::Result<[u8; 32]>,
     hand_over: impl FnOnce(&Path) -> Result<(), String>,
 ) -> Result<PathBuf, String> {
-    let lock = || registry.lock().unwrap_or_else(|e| e.into_inner());
+    let lock = || registry.lock_recover();
     let import = lock().take(browser, id)?;
     finish(import, digest, hand_over).map_err(|(kept, error)| {
         if let Some(import) = kept {
@@ -459,7 +460,7 @@ pub(super) fn sweep_dir(dir: &Path, now: SystemTime) -> usize {
 static SPOOLS: Mutex<Spools> = Mutex::new(Spools::new());
 
 fn with_spools<R>(work: impl FnOnce(&mut Spools) -> R) -> R {
-    let mut held = SPOOLS.lock().unwrap_or_else(|e| e.into_inner());
+    let mut held = SPOOLS.lock_recover();
     work(&mut held)
 }
 

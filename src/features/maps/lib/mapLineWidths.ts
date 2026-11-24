@@ -15,7 +15,7 @@ export const SUBJECT_CASING_WIDTH = 5;
 export const OVERLAY_LINE_WIDTH = 8;
 
 /** A width that changes with zoom, as `[zoom, px]` stops in rising zoom. */
-export type LineWidthStops = readonly (readonly [number, number])[];
+type LineWidthStops = readonly (readonly [number, number])[];
 
 /**
  * A section line on the Map tab, dashed so the edge under it shows through the

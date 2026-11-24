@@ -8,7 +8,7 @@
  * it is taken as an answer.
  */
 
-export interface CredentialRead {
+interface CredentialRead {
   /** One entry per key asked for, in order. A key that would not read is null. */
   values: (string | null)[];
   /** Keys that threw on both attempts. A read that returned null is not here. */

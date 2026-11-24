@@ -27,7 +27,6 @@ function resetStore() {
     apiKey: null,
     accessToken: null,
     athleteId: null,
-    athlete: null,
     isLoading: true,
     isAuthenticated: false,
     isDemoMode: false,

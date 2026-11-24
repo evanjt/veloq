@@ -157,6 +157,8 @@ describe('fitness and fatigue', () => {
           fitnessData={SERIES}
           fatigueData={SERIES.map((v) => v + 5)}
           formData={SERIES.map((v) => -v / 4)}
+          formZoneData={SERIES.map(() => 'greyZone')}
+          formTextData={SERIES.map((v) => String(-v / 4))}
           width={300}
         />
       );
@@ -254,6 +256,8 @@ describe('the chart colour owner', () => {
           fitnessData={SERIES_DAYS}
           fatigueData={SERIES_DAYS}
           formData={SERIES_DAYS}
+          formZoneData={SERIES_DAYS.map(() => 'greyZone')}
+          formTextData={SERIES_DAYS.map(String)}
           width={300}
         />
       );

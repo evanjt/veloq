@@ -20,9 +20,7 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: true }),
   useMetricSystem: () => true,
 }));
-jest.mock('@/features/routes/hooks/useEngine', () => ({
-  useRepresentativeRoute: () => ({ points: [] }),
-}));
+jest.mock('@/features/routes/hooks/useEngine', () => ({}));
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 
 const flat = (node: { props: { style?: unknown } }): Record<string, unknown> =>

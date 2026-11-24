@@ -28,10 +28,6 @@ fn calendar_windows() -> crate::FfiFitnessScreenWindows {
         heatmap_first_day: "2026-01-01".into(),
         heatmap_last_day: "2026-12-31".into(),
         months: year.clone(),
-        year_current: year.clone(),
-        year_previous: year.clone(),
-        month_current: year.clone(),
-        month_previous: year,
         now_wall_seconds: 1_782_000_000.0,
     }
 }
@@ -87,7 +83,7 @@ fn test_get_fitness_screen_data_writer_held() {
             .expect("fitness screen")
     });
     assert!(data.ftp_trend.changes.is_empty());
-    assert_eq!(data.run_pace_trend.latest_pace, None);
+    assert!(data.threshold_paces.iter().all(|span| span.run.is_none()));
     assert!(data.heatmap.is_empty());
     assert!(data.months.is_empty());
     assert_eq!(data.season_year.current_stats.count, 0);

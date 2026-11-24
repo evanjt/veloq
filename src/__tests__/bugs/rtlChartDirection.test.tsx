@@ -19,10 +19,7 @@ import { Canvas } from '@shopify/react-native-skia';
 
 import { ChartSurface } from '@/shared/charts/ChartSurface';
 import { getEngine } from '@/shared/native/engine';
-import {
-  ActivityHeatmap,
-  type ActivityHeatmapHandle,
-} from '@/features/stats/components/ActivityHeatmap';
+import { ActivityHeatmap } from '@/features/stats/components/ActivityHeatmap';
 import { SummaryCardSparkline } from '@/features/home/components/SummaryCardSparkline';
 import { SummaryCardHRVSparkline } from '@/features/home/components/SummaryCardHRVSparkline';
 import { InsightRowTrend } from '@/features/insights/components/InsightRowTrend';
@@ -187,6 +184,8 @@ describe('under a right-to-left layout', () => {
         fitnessData={SERIES}
         fatigueData={SERIES.map((v) => v + 5)}
         formData={SERIES.map((v) => -v / 4)}
+        formZoneData={SERIES.map(() => 'greyZone')}
+        formTextData={SERIES.map((v) => String(-v / 4))}
         width={300}
         showLabels
       />
@@ -289,20 +288,21 @@ describe('under a right-to-left layout', () => {
     };
     jest.mocked(getEngine).mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const handle = React.createRef<ActivityHeatmapHandle>();
     let tree: Tree | undefined;
 
     try {
       tree = await mounted(
         <QueryClientProvider client={client}>
-          <WithScreenRead>
-            {(training) => <ActivityHeatmap training={training} ref={handle} />}
-          </WithScreenRead>
+          <WithScreenRead>{(training) => <ActivityHeatmap training={training} />}</WithScreenRead>
         </QueryClientProvider>
       );
       const view = tree;
       await waitFor(() => expect(view.getByTestId('activity-heatmap-months')).toBeTruthy());
-      await act(async () => handle.current?.setHighlight(today));
+      await act(async () =>
+        view.getByRole('adjustable').props.onAccessibilityAction({
+          nativeEvent: { actionName: 'activate' },
+        })
+      );
 
       expectPinned(view, [
         view.getByTestId('activity-heatmap-months'),

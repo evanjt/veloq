@@ -10,14 +10,14 @@
  * says so. Every other empty case reads as it did.
  */
 
-import { SyncErrorReason, SyncState } from 'veloqrs';
+import { FfiSyncErrorReason, SyncState } from 'veloqrs';
 
 import { feedEmptyState } from '@/features/home/lib/feedEmptyState';
 
 const base = {
   storedCount: 0,
   syncState: SyncState.Idle as SyncState | undefined,
-  lastErrorReason: null as SyncErrorReason | null,
+  lastErrorReason: null as FfiSyncErrorReason | null,
   isError: false,
   isLoading: false,
   retryAtMs: null as number | null,
@@ -119,7 +119,7 @@ describe('why an empty library is empty', () => {
   });
 
   it('says the sync is paused when intervals.icu asked it to wait', () => {
-    expect(feedEmptyState({ ...base, lastErrorReason: SyncErrorReason.RateLimited })).toBe(
+    expect(feedEmptyState({ ...base, lastErrorReason: FfiSyncErrorReason.RateLimited })).toBe(
       'paused'
     );
   });
@@ -129,17 +129,17 @@ describe('why an empty library is empty', () => {
   });
 
   it('asks for a sign in when the last sync was refused for its login', () => {
-    expect(feedEmptyState({ ...base, lastErrorReason: SyncErrorReason.Unauthorized })).toBe(
+    expect(feedEmptyState({ ...base, lastErrorReason: FfiSyncErrorReason.Unauthorized })).toBe(
       'authExpired'
     );
   });
 
   it('says the sync failed when it settled with an error and stored nothing', () => {
-    expect(feedEmptyState({ ...base, lastErrorReason: SyncErrorReason.Server })).toBe('failed');
+    expect(feedEmptyState({ ...base, lastErrorReason: FfiSyncErrorReason.Server })).toBe('failed');
   });
 
   it('says the sync failed when it never reached intervals.icu', () => {
-    expect(feedEmptyState({ ...base, lastErrorReason: SyncErrorReason.Network })).toBe('failed');
+    expect(feedEmptyState({ ...base, lastErrorReason: FfiSyncErrorReason.Network })).toBe('failed');
   });
 
   it('stands by over a stale error once a new sync is running', () => {
@@ -147,7 +147,7 @@ describe('why an empty library is empty', () => {
       feedEmptyState({
         ...base,
         syncState: SyncState.Syncing,
-        lastErrorReason: SyncErrorReason.Network,
+        lastErrorReason: FfiSyncErrorReason.Network,
       })
     ).toBe('standby');
   });
@@ -156,7 +156,7 @@ describe('why an empty library is empty', () => {
     // The library may hold rows the read has not returned yet, and naming a
     // failure over them would flash a cause that is not true.
     expect(
-      feedEmptyState({ ...base, isLoading: true, lastErrorReason: SyncErrorReason.Network })
+      feedEmptyState({ ...base, isLoading: true, lastErrorReason: FfiSyncErrorReason.Network })
     ).toBe('skeletons');
   });
 
@@ -166,7 +166,7 @@ describe('why an empty library is empty', () => {
         ...base,
         storedCount: 12,
         syncState: SyncState.AuthExpired,
-        lastErrorReason: SyncErrorReason.Unauthorized,
+        lastErrorReason: FfiSyncErrorReason.Unauthorized,
       })
     ).toBe('none');
   });
@@ -177,7 +177,7 @@ describe('why an empty library is empty', () => {
         ...base,
         hasFilter: true,
         syncState: SyncState.Paused,
-        lastErrorReason: SyncErrorReason.Network,
+        lastErrorReason: FfiSyncErrorReason.Network,
       })
     ).toBe('empty');
   });

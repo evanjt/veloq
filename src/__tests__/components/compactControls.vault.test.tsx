@@ -16,7 +16,7 @@ import { render, screen } from '@testing-library/react-native';
 import { initialiseI18n } from '@/i18n';
 import { Button, ToggleButton, ToggleButtonRow } from '@/shared/ui/Button';
 import { IconButton } from '@/shared/ui/IconButton';
-import { FeedFilterChips } from '@/features/activity/components/FeedFilterChips';
+import { FeedFilterChips, FeedRangePresets } from '@/features/activity/components/FeedFilterChips';
 import { controlHeight } from '@/theme';
 import { layout } from '@/theme/layout';
 
@@ -135,16 +135,12 @@ describe('compact controls', () => {
   });
 
   it('draws the feed range preset as the same chip as the sport chips beside it', async () => {
-    await render(
-      <FeedFilterChips
-        selected={new Set()}
-        onSelect={jest.fn()}
-        selectedRange="last90Days"
-        onSelectRange={jest.fn()}
-      />
+    const sportRow = await render(<FeedFilterChips selected={new Set()} onSelect={jest.fn()} />);
+    const rangeRow = await render(
+      <FeedRangePresets selectedRange="last90Days" onSelectRange={jest.fn()} />
     );
-    const sport = screen.getByTestId('home-filter-ride');
-    const range = screen.getByTestId('home-range-last90Days');
+    const sport = sportRow.getByTestId('home-filter-ride');
+    const range = rangeRow.getByTestId('home-range-last90Days');
 
     expect(chipShape(range)).toEqual(chipShape(sport));
     expect(drawnHeight(range)).toBe(controlHeight.chip);
@@ -162,14 +158,7 @@ describe('compact controls', () => {
         onValueChange={() => {}}
       />
     );
-    const feed = await render(
-      <FeedFilterChips
-        selected={new Set()}
-        onSelect={jest.fn()}
-        selectedRange={null}
-        onSelectRange={jest.fn()}
-      />
-    );
+    const feed = await render(<FeedFilterChips selected={new Set()} onSelect={jest.fn()} />);
 
     expect(chipShape(section.getByTestId('option-a'))).toEqual(
       chipShape(feed.getByTestId('home-filter-run'))

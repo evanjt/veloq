@@ -1,7 +1,7 @@
 import type { EdgeInsets } from 'react-native-safe-area-context';
 import { spacing } from '@/theme';
 
-export interface FullscreenPlotFrame {
+interface FullscreenPlotFrame {
   /** Container padding: the margin, or the system inset on that edge where it is deeper. */
   padding: EdgeInsets;
   /** The close button's absolute position, at the padded top-leading corner. */

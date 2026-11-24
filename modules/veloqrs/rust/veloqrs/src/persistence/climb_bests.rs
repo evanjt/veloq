@@ -126,14 +126,7 @@ fn measure(conn: &Connection, activity_id: &str) -> SqlResult<Vec<ClimbBest>> {
             return Ok(Vec::new());
         }
     };
-    let Some(blob) = conn
-        .query_row(
-            "SELECT track_data FROM gps_tracks WHERE activity_id = ?1",
-            params![activity_id],
-            |row| row.get::<_, Vec<u8>>(0),
-        )
-        .optional()?
-    else {
+    let Some(blob) = codec::track_blob(conn, activity_id)? else {
         return Ok(Vec::new());
     };
     let TrackRead::Present(points) = TrackRead::from_blob(&blob) else {

@@ -33,5 +33,3 @@ export function basemapTones({ land, park, water, road, label }: VectorMapPalett
     halo: land,
   };
 }
-
-export type BasemapTones = ReturnType<typeof basemapTones>;

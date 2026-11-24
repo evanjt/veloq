@@ -11,7 +11,7 @@ import { useActivityStats } from '@/features/activity/components/stats/useActivi
 import { chartConfigsFor } from '@/features/activity/lib/chartConfig';
 import { initialiseI18n } from '@/i18n';
 
-import { CadenceUnit, type ActivityRecord, type ActivitySummary } from 'veloqrs';
+import { FfiCadenceUnit, type ActivityRecord, type ActivitySummary } from 'veloqrs';
 import { activityRecord } from '../../__shared__/activityRecord';
 
 const run = activityRecord({
@@ -35,10 +35,10 @@ describe('the cadence unit', () => {
   });
 
   vaultIt('labels the chip in the unit the engine gave the series in', () => {
-    expect(chartConfigsFor('Run', CadenceUnit.StepsPerMinute).cadence.unit).toBe('spm');
-    expect(chartConfigsFor('Walk', CadenceUnit.StepsPerMinute).cadence.unit).toBe('spm');
-    expect(chartConfigsFor('Ride', CadenceUnit.Rpm).cadence.unit).toBe('rpm');
-    expect(chartConfigsFor('Swim', CadenceUnit.StrokesPerMinute).cadence.unit).toBe('spm');
+    expect(chartConfigsFor('Run', FfiCadenceUnit.StepsPerMinute).cadence.unit).toBe('spm');
+    expect(chartConfigsFor('Walk', FfiCadenceUnit.StepsPerMinute).cadence.unit).toBe('spm');
+    expect(chartConfigsFor('Ride', FfiCadenceUnit.Rpm).cadence.unit).toBe('rpm');
+    expect(chartConfigsFor('Swim', FfiCadenceUnit.StrokesPerMinute).cadence.unit).toBe('spm');
   });
 
   vaultIt('gives the chip no unit before the engine has named one', () => {
@@ -46,15 +46,18 @@ describe('the cadence unit', () => {
   });
 
   vaultIt('keeps the swim pace and stop speed when the cadence unit changes', () => {
-    const swim = chartConfigsFor('Swim', CadenceUnit.StrokesPerMinute);
+    const swim = chartConfigsFor('Swim', FfiCadenceUnit.StrokesPerMinute);
     expect(swim.pace).toEqual(chartConfigsFor('Swim').pace);
-    expect(chartConfigsFor('Run', CadenceUnit.StepsPerMinute)).toBe(
-      chartConfigsFor('Run', CadenceUnit.StepsPerMinute)
+    expect(chartConfigsFor('Run', FfiCadenceUnit.StepsPerMinute)).toBe(
+      chartConfigsFor('Run', FfiCadenceUnit.StepsPerMinute)
     );
   });
 
   it('shows a run the steps the engine gave, in spm', () => {
-    const card = cadenceCard(run, { averageCadence: 132, cadenceUnit: CadenceUnit.StepsPerMinute });
+    const card = cadenceCard(run, {
+      averageCadence: 132,
+      cadenceUnit: FfiCadenceUnit.StepsPerMinute,
+    });
     expect(card).toMatchObject({ value: '132', unit: 'spm' });
     expect(card.details?.[0].value).toBe('132 spm');
   });
@@ -62,7 +65,7 @@ describe('the cadence unit', () => {
   it('reads the unit off the engine, not the sport name', () => {
     const unnamed = activityRecord({ ...run, sportType: 'Other' });
     expect(
-      cadenceCard(unnamed, { averageCadence: 60, cadenceUnit: CadenceUnit.Rpm })
+      cadenceCard(unnamed, { averageCadence: 60, cadenceUnit: FfiCadenceUnit.Rpm })
     ).toMatchObject({ value: '60', unit: 'rpm' });
   });
 });

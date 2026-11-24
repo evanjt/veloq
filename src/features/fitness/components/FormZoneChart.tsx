@@ -30,10 +30,9 @@ import {
   type SummarySeries,
 } from '@/shared/charts';
 import {
-  formZoneFromLoads,
   formZoneBandColor,
+  formZoneBands,
   formZoneLabel,
-  FORM_ZONE_BOUNDARIES,
   formChartSeries,
   type FormChartPoint,
   type FormZone,
@@ -41,6 +40,7 @@ import {
 import { zoneLabelSpots, type ZoneBandPx } from '@/features/fitness/lib/zoneLabelSpots';
 import { formatShortDate } from '@/shared/format/format';
 import type { WellnessData } from '@/types';
+import { useFormZoneEdges } from '@/features/wellness';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 
 interface FormZoneChartProps {
@@ -49,10 +49,7 @@ interface FormZoneChartProps {
   selectedDate?: string | null;
   /** Shared value for instant crosshair sync between charts */
   sharedSelectedIdx?: SharedValue<number>;
-  onDateSelect?: (
-    date: string | null,
-    values: { fitness: number; fatigue: number; form: number } | null
-  ) => void;
+  onDateSelect?: (date: string | null) => void;
   onInteractionChange?: (isInteracting: boolean) => void;
   /** The data is the previous range's, kept on screen while the new range is read. */
   held?: boolean;
@@ -82,7 +79,7 @@ const zoneLabelSize = (zone: FormZone) => {
   };
 };
 const signedForm = (n: number) => (n > 0 ? `+${n}` : String(n === 0 ? 0 : n));
-// A form value as read: a percentage of fitness under the percentage setting, else the signed TSB.
+// An axis label: a percentage of fitness under the percentage setting, else the signed TSB.
 const signedFormValue = (n: number, asPercent: boolean) =>
   asPercent ? formatSignedPercentage(n) : signedForm(n);
 const SERIES = { form: (d: FormChartPoint) => d.form };
@@ -117,11 +114,14 @@ export const FormZoneChart = React.memo(function FormZoneChart({
     );
   }, []);
   const asPercent = useFormPreference((state) => state.formAsPercent) === true;
+  const zoneEdges = useFormZoneEdges();
+  const bands = useMemo(() => formZoneBands(zoneEdges), [zoneEdges]);
 
-  const chartData = useMemo(() => formChartSeries(data ?? [], asPercent), [data, asPercent]);
+  const chartData = useMemo(() => formChartSeries(data ?? []), [data]);
 
   // What a screen reader hears and the Show data sheet lists: the form line, day by day.
   const reading = useMemo<ChartReadingSource>(() => {
+    const textOf = new Map(chartData.flatMap((d) => (d.form === null ? [] : [[d.form, d.text]])));
     const build = () => {
       const series: SummarySeries = {
         name: t('metrics.form'),
@@ -131,7 +131,8 @@ export const FormZoneChart = React.memo(function FormZoneChart({
           key: d.date,
           value: d.form,
         })),
-        format: (v) => signedFormValue(Math.round(v), asPercent),
+        // The engine's own text for each plotted value.
+        format: (v) => textOf.get(v) ?? String(Math.round(v)),
       };
       return {
         summary: seriesSummary(series, t),
@@ -142,33 +143,28 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   }, [chartData, asPercent, t]);
 
   const handleSelect = useCallback((point: FormChartPoint) => {
-    onDateSelectRef.current?.(point.date, {
-      fitness: point.fitness,
-      fatigue: point.fatigue,
-      form: point.tsb,
-    });
+    onDateSelectRef.current?.(point.date);
   }, []);
 
   const handleInteractionChange = useCallback((active: boolean) => {
     onInteractionChangeRef.current?.(active);
     if (!active) {
-      onDateSelectRef.current?.(null, null);
+      onDateSelectRef.current?.(null);
     }
   }, []);
 
   const describePoint = useCallback(
     (point: FormChartPoint) => {
       const day = formatShortDate(point.date);
-      if (point.form === null)
+      if (point.text === null)
         return `${day}, ${t('systemSurfaces.spoken.noReading', { label: t('metrics.form') })}`;
-      const value = signedFormValue(Math.round(point.form), asPercent);
-      // Zoned as the fitness readout zones the day, on the rounded loads it prints.
-      const zone = formZoneFromLoads(point.fitness, point.fatigue, asPercent);
-      return [day, `${t('metrics.form')} ${value}`, ...(zone ? [formZoneLabel(zone)] : [])].join(
-        ', '
-      );
+      return [
+        day,
+        `${t('metrics.form')} ${point.text}`,
+        ...(point.zone ? [formZoneLabel(point.zone)] : []),
+      ].join(', ');
     },
-    [t, asPercent]
+    [t]
   );
 
   const {
@@ -232,11 +228,17 @@ export const FormZoneChart = React.memo(function FormZoneChart({
       right: 0,
       ...CHART_PADDING,
     });
-    const bands: ZoneBandPx[] = ZONES.map((zone) => ({
-      zone,
-      top: Math.max(bounds.top, yForValue(FORM_ZONE_BOUNDARIES[zone].max, yDomain, bounds)),
-      bottom: Math.min(bounds.bottom, yForValue(FORM_ZONE_BOUNDARIES[zone].min, yDomain, bounds)),
-    }));
+    const bandsPx: ZoneBandPx[] = ZONES.flatMap((zone) => {
+      const band = bands[zone];
+      if (!band) return [];
+      return [
+        {
+          zone,
+          top: Math.max(bounds.top, yForValue(band.max, yDomain, bounds)),
+          bottom: Math.min(bounds.bottom, yForValue(band.min, yDomain, bounds)),
+        },
+      ];
+    });
     const line = projectRuns(
       chartData,
       xOf,
@@ -245,7 +247,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
       yDomain,
       bounds
     );
-    return zoneLabelSpots(bands, line, bounds, zoneLabelSize, ZONE_LABEL_INSET);
+    return zoneLabelSpots(bandsPx, line, bounds, zoneLabelSize, ZONE_LABEL_INSET);
   })();
 
   return (
@@ -281,15 +283,20 @@ export const FormZoneChart = React.memo(function FormZoneChart({
                   syncXCoords(chartData, (d) => xFor(d.x));
                   return (
                     <>
-                      {ZONES.map((zone) => (
-                        <ZoneBackground
-                          key={zone}
-                          bounds={bounds}
-                          minY={yFor(FORM_ZONE_BOUNDARIES[zone].max)}
-                          maxY={yFor(FORM_ZONE_BOUNDARIES[zone].min)}
-                          color={formZoneBandColor(zone, isDark)}
-                        />
-                      ))}
+                      {ZONES.flatMap((zone) => {
+                        const band = bands[zone];
+                        return band
+                          ? [
+                              <ZoneBackground
+                                key={zone}
+                                bounds={bounds}
+                                minY={yFor(band.max)}
+                                maxY={yFor(band.min)}
+                                color={formZoneBandColor(zone, isDark)}
+                              />,
+                            ]
+                          : [];
+                      })}
                       <SkiaLine
                         p1={vec(bounds.left, yFor(0))}
                         p2={vec(bounds.right, yFor(0))}

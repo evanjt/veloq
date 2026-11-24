@@ -66,9 +66,10 @@ jest.mock('@/features/settings/lib/cutoverShowMe', () => ({
   cutoverHasChangesToShow: () => true,
 }));
 jest.mock('@/shared/native/useActivityCount', () => ({ useActivityCount: () => 3 }));
+let mockGarminSyncs = true;
 jest.mock('@/shared/app/useAthlete', () => ({
   ...jest.requireActual('@/shared/app/useAthlete'),
-  useAthlete: () => ({ data: { garminSyncsActivities: true } }),
+  useAthlete: () => ({ data: { garminSyncsActivities: mockGarminSyncs } }),
 }));
 jest.mock('@/features/routes/hooks/useEngine', () => ({
   ...jest.requireActual('@/features/routes/hooks/useEngine'),
@@ -129,6 +130,10 @@ beforeEach(() => {
 });
 
 describe('the Garmin slide', () => {
+  afterEach(() => {
+    mockGarminSyncs = true;
+  });
+
   it('declares the Garmin experimental feature wherever it is registered', () => {
     const garmin = [...getAllSlides(), ...getTutorialSlides()].filter(
       (slide) => slide.setup === 'garmin' || slide.showMeRoute === '/garmin-connector'
@@ -155,6 +160,13 @@ describe('the Garmin slide', () => {
     setGarmin(true);
     await openTour(tour.mode, tour.lastSeenVersion);
     expect(screen.queryByText(GARMIN_SLIDE_TITLE, ALL)).not.toBeNull();
+  });
+
+  it('is absent from the App Tour of an athlete whose intervals.icu does not use Garmin, with the switch on', async () => {
+    mockGarminSyncs = false;
+    setGarmin(true);
+    await openTour('tutorial', null);
+    expect(screen.queryByText(GARMIN_SLIDE_TITLE, ALL)).toBeNull();
   });
 
   it('is absent while the master switch is on and the Garmin entry is off', async () => {

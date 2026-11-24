@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
-import type { UploadResult } from 'veloqrs';
+import type { FfiUploadResult } from 'veloqrs';
 
 import {
   listVisibleRecordings,
@@ -21,7 +21,7 @@ export interface UseRecordingLibrary {
   error: unknown;
   refresh: () => Promise<void>;
   /** Requeue and immediately attempt an upload of one entry. */
-  uploadNow: (id: string) => Promise<UploadResult | null>;
+  uploadNow: (id: string) => Promise<FfiUploadResult | null>;
   remove: (id: string) => Promise<void>;
   uploadingId: string | null;
 }
@@ -72,7 +72,7 @@ export function useRecordingLibrary(): UseRecordingLibrary {
   }, [engine, refresh]);
 
   const uploadNow = useCallback(
-    async (id: string): Promise<UploadResult | null> => {
+    async (id: string): Promise<FfiUploadResult | null> => {
       setUploadingId(id);
       try {
         // Only a ride this athlete may see is offered. The engine holds

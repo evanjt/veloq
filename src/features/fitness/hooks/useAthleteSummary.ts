@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { formatLocalDate, formatWeekRange, getMonday, getSunday } from '@/shared/format/format';
+import { formatWeekRange, getMonday, getSunday } from '@/shared/format/format';
+import { formatLocalDate, addLocalDays } from '@/shared/time/localDay';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -106,8 +107,7 @@ export function useAthleteSummary(weeksBack: number = 8) {
   const { currentMonday, startDate, endDate } = useMemo(() => {
     const today = new Date();
     const monday = getMonday(today);
-    const start = new Date(monday);
-    start.setDate(start.getDate() - weeksBack * 7);
+    const start = addLocalDays(monday, -weeksBack * 7);
     return { currentMonday: monday, startDate: start, endDate: getSunday(today) };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- The day key advances the range once per day.
   }, [todayKey, weeksBack]);
@@ -143,8 +143,7 @@ export function useAthleteSummary(weeksBack: number = 8) {
 
     if (query.data && query.data.length > 0) {
       const currentWeekStr = formatLocalDate(currentMonday);
-      const prevMonday = new Date(currentMonday);
-      prevMonday.setDate(prevMonday.getDate() - 7);
+      const prevMonday = addLocalDays(currentMonday, -7);
       const prevWeekStr = formatLocalDate(prevMonday);
 
       for (const week of query.data) {

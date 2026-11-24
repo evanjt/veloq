@@ -474,13 +474,13 @@ export function buildFullscreenSectionLayers(
 
 export const FULLSCREEN_SECTION_MARKER_LAYER_IDS = ['fullscreen-pr-icon'];
 
-export interface Activity3DCollectionInput {
+interface Activity3DCollectionInput {
   portions: GeoJSON.FeatureCollection;
   matchedRoute: GeoJSON.FeatureCollection | GeoJSON.Feature;
   markers: GeoJSON.FeatureCollection;
 }
 
-export interface Activity3DCollections {
+interface Activity3DCollections {
   tracesGeoJSON: GeoJSON.FeatureCollection | undefined;
   routesGeoJSON: GeoJSON.FeatureCollection;
   sectionMarkersGeoJSON: GeoJSON.FeatureCollection | undefined;

@@ -44,6 +44,7 @@ export function useSectionChartDataEnriched({
           id: p.lapId,
           activityId: p.activityId,
           speed: ensureFinite(p.speed, 0),
+          speedPace: p.speedPace ?? undefined,
           date,
           activityName: p.activityName,
           direction: castDirection(p.direction),

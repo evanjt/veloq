@@ -86,6 +86,3 @@ const buildSharedStyles = (isDark: boolean) => {
     },
   });
 };
-
-/** Type for the shared styles object */
-export type SharedStyles = ReturnType<typeof buildSharedStyles>;

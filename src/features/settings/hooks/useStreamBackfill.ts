@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getEngine } from '@/shared/native/engine';
 import { useSyncState } from '@/shared/native/useSyncStatus';
-import { StartOutcome, streamBackfill } from 'veloqrs';
+import { FfiStartOutcome, streamBackfill } from 'veloqrs';
 import type { RoutesStatus, StreamBackfillPhase } from 'veloqrs';
 
 import { followRoutesStatus, readRoutesStatus } from '@/shared/native/routesStatusPoll';
@@ -109,9 +109,9 @@ function same(a: StreamBackfillState, b: StreamBackfillState): boolean {
   );
 }
 
-export interface StreamBackfillControls extends StreamBackfillState {
+interface StreamBackfillControls extends StreamBackfillState {
   /** Why the last tap on Download did not start a pass, or null. */
-  refusal: StartOutcome | null;
+  refusal: FfiStartOutcome | null;
   start: () => void;
   stop: () => void;
 }
@@ -119,7 +119,7 @@ export interface StreamBackfillControls extends StreamBackfillState {
 export function useStreamBackfill(): StreamBackfillControls {
   const [state, setState] = useState<StreamBackfillState>(read);
   const mounted = useRef(state);
-  const [refusal, setRefusal] = useState<StartOutcome | null>(null);
+  const [refusal, setRefusal] = useState<FfiStartOutcome | null>(null);
   const arm = useRef<(running: boolean) => void>(() => {});
   const refresh = useRef<() => void>(() => {});
   // The engine decides whether to ask when a sync settles, and announces
@@ -181,13 +181,13 @@ export function useStreamBackfill(): StreamBackfillControls {
   // rather than off the next render: the pass is already fetching by the time
   // this returns.
   const start = useCallback(() => {
-    let outcome: StartOutcome | undefined;
+    let outcome: FfiStartOutcome | undefined;
     try {
       outcome = streamBackfill.consentStreamBackfill();
     } catch {
-      outcome = StartOutcome.Failed;
+      outcome = FfiStartOutcome.Failed;
     }
-    const refused = outcome !== undefined && outcome !== StartOutcome.Started;
+    const refused = outcome !== undefined && outcome !== FfiStartOutcome.Started;
     setRefusal(refused ? (outcome ?? null) : null);
     // A refused start spawned nothing, so arming the follow would only disarm
     // on its first idle read.

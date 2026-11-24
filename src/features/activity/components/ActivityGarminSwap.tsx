@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { SwapState, type FitFile, type GarminMatch } from 'veloqrs';
+import { FfiSwapState, type FfiFitFile, type FfiGarminMatch } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
 import { GrantAccessButton } from '@/features/recording';
@@ -41,13 +41,13 @@ function GarminSwapBody({ activityId }: Props) {
   const { askToSwap, isUpgrading, upgradePermissions, upgradeError } = useAskGarminSwap(swap);
   const palette = isDark ? darkColors : colors;
 
-  if (state === SwapState.Hidden && !notice) return null;
+  if (state === FfiSwapState.Hidden && !notice) return null;
 
   const statusStyle = [typography.caption, { color: palette.textSecondary }];
 
   return (
     <View style={styles.container} testID={`activity-${activityId}-garmin-swap`}>
-      {state === SwapState.Checkable ? (
+      {state === FfiSwapState.Checkable ? (
         <>
           <View style={styles.titleRow}>
             <Button
@@ -64,7 +64,7 @@ function GarminSwapBody({ activityId }: Props) {
           </Text>
         </>
       ) : null}
-      {state === SwapState.Unchanged ? (
+      {state === FfiSwapState.Unchanged ? (
         <Text
           testID={`activity-${activityId}-garmin-nothing-more`}
           style={[styles.detail, { color: palette.textSecondary }]}
@@ -72,7 +72,7 @@ function GarminSwapBody({ activityId }: Props) {
           {t('activity.garminSwap.nothingMore')}
         </Text>
       ) : null}
-      {state === SwapState.Available ? (
+      {state === FfiSwapState.Available ? (
         <>
           <View style={styles.titleRow}>
             <Button
@@ -94,10 +94,10 @@ function GarminSwapBody({ activityId }: Props) {
         <GarminMatchPanel
           activityId={activityId}
           match={match}
-          restores={state === SwapState.Undoable}
+          restores={state === FfiSwapState.Undoable}
         />
       ) : null}
-      {state === SwapState.Undoable ? (
+      {state === FfiSwapState.Undoable ? (
         <Button
           testID={`activity-${activityId}-garmin-swap-undo`}
           variant="secondary"
@@ -138,7 +138,7 @@ function GarminSwapBody({ activityId }: Props) {
   );
 }
 
-function startOf(file: FitFile): string {
+function startOf(file: FfiFitFile): string {
   return file.startUnix === undefined ? ABSENT : formatDateTime(file.startUnix * 1000);
 }
 
@@ -149,7 +149,7 @@ function GarminMatchPanel({
   restores,
 }: {
   activityId: string;
-  match: GarminMatch;
+  match: FfiGarminMatch;
   restores: boolean;
 }) {
   const { t } = useTranslation();

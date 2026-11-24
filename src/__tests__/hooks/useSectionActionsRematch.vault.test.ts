@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react-native';
-import { StartOutcome } from 'veloqrs';
+import { FfiStartOutcome } from 'veloqrs';
 
 import { useSectionActions } from '@/features/routes/hooks/useSectionActions';
 import type { FrequentSection } from '@/types';
@@ -30,7 +30,7 @@ jest.mock('@/features/routes/hooks/useDetectionHold', () => ({
 }));
 
 const mockEngine = {
-  startSectionDetection: jest.fn(() => StartOutcome.Held),
+  startSectionDetection: jest.fn(() => FfiStartOutcome.Held),
   getSectionCount: jest.fn(() => 3),
   getSectionDetectionProgress: jest.fn(() => null),
 };
@@ -67,7 +67,7 @@ function mount() {
 describe('the section detail rematch', () => {
   beforeEach(() => {
     mockHold = null;
-    mockEngine.startSectionDetection.mockReturnValue(StartOutcome.Held);
+    mockEngine.startSectionDetection.mockReturnValue(FfiStartOutcome.Held);
   });
 
   it('exposes the refusal the engine answered, and drops it on the next start', async () => {
@@ -75,9 +75,9 @@ describe('the section detail rematch', () => {
     expect(result.current.rescanRefusal).toBeNull();
 
     await act(() => result.current.handleRematchActivities());
-    expect(result.current.rescanRefusal).toBe(StartOutcome.Held);
+    expect(result.current.rescanRefusal).toBe(FfiStartOutcome.Held);
 
-    mockEngine.startSectionDetection.mockReturnValue(StartOutcome.Started);
+    mockEngine.startSectionDetection.mockReturnValue(FfiStartOutcome.Started);
     await act(() => result.current.handleRematchActivities());
     expect(result.current.rescanRefusal).toBeNull();
   });

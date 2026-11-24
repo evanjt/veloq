@@ -171,7 +171,20 @@ pub(crate) fn opportunities(
                 continue;
             };
 
+            let pace_text = |speed: f64, is_metric: bool| {
+                (gain.metric == "pace").then(|| {
+                    crate::widget_snapshot::format_sport_pace(
+                        speed,
+                        gain.unit == "/100m",
+                        is_metric,
+                    )
+                })
+            };
             out.push(crate::FfiStalePrOpportunity {
+                current_metric_text: pace_text(gain.current, true),
+                current_imperial_text: pace_text(gain.current, false),
+                previous_metric_text: pace_text(gain.previous, true),
+                previous_imperial_text: pace_text(gain.previous, false),
                 section_id: section.section_id,
                 section_name: section.section_name,
                 best_time_secs: section.best_time_secs,
@@ -191,6 +204,8 @@ pub(crate) fn opportunities(
                 // Read for the few kept, by `with_record_detail`.
                 pr_power: None,
                 pr_speed: None,
+                pr_speed_metric_text: None,
+                pr_speed_imperial_text: None,
                 pr_share_percent: None,
                 fitness_history: Vec::new(),
             });
@@ -235,6 +250,14 @@ pub(crate) fn with_record_detail(
             o.pr_speed = effort
                 .map(|e| e.distance_meters / o.best_time_secs)
                 .filter(positive);
+            let is_swim = o.unit == "/100m";
+            let text = |is_metric: bool| {
+                o.pr_speed.map(|speed| {
+                    crate::widget_snapshot::format_sport_pace(speed, is_swim, is_metric)
+                })
+            };
+            o.pr_speed_metric_text = text(true);
+            o.pr_speed_imperial_text = text(false);
         }
         o.pr_share_percent = o
             .pr_power
@@ -257,10 +280,16 @@ pub(crate) fn with_record_detail(
                     value: o.previous_value,
                     date: o.pr_date,
                     activity_id: None,
+                    metric_text: None,
+                    imperial_text: None,
                 },
             );
         }
-        o.fitness_history = line;
+        o.fitness_history = if o.fitness_metric == "pace" {
+            crate::persistence::screens::with_pace_text(line, o.unit == "/100m")
+        } else {
+            line
+        };
     }
     offered
 }
@@ -282,6 +311,8 @@ fn record_in_efforts(o: &mut crate::FfiStalePrOpportunity) {
             value: o.best_time_secs,
             date: o.pr_date,
             activity_id: o.best_activity_id.clone(),
+            metric_text: None,
+            imperial_text: None,
         },
     );
 }
@@ -355,6 +386,14 @@ mod tests {
             delta_seconds: None,
             glyph: None,
             sample_count: 0,
+            latest_pace_metric_text: None,
+            latest_pace_imperial_text: None,
+            previous_pace_metric_text: None,
+            previous_pace_imperial_text: None,
+            latest_pace_metric_parts: None,
+            latest_pace_imperial_parts: None,
+            previous_pace_metric_parts: None,
+            previous_pace_imperial_parts: None,
         }
     }
 
@@ -802,6 +841,56 @@ mod tests {
         assert_eq!(unmatched[0].pr_share_percent, None);
     }
 
+    /// Scenario: a runner's critical speed went from 3.0 to 4.0 m/s, a swimmer's
+    /// from 1.0 to 1.25, and a rider's eFTP rose.
+    ///
+    /// Expected behaviour: each pace opportunity carries its current and
+    /// previous pace as text in both unit systems, formatted for the sport's
+    /// own distance, and the power opportunity carries none.
+    #[test]
+    fn a_pace_opportunity_carries_its_pace_text_in_both_unit_systems() {
+        let ftp = ftp(Some(285), Some(250));
+        let mut run = flat_pace();
+        run.latest_pace = Some(4.0);
+        let mut swim = flat_pace();
+        swim.latest_pace = Some(1.25);
+        let trends = StalePrTrends {
+            ftp: &ftp,
+            run_pace: &run,
+            swim_pace: &swim,
+        };
+        let sports = vec!["Run".to_string(), "Swim".to_string(), "Ride".to_string()];
+        let exclude = std::collections::HashSet::<(String, String)>::new();
+        let out = opportunities(
+            &trends,
+            &sports,
+            &request(&exclude),
+            |_| vec![ranked("park", 90, 6)],
+            |sport, _| match sport {
+                "Run" => Some(3.0),
+                "Swim" => Some(1.0),
+                _ => Some(250.0),
+            },
+        );
+        let of = |sport: &str| out.iter().find(|o| o.sport_type == sport).unwrap();
+
+        let run = of("Run");
+        assert_eq!(run.current_metric_text.as_deref(), Some("4:10"));
+        assert_eq!(run.current_imperial_text.as_deref(), Some("6:42"));
+        assert_eq!(run.previous_metric_text.as_deref(), Some("5:33"));
+        assert_eq!(run.previous_imperial_text.as_deref(), Some("8:56"));
+
+        let swim = of("Swim");
+        assert_eq!(swim.current_metric_text.as_deref(), Some("1:20"));
+        assert_eq!(swim.current_imperial_text.as_deref(), Some("1:13"));
+        assert_eq!(swim.previous_metric_text.as_deref(), Some("1:40"));
+        assert_eq!(swim.previous_imperial_text.as_deref(), Some("1:31"));
+
+        let ride = of("Ride");
+        assert_eq!(ride.current_metric_text, None);
+        assert_eq!(ride.previous_imperial_text, None);
+    }
+
     /// A run's record is a speed, and its share is of the critical speed held
     /// on the record's day.
     #[test]
@@ -828,6 +917,8 @@ mod tests {
         let out = with_record_detail(offered, |_| effort(Some(150.0), 1_080.0), |_, _| Vec::new());
 
         assert_eq!(out[0].pr_speed, Some(3.6));
+        assert_eq!(out[0].pr_speed_metric_text.as_deref(), Some("4:38"));
+        assert_eq!(out[0].pr_speed_imperial_text.as_deref(), Some("7:27"));
         assert_eq!(out[0].pr_power, None, "a run states its speed");
         assert_eq!(out[0].pr_share_percent, Some(100.0));
     }
@@ -856,11 +947,15 @@ mod tests {
                 value: 320.0,
                 date: day("2026-01-01"),
                 activity_id: Some("new1".into()),
+                metric_text: None,
+                imperial_text: None,
             },
             crate::FfiSeriesPoint {
                 value: 310.0,
                 date: day("2026-02-01"),
                 activity_id: Some("new2".into()),
+                metric_text: None,
+                imperial_text: None,
             },
         ];
         let offered = opportunities(
@@ -882,11 +977,15 @@ mod tests {
                         value: 228.0,
                         date: day("2024-01-01"),
                         activity_id: None,
+                        metric_text: None,
+                        imperial_text: None,
                     },
                     crate::FfiSeriesPoint {
                         value: 262.0,
                         date: day("2026-09-01"),
                         activity_id: None,
+                        metric_text: None,
+                        imperial_text: None,
                     },
                 ]
             },
@@ -940,5 +1039,76 @@ mod tests {
         }
         assert!(gain_for_sport("Walk", Some(&cycling), Some(&running), Some(&swimming)).is_none());
         assert!(gain_for_sport("", Some(&cycling), Some(&running), Some(&swimming)).is_none());
+    }
+
+    /// Scenario: a swimmer's critical speed went from 1.0 to 1.25 m/s, and a
+    /// rider's eFTP rose, each with a fitness line read from the engine.
+    ///
+    /// Expected behaviour: every point of a pace line, including the one added
+    /// on the record's day, carries pace text per 100 m and per 100 yd; a
+    /// power line and the efforts carry none.
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn a_pace_fitness_line_carries_pace_text_and_a_power_line_none() {
+        let ftp = ftp(Some(285), Some(250));
+        let mut swim = flat_pace();
+        swim.latest_pace = Some(1.25);
+        let trends = StalePrTrends {
+            ftp: &ftp,
+            run_pace: &flat_pace(),
+            swim_pace: &swim,
+        };
+        let sports = vec!["Swim".to_string(), "Ride".to_string()];
+        let exclude = std::collections::HashSet::<(String, String)>::new();
+        let offered = opportunities(
+            &trends,
+            &sports,
+            &request(&exclude),
+            |_| vec![ranked("pool", 90, 6)],
+            |sport, _| {
+                if sport == "Swim" {
+                    Some(1.0)
+                } else {
+                    Some(250.0)
+                }
+            },
+        );
+        let out = with_record_detail(
+            offered,
+            |_| None,
+            |sport, _| {
+                let value = if sport == "Swim" { 1.25 } else { 285.0 };
+                vec![crate::FfiSeriesPoint {
+                    value,
+                    date: day("2026-09-01"),
+                    activity_id: None,
+                    metric_text: None,
+                    imperial_text: None,
+                }]
+            },
+        );
+        let of = |sport: &str| out.iter().find(|o| o.sport_type == sport).unwrap();
+
+        let texts: Vec<_> = of("Swim")
+            .fitness_history
+            .iter()
+            .map(|p| (p.metric_text.as_deref(), p.imperial_text.as_deref()))
+            .collect();
+        assert_eq!(texts.len(), 2, "the record's day is added to the line");
+        assert!(texts.contains(&(Some("1:20"), Some("1:13"))));
+        assert!(texts.contains(&(Some("1:40"), Some("1:31"))));
+
+        assert!(
+            of("Ride")
+                .fitness_history
+                .iter()
+                .all(|p| p.metric_text.is_none() && p.imperial_text.is_none())
+        );
+        assert!(
+            of("Swim")
+                .recent_efforts
+                .iter()
+                .all(|p| p.metric_text.is_none())
+        );
     }
 }

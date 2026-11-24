@@ -2,7 +2,7 @@
  * Scenario: the engine opens at launch, and again after a retry or a re-auth,
  * with nothing on the JavaScript side mounted to drive the upload queue.
  *
- * Expected behaviour: each open adopts the old queue and index and then writes
+ * Expected behaviour: each open adopts the old queue and then writes
  * the engine rows a save missed, in that order, and wakes the engine's
  * schedule, which uploads and sweeps on its own. The engine's announcement
  * that write permission was refused marks the athlete as lacking it, and is
@@ -12,7 +12,6 @@
 
 import { startUploadQueue } from '@/features/recording/lib/upload/startUploadQueue';
 import {
-  adoptAsyncStorageIndex,
   listRecordings,
   migrateLegacyUploadQueue,
   wakeUploadSchedule,
@@ -25,7 +24,6 @@ const mockSetHasWritePermission = jest.fn();
 jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   listRecordings: jest.fn(async () => []),
   migrateLegacyUploadQueue: jest.fn(async () => {}),
-  adoptAsyncStorageIndex: jest.fn(async () => 0),
   wakeUploadSchedule: jest.fn(),
   onUploadPermissionRefused: jest.fn((listener: () => void) => {
     mockRefusalListeners.add(listener);
@@ -48,14 +46,10 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-it('adopts the old queue and index, then writes the rows a save missed', async () => {
+it('adopts the old queue, then writes the rows a save missed', async () => {
   const order: string[] = [];
   jest.mocked(migrateLegacyUploadQueue).mockImplementation(async () => {
     order.push('queue');
-  });
-  jest.mocked(adoptAsyncStorageIndex).mockImplementation(async () => {
-    order.push('index');
-    return 0;
   });
   jest.mocked(replayProvisionalWrites).mockImplementation(async () => {
     order.push('replay');
@@ -64,14 +58,14 @@ it('adopts the old queue and index, then writes the rows a save missed', async (
 
   await startUploadQueue();
 
-  expect(order).toEqual(['queue', 'index', 'replay']);
+  expect(order).toEqual(['queue', 'replay']);
 });
 
 vaultIt('repeats the adoption and wakes the schedule on every engine open', async () => {
   await startUploadQueue();
   await startUploadQueue();
 
-  expect(adoptAsyncStorageIndex).toHaveBeenCalledTimes(2);
+  expect(migrateLegacyUploadQueue).toHaveBeenCalledTimes(2);
   expect(replayProvisionalWrites).toHaveBeenCalledTimes(2);
   expect(wakeUploadSchedule).toHaveBeenCalledTimes(2);
 });

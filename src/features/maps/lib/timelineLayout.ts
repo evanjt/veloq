@@ -1,4 +1,4 @@
-export const ONE_YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
+const ONE_YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
 
 /** Older-year counts up to each bound give the recent twelve months the paired share of the track. */
 const RECENT_SHARE_BANDS: readonly (readonly [number, number])[] = [
@@ -36,16 +36,16 @@ const MAX_YEAR_LABEL_INTERVAL = 10;
 const SNAP_THRESHOLD = 0.08;
 const SNAP_EPSILON = 1e-9;
 
-export type TimelineTickKind = 'year' | 'quarter' | 'now';
+type TimelineTickKind = 'year' | 'quarter' | 'now';
 
-export interface TimelineSnapPoint {
+interface TimelineSnapPoint {
   position: number;
   date: Date;
   kind: TimelineTickKind;
   showLabel: boolean;
 }
 
-export interface TimelineLayout {
+interface TimelineLayout {
   recentShare: number;
   dateToPosition: (date: Date) => number;
   positionToDate: (pos: number) => Date;
@@ -194,7 +194,7 @@ export function createTimelineLayout({
   };
 }
 
-export interface TickLabelPlacement {
+interface TickLabelPlacement {
   /** The snap point the label names. */
   index: number;
   left: number;

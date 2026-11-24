@@ -11,6 +11,7 @@
 //! The bound is enforced where a deep tile is written, the one place the set
 //! grows, rather than by a call someone has to remember to make.
 
+use crate::poison::Recover;
 use std::collections::HashMap;
 use std::fs::Metadata;
 use std::ops::RangeInclusive;
@@ -200,7 +201,7 @@ fn tile_path(dir: &Path, (z, x, y): TileKey, extension: &str) -> PathBuf {
 static DEEP_TILES: Mutex<Option<DeepTileIndex>> = Mutex::new(None);
 
 fn deep_tiles() -> MutexGuard<'static, Option<DeepTileIndex>> {
-    DEEP_TILES.lock().unwrap_or_else(|e| e.into_inner())
+    DEEP_TILES.lock_recover()
 }
 
 /// The index of `dir`, walked from the tree when none is held for it. The

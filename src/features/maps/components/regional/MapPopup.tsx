@@ -30,7 +30,7 @@ type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 /** The size every stat glyph is drawn at */
 
-export interface MapPopupStat {
+interface MapPopupStat {
   key: string;
   /** A glyph name, drawn in the neutral ink every stat shares */
   icon?: IconName;
@@ -39,7 +39,7 @@ export interface MapPopupStat {
   value?: string;
 }
 
-export interface MapPopupAction {
+interface MapPopupAction {
   testID: string;
   onPress: () => void;
 }

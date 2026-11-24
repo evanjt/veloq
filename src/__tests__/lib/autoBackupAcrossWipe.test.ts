@@ -58,7 +58,6 @@ function deferred() {
 }
 
 const upload = jest.fn(async (): Promise<string> => 'veloq-backup.zip');
-const remove = jest.fn(async () => {});
 const listBackups = jest.fn(async () => []);
 const backend: BackupBackend = {
   id: 'held-remote',
@@ -68,7 +67,6 @@ const backend: BackupBackend = {
   listBackups,
   upload,
   download: async () => {},
-  delete: remove,
   putObject: async () => {},
   listObjects: async () => [],
   fetchObject: async () => {},
@@ -125,7 +123,6 @@ it.each([false, true])(
 
     await expect(backup).resolves.toEqual(NOTHING);
     expectNoSettings();
-    expect(remove).not.toHaveBeenCalled();
   }
 );
 

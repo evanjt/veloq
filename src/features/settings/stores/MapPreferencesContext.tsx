@@ -3,6 +3,7 @@ import React, {
   useContext,
   useState,
   useEffect,
+  useRef,
   useCallback,
   useMemo,
   useSyncExternalStore,
@@ -205,6 +206,9 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     {}
   );
   const [isLoaded, setIsLoaded] = useState(false);
+  // True once a read of the stored values has succeeded. A write built from the
+  // defaults before then would replace every stored value with the few held.
+  const readSucceeded = useRef(false);
 
   useEffect(() => {
     const forget = () => setActivityOverrides({});
@@ -258,6 +262,7 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
         }
       }
       setActivityOverrides(valid);
+      readSucceeded.current = true;
     } catch {
       // Storage unreadable: keep what is held
     }
@@ -273,9 +278,16 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
   }, [loadStored]);
 
   // Save preferences to storage
-  const savePreferences = useCallback(async (newPrefs: MapPreferences) => {
-    await setSetting(STORAGE_KEY, JSON.stringify(newPrefs));
-  }, []);
+  const savePreferences = useCallback(
+    async (newPrefs: MapPreferences) => {
+      if (!readSucceeded.current) {
+        await loadStored();
+        return;
+      }
+      await setSetting(STORAGE_KEY, JSON.stringify(newPrefs));
+    },
+    [loadStored]
+  );
 
   // Set default style - persist inside callback to fix React 18 batching issue
   const setDefaultStyle = useCallback(
@@ -425,9 +437,13 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
   // Save activity overrides to storage
   const saveActivityOverrides = useCallback(
     async (overrides: Record<string, ActivityMapOverride>) => {
+      if (!readSucceeded.current) {
+        await loadStored();
+        return;
+      }
       await setSetting(ACTIVITY_OVERRIDES_KEY, JSON.stringify(overrides));
     },
-    []
+    [loadStored]
   );
 
   // Set per-activity map override

@@ -92,7 +92,6 @@ function mockUnsetCarrier(id: string) {
     listBackups: async () => [],
     upload: async () => '',
     download: async () => {},
-    delete: async () => {},
   };
 }
 

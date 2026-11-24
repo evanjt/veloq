@@ -367,7 +367,8 @@ fn test_recompute_groups_gives_a_partial_member_no_highlight_and_no_rank() {
         .unwrap();
     assert_eq!(direction, "partial");
 
-    let highlights = engine.get_activity_route_highlights(&ids);
+    let highlights =
+        crate::persistence::fitness::derivations::pooled::route_highlights(&engine.db, &ids);
     assert!(highlights.iter().all(|h| h.activity_id != "c"));
     let result = engine.get_route_performances(&route_id, Some("c"), None);
     assert_eq!(result.current_rank, None);

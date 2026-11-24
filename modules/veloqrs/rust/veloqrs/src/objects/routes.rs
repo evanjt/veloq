@@ -1,8 +1,7 @@
-use std::sync::Arc;
-
 use super::engine::InFlight;
 use super::error::{VeloqError, with_engine, with_reader};
 use crate::persistence::sections::lap_curves::pooled::CurveRead;
+use std::sync::Arc;
 
 /// Give a route a name, or clear it with an empty one. The phone's rename and
 /// the linked browser's both end here, so a taken name is refused the same way
@@ -17,7 +16,7 @@ pub(crate) fn rename_route(
         .set_route_name(route_id, name)
         .map_err(|error| match error {
             crate::persistence::RouteNameError::Taken(name) => VeloqError::RouteNameTaken { name },
-            crate::persistence::RouteNameError::Failed(msg) => VeloqError::Database { msg },
+            crate::persistence::RouteNameError::Failed(msg) => VeloqError::database(msg),
         })
 }
 
@@ -41,7 +40,7 @@ async fn representative_edit_for(
             Some(activity_id) => e.set_route_representative(&route_id, &activity_id),
             None => e.reset_route_representative(&route_id),
         }
-        .map_err(|msg| VeloqError::Database { msg });
+        .map_err(|msg| VeloqError::database(msg));
         drop(slot);
         done
     })
@@ -239,9 +238,7 @@ impl RouteManager {
                 })
             })
             .await
-            .map_err(|error| VeloqError::Database {
-                msg: error.to_string(),
-            })?
+            .map_err(|error| VeloqError::database(error.to_string()))?
     }
 
     fn get_performances(
@@ -281,14 +278,14 @@ impl RouteManager {
         // for nothing.
         with_engine(|e| {
             e.exclude_activity_from_route(&route_id, &activity_id)
-                .map_err(|e| VeloqError::Database { msg: e })
+                .map_err(|e| VeloqError::database(e))
         })?
     }
 
     fn include_activity(&self, route_id: String, activity_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.include_activity_in_route(&route_id, &activity_id)
-                .map_err(|e| VeloqError::Database { msg: e })
+                .map_err(|e| VeloqError::database(e))
         })?
     }
 
@@ -398,9 +395,9 @@ mod tests {
                 .is_empty()
         );
         assert!(
-            with_reader(
-                |conn| crate::persistence::routes::pooled::excluded_route_activity_ids(conn, "g1")
-            )
+            with_reader(|conn| {
+                crate::persistence::routes::pooled::excluded_route_activity_ids(conn, "g1")
+            })
             .unwrap()
             .is_empty()
         );
@@ -409,23 +406,21 @@ mod tests {
     /// Statements SQLite ran. `Connection::trace` takes a function pointer,
     /// so the sink is a static rather than a captured counter.
     mod traced {
+        use crate::poison::Recover;
         use std::sync::Mutex;
 
         static SQL: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
         pub fn record(sql: &str) {
-            SQL.lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .push(sql.to_string());
+            SQL.lock_recover().push(sql.to_string());
         }
 
         pub fn reset() {
-            SQL.lock().unwrap_or_else(|e| e.into_inner()).clear();
+            SQL.lock_recover().clear();
         }
 
         pub fn count(fragment: &str) -> usize {
-            SQL.lock()
-                .unwrap_or_else(|e| e.into_inner())
+            SQL.lock_recover()
                 .iter()
                 .filter(|sql| sql.contains(fragment))
                 .count()
@@ -486,9 +481,9 @@ mod tests {
         // matched cannot be excluded from it.
         routes.exclude_activity("g1".into(), "a1".into()).unwrap();
         assert!(
-            with_reader(
-                |conn| crate::persistence::routes::pooled::excluded_route_activity_ids(conn, "g1")
-            )
+            with_reader(|conn| {
+                crate::persistence::routes::pooled::excluded_route_activity_ids(conn, "g1")
+            })
             .unwrap()
             .is_empty()
         );
@@ -512,9 +507,9 @@ mod tests {
         );
         routes.include_activity("g1".into(), "a1".into()).unwrap();
         assert!(
-            with_reader(
-                |conn| crate::persistence::routes::pooled::excluded_route_activity_ids(conn, "g1")
-            )
+            with_reader(|conn| {
+                crate::persistence::routes::pooled::excluded_route_activity_ids(conn, "g1")
+            })
             .unwrap()
             .is_empty()
         );

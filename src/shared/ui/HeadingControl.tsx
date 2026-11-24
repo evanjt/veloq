@@ -14,7 +14,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 
 import { PressTarget, type PressTargetProps } from './PressTarget';
 
-export interface HeadingControlProps extends Omit<PressTargetProps, 'accessibilityRole'> {
+interface HeadingControlProps extends Omit<PressTargetProps, 'accessibilityRole'> {
   accessibilityLabel: string;
 }
 

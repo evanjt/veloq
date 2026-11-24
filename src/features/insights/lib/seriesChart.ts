@@ -21,11 +21,13 @@ export interface SeriesDatum {
   others: (number | null)[];
 }
 
-export interface SeriesChartModel {
+interface SeriesChartModel {
   data: SeriesDatum[];
   xDomain: Domain;
   /** Bottom edge first, so an inverted series carries its largest value first. */
   yDomain: Domain;
+  /** The values the value axis marks, top first, when they are samples' own values. */
+  yMarks?: number[];
   xLabels: PlacedLabel[];
   /** Decimal places that tell neighbouring values apart over this series' range. */
   decimals: number;
@@ -37,6 +39,12 @@ interface SeriesChartOptions {
   invert?: boolean;
   /** Keep zero inside the value range, for bars that stand on it. */
   fromZero?: boolean;
+  /**
+   * Mark the value axis only at values some sample has, with no padding past
+   * the data, for a series whose values are printed from text the engine sent
+   * with each sample. The middle mark is the sample nearest the middle.
+   */
+  marksOnSamples?: boolean;
   /**
    * Further series drawn beside the first, read at the same positions in the
    * caller's arrays, such as a week's second total. The axis fits them too.
@@ -72,7 +80,14 @@ function decimalsFor(span: number, magnitude: number): number {
  */
 export function seriesChartModel(
   samples: readonly SeriesSample[],
-  { formatDate, invert = false, fromZero = false, others = [], xRange }: SeriesChartOptions
+  {
+    formatDate,
+    invert = false,
+    fromZero = false,
+    marksOnSamples = false,
+    others = [],
+    xRange,
+  }: SeriesChartOptions
 ): SeriesChartModel | null {
   const usable = samples
     .map((sample, index) => ({ sample, index }))
@@ -103,11 +118,20 @@ export function seriesChartModel(
   const max = fromZero ? Math.max(0, ...values) : Math.max(...values);
   const magnitude = Math.max(Math.abs(min), Math.abs(max));
   const span = max - min;
-  const pad = (span > 0 ? span : Math.max(magnitude, 1)) * Y_PAD;
+  const pad = marksOnSamples ? 0 : (span > 0 ? span : Math.max(magnitude, 1)) * Y_PAD;
   // A bar's length is its value, so the edge it stands on gets no padding.
   const bottom = fromZero && min === 0 ? 0 : min - pad;
   const top = fromZero && max === 0 ? 0 : max + pad;
   const yDomain: Domain = invert ? [max + pad, min - pad] : [bottom, top];
+
+  let yMarks: number[] | undefined;
+  if (marksOnSamples) {
+    const middle = (min + max) / 2;
+    const nearest = values.reduce((best, v) =>
+      Math.abs(v - middle) < Math.abs(best - middle) ? v : best
+    );
+    yMarks = invert ? [min, nearest, max] : [max, nearest, min];
+  }
 
   const xs = data.map((d) => d.x);
   const spanned = dated && xRange ? [xRange.from, xRange.to] : [];
@@ -132,5 +156,12 @@ export function seriesChartModel(
     xLabels.push({ label: formatDate(last), value: last });
   }
 
-  return { data, xDomain, yDomain, xLabels, decimals: decimalsFor(span, magnitude) };
+  return {
+    data,
+    xDomain,
+    yDomain,
+    ...(yMarks ? { yMarks } : {}),
+    xLabels,
+    decimals: decimalsFor(span, magnitude),
+  };
 }

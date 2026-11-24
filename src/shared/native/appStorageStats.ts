@@ -1,7 +1,7 @@
 import { requireOptionalNativeModule } from 'expo-modules-core';
 
 /** The platform's own account of the app's storage, in bytes: user data and cache, each apart from the other. */
-export interface PlatformAppStorageStats {
+interface PlatformAppStorageStats {
   dataBytes: number;
   cacheBytes: number;
 }

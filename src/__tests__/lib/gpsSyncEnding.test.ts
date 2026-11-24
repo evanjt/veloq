@@ -13,7 +13,7 @@ import {
   passRefusalEnding,
   type GpsSyncEnding,
 } from '@/features/routes/lib/gpsSyncEnding';
-import { StartOutcome } from 'veloqrs';
+import { FfiStartOutcome } from 'veloqrs';
 import type { SyncProgress } from '@/features/routes/hooks/useRouteSyncProgress';
 
 const ENDINGS: GpsSyncEnding[] = [
@@ -84,14 +84,14 @@ describe('a GPS download run that stores nothing', () => {
 });
 
 describe('a GPS pass the engine did not start', () => {
-  it.each([StartOutcome.Busy, StartOutcome.Held, StartOutcome.Offline])(
+  it.each([FfiStartOutcome.Busy, FfiStartOutcome.Held, FfiStartOutcome.Offline])(
     'is owed to the engine on outcome %s',
     (outcome) => {
       expect(passRefusalEnding(outcome)).toBe('owed');
     }
   );
 
-  it.each([StartOutcome.NotOwed, StartOutcome.NotConfigured, StartOutcome.NotReady])(
+  it.each([FfiStartOutcome.NotOwed, FfiStartOutcome.NotConfigured, FfiStartOutcome.NotReady])(
     'is not started on outcome %s',
     (outcome) => {
       expect(passRefusalEnding(outcome)).toBe('not-started');

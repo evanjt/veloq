@@ -4,9 +4,14 @@
  */
 
 import { renderHook, act } from '@testing-library/react-native';
+import { recordings } from 'veloqrs';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useKmSplitBannerEffect } from '@/features/recording/hooks/useKmSplitBannerEffect';
+
+// The engine owns the pace rule: its answer names the moving seconds of the
+// speed it was asked for, so what the banner prints shows what was handed over.
+const livePace = recordings.livePace as jest.Mock;
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
 
@@ -38,6 +43,11 @@ describe('useKmSplitBannerEffect', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     useRecordingStore.getState().reset();
+    livePace.mockReset();
+    livePace.mockImplementation((speed: number, _sport: string | undefined, isMetric: boolean) => ({
+      text: `${Math.round(1000 / speed)} s ${isMetric ? '/km' : '/mi'}`,
+      seconds: 1000 / speed,
+    }));
   });
 
   afterEach(() => {
@@ -119,7 +129,7 @@ describe('useKmSplitBannerEffect', () => {
 
     const banners = setSplitBanner.mock.calls.map(([b]) => b).filter((b) => b !== null);
     expect(banners).toHaveLength(1);
-    expect(banners[0].text).toContain('"pace":"5:00 /km"');
+    expect(banners[0].text).toContain('"pace":"300 s /km"');
   });
 
   vaultIt('gives the split in words for a screen reader, beside the line on screen', () => {

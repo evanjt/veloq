@@ -79,6 +79,7 @@ function paceCurve(extra: Partial<PaceCurveRow> = {}): PaceCurveRow {
     distances: [100],
     times: [20],
     pace: [5],
+    paceTexts: [],
     activities: {},
     fetchedAt: FETCHED_AT,
     source: 'intervals',

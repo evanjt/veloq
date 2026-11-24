@@ -200,7 +200,7 @@ pub(crate) mod pooled {
         if activity_ids.is_empty() {
             return Vec::new();
         }
-        let placeholders = vec!["?"; activity_ids.len()].join(",");
+        let placeholders = crate::persistence::sql::question_marks(activity_ids.len());
         let sql = format!(
             "SELECT activity_id, tiles, new_tiles FROM activity_new_ground
              WHERE tiles > 0 AND activity_id IN ({placeholders})"

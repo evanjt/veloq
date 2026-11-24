@@ -289,7 +289,7 @@
   },
   "alerts": {
     "cacheCleared": "Cache cleared",
-    "clearCacheMessage": "Clears cached activity data, tracks and route matching, then reloads them. Might take a few minutes. Local data then covers the last 90 days.",
+    "clearCacheMessage": "Clears cached activity data, tracks, route matching and map cache, then reloads them. Might take a few minutes. Local data then covers the last 90 days.",
     "clearCacheOffline": "You're offline. The reload needs a connection, so activities, maps and routes stay empty until you're back online.",
     "clearCacheTitle": "Clear & reload cache",
     "clearReload": "Clear & reload",

@@ -10,21 +10,21 @@
 import { powerCurveAxisLabels } from '@/features/stats/components/PowerCurveChart';
 import { bestEffortsOf, climbBestsOf } from '@/features/stats/hooks/useSeasonBests';
 import { i18n, initialiseI18n } from '@/i18n';
-import { BestEffortKind, type BestEffortsData } from 'veloqrs';
+import { FfiBestEffortKind, type BestEffortsData } from 'veloqrs';
 
 const read = {
   sports: [
     {
       sport: 'Ride',
       efforts: [
-        { label: '5s', kind: BestEffortKind.Duration, checkpoint: 5, value: 900 },
-        { label: '5m', kind: BestEffortKind.Duration, checkpoint: 300, value: 320 },
-        { label: '1h', kind: BestEffortKind.Duration, checkpoint: 3600, value: 250 },
+        { label: '5s', kind: FfiBestEffortKind.Duration, checkpoint: 5, value: 900 },
+        { label: '5m', kind: FfiBestEffortKind.Duration, checkpoint: 300, value: 320 },
+        { label: '1h', kind: FfiBestEffortKind.Duration, checkpoint: 3600, value: 250 },
       ],
     },
     {
       sport: 'Swim',
-      efforts: [{ label: '400m', kind: BestEffortKind.Distance, checkpoint: 400, value: 1.2 }],
+      efforts: [{ label: '400m', kind: FfiBestEffortKind.Distance, checkpoint: 400, value: 1.2 }],
     },
   ],
   climbing: [

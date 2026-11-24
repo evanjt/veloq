@@ -17,8 +17,9 @@
 //! cannot see the engine's in-memory tier either. A caller that needs either of
 //! those belongs on the engine `Mutex`.
 
+use crate::poison::Recover;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{LazyLock, Mutex, MutexGuard};
+use std::sync::{LazyLock, Mutex};
 use std::{cell::Cell, thread_local};
 
 use rusqlite::{Connection, OpenFlags};
@@ -62,14 +63,6 @@ pub(crate) fn reader_current() -> bool {
     })
 }
 
-/// A poisoned pool is still a valid pool: the panic happened in a caller's
-/// closure, not in the `Vec`, and refusing the lock afterwards would leave
-/// every later read unserved for the rest of the session. This is the recovery
-/// the engine's own accessors take, for the same reason.
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
-}
-
 /// Point the pool at the database the engine has just opened.
 ///
 /// Called on every path that installs an engine, including the quarantine
@@ -77,23 +70,23 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 /// quarantine the file they hold open has been renamed aside, so reusing one
 /// would serve reads from the database that was moved away.
 pub(crate) fn bind(db_path: &str) {
-    let mut idle = lock(&READ_POOL.idle);
+    let mut idle = READ_POOL.idle.lock_recover();
     idle.clear();
     READ_POOL.generation.fetch_add(1, Ordering::AcqRel);
     super::settings_conn::forget();
     // What a reader is allowed to remember belongs to the database it was read
     // from, so it moves with the binding.
     super::read_cache::bind(db_path);
-    *lock(&READ_POOL.path) = Some(db_path.to_string());
+    *READ_POOL.path.lock_recover() = Some(db_path.to_string());
 }
 
 /// Forget the database and drop every idle connection when an engine closes.
 /// Restore must not leave a reader pointed at the file it is replacing.
 pub(crate) fn close() {
-    let mut idle = lock(&READ_POOL.idle);
+    let mut idle = READ_POOL.idle.lock_recover();
     READ_POOL.generation.fetch_add(1, Ordering::AcqRel);
     super::read_cache::close();
-    *lock(&READ_POOL.path) = None;
+    *READ_POOL.path.lock_recover() = None;
     idle.clear();
     super::settings_conn::forget();
 }
@@ -102,7 +95,7 @@ pub(crate) fn close() {
 /// asks the process for memory. A reader in flight keeps its connection and
 /// parks it as usual when it ends, and the next read opens one.
 pub(crate) fn release_idle() {
-    lock(&READ_POOL.idle).clear();
+    READ_POOL.idle.lock_recover().clear();
 }
 
 /// Drop every idle connection, move the generation and keep the binding.
@@ -112,7 +105,7 @@ pub(crate) fn release_idle() {
 /// mid-read finishes on its own connection, which the moved generation keeps
 /// from coming back to the pool.
 pub(crate) fn release_for_wipe() {
-    let mut idle = lock(&READ_POOL.idle);
+    let mut idle = READ_POOL.idle.lock_recover();
     READ_POOL.generation.fetch_add(1, Ordering::AcqRel);
     idle.clear();
     super::settings_conn::forget();
@@ -121,7 +114,7 @@ pub(crate) fn release_for_wipe() {
 /// The database the pool is bound to and the binding's generation, which
 /// moves on every bind and close. `None` while no engine is installed.
 pub(crate) fn binding() -> Option<(u64, String)> {
-    let path = lock(&READ_POOL.path);
+    let path = READ_POOL.path.lock_recover();
     let generation = READ_POOL.generation.load(Ordering::Acquire);
     path.clone().map(|path| (generation, path))
 }
@@ -164,10 +157,10 @@ where
 }
 
 fn take() -> Option<Connection> {
-    if let Some(conn) = lock(&READ_POOL.idle).pop() {
+    if let Some(conn) = READ_POOL.idle.lock_recover().pop() {
         return Some(conn);
     }
-    let path = lock(&READ_POOL.path).clone()?;
+    let path = READ_POOL.path.lock_recover().clone()?;
     match open_reader(&path) {
         Ok(conn) => Some(conn),
         Err(e) => {
@@ -178,7 +171,7 @@ fn take() -> Option<Connection> {
 }
 
 fn give_back(conn: Connection, generation: u64) {
-    let mut idle = lock(&READ_POOL.idle);
+    let mut idle = READ_POOL.idle.lock_recover();
     if READ_POOL.generation.load(Ordering::Acquire) == generation && idle.len() < IDLE_LIMIT {
         idle.push(conn);
     }
@@ -209,7 +202,7 @@ pub(crate) fn open_reader(path: &str) -> rusqlite::Result<Connection> {
 /// matters to a caller, its size is what a test needs to see reuse happening.
 #[cfg(test)]
 pub(crate) fn idle_len() -> usize {
-    lock(&READ_POOL.idle).len()
+    READ_POOL.idle.lock_recover().len()
 }
 
 #[cfg(test)]

@@ -135,3 +135,89 @@ fn a_finished_run_records_what_it_handled_and_formed() {
     assert!(second.finished_at >= first.finished_at);
     assert_eq!(second.outcome, "complete");
 }
+
+/// Not framed postcard, not unframed postcard, not an rmp array header: no
+/// container claims it, so the track loader reports the row as unreadable.
+const UNDECODABLE: &[u8] = &[0x7f, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07];
+
+fn set_blob(db: &std::path::Path, id: &str, blob: &[u8]) {
+    let conn = Connection::open(db).expect("open db");
+    let n = conn
+        .execute(
+            "UPDATE gps_tracks SET track_data = ? WHERE activity_id = ?",
+            rusqlite::params![blob, id],
+        )
+        .expect("blob update");
+    assert_eq!(n, 1, "expected one gps_tracks row for {id}");
+}
+
+fn stored_blob(db: &std::path::Path, id: &str) -> Vec<u8> {
+    Connection::open(db)
+        .expect("open db")
+        .query_row(
+            "SELECT track_data FROM gps_tracks WHERE activity_id = ?",
+            rusqlite::params![id],
+            |row| row.get(0),
+        )
+        .expect("stored blob")
+}
+
+fn seeded(library: i32) -> (TempDir, std::path::PathBuf) {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("routes.db");
+    assert!(persistent_engine_init(
+        path.to_str().expect("utf-8 path").to_string()
+    ));
+    (0..library).for_each(store);
+    (dir, path)
+}
+
+fn only_row(db: &std::path::Path) -> (String, u32, u32) {
+    let mut rows = detection_rows(db);
+    assert_eq!(rows.len(), 1, "one row per job");
+    let row = rows.remove(0);
+    (row.outcome, row.handled, row.failed)
+}
+
+/// Scenario: a library of twenty with one unreadable row, then the row is
+/// repaired and detection runs again.
+/// Expected behaviour: the catalogue is cut over the nineteen readable
+/// tracks, so the run reads partial with the unreadable count as failed; the
+/// repaired library reads complete with none.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn an_unreadable_track_makes_the_run_partial_until_it_is_repaired() {
+    let _serial_state = super::serial_state();
+    let (_dir, path) = seeded(20);
+    let good = stored_blob(&path, "ride_3");
+    set_blob(&path, "ride_3", UNDECODABLE);
+
+    let detection = DetectionManager::new();
+    assert!(detection.start().expect("start").started());
+    run_to_the_end(&detection);
+    assert_eq!(only_row(&path), ("partial".to_string(), 20, 1));
+
+    set_blob(&path, "ride_3", &good);
+    store(20);
+    assert!(detection.start().expect("second start").started());
+    run_to_the_end(&detection);
+    assert_eq!(only_row(&path), ("complete".to_string(), 21, 0));
+}
+
+/// Scenario: every row of a library of twelve is unreadable, the shape a
+/// codec change takes.
+/// Expected behaviour: the run is abandoned and its failed row still says how
+/// many rows it met and how many were unreadable.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn an_abandoned_run_records_the_pool_it_met() {
+    let _serial_state = super::serial_state();
+    let (_dir, path) = seeded(12);
+    (0..12).for_each(|i| set_blob(&path, &format!("ride_{i}"), UNDECODABLE));
+
+    let detection = DetectionManager::new();
+    assert!(detection.start().expect("start").started());
+    run_to_the_end(&detection);
+
+    assert_eq!(only_row(&path), ("failed".to_string(), 12, 12));
+}

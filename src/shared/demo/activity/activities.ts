@@ -1,3 +1,4 @@
+import { addLocalDays } from '@/shared/time/localDay';
 import {
   getDemoReferenceDate,
   formatDateId,
@@ -460,8 +461,7 @@ function generateActivities(): ApiActivity[] {
   // The library ends the evening before the reference day, so the feed never lists a ride that
   // starts later than the moment demo mode is opened.
   for (let daysAgo = 365; daysAgo >= 1; daysAgo--) {
-    const date = new Date(referenceDate);
-    date.setDate(date.getDate() - daysAgo);
+    const date = addLocalDays(referenceDate, -daysAgo);
     const dateStr = formatDateId(date);
     const dayRandom = createDateSeededRandom(dateStr + '-activity');
     const dayOfWeek = date.getDay();
@@ -556,8 +556,7 @@ function generateActivities(): ApiActivity[] {
   for (let i = 0; i < 20; i++) {
     const da = 14 + Math.floor((i / 20) * 351);
     stressDaysAgo.push(da);
-    const d = new Date(referenceDate);
-    d.setDate(d.getDate() - da);
+    const d = addLocalDays(referenceDate, -da);
     const ds = formatDateId(d);
     const c = getTrainingDay(da, ds);
     const ratio = c.ftpWatts / 250;
@@ -567,8 +566,7 @@ function generateActivities(): ApiActivity[] {
   stressTimes[0] = Math.max(minTime - 5, Math.round(stressTemplate.time * 0.82));
 
   for (let i = 0; i < 20; i++) {
-    const date = new Date(referenceDate);
-    date.setDate(date.getDate() - stressDaysAgo[i]);
+    const date = addLocalDays(referenceDate, -stressDaysAgo[i]);
     date.setHours(6, 30, 0, 0);
     const dateStr = formatDateId(date);
     const ctx = getTrainingDay(stressDaysAgo[i], dateStr);
@@ -630,8 +628,7 @@ function generateWellness(): ApiWellness[] {
   let atl = 30;
 
   for (let daysAgo = 365; daysAgo >= 0; daysAgo--) {
-    const date = new Date(referenceDate);
-    date.setDate(date.getDate() - daysAgo);
+    const date = addLocalDays(referenceDate, -daysAgo);
     const dateStr = formatDateId(date);
     const rng = createDateSeededRandom(dateStr + '-wellness-fixture');
     const ctx = getTrainingDay(daysAgo, dateStr);

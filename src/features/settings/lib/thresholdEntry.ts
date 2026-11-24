@@ -2,7 +2,7 @@ import { parseDecimalInput } from '@/shared/format/decimalInput';
 import { KG_TO_LB, toDisplayWeight } from '@/shared/format/weight';
 
 /** What a threshold field holds once the athlete leaves it. */
-export type ThresholdEntry =
+type ThresholdEntry =
   { kind: 'unchanged' } | { kind: 'clear' } | { kind: 'set'; value: number } | { kind: 'invalid' };
 
 /**

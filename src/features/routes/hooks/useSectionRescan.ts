@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { hasStarted, StartOutcome, type StartVerdict, detection } from 'veloqrs';
+import { hasStarted, FfiStartOutcome, type StartVerdict, detection } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { attemptEngineRead } from '@/shared/native/engineError';
 import {
@@ -152,14 +152,14 @@ export function useSectionRescan(): SectionRescanState {
 
   const rescan = useCallback(() => {
     const engine = getEngine();
-    if (!engine) return adopt(StartOutcome.NotReady, false);
+    if (!engine) return adopt(FfiStartOutcome.NotReady, false);
     beforeCountRef.current = getSectionCount();
     return adopt(detection.startSectionDetection(), false);
   }, [adopt]);
 
   const forceRescan = useCallback(() => {
     const engine = getEngine();
-    if (!engine) return adopt(StartOutcome.NotReady, false);
+    if (!engine) return adopt(FfiStartOutcome.NotReady, false);
     beforeCountRef.current = getSectionCount();
     return adopt(detection.forceRedetectSections(), false);
   }, [adopt]);

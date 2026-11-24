@@ -139,14 +139,7 @@ describe('tap-target floor', () => {
   });
 
   it('holds the feed filter chips to the minimum height', async () => {
-    await render(
-      <FeedFilterChips
-        selected={new Set()}
-        onSelect={jest.fn()}
-        selectedRange={null}
-        onSelectRange={jest.fn()}
-      />
-    );
+    await render(<FeedFilterChips selected={new Set()} onSelect={jest.fn()} />);
 
     const chip = screen.getByTestId('home-filter-ride');
     expect(reach(chip).height).toBeGreaterThanOrEqual(layout.minTapTarget);

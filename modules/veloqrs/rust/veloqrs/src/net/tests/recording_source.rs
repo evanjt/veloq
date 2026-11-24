@@ -12,6 +12,7 @@ use crate::net::intervals::wire::{
 use crate::net::source::{Source, SourceWrites};
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::{ActivityHistorySummary, ParsedStreams, StreamDto};
+use crate::poison::Recover;
 use chrono::{DateTime, Utc};
 use std::sync::{Arc, Mutex};
 
@@ -77,7 +78,7 @@ impl RecordingSource {
     }
 
     pub fn calls(&self) -> Vec<Asked> {
-        self.calls.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        self.calls.lock_recover().clone()
     }
 
     fn remote_answer(&self) -> Result<Option<Vec<RemoteActivitySummary>>, NetError> {
@@ -92,8 +93,7 @@ impl RecordingSource {
 
     fn note(&self, method: &'static str, args: &[&str], dispatch: Dispatch) {
         self.calls
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .lock_recover()
             .push(asked(method, args, dispatch));
     }
 }

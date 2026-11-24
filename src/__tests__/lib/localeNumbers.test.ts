@@ -9,7 +9,7 @@
  * no sign.
  */
 
-import { formatForm } from '@/features/fitness/lib/fitness';
+import { localizeFormText } from '@/shared/format/number';
 import {
   formatCalories,
   formatDecimal,
@@ -51,7 +51,7 @@ describe('under de-DE', () => {
   });
 
   it('groups thousands with a period', () => {
-    expect(formatElevation(1234)).toBe('1.234 m');
+    expect(formatElevation(1234, true)).toBe('1.234 m');
     expect(formatCalories(12345)).toBe('12.345 kcal');
     expect(formatWeightRounded(1234, true)).toBe('1.234 kg');
   });
@@ -64,16 +64,18 @@ describe('under de-DE', () => {
   });
 
   it('writes the form percentage of fitness the locale way', () => {
-    expect(formatForm(10, 40, true)).toBe('+25\u00a0%');
-    expect(formatForm(-8, 40, true)).toBe('-20\u00a0%');
-    expect(formatForm(0, 40, true)).toBe('0\u00a0%');
+    expect(localizeFormText('+25%')).toBe('+25\u00a0%');
+    expect(localizeFormText('-20%')).toBe('-20\u00a0%');
+    expect(localizeFormText('0%')).toBe('0\u00a0%');
+    expect(localizeFormText('+10')).toBe('+10');
+    expect(localizeFormText(undefined)).toBeNull();
   });
 });
 
 describe('under en-GB', () => {
   it('keeps the period decimal and groups with a comma', () => {
     expect(formatDistance(12500, true)).toBe('12.5 km');
-    expect(formatElevation(1234)).toBe('1,234 m');
+    expect(formatElevation(1234, true)).toBe('1,234 m');
     expect(formatWeight(72, true)).toBe('72 kg');
     expect(formatPercent(12.5, 1)).toBe('12.5%');
   });

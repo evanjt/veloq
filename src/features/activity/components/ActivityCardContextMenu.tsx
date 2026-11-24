@@ -6,7 +6,8 @@ import { useMapPreferences } from '@/features/settings';
 import { shareText } from '@/features/settings/light';
 import { type MapStyleType, resolveTerrain3D } from '@/features/maps';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
-import type { ActivityType, FeedCard } from '@/types';
+import type { FeedCard } from '@/types';
+import { toActivityType } from '@/types';
 import {
   ContextMenu,
   contextMenuHoldIsNative,
@@ -91,7 +92,7 @@ export function ActivityCardContextMenu({
   } = useMapPreferences();
 
   // A body with no sport falls back to Other in every helper, as it always has.
-  const sport = activity.sportType as ActivityType;
+  const sport = toActivityType(activity.sportType);
   const currentStyle = getStyleForActivity(sport, activity.id);
   const hasOverride = hasActivityOverride(activity.id);
   const is3DOn = useTerrain3DShown(

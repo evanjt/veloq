@@ -123,7 +123,7 @@ function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSection
                 ? `${formatDecimal(effort.wattsPerKg, 2)} ${perKgUnit}`
                 : null;
             const shownTime = sport === 'Cycling' ? perKg : timeStr;
-            const valueText = formatEffortValue(effort.value, sport, t('units.watts'), isMetric);
+            const valueText = formatEffortValue(effort, sport, t('units.watts'), isMetric);
             const isLast = index === efforts.length - 1;
 
             return (

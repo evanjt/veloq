@@ -10,7 +10,7 @@
  * no way back until the network returned.
  */
 
-export interface RouteSyncConditions {
+interface RouteSyncConditions {
   /** The network as the sync context last saw it. */
   online: boolean;
   /** Demo mode reads its GPS from fixtures, so it needs no network. */
@@ -19,7 +19,7 @@ export interface RouteSyncConditions {
   newGpsCount: number;
 }
 
-export interface RouteSyncPlan {
+interface RouteSyncPlan {
   /** Fetch GPS for the activities the engine is missing. */
   fetchGps: boolean;
   /**

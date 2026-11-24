@@ -32,6 +32,7 @@ import { HeatmapHiddenList } from './HeatmapHiddenList';
 import { groupStyleState, groupTerrainState } from '../lib/mapStyleGroupState';
 import { settingsStyles } from './settingsStyles';
 import type { ActivityType, Terrain3DMode } from '@/types';
+import { toActivityType } from '@/types';
 
 export const MAP_ACTIVITY_GROUPS: {
   key: string;
@@ -40,7 +41,7 @@ export const MAP_ACTIVITY_GROUPS: {
 }[] = (Object.keys(SPORT_FAMILY_MEMBERS) as SportFamily[]).map((key) => ({
   key,
   labelKey: SPORT_FAMILY_LABELS[key],
-  types: [...SPORT_FAMILY_MEMBERS[key]] as ActivityType[],
+  types: SPORT_FAMILY_MEMBERS[key].map(toActivityType),
 }));
 
 const MAP_STYLES: MapStyleType[] = ['light', 'dark', 'satellite'];

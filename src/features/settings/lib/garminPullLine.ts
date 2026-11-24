@@ -4,7 +4,7 @@ import { FfiGarminHalt, FfiGarminPullPhase } from 'veloqrs';
 import { formatClockAt } from '@/shared/format/format';
 
 /** The pull's status as a catalogue key and the time it names. */
-export interface GarminPullLine {
+interface GarminPullLine {
   key:
     | 'garmin.pullRunning'
     | 'garmin.pullPaused'

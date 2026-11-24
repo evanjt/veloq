@@ -100,6 +100,7 @@ fn apply(
 ) -> Vec<std::sync::Arc<FrequentSection>> {
     engine
         .section_identity_apply_into(identity, SectionReplay::whole(vec![cut]))
+        .expect("replay")
         .visible
 }
 

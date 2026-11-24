@@ -143,7 +143,18 @@ fn is_rmp_array_header(b: u8) -> bool {
 /// against postcard's ~25. Every earlier container still reads,
 /// so no bulk rewrite runs, a row moves when its activity is next stored.
 pub fn serialize_track_points(points: &[crate::GpsPoint]) -> Vec<u8> {
-    frame(POLYLINE_TAG, encode_polyline(points))
+    frame(POLYLINE_TAG, encode_polyline(&storable(points)))
+}
+
+/// The points of a track the engine will store: the gate the validity mask and
+/// the parsed `latlng` share, so a stored point is never one the detector
+/// would refuse.
+fn storable(points: &[crate::GpsPoint]) -> Vec<crate::GpsPoint> {
+    points
+        .iter()
+        .filter(|p| crate::net::types::is_storable(p.latitude, p.longitude))
+        .copied()
+        .collect()
 }
 
 /// Whether a stored track blob and an incoming track are the same ground.
@@ -158,7 +169,7 @@ pub fn serialize_track_points(points: &[crate::GpsPoint]) -> Vec<u8> {
 /// and 0.1 m of elevation, stops counting as a mutation.
 pub fn track_matches(stored: &[u8], incoming: &[crate::GpsPoint]) -> bool {
     match deserialize_points(stored) {
-        Ok(points) => encode_polyline(&points) == encode_polyline(incoming),
+        Ok(points) => encode_polyline(&storable(&points)) == encode_polyline(&storable(incoming)),
         Err(_) => false,
     }
 }
@@ -330,6 +341,32 @@ impl TrackRead {
                 None
             }
         }
+    }
+}
+
+/// One activity's stored track bytes, undecoded. The single query for a
+/// track blob by activity id: `None` is the absence of a row, an `Err` is a
+/// query that did not run. A caller that wants the points reads through
+/// [`read_track`]; one that inspects the header first, or keeps its own error
+/// policy, reads the bytes here.
+pub(crate) fn track_blob(
+    conn: &rusqlite::Connection,
+    activity_id: &str,
+) -> rusqlite::Result<Option<Vec<u8>>> {
+    use rusqlite::OptionalExtension;
+    conn.prepare_cached("SELECT track_data FROM gps_tracks WHERE activity_id = ?")?
+        .query_row([activity_id], |row| row.get::<_, Vec<u8>>(0))
+        .optional()
+}
+
+/// Read and decode one stored track. A query that cannot run is `Corrupt`,
+/// never `Missing`, so a failure is not mistaken for an activity that was
+/// never synced.
+pub(crate) fn read_track(conn: &rusqlite::Connection, activity_id: &str) -> TrackRead {
+    match track_blob(conn, activity_id) {
+        Ok(Some(bytes)) => TrackRead::from_blob(&bytes),
+        Ok(None) => TrackRead::Missing,
+        Err(e) => TrackRead::Corrupt(format!("track query failed: {e}")),
     }
 }
 
@@ -1097,11 +1134,66 @@ mod tests {
         ));
     }
 
+    /// A point the detector would refuse never reaches a stored track, and a
+    /// track that differs only by such points is the same ground.
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn a_stored_track_holds_only_storable_points() {
+        let good = [pt(46.1, 7.2, Some(10.0)), pt(46.2, 7.3, Some(11.0))];
+        let noisy = [
+            good[0],
+            pt(f64::NAN, 7.25, None),
+            pt(91.0, 7.25, None),
+            pt(46.15, -181.0, Some(5.0)),
+            good[1],
+        ];
+        let blob = serialize_track_points(&noisy);
+        assert_eq!(blob, serialize_track_points(&good));
+        assert_eq!(deserialize_points(&blob).unwrap().len(), 2);
+        assert!(track_matches(&blob, &noisy));
+        assert!(
+            serialize_track_points(&[pt(f64::INFINITY, 0.0, None)]) == serialize_track_points(&[])
+        );
+    }
+
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_corrupt_stored_blob_counts_as_a_mutation() {
         assert!(!track_matches(&[0x07, 0x07, 0x07], &[pt(46.1, 7.2, None)]));
         assert!(!track_matches(&[], &[pt(46.1, 7.2, None)]));
+    }
+
+    fn track_table() -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE gps_tracks (activity_id TEXT PRIMARY KEY, track_data BLOB)",
+        )
+        .unwrap();
+        conn
+    }
+
+    /// Scenario: one stored track is read as present, absent, undecodable, or unreadable.
+    /// Expected behaviour: each outcome is its own `TrackRead`, an absent row is never reported as
+    /// corrupt, and a query that cannot run is corrupt rather than missing.
+    #[test]
+    fn a_stored_track_reads_as_present_missing_or_corrupt() {
+        let conn = track_table();
+        let line = [pt(46.0, 7.0, Some(400.0)), pt(46.001, 7.001, Some(401.0))];
+        conn.execute(
+            "INSERT INTO gps_tracks VALUES ('ok', ?1), ('bad', x'070707')",
+            [serialize_points(&line).unwrap()],
+        )
+        .unwrap();
+
+        assert!(matches!(read_track(&conn, "ok"), TrackRead::Present(p) if p.len() == 2));
+        assert_eq!(read_track(&conn, "absent"), TrackRead::Missing);
+        assert!(matches!(read_track(&conn, "bad"), TrackRead::Corrupt(_)));
+        assert_eq!(track_blob(&conn, "absent").unwrap(), None);
+        assert_eq!(track_blob(&conn, "bad").unwrap(), Some(vec![7, 7, 7]));
+
+        conn.execute_batch("DROP TABLE gps_tracks").unwrap();
+        assert!(matches!(read_track(&conn, "ok"), TrackRead::Corrupt(_)));
+        assert!(track_blob(&conn, "ok").is_err());
     }
 
     /// A realistic 6-decimal line, built the way real data arrives: parsed

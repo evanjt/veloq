@@ -21,7 +21,7 @@ export function skylineSegmentHeight(zone: number, maxHeight: number): number {
   return floor + (maxHeight - floor) * step;
 }
 
-export interface SkylineZoneTotal {
+interface SkylineZoneTotal {
   zone: number;
   seconds: number;
 }

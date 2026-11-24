@@ -4,7 +4,7 @@
  * durations and first visible milestones through settlement, and says which
  * are unobserved.
  */
-import { SyncState, SyncStep } from 'veloqrs';
+import { SyncState, FfiSyncStep } from 'veloqrs';
 
 import { createFreshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 import { recordFFIMetric } from '@/shared/debug/renderTimer';
@@ -24,15 +24,15 @@ function setup(maxRuns?: number) {
   };
 }
 
-const syncing = (step?: SyncStep) => ({ state: SyncState.Syncing, step });
+const syncing = (step?: FfiSyncStep) => ({ state: SyncState.Syncing, step });
 const idle = (lastError?: string) => ({ state: SyncState.Idle, lastError });
 
 describe('fresh-login timeline', () => {
   it('records each named step duration and the settled outcome', () => {
     const { timeline, advance } = setup();
-    timeline.observeSync(syncing(SyncStep.Athlete));
+    timeline.observeSync(syncing(FfiSyncStep.Athlete));
     advance(300);
-    timeline.observeSync(syncing(SyncStep.Wellness));
+    timeline.observeSync(syncing(FfiSyncStep.Wellness));
     advance(700);
     timeline.observeSync(idle());
 
@@ -49,9 +49,9 @@ describe('fresh-login timeline', () => {
 
   it('does not restart a step for a repeated snapshot of the same step', () => {
     const { timeline, advance } = setup();
-    timeline.observeSync(syncing(SyncStep.Athlete));
+    timeline.observeSync(syncing(FfiSyncStep.Athlete));
     advance(100);
-    timeline.observeSync(syncing(SyncStep.Athlete));
+    timeline.observeSync(syncing(FfiSyncStep.Athlete));
     advance(100);
     timeline.observeSync(idle());
     expect(timeline.runs()[0].steps).toEqual([{ step: 'Athlete', startMs: 0, durationMs: 200 }]);
@@ -59,7 +59,7 @@ describe('fresh-login timeline', () => {
 
   it('keeps the first milestone and marks unobserved ones null', () => {
     const { timeline, advance } = setup();
-    timeline.observeSync(syncing(SyncStep.Athlete));
+    timeline.observeSync(syncing(FfiSyncStep.Athlete));
     advance(2000);
     timeline.mark('firstCard');
     advance(500);
@@ -77,7 +77,7 @@ describe('fresh-login timeline', () => {
 
   it('leaves backfill unobserved when the run fails', () => {
     const { timeline, advance } = setup();
-    timeline.observeSync(syncing(SyncStep.Athlete));
+    timeline.observeSync(syncing(FfiSyncStep.Athlete));
     advance(50);
     timeline.observeSync(idle('network'));
     const [run] = timeline.runs();
@@ -87,14 +87,14 @@ describe('fresh-login timeline', () => {
 
   it('treats an expired credential as failed', () => {
     const { timeline } = setup();
-    timeline.observeSync(syncing(SyncStep.Athlete));
+    timeline.observeSync(syncing(FfiSyncStep.Athlete));
     timeline.observeSync({ state: SyncState.AuthExpired });
     expect(timeline.runs()[0].outcome).toBe('failed');
   });
 
   it('reports a requested stop as cancelled, not success', () => {
     const { timeline, advance } = setup();
-    timeline.observeSync(syncing(SyncStep.Activities));
+    timeline.observeSync(syncing(FfiSyncStep.Activities));
     advance(10);
     timeline.markCancelRequested();
     timeline.observeSync(idle());
@@ -105,10 +105,10 @@ describe('fresh-login timeline', () => {
 
   it('closes the open step when the run ends and keeps repeated runs apart', () => {
     const { timeline, advance } = setup();
-    timeline.observeSync(syncing(SyncStep.Athlete));
+    timeline.observeSync(syncing(FfiSyncStep.Athlete));
     advance(10);
     timeline.observeSync(idle());
-    timeline.observeSync(syncing(SyncStep.Athlete));
+    timeline.observeSync(syncing(FfiSyncStep.Athlete));
     advance(20);
     timeline.observeSync(idle());
 
@@ -127,7 +127,7 @@ describe('fresh-login timeline', () => {
 
   it('keeps first milestones through more than 500 unrelated metrics', () => {
     const { timeline, advance } = setup();
-    timeline.observeSync(syncing(SyncStep.Athlete));
+    timeline.observeSync(syncing(FfiSyncStep.Athlete));
     advance(100);
     timeline.markMap('ride-1');
     for (let i = 0; i < 1200; i++) recordFFIMetric('getActivities', 1);
@@ -139,10 +139,10 @@ describe('fresh-login timeline', () => {
   it('bounds the retained runs and the steps per run', () => {
     const { timeline, advance } = setup(2);
     for (let r = 0; r < 4; r++) {
-      timeline.observeSync(syncing(SyncStep.Athlete));
+      timeline.observeSync(syncing(FfiSyncStep.Athlete));
       for (let i = 0; i < 100; i++) {
         advance(1);
-        timeline.observeSync(syncing(i % 2 ? SyncStep.Wellness : SyncStep.Census));
+        timeline.observeSync(syncing(i % 2 ? FfiSyncStep.Wellness : FfiSyncStep.Census));
       }
       timeline.observeSync(idle());
     }
@@ -153,7 +153,7 @@ describe('fresh-login timeline', () => {
 
   it('takes the second preview from a different activity, not a repaint of the first', () => {
     const { timeline, advance } = setup();
-    timeline.observeSync(syncing(SyncStep.Athlete));
+    timeline.observeSync(syncing(FfiSyncStep.Athlete));
     advance(1000);
     timeline.markMap('ride-a');
     advance(1000);
@@ -171,10 +171,10 @@ describe('fresh-login timeline', () => {
 
   it('starts the second preview afresh on a new run', () => {
     const { timeline, advance } = setup();
-    timeline.observeSync(syncing(SyncStep.Athlete));
+    timeline.observeSync(syncing(FfiSyncStep.Athlete));
     timeline.markMap('ride-a');
     timeline.observeSync(idle());
-    timeline.observeSync(syncing(SyncStep.Athlete));
+    timeline.observeSync(syncing(FfiSyncStep.Athlete));
     advance(100);
     timeline.markMap('ride-a');
     expect(timeline.runs()[1].milestones).toMatchObject({ firstMap: 100, secondMap: null });
@@ -182,7 +182,7 @@ describe('fresh-login timeline', () => {
 
   it('records how long an opened activity waits for its track', () => {
     const { timeline, advance } = setup();
-    timeline.observeSync(syncing(SyncStep.Activities));
+    timeline.observeSync(syncing(FfiSyncStep.Activities));
     advance(4000);
     const wait = timeline.openTrack(false);
     advance(2500);
@@ -195,7 +195,7 @@ describe('fresh-login timeline', () => {
 
   it('records nothing for an open whose track is already stored', () => {
     const { timeline, advance } = setup();
-    timeline.observeSync(syncing(SyncStep.Activities));
+    timeline.observeSync(syncing(FfiSyncStep.Activities));
     advance(4000);
     expect(timeline.openTrack(true)).toBeNull();
     expect(timeline.runs()[0].openedTrack).toBeNull();
@@ -203,7 +203,7 @@ describe('fresh-login timeline', () => {
 
   it('keeps the first open when a second one waits too', () => {
     const { timeline, advance } = setup();
-    timeline.observeSync(syncing(SyncStep.Activities));
+    timeline.observeSync(syncing(FfiSyncStep.Activities));
     advance(4000);
     const first = timeline.openTrack(false);
     advance(1000);
@@ -216,7 +216,7 @@ describe('fresh-login timeline', () => {
   it('records nothing for an open with no running run', () => {
     const { timeline } = setup();
     expect(timeline.openTrack(false)).toBeNull();
-    timeline.observeSync(syncing(SyncStep.Activities));
+    timeline.observeSync(syncing(FfiSyncStep.Activities));
     timeline.observeSync(idle());
     expect(timeline.openTrack(false)).toBeNull();
     expect(timeline.runs()[0].openedTrack).toBeNull();
@@ -224,7 +224,7 @@ describe('fresh-login timeline', () => {
 
   it('leaves the wait unobserved when the detail closes before the track lands', () => {
     const { timeline, advance } = setup();
-    timeline.observeSync(syncing(SyncStep.Activities));
+    timeline.observeSync(syncing(FfiSyncStep.Activities));
     advance(4000);
     const wait = timeline.openTrack(false);
     advance(500);
@@ -236,7 +236,7 @@ describe('fresh-login timeline', () => {
 
   it('clear drops every run', () => {
     const { timeline } = setup();
-    timeline.observeSync(syncing(SyncStep.Athlete));
+    timeline.observeSync(syncing(FfiSyncStep.Athlete));
     timeline.clear();
     expect(timeline.runs()).toEqual([]);
   });

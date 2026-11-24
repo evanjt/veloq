@@ -7,7 +7,7 @@
  */
 
 import { resolvedLocale } from '../i18n/resolvedLocale';
-import { StartOutcome } from 'veloqrs';
+import { FfiStartOutcome } from 'veloqrs';
 import { rescanRefusalKey } from '@/features/routes/lib/rescanRefusal';
 
 const enAu = resolvedLocale('en-AU');
@@ -15,16 +15,16 @@ const enAu = resolvedLocale('en-AU');
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 const REFUSALS = [
-  StartOutcome.Busy,
-  StartOutcome.Held,
-  StartOutcome.NotReady,
-  StartOutcome.NotConfigured,
-  StartOutcome.NotOwed,
-  StartOutcome.Failed,
+  FfiStartOutcome.Busy,
+  FfiStartOutcome.Held,
+  FfiStartOutcome.NotReady,
+  FfiStartOutcome.NotConfigured,
+  FfiStartOutcome.NotOwed,
+  FfiStartOutcome.Failed,
 ] as const;
 
 test('a run that started says nothing', () => {
-  expect(rescanRefusalKey(StartOutcome.Started)).toBeNull();
+  expect(rescanRefusalKey(FfiStartOutcome.Started)).toBeNull();
   expect(rescanRefusalKey(null)).toBeNull();
 });
 
@@ -40,8 +40,8 @@ test('every refusal names a line, and every line exists', () => {
 });
 
 test('the reasons that lift and the ones that do not read differently', () => {
-  expect(rescanRefusalKey(StartOutcome.NotConfigured)).not.toBe(
-    rescanRefusalKey(StartOutcome.Held)
+  expect(rescanRefusalKey(FfiStartOutcome.NotConfigured)).not.toBe(
+    rescanRefusalKey(FfiStartOutcome.Held)
   );
-  expect(rescanRefusalKey(StartOutcome.Busy)).not.toBe(rescanRefusalKey(StartOutcome.Held));
+  expect(rescanRefusalKey(FfiStartOutcome.Busy)).not.toBe(rescanRefusalKey(FfiStartOutcome.Held));
 });

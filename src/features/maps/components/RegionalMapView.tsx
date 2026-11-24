@@ -77,8 +77,8 @@ import { navigateTo } from '@/shared/app/navigation';
  *
  * Two things keep pan and zoom smooth with thousands of points:
  *
- * 1. Activity centres are computed once in useRegionalMapCamera, from the Rust-side
- *    RouteSignature where one exists, so no format detection runs per frame.
+ * 1. Activity centres are computed once in useRegionalMapCamera, so no format
+ *    detection runs per frame.
  *
  * 2. The marker collection never depend on selection. Selection is
  *    a paint expression over the selected id, so choosing an activity does not
@@ -189,11 +189,10 @@ export function RegionalMapView({
   }, [routeLines, selectedRouteId]);
   const surfaceRef = useRef<MapSurfaceRef>(null);
 
-  // Only load route signatures when the map tab is focused
-  // This prevents 80+ getGpsTrack FFI calls when switching to other tabs.
-  // The same signal tears the surface down: a tab that is merely frozen keeps
-  // its GL context and its tile textures, which is 122 MB nobody can see. A sheet
-  // presented over the tab leaves the map on display, so it is not leaving.
+  // The map tab's focus drives the surface: leaving the tab unmounts the map surface,
+  // the status bar and the cluster overlay, and the blur effects below clear the heatmap view.
+  // A tab that is merely frozen keeps its GL context and its tile textures, which is 122 MB
+  // nobody can see. A sheet presented over the tab leaves the map on display, so it is not leaving.
   const pathname = useScreenPathname();
   const isMapFocused = pathname === '/map' || pathname.endsWith('/map');
 

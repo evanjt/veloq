@@ -1,11 +1,11 @@
 import { create } from 'zustand';
-import type { FfiQuarantineReport, FfiStorageShortfall, InitOutcome } from 'veloqrs';
+import type { FfiQuarantineReport, FfiStorageShortfall, FfiInitOutcome } from 'veloqrs';
 
 /**
  * Why the library is not usable: the engine's own outcome, or a launch wipe
  * that rejected while the open handle still holds the previous athlete's rows.
  */
-export type EngineInitReason = InitOutcome | 'wipeFailed';
+export type EngineInitReason = FfiInitOutcome | 'wipeFailed';
 
 interface EngineStatusState {
   /** Whether the Rust engine failed to initialise after all retries */

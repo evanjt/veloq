@@ -9,14 +9,14 @@
  * text size, the region scrolls and the map stays mounted at zero height.
  */
 
-export interface RecordingColumnInput {
+interface RecordingColumnInput {
   /** Height of the region above the bottom slot. */
   regionHeight: number;
   /** Summed height of everything in the region but the map. */
   fixedContentHeight: number;
 }
 
-export interface RecordingColumnLayout {
+interface RecordingColumnLayout {
   mapHeight: number;
   scrolls: boolean;
 }

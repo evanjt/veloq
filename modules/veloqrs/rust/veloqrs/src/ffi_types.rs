@@ -61,14 +61,6 @@ pub struct FfiDetectionProgress {
     pub percent: u32,
 }
 
-/// Section reference info: combines reference activity ID and user-defined flag.
-#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiSectionReferenceInfo {
-    pub activity_id: String,
-    pub is_user_defined: bool,
-}
-
 /// A ride a section edit took out of the section: its library name and its
 /// start as seconds since the epoch.
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
@@ -485,6 +477,12 @@ pub struct FfiPeriodComparison {
     /// about, so a graphic of the weekly totals can mark it.
     /// Unit: epoch_second.
     pub compared_start: f64,
+    /// Which way the total moved, `up`, `down` or `flat` inside the metric's
+    /// deadband in the trend table, with moving time judged in hours.
+    pub direction: String,
+    /// The judgement of that move off the trend table's polarity: `improved`,
+    /// `declined`, `moved` for a metric with no polarity, or `flat`.
+    pub verdict: String,
 }
 
 /// A sport's time in each zone, with the athlete's own name for each zone.
@@ -621,6 +619,26 @@ pub struct FfiPaceTrend {
     /// in by [`crate::trend_table::glyph`]: up for faster. Flat when no earlier
     /// snapshot differs, `None` with no snapshot at all.
     pub glyph: Option<String>,
+    /// The latest pace as text per kilometre (per 100 m for swimming), no
+    /// unit. `None` with no snapshot.
+    pub latest_pace_metric_text: Option<String>,
+    /// The latest pace as text per mile (per 100 yd for swimming), no unit.
+    pub latest_pace_imperial_text: Option<String>,
+    /// `previous_pace` as text, metric, as `latest_pace_metric_text`.
+    pub previous_pace_metric_text: Option<String>,
+    /// `previous_pace` as text, imperial, as `latest_pace_imperial_text`.
+    pub previous_pace_imperial_text: Option<String>,
+    /// The latest pace as whole minutes and seconds per kilometre (per 100 m
+    /// for swimming), the figures `latest_pace_metric_text` prints, for a
+    /// sentence the app words in its own language. `None` with no snapshot or
+    /// a pace the text cannot print.
+    pub latest_pace_metric_parts: Option<FfiPaceParts>,
+    /// The latest pace as parts per mile (per 100 yd for swimming).
+    pub latest_pace_imperial_parts: Option<FfiPaceParts>,
+    /// `previous_pace` as parts, metric, as `latest_pace_metric_parts`.
+    pub previous_pace_metric_parts: Option<FfiPaceParts>,
+    /// `previous_pace` as parts, imperial, as `latest_pace_imperial_parts`.
+    pub previous_pace_imperial_parts: Option<FfiPaceParts>,
     /// Snapshots the trend was read from, for the same reason as
     /// `FfiFtpTrend::sample_count`.
     /// Unit: count.
@@ -628,6 +646,18 @@ pub struct FfiPaceTrend {
     /// Those snapshots, oldest first, for the same reason as
     /// `FfiFtpTrend::history`.
     pub history: Vec<FfiSeriesPoint>,
+}
+
+/// A pace as whole minutes and whole seconds, the seconds under sixty.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiPaceParts {
+    /// Whole minutes, counted past sixty rather than carried into hours.
+    /// Unit: count.
+    pub minutes: u32,
+    /// Whole seconds, under sixty.
+    /// Unit: second.
+    pub seconds: u32,
 }
 
 /// What a trend or verdict was measured against and how much evidence stood
@@ -660,9 +690,16 @@ pub struct FfiWellnessSummary {
     /// Unit: tss.
     pub fitness: Option<f64>,
     pub fitness_trend: Option<String>,
-    /// Unit: tss_or_percent.
+    /// Unit: tss.
     pub form: Option<f64>,
     pub form_trend: Option<String>,
+    /// The zone `form` falls in on the athlete's denominator, absent with no
+    /// form, or with no fitness under the percentage setting.
+    pub form_zone: Option<String>,
+    /// `form` as printed in the athlete's unit, absent where `form_zone` is.
+    pub form_text: Option<String>,
+    /// `form_previous` as printed, against the fitness of the day it was read.
+    pub form_previous_text: Option<String>,
     /// Unit: millisecond.
     pub hrv: Option<f64>,
     pub hrv_trend: Option<String>,
@@ -680,7 +717,7 @@ pub struct FfiWellnessSummary {
     /// Unit: epoch_second.
     pub fitness_previous_date: Option<f64>,
     pub fitness_basis: Option<FfiClaimBasis>,
-    /// Unit: tss_or_percent.
+    /// Unit: tss.
     pub form_previous: Option<f64>,
     /// Unit: epoch_second.
     pub form_previous_date: Option<f64>,
@@ -743,6 +780,9 @@ impl From<WidgetWellnessSummary> for FfiWellnessSummary {
             fitness_trend: w.fitness_trend,
             form: w.form,
             form_trend: w.form_trend,
+            form_zone: None,
+            form_text: None,
+            form_previous_text: None,
             hrv: w.hrv,
             hrv_trend: w.hrv_trend,
             rhr: w.rhr,
@@ -2401,6 +2441,31 @@ pub struct FfiMuscleGroupDetail {
     pub secondary_exercises: u32,
 }
 
+/// A difference between two paces, in seconds, in each unit system: per
+/// kilometre or mile for a pace sport, per 100 m or 100 yd for a swim.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiPaceGap {
+    /// Per kilometre, or per 100 m for a swim.
+    /// Unit: second.
+    pub metric: f64,
+    /// Per mile, or per 100 yd for a swim.
+    /// Unit: second.
+    pub imperial: f64,
+}
+
+/// A speed as pace text in both unit systems, no unit: per kilometre or mile on
+/// foot, per 100 m or 100 yd in the water. Present only for a sport read as a
+/// pace.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiPaceText {
+    /// Per kilometre, or per 100 m for a swim.
+    pub metric_text: String,
+    /// Per mile, or per 100 yd for a swim.
+    pub imperial_text: String,
+}
+
 /// One renderable chart point on the section-detail chart. One entry per
 /// lap traversal (activities with multiple laps expand into multiple points).
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
@@ -2415,6 +2480,8 @@ pub struct FfiSectionChartPoint {
     /// m/s
     /// Unit: metre_per_second.
     pub speed: f64,
+    /// `speed` as pace text for a sport read as a pace.
+    pub speed_pace: Option<FfiPaceText>,
     /// Section time for this lap (seconds)
     /// Unit: second.
     pub section_time: u32,
@@ -2452,6 +2519,10 @@ pub struct FfiSectionChartPoint {
     /// `record_gap_secs` is: positive is slower. `None` where it is.
     /// Unit: metre_per_second.
     pub record_gap_speed: Option<f64>,
+    /// `record_gap_speed` as a difference in pace, in both unit systems. `None`
+    /// where the gap is, for a sport whose speed does not read as a pace, and
+    /// where either speed has no pace.
+    pub record_gap_pace: Option<FfiPaceGap>,
     /// The lap's time was projected to a gate over ground the recording did
     /// not cover. Charted and ranked, and the record only when no lap in its
     /// direction was timed on the ground.
@@ -2480,6 +2551,12 @@ pub struct FfiFocusRange {
     pub low: f64,
     /// Unit: varies.
     pub high: f64,
+    /// `low` as pace text on a section read for a sport read as a pace.
+    pub low_pace: Option<FfiPaceText>,
+    /// The midpoint of `low` and `high` as pace text, as `low_pace`.
+    pub mid_pace: Option<FfiPaceText>,
+    /// `high` as pace text, as `low_pace`.
+    pub high_pace: Option<FfiPaceText>,
     /// Points drawn past the slow end.
     /// Unit: count.
     pub slow_count: u32,
@@ -2519,6 +2596,10 @@ pub struct FfiRecordStep {
     /// step.
     /// Unit: metre_per_second.
     pub improvement_speed: Option<f64>,
+    /// `improvement_speed` as a difference in pace, in both unit systems.
+    /// `None` where it is, for a sport whose speed does not read as a pace,
+    /// and where either speed has no pace.
+    pub improvement_pace: Option<FfiPaceGap>,
 }
 
 /// The record progression per direction, oldest step first, over the whole
@@ -3110,6 +3191,16 @@ pub struct FfiWellnessDays {
     /// load, and under the percentage on a day whose fitness rounds to zero.
     /// Unit: tss_or_percent.
     pub form: Vec<Option<f64>>,
+    /// Beside `form`, the zone each day's form falls in: `highRisk`,
+    /// `optimal`, `greyZone`, `fresh` or `transition`. Absent where `form` is.
+    pub form_zone: Vec<Option<String>>,
+    /// Beside `form`, each day's form as printed: the signed whole figure,
+    /// with a percent sign under `form_as_percent`. Absent where `form` is.
+    pub form_text: Vec<Option<String>>,
+    /// Beside `form`, each day's absolute TSB as printed whatever the
+    /// setting: rounded fitness less rounded fatigue, signed. Absent on a day
+    /// missing a load.
+    pub tsb_text: Vec<Option<String>>,
     /// Whether `form` is a percentage of fitness rather than absolute TSB,
     /// from the athlete's `icu_form_as_percent`.
     pub form_as_percent: bool,
@@ -3130,8 +3221,15 @@ pub struct FfiWellnessSparklines {
     pub fitness: Vec<i32>,
     /// Unit: tss.
     pub fatigue: Vec<i32>,
-    /// Unit: tss_or_percent.
+    /// Unit: tss.
     pub form: Vec<i32>,
+    /// Beside `form`, one per day: the zone that day's form falls in on the
+    /// athlete's denominator, each day against its own fitness. Absent on a
+    /// day with no fitness under the percentage setting. Empty with `form`.
+    pub form_zone: Vec<Option<String>>,
+    /// Beside `form`, one per day: that day's form as printed in the
+    /// athlete's unit. Absent where `form_zone` is. Empty with `form`.
+    pub form_text: Vec<Option<String>>,
     /// Unit: millisecond.
     pub hrv: Vec<i32>,
     /// Unit: beat_per_minute.
@@ -3213,6 +3311,12 @@ pub struct FfiSeriesPoint {
     /// efforts. Absent where a point is a day's estimate with no activity
     /// behind it. A card marks and opens the activity a point stands on.
     pub activity_id: Option<String>,
+    /// For a pace series, `value` as pace text per kilometre (per 100 m for
+    /// swimming), no unit. `None` for every other series.
+    pub metric_text: Option<String>,
+    /// For a pace series, `value` as pace text per mile (per 100 yd for
+    /// swimming). `None` for every other series.
+    pub imperial_text: Option<String>,
 }
 
 /// A recent section PR detected in the last 7 days.
@@ -3480,6 +3584,10 @@ pub struct FfiInsightForm {
     /// gives it for the same day.
     /// Unit: tss_or_percent.
     pub form: Option<f64>,
+    /// The zone `form` falls in, absent where `form` is.
+    pub form_zone: Option<String>,
+    /// `form` as printed in the athlete's unit, absent where `form` is.
+    pub form_text: Option<String>,
     /// Whether `form` is a percentage of fitness rather than absolute TSB.
     pub form_as_percent: bool,
 }
@@ -3718,6 +3826,9 @@ pub struct FfiPoolLength {
     /// Metres per second over the pool length. None for a rest.
     /// Unit: metre_per_second.
     pub speed_mps: Option<f64>,
+    /// `speed_mps` as pace per 100 m and per 100 yd, as text with no unit.
+    /// None for a rest and for a speed with no pace.
+    pub pace: Option<FfiPaceText>,
     /// Elapsed seconds plus strokes. None for a rest or a length with no
     /// stroke count or no time.
     /// Unit: swolf.
@@ -3741,6 +3852,8 @@ pub struct FfiPoolStrokeTotal {
     /// Distance over time. None when either is unknown or zero.
     /// Unit: metre_per_second.
     pub speed_mps: Option<f64>,
+    /// `speed_mps` as pace per 100 m and per 100 yd, as text with no unit.
+    pub pace: Option<FfiPaceText>,
     /// The mean SWOLF of the lengths that have one.
     /// Unit: swolf.
     pub avg_swolf: Option<f64>,
@@ -3763,6 +3876,20 @@ pub struct FfiActivitySummary {
     /// Max speed in m/s
     /// Unit: metre_per_second.
     pub max_speed: Option<f64>,
+    /// The speed the activity screen shows as its average: distance over
+    /// moving time, else `average_speed`, which is often over elapsed time.
+    /// Unit: metre_per_second.
+    pub shown_average_speed: Option<f64>,
+    /// `shown_average_speed` as pace text per kilometre (per 100 m for a
+    /// swim), no unit. `None` for a sport read as a speed.
+    pub shown_average_pace_metric_text: Option<String>,
+    /// `shown_average_speed` as pace text per mile (per 100 yd for a swim).
+    pub shown_average_pace_imperial_text: Option<String>,
+    /// `max_speed` as pace text per kilometre (per 100 m for a swim), no unit.
+    /// `None` for a sport read as a speed.
+    pub max_pace_metric_text: Option<String>,
+    /// `max_speed` as pace text per mile (per 100 yd for a swim).
+    pub max_pace_imperial_text: Option<String>,
     /// Average cadence in `cadence_unit`: steps a minute on foot, where
     /// intervals.icu stores strides
     /// Unit: FfiCadenceUnit.
@@ -3803,7 +3930,7 @@ pub struct FfiActivityFitnessImpact {
     pub fitness: f64,
     /// Unit: tss.
     pub fatigue: f64,
-    /// Unit: tss_or_percent.
+    /// Unit: tss.
     pub form: f64,
     /// The fitness time constant in days in effect on the activity's date
     /// Unit: day.
@@ -4279,6 +4406,10 @@ pub struct FfiAttemptHistogram {
     /// at zero seconds reads 0.
     /// Unit: metre_per_second.
     pub edge_speeds: Option<Vec<f64>>,
+    /// Each of `edge_speeds` as pace text, for a sport read as a pace. `None`
+    /// where `edge_speeds` is, and for any other sport. An edge with no pace
+    /// is `None` in its place.
+    pub edge_pace: Option<Vec<Option<FfiPaceText>>>,
     /// Attempts in the bins.
     /// Unit: count.
     pub binned: u32,
@@ -4466,6 +4597,11 @@ pub struct FfiBestEffort {
     /// holds that activity. Empty for one it does not, which the screen shows
     /// as not cached.
     pub activity: Option<FfiActivityName>,
+    /// The pace of the best per kilometre, or per 100 m for a swim, as minutes
+    /// and seconds with no unit. Empty for power, and when there is no best.
+    pub pace_metric_text: Option<String>,
+    /// The same pace per mile, or per 100 yd for a swim.
+    pub pace_imperial_text: Option<String>,
 }
 
 /// A climbing family's best window per stored length.
@@ -4517,14 +4653,9 @@ pub struct FfiFitnessScreenWindows {
     pub heatmap_last_day: String,
     /// The span the monthly rows cover.
     pub months: FfiTimestampRange,
-    /// The year to date, and the same span of last year.
-    pub year_current: FfiTimestampRange,
-    pub year_previous: FfiTimestampRange,
-    /// The month to date, and the same span of the month a year before.
-    pub month_current: FfiTimestampRange,
-    pub month_previous: FfiTimestampRange,
-    /// The instant the weekly card's periods run to, in the wall-clock seconds
-    /// an activity's date is recorded in.
+    /// The instant the weekly card's periods and the season card's year and
+    /// month to date run to, in the wall-clock seconds an activity's date is
+    /// recorded in.
     /// Unit: epoch_second.
     pub now_wall_seconds: f64,
 }
@@ -4601,10 +4732,9 @@ pub struct FfiFitnessScreenData {
     /// its chart draws. `NotFetched` makes an empty chart a download still
     /// owed rather than an athlete with no estimate.
     pub ftp_trend_coverage: crate::RangeCoverage,
-    /// The last stored critical speeds, the threshold the running and
-    /// swimming cards fall back on when no curve is to hand.
-    pub run_pace_trend: FfiPaceTrend,
-    pub swim_pace_trend: FfiPaceTrend,
+    /// The running and swimming threshold pace of each span the read was asked
+    /// for, in that order, chosen and printed by the engine.
+    pub threshold_paces: Vec<FfiSpanThresholdPaces>,
     /// The rides, runs and swims among the latest activities, which the
     /// primary sport defaults to until the athlete chooses one.
     pub sport_mix: FfiSportMix,
@@ -4659,6 +4789,31 @@ pub struct FfiFitnessScreenData {
     /// in no curve, best effort or fitness day. Zero for a Garmin-only library.
     /// Unit: count.
     pub uncounted_imports: u32,
+}
+
+/// The threshold pace the fitness cards print for one span of the range picker.
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSpanThresholdPaces {
+    /// The span's length in days, back from today.
+    /// Unit: day.
+    pub days: u32,
+    /// `None` when no setting, curve or stored speed names a running pace.
+    pub run: Option<FfiThresholdPace>,
+    /// `None` when no setting, curve or stored speed names a swimming pace.
+    pub swim: Option<FfiThresholdPace>,
+}
+
+/// A threshold pace as a speed, with its text in both unit systems.
+#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiThresholdPace {
+    /// Unit: metre_per_second.
+    pub speed: f64,
+    /// Per kilometre for running, per 100 m for swimming, with no unit.
+    pub metric_text: String,
+    /// Per mile for running, per 100 yd for swimming, with no unit.
+    pub imperial_text: String,
 }
 
 /// The ride the decoupling card names for one span of the range picker.
@@ -4779,7 +4934,8 @@ pub struct FfiMapScreenData {
     pub available_sport_types: Vec<String>,
     /// Mapped activities by display group in the date window before filters
     pub category_counts: Vec<FfiMapCategoryCount>,
-    /// Activities inside the requested window and sport filter
+    /// Activities inside the requested window that pass the sport, distance band
+    /// and name filters
     pub activities: Vec<crate::persistence::MapActivityComplete>,
     /// Routes the map can draw: groups of at least two activities with a
     /// stored line. Zero while the route-line layer is stale.
@@ -5128,6 +5284,7 @@ mod tests {
 
     fn direction_stats() -> crate::DirectionStats {
         crate::DirectionStats {
+            avg_pace_text: None,
             avg_time: Some(300.0),
             last_activity: Some(crate::WholeNumber(1700000000)),
             count: 5,
@@ -5159,6 +5316,8 @@ mod tests {
 
     fn section_record(direction: &str, best_time: f64) -> crate::SectionPerformanceRecord {
         crate::SectionPerformanceRecord {
+            avg_pace_text: None,
+            best_pace_text: None,
             activity_id: format!("act_{direction}"),
             activity_name: format!("{direction} effort"),
             activity_date: crate::WholeNumber(1700000000),
@@ -5285,6 +5444,7 @@ mod tests {
             best_forward_record: Some(section_record("same", 120.5)),
             best_reverse_record: Some(section_record("reverse", 131.0)),
             forward_stats: Some(crate::DirectionStats {
+                avg_pace_text: None,
                 avg_time: Some(300.0),
                 last_activity: Some(crate::WholeNumber(1700000000)),
                 count: 5,
@@ -5292,6 +5452,7 @@ mod tests {
                 outside_band_count: 0,
             }),
             reverse_stats: Some(crate::DirectionStats {
+                avg_pace_text: None,
                 avg_time: Some(410.0),
                 last_activity: Some(crate::WholeNumber(1690000000)),
                 count: 2,
@@ -5325,6 +5486,7 @@ mod tests {
             best_reverse: Some(route_performance("act_rev", 6.2)),
             current_direction_best: Some(route_performance("act_current_dir", 6.1)),
             forward_stats: Some(crate::DirectionStats {
+                avg_pace_text: None,
                 avg_time: Some(300.0),
                 last_activity: Some(crate::WholeNumber(1700000000)),
                 count: 5,
@@ -5332,6 +5494,7 @@ mod tests {
                 outside_band_count: 1,
             }),
             reverse_stats: Some(crate::DirectionStats {
+                avg_pace_text: None,
                 avg_time: Some(410.0),
                 last_activity: Some(crate::WholeNumber(1690000000)),
                 count: 2,
@@ -6057,6 +6220,10 @@ pub struct FfiStrengthSummary {
     /// scale, or zero when nothing was trained
     /// Unit: count.
     pub max_weighted_sets: f64,
+    /// The most weighted sets each diagram shade covers, lightest first, to a
+    /// tenth of a set, so the legend labels the shades the muscles are drawn in
+    /// Unit: count.
+    pub shade_ceilings: Vec<f64>,
 }
 
 /// Inclusive Unix-second range used for batched summary requests.
@@ -6168,33 +6335,6 @@ pub struct FfiExerciseSummary {
     pub activity_count: u32,
     /// True if the muscle is a primary target for at least one occurrence
     pub is_primary: bool,
-}
-
-/// An activity containing a specific exercise, with per-activity stats.
-#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiExerciseActivity {
-    /// Activity ID for navigation
-    pub activity_id: String,
-    /// Activity display name
-    pub activity_name: String,
-    /// Activity date as Unix timestamp (seconds)
-    pub date: f64,
-    /// Sets credited to this muscle for this exercise in the activity
-    pub sets: f64,
-    /// Reps credited to this muscle in this activity
-    pub reps: f64,
-    /// Total volume load in kg (weight × reps) for this exercise in this activity
-    pub volume_kg: f64,
-    /// Whether the muscle is a primary target for this exercise
-    pub is_primary: bool,
-}
-
-/// Activities for a specific exercise, sorted by date DESC.
-#[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiExerciseActivities {
-    pub activities: Vec<FfiExerciseActivity>,
 }
 
 /// Combined payload for batched activity-list highlights: pre-computed
@@ -6327,6 +6467,11 @@ pub struct FfiSectionEncounter {
     /// This activity's pace on this section in this direction
     /// Unit: metre_per_second.
     pub lap_pace: f64,
+    /// `lap_pace` as pace text per kilometre (per 100 m for a swim), no unit.
+    /// `None` for a sport read as a speed.
+    pub lap_pace_metric_text: Option<String>,
+    /// `lap_pace` as pace text per mile (per 100 yd for a swim).
+    pub lap_pace_imperial_text: Option<String>,
     /// Whether this activity holds the PR for this (section, direction)
     pub is_pr: bool,
     /// Whether this traversal meets the section's completion rule.
@@ -6342,6 +6487,12 @@ pub struct FfiSectionEncounter {
     /// Historical lap times for sparkline (chronological, all activities in this direction)
     /// Unit: second.
     pub history_times: Vec<f64>,
+    /// The speed of each entry of `history_times` over this section's length,
+    /// as pace text per kilometre (per 100 m for a swim), no unit. Empty for a
+    /// sport read as a speed.
+    pub history_pace_metric_texts: Vec<String>,
+    /// The same speeds as pace text per mile (per 100 yd for a swim).
+    pub history_pace_imperial_texts: Vec<String>,
     /// Activity IDs corresponding to history_times (for highlighting current activity)
     pub history_activity_ids: Vec<String>,
     /// Start of each activity in history_times, Unix seconds, so the sparkline
@@ -6441,6 +6592,15 @@ pub struct FfiStalePrOpportunity {
     pub previous_value: f64,
     /// Unit: percent.
     pub gain_percent: f64,
+    /// `current_value` as pace text per kilometre (per 100 m for swimming),
+    /// no unit. `None` for power.
+    pub current_metric_text: Option<String>,
+    /// `current_value` as pace text per mile (per 100 yd for swimming).
+    pub current_imperial_text: Option<String>,
+    /// `previous_value` as pace text, metric, as `current_metric_text`.
+    pub previous_metric_text: Option<String>,
+    /// `previous_value` as pace text, imperial, as `current_imperial_text`.
+    pub previous_imperial_text: Option<String>,
     /// "W" for power, "/km" for running, "/100m" for swimming
     pub unit: String,
     /// The sport the section was ranked under. A section travelled in two
@@ -6465,6 +6625,11 @@ pub struct FfiStalePrOpportunity {
     /// section. Absent for cycling.
     /// Unit: metre_per_second.
     pub pr_speed: Option<f64>,
+    /// `pr_speed` as pace text per kilometre (per 100 m for swimming), no
+    /// unit. Absent when `pr_speed` is.
+    pub pr_speed_metric_text: Option<String>,
+    /// `pr_speed` as pace text per mile (per 100 yd for swimming).
+    pub pr_speed_imperial_text: Option<String>,
     /// The record effort as a percent of the fitness held that day: power
     /// over eFTP for cycling, speed over critical speed for running and
     /// swimming. Absent when the effort is.

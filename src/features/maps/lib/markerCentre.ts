@@ -17,14 +17,14 @@ import type { ActivityBoundsItem } from '@/types';
 import { getBoundsCenter } from '@/shared/geo/polyline';
 
 /** `[longitude, latitude]`, the order GeoJSON and MapLibre take. */
-export type LngLat = [number, number];
+type LngLat = [number, number];
 
 /**
  * An activity's start, which the engine gives `[lat, lng]`, as `[lng, lat]`.
  * Null when there is none or either coordinate is not finite. The one reader
  * of that tuple, for the marker and the drawn start dot alike.
  */
-export function startLngLat(start: ActivityBoundsItem['startPoint']): LngLat | null {
+function startLngLat(start: ActivityBoundsItem['startPoint']): LngLat | null {
   if (!start) return null;
   const [lat, lng] = start;
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;

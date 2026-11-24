@@ -178,7 +178,7 @@ function safeRun<T>(label: string, fn: () => T[], fallback: T[] = []): T[] {
  * reaches no other feature and the linked browser bundles it without the
  * strength barrel's native modules.
  */
-export type StrengthCards = (
+type StrengthCards = (
   monthly: StrengthSummary | null,
   weekly: StrengthSummary[],
   progressions: StrengthProgressionRecord[],

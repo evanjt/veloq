@@ -22,7 +22,7 @@ import {
 } from '@/features/settings/lib/restoreRefusal';
 import { engineErrorKey, engineErrorTag, type EngineFailureKey } from '@/shared/native/engineError';
 
-export type BackupFailureDescription =
+type BackupFailureDescription =
   | {
       kind: 'key';
       key:

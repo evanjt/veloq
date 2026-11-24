@@ -11,15 +11,15 @@ import { fireEvent, render } from '@testing-library/react-native';
 
 import { FitnessChart } from '@/features/fitness/components/FitnessChart';
 import { formatShortDate } from '@/shared/format/format';
-import type { WellnessData } from '@/types';
+import { statedForm } from '../__shared__/statedForm';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
-const DAYS = [
+const DAYS = statedForm([
   { id: '2026-04-01', ctl: 40, atl: 48 },
   { id: '2026-04-02', ctl: 41, atl: 49 },
   { id: '2026-04-03', ctl: 43, atl: 55 },
-] as WellnessData[];
+]);
 
 const step = (el: Parameters<typeof fireEvent>[0], actionName: string) =>
   fireEvent(el, 'accessibilityAction', { nativeEvent: { actionName } });
@@ -41,11 +41,7 @@ describe('stepping the fitness chart', () => {
     expect(value).toContain('metrics.fitness 41');
     expect(value).toContain('metrics.fatigue 49');
     expect(value).toContain('metrics.form -8');
-    expect(onDateSelect).toHaveBeenLastCalledWith('2026-04-02', {
-      fitness: 41,
-      fatigue: 49,
-      form: -8,
-    });
+    expect(onDateSelect).toHaveBeenLastCalledWith('2026-04-02');
     expect(tree.getByTestId('fitness-ctl-value')).toHaveTextContent('41');
   });
 

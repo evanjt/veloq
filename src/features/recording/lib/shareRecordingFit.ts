@@ -1,6 +1,6 @@
 import { recordingFitExists } from '@/features/recording/lib/storage/recordingLibrary';
 import { shareCopyAs, type ShareAnchor } from '@/features/settings/light';
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import type { RecordingLibraryEntry } from '@/types';
 
 /**

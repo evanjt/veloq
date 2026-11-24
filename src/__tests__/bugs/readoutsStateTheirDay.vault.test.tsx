@@ -20,7 +20,8 @@ import { FitnessMilestoneContent } from '@/features/insights/components/content/
 import { MethodologySection } from '@/features/insights/components/MethodologySection';
 import { generateFitnessMilestoneInsights } from '@/features/insights/generators/fitnessMilestone';
 import type { Insight, InsightCategory, TFunc } from '@/features/insights/types';
-import { formatEpochDayUtc, formatLocalDate, formatShortDate } from '@/shared/format/format';
+import { formatEpochDayUtc, formatShortDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import type { WellnessData } from '@/types';
 import { activityRecord } from '../__shared__/activityRecord';
 

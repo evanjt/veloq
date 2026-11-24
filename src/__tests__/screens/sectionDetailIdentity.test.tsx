@@ -15,6 +15,7 @@ import React from 'react';
 import * as Notifications from 'expo-notifications';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { Platform, ScrollView } from 'react-native';
+import { FfiNearbyKind, routes as mockEngineRoutes } from 'veloqrs';
 
 import { sectionCardInHost } from '../__shared__/sectionCardInHost';
 import { sheetScrollHandsOff } from '../__shared__/sheetScrollPlacement';
@@ -617,6 +618,15 @@ describe('section detail send to watch', () => {
     { lat: 46.501, lng: 6.6 },
   ];
 
+  // The engine builds the watch payload, so the page forwards the string it returns as it is.
+  const GUIDE_PAYLOAD = JSON.stringify({
+    name: 'Ridge climb',
+    line: [
+      { latitude: 46.5, longitude: 6.6 },
+      { latitude: 46.501, longitude: 6.6 },
+    ],
+  });
+
   async function renderOverflowMenu(): Promise<{ onSendToWatch?: () => void } | undefined> {
     capturedOverflowMenu = undefined;
     const headerRight = mockScreenOptions.headerRight as () => React.ReactElement;
@@ -638,6 +648,7 @@ describe('section detail send to watch', () => {
     mockSelectedSport = undefined;
     mockSection.polyline = line;
     mockWatchModule.state.mockReturnValue({ enabled: true });
+    jest.mocked(mockEngineRoutes.getGuidePayload).mockReturnValue(GUIDE_PAYLOAD);
     // The system asks once: undetermined until the request is raised, granted after it.
     jest
       .mocked(Notifications.getPermissionsAsync)
@@ -664,6 +675,7 @@ describe('section detail send to watch', () => {
 
     await pressSendToWatch();
 
+    expect(mockEngineRoutes.getGuidePayload).toHaveBeenCalledWith(FfiNearbyKind.Section, 'sec-1');
     expect(mockWatchModule.sendSection).toHaveBeenCalledTimes(1);
     expect(JSON.parse(mockWatchModule.sendSection.mock.calls[0]?.[0])).toEqual({
       name: 'Ridge climb',

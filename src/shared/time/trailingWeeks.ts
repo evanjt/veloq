@@ -1,3 +1,4 @@
+import { addLocalDays } from './localDay';
 import { localWallClockToEpochSeconds } from './startDate';
 
 /**
@@ -15,11 +16,9 @@ export function trailingWeekRanges(weekCount: number): { startTs: number; endTs:
 
   const ranges: { startTs: number; endTs: number }[] = [];
   for (let index = weekCount - 1; index >= 0; index -= 1) {
-    const rangeEnd = new Date(end);
-    rangeEnd.setDate(rangeEnd.getDate() - index * 7);
+    const rangeEnd = addLocalDays(end, -index * 7);
 
-    const rangeStart = new Date(rangeEnd);
-    rangeStart.setDate(rangeStart.getDate() - 6);
+    const rangeStart = addLocalDays(rangeEnd, -6);
     rangeStart.setHours(0, 0, 0, 0);
 
     ranges.push({
@@ -29,4 +28,19 @@ export function trailingWeekRanges(weekCount: number): { startTs: number; endTs:
   }
 
   return ranges;
+}
+
+/**
+ * The `days` before `now` through the end of its day, as wall-clock stamps: the
+ * same calendar days a trailing range of that length is captioned with.
+ */
+export function trailingDaysWindow(days: number, now: Date): { startTs: number; endTs: number } {
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 0);
+  const start = addLocalDays(now, -days);
+  start.setHours(0, 0, 0, 0);
+  return {
+    startTs: localWallClockToEpochSeconds(start),
+    endTs: localWallClockToEpochSeconds(end),
+  };
 }

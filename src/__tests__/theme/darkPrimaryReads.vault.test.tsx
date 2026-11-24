@@ -70,7 +70,7 @@ jest.mock('@/shared/app/SyncDateRangeStore', () => ({
 jest.mock('@/shared/native/useSyncStatus', () => ({
   ...jest.requireActual('@/shared/native/useSyncStatus'),
   useTrackStage: () => ({
-    step: require('../__shared__/veloqrsStub').TrackStep.Downloading,
+    step: require('../__shared__/veloqrsStub').FfiTrackStep.Downloading,
     completed: 4,
     total: 10,
     percent: 40,

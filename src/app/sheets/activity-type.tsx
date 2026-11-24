@@ -28,6 +28,7 @@ import {
   sportMarkColour,
 } from '@/shared/activity/sportCategories';
 import type { ActivityType } from '@/types';
+import { toActivityType } from '@/types';
 import { SheetHeader, PressTarget, sheetScrollProps } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { goBack } from '@/shared/app/navigation';
@@ -65,7 +66,7 @@ function activityTypeSections(
   const listed = new Set<string>();
   for (const [key, types] of Object.entries(SPORT_FAMILY_MEMBERS)) {
     types.forEach((type) => listed.add(type));
-    sections.push({ key: key as SportFamily, data: [...types] as ActivityType[] });
+    sections.push({ key: key as SportFamily, data: types.map(toActivityType) });
   }
   if (selectedType && !listed.has(selectedType)) {
     sections.find((section) => section.key === 'Other')?.data.push(selectedType);

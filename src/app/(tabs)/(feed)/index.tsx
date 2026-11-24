@@ -239,6 +239,8 @@ function FeedScreenContent() {
     fitnessRiseDays,
     fatigueData,
     formData,
+    formZoneData,
+    formTextData,
     hrvData,
     rhrData,
     hrvRead,
@@ -699,6 +701,8 @@ function FeedScreenContent() {
             fitnessRiseDays={fitnessRiseDays}
             fatigueData={fatigueData}
             formData={formData}
+            formZoneData={formZoneData}
+            formTextData={formTextData}
             hrvData={hrvData}
             rhrData={rhrData}
             hrvRead={hrvRead}

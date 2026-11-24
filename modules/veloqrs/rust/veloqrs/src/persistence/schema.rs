@@ -1,6 +1,7 @@
 //! Schema management: migrations, version tracking, and data population.
 
 use crate::GpsPoint;
+use crate::persistence::schema_info;
 use rusqlite::{Connection, Result as SqlResult, params};
 use rusqlite_migration::{M, Migrations};
 
@@ -473,12 +474,10 @@ impl PersistentEngine {
         )?;
 
         // Get current schema version (0 if not set = pre-0.1.0 database)
-        let current_version: i32 = conn
-            .query_row(
-                "SELECT CAST(value AS INTEGER) FROM schema_info WHERE key = 'schema_version'",
-                [],
-                |row| row.get(0),
-            )
+        let current_version: i32 = schema_info::get_integer(conn, "schema_version")
+            .ok()
+            .flatten()
+            .and_then(|v| i32::try_from(v).ok())
             .unwrap_or(0);
 
         log::info!(
@@ -534,13 +533,6 @@ impl PersistentEngine {
 
         // Run all pending migrations
         let migrations_started = std::time::Instant::now();
-        if current_version < 4 && applied_migrations < 40 {
-            let scripts = Self::migration_scripts();
-            Migrations::new(scripts[..39].iter().copied().map(M::up).collect())
-                .to_latest(conn)
-                .map_err(Self::migration_error)?;
-            Self::populate_all_performance_caches(conn)?;
-        }
         // 054 drops the cutover archive tables, and what they hold is carried
         // into the ledger by Rust that no SQL file can run. So the files
         // before it run first, the rows move, and the drop runs after.
@@ -632,25 +624,11 @@ impl PersistentEngine {
             )?;
         }
 
-        // Post-migration data population for pre-0.2.2 databases.
-        // Users on 0.2.2+ (schema_version >= 7) skip this block entirely.
-        if current_version < 7 {
-            if current_version < 5 {
-                Self::populate_section_bounds(conn)?;
-            }
-            if current_version < 6 {
-                Self::populate_route_group_counts(conn)?;
-            }
-        }
-
         // The version is written last because every hook above that gates on
         // it reads the version this pass started from. Written before them, a
         // hook that fails or a process that dies part way leaves the file
         // recorded as current, and the next launch skips what never ran.
-        conn.execute(
-            "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('schema_version', ?)",
-            params![Self::SCHEMA_VERSION.to_string()],
-        )?;
+        schema_info::set(conn, "schema_version", &Self::SCHEMA_VERSION.to_string())?;
         conn.execute(
             "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('last_migration', datetime('now'))",
             [],
@@ -1507,13 +1485,7 @@ WHERE activity_count IS NOT NULL GROUP BY activity_count;"#
     /// commit, so parents and children move in any order.
     fn ensure_content_ids(conn: &Connection) -> SqlResult<()> {
         const MARKER: &str = "content_ids_v1";
-        let done: Option<String> = conn
-            .query_row(
-                "SELECT value FROM schema_info WHERE key = ?",
-                params![MARKER],
-                |row| row.get(0),
-            )
-            .ok();
+        let done: Option<String> = schema_info::get(conn, MARKER).ok().flatten();
         if done.is_some() {
             return Ok(());
         }
@@ -1616,10 +1588,7 @@ WHERE activity_count IS NOT NULL GROUP BY activity_count;"#
             "DELETE FROM identity_state WHERE key = ?",
             params![sections::SECTION_IDENTITY_KEY],
         )?;
-        tx.execute(
-            "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, '1')",
-            params![MARKER],
-        )?;
+        schema_info::set(&tx, MARKER, "1")?;
         tx.commit()?;
         if !renames.is_empty() {
             log::info!(
@@ -1633,19 +1602,11 @@ WHERE activity_count IS NOT NULL GROUP BY activity_count;"#
     /// Backfill legacy auto-section names once. Migration 017 creates the
     /// named intent columns and 032 widens its key to `(id, kind)`.
     fn ensure_section_intents_named_shape(conn: &Connection) -> SqlResult<()> {
-        let backfill_done: Option<String> = conn
-            .query_row(
-                "SELECT value FROM schema_info WHERE key = 'named_backfill_done'",
-                [],
-                |row| row.get(0),
-            )
-            .ok();
+        let backfill_done: Option<String> =
+            schema_info::get(conn, "named_backfill_done").ok().flatten();
         if backfill_done.is_none() {
             Self::backfill_named_intents(conn)?;
-            conn.execute(
-                "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('named_backfill_done', '1')",
-                [],
-            )?;
+            schema_info::set(conn, "named_backfill_done", "1")?;
         }
         Self::backfill_legacy_suppression_intents(conn)
     }
@@ -1656,12 +1617,7 @@ WHERE activity_count IS NOT NULL GROUP BY activity_count;"#
     /// hidden section's ground would come back under a new id.
     fn backfill_legacy_suppression_intents(conn: &Connection) -> SqlResult<()> {
         const MARKER: &str = "legacy_suppression_backfill_done";
-        let done: bool = conn.query_row(
-            "SELECT EXISTS(SELECT 1 FROM schema_info WHERE key = ?)",
-            params![MARKER],
-            |row| row.get(0),
-        )?;
-        if done {
+        if schema_info::get(conn, MARKER)?.is_some() {
             return Ok(());
         }
         let has_reference = conn
@@ -1736,12 +1692,7 @@ WHERE activity_count IS NOT NULL GROUP BY activity_count;"#
 
     fn repair_orphan_supersession(conn: &Connection) -> SqlResult<()> {
         const MARKER: &str = "orphan_superseded_repair_done";
-        let done: bool = conn.query_row(
-            "SELECT EXISTS(SELECT 1 FROM schema_info WHERE key = ?)",
-            params![MARKER],
-            |row| row.get(0),
-        )?;
-        if done {
+        if schema_info::get(conn, MARKER)?.is_some() {
             return Ok(());
         }
         let tx = conn.unchecked_transaction()?;
@@ -1868,157 +1819,6 @@ WHERE activity_count IS NOT NULL GROUP BY activity_count;"#
             );
         }
         Ok(promoted)
-    }
-
-    /// Populate section bounds columns from polyline JSON during migration to v5.
-    fn populate_section_bounds(conn: &Connection) -> SqlResult<()> {
-        let sections: Vec<(String, String)> = conn
-            .prepare(
-                "SELECT id, polyline_json FROM sections
-                 WHERE bounds_min_lat IS NULL AND polyline_json IS NOT NULL",
-            )?
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-            .collect::<Result<Vec<_>, _>>()?;
-
-        if sections.is_empty() {
-            return Ok(());
-        }
-
-        log::info!(
-            "veloqrs: [Migration] Populating bounds for {} sections...",
-            sections.len()
-        );
-
-        let mut update_stmt = conn.prepare(
-            "UPDATE sections SET bounds_min_lat=?, bounds_max_lat=?, bounds_min_lng=?, bounds_max_lng=? WHERE id=?"
-        )?;
-
-        let mut populated = 0;
-        for (id, polyline_json) in &sections {
-            if let Ok(points) = serde_json::from_str::<Vec<GpsPoint>>(polyline_json)
-                && points.len() >= 2
-            {
-                let bounds = tracematch::geo_utils::compute_bounds(&points);
-                update_stmt.execute(params![
-                    bounds.min_lat,
-                    bounds.max_lat,
-                    bounds.min_lng,
-                    bounds.max_lng,
-                    id,
-                ])?;
-                populated += 1;
-            }
-        }
-
-        log::info!(
-            "veloqrs: [Migration] Populated bounds for {}/{} sections",
-            populated,
-            sections.len()
-        );
-
-        Ok(())
-    }
-
-    /// Backfill activity_count column on route_groups from activity_ids JSON.
-    fn populate_route_group_counts(conn: &Connection) -> SqlResult<()> {
-        let groups: Vec<(String, String)> = conn
-            .prepare("SELECT id, activity_ids FROM route_groups WHERE activity_count IS NULL")?
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-            .collect::<Result<Vec<_>, _>>()?;
-
-        if groups.is_empty() {
-            return Ok(());
-        }
-
-        log::info!(
-            "veloqrs: [Migration] Backfilling activity_count for {} route groups...",
-            groups.len()
-        );
-
-        let mut update_stmt =
-            conn.prepare("UPDATE route_groups SET activity_count = ? WHERE id = ?")?;
-
-        for (id, activity_ids_json) in &groups {
-            let count = serde_json::from_str::<Vec<String>>(activity_ids_json)
-                .map(|ids| ids.len() as i64)
-                .unwrap_or(0);
-            update_stmt.execute(params![count, id])?;
-        }
-
-        log::info!(
-            "veloqrs: [Migration] Backfilled activity_count for {} route groups",
-            groups.len()
-        );
-
-        Ok(())
-    }
-
-    /// Populate all performance caches for migration from schema v3 to v4.
-    /// Consolidates zone distributions, FTP history, and heatmap intensity.
-    fn populate_all_performance_caches(conn: &Connection) -> SqlResult<()> {
-        log::info!("veloqrs: [Migration] Populating all performance caches...");
-
-        // Part 1: Zone distribution cache
-        log::info!("veloqrs: [Migration]   - Populating zone cache from JSON blobs...");
-        let mut stmt = conn.prepare(
-            "SELECT activity_id, power_zone_times, hr_zone_times FROM activity_metrics
-             WHERE power_zone_times IS NOT NULL OR hr_zone_times IS NOT NULL",
-        )?;
-
-        let mut update_stmt = conn.prepare(
-            "UPDATE activity_metrics
-             SET power_z1=?, power_z2=?, power_z3=?, power_z4=?, power_z5=?, power_z6=?, power_z7=?,
-                 hr_z1=?, hr_z2=?, hr_z3=?, hr_z4=?, hr_z5=?
-             WHERE activity_id=?",
-        )?;
-
-        let activities: Vec<(String, Option<String>, Option<String>)> = stmt
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
-            .collect::<Result<Vec<_>, _>>()?;
-
-        for (id, power_json, hr_json) in activities {
-            let power_zones: Vec<f64> = power_json
-                .and_then(|json| serde_json::from_str(&json).ok())
-                .unwrap_or_else(|| vec![0.0; 7]);
-            let hr_zones: Vec<f64> = hr_json
-                .and_then(|json| serde_json::from_str(&json).ok())
-                .unwrap_or_else(|| vec![0.0; 5]);
-
-            update_stmt.execute(params![
-                power_zones.first().unwrap_or(&0.0),
-                power_zones.get(1).unwrap_or(&0.0),
-                power_zones.get(2).unwrap_or(&0.0),
-                power_zones.get(3).unwrap_or(&0.0),
-                power_zones.get(4).unwrap_or(&0.0),
-                power_zones.get(5).unwrap_or(&0.0),
-                power_zones.get(6).unwrap_or(&0.0),
-                hr_zones.first().unwrap_or(&0.0),
-                hr_zones.get(1).unwrap_or(&0.0),
-                hr_zones.get(2).unwrap_or(&0.0),
-                hr_zones.get(3).unwrap_or(&0.0),
-                hr_zones.get(4).unwrap_or(&0.0),
-                id,
-            ])?;
-        }
-
-        // Part 2: FTP history cache
-        log::info!("veloqrs: [Migration]   - Populating FTP history cache...");
-        conn.execute("DELETE FROM ftp_history", [])?;
-        conn.execute(
-            "INSERT INTO ftp_history (date, ftp, activity_id, sport_type)
-             SELECT date, ftp, activity_id, sport_type
-             FROM activity_metrics
-             WHERE ftp IS NOT NULL
-             ORDER BY date DESC",
-            [],
-        )?;
-
-        // Part 3: Heatmap intensity cache
-        log::info!("veloqrs: [Migration]   - Populating heatmap intensity cache...");
-        recompute_all_heatmap(conn)?;
-
-        log::info!("veloqrs: [Migration] All performance caches populated successfully");
-        Ok(())
     }
 }
 

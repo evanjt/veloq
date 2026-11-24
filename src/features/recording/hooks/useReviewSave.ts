@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { UploadOutcome } from 'veloqrs';
+import { FfiUploadOutcome } from 'veloqrs';
 
-import { generateFitFile } from '@/features/recording/lib/fitGenerator';
+import { writeRecordingFit } from '@/features/recording/lib/recordingFit';
 import { rebaseLaps } from '@/features/recording/lib/savedLaps';
 import { epochMsToStartDateLocal } from '@/shared/time/startDate';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -50,7 +50,7 @@ function libraryHoldsStoppedRide(session: { startTime: number | null; stopTime: 
   }
 }
 
-export interface UseReviewSaveArgs {
+interface UseReviewSaveArgs {
   isManual: boolean;
   type: ActivityType;
   name: string;
@@ -74,7 +74,7 @@ export interface UseReviewSaveArgs {
   canTrim: boolean;
 }
 
-export interface UseReviewSave {
+interface UseReviewSave {
   handleSave: () => Promise<void>;
   isUploading: boolean;
   errorMessage: string | null;
@@ -358,13 +358,12 @@ export function useReviewSave({
         // answer for. Falling back to now keeps the file valid; the arithmetic
         // on a null would have dated it to 1970.
         const adjustedStart = new Date((startTime ?? Date.now()) + timeBase * 1000);
-        const fitBuffer = await generateFitFile({
+        const fitBuffer = writeRecordingFit({
           activityType: type,
           startTime: adjustedStart,
           streams: trimmedStreams,
           // Laps are on the store's clock and indices, the records on the window's.
           laps: rebaseLaps(laps, trimmedStreams, timeBase, trimStartIndex, session.pauseIntervals),
-          name,
           pausedTimeSeconds: pausedSecondsInWindow,
         });
         if (!stillCurrent()) {
@@ -451,7 +450,7 @@ export function useReviewSave({
       }
 
       switch (result.outcome) {
-        case UploadOutcome.Uploaded:
+        case FfiUploadOutcome.Uploaded:
           queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
           queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
           // The feed reads the engine, so the new ride is absent until a sync brings it in.
@@ -463,7 +462,7 @@ export function useReviewSave({
           finishAndGoHome(null, stillCurrent);
           return;
 
-        case UploadOutcome.PermissionBlocked:
+        case FfiUploadOutcome.PermissionBlocked:
           // The engine announces the refusal, which is what marks the grant.
           setErrorMessage(
             t(
@@ -477,7 +476,7 @@ export function useReviewSave({
           setIsUploading(false);
           return;
 
-        case UploadOutcome.Rejected:
+        case FfiUploadOutcome.Rejected:
           setErrorMessage(
             t(
               'recording.uploadRejected',
@@ -489,7 +488,7 @@ export function useReviewSave({
           setIsUploading(false);
           return;
 
-        case UploadOutcome.Missing:
+        case FfiUploadOutcome.Missing:
           setErrorMessage(
             t(
               'recording.uploadMissing',
@@ -499,9 +498,9 @@ export function useReviewSave({
           setIsUploading(false);
           return;
 
-        case UploadOutcome.AuthExpired:
+        case FfiUploadOutcome.AuthExpired:
         // Saved for an athlete no longer signed in: it waits for them.
-        case UploadOutcome.OtherAthlete:
+        case FfiUploadOutcome.OtherAthlete:
           finishAndGoHome(
             t(
               'recording.savedQueuedAuth',
@@ -511,11 +510,11 @@ export function useReviewSave({
           );
           return;
 
-        case UploadOutcome.Network:
-        case UploadOutcome.Retriable:
+        case FfiUploadOutcome.Network:
+        case FfiUploadOutcome.Retriable:
         // The ride was not pending, or it was and its upload finished
         // before this call could join it, so the queue settles it.
-        case UploadOutcome.NotStarted:
+        case FfiUploadOutcome.NotStarted:
           log.log('Upload deferred, recording waits in the library');
           finishAndGoHome(
             t(

@@ -9,6 +9,7 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { RangeCoverage, type WellnessDay } from 'veloqrs';
+import { NO_STATED_FORM } from '../__shared__/noStatedForm';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useAthlete } from '@/shared/app/useAthlete';
@@ -34,8 +35,6 @@ jest.mock('@/features/home/lib/widgetBridge', () => ({
   scheduleWidgetSnapshot: jest.fn(),
 }));
 
-const setAthlete = jest.fn();
-
 const engine = {
   getAthleteProfile: jest.fn(),
   getWellnessDays: jest.fn(),
@@ -44,7 +43,11 @@ const engine = {
 
 /** The days a window holds, as the engine answers them with the window's coverage. */
 function stored(days: WellnessDay[]) {
-  return { days, coverage: days.length > 0 ? RangeCoverage.Loaded : RangeCoverage.Empty };
+  return {
+    days,
+    coverage: days.length > 0 ? RangeCoverage.Loaded : RangeCoverage.Empty,
+    ...NO_STATED_FORM,
+  };
 }
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
@@ -61,7 +64,7 @@ beforeEach(() => {
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
   engine.getAthleteProfile.mockReturnValue(null);
   engine.getWellnessDays.mockReturnValue(stored([]));
-  useAuthStore.setState({ isAuthenticated: true, setAthlete });
+  useAuthStore.setState({ isAuthenticated: true });
   useFormPreference.getState().reset();
 });
 
@@ -78,7 +81,6 @@ describe('useAthlete', () => {
 
     await waitFor(() => expect(result.current.data).not.toBeUndefined());
     expect(result.current.data).toEqual(profile);
-    expect(setAthlete).toHaveBeenCalledWith(profile);
     expect(mockSetIntervalsPreferences).toHaveBeenCalledWith({ measurementPreference: 'feet' });
     expect(useFormPreference.getState().formAsPercent).toBe(true);
   });
@@ -98,7 +100,7 @@ describe('useAthlete', () => {
 
     const { result } = await renderHook(() => useAthlete(), { wrapper });
 
-    await waitFor(() => expect(setAthlete).toHaveBeenCalled());
+    await waitFor(() => expect(result.current.data?.name).toBe('Demo'));
     expect(result.current.data?.name).toBe('Demo');
     expect(mockSetIntervalsPreferences).not.toHaveBeenCalled();
     expect(useFormPreference.getState().formAsPercent).toBeNull();

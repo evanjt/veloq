@@ -9,7 +9,7 @@
 export type TrimBound = 'start' | 'end';
 
 /** The fewest points a section can hold, which the engine refuses a bounds edit below. */
-export const MIN_SECTION_POINTS = 5;
+const MIN_SECTION_POINTS = 5;
 
 /** Whether the range from `start` to `end`, both kept, holds enough points to save. */
 export function keepsEnoughPoints(start: number, end: number): boolean {

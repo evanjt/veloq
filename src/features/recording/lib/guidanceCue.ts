@@ -4,7 +4,7 @@ import { i18n } from '@/i18n';
 import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
 import { formatDistance } from '@/shared/format/format';
 
-export interface GuidanceCueResult {
+interface GuidanceCueResult {
   /** The line the ride's off-screen surfaces show, or null when they show none. */
   line: string | null;
   /** True once, on the record that moves the ride off the route. */

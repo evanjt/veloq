@@ -2,6 +2,18 @@ import type { FfiImprovementBasis } from 'veloqrs';
 import type { InsightTone } from '@/theme';
 import type { TrendDirection, TrendVerdict } from '@/shared/format/trend';
 import type { LatLngShort } from '@/shared/geo/distance';
+import type { FormZone } from '@/types';
+
+/**
+ * The newest day's form as the engine stated it: the zone, the printed figure
+ * and whether that figure is a percentage of fitness. Zone and text are null
+ * where the engine could not read the day in the athlete's unit.
+ */
+export interface TodayForm {
+  zone: FormZone | null;
+  text: string | null;
+  asPercent: boolean;
+}
 
 export type InsightCategory =
   | 'section_pr'
@@ -22,7 +34,7 @@ export type InsightPriority = 1 | 2 | 3 | 4 | 5;
  * What a value is, for a reader that needs one value by name. The label is
  * translated, so a reader that matched it found nothing outside English.
  */
-export type DataPointKey = 'hrvAverage' | 'hrvLatest' | 'hrChange' | 'effortCount';
+type DataPointKey = 'hrvAverage' | 'hrvLatest' | 'hrChange' | 'effortCount';
 
 export interface DataPoint {
   /** Set where a sheet or the card reads this value back by name. */
@@ -136,6 +148,8 @@ export interface HistorySeries {
   unit?: string | undefined;
   /** Prints a value as the card's scale printed it, for the sheet's ticks and readout. */
   format?: ((value: number) => string) | undefined;
+  /** The value axis is marked only at values a point has, because `format` reads each point's own text. */
+  marksOnSamples?: boolean | undefined;
 }
 
 /**
@@ -332,6 +346,10 @@ export interface PeriodComparison {
   ratio: number;
   /** Epoch seconds where the later period starts, the week a graphic marks. */
   comparedStart: number;
+  /** Which way the total moved, judged in the engine on the trend table. */
+  direction: TrendDirection;
+  /** The judgement of that move, from the same table. */
+  verdict: TrendVerdict;
 }
 
 /**
@@ -348,6 +366,9 @@ export interface SeriesPoint {
   activityId?: string | undefined;
   /** A total still accruing, such as the running week's. */
   partial?: boolean | undefined;
+  /** For a pace series, the value as the engine's pace text, metric and imperial. */
+  metricText?: string | null | undefined;
+  imperialText?: string | null | undefined;
 }
 
 export interface FtpTrend {
@@ -372,6 +393,11 @@ export interface PaceTrend {
   gainPercent?: number;
   /** The same move in the unit the sport is paced in, seconds saved. */
   deltaSeconds?: number;
+  /** The latest and previous pace as the engine's text, per unit system. */
+  latestPaceMetricText?: string | undefined;
+  latestPaceImperialText?: string | undefined;
+  previousPaceMetricText?: string | undefined;
+  previousPaceImperialText?: string | undefined;
   /** Snapshots the trend was read from. */
   sampleCount?: number;
   /** Those snapshots, oldest first, for the insight's history. */

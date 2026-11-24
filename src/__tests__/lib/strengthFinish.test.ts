@@ -6,7 +6,7 @@
  * handed to the upload.
  */
 
-import { UploadOutcome, recordings } from 'veloqrs';
+import { FfiUploadOutcome, recordings } from 'veloqrs';
 
 import { finishStrengthSession, savedNoticeKey } from '@/features/recording/lib/strengthFinish';
 
@@ -82,7 +82,7 @@ beforeEach(() => {
     kind: 'finished',
     entry: finishedRow(input.recordingId),
   }));
-  mockUpload.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+  mockUpload.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
 });
 
 describe('finishing a strength session', () => {
@@ -106,7 +106,7 @@ describe('finishing a strength session', () => {
     expect(mockUpload).toHaveBeenCalledWith(input.recordingId, true, 'file:///docs/');
     expect(mockWriteProvisional).toHaveBeenCalledTimes(1);
     expect(outcome).toMatchObject({ kind: 'saved', kept: null });
-    expect(outcome.kind === 'saved' && outcome.upload?.outcome).toBe(UploadOutcome.Uploaded);
+    expect(outcome.kind === 'saved' && outcome.upload?.outcome).toBe(FfiUploadOutcome.Uploaded);
   });
 
   it('leaves the effort absent when the slider was never moved', async () => {
@@ -169,15 +169,15 @@ describe('the notice for a saved session', () => {
   ) => ({ kind: 'saved' as const, entry: {} as never, kept, upload });
 
   it('says nothing when the upload landed', () => {
-    expect(savedNoticeKey(saved(null, { outcome: UploadOutcome.Uploaded }))).toBeNull();
+    expect(savedNoticeKey(saved(null, { outcome: FfiUploadOutcome.Uploaded }))).toBeNull();
   });
 
   it.each([
-    [UploadOutcome.Network, 'recording.savedQueued'],
-    [UploadOutcome.NotStarted, 'recording.savedQueued'],
-    [UploadOutcome.Rejected, 'recording.uploadRejected'],
-    [UploadOutcome.PermissionBlocked, 'recording.savedLocallyNoScope'],
-    [UploadOutcome.AuthExpired, 'recording.savedQueuedAuth'],
+    [FfiUploadOutcome.Network, 'recording.savedQueued'],
+    [FfiUploadOutcome.NotStarted, 'recording.savedQueued'],
+    [FfiUploadOutcome.Rejected, 'recording.uploadRejected'],
+    [FfiUploadOutcome.PermissionBlocked, 'recording.savedLocallyNoScope'],
+    [FfiUploadOutcome.AuthExpired, 'recording.savedQueuedAuth'],
   ])('names where the row waits after upload outcome %s', (outcome, key) => {
     expect(savedNoticeKey(saved(null, { outcome }))).toBe(key);
   });

@@ -3,7 +3,7 @@
  */
 
 // In-memory file system for testing - prefixed with "mock" for jest.mock scope rules
-import { clearAllGpsTracks, clearBoundsCache, deleteGpsTracks } from '@/shared/storage/gpsStorage';
+import { clearBoundsCache } from '@/shared/storage/gpsStorage';
 
 const mockFileStore = new Map<string, string>();
 const mockDirStore = new Set<string>();
@@ -53,33 +53,6 @@ jest.mock('@/shared/native/engine', () => ({
 beforeEach(() => {
   mockFileStore.clear();
   mockDirStore.clear();
-});
-
-describe('clearAllGpsTracks', () => {
-  it('clears legacy GPS directory', async () => {
-    mockDirStore.add('/mock/docs/gps_tracks/');
-    mockFileStore.set('/mock/docs/gps_tracks/act1.json', '[]');
-    await clearAllGpsTracks();
-    expect(mockFileStore.has('/mock/docs/gps_tracks/act1.json')).toBe(false);
-  });
-
-  vaultIt('does not throw when directory does not exist', async () => {
-    await expect(clearAllGpsTracks()).resolves.not.toThrow();
-  });
-});
-
-describe('deleteGpsTracks', () => {
-  it('deletes specified track files', async () => {
-    mockFileStore.set('/mock/docs/gps_tracks/act1.json', '[]');
-    mockFileStore.set('/mock/docs/gps_tracks/act2.json', '[]');
-    await deleteGpsTracks(['act1']);
-    expect(mockFileStore.has('/mock/docs/gps_tracks/act1.json')).toBe(false);
-    expect(mockFileStore.has('/mock/docs/gps_tracks/act2.json')).toBe(true);
-  });
-
-  vaultIt('handles empty array', async () => {
-    await expect(deleteGpsTracks([])).resolves.not.toThrow();
-  });
 });
 
 describe('clearBoundsCache', () => {

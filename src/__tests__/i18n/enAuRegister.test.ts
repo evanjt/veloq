@@ -61,7 +61,14 @@ const DESTRUCTIVE_LABELS = [
  * the kinds of data it deletes and where they come back from.
  */
 const CONFIRMATION_NAMES: Record<string, RegExp[]> = {
-  'alerts.clearCacheMessage': [/activity data/, /tracks/, /route matching/, /reload/, /90 days/],
+  'alerts.clearCacheMessage': [
+    /activity data/,
+    /tracks/,
+    /route matching/,
+    /map cache/,
+    /reload/,
+    /90 days/,
+  ],
   'alerts.signOutMessage': [/library/, /settings/, /this phone/, /again/],
   'alerts.disconnectAndClearMessage': [
     /signs you out/,

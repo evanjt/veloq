@@ -19,7 +19,7 @@ import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
 import { isPositioned } from '@/shared/geo/routePreview';
 import { debug } from '@/shared/debug/debug';
 import { formatDistance, formatDuration } from '@/shared/format/format';
-import { FocusPhase, type FocusState } from 'veloqrs';
+import { FfiFocusPhase, type FfiFocusState } from 'veloqrs';
 import { sessionGuidanceCue } from '@/features/recording/lib/guidanceCue';
 import { endRecordingSession } from '@/features/recording/lib/endRecordingSession';
 import { formatRecordingSpeed } from '@/features/recording/lib/formatRecordingSpeed';
@@ -276,16 +276,16 @@ export type StrengthNotificationNames = FocusNames;
  * screen. Times in the state are epoch seconds and the payload's are ms.
  */
 export function buildStrengthNotificationPayload(
-  focus: FocusState | null | undefined,
+  focus: FfiFocusState | null | undefined,
   names: StrengthNotificationNames,
   options: { translate: FocusTranslate; session: number; nowMs: number }
 ): RecordingNotificationPayload | null {
   const { translate, session, nowMs } = options;
   const set = focus?.current;
-  if (!focus || !set || focus.phase === FocusPhase.Finished) return null;
+  if (!focus || !set || focus.phase === FfiFocusPhase.Finished) return null;
 
   const setText = focusSetText(set, translate);
-  const resting = focus.phase === FocusPhase.Rest;
+  const resting = focus.phase === FfiFocusPhase.Rest;
   const endsAtMs = resting && focus.restEndsAt != null ? focus.restEndsAt * 1000 : null;
   const startedAtMs = focus.restStartedAt != null ? focus.restStartedAt * 1000 : nowMs;
   return {
@@ -395,7 +395,7 @@ export function updateRecordingNotification(now = Date.now()): void {
 
 /** Post the strength session's notification, or take it down when the session has none. */
 export function updateStrengthNotification(
-  focus: FocusState | null | undefined,
+  focus: FfiFocusState | null | undefined,
   names: StrengthNotificationNames,
   session: number,
   nowMs = Date.now()

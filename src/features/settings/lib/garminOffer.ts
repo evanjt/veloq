@@ -7,7 +7,7 @@
  * later download brings more than that.
  */
 
-export interface GarminOfferFacts {
+interface GarminOfferFacts {
   /** The Garmin key is kept on this device, or null until that is read. */
   connected: boolean | null;
   /** Rides the last download brought that intervals.icu holds back. */

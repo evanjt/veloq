@@ -7,11 +7,13 @@ import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { useStableBy } from '@/shared/app/useStableBy';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { useWellness } from '@/features/wellness';
+import { localizeFormText } from '@/shared/format/number';
 import { useExperimental } from '@/features/settings/light';
 
 import { useInsightsStore, computeInsightFingerprint, diffInsights } from '../store';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from '../lib/computeInsightsData';
-import type { Insight } from '../types';
+import type { Insight, TodayForm } from '../types';
+import type { FormZone } from '@/types';
 
 /** What `useWellness` hands back, without reaching into another feature for the row type. */
 type WellnessArray = ReturnType<typeof useWellness>['data'];
@@ -56,7 +58,7 @@ export function useInsights(): {
   /** Reads the insights again after a failure */
   retry: () => void;
   /** The newest form reading out of the same bundle, null without wellness */
-  form: { ctl: number; atl: number } | null;
+  form: TodayForm | null;
   hasNewInsights: boolean;
   markAsSeen: () => void;
   /**
@@ -111,7 +113,7 @@ export function useInsights(): {
   const [failed, setFailed] = useState(false);
   const [retryTrigger, setRetryTrigger] = useState(0);
   const retry = useCallback(() => setRetryTrigger((n) => n + 1), []);
-  const [form, setForm] = useState<{ ctl: number; atl: number } | null>(null);
+  const [form, setForm] = useState<TodayForm | null>(null);
   const [hrvWithheldSince, setHrvWithheldSince] = useState<string | null>(null);
   const isMountedRef = useRef(true);
 
@@ -157,7 +159,15 @@ export function useInsights(): {
           hasComputedRef.current = true;
           setInsights(result.insights);
           setFailed(result.failed);
-          setForm(data.form ? { ctl: data.form.ctl, atl: data.form.atl } : null);
+          setForm(
+            data.form
+              ? {
+                  zone: (data.form.formZone as FormZone | undefined) ?? null,
+                  text: localizeFormText(data.form.formText),
+                  asPercent: data.form.formAsPercent,
+                }
+              : null
+          );
           setHrvWithheldSince(data.hrvWithheldSince ?? null);
         }
       });

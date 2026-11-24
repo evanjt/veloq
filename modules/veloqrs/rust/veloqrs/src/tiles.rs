@@ -808,7 +808,7 @@ pub fn track_spans(track: &[GpsPoint], min_zoom: u8, max_zoom: u8) -> Vec<TileSp
     spans
 }
 
-/// The tile range of a box at every zoom, one span each, which is the ground
+/// The tile reach of a box at every zoom, one span each, which is the ground
 /// [`invalidate_tiles_in_bounds`] takes for it.
 pub fn bounds_spans(
     min_lat: f64,
@@ -819,10 +819,7 @@ pub fn bounds_spans(
     max_zoom: u8,
 ) -> Vec<TileSpan> {
     (min_zoom..=max_zoom)
-        .map(|z| {
-            let (x0, x1, y0, y1) = tile_range_for_bounds(min_lat, max_lat, min_lng, max_lng, z);
-            TileSpan { z, x0, x1, y0, y1 }
-        })
+        .map(|z| reach_range_for_bounds(min_lat, max_lat, min_lng, max_lng, z))
         .collect()
 }
 
@@ -1401,8 +1398,14 @@ pub fn invalidate_tiles_in_bounds(
 ) -> u32 {
     let mut deleted = 0u32;
     for z in min_zoom..=max_zoom {
-        let (x_min, x_max, y_min, y_max) =
-            tile_range_for_bounds(min_lat, max_lat, min_lng, max_lng, z);
+        // The halo tile a stroke bleeds into is ground the box's activities drew.
+        let TileSpan {
+            x0: x_min,
+            x1: x_max,
+            y0: y_min,
+            y1: y_max,
+            ..
+        } = reach_range_for_bounds(min_lat, max_lat, min_lng, max_lng, z);
         // A zoom nothing was ever drawn at has no directory, which is one
         // failed open instead of the whole rectangle.
         let Ok(columns) = std::fs::read_dir(base_path.join(z.to_string())) else {
@@ -2387,6 +2390,29 @@ mod tests {
 
             assert_eq!(sweep(base), 1, "one tile went, not two files");
             assert!(!tile_exists(base, Z, x, y));
+        }
+
+        #[test]
+        fn the_tile_a_stroke_bleeds_into_past_the_box_edge_goes_too() {
+            let dir = tempfile::tempdir().expect("tempdir");
+            let base = dir.path();
+            let (min_x, _, min_y, _) = tile_range_for_bounds(BOX.0, BOX.1, BOX.2, BOX.3, Z);
+            save_tile(base, Z, min_x - 1, min_y - 1, b"halo").expect("halo");
+            save_tile(base, Z, min_x - 2, min_y, b"beyond").expect("beyond");
+
+            assert_eq!(sweep(base), 1);
+            assert!(!tile_exists(base, Z, min_x - 1, min_y - 1), "halo tile");
+            assert!(tile_exists(base, Z, min_x - 2, min_y), "two tiles out");
+        }
+
+        #[test]
+        fn the_ground_a_sweep_marks_includes_the_halo() {
+            let span = bounds_spans(BOX.0, BOX.1, BOX.2, BOX.3, Z, Z)[0];
+            let (x0, x1, y0, y1) = tile_range_for_bounds(BOX.0, BOX.1, BOX.2, BOX.3, Z);
+            assert_eq!(
+                (span.x0, span.x1, span.y0, span.y1),
+                (x0 - 1, x1 + 1, y0 - 1, y1 + 1)
+            );
         }
 
         #[test]

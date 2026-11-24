@@ -1,13 +1,13 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, FlatList, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { IntervalKind } from 'veloqrs';
+import { FfiIntervalKind } from 'veloqrs';
 import { measuresPower } from '@/shared/activity/activityUtils';
 import { intervalTypeLabel } from '@/features/activity/lib/intervalTypeLabel';
 import {
   formatDistance,
   formatDuration,
-  formatSportSpeed,
+  formatSportSpeedText,
   formatHeartRate,
   formatPower,
 } from '@/shared/format/format';
@@ -41,7 +41,7 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
   const hasPower = useMemo(() => intervals.some((i) => i.averageWatts != null), [intervals]);
 
   const renderItem = ({ item, index }: { item: ActivityInterval; index: number }) => {
-    const isRecovery = item.kind === IntervalKind.Recovery || item.kind === IntervalKind.Rest;
+    const isRecovery = item.kind === FfiIntervalKind.Recovery || item.kind === FfiIntervalKind.Rest;
 
     const token = intervalBandToken(item, hasPowerZones ? 'power' : 'hr');
 
@@ -50,7 +50,10 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
     const speed =
       item.averageSpeed == null || item.averageSpeed <= 0
         ? ABSENT
-        : formatSportSpeed(item.averageSpeed, activityType, isMetric);
+        : formatSportSpeedText(item.averageSpeed, activityType, isMetric, {
+            metricText: item.averageSpeedMetricText,
+            imperialText: item.averageSpeedImperialText,
+          });
     const heartRate =
       item.averageHeartrate != null ? formatHeartRate(item.averageHeartrate) : ABSENT;
     const power = item.averageWatts != null ? formatPower(item.averageWatts) : ABSENT;

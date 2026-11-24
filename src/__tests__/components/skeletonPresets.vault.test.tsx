@@ -36,9 +36,7 @@ jest.mock('@/i18n', () => ({
 }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
-jest.mock('@/features/routes/hooks/useEngine', () => ({
-  useRepresentativeRoute: () => ({ points: [] }),
-}));
+jest.mock('@/features/routes/hooks/useEngine', () => ({}));
 jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     getStyleForActivity: () => 'satellite',

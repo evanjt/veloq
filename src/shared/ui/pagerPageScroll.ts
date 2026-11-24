@@ -27,7 +27,7 @@ export const SheetCardShownContext = createContext<boolean>(true);
  * The props a page's vertical scroller spreads: nested scrolling on the page on show, and on any
  * scroller outside a pager, and none on a page beside it or in a sheet card it is covered by.
  */
-export function pagerPageScrollProps(
+function pagerPageScrollProps(
   onShow: boolean | null,
   cardShown = true
 ): { nestedScrollEnabled: boolean } {

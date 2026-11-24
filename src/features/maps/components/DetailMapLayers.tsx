@@ -24,7 +24,7 @@ import { useHeatmapPreference, type DetailMapKind } from '../stores/HeatmapPrefe
 const LINE_KEY_COLOURS = 3;
 
 /** What a detail map draws beside its subject. */
-export interface DetailLayersOptions {
+interface DetailLayersOptions {
   /** The id of the section the map's subject is, left out of the library's sections. */
   sectionId?: string | null | undefined;
   /** The id of the route the map's subject is, left out of the library's routes. */
@@ -33,7 +33,7 @@ export interface DetailLayersOptions {
   terrain?: boolean | undefined;
 }
 
-export interface DetailLayers {
+interface DetailLayers {
   /** The context layers to merge under the subject, with what the athlete turned on. */
   context: ContextLayerInput;
   /** The layers-menu rows, none when there is nothing to offer. */

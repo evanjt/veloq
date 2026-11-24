@@ -11,7 +11,7 @@ import { resolvedLocale } from './resolvedLocale';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { SyncErrorReason } from '../__shared__/veloqrsStub';
+import { FfiSyncErrorReason } from '../__shared__/veloqrsStub';
 
 const LOCALES_DIR = path.join(__dirname, '../../i18n/locales');
 
@@ -38,7 +38,7 @@ function reasonsOf(locale: string): Record<string, string> {
 
 describe('sync error reason strings', () => {
   it('has a key for every reason the engine can produce', () => {
-    const members = Object.values(SyncErrorReason).filter((v) => typeof v === 'number');
+    const members = Object.values(FfiSyncErrorReason).filter((v) => typeof v === 'number');
     expect(KEYS).toHaveLength(members.length);
   });
 

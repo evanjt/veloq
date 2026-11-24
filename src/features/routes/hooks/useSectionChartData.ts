@@ -54,6 +54,7 @@ export function useSectionChartData({
       id: p.lapId,
       activityId: p.activityId,
       speed: ensureFinite(p.speed, 0),
+      speedPace: p.speedPace ?? undefined,
       date: fromWallClockSeconds(p.activityDate) ?? new Date(),
       activityName: p.activityName,
       direction: castDirection(p.direction),
@@ -68,6 +69,7 @@ export function useSectionChartData({
       offScale: castOffScale(p.offScale),
       recordGapSecs: p.recordGapSecs ?? undefined,
       recordGapSpeed: p.recordGapSpeed ?? undefined,
+      recordGapPace: p.recordGapPace ?? undefined,
       estimated: p.estimated,
     }));
 

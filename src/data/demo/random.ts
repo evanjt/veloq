@@ -49,7 +49,7 @@ function hashString(str: string): number {
 /**
  * Create a seeded random generator from a string
  */
-export function createSeededRandom(seed: string): () => number {
+function createSeededRandom(seed: string): () => number {
   return mulberry32(hashString(seed));
 }
 

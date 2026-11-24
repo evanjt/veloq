@@ -14,7 +14,8 @@ import {
   HEATMAP_CELL_SIZE,
   HEATMAP_WEEKS,
 } from '@/features/stats/lib/heatmapGrid';
-import { formatLocalDate, getMonday } from '@/shared/format/format';
+import { getMonday } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 
 const PITCH = HEATMAP_CELL_SIZE + HEATMAP_CELL_GAP;
 

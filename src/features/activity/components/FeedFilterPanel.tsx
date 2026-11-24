@@ -20,8 +20,8 @@ import {
   formatDistance,
   formatDuration,
   epochDayKeyUtc,
-  formatLocalDate,
 } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import { Icon } from '@/shared/ui/Icon';
 import { IconButton, ToggleButton } from '@/shared/ui';
 import { RangeBar } from '@/shared/ui/RangeBar';
@@ -47,7 +47,7 @@ import {
 import { FeedFilterChips, FeedRangePresets } from './FeedFilterChips';
 
 /** What the engine reports of the library, any part of which an empty library lacks. */
-export interface FeedFilterSpan {
+interface FeedFilterSpan {
   oldestTs?: number | undefined;
   newestTs?: number | undefined;
   minDistance?: number | undefined;

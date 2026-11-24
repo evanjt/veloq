@@ -13,7 +13,7 @@
  * not translated: what the screens show of the download is the engine's track
  * stage, so it reaches the log and no athlete.
  */
-import { StartOutcome } from 'veloqrs';
+import { FfiStartOutcome } from 'veloqrs';
 import type { SyncProgress } from '@/features/routes/hooks/useRouteSyncProgress';
 
 /** Why a run ended without storing what it was asked for. */
@@ -40,17 +40,17 @@ const ENDINGS: Record<GpsSyncEnding, Ending> = {
  * it without being asked again. Every other refusal has nothing for this run
  * to do.
  */
-const OWED_REFUSALS: ReadonlySet<StartOutcome> = new Set([
-  StartOutcome.Busy,
-  StartOutcome.Held,
-  StartOutcome.Offline,
+const OWED_REFUSALS: ReadonlySet<FfiStartOutcome> = new Set([
+  FfiStartOutcome.Busy,
+  FfiStartOutcome.Held,
+  FfiStartOutcome.Offline,
 ]);
 
-export function passRefusalEnding(outcome: StartOutcome): GpsSyncEnding {
+export function passRefusalEnding(outcome: FfiStartOutcome): GpsSyncEnding {
   return OWED_REFUSALS.has(outcome) ? 'owed' : 'not-started';
 }
 
-export interface GpsSyncEndingContext {
+interface GpsSyncEndingContext {
   /** Writes the progress the three surfaces read. */
   updateProgress: (updater: SyncProgress | ((prev: SyncProgress) => SyncProgress)) => void;
   /**

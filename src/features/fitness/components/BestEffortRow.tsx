@@ -19,7 +19,7 @@ import type { PrimarySport } from '@/features/fitness/stores';
 import { NameText } from '@/shared/ui/NameText';
 
 /** The activity a best was set in, as the label read names it. */
-export interface BestEffortActivity {
+interface BestEffortActivity {
   id: string;
   name: string;
   date: string;

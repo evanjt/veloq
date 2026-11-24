@@ -10,7 +10,7 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { SyncState, SyncStep } from 'veloqrs';
+import { SyncState, FfiSyncStep } from 'veloqrs';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
@@ -19,7 +19,7 @@ import { FloatingPillStack } from '@/shared/ui/FloatingPillStack';
 import { EngineInitBanner } from '@/shared/app/EngineInitBanner';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { spacing } from '@/theme';
-import { SyncErrorReason } from '../__shared__/veloqrsStub';
+import { FfiSyncErrorReason } from '../__shared__/veloqrsStub';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -44,7 +44,7 @@ jest.mock('@/shared/app/NetworkContext', () => ({
 
 let mockHealth = {
   lastError: 'HTTP 503' as string | null,
-  lastErrorReason: SyncErrorReason.Server as SyncErrorReason | null,
+  lastErrorReason: FfiSyncErrorReason.Server as FfiSyncErrorReason | null,
   lastSuccessAt: null as string | null,
 };
 jest.mock('@/shared/native/useSyncHealth', () => ({ useSyncHealth: () => mockHealth }));
@@ -54,7 +54,7 @@ const engine = {
     state: SyncState.Syncing,
     completed: 2,
     total: 10,
-    step: SyncStep.Activities,
+    step: FfiSyncStep.Activities,
     stepItemsDone: 2,
     stepItemsTotal: 10,
   })),
@@ -76,7 +76,7 @@ beforeEach(() => {
   mockOffline = false;
   mockHealth = {
     lastError: 'HTTP 503',
-    lastErrorReason: SyncErrorReason.Server,
+    lastErrorReason: FfiSyncErrorReason.Server,
     lastSuccessAt: null,
   };
   useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });

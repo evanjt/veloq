@@ -6,7 +6,7 @@ import { MenuPopup, type MenuPopupAction } from '@/shared/ui/ContextMenu';
 import { Icon } from '@/shared/ui/Icon';
 import { sectionSwipeKind } from '../SectionSwipeAction';
 
-export interface SectionOverflowMenuProps {
+interface SectionOverflowMenuProps {
   sectionType: string;
   isSectionDisabled: boolean;
   isRematching: boolean;

@@ -10,7 +10,7 @@ import { clearAccountData } from '@/shared/storage';
 import { engineErrorKey } from '@/shared/native/engineError';
 
 /** The library could not be emptied; `cause` is what the wipe threw. */
-export class LibraryWipeFailed extends Error {
+class LibraryWipeFailed extends Error {
   override readonly cause: unknown;
 
   constructor(cause: unknown) {

@@ -13,7 +13,6 @@ import type { LatLng, LatLngShort } from '@/shared/geo/polyline';
 export type LngLat = [number, number];
 
 /** Shape used by the activity detail screen and expo-location. */
-export type { LatLng, LatLngShort };
 
 export interface LngLatBounds {
   sw: LngLat;
@@ -62,7 +61,7 @@ export function lngLatFromTuples(points: readonly (readonly [number, number])[])
 }
 
 /** A `[lat, lng]` track flipped as it grows, for a line that gains a point per fix. */
-export interface GrowingLngLat {
+interface GrowingLngLat {
   source: readonly (readonly [number, number])[] | null;
   seen: number;
   points: LngLat[];

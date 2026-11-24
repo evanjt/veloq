@@ -1,6 +1,3 @@
-import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
-
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('RestAlert');
@@ -13,7 +10,7 @@ export interface RestAlertPort {
   cancel(id: string): Promise<void>;
 }
 
-export interface RestAlert {
+interface RestAlert {
   /**
    * Make the scheduled alert match the rest in progress: `restEndsAt` is when it
    * ends, or null when there is no timed rest. A suspended app cannot vibrate at a
@@ -54,25 +51,5 @@ export function createRestAlert(port: RestAlertPort): RestAlert {
       }
     },
     clear: cancelPending,
-  };
-}
-
-/**
- * The system notification port. The title is the set the rest was for, which is what the athlete does next.
- * On iOS only: Android's rest alert rides its recording notification.
- */
-export function notificationRestAlertPort(): RestAlertPort {
-  return {
-    async schedule(id, fireAt, title) {
-      if (Platform.OS !== 'ios') return;
-      await Notifications.scheduleNotificationAsync({
-        identifier: id,
-        content: { title, sound: true },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(fireAt) },
-      });
-    },
-    async cancel(id) {
-      await Notifications.cancelScheduledNotificationAsync(id);
-    },
   };
 }

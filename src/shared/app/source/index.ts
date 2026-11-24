@@ -14,7 +14,7 @@ export const DEMO_ATHLETE_ID = 'demo';
 
 export type AuthMethod = 'oauth' | 'apiKey' | 'garmin' | 'demo' | 'files' | null;
 
-export interface SourceCapabilities {
+interface SourceCapabilities {
   /** Registers a push token. The server proves the athlete with an OAuth token alone. */
   push: boolean;
   /** The credential carries scopes, so writing needs a write scope it may lack. */
@@ -90,7 +90,7 @@ export const SCHEME_LABEL_KEY = Object.freeze({
   files: 'filesSource.authLabel',
 } as const);
 
-export interface AuthInputs {
+interface AuthInputs {
   authMethod: AuthMethod;
   isDemoMode?: boolean;
   athleteId?: string | null;

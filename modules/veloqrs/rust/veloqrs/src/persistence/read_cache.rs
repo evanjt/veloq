@@ -20,10 +20,11 @@
 //! against a number from a different counter and either miss every time or,
 //! worse, hit when the database had moved.
 
+use crate::poison::Recover;
 use std::cell::Cell;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use lru::LruCache;
 use rusqlite::{Connection, OpenFlags};
@@ -204,18 +205,11 @@ static READ_CACHE: LazyLock<ReadCache> = LazyLock::new(|| ReadCache {
     retired_map: Mutex::new(None),
 });
 
-/// The same poison recovery the pool and the engine take: the panic was in a
-/// caller's closure, and refusing the lock afterwards would leave every later
-/// read unserved for the session.
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
-}
-
 /// Point the cache at the database the pool has just been bound to, and drop
 /// everything held for the last one.
 pub(crate) fn bind(db_path: &str) {
     clear();
-    let mut stamp = lock(&READ_CACHE.stamp);
+    let mut stamp = READ_CACHE.stamp.lock_recover();
     stamp.path = Some(db_path.to_string());
     stamp.conn = None;
     stamp.seen = None;
@@ -227,14 +221,14 @@ pub(crate) fn clear() {
     #[cfg(test)]
     hold_clear();
     READ_CACHE.generation.fetch_add(1, Ordering::AcqRel);
-    *lock(&READ_CACHE.sport_types) = None;
-    lock(&READ_CACHE.signatures).clear();
-    lock(&READ_CACHE.performances).clear();
-    lock(&READ_CACHE.lap_curves).clear();
-    *lock(&READ_CACHE.named_overlay) = None;
-    *lock(&READ_CACHE.split_lineage) = None;
-    *lock(&READ_CACHE.map_sections) = None;
-    *lock(&READ_CACHE.retired_map) = None;
+    *READ_CACHE.sport_types.lock_recover() = None;
+    READ_CACHE.signatures.lock_recover().clear();
+    READ_CACHE.performances.lock_recover().clear();
+    READ_CACHE.lap_curves.lock_recover().clear();
+    *READ_CACHE.named_overlay.lock_recover() = None;
+    *READ_CACHE.split_lineage.lock_recover() = None;
+    *READ_CACHE.map_sections.lock_recover() = None;
+    *READ_CACHE.retired_map.lock_recover() = None;
 }
 
 /// A clear on one thread, held before it empties anything, so a test can read
@@ -256,14 +250,14 @@ fn pause_next_clear_on_this_thread() -> (std::sync::mpsc::Receiver<()>, std::syn
 {
     let (entered_tx, entered_rx) = std::sync::mpsc::channel();
     let (resume_tx, resume_rx) = std::sync::mpsc::channel();
-    *lock(&CLEAR_HOLD) = Some((std::thread::current().id(), entered_tx, resume_rx));
+    *CLEAR_HOLD.lock_recover() = Some((std::thread::current().id(), entered_tx, resume_rx));
     (entered_rx, resume_tx)
 }
 
 #[cfg(test)]
 fn hold_clear() {
     let hold = {
-        let mut slot = lock(&CLEAR_HOLD);
+        let mut slot = CLEAR_HOLD.lock_recover();
         if slot
             .as_ref()
             .is_some_and(|(thread, _, _)| *thread == std::thread::current().id())
@@ -302,7 +296,7 @@ impl Drop for PinnedReader {
 /// the commit, and file the pre-commit rows under the post-commit generation.
 pub(crate) fn pin_reader() -> PinnedReader {
     {
-        let mut stamp = lock(&READ_CACHE.stamp);
+        let mut stamp = READ_CACHE.stamp.lock_recover();
         if stamp.path.is_some() {
             database_moved_under(&mut stamp);
         }
@@ -333,7 +327,7 @@ fn generation_current(generation: u64) -> bool {
 /// cache always, and every cached value at the hard level, where a recompute on
 /// the next read is worth the memory.
 pub(crate) fn release_memory(hard: bool) {
-    if let Some(conn) = lock(&READ_CACHE.stamp).conn.as_ref() {
+    if let Some(conn) = READ_CACHE.stamp.lock_recover().conn.as_ref() {
         super::release_connection_memory(conn, "ReadCache");
     }
     if hard {
@@ -344,7 +338,7 @@ pub(crate) fn release_memory(hard: bool) {
 /// Forget the database and everything held for it when the engine closes.
 pub(crate) fn close() {
     clear();
-    *lock(&READ_CACHE.stamp) = Stamp::default();
+    *READ_CACHE.stamp.lock_recover() = Stamp::default();
 }
 
 /// The database state a read on `conn` is answered in, as a number that moves
@@ -420,7 +414,7 @@ pub fn held_lap_curves(
         return None;
     }
     let generation = cache_generation()?;
-    let mut cache = lock(&READ_CACHE.lap_curves);
+    let mut cache = READ_CACHE.lap_curves.lock_recover();
     if !generation_current(generation) {
         return None;
     }
@@ -430,7 +424,7 @@ pub fn held_lap_curves(
 /// The bytes of curve data the lap-curve slot holds.
 #[cfg(test)]
 fn held_bytes() -> usize {
-    lock(&READ_CACHE.lap_curves).bytes
+    READ_CACHE.lap_curves.lock_recover().bytes
 }
 
 /// Serve one keyed entry, filling it on a miss, under the same rules as
@@ -448,7 +442,7 @@ fn cached_by_key<V>(
         return Arc::new(fill());
     };
     {
-        let mut cache = lock(slot);
+        let mut cache = slot.lock_recover();
         if generation_current(generation)
             && let Some(hit) = cache.get(key)
         {
@@ -456,7 +450,7 @@ fn cached_by_key<V>(
         }
     }
     let value = Arc::new(fill());
-    let mut cache = lock(slot);
+    let mut cache = slot.lock_recover();
     if generation_current(generation) {
         cache.put(key.to_string(), Arc::clone(&value));
     }
@@ -479,7 +473,7 @@ pub fn named_overlay(
         return Arc::new(fill());
     };
     {
-        let cache = lock(&READ_CACHE.named_overlay);
+        let cache = READ_CACHE.named_overlay.lock_recover();
         if generation_current(generation)
             && let Some(hit) = cache.as_ref()
         {
@@ -487,7 +481,7 @@ pub fn named_overlay(
         }
     }
     let value = Arc::new(fill());
-    let mut cache = lock(&READ_CACHE.named_overlay);
+    let mut cache = READ_CACHE.named_overlay.lock_recover();
     if generation_current(generation) {
         *cache = Some(Arc::clone(&value));
     }
@@ -506,7 +500,7 @@ pub fn split_lineage(
         return Arc::new(fill());
     };
     {
-        let cache = lock(&READ_CACHE.split_lineage);
+        let cache = READ_CACHE.split_lineage.lock_recover();
         if generation_current(generation)
             && let Some(hit) = cache.as_ref()
         {
@@ -514,7 +508,7 @@ pub fn split_lineage(
         }
     }
     let value = Arc::new(fill());
-    let mut cache = lock(&READ_CACHE.split_lineage);
+    let mut cache = READ_CACHE.split_lineage.lock_recover();
     if generation_current(generation) {
         *cache = Some(Arc::clone(&value));
     }
@@ -538,7 +532,7 @@ pub fn signature(
         return fill().map(Arc::new);
     };
     {
-        let mut cache = lock(&READ_CACHE.signatures);
+        let mut cache = READ_CACHE.signatures.lock_recover();
         if generation_current(generation)
             && let Some(hit) = cache.get(activity_id)
         {
@@ -546,7 +540,7 @@ pub fn signature(
         }
     }
     let value = Arc::new(fill()?);
-    let mut cache = lock(&READ_CACHE.signatures);
+    let mut cache = READ_CACHE.signatures.lock_recover();
     if generation_current(generation) {
         cache.put(activity_id.to_string(), Arc::clone(&value));
     }
@@ -568,7 +562,7 @@ fn cached<T: Clone>(conn: &Connection, slot: &Mutex<Option<T>>, fill: impl FnOnc
         return fill();
     };
     {
-        let cache = lock(slot);
+        let cache = slot.lock_recover();
         if generation_current(generation)
             && let Some(value) = cache.clone()
         {
@@ -576,7 +570,7 @@ fn cached<T: Clone>(conn: &Connection, slot: &Mutex<Option<T>>, fill: impl FnOnc
         }
     }
     let value = fill();
-    let mut cache = lock(slot);
+    let mut cache = slot.lock_recover();
     if generation_current(generation) {
         *cache = Some(value.clone());
     }
@@ -596,7 +590,7 @@ fn serves(conn: &Connection) -> bool {
     if !super::read_pool::reader_current() {
         return false;
     }
-    let mut stamp = lock(&READ_CACHE.stamp);
+    let mut stamp = READ_CACHE.stamp.lock_recover();
     let on_bound = stamp_connection(&mut stamp)
         .and_then(Connection::path)
         .is_some_and(|bound| !bound.is_empty() && conn.path() == Some(bound));
@@ -626,7 +620,7 @@ fn stamp_connection(stamp: &mut Stamp) -> Option<&Connection> {
 
 #[cfg(test)]
 fn database_moved() -> bool {
-    database_moved_under(&mut lock(&READ_CACHE.stamp))
+    database_moved_under(&mut READ_CACHE.stamp.lock_recover())
 }
 
 /// Clear cached values before publishing a new database stamp.

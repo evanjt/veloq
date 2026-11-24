@@ -13,6 +13,7 @@ use rusqlite::params;
 use tracematch::GpsPoint;
 
 use crate::ffi_types::FfiUnderPointKind;
+use crate::persistence::line_simplify::METRES_PER_DEGREE;
 use crate::persistence::tiles::HeatmapSource;
 use crate::persistence::under_point::{
     Group, MAX_ACTIVITIES, MAX_TRACES, answer, buffer_metres, clip_and_simplify,
@@ -21,7 +22,6 @@ use crate::persistence::under_point::{
 use crate::persistence::{PersistentEngine, codec};
 
 const TAP: (f64, f64) = (46.2, 7.35);
-const METRES_PER_DEGREE: f64 = 111_320.0;
 
 fn tap() -> GpsPoint {
     GpsPoint::new(TAP.0, TAP.1)

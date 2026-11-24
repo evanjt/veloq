@@ -4,26 +4,13 @@
 //! written, so `fit::parse_fit_strength_sets` reads the sets back.
 
 use crate::fit_write::{
-    BASE_ENUM, BASE_STRING, BASE_UINT8, BASE_UINT16, BASE_UINT32, FIT_EPOCH_UNIX, INVALID_UINT8,
-    INVALID_UINT16, INVALID_UINT32, definition, wrap,
+    BASE_ENUM, BASE_UINT8, BASE_UINT16, BASE_UINT32, FIT_EPOCH_UNIX, INVALID_UINT8, INVALID_UINT16,
+    MESG_ACTIVITY, MESG_EVENT, MESG_LAP, MESG_RECORD, MESG_SESSION, activity_identity, definition,
+    scaled_u32, wrap,
 };
 use crate::strength::weight::WeightUnit;
 
-const MESG_FILE_ID: u16 = 0;
-const MESG_SESSION: u16 = 18;
-const MESG_LAP: u16 = 19;
-const MESG_RECORD: u16 = 20;
-const MESG_EVENT: u16 = 21;
-const MESG_DEVICE_INFO: u16 = 23;
-const MESG_ACTIVITY: u16 = 34;
 const MESG_SET: u16 = 225;
-
-/// The profile's development manufacturer, for software that is not a device
-/// maker's, and the product number this app writes under it.
-const MANUFACTURER_DEVELOPMENT: u16 = 255;
-const PRODUCT_ID: u16 = 1;
-const SOFTWARE_VERSION: u16 = 4;
-const APP_NAME: &str = "Veloq";
 
 /// The profile's `set_type` numbers. The profile at this version names only
 /// these two.
@@ -101,51 +88,7 @@ impl StrengthSession {
     }
 
     fn write_identity(&self, out: &mut Vec<u8>) {
-        let name_len = (APP_NAME.len() + 1) as u8;
-        let start = self.fit_time(0);
-        definition(
-            out,
-            0,
-            MESG_FILE_ID,
-            &[
-                (0, 1, BASE_ENUM),
-                (1, 2, BASE_UINT16),
-                (2, 2, BASE_UINT16),
-                (3, 4, BASE_UINT32),
-                (4, 4, BASE_UINT32),
-                (8, name_len, BASE_STRING),
-            ],
-        );
-        out.push(0);
-        out.push(4); // type: activity
-        out.extend_from_slice(&MANUFACTURER_DEVELOPMENT.to_le_bytes());
-        out.extend_from_slice(&PRODUCT_ID.to_le_bytes());
-        out.extend_from_slice(&start.to_le_bytes());
-        out.extend_from_slice(&start.to_le_bytes());
-        out.extend_from_slice(APP_NAME.as_bytes());
-        out.push(0);
-
-        definition(
-            out,
-            1,
-            MESG_DEVICE_INFO,
-            &[
-                (253, 4, BASE_UINT32),
-                (2, 2, BASE_UINT16),
-                (3, 2, BASE_UINT16),
-                (5, 2, BASE_UINT16),
-                (0, 1, BASE_UINT8),
-                (27, name_len, BASE_STRING),
-            ],
-        );
-        out.push(1);
-        out.extend_from_slice(&start.to_le_bytes());
-        out.extend_from_slice(&MANUFACTURER_DEVELOPMENT.to_le_bytes());
-        out.extend_from_slice(&PRODUCT_ID.to_le_bytes());
-        out.extend_from_slice(&SOFTWARE_VERSION.to_le_bytes());
-        out.push(0); // device_index: the creator
-        out.extend_from_slice(APP_NAME.as_bytes());
-        out.push(0);
+        activity_identity(out, self.fit_time(0));
     }
 
     /// An `event` message of the timer: `event_type` 0 starts it, 4 stops all.
@@ -314,14 +257,6 @@ impl StrengthSession {
         out.extend_from_slice(&scaled_u32(f64::from(elapsed) * 1000.0).to_le_bytes());
         out.extend_from_slice(&1u16.to_le_bytes());
         out.push(0); // type: manual
-    }
-}
-
-fn scaled_u32(value: f64) -> u32 {
-    if value.is_finite() {
-        value.round().clamp(0.0, f64::from(u32::MAX - 1)) as u32
-    } else {
-        INVALID_UINT32
     }
 }
 

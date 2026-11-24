@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
-import type { ActivityHighlightsBundle, ExerciseSession, MuscleGroup } from 'veloqrs';
+import type { ActivityHighlightsBundle, FfiExerciseSession, FfiMuscleGroup } from 'veloqrs';
 
 import { getEngine } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -45,13 +45,13 @@ export function requestFitFile(activityId: string): void {
  */
 /** What the engine holds for one activity, and whether it has settled it. */
 interface ExerciseSetsRead {
-  session: ExerciseSession;
+  session: FfiExerciseSession;
   /** A FIT status row exists, so there is nothing more to download. */
   settled: boolean;
 }
 
 /** No sets and no verdict: the download is owed, in flight, or failed. */
-const EMPTY_SESSION: ExerciseSession = {
+const EMPTY_SESSION: FfiExerciseSession = {
   sets: [],
   groups: [],
   activeSetCount: 0,
@@ -66,7 +66,7 @@ const unsettled: ExerciseSetsRead = { session: EMPTY_SESSION, settled: false };
  * not run, the engine is not open, the FIT download is in flight, and the
  * retryable failure that records no status row at all. A thrown read is not among them: it is an error.
  */
-export type ExerciseSetsOutcome = 'loaded' | 'empty' | 'pending';
+type ExerciseSetsOutcome = 'loaded' | 'empty' | 'pending';
 
 function outcomeOf(read: ExerciseSetsRead | undefined): ExerciseSetsOutcome {
   if (!read) return 'pending';
@@ -148,7 +148,7 @@ export function useStrengthReconnect(): void {
  * Returns slugs compatible with react-native-body-highlighter.
  */
 export function useMuscleGroups(activityId: string, hasExercises: boolean) {
-  return useQuery<MuscleGroup[]>({
+  return useQuery<FfiMuscleGroup[]>({
     queryKey: queryKeys.strength.muscleGroups(activityId),
     queryFn: () => {
       return strength.getMuscleGroups(activityId);

@@ -57,7 +57,7 @@ export function sectionRowShowsRange(rowWidth: number | undefined, fontScale: nu
 }
 
 /** What the row measures about its line and its leading badge, at the current text size. */
-export interface SectionMetaMeasures {
+interface SectionMetaMeasures {
   /** The row's width. Undefined until it has been laid out. */
   rowWidth: number | undefined;
   /** Whether the range prints beside the plot, which takes its room from the column. */

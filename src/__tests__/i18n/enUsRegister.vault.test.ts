@@ -11,7 +11,7 @@ import { join } from 'path';
 const enUS = resolvedLocale('en-US');
 
 const BRITISH =
-  /\b\w*(?:isation|ise|ised|ises|ising|ysed|ysing|yse|catalogue|colour|behaviour|favour|centre|metre|licence|grey|programme|modell|travell|cancell|labell|levell|fuell|signall)\w*\b/gi;
+  /\b\w*(?:isation|ise|ised|ises|ising|ysed|ysing|yse|catalogue|colour|behaviour|favour|harbour|honour|neighbour|labour|flavour|armour|rumour|vapour|odour|savour|humour|endeavour|splendour|clamour|glamour|parlour|tumour|valour|fervour|vigour|rancour|candour|ardour|centre|metre|licence|grey|programme|modell|travell|cancell|labell|levell|fuell|signall)\w*\b/gi;
 
 // Words that end in the stems above and are spelt the same in American English.
 const ALLOWED = new Set([
@@ -131,6 +131,20 @@ describe('en-US register', () => {
       'catalogue',
       'analysed',
     ]);
+  });
+
+  it('flags the -our forms the en-GB base carries', () => {
+    expect(britishForms('Harbour climb, honour, neighbouring, labour, flavour')).toEqual([
+      'Harbour',
+      'honour',
+      'neighbouring',
+      'labour',
+      'flavour',
+    ]);
+  });
+
+  it('leaves the -our words that are spelt the same in American English', () => {
+    expect(britishForms('four hour your our tour source course')).toEqual([]);
   });
 
   it('flags doubled-l spellings and metre', () => {

@@ -5,7 +5,7 @@ import { searchRemoteActivities } from '@/shared/native/remoteActivitySearch';
 import type { FeedFilter } from '../lib/feedFilter';
 import { remoteSearchKey, remoteSearchQuery } from '../lib/remoteSearch';
 
-export type RemoteSearchPhase = 'idle' | 'loading' | 'done' | 'failed' | 'unavailable';
+type RemoteSearchPhase = 'idle' | 'loading' | 'done' | 'failed' | 'unavailable';
 
 interface Answer {
   key: string;

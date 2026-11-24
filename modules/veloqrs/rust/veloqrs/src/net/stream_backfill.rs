@@ -66,6 +66,7 @@ use crate::objects::FfiStartOutcome;
 use crate::persistence::attempts::now_ms;
 use crate::persistence::job_runs::{BackgroundJob, JobRun, RunOutcome, record_job_run};
 use crate::persistence::{PersistentEngine, StreamGap, engine_install, with_persistent_engine_for};
+use crate::poison::Recover;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
@@ -199,7 +200,7 @@ fn set_waiting(at: chrono::DateTime<chrono::Utc>) {
 }
 
 fn set_phase_resuming(phase: &'static str, resumes_at_ms: Option<i64>) {
-    *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner()) = (phase, resumes_at_ms);
+    *BACKFILL.phase.lock_recover() = (phase, resumes_at_ms);
     // The guard above is a temporary of the statement it is in, so the
     // announcement is made with the phase lock already released.
     crate::objects::observer::notify(crate::objects::observer::Announcement::StreamBackfillPhase(
@@ -241,7 +242,7 @@ impl StreamBackfillSnapshot {
 
 /// The current state, safe to read from any thread at any time.
 pub fn stream_backfill_progress() -> StreamBackfillSnapshot {
-    let (phase, resumes_at_ms) = *BACKFILL.phase.lock().unwrap_or_else(|e| e.into_inner());
+    let (phase, resumes_at_ms) = *BACKFILL.phase.lock_recover();
     StreamBackfillSnapshot {
         phase,
         completed: BACKFILL.completed.load(Ordering::Relaxed),

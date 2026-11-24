@@ -54,6 +54,7 @@ const SCOPED_STYLE_GUARDS = [
   'lint:maestro-strip-tap',
   'lint:mark-contrast',
   'lint:modal-sheets',
+  'lint:generated-name-aliases',
   'lint:native-header',
   'lint:paper-spinner',
   'lint:point-shape',

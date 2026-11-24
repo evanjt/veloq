@@ -12,7 +12,7 @@
 
 import { colors, darkColors } from '@/theme';
 
-export interface SizeTone {
+interface SizeTone {
   /** The icon's colour. A mark, so 3:1, and it carries the band. */
   fill: string;
   /** The status line's colour. Text on the pill, so 4.5:1. */

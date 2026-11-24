@@ -22,7 +22,7 @@ import { createAwakeClock } from '@/shared/app/awakeClock';
 const SAMPLE_MS = 500;
 
 /** Either the work's own answer, or the ceiling arriving first. */
-export type AwakeOutcome<T> = { state: 'complete'; value: T } | { state: 'stillRunning' };
+type AwakeOutcome<T> = { state: 'complete'; value: T } | { state: 'stillRunning' };
 
 /**
  * Wait for `work`, for at most `timeoutMs` of awake time.

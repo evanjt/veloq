@@ -1,3 +1,4 @@
+import { addLocalDays, formatLocalDate } from '@/shared/time/localDay';
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, Platform, type ViewInstance } from 'react-native';
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
@@ -36,7 +37,7 @@ import {
   type DaysOfUse,
 } from '@/shared/app/SupportStore';
 import { overrideDaysOfUse, overrideSessionAsk, useDaysOfUse } from '@/features/settings';
-import { formatEpochDayUtc, formatLocalDate } from '@/shared/format/format';
+import { formatEpochDayUtc } from '@/shared/format/format';
 import { readTaskRuns, clearTaskRuns, type TaskRunEntry } from '@/features/insights';
 import { SyncDebugSection } from '@/features/routes';
 import { readSensorLinkReport } from '@/features/sensors';
@@ -49,7 +50,7 @@ import {
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import {
   attemptEngineRead,
-  engineErrorTag,
+  engineErrorText,
   type EngineReadResult,
 } from '@/shared/native/engineError';
 import { ABSENT } from '@/shared/format/absent';
@@ -150,8 +151,7 @@ function getAvgColor(avgMs: number): string {
 }
 
 function daysAgoLocal(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
+  const d = addLocalDays(new Date(), -days);
   return formatLocalDate(d);
 }
 
@@ -339,7 +339,7 @@ function BackgroundNotificationsDebug({
       </View>
       {!dashboard.ok ? (
         <Text style={[styles.emptyText, { color: mutedColor }]}>
-          {`Could not read native push runs: ${engineErrorTag(dashboard.error) ?? String(dashboard.error)}`}
+          {`Could not read native push runs: ${engineErrorText(dashboard.error)}`}
         </Text>
       ) : pushRuns.length > 0 ? (
         pushRuns.map((run) => (
@@ -438,7 +438,7 @@ function RequestBudgetDebug({
       sync.setBackfillCapLifted(next);
       setCapError(null);
     } catch (error) {
-      setCapError(engineErrorTag(error) ?? String(error));
+      setCapError(engineErrorText(error));
     }
     onChanged();
   };
@@ -464,7 +464,7 @@ function RequestBudgetDebug({
     >
       {!dashboard.ok ? (
         <Text style={[styles.emptyText, { color: mutedColor }]}>
-          {`Could not read the request budget: ${engineErrorTag(dashboard.error) ?? String(dashboard.error)}`}
+          {`Could not read the request budget: ${engineErrorText(dashboard.error)}`}
         </Text>
       ) : budget ? (
         <>
@@ -710,7 +710,7 @@ function DebugScreenContent() {
             </>
           ) : !statsRead.ok ? (
             <Text style={[styles.emptyText, { color: mutedColor }]}>
-              {`Could not read engine stats: ${engineErrorTag(statsRead.error) ?? String(statsRead.error)}`}
+              {`Could not read engine stats: ${engineErrorText(statsRead.error)}`}
             </Text>
           ) : (
             <Text style={[styles.emptyText, { color: mutedColor }]}>Engine not initialised</Text>

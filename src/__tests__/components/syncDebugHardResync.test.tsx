@@ -38,7 +38,6 @@ jest.mock('@/shared/native/useSyncStatus', () => ({
   useTrackStage: () => null,
   useLastSyncSuccessAt: () => null,
 }));
-jest.mock('@/shared/storage/gpsStorage', () => ({ deleteGpsTracks: jest.fn() }));
 jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
   useQueryClient: () => ({ invalidateQueries: mockInvalidate }),

@@ -9,12 +9,12 @@ import { remoteLink } from '../lib/remoteLinkSession';
  * for a missing or empty code; the invitation goes through `read` exactly as
  * a scanned one does, and a refusal leaves the screen as it was.
  */
-export function pairFromLink(code: string | undefined, read: (qr: string) => boolean): boolean {
+function pairFromLink(code: string | undefined, read: (qr: string) => boolean): boolean {
   if (!code) return false;
   return read(code);
 }
 
-export type PairingPhase = 'idle' | 'scanning' | 'waiting' | 'expired';
+type PairingPhase = 'idle' | 'scanning' | 'waiting' | 'expired';
 
 const POLL_MS = 500;
 /** A little past the invitation's two minutes, so the engine refuses first. */

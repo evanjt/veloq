@@ -5,19 +5,18 @@
  *
  * Expected behaviour: the screen offers only what the visible read returns, and
  * a ride it offers goes to the engine's one upload export by id. The engine
- * checks the owner and requeues a parked ride itself, so the hook issues no
- * transition and takes no verdict of its own: it answers what the engine said.
+ * checks the owner and requeues a parked ride itself, so the hook takes no
+ * verdict of its own: it answers what the engine said.
  */
 
 import { act, renderHook } from '@testing-library/react-native';
-import { UploadOutcome } from 'veloqrs';
+import { FfiUploadOutcome } from 'veloqrs';
 
 import { useRecordingLibrary } from '@/features/recording/hooks/useRecordingLibrary';
 import {
   getVisibleRecording,
   listVisibleRecordings,
   onRecordingsChanged,
-  transitionRecording,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { uploadRecordingNow } from '@/features/recording/lib/upload/intervalsUploads';
 import type { RecordingLibraryEntry } from '@/types';
@@ -43,8 +42,6 @@ jest.mock('@/features/recording/lib/upload/intervalsUploads', () => ({
 jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   listVisibleRecordings: jest.fn(async () => []),
   getVisibleRecording: jest.fn(),
-  recordingInstall: jest.fn(() => 3),
-  transitionRecording: jest.fn(async () => ({ applied: true, retryCount: 0, install: 3 })),
   deleteRecording: jest.fn(async () => {}),
   onRecordingsChanged: jest.fn(() => () => {}),
   recordingFitExists: jest.fn(async () => true),
@@ -79,7 +76,7 @@ function ride(athleteId: string): RecordingLibraryEntry {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockUploadNow.mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+  mockUploadNow.mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
 });
 
 async function pressUpload(entry: RecordingLibraryEntry) {
@@ -98,34 +95,27 @@ describe('Upload in My Recordings', () => {
 
     expect(mockUploadNow).toHaveBeenCalledTimes(1);
     expect(mockUploadNow).toHaveBeenCalledWith(`rec-${B}`);
-    expect(outcome).toEqual({ outcome: UploadOutcome.Uploaded });
+    expect(outcome).toEqual({ outcome: FfiUploadOutcome.Uploaded });
   });
 
   it("answers the engine refusing another athlete's ride as the engine gave it", async () => {
-    mockUploadNow.mockResolvedValue({ outcome: UploadOutcome.OtherAthlete });
+    mockUploadNow.mockResolvedValue({ outcome: FfiUploadOutcome.OtherAthlete });
 
     const outcome = await pressUpload(ride(A));
 
     expect(mockUploadNow).toHaveBeenCalledWith(`rec-${A}`);
-    expect(outcome).toEqual({ outcome: UploadOutcome.OtherAthlete });
-  });
-
-  it('issues no transition of its own, since the engine requeues a parked ride', async () => {
-    await pressUpload(ride(B));
-
-    expect(transitionRecording).not.toHaveBeenCalled();
+    expect(outcome).toEqual({ outcome: FfiUploadOutcome.OtherAthlete });
   });
 
   it.each(['uploaded', 'uploading'] as const)(
-    'answers the engine not starting a ride now %s, with no transition from here',
+    'answers the engine not starting a ride now %s',
     async (status) => {
-      mockUploadNow.mockResolvedValue({ outcome: UploadOutcome.NotStarted });
+      mockUploadNow.mockResolvedValue({ outcome: FfiUploadOutcome.NotStarted });
 
       const outcome = await pressUpload({ ...ride(B), uploadStatus: status });
 
       expect(mockUploadNow).toHaveBeenCalledWith(`rec-${B}`);
-      expect(outcome).toEqual({ outcome: UploadOutcome.NotStarted });
-      expect(transitionRecording).not.toHaveBeenCalled();
+      expect(outcome).toEqual({ outcome: FfiUploadOutcome.NotStarted });
     }
   );
 
@@ -166,7 +156,6 @@ describe('the list in My Recordings', () => {
 
     expect(outcome).toBeNull();
     expect(mockUploadNow).not.toHaveBeenCalled();
-    expect(transitionRecording).not.toHaveBeenCalled();
   });
   it('reads the list again when the engine moves a recording, and stops on unmount', async () => {
     jest.mocked(listVisibleRecordings).mockResolvedValue([ride(B)]);

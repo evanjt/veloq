@@ -196,7 +196,7 @@ fn test_best_efforts_match_curve_reads_for_each_sport_and_period() {
             assert_eq!(sport(&data, name).fetched, fetched);
             assert_eq!(
                 format!("{:?}", sport(&data, name).efforts),
-                format!("{:?}", super::pace_bests(pace.as_ref(), checkpoints))
+                format!("{:?}", super::pace_bests(pace.as_ref(), name, checkpoints))
             );
         }
     }
@@ -237,6 +237,64 @@ fn power_bests_are_read_at_each_checkpoint_of_the_stored_ride_curve() {
         .unwrap();
     assert_eq!((hour.value, hour.activity_id.as_deref()), (None, None));
     assert!(ride.efforts.iter().all(|e| e.time.is_none()));
+}
+
+#[test]
+fn a_running_best_carries_its_pace_text_in_both_unit_systems() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    engine
+        .set_curve_body(CurveKind::Pace, "Run", SEASON, false, RUN_PACE)
+        .unwrap();
+
+    let data = read(&engine, SEASON);
+    let run = sport(&data, "Run");
+    let text = |metres: f64| {
+        let e = run.efforts.iter().find(|e| e.checkpoint == metres).unwrap();
+        (
+            e.pace_metric_text.as_deref(),
+            e.pace_imperial_text.as_deref(),
+        )
+    };
+    // 5 m/s is 3:20 per km and 5:22 per mile.
+    assert_eq!(text(400.0), (Some("3:20"), Some("5:22")));
+    // The half marathon holds no best, so it has no pace text.
+    assert_eq!(text(21097.5), (None, None));
+    let ride = sport(&read(&engine, SEASON), "Ride").efforts.clone();
+    assert!(
+        ride.iter()
+            .all(|e| e.pace_metric_text.is_none() && e.pace_imperial_text.is_none())
+    );
+}
+
+#[test]
+fn a_swimming_best_carries_its_pace_text_per_hundred_metres() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    engine
+        .set_curve_body(
+            CurveKind::Pace,
+            "Swim",
+            SEASON,
+            false,
+            r#"{"list":[{"distance":[100,400],"values":[80,0],"activity_id":["s1","s2"]}]}"#,
+        )
+        .unwrap();
+
+    let data = read(&engine, SEASON);
+    let swim = sport(&data, "Swim");
+    let text = |metres: f64| {
+        let e = swim
+            .efforts
+            .iter()
+            .find(|e| e.checkpoint == metres)
+            .unwrap();
+        (
+            e.pace_metric_text.as_deref(),
+            e.pace_imperial_text.as_deref(),
+        )
+    };
+    // 1.25 m/s is 1:20 per 100 m and 1:13 per 100 yd.
+    assert_eq!(text(100.0), (Some("1:20"), Some("1:13")));
+    assert_eq!(text(400.0), (None, None));
 }
 
 #[test]
@@ -547,6 +605,8 @@ fn a_checkpoint_row_carries_its_kind_and_measure_and_no_words() {
                 watts_per_kg: _,
                 wkg_activity_id: _,
                 activity: _,
+                pace_metric_text: _,
+                pace_imperial_text: _,
             } = effort;
             (*kind, *checkpoint)
         })

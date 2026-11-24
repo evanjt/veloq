@@ -56,7 +56,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
-  useAuthStore.setState({ isAuthenticated: true, setAthlete: jest.fn() });
+  useAuthStore.setState({ isAuthenticated: true });
 });
 
 afterEach(() => {

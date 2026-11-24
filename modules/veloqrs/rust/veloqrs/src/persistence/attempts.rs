@@ -19,6 +19,7 @@
 //! completion marker and migration `020` records what a stored failure row
 //! cost the last time one existed.
 
+use crate::persistence::schema_info;
 use rusqlite::{OptionalExtension, Result as SqlResult, params};
 
 use super::PersistentEngine;
@@ -163,14 +164,7 @@ impl PersistentEngine {
     /// and means free, so a generation of zero would read every untouched row
     /// as held by the current run.
     pub fn lease_generation(&self) -> SqlResult<i64> {
-        Ok(self
-            .db
-            .query_row(
-                "SELECT CAST(value AS INTEGER) FROM schema_info WHERE key = ?",
-                params![LEASE_GENERATION_KEY],
-                |row| row.get::<_, i64>(0),
-            )
-            .optional()?
+        Ok(schema_info::get_integer(&self.db, LEASE_GENERATION_KEY)?
             .filter(|g| *g > 0)
             .unwrap_or(1))
     }
@@ -179,10 +173,7 @@ impl PersistentEngine {
     /// Called exactly once per process, from init.
     pub fn mint_lease_generation(&self) -> SqlResult<i64> {
         let next = self.lease_generation()? + 1;
-        self.db.execute(
-            "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-            params![LEASE_GENERATION_KEY, next.to_string()],
-        )?;
+        schema_info::set(&self.db, LEASE_GENERATION_KEY, &next.to_string())?;
         Ok(next)
     }
 

@@ -13,7 +13,7 @@ const DEG_TO_RAD = Math.PI / 180;
 /** The one declaration lives beside the engine module's point types. */
 export type { LatLngShort };
 
-export interface Bounds {
+interface Bounds {
   minLat: number;
   maxLat: number;
   minLng: number;

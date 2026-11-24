@@ -11,7 +11,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { AccessibilityInfo } from 'react-native';
-import { UploadOutcome } from 'veloqrs';
+import { FfiUploadOutcome } from 'veloqrs';
 
 import { useReviewSave } from '@/features/recording/hooks/useReviewSave';
 import { saveRecording } from '@/features/recording/lib/storage/recordingLibrary';
@@ -33,8 +33,8 @@ jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
-jest.mock('@/features/recording/lib/fitGenerator', () => ({
-  generateFitFile: jest.fn(async () => new ArrayBuffer(64)),
+jest.mock('@/features/recording/lib/recordingFit', () => ({
+  writeRecordingFit: jest.fn(() => new ArrayBuffer(64)),
 }));
 jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   saveRecording: jest.fn(),
@@ -135,11 +135,11 @@ afterEach(() => {
 
 describe('the saved-but-waiting confirmation', () => {
   it.each([
-    ['Network', UploadOutcome.Network, 'recording.savedQueued'],
-    ['Retriable', UploadOutcome.Retriable, 'recording.savedQueued'],
-    ['NotStarted', UploadOutcome.NotStarted, 'recording.savedQueued'],
-    ['AuthExpired', UploadOutcome.AuthExpired, 'recording.savedQueuedAuth'],
-    ['OtherAthlete', UploadOutcome.OtherAthlete, 'recording.savedQueuedAuth'],
+    ['Network', FfiUploadOutcome.Network, 'recording.savedQueued'],
+    ['Retriable', FfiUploadOutcome.Retriable, 'recording.savedQueued'],
+    ['NotStarted', FfiUploadOutcome.NotStarted, 'recording.savedQueued'],
+    ['AuthExpired', FfiUploadOutcome.AuthExpired, 'recording.savedQueuedAuth'],
+    ['OtherAthlete', FfiUploadOutcome.OtherAthlete, 'recording.savedQueuedAuth'],
   ])('goes home at once and leaves the notice for %s on screen', async (_name, outcome, key) => {
     (uploadRecordingNow as jest.Mock).mockResolvedValue({ outcome });
 
@@ -156,7 +156,7 @@ describe('the saved-but-waiting confirmation', () => {
   });
 
   it('opens My Recordings from the notice', async () => {
-    (uploadRecordingNow as jest.Mock).mockResolvedValue({ outcome: UploadOutcome.Network });
+    (uploadRecordingNow as jest.Mock).mockResolvedValue({ outcome: FfiUploadOutcome.Network });
 
     await saveFromReview();
     await fireEvent.press(screen.getByText('recording.library.title'));
@@ -176,7 +176,7 @@ describe('the saved-but-waiting confirmation', () => {
   });
 
   it('goes home with no notice when the upload landed', async () => {
-    (uploadRecordingNow as jest.Mock).mockResolvedValue({ outcome: UploadOutcome.Uploaded });
+    (uploadRecordingNow as jest.Mock).mockResolvedValue({ outcome: FfiUploadOutcome.Uploaded });
 
     await saveFromReview();
 

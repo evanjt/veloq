@@ -8,7 +8,7 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 
-import { StartOutcome } from 'veloqrs';
+import { FfiStartOutcome } from 'veloqrs';
 import { initialiseI18n, changeLanguage } from '@/i18n';
 import { StreamBackfillRow } from '@/features/settings/components/StreamBackfillRow';
 import type { StreamBackfillState } from '@/features/settings/hooks/useStreamBackfill';
@@ -20,7 +20,7 @@ jest.mock('@/features/settings/hooks/useStreamBackfill', () => ({
   useStreamBackfill: () => mockUseStreamBackfill(),
 }));
 
-function state(over: Partial<StreamBackfillState> & { refusal?: StartOutcome | null }): unknown {
+function state(over: Partial<StreamBackfillState> & { refusal?: FfiStartOutcome | null }): unknown {
   return {
     phase: 'idle',
     completed: 0,
@@ -53,7 +53,7 @@ describe('StreamBackfillRow', () => {
 
   vaultIt('says why an offline tap started nothing', async () => {
     mockUseStreamBackfill.mockReturnValue(
-      state({ remaining: 412, phase: 'stopped', refusal: StartOutcome.Offline })
+      state({ remaining: 412, phase: 'stopped', refusal: FfiStartOutcome.Offline })
     );
     const tree = await row();
 

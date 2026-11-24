@@ -6,21 +6,15 @@ export { useSensorStore, initialiseKnownSensors } from './store';
 export {
   startScan,
   stopScan,
-  connectKnownSensors,
   connectPairedSensor,
   releasePairingConnections,
   disconnectSensor,
-  disconnectAllSensors,
-  dropSensorForSession,
-  connectSensorForSession,
   reconnectSensor,
-  requestBlePermissions,
   refreshBleAccess,
   isBleAvailable,
   turnOnBluetooth,
 } from './lib/sensorManager';
 export { readSensorLinkReport } from './lib/sensorLinkTrace';
-export { startSimulatedSensors, stopSimulatedSensors } from './lib/simulatedSensors';
 export { displayedSensorSource, metricsSuppliedBy } from './lib/sensorSource';
 export type * from './types';
 export {

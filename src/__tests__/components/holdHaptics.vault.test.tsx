@@ -196,6 +196,8 @@ it('the sections scrub fires one light impact when it lands on a row', async () 
           isComplete: true,
           visitCount: 8,
           historyTimes: [],
+          historyPaceMetricTexts: [],
+          historyPaceImperialTexts: [],
           historyActivityIds: [],
           historyDates: [],
         } as unknown as SectionEncounter,

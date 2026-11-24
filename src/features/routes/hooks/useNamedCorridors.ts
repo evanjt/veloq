@@ -29,7 +29,7 @@ export interface NamedCorridor {
   dormant: boolean;
 }
 
-export interface UseNamedCorridorsResult {
+interface UseNamedCorridorsResult {
   corridors: NamedCorridor[];
   /** Only a `ready` read with no corridors means the user has named nothing. */
   state: EngineReadState;

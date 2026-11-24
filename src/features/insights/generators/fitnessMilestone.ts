@@ -1,7 +1,5 @@
 import {
-  formatPaceCompact,
   formatPower,
-  formatSwimPace,
   paceSecondsForUnit,
   paceUnitLabel,
   swimPaceUnitLabel,
@@ -15,6 +13,7 @@ import type { InsightTone } from '@/theme';
 import { fitnessTarget } from '@/shared/app/fitnessEntry';
 import { sparkline } from '../lib/sparkline';
 import { printedValue } from '../lib/printedValue';
+import { paceSeriesFormat } from '../lib/paceSeriesFormat';
 
 const YEAR_2000_MS = 946_684_800_000;
 
@@ -70,7 +69,6 @@ function addPaceMilestoneInsight(
     paceUnit: string;
     sport: 'run' | 'swim';
     isMetric: boolean;
-    formatValue: (speedMetersPerSecond: number) => string;
     lineKey: string;
   }
 ): void {
@@ -86,6 +84,11 @@ function addPaceMilestoneInsight(
   ) {
     return;
   }
+  const latestText = options.isMetric ? pace.latestPaceMetricText : pace.latestPaceImperialText;
+  const previousText = options.isMetric
+    ? pace.previousPaceMetricText
+    : pace.previousPaceImperialText;
+  if (latestText == null || previousText == null) return;
 
   // The engine measured the move per kilometre or per 100 m, so both numbers
   // are read rather than derived: only the unit and the rounding are ours.
@@ -109,7 +112,7 @@ function addPaceMilestoneInsight(
 
   const current: DataPoint = {
     label: t('insights.data.currentPace'),
-    value: options.formatValue(pace.latestPace),
+    value: latestText,
     unit: options.paceUnit,
     context: declining ? 'neutral' : 'good',
     date: daySeconds(pace.latestDate),
@@ -121,7 +124,7 @@ function addPaceMilestoneInsight(
   };
   const previous: DataPoint = {
     label: t('insights.data.previousPace'),
-    value: options.formatValue(pace.previousPace),
+    value: previousText,
     unit: options.paceUnit,
     date: daySeconds(pace.previousDate),
   };
@@ -136,8 +139,8 @@ function addPaceMilestoneInsight(
         delta: `${declining ? '-' : ''}${t('units.secondsValue', { value: Math.abs(deltaSecs) })}${options.paceUnit}`,
       }),
       subtitle: t('insights.caption.fromTo', {
-        previous: `${options.formatValue(pace.previousPace)}${options.paceUnit}`,
-        current: `${options.formatValue(pace.latestPace)}${options.paceUnit}`,
+        previous: `${previousText}${options.paceUnit}`,
+        current: `${latestText}${options.paceUnit}`,
       }),
       line: t(options.lineKey, {
         change: printedValue(paceChange),
@@ -160,7 +163,8 @@ function addPaceMilestoneInsight(
           fitnessTarget({ date: dayOf(pace.latestDate) }),
           {
             mark: historySpan(pace.previousDate, pace.latestDate),
-            format: (speed) => `${options.formatValue(speed)}${options.paceUnit}`,
+            format: paceSeriesFormat(pace.history, options.isMetric, options.paceUnit),
+            marksOnSamples: true,
           }
         ),
         trend: {
@@ -284,7 +288,6 @@ export function generateFitnessMilestoneInsights(
     paceUnit: paceUnitLabel(isMetric),
     sport: 'run',
     isMetric,
-    formatValue: (speedMetersPerSecond) => formatPaceCompact(speedMetersPerSecond, isMetric),
     lineKey: 'insights.line.runPace',
   });
 
@@ -295,7 +298,6 @@ export function generateFitnessMilestoneInsights(
     paceUnit: swimPaceUnitLabel(isMetric),
     sport: 'swim',
     isMetric,
-    formatValue: (speedMetersPerSecond) => formatSwimPace(speedMetersPerSecond, isMetric),
     lineKey: 'insights.line.swimPace',
   });
 

@@ -2,16 +2,13 @@
 //! the lists that offer places to ride.
 
 use crate::Bounds;
+use crate::persistence::line_simplify::METRES_PER_DEGREE;
 
 /// How far from the point a place's start may lie and still count as nearby.
 pub(crate) const NEARBY_RADIUS_METRES: f64 = 2_000.0;
 
 /// The most places the read returns, nearest first, the followed route aside.
 pub(crate) const NEARBY_LIMIT: usize = 10;
-
-/// Metres on the ground to one degree of latitude, the one figure every point-to-point distance
-/// in the engine's local reads is measured with.
-pub(crate) const METRES_PER_DEGREE: f64 = 111_320.0;
 
 /// The most points a nearby place's line carries.
 pub(crate) const NEARBY_LINE_POINTS: usize = 40;

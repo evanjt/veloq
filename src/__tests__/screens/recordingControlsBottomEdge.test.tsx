@@ -27,6 +27,7 @@ import type { ReactTestInstance } from 'react-test-renderer';
 let mockParams: Record<string, string | undefined> = {};
 const mockEvents: never[] = [];
 
+jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: null }) }));
 jest.mock('@/features/recording/hooks/useRecordingScreenColors', () => {
   const actual = jest.requireActual('@/features/recording/hooks/useRecordingScreenColors');
   return {

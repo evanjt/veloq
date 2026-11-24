@@ -9,7 +9,7 @@
  */
 import type { FrequentSection } from '@/features/routes/types';
 
-export interface UnifyInput {
+interface UnifyInput {
   engineSections: FrequentSection[];
 }
 

@@ -8,6 +8,7 @@
 //! own workers waits for the resume and then lands, and `resume_after_suspension`
 //! restores writes for everyone.
 
+use crate::poison::Recover;
 use std::path::Path;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
@@ -128,7 +129,7 @@ fn a_write_from_a_caller_after_suspension_is_refused_without_waiting_for_the_loc
 
     // The engine lock is held elsewhere, so a write that tried to take it would
     // wait for as long as this test holds it.
-    let held = PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
+    let held = PERSISTENT_ENGINE.lock_recover();
     let (done_tx, done_rx) = mpsc::channel();
     std::thread::spawn(move || {
         let outcome = with_engine(|engine| engine.set_setting("after_suspension", "written"));

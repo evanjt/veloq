@@ -4,6 +4,7 @@ import type { SectionMatch } from '@/features/routes';
 import type { Section } from '@/types';
 import type { SectionEncounter } from 'veloqrs';
 import type { LatLng } from '@/shared/geo/polyline';
+import { nativeCoordFromShort } from '@/shared/ffi/shortPoints';
 
 const EMPTY_SECTION_ENCOUNTERS: SectionEncounter[] = [];
 
@@ -136,10 +137,7 @@ export function useSectionOverlays(
       if (processedIds.has(section.id)) continue;
       processedIds.add(section.id);
 
-      const sectionPolyline = section.polyline.map((p) => ({
-        latitude: p.lat,
-        longitude: p.lng,
-      }));
+      const sectionPolyline = section.polyline.map(nativeCoordFromShort);
 
       // Try the bundle's section traces first
       let activityPortion;

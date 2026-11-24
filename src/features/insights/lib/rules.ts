@@ -15,7 +15,7 @@ export type GateReason =
   | 'category_cap'
   | 'surface_cap';
 
-export interface GateOutcome {
+interface GateOutcome {
   passed: boolean;
   reason?: GateReason;
 }

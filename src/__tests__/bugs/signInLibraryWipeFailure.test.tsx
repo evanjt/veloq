@@ -9,7 +9,7 @@
  */
 import { act, renderHook } from '@testing-library/react-native';
 import * as WebBrowser from 'expo-web-browser';
-import { CallKind, GarminKeyStatus, validateCredentials, checkGarminKey } from 'veloqrs';
+import { FfiCallKind, GarminKeyStatus, validateCredentials, checkGarminKey } from 'veloqrs';
 
 import { useApiKeyLogin } from '@/features/auth/hooks/useApiKeyLogin';
 import { useGarminLogin } from '@/features/auth/hooks/useGarminLogin';
@@ -94,7 +94,7 @@ beforeEach(() => {
 it('API key sign-in names the failed wipe, not a connection failure', async () => {
   jest
     .mocked(validateCredentials)
-    .mockResolvedValue({ kind: CallKind.Ok, id: 'i-second' } as never);
+    .mockResolvedValue({ kind: FfiCallKind.Ok, id: 'i-second' } as never);
   const setError = jest.fn();
   const { result } = await renderHook(() => useApiKeyLogin({ setError }));
 
@@ -107,7 +107,7 @@ it('API key sign-in names the failed wipe, not a connection failure', async () =
 it('API key sign-in names a wipe failure that is not an engine error as failedToClear', async () => {
   jest
     .mocked(validateCredentials)
-    .mockResolvedValue({ kind: CallKind.Ok, id: 'i-second' } as never);
+    .mockResolvedValue({ kind: FfiCallKind.Ok, id: 'i-second' } as never);
   jest.mocked(clearAccountData).mockRejectedValue(new Error('disk'));
   const setError = jest.fn();
   const { result } = await renderHook(() => useApiKeyLogin({ setError }));

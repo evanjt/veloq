@@ -268,7 +268,10 @@ fn a_clear_leaves_the_record_tables_alone() {
         );
     }
     assert!(
-        engine.section_ids_a_mint_must_avoid().contains("s_auto"),
+        engine
+            .section_ids_a_mint_must_avoid()
+            .expect("ids")
+            .contains("s_auto"),
         "the pinned id is still spoken for"
     );
 }

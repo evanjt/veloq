@@ -168,6 +168,15 @@ function exerciseSets(a: DemoActivity): Result<'activity.exerciseSets'> {
   };
 }
 
+/** A swim speed as the engine writes it: per 100 m and per 100 yd, in whole seconds. */
+function swimPace(speed: number) {
+  const text = (metres: number) => {
+    const seconds = Math.round(metres / speed);
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  };
+  return { metricText: text(100), imperialText: text(91.44) };
+}
+
 function poolSwim(a: DemoActivity): Result<'activity.detail'>['poolSwim'] {
   const lengthCount = Math.max(8, Math.round(a.distance / 25));
   const lengths = range(Math.min(lengthCount, 60)).map((index) => {
@@ -181,6 +190,7 @@ function poolSwim(a: DemoActivity): Result<'activity.detail'>['poolSwim'] {
       elapsedSecs: elapsed,
       strokes,
       speedMps: 25 / elapsed,
+      pace: swimPace(25 / elapsed),
       swolf: elapsed + strokes,
     };
   });
@@ -198,6 +208,7 @@ function poolSwim(a: DemoActivity): Result<'activity.detail'>['poolSwim'] {
         distanceM: lengths.length * 25,
         elapsedSecs: elapsed,
         speedMps: (lengths.length * 25) / elapsed,
+        pace: swimPace((lengths.length * 25) / elapsed),
         avgSwolf: 47,
       },
     ],
@@ -327,6 +338,8 @@ function activityDetail(a: DemoActivity): Result<'activity.detail'> {
             startIndex: 40,
             lapTime: passTime(a, route),
             lapPace: speed,
+            lapPaceMetricText: null,
+            lapPaceImperialText: null,
             isPr: false,
             isComplete: true,
             rank: 3,
@@ -334,6 +347,8 @@ function activityDetail(a: DemoActivity): Result<'activity.detail'> {
             historyTimes: onRoute(route)
               .slice(-8)
               .map((x) => passTime(x, route)),
+            historyPaceMetricTexts: [],
+            historyPaceImperialTexts: [],
             historyActivityIds: onRoute(route)
               .slice(-8)
               .map((x) => x.id),
@@ -376,7 +391,12 @@ function activityDetail(a: DemoActivity): Result<'activity.detail'> {
       movingTime: a.seconds,
       elapsedTime: Math.round(a.seconds * 1.04),
       averageSpeed: speed,
+      shownAverageSpeed: speed,
+      shownAveragePaceMetricText: null,
+      shownAveragePaceImperialText: null,
       maxSpeed: speed * 1.6,
+      maxPaceMetricText: null,
+      maxPaceImperialText: null,
       averageCadence: a.sport.type === 'Run' ? 168 : a.sport.type === 'Ride' ? 86 : null,
       cadenceUnit: a.sport.type === 'Run' ? 'stepsPerMinute' : 'rpm',
     },
@@ -450,6 +470,8 @@ function activityIntervals(a: DemoActivity): Result<'activity.intervals'> {
       : null,
     averageHeartrate: Math.round(a.avgHr * (kind === 'work' ? 1.12 : 0.9)),
     averageSpeed: speedOf(a) * (kind === 'work' ? 1.2 : 0.85),
+    averageSpeedMetricText: null,
+    averageSpeedImperialText: null,
     movingTime: Math.round(a.seconds / 11),
     distance: Math.round(a.distance / 11),
     label: kind === 'work' ? `Effort ${Math.ceil(at / 2)}` : null,
@@ -633,11 +655,13 @@ function performanceData(
     lapCount: 1,
     bestTime: time,
     bestPace: distance / time,
+    bestPaceText: null,
     bestForwardTime: time,
     bestReverseTime: null,
     bestEstimated: false,
     avgTime: time,
     avgPace: distance / time,
+    avgPaceText: null,
     direction: 'forward',
     sectionDistance: distance,
   }));
@@ -657,6 +681,7 @@ function performanceData(
       count: list.length,
       bestTime: top.time,
       bestPace: distance / top.time,
+      bestPaceText: null,
       bestActivityId: top.a.id,
       bestActivityName: top.a.name,
     };
@@ -673,6 +698,7 @@ function performanceData(
         speed: distance / t.time,
         improvementSecs: Number.isFinite(record) ? record - t.time : null,
         improvementSpeed: null,
+        improvementPace: null,
       });
       record = t.time;
     }
@@ -716,6 +742,7 @@ function performanceData(
         lastActivity: seconds((attempts[attempts.length - 1] as Attempt).a.start),
         count: attempts.length,
         avgSpeed: distance / average,
+        avgPaceText: null,
         outsideBandCount: 0,
       },
       reverseStats: null,
@@ -727,6 +754,7 @@ function performanceData(
         activityName: t.a.name,
         activityDate: seconds(t.a.start),
         speed: distance / t.time,
+        speedPace: null,
         sectionTime: t.time,
         sectionDistance: distance,
         direction: 'forward',
@@ -737,6 +765,7 @@ function performanceData(
         offScale: 'none' as const,
         recordGapSecs: t.time - fastest,
         recordGapSpeed: distance / fastest - distance / t.time,
+        recordGapPace: null,
         estimated: false,
       })),
       minSpeed: distance / slowest,
@@ -764,6 +793,7 @@ function performanceData(
         binWidthSecs: width,
         counts,
         edgeSpeeds: null,
+        edgePace: null,
         binned: attempts.length,
         unbinnedOutsideBand: 0,
       },
@@ -830,6 +860,7 @@ function routeAttempts(index: number): Result<'route.attempts'> {
       lastActivity: seconds((list[list.length - 1] as DemoActivity).start),
       count: list.length,
       avgSpeed: routeLength(index) / (times.reduce((s, t) => s + t, 0) / times.length),
+      avgPaceText: null,
       outsideBandCount: 0,
     },
     reverseStats: null,
@@ -845,6 +876,7 @@ function routeAttempts(index: number): Result<'route.attempts'> {
           (bin) => times.filter((t) => Math.floor((t - fastest) / width) === bin).length
         ),
         edgeSpeeds: null,
+        edgePace: null,
         binned: list.length,
         unbinnedOutsideBand: 0,
       },
@@ -1072,6 +1104,9 @@ const summaryWeek = (start: number, scale: number): Result<'strength.screen'>['s
       };
     }),
     maxWeightedSets: Math.max(...volumes.map((v) => v.weightedSets)),
+    shadeCeilings: [1, 2, 3, 4, 5].map(
+      (step) => Math.round(((Math.max(...volumes.map((v) => v.weightedSets)) * step) / 5) * 10) / 10
+    ),
   };
 };
 
@@ -1377,6 +1412,8 @@ function bestEfforts(): Result<'fitness.bestEfforts'> {
           wattsPerKg: (watts[at] as number) / 71.4,
           wkgActivityId: rides[at]?.id ?? null,
           activity: named(rides[at]),
+          paceMetricText: null,
+          paceImperialText: null,
         })),
       },
     ],

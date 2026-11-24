@@ -14,7 +14,7 @@
 /** How long after a drag ends a fling may still begin. */
 export const SCROLL_SETTLE_MS = 150;
 
-export interface ScrollHold {
+interface ScrollHold {
   onScrollBeginDrag: () => void;
   onScrollEndDrag: () => void;
   onMomentumScrollBegin: () => void;

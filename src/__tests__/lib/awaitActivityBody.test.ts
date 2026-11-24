@@ -13,7 +13,7 @@
  * task is the least affordable place to do a page of JSON work.
  */
 
-import { StartOutcome, type ActivityRecord } from 'veloqrs';
+import { FfiStartOutcome, type ActivityRecord } from 'veloqrs';
 import { awaitActivityBody, readStoredActivity } from '@/features/insights/lib/awaitActivityBody';
 
 // Hoisted above the imports by babel-jest whatever it is written after, so it
@@ -25,7 +25,7 @@ type Listener = (payload?: { kind?: string; activityId?: string }) => void;
 
 type Stored = { id: string; name?: string };
 
-function fakeEngine(stored: Record<string, Stored> = {}, outcome = StartOutcome.Started) {
+function fakeEngine(stored: Record<string, Stored> = {}, outcome = FfiStartOutcome.Started) {
   const listeners = new Map<string, Set<Listener>>();
   const reads: number[] = [];
   const windowReads: number[] = [];
@@ -154,7 +154,7 @@ describe('awaiting an activity body', () => {
   });
 
   it('settles at once on a refusal no waiting can change', async () => {
-    const engine = fakeEngine({}, StartOutcome.NotConfigured);
+    const engine = fakeEngine({}, FfiStartOutcome.NotConfigured);
 
     const body = await awaitActivityBody(engine, 'a1', 15_000);
 
@@ -163,7 +163,7 @@ describe('awaiting an activity body', () => {
   });
 
   it('waits out a refusal that asking again could change', async () => {
-    const engine = fakeEngine({}, StartOutcome.Busy);
+    const engine = fakeEngine({}, FfiStartOutcome.Busy);
     const pending = awaitActivityBody(engine, 'a1', 15_000);
 
     expect(engine.listenerCount('bodyStored')).toBe(1);

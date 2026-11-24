@@ -7,7 +7,7 @@ import { formatDecimal, formatSigned } from '@/shared/format';
 import { DIVERGING_BANDS, type DivergingKind } from './divergingStep';
 
 /** One tick of the key's scale: the edge in percent, where it falls from 0 to 1, and its label. */
-export interface DivergingKeyTick {
+interface DivergingKeyTick {
   edge: number;
   at: number;
   label: string;

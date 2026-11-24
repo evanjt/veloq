@@ -33,17 +33,18 @@ import {
   hasStarted,
   isRetryableStart,
   startOutcome,
-  StartOutcome,
-  type StartResult,
+  FfiStartOutcome,
+  type FfiStartResult,
 } from 'veloqrs';
 
 import { getEngine } from './engine';
+import { BODY_STORED_CHANNEL } from './engineChannels';
 
 /**
  * What announces a body. `bodyStored` is the on-demand landing, `activities`
  * the coarse channel a full sync fans out on.
  */
-const CHANNELS = ['bodyStored', 'activities'] as const;
+const CHANNELS = [BODY_STORED_CHANNEL, 'activities'] as const;
 
 /**
  * A `bodyStored` announcement names the kind of body and the activity it
@@ -52,7 +53,7 @@ const CHANNELS = ['bodyStored', 'activities'] as const;
  * A payload that cannot be read wakes the reader, since missing a landing
  * costs a wait and an extra read does not.
  */
-export type BodyWake = (payload: unknown) => boolean;
+type BodyWake = (payload: unknown) => boolean;
 
 /** Wake only for a body of one of `kinds`, and for `activityId` when it is given. */
 export function bodyNamed(kinds: readonly string[], activityId?: string): BodyWake {
@@ -109,11 +110,11 @@ export function waitEnded(status: EngineBodyStatus): boolean {
  * The status a start verdict ends the wait with, or null when the wait goes
  * on: the job started, or the refusal lifts by itself.
  */
-function refusalOf(outcome: StartOutcome | StartResult): EngineBodyRefusal | null {
+function refusalOf(outcome: FfiStartOutcome | FfiStartResult): EngineBodyRefusal | null {
   switch (startOutcome(outcome)) {
-    case StartOutcome.Offline:
+    case FfiStartOutcome.Offline:
       return 'offline';
-    case StartOutcome.NotConfigured:
+    case FfiStartOutcome.NotConfigured:
       return 'notConfigured';
     default:
       return hasStarted(outcome) || isRetryableStart(outcome) ? null : 'refused';
@@ -154,7 +155,7 @@ function bodiesStored(): number | null {
  */
 export function useEngineBody(
   present: boolean,
-  request: () => StartOutcome | StartResult | undefined,
+  request: () => FfiStartOutcome | FfiStartResult | undefined,
   queryKey: QueryKey,
   enabled = true,
   wakes?: BodyWake

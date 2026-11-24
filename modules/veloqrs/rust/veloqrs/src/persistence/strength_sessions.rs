@@ -11,6 +11,7 @@
 //! once, and that key is the session's claim on them: a FIT import for a
 //! claimed key stores nothing, and a clear leaves the rows.
 
+use crate::persistence::sql::question_marks;
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 
 use super::PersistentEngine;
@@ -725,7 +726,7 @@ impl PersistentEngine {
             names.push(column);
             values.push(value);
         }
-        let marks = vec!["?"; names.len()].join(", ");
+        let marks = question_marks(names.len());
         self.db
             .execute(
                 &format!(

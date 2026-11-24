@@ -8,6 +8,7 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import RecordingScreen from '@/app/recording/[type]';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
@@ -110,7 +111,12 @@ it.each([
 
 it('gives the live recorder no header', async () => {
   mockParams = { type: 'Ride' };
-  await render(<RecordingScreen />);
+  const client = new QueryClient();
+  await render(
+    <QueryClientProvider client={client}>
+      <RecordingScreen />
+    </QueryClientProvider>
+  );
 
   expect(screen.getByTestId('recording-unlock-slot')).toBeTruthy();
   expect(lastOptions()).toMatchObject({ headerShown: false });

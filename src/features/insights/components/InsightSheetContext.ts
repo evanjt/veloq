@@ -5,7 +5,7 @@ import type { Insight } from '../types';
  * The insight a sheet is open on and how to close it, for content deep in the
  * sheet that leaves it for another screen. Outside a sheet there is none.
  */
-export interface InsightSheet {
+interface InsightSheet {
   insight: Insight;
   onLeave: () => void;
 }

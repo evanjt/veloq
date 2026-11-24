@@ -1,7 +1,11 @@
+import type { FfiPaceText } from 'veloqrs';
+
 export interface PaceCurveSource {
   distances?: number[] | undefined;
   times?: number[] | undefined;
   pace: number[];
+  /** The engine's pace text for each of `pace`, in both unit systems. */
+  pace_texts?: (FfiPaceText | undefined)[] | undefined;
   activity_ids?: string[] | undefined;
 }
 
@@ -9,6 +13,8 @@ export interface PaceCurveSample {
   distance: number;
   time: number;
   speed: number;
+  /** The engine's text for `speed`, absent where it wrote none. */
+  paceText?: FfiPaceText | undefined;
   activityId?: string | undefined;
 }
 
@@ -21,7 +27,13 @@ export function paceCurveSamples(curve: PaceCurveSource | null | undefined): Pac
     const time = curve.times[i];
     const speed = curve.pace[i];
     if (distance > 0 && time > 0 && speed > 0) {
-      samples.push({ distance, time, speed, activityId: curve.activity_ids?.[i] });
+      samples.push({
+        distance,
+        time,
+        speed,
+        paceText: curve.pace_texts?.[i],
+        activityId: curve.activity_ids?.[i],
+      });
     }
   }
   return samples;

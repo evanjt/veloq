@@ -25,7 +25,7 @@ import type {
 import { Icon } from '@/shared/ui/Icon';
 import { Badge } from '@/shared/ui/Badge';
 
-export interface StatsRowProps {
+interface StatsRowProps {
   direction: 'forward' | 'reverse';
   stats: DirectionSummaryStats | null;
   bestRecord: DirectionBestRecord | null;
@@ -56,7 +56,7 @@ export function StatsRow({
 
   const count = stats?.count ?? pointCount;
   const bestValue = bestRecord
-    ? formatAttemptFigure(basis, bestRecord.bestTime, bestRecord.bestPace, isMetric)
+    ? formatAttemptFigure(basis, bestRecord.bestTime, bestRecord.bestPaceText, isMetric)
     : '';
 
   return (
@@ -80,7 +80,7 @@ export function StatsRow({
           {stats?.avgTime != null && (
             <Text style={[styles.statsValue, isDark && styles.textSecondary]}>
               {t('sections.avgValue', {
-                value: formatAttemptFigure(basis, stats.avgTime, stats.avgSpeed, isMetric),
+                value: formatAttemptFigure(basis, stats.avgTime, stats.avgPaceText, isMetric),
               })}
             </Text>
           )}

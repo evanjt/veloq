@@ -6,8 +6,7 @@ import { GestureDetector } from 'react-native-gesture-handler';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { chartStyles, darkColors, colors, typography, spacing } from '@/theme';
-import { formZoneColor } from '@/features/fitness';
-import { useFormPreference } from '@/shared/app/FormPreferenceStore';
+import { formZoneColor, type FormZone } from '@/features/fitness';
 import { formBarLayout } from '../lib/formBar';
 import { riseDayPoints } from '../lib/fitnessChange';
 import { scrubDateLabel } from '../lib/scrubDateLabel';
@@ -46,6 +45,9 @@ export interface ScrubValues {
   fitness: number;
   fatigue: number;
   form: number;
+  /** The engine's zone and printed text for the day's form, null where it states none. */
+  formZone: FormZone | null;
+  formText: string | null;
   /** Null on a day with no reading of its own, which the line carries over. */
   hrv?: number | null | undefined;
   rhr?: number | null | undefined;
@@ -56,6 +58,9 @@ interface SummaryCardSparklineProps {
   fitnessData: number[];
   fatigueData?: number[] | undefined;
   formData: number[];
+  /** Beside `formData`: the engine's zone and printed text for each day's form. */
+  formZoneData: (FormZone | null)[];
+  formTextData: (string | null)[];
   /** Indices into `fitnessData` of the days fitness rose, marked with a dot. */
   riseDays?: number[] | undefined;
   width: number;
@@ -79,6 +84,8 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   fitnessData,
   fatigueData,
   formData,
+  formZoneData,
+  formTextData,
   riseDays,
   width,
   showLabels = false,
@@ -96,6 +103,10 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   fatigueRef.current = fatigueData;
   const formRef = useRef(formData);
   formRef.current = formData;
+  const formZoneRef = useRef(formZoneData);
+  formZoneRef.current = formZoneData;
+  const formTextRef = useRef(formTextData);
+  formTextRef.current = formTextData;
   const onScrubRef = useRef(onScrub);
   onScrubRef.current = onScrub;
   const onTapRef = useRef(onTap);
@@ -135,6 +146,8 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
       fitness: fitness[index],
       fatigue: fatigue ? fatigue[index] : fitness[index],
       form: form[index],
+      formZone: formZoneRef.current[index] ?? null,
+      formText: formTextRef.current[index] ?? null,
       dateLabel,
     });
   }, []);
@@ -162,12 +175,11 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     syncBounds({ left: 0, right: chartWidth, top: 0, bottom: totalHeight });
   }, [syncBounds, chartWidth, totalHeight]);
 
-  // Zoned like the hero above it: each day's form against that day's fitness,
-  // under the athlete's form-as-percent setting.
-  const asPercent = useFormPreference((state) => state.formAsPercent) === true;
+  // Zoned like the hero above it, by the engine: each day's form against that
+  // day's fitness, under the athlete's form-as-percent setting.
   const { rects: formBarRects, transitions } = useMemo(
-    () => formBarLayout(formData, fitnessData, asPercent, chartWidth),
-    [formData, fitnessData, asPercent, chartWidth]
+    () => formBarLayout(formZoneData, chartWidth),
+    [formZoneData, chartWidth]
   );
 
   // Direct-Skia line paths (replaces Victory CartesianChart). monotoneX + the same

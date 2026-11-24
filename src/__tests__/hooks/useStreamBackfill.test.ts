@@ -7,7 +7,7 @@
 import { act, renderHook } from '@testing-library/react-native';
 
 import { getEngine } from '@/shared/native/engine';
-import { StartOutcome } from 'veloqrs';
+import { FfiStartOutcome } from 'veloqrs';
 import { useStreamBackfill } from '@/features/settings/hooks/useStreamBackfill';
 
 jest.mock('@/shared/native/engine', () => ({
@@ -149,15 +149,15 @@ describe('useStreamBackfill', () => {
   });
 
   describe('a refused start', () => {
-    function withConsent(consent: () => StartOutcome) {
+    function withConsent(consent: () => FfiStartOutcome) {
       mockConsentStreamBackfill.mockImplementation(consent);
     }
 
     it.each([
-      StartOutcome.Offline,
-      StartOutcome.NotConfigured,
-      StartOutcome.NotReady,
-      StartOutcome.Busy,
+      FfiStartOutcome.Offline,
+      FfiStartOutcome.NotConfigured,
+      FfiStartOutcome.NotReady,
+      FfiStartOutcome.Busy,
     ])('surfaces verdict %s and does not read as a running pass', async (outcome) => {
       withConsent(() => outcome);
       const { result } = await renderHook(() => useStreamBackfill());
@@ -176,24 +176,24 @@ describe('useStreamBackfill', () => {
 
       await act(() => result.current.start());
 
-      expect(result.current.refusal).toBe(StartOutcome.Failed);
+      expect(result.current.refusal).toBe(FfiStartOutcome.Failed);
     });
 
     vaultIt('clears the refusal when the next tap starts', async () => {
-      let next = StartOutcome.Offline;
+      let next = FfiStartOutcome.Offline;
       withConsent(() => next);
       const { result } = await renderHook(() => useStreamBackfill());
       await act(() => result.current.start());
-      expect(result.current.refusal).toBe(StartOutcome.Offline);
+      expect(result.current.refusal).toBe(FfiStartOutcome.Offline);
 
-      next = StartOutcome.Started;
+      next = FfiStartOutcome.Started;
       await act(() => result.current.start());
 
       expect(result.current.refusal).toBeNull();
     });
 
     vaultIt('clears the refusal when a pass begins', async () => {
-      withConsent(() => StartOutcome.Busy);
+      withConsent(() => FfiStartOutcome.Busy);
       const { result } = await renderHook(() => useStreamBackfill());
       await act(() => result.current.start());
 

@@ -24,7 +24,7 @@ import { openHistoryRange } from '@/shared/app/historyRange';
 import { getPhaseDisplayKey } from '@/features/routes/lib/detectionProgress';
 import { detectionHoldText } from '@/features/routes/lib/detectionHoldText';
 
-export type CatalogueKind = 'routes' | 'sections';
+type CatalogueKind = 'routes' | 'sections';
 
 interface EmptyAction {
   label: string;

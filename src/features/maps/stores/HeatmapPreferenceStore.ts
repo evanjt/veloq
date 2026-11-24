@@ -53,7 +53,7 @@ const DEFAULT_ENABLED = true;
 export type DetailMapKind = keyof typeof DETAIL_HEATMAP_KEYS;
 
 /** The library layers a detail map can draw under its subject, beside the heatmap. */
-export type DetailContextLayer = keyof typeof DETAIL_CONTEXT_KEYS;
+type DetailContextLayer = keyof typeof DETAIL_CONTEXT_KEYS;
 
 const DETAIL_CONTEXT_LAYERS = Object.keys(DETAIL_CONTEXT_KEYS) as DetailContextLayer[];
 

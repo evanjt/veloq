@@ -480,3 +480,6 @@ required-features = ["synthetic"]
 name = "match_measurement_residency"
 path = "tests/match_measurement_residency.rs"
 required-features = ["real-corpus"]
+
+[[bench]]
+name = "recording_fit_write_cost"

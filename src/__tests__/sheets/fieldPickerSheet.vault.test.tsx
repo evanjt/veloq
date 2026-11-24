@@ -13,7 +13,6 @@ import FieldPickerSheet, { type FieldPickerSheetInput } from '@/app/sheets/field
 import { rootScreenLayout } from '@/shared/ui/rootScreenLayout';
 import { ALL_DATA_FIELDS } from '@/features/recording';
 import { openSheet } from '@/shared/app/sheetRequest';
-import { useAuthStore } from '@/shared/app/AuthStore';
 import { sheetScrollPlacement } from '../__shared__/sheetScrollPlacement';
 import type { DataFieldType } from '@/types';
 
@@ -37,6 +36,8 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
   useMetricSystem: () => mockIsMetric,
 }));
+let mockProfile: { id: string; name: string; weightKg?: number } | null = null;
+jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: mockProfile }) }));
 jest.mock('@/features/recording', () =>
   require('../__shared__/recordingBarrelStub').withRecordingOverrides()
 );
@@ -88,8 +89,7 @@ describe('field picker sheet', () => {
   });
 
   it('notes the calories method, and the assumed weight only when the profile has none', async () => {
-    const athlete = useAuthStore.getState().athlete;
-    useAuthStore.setState({ athlete: null });
+    mockProfile = null;
     await open(null);
     const row = screen.getByTestId('field-option-calories');
     expect(row).toHaveTextContent(/recording\.caloriesMethod/);
@@ -100,7 +100,7 @@ describe('field picker sheet', () => {
     await screen.unmount();
 
     mockIsMetric = false;
-    useAuthStore.setState({ athlete: null });
+    mockProfile = null;
     await open(null);
     expect(screen.getByTestId('field-option-calories')).toHaveTextContent(
       /caloriesDefaultWeight:\{"weight":"154\.3 lbs"\}/
@@ -108,7 +108,7 @@ describe('field picker sheet', () => {
     await screen.unmount();
     mockIsMetric = true;
 
-    useAuthStore.setState({ athlete: { id: 'i1', name: 'Rider', weightKg: 64 } });
+    mockProfile = { id: 'i1', name: 'Rider', weightKg: 64 };
     await open(null);
     expect(screen.getByTestId('field-option-calories')).toHaveTextContent(
       /recording\.caloriesMethod/
@@ -116,6 +116,6 @@ describe('field picker sheet', () => {
     expect(screen.getByTestId('field-option-calories')).not.toHaveTextContent(
       /caloriesDefaultWeight/
     );
-    useAuthStore.setState({ athlete });
+    mockProfile = null;
   });
 });

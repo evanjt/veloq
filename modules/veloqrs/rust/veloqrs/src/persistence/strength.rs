@@ -283,6 +283,16 @@ fn pool_unit_of(pool_length_m: Option<f64>) -> crate::FfiPoolUnit {
     }
 }
 
+/// A swim speed as pace text per 100 m and per 100 yd.
+fn swim_pace(speed: f64) -> Option<crate::FfiPaceText> {
+    crate::widget_snapshot::sport_pace_text(speed, "Swim").map(|(metric_text, imperial_text)| {
+        crate::FfiPaceText {
+            metric_text,
+            imperial_text,
+        }
+    })
+}
+
 /// Shape a pool swim's stored lengths into what the screen paints: each
 /// length's speed and SWOLF, and the per-stroke totals over the active ones,
 /// so the screen computes and sums nothing.
@@ -334,6 +344,7 @@ pub(crate) fn shape_pool_swim(
                 elapsed_secs: elapsed,
                 strokes: if active { length.total_strokes } else { None },
                 speed_mps: speed,
+                pace: speed.and_then(swim_pace),
                 swolf,
             }
         })
@@ -353,6 +364,7 @@ pub(crate) fn shape_pool_swim(
                         distance_m: None,
                         elapsed_secs: 0.0,
                         speed_mps: None,
+                        pace: None,
                         avg_swolf: None,
                     },
                     0.0,
@@ -377,6 +389,7 @@ pub(crate) fn shape_pool_swim(
                 .distance_m
                 .zip(positive(total.elapsed_secs))
                 .map(|(metres, secs)| metres / secs);
+            total.pace = total.speed_mps.and_then(swim_pace);
             total.avg_swolf = (swolf_count > 0).then(|| swolf_sum / f64::from(swolf_count));
             total
         })
@@ -940,6 +953,44 @@ mod tests {
         assert_eq!(read.stroke_totals[0].avg_swolf, None);
     }
 
+    /// A pool swim's lengths and stroke totals carry their pace per 100 m and
+    /// per 100 yd as text, and a rest carries none.
+    #[test]
+    fn pool_lengths_and_stroke_totals_carry_swim_pace_text() {
+        let active = |secs: f64| crate::fit::FitPoolLength {
+            length_type: Some(1),
+            total_elapsed_time: Some(secs),
+            total_strokes: Some(18),
+            swim_stroke: Some(0),
+            ..Default::default()
+        };
+        let rest = crate::fit::FitPoolLength {
+            length_type: Some(0),
+            total_elapsed_time: Some(30.0),
+            ..Default::default()
+        };
+        let lengths = vec![active(20.0), rest, active(25.0)];
+
+        let read = shape_pool_swim(crate::FfiPoolSwimState::Read, Some(25.0), &lengths);
+
+        let text = |p: &Option<crate::FfiPaceText>| {
+            p.as_ref()
+                .map(|t| (t.metric_text.as_str(), t.imperial_text.as_str()))
+                .map(|(m, i)| (m.to_string(), i.to_string()))
+        };
+        // 25 m in 20 s is 1.25 m/s: 1:20 per 100 m, 1:13 per 100 yd.
+        assert_eq!(
+            text(&read.lengths[0].pace),
+            Some(("1:20".to_string(), "1:13".to_string()))
+        );
+        assert_eq!(text(&read.lengths[1].pace), None);
+        // The total is 50 m in 45 s: 1:30 per 100 m, 1:22 per 100 yd.
+        assert_eq!(
+            text(&read.stroke_totals[0].pace),
+            Some(("1:30".to_string(), "1:22".to_string()))
+        );
+    }
+
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn activity_names_answers_nothing_for_no_ids() {
@@ -1272,11 +1323,7 @@ pub(crate) mod pooled {
             return Ok(std::collections::HashMap::new());
         }
 
-        let placeholders = activity_ids
-            .iter()
-            .map(|_| "?")
-            .collect::<Vec<_>>()
-            .join(",");
+        let placeholders = crate::persistence::sql::question_marks(activity_ids.len());
         let sql = format!(
             "SELECT activity_id, name, date FROM activity_metrics WHERE activity_id IN ({})",
             placeholders

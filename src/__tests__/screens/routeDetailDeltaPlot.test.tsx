@@ -13,7 +13,7 @@
 
 import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
-import { engine as mockStreams, StartOutcome } from 'veloqrs';
+import { engine as mockStreams, FfiStartOutcome } from 'veloqrs';
 import { routeCardInHost } from '../__shared__/routeCardInHost';
 
 import type { SectionDeltaLine } from '@/features/routes';
@@ -33,7 +33,7 @@ jest.mock('veloqrs', () => {
     // The stream fetch the route page starts for attempts missing one.
     engine: {
       ...stub.engine,
-      syncTimeStreams: jest.fn(() => ({ outcome: stub.StartOutcome.Started })),
+      syncTimeStreams: jest.fn(() => ({ outcome: stub.FfiStartOutcome.Started })),
     },
   });
 });
@@ -279,7 +279,7 @@ describe('route page curves owed', () => {
 
   it('loads no curves when the wait ends with a stream still missing', async () => {
     mockMissingStreams = ['q2'];
-    jest.mocked(mockStreams.syncTimeStreams).mockReturnValueOnce({ outcome: StartOutcome.Held });
+    jest.mocked(mockStreams.syncTimeStreams).mockReturnValueOnce({ outcome: FfiStartOutcome.Held });
     const screen = await render(<RouteDetailScreen />);
 
     await act(async () => {});

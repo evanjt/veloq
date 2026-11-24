@@ -12,12 +12,12 @@ import { IntervalsTable } from '@/features/activity/components/IntervalsTable';
 import { colors, darkColors } from '@/theme';
 import { zoneColour } from '@/theme/zoneColour';
 import type { ActivityInterval, ActivityType } from '@/types';
-import { IntervalKind } from 'veloqrs';
+import { FfiIntervalKind } from 'veloqrs';
 
 function interval(watts?: number): ActivityInterval {
   return {
     id: 1,
-    kind: IntervalKind.Work,
+    kind: FfiIntervalKind.Work,
     startIndex: 0,
     endIndex: 100,
     distance: 1200,

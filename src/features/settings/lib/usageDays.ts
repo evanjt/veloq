@@ -9,11 +9,11 @@
  */
 import { getSetting, setSetting } from '@/shared/storage';
 
-export const USAGE_KEY = 'veloq-usage';
+const USAGE_KEY = 'veloq-usage';
 /** Where the day count was kept before it had a row of its own. */
 const LEGACY_SUPPORT_KEY = 'veloq-support-store';
 
-export interface UseDays {
+interface UseDays {
   /** The local day of the first use, or null before any is counted. */
   firstUseDate: string | null;
   /** The local day of the latest use. */

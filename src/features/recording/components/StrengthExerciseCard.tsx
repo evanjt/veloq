@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
-import type { LiveStrengthEdit, LiveStrengthExercise, WeightUnit } from 'veloqrs';
+import type { LiveStrengthEdit, FfiLiveStrengthExercise, FfiWeightUnit } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
 import { Button } from '@/shared/ui/Button';
@@ -18,10 +18,10 @@ import { StrengthSetRow } from './StrengthSetRow';
 import { StrengthStepper } from './StrengthStepper';
 
 /** One tap of a rest stepper, in seconds. */
-export const REST_STEP_SECS = 30;
+const REST_STEP_SECS = 30;
 
 /** The rest after a tap of a rest stepper: undefined once it falls to nothing. */
-export function steppedRest(current: number | undefined, direction: 1 | -1): number | undefined {
+function steppedRest(current: number | undefined, direction: 1 | -1): number | undefined {
   const next = Math.max(0, (current ?? 0) + direction * REST_STEP_SECS);
   return next === 0 ? undefined : next;
 }
@@ -59,9 +59,9 @@ export function StrengthRestControl({ testID, label, secs, onChange }: RestContr
 
 interface StrengthExerciseCardProps {
   index: number;
-  exercise: LiveStrengthExercise;
+  exercise: FfiLiveStrengthExercise;
   /** The unit the athlete reads and enters weight in. */
-  weightUnit: WeightUnit;
+  weightUnit: FfiWeightUnit;
   /** The set the session is at, when it is in this exercise. */
   currentSet: number | undefined;
   /** Whether an exercise sits above and below, for the handle's move actions. */

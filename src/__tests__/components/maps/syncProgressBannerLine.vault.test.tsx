@@ -20,7 +20,7 @@ import { SyncProgressBanner } from '@/features/maps/components/timeline/SyncProg
 import { useSyncPillYielded } from '@/shared/ui/syncPillYield';
 import { getEngine } from '@/shared/native/engine';
 import { initialiseI18n } from '@/i18n';
-import { SyncState, TrackStep, type SyncStatus, type TrackStage } from 'veloqrs';
+import { SyncState, FfiTrackStep, type SyncStatus, type FfiTrackStage } from 'veloqrs';
 
 const mockState: { current: Record<string, unknown> } = { current: {} };
 
@@ -64,7 +64,7 @@ beforeAll(async () => {
 });
 
 /** The engine as the status hook reads it: one snapshot, a sync that has settled. */
-function engineReporting(tracks: TrackStage | undefined) {
+function engineReporting(tracks: FfiTrackStage | undefined) {
   const snapshot = {
     state: SyncState.Idle,
     inFlight: 0,
@@ -106,7 +106,7 @@ it('prints one ellipsis while older activities load', () => {
 
 it('shows a GPS pass the engine is running after the sync itself has settled', () => {
   engineReporting({
-    step: TrackStep.Downloading,
+    step: FfiTrackStep.Downloading,
     completed: 3,
     total: 12,
     percent: 25,
@@ -126,7 +126,7 @@ function YieldProbe() {
 
 it('steps the sync pill aside while the track work shows in the banner', () => {
   engineReporting({
-    step: TrackStep.Downloading,
+    step: FfiTrackStep.Downloading,
     completed: 3,
     total: 12,
     percent: 25,
@@ -144,7 +144,7 @@ it('steps the sync pill aside while the track work shows in the banner', () => {
 
 it('leaves the sync pill in front when the banner is not visible', () => {
   engineReporting({
-    step: TrackStep.Downloading,
+    step: FfiTrackStep.Downloading,
     completed: 3,
     total: 12,
     percent: 25,
@@ -162,7 +162,7 @@ it('leaves the sync pill in front when the banner is not visible', () => {
 
 it('names detection with its own percent and no count', () => {
   engineReporting({
-    step: TrackStep.Analysing,
+    step: FfiTrackStep.Analysing,
     completed: 40,
     total: 90,
     percent: 62,
@@ -176,7 +176,7 @@ it('names detection with its own percent and no count', () => {
 
 it('prints one figure during the heatmap pass', () => {
   engineReporting({
-    step: TrackStep.DrawingHeatmap,
+    step: FfiTrackStep.DrawingHeatmap,
     completed: 40,
     total: 100,
     percent: 40,

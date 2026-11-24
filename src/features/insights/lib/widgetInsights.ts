@@ -5,7 +5,6 @@ import type { Insight } from '../types';
 const INSIGHTS_TAB_URL = 'veloq://insights';
 
 /** One row of the insights widget, with the link it opens, as the engine's record declares it. */
-export type { WidgetInsight };
 
 /**
  * The Insights tab's own ranking as widget rows, in that order and of every kind.

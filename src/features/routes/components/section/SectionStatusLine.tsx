@@ -8,7 +8,7 @@ import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { FitText } from '@/shared/ui/FitText';
 import type { IconName } from '@/shared/ui/Icon';
 
-export interface SectionStatusLineProps {
+interface SectionStatusLineProps {
   isDark: boolean;
   /** Which kept state shows, as `sectionActionChips` decides it. */
   chips: SectionActionChips;

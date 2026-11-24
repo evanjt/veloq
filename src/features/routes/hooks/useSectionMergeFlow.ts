@@ -1,6 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { router } from 'expo-router';
-import type { MergeCandidate } from 'veloqrs';
+import type { FfiMergeCandidate } from 'veloqrs';
 
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import {
@@ -13,7 +13,7 @@ import { useMergeSections } from './useMergeSections';
 
 interface UseSectionMergeFlowArgs {
   section: (Omit<MergeSectionInfo, 'name'> & { name?: string | undefined }) | null | undefined;
-  candidates: MergeCandidate[];
+  candidates: FfiMergeCandidate[];
 }
 
 /**
@@ -36,7 +36,7 @@ export function useSectionMergeFlow({
     try {
       let target = only;
       if (candidates.length > 1) {
-        const picked = await openSheet<MergeCandidatesSheetInput, MergeCandidate>(
+        const picked = await openSheet<MergeCandidatesSheetInput, FfiMergeCandidate>(
           'sheets/merge-candidates',
           { candidates }
         );

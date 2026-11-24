@@ -18,8 +18,6 @@ use crate::persistence::attempts::JobKey;
 use crate::persistence::strength::pooled;
 use crate::persistence::with_persistent_engine_blocking_for;
 use crate::persistence::{FitIntake, FitOutcome};
-#[cfg(test)]
-use crate::{FfiExerciseActivities, FfiExerciseActivity};
 use crate::{
     FfiExerciseContribution, FfiExerciseGroup, FfiExerciseSession, FfiExerciseSet, FfiMuscleGroup,
     FfiMuscleGroupDetail, FfiMuscleVolume, FfiStrengthCardSummary, FfiStrengthProgression,
@@ -119,9 +117,7 @@ async fn store_parsed_fit(install: u64, activity_id: &str, data: &[u8]) {
             Some(ParsedFit::PoolSwim(swim)) => e.settle_pool_swim(&id, swim),
             None => e.mark_fit_outcome(&id, FitOutcome::Undecodable),
         }
-        .map_err(|err| VeloqError::Database {
-            msg: format!("{}", err),
-        })
+        .map_err(|err| VeloqError::database(format!("{}", err)))
     })
     .await;
     match stored {
@@ -169,9 +165,7 @@ async fn settle_failed_download(
     let settled = with_persistent_engine_blocking_for(install, move |engine| {
         engine
             .mark_fit_outcome(&id, FitOutcome::Absent)
-            .map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })
+            .map_err(|e| VeloqError::database(format!("{}", e)))
     })
     .await;
     match settled {
@@ -273,9 +267,7 @@ fn settle_demo_fit(activity_id: &str) -> Option<crate::objects::start::FfiStartR
         return None;
     }
     let settled = with_engine(|e| -> Result<bool, VeloqError> {
-        let to_db = |err: rusqlite::Error| VeloqError::Database {
-            msg: format!("{}", err),
-        };
+        let to_db = |err: rusqlite::Error| VeloqError::database(format!("{}", err));
         match e.fit_intake(activity_id).map_err(to_db)? {
             FitIntake::PoolSwim => e
                 .settle_pool_swim(activity_id, &demo_pool_swim(activity_id))
@@ -337,9 +329,7 @@ pub(crate) fn import_fit_sets_under(
 
     let store = |e: &mut crate::persistence::PersistentEngine| -> Result<(), VeloqError> {
         e.settle_exercise_sets(activity_id, &sets)
-            .map_err(|err| VeloqError::Database {
-                msg: format!("{}", err),
-            })
+            .map_err(|err| VeloqError::database(format!("{}", err)))
     };
     crate::persistence::with_persistent_engine_for(install, store)
         .ok_or(VeloqError::NotInitialized)??;
@@ -416,18 +406,16 @@ impl StrengthManager {
     /// Returns empty vec if not yet downloaded/parsed.
     fn get_exercise_sets(&self, activity_id: String) -> Result<FfiExerciseSession, VeloqError> {
         with_reader(|conn| {
-            exercise_session_from(conn, &activity_id).map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })
+            exercise_session_from(conn, &activity_id)
+                .map_err(|e| VeloqError::database(format!("{}", e)))
         })?
     }
 
     /// Check if FIT file has been processed for this activity.
     fn is_fit_processed(&self, activity_id: String) -> Result<bool, VeloqError> {
         with_reader(|conn| {
-            pooled::is_fit_processed(conn, &activity_id).map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })
+            pooled::is_fit_processed(conn, &activity_id)
+                .map_err(|e| VeloqError::database(format!("{}", e)))
         })?
     }
 
@@ -468,9 +456,8 @@ impl StrengthManager {
     /// with no recorded outcome, newest first.
     fn get_unprocessed_strength_ids(&self) -> Result<Vec<String>, VeloqError> {
         with_reader(|conn| {
-            pooled::unprocessed_strength_queue(conn).map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })
+            pooled::unprocessed_strength_queue(conn)
+                .map_err(|e| VeloqError::database(format!("{}", e)))
         })?
     }
 
@@ -568,10 +555,8 @@ impl StrengthManager {
     /// Check if there are any strength activities with exercise data.
     fn has_strength_data(&self) -> Result<bool, VeloqError> {
         with_reader(|conn| {
-            let count =
-                pooled::strength_activity_count(conn).map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })?;
+            let count = pooled::strength_activity_count(conn)
+                .map_err(|e| VeloqError::database(format!("{}", e)))?;
             Ok(count > 0)
         })?
     }
@@ -580,10 +565,8 @@ impl StrengthManager {
     /// Returns slugs matching react-native-body-highlighter format.
     fn get_muscle_groups(&self, activity_id: String) -> Result<Vec<FfiMuscleGroup>, VeloqError> {
         with_reader(|conn| {
-            let sets =
-                pooled::exercise_sets(conn, &activity_id).map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })?;
+            let sets = pooled::exercise_sets(conn, &activity_id)
+                .map_err(|e| VeloqError::database(format!("{}", e)))?;
 
             let groups = fit::aggregate_muscle_groups(&sets);
             Ok(groups
@@ -605,95 +588,6 @@ impl StrengthManager {
         muscle_slug: String,
     ) -> Result<FfiMuscleGroupDetail, VeloqError> {
         with_reader(|conn| muscle_detail_from(conn, &activity_id, &muscle_slug))?
-    }
-}
-
-#[cfg(test)]
-impl StrengthManager {
-    /// Get activities for a specific exercise filtered by muscle group.
-    /// Returns activities sorted by date descending with per-activity stats.
-    pub(crate) fn get_activities_for_exercise(
-        &self,
-        start_ts: f64,
-        end_ts: f64,
-        muscle_slug: String,
-        exercise_category: u16,
-    ) -> Result<FfiExerciseActivities, VeloqError> {
-        let start_ts = crate::ffi_types::int_from_wire(start_ts);
-        let end_ts = crate::ffi_types::int_from_wire(end_ts);
-        with_reader(|conn| {
-            let sets = pooled::exercise_sets_in_range(conn, start_ts, end_ts).map_err(|err| {
-                VeloqError::Database {
-                    msg: format!("{}", err),
-                }
-            })?;
-
-            // Per-activity aggregation, filtered by muscle + exercise
-            struct ActAgg {
-                total_sets: f64,
-                total_reps: f64,
-                volume_kg: f64,
-                has_primary: bool,
-            }
-            let mut activity_map: std::collections::HashMap<String, ActAgg> =
-                std::collections::HashMap::new();
-
-            for (activity_id, set) in &sets {
-                if set.exercise_category != exercise_category {
-                    continue;
-                }
-
-                let muscles = fit::exercise_muscle_groups(set.exercise_category);
-                let Some(muscle) = muscles.iter().find(|m| m.slug == muscle_slug) else {
-                    continue;
-                };
-
-                let is_primary = muscle.intensity == 2;
-                let agg = activity_map.entry(activity_id.clone()).or_insert(ActAgg {
-                    total_sets: 0.0,
-                    total_reps: 0.0,
-                    volume_kg: 0.0,
-                    has_primary: false,
-                });
-
-                let contribution = muscle_contribution(set, muscle.intensity);
-                agg.total_sets += contribution.sets;
-                agg.total_reps += contribution.reps;
-                agg.volume_kg += contribution.volume_kg;
-                if is_primary {
-                    agg.has_primary = true;
-                }
-            }
-
-            // Fetch activity names
-            let activity_ids: Vec<String> = activity_map.keys().cloned().collect();
-            let names = pooled::activity_names(conn, &activity_ids).map_err(|err| {
-                VeloqError::Database {
-                    msg: format!("{}", err),
-                }
-            })?;
-
-            let mut activities: Vec<FfiExerciseActivity> = activity_map
-                .into_iter()
-                .filter_map(|(id, agg)| {
-                    let (name, date) = names.get(&id)?;
-                    Some(FfiExerciseActivity {
-                        activity_id: id,
-                        activity_name: name.clone(),
-                        date: *date as f64,
-                        sets: agg.total_sets,
-                        reps: agg.total_reps,
-                        volume_kg: agg.volume_kg,
-                        is_primary: agg.has_primary,
-                    })
-                })
-                .collect();
-
-            // Sort by date descending
-            activities.sort_by(|a, b| b.date.total_cmp(&a.date));
-
-            Ok(FfiExerciseActivities { activities })
-        })?
     }
 }
 
@@ -888,6 +782,21 @@ pub fn diagram_shade(weighted_sets: f64, max_weighted_sets: f64) -> u8 {
     steps.clamp(1.0, DIAGRAM_SHADES as f64) as u8
 }
 
+/// The most weighted sets each shade covers, lightest first, to a tenth of a
+/// set: shade k ends at k of `DIAGRAM_SHADES` parts of the maximum, and the
+/// last at the maximum itself. A maximum that is zero, negative or not finite
+/// covers no sets at any shade.
+pub fn diagram_shade_ceilings(max_weighted_sets: f64) -> Vec<f64> {
+    let max = if max_weighted_sets.is_finite() && max_weighted_sets > 0.0 {
+        max_weighted_sets
+    } else {
+        0.0
+    };
+    (1..=DIAGRAM_SHADES)
+        .map(|k| ((max * f64::from(k)) / f64::from(DIAGRAM_SHADES) * 10.0).round() / 10.0)
+        .collect()
+}
+
 /// Aggregate a slice of (activity_id, exercise_set) into a strength summary.
 /// It takes the rows rather than the engine, so the screen read aggregates
 /// every window it was asked for under one lock.
@@ -973,6 +882,7 @@ pub fn aggregate_strength_sets(sets: &[(String, fit::FitExerciseSet)]) -> FfiStr
         total_sets: total_active_sets,
         balance,
         max_weighted_sets,
+        shade_ceilings: diagram_shade_ceilings(max_weighted_sets),
     }
 }
 
@@ -1080,9 +990,8 @@ pub(crate) fn muscle_detail_from(
     activity_id: &str,
     muscle_slug: &str,
 ) -> Result<crate::FfiMuscleGroupDetail, VeloqError> {
-    let sets = pooled::exercise_sets(conn, activity_id).map_err(|err| VeloqError::Database {
-        msg: format!("{}", err),
-    })?;
+    let sets = pooled::exercise_sets(conn, activity_id)
+        .map_err(|err| VeloqError::database(format!("{}", err)))?;
     Ok(aggregate_muscle_detail(muscle_slug, &sets))
 }
 
@@ -1121,11 +1030,8 @@ pub(crate) fn strength_screen_from(
     end_ts: i64,
     week_ranges: Vec<FfiTimestampRange>,
 ) -> Result<crate::FfiStrengthScreenData, VeloqError> {
-    let period = pooled::exercise_sets_in_range(conn, start_ts, end_ts).map_err(|err| {
-        VeloqError::Database {
-            msg: format!("{}", err),
-        }
-    })?;
+    let period = pooled::exercise_sets_in_range(conn, start_ts, end_ts)
+        .map_err(|err| VeloqError::database(format!("{}", err)))?;
 
     let weekly = week_ranges
         .into_iter()
@@ -1136,18 +1042,12 @@ pub(crate) fn strength_screen_from(
                     summary.start_ts = range.start_ts;
                     summary
                 })
-                .map_err(|err| VeloqError::Database {
-                    msg: format!("{}", err),
-                })
+                .map_err(|err| VeloqError::database(format!("{}", err)))
         })
         .collect::<Result<Vec<FfiStrengthSummary>, VeloqError>>()?;
 
-    let owed_count =
-        pooled::unprocessed_strength_count_in_range(conn, start_ts, end_ts).map_err(|err| {
-            VeloqError::Database {
-                msg: format!("{}", err),
-            }
-        })?;
+    let owed_count = pooled::unprocessed_strength_count_in_range(conn, start_ts, end_ts)
+        .map_err(|err| VeloqError::database(format!("{}", err)))?;
 
     Ok(crate::FfiStrengthScreenData {
         owed_count,
@@ -1163,9 +1063,7 @@ pub(crate) fn widget_strength_window(
     start_ts: i64,
     end_ts: i64,
 ) -> Result<crate::WidgetStrengthWindow, VeloqError> {
-    let database = |err: rusqlite::Error| VeloqError::Database {
-        msg: format!("{}", err),
-    };
+    let database = |err: rusqlite::Error| VeloqError::database(format!("{}", err));
     let sets = pooled::exercise_sets_in_range(conn, start_ts, end_ts).map_err(database)?;
     let owed_count =
         pooled::unprocessed_strength_count_in_range(conn, start_ts, end_ts).map_err(database)?;
@@ -2184,6 +2082,9 @@ mod tests {
         FfiStrengthSummary {
             start_ts: 0.0,
             max_weighted_sets: volumes.first().map_or(0.0, |m| m.weighted_sets),
+            shade_ceilings: diagram_shade_ceilings(
+                volumes.first().map_or(0.0, |m| m.weighted_sets),
+            ),
             balance: balance_pairs(&volumes),
             muscle_volumes: volumes,
             activity_count: 1,

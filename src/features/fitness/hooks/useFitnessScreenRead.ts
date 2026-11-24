@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { RangeCoverage, type FitnessScreenData } from 'veloqrs';
+import { RangeCoverage, type FitnessScreenData, type SpanThresholdPaces } from 'veloqrs';
 
 import type { DecouplingSource } from '@/features/activity';
 import type { DayActivity } from '@/features/activity/light';
@@ -12,7 +12,8 @@ import {
   type TrainingCardsRead,
 } from '@/features/stats/light';
 import { PERIOD_DAYS, SPAN_PERIODS } from '@/shared/app/period';
-import { epochDayKeyUtc, formatLocalDate, parseDayString } from '@/shared/format/format';
+import { epochDayKeyUtc, parseDayString } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import type { EftpChange } from '../lib/eftpChanges';
 import { ftpTrendView, type FtpTrendView } from '../lib/ftpTrendView';
@@ -25,9 +26,8 @@ interface FitnessParts {
   eftpCoverage: RangeCoverage;
   /** The activities that moved the accepted eFTP, oldest first. */
   eftpChanges: EftpChange[];
-  /** The last stored critical speeds in m/s, null when none was ever stored. */
-  storedRunPace: number | null;
-  storedSwimPace: number | null;
+  /** The threshold paces the engine chose, with their text, by the span's length in days. */
+  thresholdPaces: ReadonlyMap<number, SpanThresholdPaces>;
   /** The sport the latest activities are mostly in, null for none or a tie. */
   librarySport: string | null;
   /** The fitness and fatigue time constants in days in effect today, null without a read. */
@@ -46,7 +46,7 @@ interface FitnessParts {
 }
 
 /** What the fitness tab paints with that stays fixed while it is mounted. */
-export interface FitnessScreenRead extends FitnessParts {
+interface FitnessScreenRead extends FitnessParts {
   /** The calendar's, the weekly card's and the year comparison's part, handed to each. */
   training: TrainingCardsRead;
 }
@@ -58,8 +58,7 @@ const NO_FITNESS_PARTS: FitnessParts = {
   eftpTrend: undefined,
   eftpCoverage: RangeCoverage.NotFetched,
   eftpChanges: [],
-  storedRunPace: null,
-  storedSwimPace: null,
+  thresholdPaces: new Map(),
   librarySport: null,
   fitnessDays: null,
   fatigueDays: null,
@@ -81,8 +80,7 @@ function fitnessPartsView(read: FitnessScreenData): FitnessParts {
       activityId: change.activityId,
       activityName: change.activityName,
     })),
-    storedRunPace: read.runPaceTrend.latestPace ?? null,
-    storedSwimPace: read.swimPaceTrend.latestPace ?? null,
+    thresholdPaces: new Map(read.thresholdPaces.map((span) => [span.days, span])),
     librarySport: read.sportMix.dominant ?? null,
     // Zero is the closed handle's stand-in, never a time constant.
     fitnessDays: read.fitnessDays || null,
@@ -121,7 +119,7 @@ function fitnessPartsView(read: FitnessScreenData): FitnessParts {
 
 /**
  * The fitness tab's one screen read: the eFTP trend and its markers, the
- * critical speeds the threshold falls back on when no curve is to hand, the
+ * running and swimming threshold paces with their text for every span, the
  * sport the primary sport defaults to, the set cycling FTP and running
  * LTHR, for every span of the range picker the decoupling ride and the
  * activities the strip under the plot marks, and over the calendar windows
@@ -137,8 +135,13 @@ function fitnessPartsView(read: FitnessScreenData): FitnessParts {
  * A read that throws paints the screen's own parts empty, and hands the
  * calendar cards the error, so they say the read failed rather than draw a
  * year of nothing.
+ *
+ * `curveFetches` is when each curve the threshold paces depend on was last
+ * fetched, as the hooks that download them report it.
  */
-export function useFitnessScreenRead(): FitnessScreenRead {
+export function useFitnessScreenRead(
+  curveFetches: readonly (number | null)[] = []
+): FitnessScreenRead {
   // The trend and the calendar windows are measured back from today, so a new
   // day is a new read.
   const day = formatLocalDate(new Date());
@@ -146,7 +149,9 @@ export function useFitnessScreenRead(): FitnessScreenRead {
   // A retry or a pull to refresh reads again though no event announced a change.
   const [attempt, setAttempt] = useState(0);
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
-  const readActivities = useEngineRead(['activities'], [day, attempt]);
+  // A curve landing moves no `activities` event, yet the threshold pace is chosen
+  // from the curve of its span, so the time of each fetch is a reason to read again.
+  const readActivities = useEngineRead(['activities'], [day, attempt, ...curveFetches]);
 
   return useMemo(() => {
     let read: FitnessScreenData | undefined;

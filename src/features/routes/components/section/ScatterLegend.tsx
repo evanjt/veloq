@@ -17,7 +17,7 @@ import { ChartMarkKey, type ChartMarkKeyKind } from '@/shared/charts';
 import { directionColour } from '@/features/routes/lib/directionColour';
 import type { ChartDirection } from '@/features/routes/lib/scatterData';
 
-export interface ScatterLegendProps {
+interface ScatterLegendProps {
   isDark: boolean;
   /** The direction the plot shows, whose colour its dots and trend are drawn in. */
   direction: ChartDirection;

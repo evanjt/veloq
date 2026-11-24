@@ -72,6 +72,8 @@ export function SummaryCardSection() {
             fitnessRiseDays={summaryCardData.fitnessRiseDays}
             fatigueData={summaryCardData.fatigueData}
             formData={summaryCardData.formData}
+            formZoneData={summaryCardData.formZoneData}
+            formTextData={summaryCardData.formTextData}
             hrvData={summaryCardData.hrvData}
             rhrData={summaryCardData.rhrData}
             hrvRead={summaryCardData.hrvRead}

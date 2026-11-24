@@ -245,11 +245,15 @@ function SettingsScreenContent() {
   // date and would otherwise make a switched-off row read as running.
   const autoBackupEnabled = useAutoBackupEnabled();
   const lastBackupTimestamp = useLastBackupTimestamp();
-  const lastBackupText = !autoBackupEnabled
-    ? t('common.off')
-    : lastBackupTimestamp
-      ? formatFullDate(new Date(lastBackupTimestamp))
-      : t('backup.lastBackupNever');
+  // Undefined until the first focus read, so the row carries no subtitle rather than a wrong one.
+  const lastBackupText =
+    autoBackupEnabled === undefined || lastBackupTimestamp === undefined
+      ? undefined
+      : !autoBackupEnabled
+        ? t('common.off')
+        : lastBackupTimestamp
+          ? formatFullDate(new Date(lastBackupTimestamp))
+          : t('backup.lastBackupNever');
 
   // Linked devices is experimental, so its row shows only while its switch is on.
   const remoteLinkOn = useExperimental('remoteLink');

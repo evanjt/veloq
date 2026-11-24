@@ -17,8 +17,20 @@ jest.mock('@/shared/app', () => ({
 
 const props: React.ComponentProps<typeof StatsRow> = {
   direction: 'forward' as const,
-  stats: { avgTime: 300, lastActivity: null, count: 3, avgSpeed: 3.5, outsideBandCount: 0 },
-  bestRecord: { bestPace: 4, bestTime: 250, activityDate: new Date(0) },
+  stats: {
+    avgTime: 300,
+    lastActivity: null,
+    count: 3,
+    avgSpeed: 3.5,
+    avgPaceText: { metricText: '4:38', imperialText: '7:28' },
+    outsideBandCount: 0,
+  },
+  bestRecord: {
+    bestPace: 4,
+    bestPaceText: { metricText: '4:11', imperialText: '6:44' },
+    bestTime: 250,
+    activityDate: new Date(0),
+  },
   bestIsRecord: true,
   pointCount: 3,
   basis: 'pace',
@@ -42,12 +54,30 @@ describe('StatsRow pace units', () => {
     expect(out).not.toContain('/mi');
   });
 
-  it('prints the engine average speed as the average pace, not the section length over the mean time', async () => {
+  it('prints the engine pace text, not a pace worked out from the speed', async () => {
     mockIsMetric = true;
     const { toJSON } = await render(
-      <StatsRow {...props} stats={{ ...props.stats!, avgTime: 306, avgSpeed: 2.5 }} />
+      <StatsRow
+        {...props}
+        stats={{
+          ...props.stats!,
+          avgTime: 306,
+          avgSpeed: 2.5,
+          avgPaceText: { metricText: '6:41', imperialText: '10:46' },
+        }}
+      />
     );
     const out = JSON.stringify(toJSON());
-    expect(out).toContain('6:40 /km');
+    expect(out).toContain('6:41 /km');
+    expect(out).not.toContain('6:40');
+  });
+
+  it('prints the stored time where the engine wrote no pace', async () => {
+    mockIsMetric = true;
+    const { toJSON } = await render(
+      <StatsRow {...props} stats={{ ...props.stats!, avgTime: 306, avgPaceText: null }} />
+    );
+    const out = JSON.stringify(toJSON());
+    expect(out).toContain('5:06 avg');
   });
 });

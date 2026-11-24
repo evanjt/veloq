@@ -2,10 +2,7 @@ import { useHeroHeaderBottom } from '@/shared/ui';
 import { layout } from '@/theme';
 import { MAP_CONTROL_GAP, MAP_CONTROL_SIZE } from '../components/MapControlButton';
 
-/** Most buttons the activity map's control column ever holds. */
-export const MAX_MAP_CONTROLS = 6;
-
-export interface ActivityMapControlFlags {
+interface ActivityMapControlFlags {
   /** Whether the column is drawn at all. */
   shown: boolean;
   /** Whether the gradient toggle is drawn. */
@@ -36,7 +33,7 @@ export function activityMapControlCount({
   );
 }
 
-export interface MapControlColumnLayout {
+interface MapControlColumnLayout {
   /** Columns the buttons wrap into. */
   columns: number;
   /** Height the column is bounded by, so no button leaves the map. */
@@ -69,7 +66,7 @@ export function mapControlColumnLayout(
   };
 }
 
-export interface MapControlColumn extends MapControlColumnLayout {
+interface MapControlColumn extends MapControlColumnLayout {
   /** Distance from the top of the map to the column. */
   top: number;
 }

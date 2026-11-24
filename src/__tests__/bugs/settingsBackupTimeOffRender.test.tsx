@@ -11,8 +11,11 @@ import { renderHook, act } from '@testing-library/react-native';
 import { useEffect } from 'react';
 import { useFocusEffect } from 'expo-router';
 
-import { useLastBackupTimestamp } from '@/features/settings/hooks/useLastBackupTimestamp';
-import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
+import {
+  useAutoBackupEnabled,
+  useLastBackupTimestamp,
+} from '@/features/settings/hooks/useLastBackupTimestamp';
+import { getLastBackupTimestamp, isAutoBackupEnabled } from '@/features/settings/lib/autobackup';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -24,9 +27,11 @@ jest.mock('expo-router', () => ({
 
 jest.mock('@/features/settings/lib/autobackup', () => ({
   getLastBackupTimestamp: jest.fn(() => 1_700_000_000_000),
+  isAutoBackupEnabled: jest.fn(() => true),
 }));
 
 const mockRead = getLastBackupTimestamp as jest.MockedFunction<typeof getLastBackupTimestamp>;
+const mockEnabled = isAutoBackupEnabled as jest.MockedFunction<typeof isAutoBackupEnabled>;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -63,5 +68,27 @@ describe('the settings backup time is read on focus', () => {
     const { result } = await renderHook(() => useLastBackupTimestamp());
 
     expect(result.current).toBeNull();
+  });
+
+  it('reports the backup time as unknown before the first focus, not never', async () => {
+    (useFocusEffect as jest.Mock).mockImplementation(() => {});
+    const { result } = await renderHook(() => useLastBackupTimestamp());
+
+    expect(result.current).toBeUndefined();
+  });
+
+  it('reports auto-backup as unknown before the first focus, not off', async () => {
+    (useFocusEffect as jest.Mock).mockImplementation(() => {});
+    mockEnabled.mockReturnValue(true);
+    const { result } = await renderHook(() => useAutoBackupEnabled());
+
+    expect(result.current).toBeUndefined();
+  });
+
+  it('reads auto-backup on focus', async () => {
+    mockEnabled.mockReturnValue(true);
+    const { result } = await renderHook(() => useAutoBackupEnabled());
+
+    expect(result.current).toBe(true);
   });
 });

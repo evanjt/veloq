@@ -4232,7 +4232,7 @@ fn export_done(browser: &str, ask: Value) -> Result<Value, String> {
     to_result(&FfiLinkWriteDone { ok: true })
 }
 
-fn database_error(error: crate::objects::error::VeloqError) -> String {
+fn error_message(error: crate::objects::error::VeloqError) -> String {
     error.to_string()
 }
 
@@ -4339,11 +4339,39 @@ fn section_enable(
     done("sections", ask.id, format!("Enabled section {shown}"))
 }
 
+/// A hidden custom section is counted as removed and the link has no way to
+/// bring it back that deletes it, so hiding one is refused. Delete is the
+/// removal a custom section has.
+fn refuse_hiding_custom(
+    engine: &crate::persistence::PersistentEngine,
+    ids: &[String],
+) -> Result<(), String> {
+    use rusqlite::OptionalExtension;
+    for id in ids {
+        let custom: Option<bool> = engine
+            .db
+            .query_row(
+                "SELECT section_type = 'custom' FROM sections WHERE id = ?",
+                [id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|e| format!("Failed to read the section type: {e}"))?;
+        if custom == Some(true) {
+            return Err(format!(
+                "Section {id} was made by you, so it can be deleted but not disabled"
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn section_disable(
     engine: &mut crate::persistence::PersistentEngine,
     ask: Value,
 ) -> Result<Written, String> {
     let ask: FfiLinkSectionAsk = params(ask)?;
+    refuse_hiding_custom(engine, std::slice::from_ref(&ask.id))?;
     let shown = section_label(engine, &ask.id);
     engine.disable_section(&ask.id)?;
     done("sections", ask.id, format!("Disabled section {shown}"))
@@ -4354,6 +4382,9 @@ fn section_set_enabled_many(
     ask: Value,
 ) -> Result<Written, String> {
     let ask: FfiLinkSectionIdsEnabledAsk = params(ask)?;
+    if !ask.enabled {
+        refuse_hiding_custom(engine, &ask.ids)?;
+    }
     engine.set_sections_enabled(&ask.ids, ask.enabled)?;
     let verb = if ask.enabled { "Enabled" } else { "Disabled" };
     let summary = match ask.ids.len() {
@@ -4387,7 +4418,7 @@ fn section_exclude_activity(
     let section = section_label(engine, &ask.id);
     let activity = activity_label(engine, &ask.activity_id);
     crate::objects::sections::exclude_activity_from(engine, &ask.id, &ask.activity_id)
-        .map_err(database_error)?;
+        .map_err(error_message)?;
     done(
         "sections",
         ask.id,
@@ -4403,7 +4434,7 @@ fn section_include_activity(
     let section = section_label(engine, &ask.id);
     let activity = activity_label(engine, &ask.activity_id);
     crate::objects::sections::include_activity_in(engine, &ask.id, &ask.activity_id)
-        .map_err(database_error)?;
+        .map_err(error_message)?;
     done(
         "sections",
         ask.id,
@@ -4419,7 +4450,7 @@ fn section_exclude_lap(
     let section = section_label(engine, &ask.id);
     let activity = activity_label(engine, &ask.activity_id);
     crate::objects::sections::exclude_lap_from(engine, &ask.id, &ask.activity_id, ask.start_index)
-        .map_err(database_error)?;
+        .map_err(error_message)?;
     done(
         "sections",
         ask.id,
@@ -4435,7 +4466,7 @@ fn section_include_lap(
     let section = section_label(engine, &ask.id);
     let activity = activity_label(engine, &ask.activity_id);
     crate::objects::sections::include_lap_in(engine, &ask.id, &ask.activity_id, ask.start_index)
-        .map_err(database_error)?;
+        .map_err(error_message)?;
     done(
         "sections",
         ask.id,
@@ -4568,7 +4599,7 @@ fn section_create(
         ask.start_index,
         ask.end_index,
     )
-    .map_err(database_error)?;
+    .map_err(error_message)?;
     let summary = match shown {
         Some(name) => format!("Cut section {name} from {activity}"),
         None => format!("Cut a section from {activity}"),
@@ -4675,7 +4706,7 @@ fn route_rename(
 ) -> Result<Written, String> {
     let ask: FfiLinkRouteRenameAsk = params(ask)?;
     let shown = route_label(engine, &ask.id);
-    crate::objects::routes::rename_route(engine, &ask.id, &ask.name).map_err(database_error)?;
+    crate::objects::routes::rename_route(engine, &ask.id, &ask.name).map_err(error_message)?;
     let summary = if ask.name.is_empty() {
         format!("Cleared the name of route {shown}")
     } else {

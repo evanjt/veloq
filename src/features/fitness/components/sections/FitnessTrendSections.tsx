@@ -9,7 +9,7 @@ import { ZoneDistributionChart, FTPTrendChart, DecouplingChart } from '@/feature
 import { type DecouplingSource } from '@/features/activity';
 import { useTheme } from '@/shared/app';
 import { type PrimarySport } from '@/features/fitness/stores';
-import { formatPaceCompact, paceUnitLabel } from '@/shared/format/format';
+import { paceUnitLabel } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { PERIOD_LABEL_KEYS } from '@/shared/app/period';
 import {
@@ -27,7 +27,7 @@ import { trendIcon, trendVerdict, verdictRung, type TrendDirection } from '@/sha
 import { type TimeRange } from '@/features/wellness';
 import type { ZoneDistribution } from '@/types';
 import type { FtpTrendView } from '../../lib/ftpTrendView';
-import type { RangeCoverage } from 'veloqrs';
+import type { RangeCoverage, ThresholdPace } from 'veloqrs';
 import { ABSENT } from '@/shared/format/absent';
 import { formatPercent } from '@/shared/format';
 
@@ -62,7 +62,8 @@ interface FitnessTrendSectionsProps {
   trendsExpanded: boolean;
   onTrendsToggle: (expanded: boolean) => void;
   // Running thresholds
-  thresholdPace: number | undefined;
+  /** The running threshold pace the engine chose, with its text. */
+  thresholdPace: ThresholdPace | undefined;
   runLthr: number | undefined;
   // Decoupling (cycling), the stored value of the ride it names
   decouplingSource: DecouplingSource | null;
@@ -208,7 +209,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
               headerRight={
                 thresholdPace ? (
                   <Text style={[styles.headerValue, { color: valueInk }]}>
-                    {formatPaceCompact(thresholdPace, isMetric)}
+                    {isMetric ? thresholdPace.metricText : thresholdPace.imperialText}
                     {paceUnitLabel(isMetric)}
                   </Text>
                 ) : runLthr ? (
@@ -235,7 +236,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                         label={t('statsScreen.criticalSpeed')}
                         value={
                           thresholdPace
-                            ? `${formatPaceCompact(thresholdPace, isMetric)}${paceUnitLabel(isMetric)}`
+                            ? `${isMetric ? thresholdPace.metricText : thresholdPace.imperialText}${paceUnitLabel(isMetric)}`
                             : ABSENT
                         }
                         valueColor={valueInk}

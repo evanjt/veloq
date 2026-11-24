@@ -12,7 +12,7 @@ import { ActivityDotsChart } from '@/features/fitness/components/ActivityDotsCha
 import { answerSheet } from '../../__shared__/answerSheet';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import type { FeedCard, WellnessData } from '@/types';
-import { dayActivityRow } from '@/features/activity/light';
+import { dayActivityRow } from '../../__shared__/dayActivityRow';
 import { Gesture } from 'react-native-gesture-handler';
 
 const mockPush = jest.fn();

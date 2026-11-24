@@ -19,7 +19,7 @@ export interface MapSection {
   distanceMeters: number;
 }
 
-export interface MapSectionInput {
+interface MapSectionInput {
   id: string;
   name?: string | undefined;
   visitCount: number;
@@ -27,13 +27,13 @@ export interface MapSectionInput {
   encodedPolyline: ArrayBuffer;
 }
 
-export interface MapSectionLayerInput {
+interface MapSectionLayerInput {
   stamp?: number | undefined;
   /** Absent when the read was answered under the stamp the caller holds */
   sections?: MapSectionInput[] | undefined;
 }
 
-export interface MapSectionOverlay {
+interface MapSectionOverlay {
   sections: MapSection[];
   collection: GeoJSON.FeatureCollection;
 }

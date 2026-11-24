@@ -13,6 +13,7 @@
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
+import { NO_STATED_FORM } from '../__shared__/noStatedForm';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
@@ -33,6 +34,7 @@ const engine = {
     return {
       days: [{ date: '2026-03-01', ctl: 50, sportLoad: [] }],
       coverage: RangeCoverage.Loaded,
+      ...NO_STATED_FORM,
     };
   }),
   subscribe: jest.fn((event: string, callback: Listener) => {

@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 
-import type { Athlete } from '@/types';
 import { getEngine } from '@/shared/native/engine';
 import { rememberStoredActivityCount } from '@/shared/storage/cachedAthleteId';
 import { DEMO_ATHLETE_ID, sourceFor, type AuthMethod } from '@/shared/app/source';
@@ -198,7 +197,6 @@ interface AuthState {
   apiKey: string | null;
   accessToken: string | null;
   athleteId: string | null;
-  athlete: Athlete | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   isDemoMode: boolean;
@@ -210,18 +208,13 @@ interface AuthState {
   // Actions
   initialise: () => Promise<void>;
   setCredentials: (apiKey: string, athleteId: string) => Promise<void>;
-  setOAuthCredentials: (
-    accessToken: string,
-    athleteId: string,
-    athleteName?: string
-  ) => Promise<void>;
+  setOAuthCredentials: (accessToken: string, athleteId: string) => Promise<void>;
   /**
    * Sign in with a Garmin Personal key alone. `accountId` is the id Garmin
    * keeps for the account, and names the library as `garmin:<id>`.
    */
   setGarminCredentials: (key: string, accountId: string) => Promise<void>;
   clearCredentials: () => Promise<void>;
-  setAthlete: (athlete: Athlete) => void;
   enterDemoMode: () => void;
   exitDemoMode: () => Promise<void>;
   /**
@@ -242,7 +235,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   apiKey: null,
   accessToken: null,
   athleteId: null,
-  athlete: null,
   isLoading: true,
   isAuthenticated: false,
   isDemoMode: false,
@@ -355,7 +347,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     pushCredentialsToEngine();
   },
 
-  setOAuthCredentials: async (accessToken: string, athleteId: string, athleteName?: string) => {
+  setOAuthCredentials: async (accessToken: string, athleteId: string) => {
     // Trim and validate credentials
     const trimmedAccessToken = accessToken?.trim() ?? '';
     const trimmedAthleteId = athleteId?.trim() ?? '';
@@ -390,8 +382,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isAuthenticated: true,
       isDemoMode: false,
       authMethod: 'oauth',
-      // Set basic athlete info if provided
-      athlete: athleteName ? ({ id: trimmedAthleteId, name: athleteName } as Athlete) : null,
     });
     pushCredentialsToEngine();
 
@@ -445,7 +435,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       apiKey: null,
       accessToken: null,
       athleteId,
-      athlete: null,
       isAuthenticated: true,
       isDemoMode: false,
       authMethod: 'garmin',
@@ -488,16 +477,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       apiKey: null,
       accessToken: null,
       athleteId: null,
-      athlete: null,
       isAuthenticated: false,
       isDemoMode: false,
       authMethod: null,
     });
     pushCredentialsToEngine();
-  },
-
-  setAthlete: (athlete: Athlete) => {
-    set({ athlete });
   },
 
   enterDemoMode: () => {
@@ -506,7 +490,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isAuthenticated: true,
       isDemoMode: true,
       authMethod: 'demo',
-      athlete: null,
     });
     disablePushForSession();
     // Demo mode has no upstream credential, so the engine must hold none.
@@ -528,7 +511,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isDemoMode: false,
       hideDemoBanner: false,
       authMethod: null,
-      athlete: null,
     });
     pushCredentialsToEngine();
   },
@@ -539,7 +521,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isAuthenticated: true,
       isDemoMode: false,
       authMethod: 'files',
-      athlete: null,
       sessionExpired: null,
     });
     disablePushForSession();
@@ -556,7 +537,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isAuthenticated: false,
       isDemoMode: false,
       authMethod: null,
-      athlete: null,
     });
     pushCredentialsToEngine();
   },
@@ -593,7 +573,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       apiKey: null,
       accessToken: null,
       athleteId: null,
-      athlete: null,
       isAuthenticated: false,
       authMethod: null,
       sessionExpired: reason,

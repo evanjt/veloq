@@ -44,6 +44,8 @@ interface InsightSeriesChartProps {
    * ticks already say up is more.
    */
   invert?: boolean;
+  /** Mark the value axis on samples' own values, for text the engine sent per sample. */
+  marksOnSamples?: boolean;
   /** A dot on every sample, for a series of discrete efforts. */
   pointColor?: string;
   /** The record's gold ring or the reticle on the sample at this index in `samples`. */
@@ -80,6 +82,7 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
   label,
   formatValue,
   invert = false,
+  marksOnSamples = false,
   pointColor,
   marker,
   accessory,
@@ -100,10 +103,11 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
         formatDate,
         invert,
         fromZero: bars,
+        marksOnSamples,
         others: otherSamples,
         xRange,
       }),
-    [samples, invert, bars, otherSamples, xRange]
+    [samples, invert, bars, marksOnSamples, otherSamples, xRange]
   );
   const further = useMemo<FurtherSeries<SeriesDatum>[]>(
     () => others.map((other, i) => ({ y: (d: SeriesDatum) => d.others[i], color: other.color })),
@@ -178,6 +182,7 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
           others={further}
           xDomain={model.xDomain}
           yDomain={model.yDomain}
+          {...(model.yMarks ? { yMarks: model.yMarks } : {})}
           xLabels={model.xLabels}
           formatY={formatY}
           reading={reading}

@@ -1,9 +1,10 @@
 //! The engine's side of the remote link: its certificate, which peers it
 //! admits, and the connections it is serving.
 
+use crate::poison::Recover;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 
 use str0m::config::DtlsCert;
 
@@ -38,12 +39,6 @@ pub(crate) fn now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |since| since.as_secs() as i64)
-}
-
-fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 /// The stored certificate as the bytes `remote_identity` keeps: the
@@ -119,7 +114,8 @@ struct EngineGate;
 impl Gate for EngineGate {
     fn is_pinned(&self, fingerprint: &str) -> bool {
         linked(fingerprint)
-            || lock(&PAIRING)
+            || PAIRING
+                .lock_recover()
                 .as_ref()
                 .is_some_and(|pairing| pairing.admits(fingerprint, now()))
     }
@@ -193,11 +189,11 @@ impl Gate for EngineGate {
                     now,
                 )?
             {
-                lock(&OPEN_ROWS).push((fingerprint.to_owned(), row));
+                OPEN_ROWS.lock_recover().push((fingerprint.to_owned(), row));
             }
             Ok::<(), rusqlite::Error>(())
         });
-        lock(&CONNECTED).push((fingerprint.to_owned(), now));
+        CONNECTED.lock_recover().push((fingerprint.to_owned(), now));
     }
 
     fn changed(&self) -> Option<u64> {
@@ -212,13 +208,13 @@ impl Gate for EngineGate {
     }
 
     fn disconnected(&self, fingerprint: &str, reason: Option<DisconnectReason>) {
-        let mut connected = lock(&CONNECTED);
+        let mut connected = CONNECTED.lock_recover();
         if let Some(at) = connected.iter().position(|(f, _)| f == fingerprint) {
             connected.remove(at);
         }
         drop(connected);
         let row = {
-            let mut open = lock(&OPEN_ROWS);
+            let mut open = OPEN_ROWS.lock_recover();
             open.iter()
                 .position(|(f, _)| f == fingerprint)
                 .map(|at| open.remove(at).1)
@@ -256,7 +252,8 @@ fn keep_client(fingerprint: &str, request: &serde_json::Value) {
     let Some(client) = super::client::describe(&client) else {
         return;
     };
-    let Some(row) = lock(&OPEN_ROWS)
+    let Some(row) = OPEN_ROWS
+        .lock_recover()
         .iter()
         .rev()
         .find(|(f, _)| f == fingerprint)
@@ -278,7 +275,7 @@ static STAMP: Mutex<Option<(String, rusqlite::Connection)>> = Mutex::new(None);
 /// value cannot be read.
 fn database_stamp() -> Option<u64> {
     let (_, path) = read_pool::binding()?;
-    let mut held = lock(&STAMP);
+    let mut held = STAMP.lock_recover();
     if held.as_ref().is_none_or(|(opened, _)| *opened != path) {
         *held = Some((path.clone(), read_pool::open_reader(&path).ok()?));
     }
@@ -327,7 +324,7 @@ impl SpentSecrets for NothingSpent {
 
 fn pairing_answer(presented: &str, local: &str, request: &serde_json::Value) -> String {
     let id = request["id"].clone();
-    let mut pairing = lock(&PAIRING);
+    let mut pairing = PAIRING.lock_recover();
     let Some(pairing) = pairing.as_mut().filter(|p| p.admits(presented, now())) else {
         // The pairing closes when the athlete accepts, so a browser polling
         // after that is answered from its link.
@@ -374,13 +371,14 @@ pub fn begin_pairing(qr: &str) -> Result<String, PairingRefusal> {
         return Err(PairingRefusal::Spent);
     }
     let room = invitation.room.clone();
-    *lock(&PAIRING) = Some(Pairing::new(invitation));
+    *PAIRING.lock_recover() = Some(Pairing::new(invitation));
     Ok(room)
 }
 
 /// The name of a proved browser waiting for the athlete's answer.
 pub fn pairing_request() -> Option<String> {
-    lock(&PAIRING)
+    PAIRING
+        .lock_recover()
         .as_ref()
         .and_then(|pairing| pairing.asking().map(str::to_owned))
 }
@@ -389,7 +387,7 @@ pub fn pairing_request() -> Option<String> {
 /// ends its connection. Returns whether a browser was linked.
 pub fn confirm_pairing(accept: bool) -> Result<bool, String> {
     let (decision, browser, secret) = {
-        let mut pairing = lock(&PAIRING);
+        let mut pairing = PAIRING.lock_recover();
         let Some(pairing) = pairing.as_mut() else {
             return Ok(false);
         };
@@ -428,9 +426,7 @@ pub fn unlink(id: &str) -> Result<bool, crate::objects::error::VeloqError> {
         linked_devices::remove(conn, id).map(|removed| (fingerprint, removed))
     })
     .ok_or_else(engine_refused)?
-    .map_err(|error| VeloqError::Database {
-        msg: error.to_string(),
-    })?;
+    .map_err(|error| VeloqError::database(error.to_string()))?;
     if let Some(fingerprint) = fingerprint {
         forget(&fingerprint);
         disconnect(Some(&fingerprint), DisconnectReason::Removed);
@@ -445,9 +441,7 @@ pub fn disconnect_device(id: &str) -> Result<bool, crate::objects::error::VeloqE
     let fingerprint =
         settings_conn::with_settings_conn(|conn| linked_devices::fingerprint_of(conn, id))
             .ok_or_else(engine_refused)?
-            .map_err(|error| VeloqError::Database {
-                msg: error.to_string(),
-            })?;
+            .map_err(|error| VeloqError::database(error.to_string()))?;
     let Some(fingerprint) = fingerprint else {
         return Ok(false);
     };
@@ -460,14 +454,12 @@ pub fn rename_device(id: &str, name: &str) -> Result<bool, crate::objects::error
     use crate::objects::error::{VeloqError, engine_refused};
     settings_conn::with_settings_conn(|conn| linked_devices::rename(conn, id, name))
         .ok_or_else(engine_refused)?
-        .map_err(|error| VeloqError::Database {
-            msg: error.to_string(),
-        })
+        .map_err(|error| VeloqError::database(error.to_string()))
 }
 
 /// Close the open pairing when it is for `browser`, whatever its stage.
 fn close_pairing_for(browser: &str) {
-    let mut open = lock(&PAIRING);
+    let mut open = PAIRING.lock_recover();
     if open
         .as_ref()
         .is_some_and(|pairing| pairing.invitation.browser == browser)
@@ -486,7 +478,7 @@ pub fn forget(browser: &str) {
 
 /// Close the open pairing and end the connection it admitted, if not linked.
 pub fn cancel_pairing() {
-    let open = lock(&PAIRING).take();
+    let open = PAIRING.lock_recover().take();
     if let Some(pairing) = open
         && !linked(&pairing.invitation.browser)
     {
@@ -531,7 +523,7 @@ pub(crate) fn accept_offer_with<G: Gate>(
     let (cert, address, stun) = prepare()?;
     let (answer, served) = peer::accept(offer, cert, address, gate, stun)?;
     let replaced: Vec<Peer> = {
-        let mut peers = lock(&PEERS);
+        let mut peers = PEERS.lock_recover();
         peers.retain(|(_, peer)| !peer.is_finished());
         let (old, keeping) =
             std::mem::take(&mut *peers)
@@ -579,7 +571,7 @@ fn rooms_for(browsers: &[(String, Option<Vec<u8>>)], certificate: &[u8]) -> Vec<
 /// browser why first.
 pub fn disconnect(fingerprint: Option<&str>, reason: DisconnectReason) {
     let ending: Vec<Peer> = {
-        let mut peers = lock(&PEERS);
+        let mut peers = PEERS.lock_recover();
         let (ending, keeping) =
             std::mem::take(&mut *peers)
                 .into_iter()
@@ -596,12 +588,12 @@ pub fn disconnect(fingerprint: Option<&str>, reason: DisconnectReason) {
 
 /// How many linked browsers are connected now.
 pub fn connected_count() -> u32 {
-    lock(&CONNECTED).len() as u32
+    CONNECTED.lock_recover().len() as u32
 }
 
 /// Every connection that is up, with the Unix seconds it came up.
 pub fn connections() -> Vec<(String, i64)> {
-    lock(&CONNECTED).clone()
+    CONNECTED.lock_recover().clone()
 }
 
 #[cfg(test)]
@@ -625,17 +617,21 @@ mod tests {
         let _serial = crate::test_globals::serial_global_state();
         let (a, b) = ("sha-256 AA:AA", "sha-256 BB:BB");
         {
-            let mut peers = lock(&PEERS);
+            let mut peers = PEERS.lock_recover();
             peers.clear();
             peers.push((Some(a.to_owned()), Peer::idle()));
             peers.push((Some(b.to_owned()), Peer::idle()));
         }
 
         disconnect(Some("sha-256 CC:CC"), DisconnectReason::Disconnected);
-        assert_eq!(lock(&PEERS).len(), 2, "an unknown fingerprint ends nothing");
+        assert_eq!(
+            PEERS.lock_recover().len(),
+            2,
+            "an unknown fingerprint ends nothing"
+        );
 
         disconnect(Some(a), DisconnectReason::Disconnected);
-        let mut peers = lock(&PEERS);
+        let mut peers = PEERS.lock_recover();
         let left: Vec<_> = peers.iter().map(|(f, _)| f.clone()).collect();
         assert_eq!(left, vec![Some(b.to_owned())]);
         assert!(!peers[0].1.is_finished(), "the other peer is still up");
@@ -662,7 +658,7 @@ mod tests {
         })
         .unwrap();
         {
-            let mut peers = lock(&PEERS);
+            let mut peers = PEERS.lock_recover();
             peers.clear();
             peers.push((Some(a.to_owned()), Peer::idle()));
             peers.push((Some(b.to_owned()), Peer::idle()));
@@ -672,7 +668,7 @@ mod tests {
         assert!(!disconnect_device("999").unwrap());
         assert!(!disconnect_device("not a number").unwrap());
 
-        let mut peers = lock(&PEERS);
+        let mut peers = PEERS.lock_recover();
         let left: Vec<_> = peers.iter().map(|(f, _)| f.clone()).collect();
         assert_eq!(left, vec![Some(b.to_owned())]);
         assert!(!peers[0].1.is_finished());
@@ -952,7 +948,7 @@ mod tests {
 
         // The process goes: its open pairing is dropped, and the library is
         // opened again from its file.
-        *lock(&PAIRING) = None;
+        *PAIRING.lock_recover() = None;
         assert!(
             crate::persistence::persistent_engine_ffi::persistent_engine_init_without_owed_work(
                 path

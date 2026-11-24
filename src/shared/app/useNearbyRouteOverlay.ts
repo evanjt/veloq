@@ -8,8 +8,7 @@ import {
 } from '@/features/recording';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import type { ActivityType } from '@/types';
-
-export type { NearbyRouteView };
+import { shortCoordsFromNative } from '@/shared/ffi/shortPoints';
 
 interface NearbyRouteOverlayInput {
   activityType: ActivityType;
@@ -80,7 +79,7 @@ export function useNearbyRouteOverlay({
         name: row.name,
         distanceMeters: row.distanceMeters,
         bestTimeSeconds: row.bestTimeSeconds ?? null,
-        points: decodeCoords(row.encodedCoords).map((p) => ({ lat: p.latitude, lng: p.longitude })),
+        points: shortCoordsFromNative(decodeCoords(row.encodedCoords)),
       }));
   }, [rows, recording, chosenRouteId]);
 

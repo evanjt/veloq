@@ -24,6 +24,7 @@ function screenData(): StrengthScreenData {
       activityCount: 0,
       totalSets: 0,
       maxWeightedSets: 0,
+      shadeCeilings: [0, 0, 0, 0, 0],
       balance: [],
     },
     weeks: WEEKS,
@@ -32,6 +33,7 @@ function screenData(): StrengthScreenData {
       activityCount: index + 1,
       totalSets: 0,
       maxWeightedSets: 0,
+      shadeCeilings: [0, 0, 0, 0, 0],
       balance: [],
     })),
     progressions: [

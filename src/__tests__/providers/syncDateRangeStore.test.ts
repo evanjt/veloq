@@ -8,7 +8,7 @@ import { IDLE_EXTENDED_FETCH, isExtendedFetchRunning } from '@/shared/app/extend
  * - Delayed unlock behaviour
  */
 
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import { useSyncDateRange, getSyncGeneration } from '@/shared/app/SyncDateRangeStore';
 
 // Helper to get a date string N days from today

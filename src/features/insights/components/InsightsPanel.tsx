@@ -17,7 +17,7 @@ import {
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { formatRelativeDate } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import type { Insight } from '@/types';
+import type { Insight, TodayForm } from '@/types';
 import { CONFIRM_HOLD_MS } from '@/shared/ui/holdDurations';
 import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 import { insightsExplanation } from '../lib/aboutCopy';
@@ -35,7 +35,7 @@ interface InsightsPanelProps {
    */
   hrvWithheldSince?: string | null | undefined;
   /** The newest form reading from the same bundle, null when there is no wellness */
-  form?: { ctl: number; atl: number } | null | undefined;
+  form?: TodayForm | null | undefined;
   /**
    * If set, opens the matching insight's detail sheet on mount. Set by a tapped
    * insight notification (`/(tabs)/insights?insightId=...`). Calls

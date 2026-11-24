@@ -16,7 +16,7 @@ import { useCacheDays } from '@/shared/app/useCacheDays';
 import { useActivityCount } from '@/shared/native/useActivityCount';
 import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
 import { useRangeCoverage } from '@/shared/native/useRangeCoverage';
-import { EngineSportFamily, MapDistanceBand, RangeCoverage, SyncState } from 'veloqrs';
+import { FfiSportFamily, MapDistanceBand, maps, RangeCoverage, SyncState } from 'veloqrs';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useMuscleDetail } from '@/features/strength/hooks/useMuscleDetail';
@@ -36,19 +36,21 @@ import { encodeTrack } from '../__shared__/trackBytes';
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 // `useEngine` decodes the section polyline, so it imports a value from the
 // binding rather than only types, and the real module registers a TurboModule.
-jest.mock('veloqrs', () =>
-  require('../__shared__/veloqrsStub').withOverrides({
-    ...require('../__shared__/veloqrsStub').namespacesOver(() =>
-      require('@/shared/native/engine').getEngine()
-    ),
+jest.mock('veloqrs', () => {
+  const stub = require('../__shared__/veloqrsStub');
+  const over = stub.namespacesOver(() => require('@/shared/native/engine').getEngine());
+  return stub.withOverrides({
+    ...over,
+    // The map screen read is fed through its namespace, the way the hook calls it.
+    maps: { ...over.maps, getMapScreenData: jest.fn() },
     // One point per blob, read straight off the bytes, so two different
     // blobs decode to two different points and a re-read is visible.
     decodeCoords: (buf: ArrayBuffer) => {
       const bytes = new Uint8Array(buf);
       return bytes.length >= 2 ? [{ latitude: bytes[0], longitude: bytes[1] }] : [];
     },
-  })
-);
+  });
+});
 
 jest.mock('@/shared/app/SyncDateRangeStore', () => ({
   useSyncDateRange: (selector: (s: { oldest: string; newest: string }) => unknown) =>
@@ -91,10 +93,10 @@ const getWorkoutSections = jest.fn(() => [
 ]);
 const getActivityNames = jest.fn(() => [{ activityId: 'act-1', name: 'Morning ride' }]);
 const hasStrengthData = jest.fn(() => false);
-const getMapScreenData = jest.fn(() => ({
+const mapScreenData = () => ({
   activityCount: 1,
   availableSportTypes: ['Ride'],
-  categoryCounts: [{ family: EngineSportFamily.Ride, count: 1 }],
+  categoryCounts: [{ family: FfiSportFamily.Ride, count: 1 }],
   activities: [
     {
       activityId: 'act-1',
@@ -108,7 +110,8 @@ const getMapScreenData = jest.fn(() => ({
       startLng: 3,
     },
   ],
-}));
+});
+const getMapScreenData = maps.getMapScreenData as unknown as jest.Mock;
 const getActivityDetailData = jest.fn(() => ({
   activityCount: 1,
   sectionCount: 1,
@@ -146,7 +149,6 @@ const engine = {
   hasStrengthData,
   getUnprocessedStrengthIds,
   getSyncStatus,
-  getMapScreenData,
   getActivityDetailData,
 };
 
@@ -160,6 +162,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   listeners.clear();
   (getEngine as jest.Mock).mockReturnValue(engine);
+  getMapScreenData.mockImplementation(mapScreenData);
 });
 
 describe('useZoneDistribution', () => {
@@ -539,7 +542,7 @@ describe('useEngineMapActivities', () => {
     getMapScreenData.mockReturnValueOnce({
       activityCount: 292,
       availableSportTypes: ['Ride', 'Run'],
-      categoryCounts: [{ family: EngineSportFamily.Ride, count: 0 }],
+      categoryCounts: [{ family: FfiSportFamily.Ride, count: 0 }],
       activities: [],
       emptyReason: { tag: 'Filtered', inner: { mapped: 3 } },
       unmapped: { withoutGps: 2, downloading: 1 },

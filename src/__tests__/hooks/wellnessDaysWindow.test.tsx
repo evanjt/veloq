@@ -32,6 +32,12 @@ describe('useWellnessDays', () => {
         { date: '2026-06-02', ctl: 41, hrv: 60, sportLoad: [] },
       ],
       coverage: RangeCoverage.Loaded,
+      form: [],
+      formZone: [],
+      formText: [],
+      tsbText: [],
+      formAsPercent: false,
+      formZoneEdges: [],
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const wrapper = ({ children }: { children: React.ReactNode }) => (

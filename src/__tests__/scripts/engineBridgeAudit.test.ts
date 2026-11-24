@@ -85,6 +85,29 @@ vaultIt('passes a file keyed on a member under an invalidated root', () => {
   expect(runAudit(hook('list')).status).toBe(0);
 });
 
+it('fails a hook that does not subscribe when another hook in its file does', () => {
+  const twoHooks = `import { useQuery } from '@tanstack/react-query';
+export function useWidgetLive(id: string) {
+  useEngineSubscription('widgets');
+  return useQuery({
+    queryKey: queryKeys.widgets.list(id),
+    queryFn: () => getEngine().widget(id),
+  });
+}
+export function useWidgetStale(id: string) {
+  return useQuery({
+    queryKey: queryKeys.widgets.detail(id),
+    queryFn: () => getEngine().widget(id),
+  });
+}
+`;
+
+  const { status, output } = runAudit(twoHooks);
+
+  expect(status).toBe(1);
+  expect(output).toContain('widgets.detail');
+});
+
 it('fails when an imported store initialiser is missing from the restore table', () => {
   const backup = `import { initialiseWidgetStore } from './widgetStore';
 const storeInitialisers = () => [

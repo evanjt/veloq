@@ -7,7 +7,7 @@
  * value only when its chart can plot one.
  */
 
-export interface CurveHeaderValueInput<T> {
+interface CurveHeaderValueInput<T> {
   /** The figure the row would show. */
   value: T | null | undefined;
   /** Whether the chart under it has a series to draw. */

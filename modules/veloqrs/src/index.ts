@@ -44,6 +44,8 @@ import {
   type FfiSummaryComparison,
   type FfiStatTrend,
   type FfiFitnessScreenData,
+  type FfiSpanThresholdPaces,
+  type FfiThresholdPace,
   type FfiFitnessScreenWindows,
   type FfiLoadDot,
   type FfiPreviewTrack,
@@ -53,7 +55,6 @@ import {
   type FfiActivitySummary,
   type FfiActivityRecord,
   type FfiActivityInterval,
-  FfiIntervalKind,
   type FfiActivityLedgerChange,
   type FfiHrZoneBand,
   type FfiPowerZoneBand,
@@ -63,9 +64,6 @@ import {
   type FfiRoutesScreenData,
   type FfiRoutesScreenQuery,
   type FfiSectionFilters,
-  FfiGroupSort,
-  FfiSectionSort,
-  FfiSportFamily,
   type FfiFeedCard,
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
@@ -117,38 +115,15 @@ export { EngineClient, type HeatmapDay, type SectionEncounter } from './EngineCl
 
 // Sync service (SyncManager) consumer types
 export type { SyncStatus, SyncAuthMethod } from './delegates/sync';
-export type {
-  FfiCallOutcome as CallOutcome,
-  FfiUploadResult as UploadResult,
-  FfiSwapResult as SwapResult,
-  FfiGarminMatch as GarminMatch,
-  FfiFitFile as FitFile,
-} from './generated/veloqrs';
-export {
-  FfiCallKind as CallKind,
-  FfiUploadOutcome as UploadOutcome,
-  FfiSwapState as SwapState,
-  FfiStubVerdict as StubVerdict,
-  FfiSwapOutcome as SwapOutcome,
-  FfiSyncErrorReason as SyncErrorReason,
-  FfiSyncStep as SyncStep,
-  FfiTrackStep as TrackStep,
-} from './generated/veloqrs';
-export type { FfiTrackStage as TrackStage } from './generated/veloqrs';
 
 // The verdict every start answers with, and the one place that says which
 // refusals lift on their own. See `delegates/start.ts`.
-export { FfiStartOutcome as StartOutcome } from './generated/veloqrs';
-export type { FfiStartResult as StartResult } from './generated/veloqrs';
-export type { FfiGpsPassStart as GpsPassStart } from './generated/veloqrs';
 export type StartVerdict =
   import('./generated/veloqrs').FfiStartOutcome | import('./generated/veloqrs').FfiStartResult;
 export { isRetryableStart, hasStarted, startOutcome } from './delegates/start';
 
 // Why the engine did not open, for the banner to translate. See
 // `delegates/init.ts`.
-export { FfiInitOutcome as InitOutcome } from './generated/veloqrs';
-export type { FfiQuarantineReport as QuarantineReport } from './generated/veloqrs';
 export { isRetryableInit, hasOpened } from './delegates/init';
 
 // Elevation backfill consumer types
@@ -156,13 +131,6 @@ export type { ElevationBackfillPhase } from './delegates/elevation';
 export type { RoutesStatus } from './delegates/routesStatus';
 export type { StreamBackfillPhase } from './delegates/streamBackfill';
 export type { SectionBoundsEdit } from './delegates/sections';
-export { FfiRetiredPairLink as RetiredPairLink } from './generated/veloqrs';
-export type {
-  FfiRetiredMapData as RetiredMapData,
-  FfiRetiredMapPair as RetiredMapPair,
-  FfiRetiredMapSection as RetiredMapSection,
-  FfiCurrentMapSection as CurrentMapSection,
-} from './generated/veloqrs';
 
 // Detector cutover consumer types
 export type {
@@ -226,17 +194,11 @@ export type EfficiencyPoint = FfiEfficiencyPoint;
 export type PeriodStats = FfiPeriodStats;
 /** One period against an earlier one, with the metric it was taken on. */
 export type PeriodComparison = FfiPeriodComparison;
-export { FfiLoadMetric as LoadMetric } from './generated/veloqrs';
 export type MonthlyStats = FfiMonthlyStats;
 /** A sport's seconds per zone with the athlete's own zone names. */
 export type ZoneDistributionData = FfiZoneDistribution;
 /** One local day's recorded activity load and whether it is complete. */
 export type DayLoad = FfiDayLoad;
-export { FfiDayLoadStatus as DayLoadStatus } from './generated/veloqrs';
-export { FfiMaxHrSource as MaxHrSource } from './generated/veloqrs';
-export { FfiCadenceUnit as CadenceUnit } from './generated/veloqrs';
-/** The unit an athlete reads and enters strength weight in. */
-export { FfiWeightUnit as WeightUnit, FfiFocusPhase as FocusPhase } from './generated/veloqrs';
 export type SummaryCardData = FfiSummaryCardData;
 export type FtpTrend = FfiFtpTrend;
 export type PaceTrend = FfiPaceTrend;
@@ -251,7 +213,6 @@ export type MapScreenData = FfiMapScreenData;
 export type BestEffortsData = FfiBestEffortsData;
 export type BestEffortsSport = FfiBestEffortsSport;
 export type BestEffort = FfiBestEffort;
-export { FfiBestEffortKind as BestEffortKind } from './generated/veloqrs';
 export type ClimbBests = FfiClimbBests;
 export type ClimbBest = FfiClimbBest;
 // Weekly card comparison types
@@ -260,6 +221,10 @@ export type StatTrend = FfiStatTrend;
 // Fitness screen types
 export type FitnessScreenData = FfiFitnessScreenData;
 export type FitnessScreenWindows = FfiFitnessScreenWindows;
+/** The running and swimming threshold pace the engine chose for one span, with its text. */
+export type SpanThresholdPaces = FfiSpanThresholdPaces;
+/** A threshold pace as a speed and its text in both unit systems. */
+export type ThresholdPace = FfiThresholdPace;
 /** One activity as the fitness strip marks it and its day picker lists it. */
 export type LoadDot = FfiLoadDot;
 export type PreviewTrack = FfiPreviewTrack;
@@ -273,7 +238,6 @@ export type ActivitySummary = FfiActivitySummary;
 export type ActivityRecord = FfiActivityRecord;
 /** One lap of an activity, as the lap table, the chart bands and the chips read it. */
 export type ActivityInterval = FfiActivityInterval;
-export { FfiIntervalKind as IntervalKind };
 export type ActivityLedgerChange = FfiActivityLedgerChange;
 export type HrZoneBand = FfiHrZoneBand;
 export type PowerZoneBand = FfiPowerZoneBand;
@@ -285,10 +249,8 @@ export type SectionPerformanceData = FfiSectionPerformanceData;
 export type RoutesScreenData = FfiRoutesScreenData;
 export type RoutesScreenQuery = FfiRoutesScreenQuery;
 export type SectionHiddenFilters = FfiSectionFilters;
-export { FfiGroupSort as GroupSort, FfiSectionSort as SectionSort };
 // One feed card, typed by the engine from the stored body
 export type FeedCard = FfiFeedCard;
-export { FfiSportFamily as EngineSportFamily };
 export type GroupWithPolyline = FfiGroupWithPolyline;
 export type SectionWithPolyline = FfiSectionWithPolyline;
 export type StalePrOpportunity = FfiStalePrOpportunity;
@@ -298,51 +260,9 @@ export type SectionChange = FfiSectionChange;
 export type HrvTrend = FfiHrvTrend;
 /** One activity that moved the athlete's accepted eFTP. */
 export type EftpChange = FfiEftpChange;
-export type {
-  FfiMergeCandidate as MergeCandidate,
-  FfiActivityRouteHighlight as ActivityRouteHighlight,
-} from './EngineClient';
-/** A ride a merge would take out of the merged section. */
-export type { FfiMergeDropped as MergeDropped } from './generated/veloqrs';
 // Strength training types
 export type { LiveStrengthEdit, StrengthStart } from './delegates/strength';
-export type {
-  FfiExerciseSet as ExerciseSet,
-  FfiExerciseGroup as ExerciseGroup,
-  FfiExerciseSession as ExerciseSession,
-  FfiExerciseDetailData as ExerciseDetailData,
-  FfiExercisePickerData as ExercisePickerData,
-  FfiExercisePickerRow as ExercisePickerRow,
-  FfiPickerMuscle as PickerMuscle,
-  FfiMuscleGroup as MuscleGroup,
-  FfiLiveStrengthSession as LiveStrengthSession,
-  FfiLiveStrengthExercise as LiveStrengthExercise,
-  FfiLiveStrengthSet as LiveStrengthSet,
-  FfiLiveStrengthOutcome as LiveStrengthOutcome,
-  FfiFocusState as FocusState,
-  FfiFocusSet as FocusSet,
-  FfiFocusNeighbour as FocusNeighbour,
-  FfiStrengthStartData as StrengthStartData,
-  FfiStrengthStartGroup as StrengthStartGroup,
-  FfiStrengthSavedWorkout as StrengthSavedWorkout,
-  FfiActivityNotification as ActivityNotification,
-  FfiPulledRideEntry as PulledRideEntry,
-} from './generated/veloqrs';
-/** The fault the last sync met readying one activity. */
-export type { FfiActivitySyncFailure as ActivitySyncFailure } from './generated/veloqrs';
-/** An activity intervals.icu holds but does not serve to apps. */
-export type { FfiActivityHeldBack as ActivityHeldBack } from './generated/veloqrs';
-export type { FfiHeatmapHiddenActivity as HeatmapHiddenActivity } from './generated/veloqrs';
-/** Where an activity's data was filled from, as its screen says it. */
-export { FfiActivityProvenance as ActivityProvenance } from './generated/veloqrs';
 // Pool swim types
-export type {
-  FfiPoolSwim as PoolSwim,
-  FfiPoolLength as PoolLength,
-  FfiPoolStrokeTotal as PoolStrokeTotal,
-} from './generated/veloqrs';
-export { FfiPoolSwimState as PoolSwimState } from './generated/veloqrs';
-export { FfiPoolUnit as PoolUnit } from './generated/veloqrs';
 
 export const engine = EngineClient.getInstance();
 

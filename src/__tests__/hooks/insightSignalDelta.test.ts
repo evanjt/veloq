@@ -158,7 +158,15 @@ describe('a generator with two points and no spread', () => {
       { count: 4, totalDuration: 10_000, totalDistance: 60_000, totalTss: 200 },
       null,
       undefined,
-      { metric: 'tss', current: 400, previous: 200, ratio: 1, comparedStart: 0 },
+      {
+        metric: 'tss',
+        current: 400,
+        previous: 200,
+        ratio: 1,
+        comparedStart: 0,
+        direction: 'up',
+        verdict: 'moved',
+      },
       null,
       NOW,
       t

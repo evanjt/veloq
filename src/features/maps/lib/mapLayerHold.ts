@@ -9,12 +9,12 @@
  * re-serialises it.
  */
 
-export interface StampedLayer {
+interface StampedLayer {
   /** The database state the layer was read in, absent when the engine could not vouch for one */
   stamp?: number | undefined;
 }
 
-export interface LayerHold<L extends StampedLayer, T> {
+interface LayerHold<L extends StampedLayer, T> {
   /** The stamp to pass back to the next read, absent while nothing stamped is held */
   stamp(): number | undefined;
   /** The value for the layer a read returned, built only when its stamp is not the held one */

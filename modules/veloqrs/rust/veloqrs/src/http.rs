@@ -17,6 +17,7 @@ use crate::net::source::Source;
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::{StreamDto, parse_streams};
 use crate::net::{LiveSource, live_source};
+use crate::poison::Recover;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -98,7 +99,7 @@ pub(crate) fn claim_interactive_download() -> DownloadSlotGuard {
 }
 
 fn queue() -> std::sync::MutexGuard<'static, DownloadQueue> {
-    DOWNLOAD_QUEUE.lock().unwrap_or_else(|e| e.into_inner())
+    DOWNLOAD_QUEUE.lock_recover()
 }
 
 impl DownloadQueue {
@@ -479,12 +480,7 @@ impl ActivityFetcher {
             wide_ids,
             on_progress,
             || true,
-            |result, _permit| {
-                collected
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .push(result)
-            },
+            |result, _permit| collected.lock_recover().push(result),
         )
         .await;
         collected.into_inner().unwrap_or_else(|e| e.into_inner())

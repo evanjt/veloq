@@ -193,7 +193,7 @@ export const SCREEN_SHEETS: Record<string, number[] | 'fitToContents'> = {
  * sheet blank. So on iOS the shared frame draws no view around these routes and hands its fill and
  * padding to the scroll view instead.
  */
-export const SCROLL_ROOT_SHEETS: ReadonlySet<string> = new Set([
+const SCROLL_ROOT_SHEETS: ReadonlySet<string> = new Set([
   'sheets/insight',
   'sheets/chart-data',
   'sheets/merge-confirm',
@@ -392,7 +392,7 @@ export function sheetScreenOptions(name: string, os: string, osVersion: string |
 }
 
 /** The stack options of the map sheet route, as `mapSheetScreenOptions` gives them. */
-export interface MapSheetScreenOptions {
+interface MapSheetScreenOptions {
   presentation: 'formSheet' | 'card';
   headerShown: boolean;
   gestureEnabled: boolean;

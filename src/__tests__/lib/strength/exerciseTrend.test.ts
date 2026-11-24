@@ -9,9 +9,9 @@
 
 import { seriesChartModel } from '@/features/insights/lib/seriesChart';
 import { exerciseTrendSamples } from '@/features/strength/lib/exerciseTrend';
-import type { ExerciseDetailData } from 'veloqrs';
+import type { FfiExerciseDetailData } from 'veloqrs';
 
-type Session = ExerciseDetailData['sessions'][number];
+type Session = FfiExerciseDetailData['sessions'][number];
 
 const DAY = 86_400;
 const START = Date.UTC(2026, 2, 2) / 1000;

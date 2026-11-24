@@ -1,109 +1,69 @@
 import { i18n } from '@/i18n';
-import type { WellnessData } from '@/types';
+import type { FormZone, WellnessData } from '@/types';
 import { colors, colorWithOpacity, darkColors, opacity } from '@/theme/colors';
-import { formFromLoads } from '@/shared/math';
-import { formatSignedPercentage } from '@/shared/format';
 import { sortByDateId } from '@/shared/activity/activityUtils';
 
-/**
- * Form zones based on TSB (Training Stress Balance) - intervals.icu boundaries:
- *
- * - highRisk (TSB < -30): Significant accumulated fatigue
- * - optimal (-30 to -10): Where most adaptation occurs
- * - greyZone (-10 to 5): Moderate training load
- * - fresh (5 to 25): Well-rested, fitness exceeds fatigue
- * - transition (> 25): Losing fitness from insufficient stimulus
- */
-export type FormZone = 'highRisk' | 'optimal' | 'greyZone' | 'fresh' | 'transition';
-
-/**
- * The band a form number falls in, on the denominator the athlete chose.
- *
- * `icu_form_as_percent` decides what form means: absolute TSB, or TSB as a
- * share of fitness. The thresholds are the same either way, applied to
- * whichever number the athlete reads. A percentage needs a denominator, so a
- * day with no fitness has no form value under that setting and no zone: null,
- * not the absolute band.
- */
-export function getFormZone(
-  tsb: number,
-  fitness?: number | null,
-  asPercent?: boolean
-): FormZone | null {
-  if (asPercent && !fitness) return null;
-  const value = asPercent && fitness ? (tsb / fitness) * 100 : tsb;
-  if (value < -30) return 'highRisk';
-  if (value < -10) return 'optimal';
-  if (value < 5) return 'greyZone';
-  if (value < 25) return 'fresh';
-  return 'transition';
-}
-
-/**
- * The band for one day's loads, judged on the form the app prints: rounded
- * fitness minus rounded fatigue, against rounded fitness under the percentage
- * setting. Zoning the unrounded difference can name the band across a
- * boundary from the number shown beside it.
- */
-export function formZoneFromLoads(
-  ctl?: number | null,
-  atl?: number | null,
-  asPercent?: boolean
-): FormZone | null {
-  const fitness = Number.isFinite(ctl as number) ? Math.round(ctl as number) : 0;
-  return getFormZone(formFromLoads(ctl, atl), fitness, asPercent);
-}
-
-/**
- * A form number as the athlete reads it, on the denominator getFormZone zones
- * it by: the integer percentage of fitness with a % suffix under the
- * percentage setting, the signed absolute TSB otherwise. A day with no fitness
- * has no percentage, so it prints nothing (null) rather than the absolute
- * number beside a zone from another denominator.
- */
-export function formatForm(
-  tsb: number,
-  fitness?: number | null,
-  asPercent?: boolean
-): string | null {
-  if (asPercent) {
-    if (!fitness) return null;
-    return formatSignedPercentage(Math.round((tsb / fitness) * 100));
-  }
-  return signed(Math.round(tsb));
-}
-
-function signed(n: number): string {
-  const v = n === 0 ? 0 : n;
-  return v > 0 ? `+${v}` : String(v);
-}
+export type { FormZone } from '@/types';
 
 export interface FormChartPoint {
   x: number;
   date: string;
-  /** Null on a day with no fitness under the percentage setting: a gap, not a dropped day. */
+  /** The day's form in the athlete's unit; null on a day the engine could not state one. */
   form: number | null;
-  /** Absolute TSB whatever the setting, for a header that prints it. */
-  tsb: number;
+  /** The zone the engine judged `form` to be in, null with it. */
+  zone: FormZone | null;
+  /** `form` as the engine prints it, null with it. */
+  text: string | null;
   fitness: number;
   fatigue: number;
 }
 
 /**
- * One point per day, oldest first, with form in the unit the athlete chose.
- * The percentage keeps full precision: rounding happens only when it is printed,
- * so a zone never depends on the display digits.
- * The zone thresholds apply to whichever unit is plotted, so the bands stay
- * horizontal under either setting.
+ * One point per day, oldest first, with the form, zone and text the engine
+ * stated for that day. The value keeps full precision under the percentage
+ * setting: rounding is the engine's text, so a zone never depends on display
+ * digits. A day the engine states no form for is a gap, not a dropped day.
  */
-export function formChartSeries(data: WellnessData[], asPercent: boolean): FormChartPoint[] {
-  return sortByDateId(data).map((day, idx) => {
-    const fitness = Math.round(day.ctl ?? 0);
-    const fatigue = Math.round(day.atl ?? 0);
-    const tsb = formFromLoads(day.ctl, day.atl);
-    const form = asPercent ? (fitness ? (tsb / fitness) * 100 : null) : tsb;
-    return { x: idx, date: day.id, form, tsb, fitness, fatigue };
-  });
+export function formChartSeries(data: WellnessData[]): FormChartPoint[] {
+  return sortByDateId(data).map((day, idx) => ({
+    x: idx,
+    date: day.id,
+    form: day.form ?? null,
+    zone: day.formZone ?? null,
+    text: day.formText ?? null,
+    fitness: Math.round(day.ctl ?? 0),
+    fatigue: Math.round(day.atl ?? 0),
+  }));
+}
+
+/** How far past the outer zone edges the form chart's bands reach, in its own units. */
+const OUTER_BAND_REACH = 25;
+
+/**
+ * The band behind each zone from the engine's edges, lowest first: each zone
+ * spans from its lower edge to its upper one, the lowest and highest running
+ * a fixed reach beyond the outer edges so the chart has room to draw them.
+ * Empty before the engine has stated the edges.
+ */
+export function formZoneBands(
+  edges: readonly number[]
+): Partial<Record<FormZone, { min: number; max: number }>> {
+  const [highRisk, optimal, greyZone, fresh] = edges;
+  if (
+    highRisk === undefined ||
+    optimal === undefined ||
+    greyZone === undefined ||
+    fresh === undefined
+  ) {
+    return {};
+  }
+  return {
+    highRisk: { min: highRisk - OUTER_BAND_REACH, max: highRisk },
+    optimal: { min: highRisk, max: optimal },
+    greyZone: { min: optimal, max: greyZone },
+    fresh: { min: greyZone, max: fresh },
+    transition: { min: fresh, max: fresh + OUTER_BAND_REACH },
+  };
 }
 
 /**
@@ -149,14 +109,3 @@ export function formZoneBandColor(zone: FormZone, isDark: boolean): string {
 export function formZoneLabel(zone: FormZone): string {
   return i18n.t(`formZones.${zone}`);
 }
-
-/**
- * Zone boundaries (TSB values) for chart rendering
- */
-export const FORM_ZONE_BOUNDARIES: Record<FormZone, { min: number; max: number }> = {
-  transition: { min: 25, max: 50 },
-  fresh: { min: 5, max: 25 },
-  greyZone: { min: -10, max: 5 },
-  optimal: { min: -30, max: -10 },
-  highRisk: { min: -50, max: -30 },
-};

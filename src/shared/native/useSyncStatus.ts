@@ -32,7 +32,7 @@ import { useSyncExternalStore } from 'react';
 import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 import { getEngine } from './engine';
 import { reconsiderFallback, subscribeToFallbackTick } from './eventFallback';
-import { SyncState, type SyncErrorReason, type SyncStatus, type TrackStage } from 'veloqrs';
+import { SyncState, type FfiSyncErrorReason, type SyncStatus, type FfiTrackStage } from 'veloqrs';
 
 /**
  * What the sync service announces: every step, and the terminal transition.
@@ -69,7 +69,7 @@ function armReread() {
   rereadEvery = every;
 }
 
-function sameStage(a: TrackStage | undefined, b: TrackStage | undefined): boolean {
+function sameStage(a: FfiTrackStage | undefined, b: FfiTrackStage | undefined): boolean {
   if (!a || !b) return a === b;
   return (
     a.step === b.step &&
@@ -158,7 +158,7 @@ export function useSyncStatus(): SyncStatus | null {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
 
-function getTracks(): TrackStage | null {
+function getTracks(): FfiTrackStage | null {
   return snapshot?.tracks ?? null;
 }
 
@@ -168,11 +168,11 @@ function getTracks(): TrackStage | null {
  * state, so a pass the engine started by itself after a settled sync is here
  * all the same.
  */
-export function useTrackStage(): TrackStage | null {
+export function useTrackStage(): FfiTrackStage | null {
   return useSyncExternalStore(subscribe, getTracks, getTracks);
 }
 
-function getTrackStep(): TrackStage['step'] | null {
+function getTrackStep(): FfiTrackStage['step'] | null {
   return snapshot?.tracks?.step ?? null;
 }
 
@@ -180,7 +180,7 @@ function getTrackStep(): TrackStage['step'] | null {
  * The step of the track work running now, or null. A primitive, so a card
  * that reads it re-renders when the step changes and not on each progress tick.
  */
-export function useTrackStep(): TrackStage['step'] | null {
+export function useTrackStep(): FfiTrackStage['step'] | null {
   return useSyncExternalStore(subscribe, getTrackStep, getTrackStep);
 }
 
@@ -218,7 +218,7 @@ export function useSyncLastError(): SyncStatus['lastError'] {
   return useSyncExternalStore(subscribe, getLastError, getLastError);
 }
 
-function getLastErrorReason(): SyncErrorReason | null {
+function getLastErrorReason(): FfiSyncErrorReason | null {
   return snapshot?.lastErrorReason ?? null;
 }
 
@@ -226,7 +226,7 @@ function getLastErrorReason(): SyncErrorReason | null {
  * Why the last sync failed, or null. Its own selector so a screen that only
  * branches on the reason does not render again for every progress step.
  */
-export function useSyncLastErrorReason(): SyncErrorReason | null {
+export function useSyncLastErrorReason(): FfiSyncErrorReason | null {
   return useSyncExternalStore(subscribe, getLastErrorReason, getLastErrorReason);
 }
 

@@ -20,10 +20,10 @@ import { divergingStep } from './divergingStep';
 import { lineProgressStep } from './lineProgressStep';
 
 /** A step of a base map's diverging ramp, from steep descent to steep climb. */
-export type GradeStep = MapDivStep;
+type GradeStep = MapDivStep;
 
 /** The step a grade falls in. A grade with no value is drawn as flat. */
-export function gradeStep(percent: number): GradeStep {
+function gradeStep(percent: number): GradeStep {
   return divergingStep(percent, 'grade') ?? 'mid';
 }
 

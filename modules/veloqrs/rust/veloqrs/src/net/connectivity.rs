@@ -18,6 +18,7 @@
 //! [`sleep_or_online_edge`]. The elevation backfill's resume ladder sleeps on
 //! it rather than through it.
 
+use crate::poison::Recover;
 use std::sync::{Condvar, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
@@ -58,11 +59,11 @@ static ONLINE_EDGE: Condvar = Condvar::new();
 static NUDGES: Mutex<u64> = Mutex::new(0);
 
 fn state() -> std::sync::MutexGuard<'static, Option<(bool, SystemTime)>> {
-    STATE.lock().unwrap_or_else(|e| e.into_inner())
+    STATE.lock_recover()
 }
 
 fn edges() -> std::sync::MutexGuard<'static, u64> {
-    ONLINE_EDGES.lock().unwrap_or_else(|e| e.into_inner())
+    ONLINE_EDGES.lock_recover()
 }
 
 /// Record what TypeScript sees. Called on every transition and on foreground.
@@ -112,7 +113,7 @@ pub fn sleep_or_online_edge(wait: Duration) -> bool {
 /// Wake every [`sleep_or_online_edge_or_nudge`] sleeper, for a change that can
 /// make queued work due earlier than the sleeper believes.
 pub fn nudge() {
-    *NUDGES.lock().unwrap_or_else(|e| e.into_inner()) += 1;
+    *NUDGES.lock_recover() += 1;
     // Taking the edges lock before notifying orders this against a sleeper that
     // has read the counts and not yet started waiting.
     drop(edges());
@@ -124,7 +125,7 @@ pub fn nudge() {
 /// True when an online edge or a nudge arrived during the sleep.
 pub fn sleep_or_online_edge_or_nudge(wait: Duration) -> bool {
     let deadline = Instant::now() + wait;
-    let nudges_now = || *NUDGES.lock().unwrap_or_else(|e| e.into_inner());
+    let nudges_now = || *NUDGES.lock_recover();
     let mut seen = edges();
     let edges_at_start = *seen;
     let nudges_at_start = nudges_now();
@@ -176,15 +177,14 @@ pub fn note_link_proof() {
 
 /// [`note_link_proof`] with the moment handed in, so the window is testable.
 pub fn note_link_proof_at(at: SystemTime) {
-    *LINK_PROOF.lock().unwrap_or_else(|e| e.into_inner()) = Some(at);
+    *LINK_PROOF.lock_recover() = Some(at);
 }
 
 /// Whether a response to a request outside the elevation pass arrived inside
 /// [`LINK_PROOF_WINDOW`]. A stamp ahead of the clock reads as no proof.
 pub fn has_link_proof() -> bool {
     LINK_PROOF
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .lock_recover()
         .is_some_and(|at| at.elapsed().is_ok_and(|age| age < LINK_PROOF_WINDOW))
 }
 
@@ -192,14 +192,14 @@ pub fn has_link_proof() -> bool {
 /// next failed ask is judged without it. For a caller that shares the process
 /// with others and must not inherit another's proof.
 pub fn forget_link_proof() {
-    *LINK_PROOF.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    *LINK_PROOF.lock_recover() = None;
 }
 
 /// Forget everything pushed, returning the process to its never-pushed state.
 #[cfg(test)]
 pub fn reset() {
     *state() = None;
-    *LINK_PROOF.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    *LINK_PROOF.lock_recover() = None;
 }
 
 #[cfg(test)]

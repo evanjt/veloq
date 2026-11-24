@@ -149,17 +149,59 @@ fn a_time_stream_fetched_before_a_restore_is_not_written() {
     .unwrap();
     let started = stale_install();
 
-    crate::runtime::block_on(store_time_stream(
-        started,
-        "late".to_string(),
-        vec![0, 1, 2],
-    ));
+    assert!(
+        crate::runtime::block_on(store_time_stream(
+            started,
+            "late".to_string(),
+            vec![0, 1, 2],
+        ))
+        .is_err()
+    );
     assert_eq!(stored_streams(), 0);
 
-    crate::runtime::block_on(store_time_stream(
+    let _ = crate::runtime::block_on(store_time_stream(
         crate::persistence::engine_install(),
         "late".to_string(),
         vec![0, 1, 2],
-    ));
+    ))
+    .unwrap();
     assert_eq!(stored_streams(), 1, "the live install must still write");
+}
+
+#[test]
+fn a_time_stream_that_does_not_fit_its_track_is_a_failed_store() {
+    let _guard = crate::test_globals::serial_global_state();
+    let _tmp = crate::test_globals::init_global_engine("misfit-stream.db");
+    crate::persistence::with_persistent_engine(|engine| {
+        let track = (0..3)
+            .map(|i| tracematch::GpsPoint {
+                latitude: 46.0 + f64::from(i) * 0.001,
+                longitude: 7.0,
+                elevation: None,
+            })
+            .collect();
+        engine
+            .add_activity("misfit".to_string(), track, "Ride".to_string())
+            .unwrap();
+    })
+    .unwrap();
+
+    let outcome = crate::runtime::block_on(store_time_stream(
+        crate::persistence::engine_install(),
+        "misfit".to_string(),
+        vec![0, 1, 2, 3, 4],
+    ));
+    assert!(
+        outcome.is_err(),
+        "a skipped stream stored nothing: {outcome:?}"
+    );
+    assert_eq!(stored_streams(), 0);
+
+    let outcome = crate::runtime::block_on(store_time_stream(
+        crate::persistence::engine_install(),
+        "misfit".to_string(),
+        vec![0, 1, 2],
+    ));
+    assert!(outcome.is_ok(), "{outcome:?}");
+    assert_eq!(stored_streams(), 1);
 }

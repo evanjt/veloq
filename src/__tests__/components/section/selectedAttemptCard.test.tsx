@@ -35,6 +35,12 @@ const ATTEMPT: PerformanceDataPoint = {
   isBest: false,
 };
 
+/** Text the engine wrote for the attempt's speed: not what 4 m/s formats to (4:10 /km, 6:42 /mi). */
+const speedPace = { metricText: '4:11', imperialText: '6:44' };
+
+/** 4:10 /km against 3:20 /km, in the engine's pace seconds. */
+const recordGapPace = { metric: 50, imperial: 80.47 };
+
 type CardProps = React.ComponentProps<typeof SelectedAttemptCard>;
 
 function card(props: Partial<CardProps> = {}) {
@@ -76,11 +82,11 @@ describe('the selected-attempt card facts', () => {
 
   it('reads the engine gap as the standing, in the units the athlete chose', async () => {
     await card({
-      attempt: { ...ATTEMPT, recordGapSpeed: 1 },
+      attempt: { ...ATTEMPT, recordGapSpeed: 1, recordGapPace, speedPace },
       activityType: 'Run',
       basis: 'pace',
     });
-    expect(screen.getByTestId('selected-attempt-value')).toHaveTextContent('4:10 /km');
+    expect(screen.getByTestId('selected-attempt-value')).toHaveTextContent('4:11 /km');
     expect(screen.getByTestId('selected-attempt-standing')).toHaveTextContent(
       'sections.scatterOffRecord:{"gap":"50 s /km"}'
     );
@@ -88,12 +94,21 @@ describe('the selected-attempt card facts', () => {
 
     mockIsMetric = false;
     await card({
-      attempt: { ...ATTEMPT, recordGapSpeed: 1 },
+      attempt: { ...ATTEMPT, recordGapSpeed: 1, recordGapPace, speedPace },
       activityType: 'Run',
       basis: 'pace',
     });
-    expect(screen.getByTestId('selected-attempt-value')).toHaveTextContent('6:42 /mi');
+    expect(screen.getByTestId('selected-attempt-value')).toHaveTextContent('6:44 /mi');
+    expect(screen.getByTestId('selected-attempt-standing')).toHaveTextContent(
+      'sections.scatterOffRecord:{"gap":"1:20 /mi"}'
+    );
     expect(screen.queryByText(/\/km/)).toBeNull();
+  });
+
+  it('prints the absent mark for a pace the engine did not write, never one worked out from the speed', async () => {
+    await card({ activityType: 'Run', basis: 'pace' });
+
+    expect(screen.getByTestId('selected-attempt-value')).toHaveTextContent('--:--');
   });
 
   it('heads a route attempt with its moving time and its gap in seconds', async () => {

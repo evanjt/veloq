@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useTranslation } from 'react-i18next';
 import type { ParseKeys } from 'i18next';
-import type { ExercisePickerRow } from 'veloqrs';
+import type { FfiExercisePickerRow } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
 import { Button, ToggleButton } from '@/shared/ui/Button';
@@ -30,7 +30,7 @@ interface ExercisePickerProps {
   /** The exercise just done in a session, whose usual followers lead the list. */
   after?: JustDone | null | undefined;
   /** One tap adds the exercise. */
-  onPick: (row: ExercisePickerRow) => void;
+  onPick: (row: FfiExercisePickerRow) => void;
 }
 
 /**

@@ -6,15 +6,14 @@
  * whatever the setting.
  *
  * Expected behaviour: a pinned day with no row reads the absent mark for every value
- * under its date, with or without a selection before it, and the readout zones
- * form on the denominator the athlete chose.
+ * under its date, with or without a selection before it, and the readout shows the
+ * zone and figure the engine stated for the day on the denominator the athlete chose.
  */
 
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import { FitnessChart } from '@/features/fitness/components/FitnessChart';
-import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import type { WellnessData } from '@/types';
 import { ABSENT } from '@/shared/format/absent';
 
@@ -25,15 +24,22 @@ jest.mock('@/i18n', () => ({
 }));
 
 const DAYS: WellnessData[] = [
-  { id: '2026-03-01', ctl: 40, atl: 50 },
-  { id: '2026-03-02', ctl: 41, atl: 49 },
-  { id: '2026-03-04', ctl: 60, atl: 40 },
+  { id: '2026-03-01', ctl: 40, atl: 50, formZone: 'greyZone', formText: '-10' },
+  { id: '2026-03-02', ctl: 41, atl: 49, formZone: 'greyZone', formText: '-8' },
+  { id: '2026-03-04', ctl: 60, atl: 40, formZone: 'fresh', formText: '+20' },
+] as WellnessData[];
+
+// The same days as the engine states them for an athlete who reads form as a share of fitness.
+const PERCENT_DAYS: WellnessData[] = [
+  { id: '2026-03-01', ctl: 40, atl: 50, formZone: 'optimal', formText: '-25%' },
+  { id: '2026-03-02', ctl: 41, atl: 49, formZone: 'optimal', formText: '-20%' },
+  { id: '2026-03-04', ctl: 60, atl: 40, formZone: 'transition', formText: '+33%' },
+  // No fitness to divide by: the engine states no form for the day.
+  { id: '2026-03-05', ctl: 0, atl: 12 },
 ] as WellnessData[];
 
 /** 3 March sits between two rows and has none of its own. */
 const MISSING = '2026-03-03';
-
-afterEach(() => useFormPreference.setState({ formAsPercent: null }));
 
 describe('the fitness chart header on a pinned day with no row', () => {
   it('reads the absent mark rather than the newest day', async () => {
@@ -81,16 +87,14 @@ describe('the readout form on a pinned day with no row', () => {
 
 describe('the readout form zone', () => {
   // -8 on fitness 41 is about -20 per cent: optimal as a percentage, grey in
-  // absolute TSB.
-  it('follows form as a percentage', async () => {
-    useFormPreference.setState({ formAsPercent: true });
-    const tree = await render(<FitnessChart data={DAYS} selectedDate="2026-03-02" />);
+  // absolute TSB. The chart shows whichever the engine stated.
+  it('follows the percentage the engine stated', async () => {
+    const tree = await render(<FitnessChart data={PERCENT_DAYS} selectedDate="2026-03-02" />);
 
     expect(tree.getByTestId('fitness-form-zone')).toHaveTextContent('formZones.optimal');
   });
 
-  vaultIt('stays on absolute TSB with the setting off', async () => {
-    useFormPreference.setState({ formAsPercent: false });
+  it('stays on absolute TSB when the engine stated that', async () => {
     const tree = await render(<FitnessChart data={DAYS} selectedDate="2026-03-02" />);
 
     expect(tree.getByTestId('fitness-form-zone')).toHaveTextContent('formZones.greyZone');
@@ -99,28 +103,16 @@ describe('the readout form zone', () => {
 
 describe('the readout form under form as a percentage', () => {
   it('prints the percentage the zone was judged on', async () => {
-    useFormPreference.setState({ formAsPercent: true });
-    const tree = await render(<FitnessChart data={DAYS} selectedDate="2026-03-02" />);
+    const tree = await render(<FitnessChart data={PERCENT_DAYS} selectedDate="2026-03-02" />);
 
     expect(tree.getByTestId('fitness-form-value')).toHaveTextContent('-20%');
     expect(tree.getByTestId('fitness-form-zone')).toHaveTextContent('formZones.optimal');
   });
 
-  it('shows no number and no zone for a day with no fitness', async () => {
-    useFormPreference.setState({ formAsPercent: true });
-    const days = [...DAYS, { id: '2026-03-05', ctl: 0, atl: 12 }] as WellnessData[];
-    const tree = await render(<FitnessChart data={days} selectedDate="2026-03-05" />);
+  it('shows no number and no zone for a day the engine stated none for', async () => {
+    const tree = await render(<FitnessChart data={PERCENT_DAYS} selectedDate="2026-03-05" />);
 
     expect(tree.getByTestId('fitness-form-value')).toHaveTextContent(ABSENT, { exact: true });
     expect(tree.queryByTestId('fitness-form-zone')).toBeNull();
-  });
-
-  vaultIt('keeps the absolute number and zone for that day with the setting off', async () => {
-    useFormPreference.setState({ formAsPercent: false });
-    const days = [...DAYS, { id: '2026-03-05', ctl: 0, atl: 12 }] as WellnessData[];
-    const tree = await render(<FitnessChart data={days} selectedDate="2026-03-05" />);
-
-    expect(tree.getByTestId('fitness-form-value')).toHaveTextContent('-12');
-    expect(tree.getByTestId('fitness-form-zone')).toHaveTextContent('formZones.optimal');
   });
 });

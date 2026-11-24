@@ -1,3 +1,5 @@
+import type { FfiPaceText } from 'veloqrs';
+
 import type { PlacedLabel } from '@/shared/charts';
 import { formatDecimal } from '@/shared/format';
 import { getCurrentLanguage } from '@/i18n';
@@ -43,6 +45,17 @@ export function paceAxisUnit(paceSuffix: string): string {
   return `min${paceSuffix}`;
 }
 
+/** Where a pace is drawn on the plot: seconds over `metres`, which is a coordinate and never printed as text. */
+export function paceCoordinate(speed: number, metres: number): number {
+  return metres / speed;
+}
+
+/** The engine's pace text for the unit system shown, and the absent mark where it wrote none. */
+export function curvePaceText(text: FfiPaceText | null | undefined, isMetric: boolean): string {
+  const shown = isMetric ? text?.metricText : text?.imperialText;
+  return shown ?? '--:--';
+}
+
 const paceAxisLabels = new Map<string, PlacedLabel[]>();
 
 /**
@@ -63,7 +76,7 @@ export function paceCurveAxisLabels(isMetric: boolean): PlacedLabel[] {
   return labels;
 }
 
-export interface PaceChartSeries {
+interface PaceChartSeries {
   /** Every stored sample, shortest distance first, each with its pace in the chart's unit. */
   points: (PaceCurveSample & { pace: number })[];
   /** Slowest pace first, so faster paces sit at the top. Padded by a tenth of the span. */
@@ -98,12 +111,12 @@ export function paceChartSeries(
   };
 }
 
-export interface PowerChartPoint {
+interface PowerChartPoint {
   secs: number;
   watts: number;
 }
 
-export interface PowerChartSeries {
+interface PowerChartSeries {
   points: PowerChartPoint[];
   yDomain: [number, number];
 }

@@ -1,6 +1,7 @@
 import { decodeCoords, type RouteDetailData, type RouteGroup as EngineRouteGroup } from 'veloqrs';
 import { toActivityType } from '../types';
 import type { LatLngShort } from '@/shared/geo/distance';
+import { shortCoordsFromNative } from '@/shared/ffi/shortPoints';
 
 export function buildRouteGroupBase(engineGroup: EngineRouteGroup | null | undefined) {
   if (!engineGroup) return null;
@@ -40,5 +41,5 @@ export function representativePointsOf(
   if (!detail?.encodedRepresentative) return null;
   const decoded = decodeCoords(detail.encodedRepresentative);
   if (decoded.length === 0) return null;
-  return decoded.map((p) => ({ lat: p.latitude, lng: p.longitude }));
+  return shortCoordsFromNative(decoded);
 }

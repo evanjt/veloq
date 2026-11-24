@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getEngine } from '@/shared/native/engine';
 import { useTranslation } from 'react-i18next';
-import type { FfiMergeOutcome, MergeDropped } from 'veloqrs';
+import type { FfiMergeOutcome, FfiMergeDropped } from 'veloqrs';
 import { announceDepartedRides } from '../lib/departedRides';
 import { inform } from '@/shared/ui/dialog';
 
@@ -21,7 +21,7 @@ interface UseMergeSectionsResult {
    * The donor rides a merge would leave out of the kept section. A failed
    * read is an empty list, so the dialog says nothing it cannot back.
    */
-  previewDropped: (primaryId: string, secondaryId: string) => MergeDropped[];
+  previewDropped: (primaryId: string, secondaryId: string) => FfiMergeDropped[];
 }
 
 export function useMergeSections(): UseMergeSectionsResult {
@@ -68,7 +68,7 @@ export function useMergeSections(): UseMergeSectionsResult {
   );
 
   const previewDropped = useCallback(
-    (primaryId: string, secondaryId: string): MergeDropped[] =>
+    (primaryId: string, secondaryId: string): FfiMergeDropped[] =>
       getEngine()?.mergePreview(primaryId, secondaryId) ?? [],
     []
   );

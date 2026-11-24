@@ -35,10 +35,15 @@ const CHART_DATA = [1500, 1600, 1700].map((time, i) => ({
   x: i / 2,
 })) as unknown as (PerformanceDataPoint & { x: number })[];
 
+/** Text the engine wrote: not what the speeds format to, so the figures are read from it. */
+const PACE_1500 = { metricText: '5:02', imperialText: '8:04' };
+const PACE_1600 = { metricText: '5:22', imperialText: '8:36' };
+
 const yearBest = {
   count: 3,
   bestTime: 1500,
   bestPace: DISTANCE / 1500,
+  bestPaceText: PACE_1500,
   bestActivityId: 'run-0',
   bestActivityName: 'Run 0',
 };
@@ -69,6 +74,7 @@ function area(subject: 'route' | 'section') {
       forwardStats={{
         avgTime: 1600,
         avgSpeed: DISTANCE / 1600,
+        avgPaceText: PACE_1600,
         count: 3,
         lastActivity: null,
         outsideBandCount: 0,
@@ -78,6 +84,7 @@ function area(subject: 'route' | 'section') {
         {
           bestTime: 1500,
           bestPace: DISTANCE / 1500,
+          bestPaceText: PACE_1500,
           activityDate: new Date(2026, 3, 1),
         } as never
       }
@@ -122,8 +129,8 @@ describe('the figures beside a route chart', () => {
     const { getByTestId, getByLabelText } = area('section');
     fireEvent.press(getByLabelText('Year 2026'));
 
-    expect(text(getByTestId('stats-row-best-forward'))).toBe('8:03 /mi');
-    expect(within(getByTestId('section-calendar')).getByText('8:03 /mi')).toBeTruthy();
+    expect(text(getByTestId('stats-row-best-forward'))).toBe('8:04 /mi');
+    expect(within(getByTestId('section-calendar')).getByText('8:04 /mi')).toBeTruthy();
   });
 });
 
@@ -162,6 +169,7 @@ describe('the hero averages', () => {
   const forward = {
     avgTime: 1600,
     avgSpeed: DISTANCE / 1600,
+    avgPaceText: PACE_1600,
     count: 3,
     lastActivity: null,
     outsideBandCount: 0,
@@ -177,6 +185,6 @@ describe('the hero averages', () => {
     const section = await render(
       <DirectionAverages forwardStats={forward} reverseStats={null} basis="pace" />
     );
-    expect(section.getByTestId('section-avg-forward')).toHaveTextContent('8:35 /mi');
+    expect(section.getByTestId('section-avg-forward')).toHaveTextContent('8:36 /mi');
   });
 });

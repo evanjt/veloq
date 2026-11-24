@@ -3,9 +3,8 @@
  * on the fitness tab, so its top-right corner carries form and the ramp rate
  * beside fitness and fatigue, for the newest day or the pinned one.
  *
- * Expected behaviour: form reads rounded fitness minus rounded fatigue, or its
- * percentage of fitness under that preference, in text colour with its zone's
- * swatch beside it; the ramp is
+ * Expected behaviour: form reads the figure the engine stated for the day, in
+ * text colour with its zone's swatch beside it; the ramp is
  * the displayed day's own, signed per week, and absent when that day logs none.
  */
 
@@ -17,19 +16,21 @@ import type { ReactTestInstance } from 'react-test-renderer';
 import { FitnessChart } from '@/features/fitness/components/FitnessChart';
 import { formZoneColor } from '@/features/fitness/lib';
 import { colors } from '@/theme';
-import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import type { WellnessData } from '@/types';
 import { ABSENT } from '@/shared/format/absent';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 const DAYS = [
-  { id: '2026-04-01', ctl: 40, atl: 48, rampRate: -1.25 },
-  { id: '2026-04-02', ctl: 41, atl: 49 },
-  { id: '2026-04-04', ctl: 50.5, atl: 40.4, rampRate: 6.2 },
+  { id: '2026-04-01', ctl: 40, atl: 48, rampRate: -1.25, formZone: 'greyZone', formText: '-8' },
+  { id: '2026-04-02', ctl: 41, atl: 49, formZone: 'greyZone', formText: '-8' },
+  { id: '2026-04-04', ctl: 50.5, atl: 40.4, rampRate: 6.2, formZone: 'fresh', formText: '+11' },
 ] as WellnessData[];
 
-afterEach(() => useFormPreference.setState({ formAsPercent: null }));
+// The same first day as the engine states it for an athlete who reads form as a share of fitness.
+const PERCENT_DAYS = [
+  { id: '2026-04-01', ctl: 40, atl: 48, formZone: 'optimal', formText: '-20%' },
+] as WellnessData[];
 
 function colourOf(node: ReactTestInstance) {
   return StyleSheet.flatten(node.props.style).color;
@@ -61,9 +62,8 @@ describe('the fitness chart corner', () => {
     expect(fillOf(tree.getByTestId('fitness-form-key'))).toBe(formZoneColor('greyZone', false));
   });
 
-  it('prints form as a percentage of fitness under that preference', async () => {
-    useFormPreference.setState({ formAsPercent: true });
-    const tree = await render(<FitnessChart data={DAYS} selectedDate="2026-04-01" />);
+  it('prints the percentage of fitness the engine stated, with its zone', async () => {
+    const tree = await render(<FitnessChart data={PERCENT_DAYS} selectedDate="2026-04-01" />);
 
     expect(tree.getByTestId('fitness-form-value')).toHaveTextContent('-20%', { exact: true });
     expect(fillOf(tree.getByTestId('fitness-form-key'))).toBe(formZoneColor('optimal', false));

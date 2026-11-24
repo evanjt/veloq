@@ -10,7 +10,7 @@ export interface StripDay {
 }
 
 /** One drawn mark: a bar at `x`, split by sport group from the bottom up. */
-export interface StripMark {
+interface StripMark {
   /** The date the mark stands for. */
   dates: string[];
   x: number;
@@ -118,7 +118,7 @@ export function stripMarks(days: StripDay[], chartWidth: number): StripMark[] {
 }
 
 /** What the strip's key names: the sport groups drawn in colour, and whether any mark is neutral. */
-export interface StripKey {
+interface StripKey {
   /** Sport groups with at least one loaded date, in stack order. */
   groups: string[];
   /** At least one date trained without load and draws neutral. */

@@ -7,7 +7,7 @@
 
 import { daysSince, useSupportStore } from '@/shared/app/SupportStore';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate } from '@/shared/time/localDay';
 import { atUtcOffset } from '../__shared__/fixedOffsetDate';
 
 const mockRows = new Map<string, string>();

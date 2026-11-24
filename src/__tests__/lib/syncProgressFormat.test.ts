@@ -8,7 +8,7 @@
 import { formatTrackProgressParts, formatTrackStage } from '@/features/maps/lib/syncProgressFormat';
 import { tilePassProgress } from '@/features/routes/lib/tilePass';
 import { i18n, initialiseI18n } from '@/i18n';
-import { FfiHoldCause, TrackStep, type TrackStage } from 'veloqrs';
+import { FfiHoldCause, FfiTrackStep, type FfiTrackStage } from 'veloqrs';
 
 import type { TFunction } from 'i18next';
 
@@ -17,17 +17,22 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 const t = ((key: string, opts?: Record<string, unknown>) =>
   opts ? `${key}:${JSON.stringify(opts)}` : key) as unknown as TFunction;
 
-function stage(step: TrackStep, completed: number, total: number, percent: number): TrackStage {
+function stage(
+  step: FfiTrackStep,
+  completed: number,
+  total: number,
+  percent: number
+): FfiTrackStage {
   return { step, completed, total, percent };
 }
 
-function held(resumesAtMs: number, heldCause: FfiHoldCause): TrackStage {
-  return { step: TrackStep.Held, completed: 0, total: 0, percent: 0, resumesAtMs, heldCause };
+function held(resumesAtMs: number, heldCause: FfiHoldCause): FfiTrackStage {
+  return { step: FfiTrackStep.Held, completed: 0, total: 0, percent: 0, resumesAtMs, heldCause };
 }
 
 describe('formatTrackStage', () => {
   vaultIt('shows the download with its count and its own percent', () => {
-    const result = formatTrackStage(stage(TrackStep.Downloading, 5, 10, 50), t)!;
+    const result = formatTrackStage(stage(FfiTrackStep.Downloading, 5, 10, 50), t)!;
     expect(result.icon).toBe('download-outline');
     expect(result.percent).toBe(50);
     expect(result.countText).toBe('5/10');
@@ -40,7 +45,7 @@ describe('formatTrackStage', () => {
   vaultIt(
     'shows a download that has not counted its tracks as indeterminate, with no count',
     () => {
-      const result = formatTrackStage(stage(TrackStep.Downloading, 0, 0, 0), t)!;
+      const result = formatTrackStage(stage(FfiTrackStep.Downloading, 0, 0, 0), t)!;
       expect(result.indeterminate).toBe(true);
       expect(result.countText).toBeNull();
       expect(result.text).toBe('routesScreen.downloadingGps');
@@ -48,7 +53,7 @@ describe('formatTrackStage', () => {
   );
 
   vaultIt('shows detection with its weighted percent and no count', () => {
-    const result = formatTrackStage(stage(TrackStep.Analysing, 3, 8, 30), t)!;
+    const result = formatTrackStage(stage(FfiTrackStep.Analysing, 3, 8, 30), t)!;
     expect(result.icon).toBe('map-marker-path');
     expect(result.percent).toBe(30);
     expect(result.countText).toBeNull();
@@ -56,7 +61,7 @@ describe('formatTrackStage', () => {
   });
 
   vaultIt('shows detection before its first figure as indeterminate', () => {
-    const result = formatTrackStage(stage(TrackStep.Analysing, 0, 0, 0), t)!;
+    const result = formatTrackStage(stage(FfiTrackStep.Analysing, 0, 0, 0), t)!;
     expect(result.indeterminate).toBe(true);
     expect(result.text).toBe('cache.analyzingRoutes');
   });
@@ -77,7 +82,7 @@ describe('formatTrackStage', () => {
   });
 
   vaultIt('shows the heatmap pass with no count', () => {
-    const result = formatTrackStage(stage(TrackStep.DrawingHeatmap, 40, 100, 40), t)!;
+    const result = formatTrackStage(stage(FfiTrackStep.DrawingHeatmap, 40, 100, 40), t)!;
     expect(result.countText).toBeNull();
     expect(result.percent).toBe(40);
     expect(result.indeterminate).toBe(false);
@@ -99,20 +104,20 @@ describe('the banner line in real copy', () => {
   const percentSigns = (line: string) => line.split('%').length - 1;
 
   vaultIt('prints one percentage for the heatmap stage', () => {
-    const line = formatTrackStage(stage(TrackStep.DrawingHeatmap, 40, 100, 40), i18n.t)!.text;
+    const line = formatTrackStage(stage(FfiTrackStep.DrawingHeatmap, 40, 100, 40), i18n.t)!.text;
     expect(percentSigns(line)).toBe(1);
     expect(line).toBe('Finalising heatmap… 40%');
     expect(line).not.toContain('...');
   });
 
   vaultIt('prints the stage alone, with no figure, before any progress', () => {
-    const line = formatTrackStage(stage(TrackStep.Analysing, 0, 0, 0), i18n.t)!.text;
+    const line = formatTrackStage(stage(FfiTrackStep.Analysing, 0, 0, 0), i18n.t)!.text;
     expect(percentSigns(line)).toBe(0);
     expect(line).toBe(i18n.t('cache.analyzingRoutes'));
   });
 
   vaultIt('prints the download figure once', () => {
-    const line = formatTrackStage(stage(TrackStep.Downloading, 3, 12, 25), i18n.t)!.text;
+    const line = formatTrackStage(stage(FfiTrackStep.Downloading, 3, 12, 25), i18n.t)!.text;
     expect(percentSigns(line)).toBe(1);
     expect(line).toBe('Downloading tracks… 25%');
   });
@@ -133,19 +138,19 @@ describe('the banner line in real copy', () => {
 
 describe('formatTrackProgressParts', () => {
   test('splits the download into its label and its count', () => {
-    expect(formatTrackProgressParts(stage(TrackStep.Downloading, 120, 148, 81), t)).toEqual({
+    expect(formatTrackProgressParts(stage(FfiTrackStep.Downloading, 120, 148, 81), t)).toEqual({
       label: 'routesScreen.downloadingGps',
       counts: '120/148',
     });
   });
 
   test('has no line for a download that has not counted its tracks', () => {
-    expect(formatTrackProgressParts(stage(TrackStep.Downloading, 0, 0, 0), t)).toBeNull();
+    expect(formatTrackProgressParts(stage(FfiTrackStep.Downloading, 0, 0, 0), t)).toBeNull();
   });
 
   test('has no line for a held download or for the other steps', () => {
     expect(formatTrackProgressParts(held(1_700_000_000_000, FfiHoldCause.Upstream), t)).toBeNull();
-    expect(formatTrackProgressParts(stage(TrackStep.Analysing, 40, 100, 40), t)).toBeNull();
-    expect(formatTrackProgressParts(stage(TrackStep.DrawingHeatmap, 3, 9, 33), t)).toBeNull();
+    expect(formatTrackProgressParts(stage(FfiTrackStep.Analysing, 40, 100, 40), t)).toBeNull();
+    expect(formatTrackProgressParts(stage(FfiTrackStep.DrawingHeatmap, 3, 9, 33), t)).toBeNull();
   });
 });

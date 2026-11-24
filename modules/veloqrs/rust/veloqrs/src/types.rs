@@ -272,6 +272,9 @@ pub struct SectionPerformanceRecord {
     /// Unit: metre_per_second.
     #[serde(alias = "best_pace")]
     pub best_pace: f64,
+    /// `best_pace` as pace text for a sport read as a pace.
+    #[serde(default)]
+    pub best_pace_text: Option<crate::FfiPaceText>,
     /// Best eligible forward lap time.
     /// Unit: second.
     #[serde(default)]
@@ -292,6 +295,9 @@ pub struct SectionPerformanceRecord {
     /// Unit: metre_per_second.
     #[serde(alias = "avg_pace")]
     pub avg_pace: f64,
+    /// `avg_pace` as pace text for a sport read as a pace.
+    #[serde(default)]
+    pub avg_pace_text: Option<crate::FfiPaceText>,
     /// Primary direction: "same" or "reverse"
     pub direction: String,
     /// Section distance in meters
@@ -317,6 +323,9 @@ pub struct DirectionStats {
     /// Unit: metre_per_second.
     #[serde(default)]
     pub avg_speed: Option<f64>,
+    /// `avg_speed` as pace text for a sport read as a pace.
+    #[serde(default)]
+    pub avg_pace_text: Option<crate::FfiPaceText>,
     /// Timed route attempts outside the distance band, absent from the averages.
     /// Unit: count.
     #[serde(default)]
@@ -365,6 +374,9 @@ pub struct CalendarDirectionBest {
     /// Best pace in m/s
     /// Unit: metre_per_second.
     pub best_pace: f64,
+    /// `best_pace` as pace text for a sport read as a pace.
+    #[serde(default)]
+    pub best_pace_text: Option<crate::FfiPaceText>,
     /// Activity ID of best traversal
     pub best_activity_id: String,
     /// Name of best activity

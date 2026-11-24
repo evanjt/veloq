@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { ActivityType } from '@/types';
 
-export type TimeOfDayKey = 'morning' | 'afternoon' | 'evening' | 'night';
+type TimeOfDayKey = 'morning' | 'afternoon' | 'evening' | 'night';
 
 /** The local time-of-day bucket of the hour the activity started, or of now when it has none. */
 export function getTimeOfDayKey(startTime: number | null): TimeOfDayKey {
@@ -29,7 +29,7 @@ export function generatedActivityName(
   return t(`recording.autoName.${getTimeOfDayKey(startTime)}`, { sport });
 }
 
-export interface UseActivityNameGenerationArgs {
+interface UseActivityNameGenerationArgs {
   /** Pre-specified name from route params (takes precedence if provided). */
   initialName?: string | undefined;
   /** Activity type used to generate the default name. */
@@ -38,7 +38,7 @@ export interface UseActivityNameGenerationArgs {
   startTime: number | null;
 }
 
-export interface UseActivityNameGeneration {
+interface UseActivityNameGeneration {
   name: string;
   setName: (name: string) => void;
 }

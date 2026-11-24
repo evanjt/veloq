@@ -13,7 +13,7 @@ export interface ClimbStatus {
 }
 
 /** The activity a best was set in, as a row names it. */
-export interface BestActivityLabel {
+interface BestActivityLabel {
   name: string;
   /** The start's `YYYY-MM-DD` day. */
   date: string;
@@ -30,6 +30,9 @@ export interface BestEffort {
   /** Empty when the device does not hold the activity, which the row shows as not cached. */
   activity: BestActivityLabel | undefined;
   checkpoint: number; // secs for power, meters for pace
+  /** The engine's running pace text per kilometre and per mile, for running only. */
+  paceMetricText: string | null;
+  paceImperialText: string | null;
 }
 
 /** A climbing best as the rows draw it. */
@@ -76,6 +79,8 @@ export function bestEffortsOf(
     activityId: e.activityId,
     activity: bestActivityLabel(e.activity),
     checkpoint: e.checkpoint,
+    paceMetricText: e.paceMetricText ?? null,
+    paceImperialText: e.paceImperialText ?? null,
   }));
 }
 

@@ -6,7 +6,7 @@
  * React and no Skia, so these are tested in isolation.
  */
 
-import { IntervalKind } from 'veloqrs';
+import { FfiIntervalKind } from 'veloqrs';
 
 import type { ChartConfig, ChartTypeId } from '@/features/activity';
 import { measuresPower } from '@/shared/activity/activityUtils';
@@ -108,12 +108,12 @@ export function seriesAverage(config: ChartConfig, rawData: ArrayLike<number>): 
  * A series' y extent. A pace leaves its stops out, which read as pace 0 and a
  * crawl as hours per kilometre, either of which would flatten the moving pace.
  */
-export function seriesExtent(config: ChartConfig, rawData: ArrayLike<number>): Extent | null {
+function seriesExtent(config: ChartConfig, rawData: ArrayLike<number>): Extent | null {
   return finiteExtent(config.motion?.kind === 'pace' ? movingSamples(config, rawData) : rawData);
 }
 
 /** How a lane draws its stream: a line, a grey context area, or a fill either side of zero. */
-export type LaneKind = 'line' | 'context' | 'signed';
+type LaneKind = 'line' | 'context' | 'signed';
 
 /** A drawn stream with the y extent of its own lane, in its own units. */
 export interface SeriesInfo extends DataSeries {
@@ -162,7 +162,7 @@ function laneKind(config: ChartConfig): LaneKind {
  * fills its lane from its lowest sample to its highest. A flat stream is given
  * a unit either side, so its line sits mid-lane rather than on the floor.
  */
-export function laneDomain(config: ChartConfig, extent: Extent | null): [number, number] {
+function laneDomain(config: ChartConfig, extent: Extent | null): [number, number] {
   if (!extent) return [0, 1];
   let low = extent.min;
   let high = extent.max;
@@ -208,16 +208,16 @@ export function intervalBandToken(
   scale: 'power' | 'hr'
 ): BandColourToken {
   switch (interval.kind) {
-    case IntervalKind.Work:
+    case FfiIntervalKind.Work:
       return interval.zone != null && interval.zone >= 1
         ? { kind: 'zone', scale, zone: interval.zone }
         : { kind: 'role', role: 'work' };
-    case IntervalKind.Recovery:
-    case IntervalKind.Rest:
+    case FfiIntervalKind.Recovery:
+    case FfiIntervalKind.Rest:
       return { kind: 'role', role: 'recovery' };
-    case IntervalKind.Warmup:
+    case FfiIntervalKind.Warmup:
       return { kind: 'role', role: 'warmup' };
-    case IntervalKind.Cooldown:
+    case FfiIntervalKind.Cooldown:
       return { kind: 'role', role: 'cooldown' };
     default:
       return { kind: 'role', role: 'other' };
@@ -465,7 +465,7 @@ export function computeIntervalBands(
       endX = distanceInUnit(xSource[endIdx], isMetric);
     }
 
-    const isWork = interval.kind === IntervalKind.Work;
+    const isWork = interval.kind === FfiIntervalKind.Work;
 
     const bandColour = intervalBandToken(interval, hasPowerZones ? 'power' : 'hr');
     const averages = isWork

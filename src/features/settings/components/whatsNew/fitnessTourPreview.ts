@@ -1,5 +1,3 @@
-import { formFromLoads } from '@/shared/math';
-
 /** One day of the demo block, as the Fitness tab's charts read it. */
 export interface TourDay {
   x: number;
@@ -30,11 +28,14 @@ export function tourTrainingBlock(): TourDay[] {
     WEEK_LOADS.forEach((load, weekday) => {
       fitness += (load * scale - fitness) / TOUR_FITNESS_DAYS;
       fatigue += (load * scale - fatigue) / TOUR_FATIGUE_DAYS;
+      const shownFitness = Math.round(fitness);
+      const shownFatigue = Math.round(fatigue);
       days.push({
         x: week * WEEK_LOADS.length + weekday,
-        fitness: Math.round(fitness),
-        fatigue: Math.round(fatigue),
-        form: formFromLoads(fitness, fatigue),
+        fitness: shownFitness,
+        fatigue: shownFatigue,
+        // The illustration's own definition, form as the two printed loads' difference.
+        form: shownFitness - shownFatigue,
       });
     });
   });

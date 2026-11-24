@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import type { ActivitySyncFailure } from 'veloqrs';
+import type { FfiActivitySyncFailure } from 'veloqrs';
 import { composeAccessibilityLabel } from '@/shared/ui';
 import { Button } from '@/shared/ui/Button';
 import { RetryButton } from '@/shared/ui/ErrorState';
@@ -40,7 +40,7 @@ export function ActivitySyncFailureChip({ activityId, retrying, onRetry }: ChipP
 
 interface NoticeProps {
   activityId: string;
-  failure: ActivitySyncFailure;
+  failure: FfiActivitySyncFailure;
   onRetry: () => void;
 }
 

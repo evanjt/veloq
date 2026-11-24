@@ -8,7 +8,7 @@
 
 import { act, renderHook } from '@testing-library/react-native';
 
-import { MaxHrSource } from 'veloqrs';
+import { FfiMaxHrSource } from 'veloqrs';
 import {
   prefetchActivityDetailData,
   useActivityDetailData,
@@ -37,7 +37,7 @@ function engineAnswering(maxHr: () => number) {
     sectionTraces: [],
     prSectionIds: [],
     maxHr: maxHr(),
-    maxHrSource: MaxHrSource.SportSettings,
+    maxHrSource: FfiMaxHrSource.SportSettings,
     hrZones: [],
     ledgerChanges: [{ eventId: 7, sectionId: 's1', relation: 'around' }],
   }));
@@ -62,7 +62,7 @@ it('carries the max HR the engine resolved and where it came from', async () => 
   const { result } = await renderHook(() => useActivityDetailData('a1'));
 
   expect(result.current.data?.maxHR).toBe(185);
-  expect(result.current.data?.maxHrSource).toBe(MaxHrSource.SportSettings);
+  expect(result.current.data?.maxHrSource).toBe(FfiMaxHrSource.SportSettings);
 });
 
 it('carries the section changes whose ledger rows name the activity', async () => {

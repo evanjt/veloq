@@ -22,7 +22,7 @@
  * wipe both end that account, so `cancelSyncRefresh` drops it rather than
  * letting the next athlete's first sync drag it in.
  */
-import { hasStarted, isRetryableStart, StartOutcome, startOutcome } from 'veloqrs';
+import { hasStarted, isRetryableStart, FfiStartOutcome, startOutcome } from 'veloqrs';
 
 import { getEngine } from './engine';
 
@@ -38,9 +38,9 @@ export function cancelSyncRefresh(): void {
   waiting = null;
 }
 
-export function requestSyncRefresh(): StartOutcome {
+export function requestSyncRefresh(): FfiStartOutcome {
   const engine = getEngine();
-  if (!engine) return StartOutcome.NotReady;
+  if (!engine) return FfiStartOutcome.NotReady;
 
   const result = engine.syncNow(true);
   const outcome = startOutcome(result);
@@ -48,7 +48,7 @@ export function requestSyncRefresh(): StartOutcome {
   // A hold that names its end is the governor's cooldown: the engine starts
   // the run itself when it lifts, and the status carries the time. Nothing is
   // waited on, since no run settles before then.
-  if (outcome === StartOutcome.Held && typeof result === 'object' && result.retryAtMs != null) {
+  if (outcome === FfiStartOutcome.Held && typeof result === 'object' && result.retryAtMs != null) {
     return outcome;
   }
 

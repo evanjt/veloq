@@ -23,7 +23,7 @@ import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { StartupErrorBanner } from '@/shared/ui/StartupErrorBanner';
 import { SyncErrorBanner } from '@/shared/ui/SyncErrorBanner';
-import { SyncErrorReason } from '../__shared__/veloqrsStub';
+import { FfiSyncErrorReason } from '../__shared__/veloqrsStub';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -46,7 +46,7 @@ jest.mock('@/shared/app/NetworkContext', () => ({
 
 let mockHealth: {
   lastError: string | null;
-  lastErrorReason: SyncErrorReason | null;
+  lastErrorReason: FfiSyncErrorReason | null;
   lastSuccessAt: string | null;
 } = { lastError: null, lastErrorReason: null, lastSuccessAt: null };
 jest.mock('@/shared/native/useSyncHealth', () => ({ useSyncHealth: () => mockHealth }));
@@ -60,7 +60,7 @@ function setOS(os: 'ios' | 'android') {
   Object.defineProperty(Platform, 'OS', { value: os, configurable: true });
 }
 
-function failingSync(reason: SyncErrorReason) {
+function failingSync(reason: FfiSyncErrorReason) {
   mockHealth = { lastError: 'upstream said no', lastErrorReason: reason, lastSuccessAt: null };
 }
 
@@ -73,7 +73,7 @@ const BANNERS: [string, string, () => React.ReactElement, () => void][] = [
     'sync-error-banner',
     'assertive',
     () => <SyncErrorBanner />,
-    () => failingSync(SyncErrorReason.Server),
+    () => failingSync(FfiSyncErrorReason.Server),
   ],
   [
     'startup-error-banner',
@@ -166,7 +166,7 @@ describe('a top banner pads the status bar by the reported inset', () => {
 
   vaultIt('gives the inset to the banner in the slot and none to the one beneath it', async () => {
     mockInsets.top = 40;
-    failingSync(SyncErrorReason.Network);
+    failingSync(FfiSyncErrorReason.Network);
     useEngineStatus.setState({ initFailed: true, initFailureReason: null });
     const wrapper = ({ children }: { children: React.ReactNode }) => (
       <TopSafeAreaProvider>{children}</TopSafeAreaProvider>
@@ -181,7 +181,7 @@ describe('a top banner pads the status bar by the reported inset', () => {
 });
 
 describe('a failing sync offers a way back', () => {
-  it.each([SyncErrorReason.Network, SyncErrorReason.Server, SyncErrorReason.RateLimited])(
+  it.each([FfiSyncErrorReason.Network, FfiSyncErrorReason.Server, FfiSyncErrorReason.RateLimited])(
     'asks the engine to sync again for reason %s',
     async (reason) => {
       failingSync(reason);
@@ -193,7 +193,7 @@ describe('a failing sync offers a way back', () => {
     }
   );
 
-  it.each([SyncErrorReason.Unauthorized, SyncErrorReason.NotConfigured])(
+  it.each([FfiSyncErrorReason.Unauthorized, FfiSyncErrorReason.NotConfigured])(
     'offers no retry that cannot succeed for reason %s',
     async (reason) => {
       failingSync(reason);

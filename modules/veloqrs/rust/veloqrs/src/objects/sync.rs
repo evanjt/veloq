@@ -13,6 +13,7 @@
 //! upload verbs are async and resolve to an `FfiCallOutcome` the caller branches
 //! on, while still running their I/O on the shared runtime.
 
+use crate::poison::Recover;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::LazyLock;
@@ -675,7 +676,7 @@ impl SyncService {
 
     fn set_credentials(&self, method: AuthKind, secret: String, athlete_id: String) {
         {
-            let mut g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
+            let mut g = self.creds.lock_recover();
             *g = Some(Credentials {
                 method,
                 secret,
@@ -690,7 +691,7 @@ impl SyncService {
 
     fn clear_credentials(&self) {
         {
-            let mut g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
+            let mut g = self.creds.lock_recover();
             *g = None;
             self.generation.fetch_add(1, Ordering::SeqCst);
         }
@@ -711,7 +712,7 @@ impl SyncService {
     /// letting it write one athlete's data into the other's database. No
     /// credential at all authorises nobody.
     fn still_signed_in(&self, athlete_id: &str) -> bool {
-        let g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
+        let g = self.creds.lock_recover();
         g.as_ref().is_some_and(|c| c.athlete_id == athlete_id)
     }
 
@@ -720,14 +721,14 @@ impl SyncService {
     /// `current_transport`.
     #[cfg(test)]
     fn auth_header(&self) -> Option<String> {
-        let g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
+        let g = self.creds.lock_recover();
         g.as_ref()
             .map(|c| governor::format_auth_header(c.method.auth_method(&c.secret)))
     }
 
     /// The scheme of the held credential, or none while signed out.
     fn held_kind(&self) -> Option<AuthKind> {
-        let g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
+        let g = self.creds.lock_recover();
         g.as_ref().map(|c| c.method)
     }
 
@@ -764,21 +765,17 @@ impl SyncService {
 
     /// The athlete id the held credential belongs to, if any.
     fn athlete_id(&self) -> Option<String> {
-        let g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
+        let g = self.creds.lock_recover();
         g.as_ref().map(|c| c.athlete_id.clone())
     }
 
     /// Build the session the held credentials and base URL name.
     fn build_session(&self) -> Result<LiveSource, SyncFailure> {
-        let creds_guard = self.creds.lock().unwrap_or_else(|e| e.into_inner());
+        let creds_guard = self.creds.lock_recover();
         let creds = creds_guard.as_ref().ok_or_else(|| {
             SyncFailure::new(FfiSyncErrorReason::NotConfigured, "no credentials set")
         })?;
-        let base = self
-            .base_url
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clone();
+        let base = self.base_url.lock_recover().clone();
         let transport = Transport::new(base, creds.method.auth_method(&creds.secret))
             .map_err(|e| SyncFailure::new(FfiSyncErrorReason::NotConfigured, e))?;
         Ok(live_source(transport, creds.athlete_id.clone())
@@ -832,7 +829,7 @@ impl SyncService {
     /// fetches what it would have.
     fn claim_run_for(&self, request: SyncRequest) -> Result<u64, FfiStartOutcome> {
         let athlete_id = self.athlete_id();
-        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let mut inner = self.inner.lock_recover();
         if inner.auth_expired {
             return Err(FfiStartOutcome::NotConfigured);
         }
@@ -889,7 +886,7 @@ impl SyncService {
     /// Declare how many steps the job will run, so a poll of the status shows
     /// real progress instead of a single opaque unit.
     fn begin_steps(&self, total: u32) {
-        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let mut inner = self.inner.lock_recover();
         inner.total = total;
         inner.completed = 0;
         inner.step = None;
@@ -904,7 +901,7 @@ impl SyncService {
     /// waiting on is the one in flight, not the one that just landed.
     fn begin_step(&self, step: FfiSyncStep) {
         {
-            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            let mut inner = self.inner.lock_recover();
             inner.step = Some(step);
             inner.step_items_done = 0;
             inner.step_items_total = 0;
@@ -917,7 +914,7 @@ impl SyncService {
     /// it is.
     fn set_step_items(&self, done: u32, total: u32) {
         {
-            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            let mut inner = self.inner.lock_recover();
             inner.step_items_done = done;
             inner.step_items_total = total;
         }
@@ -927,7 +924,7 @@ impl SyncService {
     /// Advance the completed counter by one step.
     fn complete_step(&self) {
         {
-            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            let mut inner = self.inner.lock_recover();
             inner.completed = (inner.completed + 1).min(inner.total);
         }
         observer::notify(Announcement::SyncProgress);
@@ -961,7 +958,7 @@ impl SyncService {
         let stamp;
         let mut retry_at = None;
         let resume = {
-            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            let mut inner = self.inner.lock_recover();
             if run.is_some_and(|token| token != inner.run_token) {
                 log::info!("[Sync] a run that was already ended or replaced finished; ignored");
                 return;
@@ -1046,7 +1043,7 @@ impl SyncService {
     /// left owed to the connection start again, as on an online edge.
     pub(crate) fn retry_transient_failure(&self) {
         let due = {
-            let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            let inner = self.inner.lock_recover();
             inner.transient_retried && !inner.owed_to_reconnect.is_empty()
         };
         if due {
@@ -1062,7 +1059,7 @@ impl SyncService {
     /// wanted the window asks nothing on the edge itself.
     pub(crate) fn reconnected(&self) {
         {
-            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            let mut inner = self.inner.lock_recover();
             if inner.auth_expired {
                 return;
             }
@@ -1094,7 +1091,7 @@ impl SyncService {
             return;
         }
         {
-            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            let mut inner = self.inner.lock_recover();
             if inner.auth_expired {
                 return;
             }
@@ -1133,7 +1130,7 @@ impl SyncService {
         }
         loop {
             let next = {
-                let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+                let mut inner = self.inner.lock_recover();
                 if inner.running.is_some() || inner.auth_expired || inner.owed.is_empty() {
                     return;
                 }
@@ -1162,7 +1159,7 @@ impl SyncService {
         let Some(athlete_id) = self.athlete_id() else {
             return;
         };
-        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let mut inner = self.inner.lock_recover();
         owe_into(
             &mut inner.owed_to_reconnect,
             OwedRun {
@@ -1192,10 +1189,7 @@ impl SyncService {
             && source.cooldown_until(now).is_none()
         {
             log::info!("[Sync] {step:?} step waits for the request allowance until {until}");
-            self.inner
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .deferred_until = Some(*until);
+            self.inner.lock_recover().deferred_until = Some(*until);
             self.finish_run(source, SyncState::Idle, earlier, false);
             crate::net::resume::resume_at(*until);
             return;
@@ -1208,10 +1202,8 @@ impl SyncService {
             retry_at,
             failure.message
         );
-        self.inner
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .retry_at = retry_at.filter(|_| source.cooldown_until(now).is_none());
+        self.inner.lock_recover().retry_at =
+            retry_at.filter(|_| source.cooldown_until(now).is_none());
         self.finish_run(
             source,
             SyncState::Idle,
@@ -1238,11 +1230,16 @@ impl SyncService {
 
     fn park_for(&self, run: Option<u64>) {
         {
-            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            let mut inner = self.inner.lock_recover();
             if run.is_some_and(|token| token != inner.run_token) {
                 return;
             }
             inner.auth_expired = true;
+            // The run that was mid-step holds the rejected credential. Its
+            // loop reads the cancel flag between steps and inside a walk, so
+            // the park raises it: otherwise the run kept sending requests on
+            // a token already known dead until one of them came back 401.
+            inner.cancel = true;
         }
         self.finish_for(
             run,
@@ -1283,7 +1280,7 @@ impl SyncService {
 
     /// Release the park. Only a credential change does this.
     fn release_auth_park(&self) {
-        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let mut inner = self.inner.lock_recover();
         inner.auth_expired = false;
         if inner.state == SyncState::AuthExpired {
             inner.state = SyncState::Idle;
@@ -1293,7 +1290,7 @@ impl SyncService {
     /// Soft cancel: flag the loop so it stops dispatching new work. An in-flight
     /// request is allowed to finish.
     pub(crate) fn request_cancel(&self) {
-        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let mut inner = self.inner.lock_recover();
         inner.cancel = true;
         // Pause dispatch while a request is in flight; the job's terminal
         // transition then settles back to Idle.
@@ -1307,7 +1304,7 @@ impl SyncService {
     /// short can be started again once the wipe has ended.
     pub(crate) fn interrupt(&self) -> Option<Interrupted> {
         let running = {
-            let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            let inner = self.inner.lock_recover();
             inner.running.clone()
         };
         let athlete_id = self.athlete_id();
@@ -1333,7 +1330,7 @@ impl SyncService {
             return;
         }
         {
-            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            let mut inner = self.inner.lock_recover();
             if inner.auth_expired {
                 return;
             }
@@ -1349,15 +1346,22 @@ impl SyncService {
     }
 
     fn is_cancelled(&self) -> bool {
-        self.inner.lock().unwrap_or_else(|e| e.into_inner()).cancel
+        self.inner.lock_recover().cancel
+    }
+
+    /// Whether the credential is parked as rejected. A run reads this before
+    /// each step: a park landing from another path says nothing more will
+    /// succeed on this token.
+    fn is_parked(&self) -> bool {
+        self.inner
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .auth_expired
     }
 
     /// When the install's own allowance frees, if the last run stopped on it.
     fn deferred_until(&self) -> Option<chrono::DateTime<chrono::Utc>> {
-        self.inner
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .deferred_until
+        self.inner.lock_recover().deferred_until
     }
 
     pub fn snapshot(&self) -> FfiSyncStatus {
@@ -1376,7 +1380,7 @@ impl SyncService {
         // Read before the service's own lock, so no slot lock is ever taken
         // under it.
         let tracks = super::track_stage::read();
-        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let inner = self.inner.lock_recover();
         FfiSyncStatus {
             state: inner.state,
             in_flight: inner.in_flight,
@@ -1698,7 +1702,15 @@ where
 /// The announcement is made after the engine lock is released, and only when
 /// the write landed in SQLite: a cold start has nowhere to put the stream, and a screen
 /// told it had arrived would read a gap that is still there.
-pub(crate) async fn store_time_stream(install: u64, activity_id: String, times: Vec<u32>) {
+///
+/// Answers whether it landed: a write the engine refused or had nowhere to make
+/// is an error, so the pass that asked ends as failed and its key backs off
+/// rather than releasing as done.
+pub(crate) async fn store_time_stream(
+    install: u64,
+    activity_id: String,
+    times: Vec<u32>,
+) -> Result<(), NetError> {
     let id = activity_id.clone();
     let stored = crate::persistence::with_persistent_engine_blocking_for(install, move |engine| {
         engine.set_time_streams_flat(&[id], &times, &[0])
@@ -1707,11 +1719,16 @@ pub(crate) async fn store_time_stream(install: u64, activity_id: String, times: 
     if let Some(persisted) = stored {
         if persisted.is_empty() {
             log::warn!("time_stream store failed for {activity_id}: not persisted");
+            Err(NetError::Storage(format!(
+                "time_stream for {activity_id} not persisted"
+            )))
         } else {
             observer::notify(Announcement::TimeStreamsStored(persisted));
+            Ok(())
         }
     } else {
         discarded("time_stream", &activity_id);
+        Err(NetError::EngineClosed)
     }
 }
 
@@ -1738,7 +1755,7 @@ pub(crate) const TIME_STREAM_CONCURRENCY: usize = 25;
 /// next.
 ///
 /// A refusal ends the walk after the chunk it arrived in and is returned. A
-/// per-activity 404 is skipped. Any other failure does not stop the walk, and
+/// per-activity 404 is skipped. Any other failure, a failed store included, does not stop the walk, and
 /// the first one is returned once the walk is over, so the caller backs the key
 /// off instead of releasing it as done.
 async fn drain_time_streams_with<S, F, Fut, St, StFut>(
@@ -1752,7 +1769,7 @@ where
     F: FnMut(String) -> Fut,
     Fut: std::future::Future<Output = Result<Vec<u32>, NetError>>,
     St: FnMut(String, Vec<u32>) -> StFut,
-    StFut: std::future::Future<Output = ()>,
+    StFut: std::future::Future<Output = Result<(), NetError>>,
 {
     let mut first_failure = None;
     for chunk in missing.chunks(TIME_STREAM_CONCURRENCY) {
@@ -1779,7 +1796,12 @@ where
                 // pass for the life of the install, and left the section screens
                 // waiting out `TIME_STREAM_TIMEOUT_MS` for an announcement that
                 // never came.
-                Ok(times) => store(activity_id, times).await,
+                Ok(times) => {
+                    if let Err(e) = store(activity_id.clone(), times).await {
+                        log::warn!("[Sync] time stream {activity_id} not stored: {e}");
+                        first_failure.get_or_insert(e);
+                    }
+                }
                 // One refusal speaks for the chunk: what already came back is
                 // kept and nothing further is asked for.
                 Err(NetError::Unauthorized) => unauthorized = true,
@@ -2164,10 +2186,7 @@ pub(crate) fn clear_test_credentials() {
 /// `serial_global_state` first: the address is process-wide.
 #[cfg(test)]
 pub(crate) fn test_base_url(base: String) -> TestBaseUrl {
-    *SYNC_SERVICE
-        .base_url
-        .lock()
-        .unwrap_or_else(|e| e.into_inner()) = base;
+    *SYNC_SERVICE.base_url.lock_recover() = base;
     TestBaseUrl
 }
 
@@ -2186,10 +2205,7 @@ pub(crate) struct TestBaseUrl;
 #[cfg(test)]
 impl Drop for TestBaseUrl {
     fn drop(&mut self) {
-        *SYNC_SERVICE
-            .base_url
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = crate::net::LIVE_BASE_URL.to_string();
+        *SYNC_SERVICE.base_url.lock_recover() = crate::net::LIVE_BASE_URL.to_string();
     }
 }
 
@@ -2269,19 +2285,11 @@ pub(crate) fn still_signed_in(athlete_id: &str) -> bool {
 /// `set_credentials`.
 /// Whether a credential is held, which is what lets a queued download run.
 pub(crate) fn credentials_held() -> bool {
-    SYNC_SERVICE
-        .creds
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .is_some()
+    SYNC_SERVICE.creds.lock_recover().is_some()
 }
 
 pub fn current_session() -> Option<Result<LiveSource, String>> {
-    let creds_present = SYNC_SERVICE
-        .creds
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .is_some();
+    let creds_present = SYNC_SERVICE.creds.lock_recover().is_some();
     if !creds_present {
         return None;
     }
@@ -2302,11 +2310,7 @@ pub(crate) async fn validate_credentials_detached(
     let Some(kind) = AuthKind::parse(&method) else {
         return FfiCallOutcome::internal(format!("unknown auth method: {}", method));
     };
-    let base = SYNC_SERVICE
-        .base_url
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .clone();
+    let base = SYNC_SERVICE.base_url.lock_recover().clone();
     let transport = match Transport::new(base, kind.auth_method(&secret)) {
         Ok(t) => t,
         Err(e) => return FfiCallOutcome::internal(e),
@@ -2375,8 +2379,7 @@ fn athlete_mismatch(held: &str, expected: Option<&str>) -> Option<FfiCallOutcome
 pub(crate) fn signed_in_athlete() -> Option<String> {
     SYNC_SERVICE
         .creds
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .lock_recover()
         .as_ref()
         .map(|c| c.athlete_id.clone())
 }
@@ -2542,11 +2545,11 @@ where
     let kept = slot.clone();
     let outcome = run_write(move |session| async move {
         let value = job(session).await?;
-        *kept.lock().unwrap_or_else(|e| e.into_inner()) = Some(value);
+        *kept.lock_recover() = Some(value);
         Ok(None)
     })
     .await;
-    let value = slot.lock().unwrap_or_else(|e| e.into_inner()).take();
+    let value = slot.lock_recover().take();
     (outcome, value)
 }
 
@@ -2722,7 +2725,7 @@ pub(crate) async fn perform_sync_from<S: Source>(
     force: bool,
 ) {
     let athlete_id = source.account();
-    if svc.is_cancelled() || !svc.still_signed_in(athlete_id) {
+    if svc.is_cancelled() || svc.is_parked() || !svc.still_signed_in(athlete_id) {
         svc.finish_run(source, SyncState::Idle, None, false);
         return;
     }
@@ -2738,7 +2741,7 @@ pub(crate) async fn perform_sync_from<S: Source>(
 
     macro_rules! step {
         ($step:expr, $body:expr) => {{
-            if svc.is_cancelled() || !svc.still_signed_in(athlete_id) {
+            if svc.is_cancelled() || svc.is_parked() || !svc.still_signed_in(athlete_id) {
                 svc.finish_run(source, SyncState::Idle, last_error, false);
                 return;
             }
@@ -3446,15 +3449,13 @@ type AbsentBody = (u64, String, &'static str);
 
 fn is_known_absent(install: u64, activity_id: &str, kind: &'static str) -> bool {
     KNOWN_ABSENT_BODIES
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .lock_recover()
         .contains(&(install, activity_id.to_string(), kind))
 }
 
 fn note_known_absent(install: u64, activity_id: &str, kind: &'static str) {
     KNOWN_ABSENT_BODIES
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .lock_recover()
         .insert((install, activity_id.to_string(), kind));
 }
 
@@ -5646,6 +5647,7 @@ mod sync_verbs_source_tests;
 
 #[cfg(test)]
 mod tests {
+    use crate::poison::Recover;
     /// Expected behaviour: the switch that lifts the backfill's day cap is
     /// refused on an OAuth credential, written on a key, and cleared by an
     /// OAuth sign-in and by a sign-out. Driven through the doors the app
@@ -5769,6 +5771,36 @@ mod tests {
             }
         }
 
+        /// Scenario: the fetch answers but the write fails for one activity.
+        ///
+        /// Expected behaviour: the walk still stores the rest and ends failed,
+        /// so the key backs off instead of releasing as done.
+        #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+        fn a_failed_store_ends_the_walk_failed_after_the_rest_are_stored() {
+            let stored = RefCell::new(Vec::new());
+
+            let outcome = crate::runtime::block_on(drain_time_streams_with(
+                ids(3),
+                || true,
+                |_id| async { Ok(vec![0u32, 1]) },
+                |activity_id, _| {
+                    let failed = activity_id == "a1";
+                    stored.borrow_mut().push(activity_id);
+                    async move {
+                        if failed {
+                            Err(NetError::EngineClosed)
+                        } else {
+                            Ok(())
+                        }
+                    }
+                },
+            ));
+
+            assert!(matches!(outcome, Err(NetError::EngineClosed)));
+            assert_eq!(stored.into_inner(), ids(3));
+        }
+
         #[test]
         #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_chunk_is_in_flight_together_and_never_more_than_a_chunk() {
@@ -5789,7 +5821,7 @@ mod tests {
                 },
                 |activity_id, _| {
                     stored.borrow_mut().push(activity_id);
-                    async {}
+                    async { Ok(()) }
                 },
             ))
             .unwrap();
@@ -5820,7 +5852,7 @@ mod tests {
                 },
                 |activity_id, _times| {
                     stored.borrow_mut().push(activity_id);
-                    async {}
+                    async { Ok(()) }
                 },
             ));
 
@@ -5878,7 +5910,7 @@ mod tests {
                     true
                 },
                 |_id| async { Ok(vec![]) },
-                |_id, _times| async {},
+                |_id, _times| async { Ok(()) },
             ))
             .unwrap();
 
@@ -5896,7 +5928,7 @@ mod tests {
                     *fetched.borrow_mut() += 1;
                     async { Err(NetError::Unauthorized) }
                 },
-                |_id, _times| async {},
+                |_id, _times| async { Ok(()) },
             ));
 
             assert!(matches!(outcome, Err(NetError::Unauthorized)));
@@ -5904,6 +5936,34 @@ mod tests {
                 fetched.into_inner(),
                 TIME_STREAM_CONCURRENCY,
                 "the chunk after the refusal is not asked"
+            );
+        }
+
+        #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+        fn a_store_that_failed_ends_the_walk_with_an_error_after_the_rest_are_tried() {
+            let stored = RefCell::new(Vec::new());
+            let outcome = crate::runtime::block_on(drain_time_streams_with(
+                ids(3),
+                || true,
+                |_id| async { Ok(vec![1u32]) },
+                |activity_id, _times| {
+                    stored.borrow_mut().push(activity_id.clone());
+                    async move {
+                        if activity_id == "a1" {
+                            Err(NetError::Storage("not persisted".into()))
+                        } else {
+                            Ok(())
+                        }
+                    }
+                },
+            ));
+
+            assert!(matches!(outcome, Err(NetError::Storage(_))), "{outcome:?}");
+            assert_eq!(
+                stored.into_inner().len(),
+                3,
+                "one failed write stops no other"
             );
         }
 
@@ -5926,7 +5986,7 @@ mod tests {
                 },
                 |activity_id, _times| {
                     stored.borrow_mut().push(activity_id);
-                    async {}
+                    async { Ok(()) }
                 },
             ));
 
@@ -5952,7 +6012,7 @@ mod tests {
                 |_id| async { Ok(vec![]) },
                 |activity_id, times| {
                     stored.borrow_mut().push((activity_id, times));
-                    async {}
+                    async { Ok(()) }
                 },
             ))
             .unwrap();
@@ -5975,7 +6035,7 @@ mod tests {
                         })
                     }
                 },
-                |_id, _times| async {},
+                |_id, _times| async { Ok(()) },
             ));
 
             assert!(
@@ -6004,7 +6064,7 @@ mod tests {
                 },
                 |activity_id, _times| {
                     stored.borrow_mut().push(activity_id);
-                    async {}
+                    async { Ok(()) }
                 },
             ));
 
@@ -6030,7 +6090,7 @@ mod tests {
                 },
                 |activity_id, _times| {
                     stored.borrow_mut().push(activity_id);
-                    async {}
+                    async { Ok(()) }
                 },
             ));
 
@@ -6060,7 +6120,7 @@ mod tests {
                 },
                 |activity_id, _times| {
                     stored.borrow_mut().push(activity_id);
-                    async {}
+                    async { Ok(()) }
                 },
             ));
 
@@ -6069,6 +6129,25 @@ mod tests {
                 vec!["a0".to_string(), "a2".to_string()]
             );
             assert!(outcome.is_ok(), "{outcome:?}");
+        }
+
+        #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+        fn a_store_that_persists_nothing_is_returned_and_not_done() {
+            let outcome = crate::runtime::block_on(drain_time_streams_with(
+                ids(3),
+                || true,
+                |_id| async { Ok(vec![1u32]) },
+                |activity_id, _times| async move {
+                    if activity_id == "a1" {
+                        Err(NetError::Storage("not persisted".to_string()))
+                    } else {
+                        Ok(())
+                    }
+                },
+            ));
+
+            assert!(matches!(outcome, Err(NetError::Storage(_))), "{outcome:?}");
         }
     }
 
@@ -6689,6 +6768,26 @@ mod tests {
 
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn a_park_stops_the_run_that_was_mid_step() {
+        let svc = signed_in_service();
+        svc.claim_slot_for(SyncRequest::Full { force: false })
+            .expect("claim");
+        assert!(!svc.is_cancelled());
+
+        svc.park_auth_expired_now();
+        assert!(
+            svc.is_cancelled(),
+            "a run holding the dead credential must not take another step"
+        );
+
+        svc.release_auth_park();
+        svc.claim_slot_for(SyncRequest::Full { force: false })
+            .expect("a new sign-in starts a run");
+        assert!(!svc.is_cancelled(), "the next run starts uncancelled");
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn an_auth_park_between_interrupt_and_resume_starts_nothing() {
         let svc = signed_in_service();
         svc.claim_slot_for(SyncRequest::Full { force: false })
@@ -6884,13 +6983,12 @@ mod tests {
     /// service records `None` there and reads the names alone.
     fn note_request(step: &str) {
         REQUEST_ORDER
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .lock_recover()
             .push((step.to_string(), SYNC_SERVICE.snapshot().step));
     }
 
     fn taken_requests() -> Vec<(String, Option<FfiSyncStep>)> {
-        std::mem::take(&mut *REQUEST_ORDER.lock().unwrap_or_else(|e| e.into_inner()))
+        std::mem::take(&mut *REQUEST_ORDER.lock_recover())
     }
 
     fn taken_request_order() -> Vec<String> {
@@ -8134,6 +8232,37 @@ mod tests {
         assert_eq!(s.state, SyncState::AuthExpired);
         assert_eq!(s.completed, 0);
         assert_eq!(s.last_error.as_deref(), Some("unauthorized"));
+    }
+
+    /// Scenario: another path confirms the credential rejected while a run
+    /// is between steps.
+    ///
+    /// Expected behaviour: the run sends nothing further, because the park
+    /// says the credential is dead.
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn a_parked_service_sends_no_further_step() {
+        let _serial = crate::test_globals::serial_global_state();
+        let _engine_dir = crate::test_globals::init_global_engine("sync_steps.db");
+        let server = MockServer::start();
+        let profile = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(200)
+                .json_body(json!({"id": "i1", "name": "x", "sportSettings": []}));
+        });
+        let svc = SyncService::new();
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i1".into());
+        assert!(svc.try_begin());
+        svc.park_auth_expired_now();
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            crate::persistence::engine_install(),
+            transport_to(server.base_url()),
+            "i1".into(),
+            false,
+        ));
+        assert_eq!(profile.calls(), 0, "a parked run asked the server again");
+        assert_eq!(svc.snapshot().state, SyncState::AuthExpired);
     }
 
     /// Scenario: intervals.icu refuses the run's first request, and the
@@ -10219,6 +10348,7 @@ mod start_date_parity_tests {
 mod body_count_tests {
     use super::*;
     use crate::objects::observer::{EngineObserver, set_observer};
+    use crate::poison::Recover;
     use crate::test_globals::serial_global_state;
     use httpmock::prelude::*;
     use serde_json::json;
@@ -10240,7 +10370,7 @@ mod body_count_tests {
         }
 
         fn seen(&self) -> Vec<String> {
-            self.seen.lock().unwrap_or_else(|e| e.into_inner()).clone()
+            self.seen.lock_recover().clone()
         }
 
         /// Wait for an announcement, since the fetch settles on the runtime.
@@ -10263,8 +10393,7 @@ mod body_count_tests {
         fn activities_stored(&self) {}
         fn body_stored(&self, kind: String, activity_id: String) {
             self.seen
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
+                .lock_recover()
                 .push(format!("{kind}:{activity_id}"));
         }
         fn time_streams_stored(&self, _activity_ids: Vec<String>) {}
@@ -10291,19 +10420,13 @@ mod body_count_tests {
     /// Point the process-wide service at the mock server with a usable
     /// credential, so `spawn_once` builds a transport that reaches it.
     fn aim_service_at(server: &MockServer) {
-        *SYNC_SERVICE
-            .base_url
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = server.base_url();
+        *SYNC_SERVICE.base_url.lock_recover() = server.base_url();
         SYNC_SERVICE.set_credentials(AuthKind::ApiKey, "k".into(), "i1".into());
     }
 
     fn restore_service() {
         SYNC_SERVICE.clear_credentials();
-        *SYNC_SERVICE
-            .base_url
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = crate::net::LIVE_BASE_URL.to_string();
+        *SYNC_SERVICE.base_url.lock_recover() = crate::net::LIVE_BASE_URL.to_string();
     }
 
     /// Wait for the spawned fetch to settle. The job runs on the shared
@@ -10651,9 +10774,7 @@ mod body_count_tests {
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_step_that_found_no_engine_fails_the_run() {
         let _guard = serial_global_state();
-        *crate::persistence::PERSISTENT_ENGINE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        *crate::persistence::PERSISTENT_ENGINE.lock_recover() = None;
 
         let outcome = crate::runtime::block_on(store_body_or_fail(
             crate::persistence::engine_install(),
@@ -10674,9 +10795,7 @@ mod body_count_tests {
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_direct_step_write_with_no_engine_fails_the_run_too() {
         let _guard = serial_global_state();
-        *crate::persistence::PERSISTENT_ENGINE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        *crate::persistence::PERSISTENT_ENGINE.lock_recover() = None;
 
         let answered = crate::runtime::block_on(
             crate::persistence::with_persistent_engine_blocking(|_engine| ()),
@@ -10756,9 +10875,7 @@ mod body_count_tests {
     fn a_body_with_no_engine_is_counted_and_named() {
         let _guard = serial_global_state();
         crate::test_log::capturing();
-        *crate::persistence::PERSISTENT_ENGINE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        *crate::persistence::PERSISTENT_ENGINE.lock_recover() = None;
 
         let stored_before = bodies_stored();
         let discarded_before = bodies_discarded();
@@ -10795,16 +10912,15 @@ mod body_count_tests {
     fn a_time_stream_with_no_engine_is_counted_and_named() {
         let _guard = serial_global_state();
         crate::test_log::capturing();
-        *crate::persistence::PERSISTENT_ENGINE
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
+        *crate::persistence::PERSISTENT_ENGINE.lock_recover() = None;
 
         let discarded_before = bodies_discarded();
-        crate::runtime::block_on(store_time_stream(
+        let stored = crate::runtime::block_on(store_time_stream(
             crate::persistence::engine_install(),
             "gone-stream".into(),
             vec![0, 1, 2],
         ));
+        assert!(matches!(stored, Err(NetError::EngineClosed)));
 
         assert_eq!(
             bodies_discarded(),
@@ -13190,24 +13306,19 @@ mod body_count_tests {
 #[cfg(test)]
 mod write_auth_tests {
     use super::*;
+    use crate::poison::Recover;
     use crate::test_globals::serial_global_state;
     use httpmock::prelude::*;
 
     fn aim_service_at(server: &MockServer) {
-        *SYNC_SERVICE
-            .base_url
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = server.base_url();
+        *SYNC_SERVICE.base_url.lock_recover() = server.base_url();
         SYNC_SERVICE.set_credentials(AuthKind::ApiKey, "k".into(), "i1".into());
     }
 
     fn restore_service() {
         SYNC_SERVICE.clear_credentials();
         SYNC_SERVICE.finish(SyncState::Idle, None, false);
-        *SYNC_SERVICE
-            .base_url
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = crate::net::LIVE_BASE_URL.to_string();
+        *SYNC_SERVICE.base_url.lock_recover() = crate::net::LIVE_BASE_URL.to_string();
     }
 
     /// Run the call the way uniffi's foreign executor does: on a plain thread

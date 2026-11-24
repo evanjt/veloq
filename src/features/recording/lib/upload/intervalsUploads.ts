@@ -8,7 +8,7 @@
  * that cannot upload, which has no upstream account and starts nothing.
  */
 
-import { UploadOutcome, recordings, type UploadResult } from 'veloqrs';
+import { FfiUploadOutcome, recordings, type FfiUploadResult } from 'veloqrs';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { sourceFor } from '@/shared/app/source';
@@ -28,7 +28,7 @@ function staysOnDevice(): boolean {
  * the ride keeps its status: marking it uploaded would claim a copy that exists
  * nowhere but this device.
  */
-export async function uploadRecordingNow(id: string): Promise<UploadResult> {
-  if (staysOnDevice()) return { outcome: UploadOutcome.NotStarted };
+export async function uploadRecordingNow(id: string): Promise<FfiUploadResult> {
+  if (staysOnDevice()) return { outcome: FfiUploadOutcome.NotStarted };
   return recordings.uploadRecording(id, true, DOCUMENTS_ROOT);
 }

@@ -14,6 +14,7 @@
 //! composed at read too and never stored, so renaming the parent renames the
 //! children.
 
+use crate::persistence::sql::question_marks;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
@@ -114,7 +115,7 @@ pub(crate) fn unnamed_labels_for(conn: &Connection, ids: &[&str]) -> BTreeMap<St
     let section_word = get_section_word();
     let mut labels = BTreeMap::new();
     for chunk in ids.chunks(500) {
-        let marks = vec!["?"; chunk.len()].join(",");
+        let marks = question_marks(chunk.len());
         let sql = format!(
             "SELECT n.section_id, n.number FROM section_numbers n
              JOIN sections s ON s.id = n.section_id

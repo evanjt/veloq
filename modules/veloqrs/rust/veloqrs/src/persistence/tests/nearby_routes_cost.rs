@@ -7,6 +7,7 @@
 //! activities. Run in release, on a quiet machine, twice:
 //!   cargo test --release -p veloqrs nearby_routes_cost -- --nocapture --ignored
 
+use crate::poison::Recover;
 use std::hint::black_box;
 use std::sync::Mutex;
 use std::time::Instant;
@@ -28,7 +29,7 @@ const ATTEMPTS: usize = 100;
 static STATEMENTS: Mutex<usize> = Mutex::new(0);
 
 fn count(_sql: &str) {
-    *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner()) += 1;
+    *STATEMENTS.lock_recover() += 1;
 }
 
 fn track(lat: f64, lng: f64) -> Vec<GpsPoint> {
@@ -211,7 +212,7 @@ fn nearby_routes_cost() {
     }
     warm.sort();
 
-    *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner()) = 0;
+    *STATEMENTS.lock_recover() = 0;
     crate::test_trace::trace_statements!(engine.db, count);
     black_box(nearby_places(
         &engine.db,
@@ -223,7 +224,7 @@ fn nearby_routes_cost() {
         LineAsk::default(),
     ));
     crate::test_trace::untrace(&mut engine.db);
-    let statements = *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner());
+    let statements = *STATEMENTS.lock_recover();
 
     println!(
         "nearby_routes_cost: {ROUTES} routes and {SECTIONS} sections x {ATTEMPTS} attempts, file-backed\n  cold {:.2} ms\n  warm median {:.2} ms, min {:.2} ms, max {:.2} ms (20 reads)\n  statements per read {statements}",

@@ -371,6 +371,16 @@ describe('terrain in the surface patch', () => {
     ).toEqual({ terrain: { exaggeration: 1.5, pitch: 45 } });
   });
 
+  it('sends a changed terrain field that the spec type gains later', () => {
+    const p = createSurfacePatcher();
+    const layers = layer('#fff');
+    const withExtra = (value: number) => ({ ...tilted, extra: value }) as typeof tilted;
+    p.next({ sources: { traces }, layers, terrain: withExtra(1) });
+
+    expect(p.next({ sources: { traces }, layers, terrain: withExtra(1) }).patch).toBeNull();
+    expect(p.next({ sources: { traces }, layers, terrain: withExtra(2) }).patch).not.toBeNull();
+  });
+
   it('leaves terrain out of a first patch that has none, and sends it again after a forget', () => {
     const p = createSurfacePatcher();
     const layers = layer('#fff');

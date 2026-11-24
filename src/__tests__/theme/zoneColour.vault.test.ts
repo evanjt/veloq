@@ -16,7 +16,7 @@ import { intervalBandToken, resolveBandColour } from '@/features/stats/lib';
 import { intervalChips } from '@/features/activity/lib/intervalChips';
 import { skylineColours } from '@/features/activity/lib/skylineColours';
 import type { ActivityInterval } from '@/types';
-import { IntervalKind } from 'veloqrs';
+import { FfiIntervalKind } from 'veloqrs';
 
 function relativeLuminance(hex: string): number {
   const [r, g, b] = [1, 3, 5]
@@ -61,7 +61,7 @@ describe('zoneColour', () => {
   });
 });
 
-function interval(kind: IntervalKind, zone?: number): ActivityInterval {
+function interval(kind: FfiIntervalKind, zone?: number): ActivityInterval {
   return {
     id: 1,
     kind,
@@ -75,12 +75,15 @@ function interval(kind: IntervalKind, zone?: number): ActivityInterval {
 }
 
 const KINDS: [string, ActivityInterval][] = [
-  ...ZONES.map((z): [string, ActivityInterval] => [`WORK Z${z}`, interval(IntervalKind.Work, z)]),
-  ['WORK with no zone', interval(IntervalKind.Work)],
-  ['RECOVERY', interval(IntervalKind.Recovery)],
-  ['REST', interval(IntervalKind.Rest)],
-  ['WARMUP', interval(IntervalKind.Warmup)],
-  ['COOLDOWN', interval(IntervalKind.Cooldown)],
+  ...ZONES.map((z): [string, ActivityInterval] => [
+    `WORK Z${z}`,
+    interval(FfiIntervalKind.Work, z),
+  ]),
+  ['WORK with no zone', interval(FfiIntervalKind.Work)],
+  ['RECOVERY', interval(FfiIntervalKind.Recovery)],
+  ['REST', interval(FfiIntervalKind.Rest)],
+  ['WARMUP', interval(FfiIntervalKind.Warmup)],
+  ['COOLDOWN', interval(FfiIntervalKind.Cooldown)],
 ];
 
 describe('one colour per interval kind', () => {
@@ -102,14 +105,14 @@ describe('one colour per interval kind', () => {
       const band = (item: ActivityInterval) =>
         resolveBandColour(intervalBandToken(item, 'power'), isDark);
       for (const zone of ZONES) {
-        expect(band(interval(IntervalKind.Work, zone))).toBe(zoneColour(zone, isDark));
+        expect(band(interval(FfiIntervalKind.Work, zone))).toBe(zoneColour(zone, isDark));
       }
-      expect(band(interval(IntervalKind.Work))).toBe(tokens['chart-series']);
-      expect(band(interval(IntervalKind.Recovery))).toBe(zoneColour(1, isDark));
-      expect(band(interval(IntervalKind.Rest))).toBe(zoneColour(1, isDark));
-      expect(band(interval(IntervalKind.Warmup))).toBe(tokens['chart-muted']);
-      expect(band(interval(IntervalKind.Cooldown))).toBe(tokens['chart-muted']);
-      expect(band(interval(IntervalKind.Other))).toBeNull();
+      expect(band(interval(FfiIntervalKind.Work))).toBe(tokens['chart-series']);
+      expect(band(interval(FfiIntervalKind.Recovery))).toBe(zoneColour(1, isDark));
+      expect(band(interval(FfiIntervalKind.Rest))).toBe(zoneColour(1, isDark));
+      expect(band(interval(FfiIntervalKind.Warmup))).toBe(tokens['chart-muted']);
+      expect(band(interval(FfiIntervalKind.Cooldown))).toBe(tokens['chart-muted']);
+      expect(band(interval(FfiIntervalKind.Other))).toBeNull();
     }
   );
 });

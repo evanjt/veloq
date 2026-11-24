@@ -6,7 +6,7 @@ import type { TFunction } from 'i18next';
 import type { ActivityStreams, ActivityType } from '@/types';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
-import type { CadenceUnit } from 'veloqrs';
+import type { FfiCadenceUnit } from 'veloqrs';
 import {
   celsiusToFahrenheit,
   formatDecimal,
@@ -14,6 +14,8 @@ import {
   KM_TO_MI,
   M_TO_FT,
   MPS_TO_KPH,
+  paceUnitLabel,
+  swimPaceUnitLabel,
   YARDS_100_IN_METRES,
 } from '@/shared/format';
 import { isSwimmingActivity, readsAsPace } from '@/shared/activity/activityUtils';
@@ -207,8 +209,8 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     label: 'Pace',
     icon: 'clock-outline',
     stream: 'pace',
-    unit: '/km',
-    unitImperial: '/mi',
+    unit: paceUnitLabel(true),
+    unitImperial: paceUnitLabel(false),
     // Pace is derived from velocity_smooth (m/s -> min/km or min/mi)
     getStream: (streams) => {
       if (!streams.velocity_smooth) return undefined;
@@ -259,8 +261,8 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     label: 'GAP',
     icon: 'trending-up',
     stream: 'gap',
-    unit: '/km',
-    unitImperial: '/mi',
+    unit: paceUnitLabel(true),
+    unitImperial: paceUnitLabel(false),
     // Sourced from intervals.icu's `ga_velocity` stream (m/s), converted to
     // min/km at parse time.
     getStream: (streams) => streams.gap,
@@ -325,7 +327,7 @@ const PRIMARY_CHART_IDS: ChartTypeId[] = [
  * run, a walk and a swim read pace, every other sport speed. They are the one
  * measurement inverted, so both at once is the same line twice.
  */
-export function motionChartFor(type: ActivityType): 'speed' | 'pace' {
+function motionChartFor(type: ActivityType): 'speed' | 'pace' {
   return readsAsPace(type) ? 'pace' : 'speed';
 }
 
@@ -369,8 +371,8 @@ export function getAvailableCharts(
 /** Swim pace per 100 m, per 100 yd for an imperial athlete. */
 const SWIM_PACE_CONFIG: ChartConfig = {
   ...CHART_CONFIGS.pace,
-  unit: '/100m',
-  unitImperial: '/100yd',
+  unit: swimPaceUnitLabel(true),
+  unitImperial: swimPaceUnitLabel(false),
   getStream: (streams) => streams.velocity_smooth?.map((v) => paceMinutesFromSample(v, 100)),
   convertToImperial: (v) => (v * YARDS_100_IN_METRES) / 100,
   motion: { kind: 'pace', perMetres: 100, stoppedBelowMs: FLOOR_STOPPED_MS },
@@ -404,7 +406,7 @@ const configsByKey = new Map<string, Record<ChartTypeId, ChartConfig>>();
  */
 export function chartConfigsFor(
   type: ActivityType,
-  cadenceUnit?: CadenceUnit
+  cadenceUnit?: FfiCadenceUnit
 ): Record<ChartTypeId, ChartConfig> {
   const swim = isSwimmingActivity(type);
   const stoppedBelowMs = stoppedSpeedMs(type);

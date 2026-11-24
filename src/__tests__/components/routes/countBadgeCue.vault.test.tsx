@@ -17,9 +17,7 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
   useMetricSystem: () => true,
 }));
-jest.mock('@/features/routes/hooks/useEngine', () => ({
-  useRepresentativeRoute: () => ({ points: [] }),
-}));
+jest.mock('@/features/routes/hooks/useEngine', () => ({}));
 jest.mock('@expo/vector-icons', () => {
   const { View } = require('react-native');
   return { MaterialCommunityIcons: (props: object) => <View {...props} /> };

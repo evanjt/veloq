@@ -20,7 +20,7 @@ import { streamsFromArrays, streamsFromBuffers } from '@/features/activity/lib/s
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
 import type { ActivityStreams } from '@/types';
-import type { StartOutcome, StartResult } from 'veloqrs';
+import type { FfiStartOutcome, FfiStartResult } from 'veloqrs';
 
 /** The full series set the detail charts render. */
 export const DETAIL_STREAM_TYPES = [
@@ -83,7 +83,7 @@ function demoStreams(activityId: string): ActivityStreams | null {
 export function requestStreams(
   activityId: string,
   types: readonly string[]
-): StartOutcome | StartResult | undefined {
+): FfiStartOutcome | FfiStartResult | undefined {
   if (!activityId) return undefined;
   // Demo mode has no account to fetch against, the generator answers instead.
   if (useAuthStore.getState().isDemoMode) return undefined;

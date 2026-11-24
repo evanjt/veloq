@@ -30,7 +30,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
 import { act, render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { CallKind, validateCredentials } from 'veloqrs';
+import { FfiCallKind, validateCredentials } from 'veloqrs';
 
 import { AuthGate } from '@/app/_layout';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -464,7 +464,7 @@ describe('a sign-in from the login screen', () => {
   });
 
   it('with an API key lands on the Feed once', async () => {
-    jest.mocked(validateCredentials).mockResolvedValue({ kind: CallKind.Ok, id: 'i1' } as never);
+    jest.mocked(validateCredentials).mockResolvedValue({ kind: FfiCallKind.Ok, id: 'i1' } as never);
     await renderLogin();
 
     await act(() => screen.apiKey('a-valid-key'));
@@ -478,7 +478,7 @@ describe('a sign-in from the login screen', () => {
 
   it('holds the way in while the athlete is asked whose library it is', async () => {
     mockEngineHolder.engine = engine({ getSetting: jest.fn(() => 'i-other') });
-    jest.mocked(validateCredentials).mockResolvedValue({ kind: CallKind.Ok, id: 'i1' } as never);
+    jest.mocked(validateCredentials).mockResolvedValue({ kind: FfiCallKind.Ok, id: 'i1' } as never);
     await renderLogin();
 
     await act(() => screen.apiKey('a-valid-key'));

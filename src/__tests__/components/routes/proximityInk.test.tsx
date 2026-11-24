@@ -24,9 +24,7 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: mockDark }),
   useMetricSystem: () => true,
 }));
-jest.mock('@/features/routes/hooks/useEngine', () => ({
-  useRepresentativeRoute: () => ({ points: [] }),
-}));
+jest.mock('@/features/routes/hooks/useEngine', () => ({}));
 
 function channels(hex: string): number[] {
   return [1, 3, 5]

@@ -5,9 +5,9 @@ import { FfiPlanTarget, type FfiPlannedEvent } from 'veloqrs';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useTodayWorkout, useWorkoutSections, type WorkoutSection } from '@/features/home';
-import { formZoneFromLoads, formatForm, formZoneColor, formZoneLabel } from '@/features/fitness';
+import { formZoneColor, formZoneLabel } from '@/features/fitness';
+import type { TodayForm } from '@/types';
 import { formatDuration, formatLoad, isolateNumeric } from '@/shared/format/format';
-import { formFromLoads } from '@/shared/math';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { WorkoutStepBar } from './WorkoutStepBar';
 import {
@@ -23,7 +23,6 @@ import {
   verdictColor,
   stroke,
 } from '@/theme';
-import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { PressTarget } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { navigateTo } from '@/shared/app/navigation';
@@ -36,7 +35,7 @@ interface TodayBannerProps {
    * The newest form reading from the same bundle, or null when the window
    * holds no wellness row. Without one the readiness row is not drawn.
    */
-  form: { ctl: number; atl: number } | null;
+  form: TodayForm | null;
 }
 
 /**
@@ -80,18 +79,14 @@ const ReadinessRow = React.memo(function ReadinessRow({
   isTomorrow,
   isDark,
 }: {
-  loads: { ctl: number; atl: number };
+  loads: TodayForm;
   isTomorrow: boolean;
   isDark: boolean;
 }) {
   const { t } = useTranslation();
-  const asPercent = useFormPreference((s) => s.formAsPercent) === true;
-  const { ctl, atl } = loads;
-  const form = formFromLoads(ctl, atl);
-  const formZone = formZoneFromLoads(ctl, atl, asPercent);
+  const { zone: formZone, text: formValue, asPercent } = loads;
   const formColor = formZone ? formZoneColor(formZone, isDark) : 'transparent';
   const formLabel = formZone ? formZoneLabel(formZone) : '';
-  const formValue = formatForm(form, Math.round(ctl), asPercent);
 
   return (
     <View style={styles.readinessRow}>

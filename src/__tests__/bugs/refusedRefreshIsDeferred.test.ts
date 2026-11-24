@@ -8,7 +8,7 @@
  * redrawing what the last sync wrote.
  */
 
-import { StartOutcome } from 'veloqrs';
+import { FfiStartOutcome } from 'veloqrs';
 
 import type { getEngine } from '@/shared/native/engine';
 
@@ -23,17 +23,17 @@ jest.mock('@/shared/native/engine', () => ({ getEngine: mockGetEngine }));
  * process. Each case gets its own copy so one pull left pending does not
  * arrive in the next.
  */
-function requestSyncRefresh(): StartOutcome {
+function requestSyncRefresh(): FfiStartOutcome {
   return (
     require('@/shared/native/syncRefresh') as typeof import('@/shared/native/syncRefresh')
   ).requestSyncRefresh();
 }
 
 function engineThatRefuses(
-  answers: (StartOutcome | { outcome: StartOutcome; retryAtMs?: number })[]
+  answers: (FfiStartOutcome | { outcome: FfiStartOutcome; retryAtMs?: number })[]
 ) {
   const listeners: Record<string, (() => void)[]> = {};
-  const syncNow = jest.fn(() => answers.shift() ?? StartOutcome.Started);
+  const syncNow = jest.fn(() => answers.shift() ?? FfiStartOutcome.Started);
   // The real unsubscribe drops the listener, and a fake that only counts calls
   // leaves a retired one to fire again on the next settle.
   const unsubscribe = jest.fn();
@@ -67,16 +67,16 @@ beforeEach(() => {
 describe('a refresh held by a cooldown that has an end time', () => {
   it('waits for nothing, since the engine resumes the work at the cooldown end', () => {
     const engine = engineThatRefuses([
-      { outcome: StartOutcome.Held, retryAtMs: Date.now() + 60_000 },
+      { outcome: FfiStartOutcome.Held, retryAtMs: Date.now() + 60_000 },
     ]);
 
-    expect(requestSyncRefresh()).toBe(StartOutcome.Held);
+    expect(requestSyncRefresh()).toBe(FfiStartOutcome.Held);
 
     expect(engine.subscribe).not.toHaveBeenCalled();
   });
 
   it('still waits for a settle when the hold names no time', () => {
-    const engine = engineThatRefuses([StartOutcome.Held]);
+    const engine = engineThatRefuses([FfiStartOutcome.Held]);
 
     requestSyncRefresh();
 
@@ -86,9 +86,9 @@ describe('a refresh held by a cooldown that has an end time', () => {
 
 describe('a refresh refused because a sync holds the slot', () => {
   it('runs when the sync settles', () => {
-    const engine = engineThatRefuses([StartOutcome.Busy]);
+    const engine = engineThatRefuses([FfiStartOutcome.Busy]);
 
-    expect(requestSyncRefresh()).toBe(StartOutcome.Busy);
+    expect(requestSyncRefresh()).toBe(FfiStartOutcome.Busy);
     expect(engine.syncNow).toHaveBeenCalledTimes(1);
 
     engine.settle();
@@ -97,7 +97,7 @@ describe('a refresh refused because a sync holds the slot', () => {
   });
 
   vaultIt('waits for the slot rather than watching every sync event', () => {
-    const engine = engineThatRefuses([StartOutcome.Busy]);
+    const engine = engineThatRefuses([FfiStartOutcome.Busy]);
 
     requestSyncRefresh();
 
@@ -106,7 +106,7 @@ describe('a refresh refused because a sync holds the slot', () => {
   });
 
   vaultIt('lets go of the listener once the deferred refresh has run', () => {
-    const engine = engineThatRefuses([StartOutcome.Busy]);
+    const engine = engineThatRefuses([FfiStartOutcome.Busy]);
 
     requestSyncRefresh();
     engine.settle();
@@ -115,7 +115,11 @@ describe('a refresh refused because a sync holds the slot', () => {
   });
 
   it('holds one deferred refresh however many times the athlete pulls', () => {
-    const engine = engineThatRefuses([StartOutcome.Busy, StartOutcome.Busy, StartOutcome.Busy]);
+    const engine = engineThatRefuses([
+      FfiStartOutcome.Busy,
+      FfiStartOutcome.Busy,
+      FfiStartOutcome.Busy,
+    ]);
 
     requestSyncRefresh();
     requestSyncRefresh();
@@ -128,7 +132,7 @@ describe('a refresh refused because a sync holds the slot', () => {
   });
 
   vaultIt('tries again on the next settle when the slot was taken first', () => {
-    const engine = engineThatRefuses([StartOutcome.Busy, StartOutcome.Busy]);
+    const engine = engineThatRefuses([FfiStartOutcome.Busy, FfiStartOutcome.Busy]);
 
     requestSyncRefresh();
     engine.settle();
@@ -147,7 +151,7 @@ describe('what a refresh asks the engine for', () => {
    * athlete asking for current data now, and so is the save of a recording.
    */
   it('forces the profile, on the pull and on the retry the pull held', () => {
-    const engine = engineThatRefuses([StartOutcome.Busy]);
+    const engine = engineThatRefuses([FfiStartOutcome.Busy]);
 
     requestSyncRefresh();
     engine.settle();
@@ -158,9 +162,9 @@ describe('what a refresh asks the engine for', () => {
 
 describe('a refresh that is accepted', () => {
   vaultIt('defers nothing', () => {
-    const engine = engineThatRefuses([StartOutcome.Started]);
+    const engine = engineThatRefuses([FfiStartOutcome.Started]);
 
-    expect(requestSyncRefresh()).toBe(StartOutcome.Started);
+    expect(requestSyncRefresh()).toBe(FfiStartOutcome.Started);
     expect(engine.subscribe).not.toHaveBeenCalled();
   });
 });
@@ -169,15 +173,15 @@ describe('no engine', () => {
   vaultIt('is not a refusal to defer, because there is nothing to defer to', () => {
     mockGetEngine.mockReturnValue(null);
 
-    expect(requestSyncRefresh()).toBe(StartOutcome.NotReady);
+    expect(requestSyncRefresh()).toBe(FfiStartOutcome.NotReady);
   });
 });
 
 describe('a refusal no wait can lift', () => {
   it('is not held, because no settle will make a missing credential appear', () => {
-    const engine = engineThatRefuses([StartOutcome.NotConfigured]);
+    const engine = engineThatRefuses([FfiStartOutcome.NotConfigured]);
 
-    expect(requestSyncRefresh()).toBe(StartOutcome.NotConfigured);
+    expect(requestSyncRefresh()).toBe(FfiStartOutcome.NotConfigured);
     expect(engine.subscribe).not.toHaveBeenCalled();
   });
 });
@@ -199,7 +203,7 @@ describe('a held refresh whose account ends', () => {
   }
 
   it('is dropped, so the next settle syncs nothing extra', () => {
-    const engine = engineThatRefuses([StartOutcome.Busy]);
+    const engine = engineThatRefuses([FfiStartOutcome.Busy]);
 
     requestSyncRefresh();
     cancelSyncRefresh();
@@ -209,7 +213,7 @@ describe('a held refresh whose account ends', () => {
   });
 
   vaultIt('lets go of the listener rather than leaving it on the old engine', () => {
-    const engine = engineThatRefuses([StartOutcome.Busy]);
+    const engine = engineThatRefuses([FfiStartOutcome.Busy]);
 
     requestSyncRefresh();
     cancelSyncRefresh();
@@ -218,7 +222,7 @@ describe('a held refresh whose account ends', () => {
   });
 
   it('holds the next pull again, because the wait is dropped and not disabled', () => {
-    const engine = engineThatRefuses([StartOutcome.Busy, StartOutcome.Busy]);
+    const engine = engineThatRefuses([FfiStartOutcome.Busy, FfiStartOutcome.Busy]);
 
     requestSyncRefresh();
     cancelSyncRefresh();
@@ -229,7 +233,7 @@ describe('a held refresh whose account ends', () => {
   });
 
   vaultIt('is a no-op when nothing is held', () => {
-    const engine = engineThatRefuses([StartOutcome.Started]);
+    const engine = engineThatRefuses([FfiStartOutcome.Started]);
 
     cancelSyncRefresh();
 

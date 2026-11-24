@@ -7,14 +7,14 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
-import { IntervalKind } from 'veloqrs';
+import { FfiIntervalKind } from 'veloqrs';
 
 import { IntervalsTable } from '@/features/activity/components/IntervalsTable';
 import { intervalsAreLaps } from '@/features/activity/lib/intervalTypeLabel';
 import { i18n, initialiseI18n } from '@/i18n';
 import type { ActivityInterval } from '@/types';
 
-const row = (id: number, kind: IntervalKind) =>
+const row = (id: number, kind: FfiIntervalKind) =>
   ({ id, kind, startIndex: 0, endIndex: 10, distance: 1000, movingTime: 120 }) as ActivityInterval;
 
 beforeAll(async () => {
@@ -23,9 +23,11 @@ beforeAll(async () => {
 
 describe('laps read from a recording', () => {
   it('are headed Laps only when every row is a lap', () => {
-    expect(intervalsAreLaps([row(1, IntervalKind.Lap), row(2, IntervalKind.Lap)])).toBe(true);
-    expect(intervalsAreLaps([row(1, IntervalKind.Work), row(2, IntervalKind.Lap)])).toBe(false);
-    expect(intervalsAreLaps([row(1, IntervalKind.Work)])).toBe(false);
+    expect(intervalsAreLaps([row(1, FfiIntervalKind.Lap), row(2, FfiIntervalKind.Lap)])).toBe(true);
+    expect(intervalsAreLaps([row(1, FfiIntervalKind.Work), row(2, FfiIntervalKind.Lap)])).toBe(
+      false
+    );
+    expect(intervalsAreLaps([row(1, FfiIntervalKind.Work)])).toBe(false);
     expect(intervalsAreLaps([])).toBe(false);
     expect(intervalsAreLaps(undefined)).toBe(false);
   });
@@ -33,7 +35,7 @@ describe('laps read from a recording', () => {
   it('have a heading word and name their rows Lap', async () => {
     await render(
       <IntervalsTable
-        intervals={[row(1, IntervalKind.Lap), row(2, IntervalKind.Lap)]}
+        intervals={[row(1, FfiIntervalKind.Lap), row(2, FfiIntervalKind.Lap)]}
         activityType="Ride"
         isMetric
         isDark={false}

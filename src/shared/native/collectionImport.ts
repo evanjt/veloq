@@ -3,7 +3,7 @@
 import { sync, type FfiImportProgress } from 'veloqrs';
 
 /** The engine reads a filesystem path, so a `file://` uri is turned into one. */
-export function enginePath(uri: string): string {
+function enginePath(uri: string): string {
   return decodeURIComponent(uri.replace(/^file:\/\//, ''));
 }
 

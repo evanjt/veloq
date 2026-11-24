@@ -23,7 +23,7 @@ import { isRouteNameTakenError } from '../../../modules/veloqrs/src/delegates/ro
  * cannot be imported here, so this is a copy, and `ffiEnumStub.vault.test.ts` reads
  * the generated source to hold it to the real one.
  */
-export enum CallKind {
+export enum FfiCallKind {
   Ok = 1,
   Unauthorized = 2,
   RateLimited = 3,
@@ -34,7 +34,7 @@ export enum CallKind {
 }
 
 /** `FfiUploadOutcome` as generated, held to the source by the same test. */
-export enum UploadOutcome {
+export enum FfiUploadOutcome {
   Uploaded = 1,
   PermissionBlocked = 2,
   AuthExpired = 3,
@@ -47,7 +47,7 @@ export enum UploadOutcome {
 }
 
 /** `FfiSwapState` as generated, held to the source by the same test. */
-export enum SwapState {
+export enum FfiSwapState {
   Hidden = 1,
   Available = 2,
   Undoable = 3,
@@ -56,7 +56,7 @@ export enum SwapState {
 }
 
 /** `FfiStubVerdict` as generated, held to the source by the same test. */
-export enum StubVerdict {
+export enum FfiStubVerdict {
   NotStub = 1,
   GarminUpdatable = 2,
   NoKey = 3,
@@ -64,7 +64,7 @@ export enum StubVerdict {
 }
 
 /** `FfiSwapOutcome` as generated, held to the source by the same test. */
-export enum SwapOutcome {
+export enum FfiSwapOutcome {
   Replaced = 1,
   Unchanged = 2,
   Refused = 3,
@@ -78,7 +78,7 @@ export enum SwapOutcome {
 }
 
 /** `FfiSyncErrorReason` as generated, held to the source by the same test. */
-export enum SyncErrorReason {
+export enum FfiSyncErrorReason {
   Unauthorized = 1,
   RateLimited = 2,
   Server = 3,
@@ -91,7 +91,7 @@ export enum SyncErrorReason {
 }
 
 /** `FfiSyncStep` as generated, held to the source by the same test. */
-export enum SyncStep {
+export enum FfiSyncStep {
   Athlete = 1,
   SportSettings = 2,
   Wellness = 3,
@@ -106,7 +106,7 @@ export enum SyncStep {
 }
 
 /** `FfiTrackStep` as generated, held to the source by the same test. */
-export enum TrackStep {
+export enum FfiTrackStep {
   Downloading = 1,
   Analysing = 2,
   DrawingHeatmap = 3,
@@ -114,7 +114,7 @@ export enum TrackStep {
 }
 
 /** `FfiGroupSort` as generated, held to the source by the same test. */
-export enum GroupSort {
+export enum FfiGroupSort {
   Nearby = 0,
   Activities = 1,
   Distance = 2,
@@ -122,7 +122,7 @@ export enum GroupSort {
 }
 
 /** `FfiSportFamily` as generated, the families as the engine names them. */
-export enum EngineSportFamily {
+export enum FfiSportFamily {
   Ride = 0,
   Winter = 1,
   Run = 2,
@@ -133,7 +133,7 @@ export enum EngineSportFamily {
 }
 
 /** `FfiIntervalKind` as generated, what intervals.icu calls a lap. */
-export enum IntervalKind {
+export enum FfiIntervalKind {
   Work = 0,
   Recovery = 1,
   Rest = 2,
@@ -208,13 +208,13 @@ export enum FfiFollowDirection {
 }
 
 /** `FfiLoadMetric` as generated, the metric a period comparison was taken on. */
-export enum LoadMetric {
+export enum FfiLoadMetric {
   Tss = 0,
   Duration = 1,
 }
 
 /** `FfiDayLoadStatus` as generated, whether a day's recorded load can be totalled. */
-export enum DayLoadStatus {
+export enum FfiDayLoadStatus {
   Complete = 0,
   Partial = 1,
   Unavailable = 2,
@@ -222,14 +222,14 @@ export enum DayLoadStatus {
 }
 
 /** `FfiBestEffortKind` as generated, what a best effort's checkpoint measures. */
-export enum BestEffortKind {
+export enum FfiBestEffortKind {
   Duration = 0,
   Distance = 1,
   HalfMarathon = 2,
 }
 
 /** `FfiMaxHrSource` as generated, where an activity's max HR came from. */
-export enum MaxHrSource {
+export enum FfiMaxHrSource {
   ActivityZones = 0,
   SportSettings = 1,
   Default = 2,
@@ -252,20 +252,20 @@ export enum ThresholdSource {
 }
 
 /** `FfiPoolSwimState` as generated, where a pool swim's lengths stand. */
-export enum PoolSwimState {
+export enum FfiPoolSwimState {
   Owed = 1,
   Read = 2,
   NoLengths = 3,
 }
 
 /** `FfiPoolUnit` as generated, the unit a pool is measured in. */
-export enum PoolUnit {
+export enum FfiPoolUnit {
   Metres = 1,
   Yards = 2,
 }
 
 /** `FfiCadenceUnit` as generated, the unit an activity's cadence crosses in. */
-export enum CadenceUnit {
+export enum FfiCadenceUnit {
   Rpm = 0,
   StepsPerMinute = 1,
   StrokesPerMinute = 2,
@@ -273,25 +273,25 @@ export enum CadenceUnit {
 
 /** `FfiWeightUnit` as generated, the unit an athlete reads and enters strength weight in. */
 /** `FfiFocusPhase` as generated: where a live strength session is, as the athlete would say it. */
-export enum FocusPhase {
+export enum FfiFocusPhase {
   Set = 0,
   Rest = 1,
   Finished = 2,
 }
 
-export enum WeightUnit {
+export enum FfiWeightUnit {
   Kilogram = 0,
   Pound = 1,
 }
 
 /** `FfiActivityProvenance` as generated, where an activity's data was filled from. */
-export enum ActivityProvenance {
+export enum FfiActivityProvenance {
   Intervals = 0,
   GarminOnPhone = 1,
 }
 
 /** `FfiSectionSort` as generated, held to the source by the same test. */
-export enum SectionSort {
+export enum FfiSectionSort {
   Nearby = 0,
   Signature = 1,
   Visits = 2,
@@ -320,7 +320,7 @@ export enum SyncState {
 }
 
 /** `FfiInitOutcome` as generated, held to the source by the same test. */
-export enum InitOutcome {
+export enum FfiInitOutcome {
   Opened = 1,
   Busy = 2,
   ForwardSchema = 3,
@@ -331,7 +331,7 @@ export enum InitOutcome {
 }
 
 /** `FfiStartOutcome` as generated, held to the source by the same test. */
-export enum StartOutcome {
+export enum FfiStartOutcome {
   Started = 1,
   Busy = 2,
   Held = 3,
@@ -343,7 +343,7 @@ export enum StartOutcome {
 }
 
 /** `FfiRetiredPairLink` as generated, held to the source by the same test. */
-export enum RetiredPairLink {
+export enum FfiRetiredPairLink {
   Ledger,
   Supersedes,
   Ground,
@@ -475,25 +475,29 @@ export enum FfiDetectionHold_Tags {
   Cutover = 'Cutover',
 }
 
-export const startOutcome = (result: StartOutcome | { outcome: StartOutcome }): StartOutcome =>
-  typeof result === 'object' ? result.outcome : result;
+export const startOutcome = (
+  result: FfiStartOutcome | { outcome: FfiStartOutcome }
+): FfiStartOutcome => (typeof result === 'object' ? result.outcome : result);
 
-export const isRetryableStart = (result: StartOutcome | { outcome: StartOutcome }): boolean => {
+export const isRetryableStart = (
+  result: FfiStartOutcome | { outcome: FfiStartOutcome }
+): boolean => {
   const outcome = startOutcome(result);
   return (
-    outcome === StartOutcome.Busy ||
-    outcome === StartOutcome.Held ||
-    outcome === StartOutcome.NotReady ||
-    outcome === StartOutcome.Offline
+    outcome === FfiStartOutcome.Busy ||
+    outcome === FfiStartOutcome.Held ||
+    outcome === FfiStartOutcome.NotReady ||
+    outcome === FfiStartOutcome.Offline
   );
 };
 
-export const hasStarted = (result: StartOutcome | { outcome: StartOutcome }): boolean =>
-  startOutcome(result) === StartOutcome.Started;
+export const hasStarted = (result: FfiStartOutcome | { outcome: FfiStartOutcome }): boolean =>
+  startOutcome(result) === FfiStartOutcome.Started;
 
-export const isRetryableInit = (outcome: InitOutcome): boolean => outcome === InitOutcome.Busy;
+export const isRetryableInit = (outcome: FfiInitOutcome): boolean =>
+  outcome === FfiInitOutcome.Busy;
 
-export const hasOpened = (outcome: InitOutcome): boolean => outcome === InitOutcome.Opened;
+export const hasOpened = (outcome: FfiInitOutcome): boolean => outcome === FfiInitOutcome.Opened;
 
 export const decodeCoords = jest.fn(
   () => [] as { latitude: number; longitude: number; elevation?: number }[]
@@ -506,14 +510,14 @@ export const createPreviewClientStub = () => ({
   subscribe: jest.fn(() => () => {}),
   getPreviewCentres: jest.fn(() => []),
   getPreviewCurrentSections: jest.fn(() => []),
-  startPreviewDetect: jest.fn(() => StartOutcome.NotReady),
+  startPreviewDetect: jest.fn(() => FfiStartOutcome.NotReady),
   pollPreviewDetect: jest.fn(() => 'idle'),
   getPreviewProgress: jest.fn(() => null),
   takePreviewResult: jest.fn(() => null),
   cancelPreviewDetect: jest.fn(),
   getSectionConfig: jest.fn(() => null),
   setSectionConfig: jest.fn(),
-  forceRedetectSections: jest.fn(() => StartOutcome.Held),
+  forceRedetectSections: jest.fn(() => FfiStartOutcome.Held),
 });
 export const takeFetchAndStoreResult = jest.fn(() => undefined);
 export const cancelFetchAndStore = jest.fn(() => true);
@@ -522,7 +526,7 @@ export const getFetchRunProgress = jest.fn(() => ({ active: false, completed: 0,
 export const readyActivityBodies = jest.fn(async (_activityId: string) => false);
 /** A GPS pass the engine started, as run 0 over the ids it was handed. */
 export const startGpsPass = jest.fn((_oldest?: string, _newest?: string, head: string[] = []) => ({
-  outcome: StartOutcome.Started,
+  outcome: FfiStartOutcome.Started,
   run: 0,
   total: head.length,
 }));
@@ -633,13 +637,14 @@ export const recordings = {
   unuploadedVisibleRecordingCount: jest.fn(),
   attachRecordingEngineActivity: jest.fn(),
   holdRecordingsOfOtherAthletes: jest.fn(),
-  transitionRecording: jest.fn(),
   stampOwnerlessRecordings: jest.fn(),
   adoptRecordingsIdentity: jest.fn(),
   clearRecordingPermissionBlocked: jest.fn(),
   wakeUploadSchedule: jest.fn(),
   uploadRecording: jest.fn(),
   finishStrengthRecording: jest.fn(),
+  writeRecordingFit: jest.fn(),
+  livePace: jest.fn(() => ({ text: '--:--' })),
   deleteOwnRecording: jest.fn(),
 };
 
@@ -793,7 +798,6 @@ export const basemap = {
   setSourceTemplate: jest.fn(),
   setCompositeSource: jest.fn(),
   tileListener: jest.fn(() => undefined),
-  getOrFetchTile: jest.fn(() => undefined),
   getCacheSize: jest.fn(() => Promise.resolve(0)),
   getSourceSize: jest.fn(() => Promise.resolve(0)),
   setBudget: jest.fn(() => Promise.resolve(0)),
@@ -813,20 +817,20 @@ export const basemapStore = jest.fn(() => basemap);
  */
 export function withOverrides(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    CallKind,
-    UploadOutcome,
-    SwapState,
-    StubVerdict,
-    SwapOutcome,
+    FfiCallKind,
+    FfiUploadOutcome,
+    FfiSwapState,
+    FfiStubVerdict,
+    FfiSwapOutcome,
     SyncState,
-    SyncErrorReason,
-    SyncStep,
-    TrackStep,
+    FfiSyncErrorReason,
+    FfiSyncStep,
+    FfiTrackStep,
     BulkExportFormat,
     RecordScope,
-    GroupSort,
-    EngineSportFamily,
-    IntervalKind,
+    FfiGroupSort,
+    FfiSportFamily,
+    FfiIntervalKind,
     MapDistanceBand,
     EfficiencyDirection,
     FfiOffScale,
@@ -836,28 +840,28 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     FfiHoldCause,
     FfiFollowDirection,
     FfiNearbyKind,
-    SectionSort,
-    LoadMetric,
-    DayLoadStatus,
-    MaxHrSource,
+    FfiSectionSort,
+    FfiLoadMetric,
+    FfiDayLoadStatus,
+    FfiMaxHrSource,
     FfiThresholdField: ThresholdField,
     FfiThresholdSource: ThresholdSource,
-    PoolSwimState,
-    PoolUnit,
-    CadenceUnit,
-    WeightUnit,
-    FocusPhase,
-    ActivityProvenance,
-    BestEffortKind,
-    StartOutcome,
-    InitOutcome,
+    FfiPoolSwimState,
+    FfiPoolUnit,
+    FfiCadenceUnit,
+    FfiWeightUnit,
+    FfiFocusPhase,
+    FfiActivityProvenance,
+    FfiBestEffortKind,
+    FfiStartOutcome,
+    FfiInitOutcome,
     RangeCoverage,
     GarminKeyStatus,
     FfiGarminPullPhase,
     FfiGarminHalt,
     FfiImportPhase,
     FfiImportHalt_Tags,
-    RetiredPairLink,
+    FfiRetiredPairLink,
     DisconnectReason,
     FfiReferenceSource,
     FfiPlannedCategory,

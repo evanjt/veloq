@@ -637,7 +637,7 @@ fn sample_params(method: &str) -> &'static str {
         "heatmap.tile" => r#"{"z":3,"x":1,"y":2,"base":"dark"}"#,
         "heatmap.underPoint" => r#"{"latitude":46.2,"longitude":7.35,"zoom":14}"#,
         "fitness.screen" => {
-            r#"{"spanDays":[42],"windows":{"heatmapFirstDay":"2025-01-01","heatmapLastDay":"2025-12-31","months":{"startTs":0,"endTs":86400},"yearCurrent":{"startTs":0,"endTs":86400},"yearPrevious":{"startTs":0,"endTs":86400},"monthCurrent":{"startTs":0,"endTs":86400},"monthPrevious":{"startTs":0,"endTs":86400},"nowWallSeconds":86400}}"#
+            r#"{"spanDays":[42],"windows":{"heatmapFirstDay":"2025-01-01","heatmapLastDay":"2025-12-31","months":{"startTs":0,"endTs":86400},"nowWallSeconds":86400}}"#
         }
         "fitness.wellness" => r#"{"oldest":"2026-01-01","newest":"2026-01-31"}"#,
         "fitness.loads" => r#"{"startTs":0,"endTs":86400}"#,
@@ -1542,7 +1542,7 @@ fn an_insights_ask_missing_a_parameter_is_bad_params() {
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn the_fitness_screen_is_the_screen_read() {
     let engine = engine_with_fitness();
-    let windows = r#"{"heatmapFirstDay":"2025-01-01","heatmapLastDay":"2025-12-31","months":{"startTs":0,"endTs":86400},"yearCurrent":{"startTs":0,"endTs":86400},"yearPrevious":{"startTs":0,"endTs":86400},"monthCurrent":{"startTs":0,"endTs":86400},"monthPrevious":{"startTs":0,"endTs":86400},"nowWallSeconds":86400}"#;
+    let windows = r#"{"heatmapFirstDay":"2025-01-01","heatmapLastDay":"2025-12-31","months":{"startTs":0,"endTs":86400},"nowWallSeconds":86400}"#;
     let got = result_of(
         &engine,
         "fitness.screen",
@@ -2960,7 +2960,7 @@ fn the_overlay_writes_sections_portions_and_the_record_point() {
         features[4]["geometry"],
         json!({"type":"Point","coordinates":[7.3, 46.2]})
     );
-    assert!(features[1]["properties"]["colorIndex"].as_u64().unwrap() < 8);
+    assert!(features[1]["properties"]["colorIndex"].as_u64().unwrap() < 5);
 }
 
 #[test]
@@ -3654,6 +3654,35 @@ fn disabling_a_section_then_enabling_it_leaves_it_as_it_began() {
     assert!(section_of(&engine, "s1").disabled);
     send(&mut engine, "section.enable", r#"{"id":"s1"}"#);
     assert!(!section_of(&engine, "s1").disabled);
+}
+
+/// Scenario: a custom section is disabled from the browser. Its undo enables
+/// it again, but a hidden custom section is counted as removed and the browser
+/// has no delete for it, so the disable is refused and the section stays shown.
+#[test]
+fn a_custom_section_is_not_disabled_over_the_link() {
+    let mut engine = engine_with_a_route_and_a_section();
+    let drawn = create_a_section(&mut engine, 5, 30);
+    let ask = format!(r#"{{"id":"{drawn}"}}"#);
+
+    let got = send(&mut engine, "section.disable", &ask);
+    assert!(got.get("error").is_some(), "{got}");
+    assert!(!section_of(&engine, &drawn).disabled);
+
+    let many = format!(r#"{{"ids":["s1","{drawn}"],"enabled":false}}"#);
+    let got = send(&mut engine, "section.setEnabledMany", &many);
+    assert!(got.get("error").is_some(), "{got}");
+    assert!(!section_of(&engine, &drawn).disabled);
+    assert!(
+        !section_of(&engine, "s1").disabled,
+        "nothing was half-applied"
+    );
+
+    let got = send(&mut engine, "section.disable", r#"{"id":"s1"}"#);
+    assert_eq!(
+        got["result"]["ok"], true,
+        "a detected section still disables"
+    );
 }
 
 #[test]

@@ -19,12 +19,12 @@ import { debug } from '@/shared/debug/debug';
 const log = debug.create('PermissionUpgrade');
 
 /** How one upgrade ended: `error` is null when it was granted or cancelled. */
-export interface PermissionUpgradeResult {
+interface PermissionUpgradeResult {
   granted: boolean;
   error: string | null;
 }
 
-export interface UsePermissionUpgrade {
+interface UsePermissionUpgrade {
   upgradePermissions: () => Promise<PermissionUpgradeResult>;
   isUpgrading: boolean;
   error: string | null;
@@ -72,11 +72,7 @@ export function usePermissionUpgrade(): UsePermissionUpgrade {
         }
         await useAuthStore
           .getState()
-          .setOAuthCredentials(
-            tokenResponse.access_token,
-            tokenResponse.athlete_id,
-            tokenResponse.athlete_name
-          );
+          .setOAuthCredentials(tokenResponse.access_token, tokenResponse.athlete_id);
 
         // Trust only the scope the server actually returned - a missing scope
         // string means write was NOT confirmed, regardless of what we asked for.

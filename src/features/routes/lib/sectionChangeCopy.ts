@@ -24,7 +24,7 @@ const REASON_KINDS = new Set([
 ]);
 
 /** What a row carries beyond its summary that a headline can use. */
-export interface ChangeSource {
+interface ChangeSource {
   kind: string;
   summary?: FfiSectionChangeSummary | undefined;
   /** Sections a split left, when the row names them. */
@@ -37,7 +37,7 @@ export interface ChangeSource {
   rideCount?: number | undefined;
 }
 
-export interface ChangeCopy {
+interface ChangeCopy {
   headline: string | null;
   reason: string | null;
 }

@@ -1,7 +1,7 @@
 import { formatDistance, formatDuration, formatElevation } from '@/shared/format/format';
 import type { FeedCard } from '@/types';
 
-export interface CardPrimaryStats {
+interface CardPrimaryStats {
   /** Null when the activity covered no distance, so the slot is left out. */
   distance: string | null;
   duration: string;

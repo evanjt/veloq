@@ -11,6 +11,7 @@
 //! track has nothing to reconstruct from, so its rows keep the server's own
 //! sample index and carry the `time` series that addresses it ([`SeriesIndex`]).
 
+use crate::persistence::sql::question_marks;
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 
 use super::{PersistentEngine, codec};
@@ -110,7 +111,7 @@ pub(crate) mod pooled {
         let window = retention_days(conn);
         let mut owed = std::collections::HashSet::new();
         for chunk in ids.chunks(500) {
-            let placeholders = vec!["?"; chunk.len()].join(",");
+            let placeholders = question_marks(chunk.len());
             let sql = format!("SELECT a.id {STREAM_GAP_FROM_WHERE} AND a.id IN ({placeholders})");
             let mut values: Vec<rusqlite::types::Value> = vec![
                 i64::from(attempt_limit).into(),

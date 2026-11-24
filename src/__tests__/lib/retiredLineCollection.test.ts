@@ -17,7 +17,7 @@ import type { LngLat } from '@/features/maps/lib/coordinates';
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides({}));
 
 // Link values as the engine's enum carries them; the builder compares by name through the stub.
-const { RetiredPairLink } = require('../__shared__/veloqrsStub');
+const { FfiRetiredPairLink } = require('../__shared__/veloqrsStub');
 
 const NORTH: LngLat[] = [
   [7.44, 46.95],
@@ -76,8 +76,8 @@ const DATA = {
     current('c-empty', NO_LINE),
   ],
   pairs: [
-    { retiredId: 'r-north', currentId: 'c-north', link: RetiredPairLink.Ground, overlap: 0.82 },
-    { retiredId: 'r-north', currentId: 'c-hidden', link: RetiredPairLink.Supersedes },
+    { retiredId: 'r-north', currentId: 'c-north', link: FfiRetiredPairLink.Ground, overlap: 0.82 },
+    { retiredId: 'r-north', currentId: 'c-hidden', link: FfiRetiredPairLink.Supersedes },
   ],
   pairsPending: false,
 };
@@ -225,7 +225,9 @@ describe('naming the pair of a tapped line', () => {
     const data = {
       retired: [],
       current: [current('c-restored', buf(1)), current('c-hidden', buf(1), { hidden: true })],
-      pairs: [{ retiredId: 'c-restored', currentId: 'c-hidden', link: RetiredPairLink.Supersedes }],
+      pairs: [
+        { retiredId: 'c-restored', currentId: 'c-hidden', link: FfiRetiredPairLink.Supersedes },
+      ],
       pairsPending: false,
     };
 

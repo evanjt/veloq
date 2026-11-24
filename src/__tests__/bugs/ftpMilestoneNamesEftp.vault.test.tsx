@@ -48,6 +48,10 @@ describe('the fitness milestone sheet', () => {
   };
   const PACE = {
     latestPace: 4.2,
+    latestPaceMetricText: '3:58',
+    previousPaceMetricText: '4:10',
+    latestPaceImperialText: '6:23',
+    previousPaceImperialText: '6:42',
     previousPace: 4.0,
     gainPercent: 5,
     deltaSeconds: 12,

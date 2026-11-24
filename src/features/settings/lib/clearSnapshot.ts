@@ -94,8 +94,13 @@ export async function withDatabaseSnapshot<T>(
         to: `file://${dbPath}`,
       });
       await deleteClearSnapshot(dbPath);
-    } catch {
+    } catch (rollbackError) {
       // A rollback that cannot copy leaves the snapshot for manual recovery.
+      // The clear's own error is the one thrown, so this one is logged.
+      console.warn(
+        '[clear] could not restore the rollback copy after a failed clear:',
+        rollbackError
+      );
     }
     try {
       openLibrary(engine, dbPath);

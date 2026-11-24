@@ -6,6 +6,7 @@
 //! at the limit; the followed route comes back wherever it lies; an empty library returns
 //! nothing.
 
+use crate::poison::Recover;
 use std::hint::black_box;
 use std::sync::Mutex;
 
@@ -137,15 +138,15 @@ fn nearby_places_is_empty_with_matching_off() {
 static STATEMENTS: Mutex<usize> = Mutex::new(0);
 
 fn count(_sql: &str) {
-    *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner()) += 1;
+    *STATEMENTS.lock_recover() += 1;
 }
 
 fn statements_of_read(engine: &mut PersistentEngine) -> usize {
-    *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner()) = 0;
+    *STATEMENTS.lock_recover() = 0;
     crate::test_trace::trace_statements!(engine.db, count);
     black_box(read(engine, "Ride"));
     crate::test_trace::untrace(&mut engine.db);
-    *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner())
+    *STATEMENTS.lock_recover()
 }
 
 /// A library of the nearest [`NEARBY_LIMIT`] routes, each with `attempts` attempts.

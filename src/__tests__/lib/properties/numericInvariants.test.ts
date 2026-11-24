@@ -10,7 +10,6 @@ import * as fc from 'fast-check';
 import {
   formatDistance,
   formatDuration,
-  formatPace,
   formatSpeed,
   formatElevation,
   formatTemperature,
@@ -18,11 +17,8 @@ import {
   formatPower,
   formatLoad,
   formatCalories,
-  formatSwimPace,
-  speedToSecsPerKm,
 } from '@/shared/format/format';
-import { calculateSpeed, paceMinutesFromSpeed, tsbFromLoads } from '@/shared/math';
-import { getFormZone } from '@/features/fitness/lib/fitness';
+import { calculateSpeed, paceMinutesFromSpeed } from '@/shared/math';
 
 const BANNED = ['NaN', 'Infinity', '-Infinity', 'undefined', 'null'];
 
@@ -44,25 +40,16 @@ const finitePositive = fc.double({
   noNaN: true,
   noDefaultInfinity: true,
 });
-const finiteNumber = fc.double({
-  min: -100_000,
-  max: 100_000,
-  noNaN: true,
-  noDefaultInfinity: true,
-});
 
 describe('format functions never leak a banned token', () => {
   const single: [string, (v: number) => string][] = [
-    ['formatDistance', (v) => formatDistance(v)],
+    ['formatDistance', (v) => formatDistance(v, true)],
     ['formatDistance/imperial', (v) => formatDistance(v, false)],
     ['formatDuration', (v) => formatDuration(v)],
-    ['formatPace', (v) => formatPace(v, true)],
-    ['formatPace/imperial', (v) => formatPace(v, false)],
-    ['formatSwimPace', (v) => formatSwimPace(v, true)],
     ['formatSpeed', (v) => formatSpeed(v, true)],
     ['formatSpeed/imperial', (v) => formatSpeed(v, false)],
-    ['formatElevation', (v) => formatElevation(v)],
-    ['formatTemperature', (v) => formatTemperature(v)],
+    ['formatElevation', (v) => formatElevation(v, true)],
+    ['formatTemperature', (v) => formatTemperature(v, true)],
     ['formatHeartRate', (v) => formatHeartRate(v)],
     ['formatPower', (v) => formatPower(v)],
     ['formatLoad', (v) => formatLoad(v)],
@@ -139,72 +126,11 @@ describe('paceMinutesFromSpeed', () => {
   });
 
   it('returns 0 for non-positive, non-finite, or overflowing speed', () => {
-    // 5e-324 is the denormal that turned formatPace into "Infinity:NaN".
+    // 5e-324 is the smallest denormal: 1000 / 5e-324 overflows to Infinity.
     fc.assert(
       fc.property(fc.constantFrom(NaN, Infinity, -Infinity, -5, 0, 5e-324), (mps) => {
         expect(paceMinutesFromSpeed(mps)).toBe(0);
       })
     );
-  });
-});
-
-describe('speedToSecsPerKm', () => {
-  it('inverts for positive speed (1000/spk recovers m/s)', () => {
-    fc.assert(
-      fc.property(fc.double({ min: 0.1, max: 30, noNaN: true, noDefaultInfinity: true }), (mps) => {
-        const spk = speedToSecsPerKm(mps);
-        expect(1000 / spk).toBeCloseTo(mps, 4);
-      })
-    );
-  });
-
-  it('coerces invalid speed to 0, never NaN', () => {
-    fc.assert(
-      fc.property(fc.constantFrom(NaN, Infinity, -Infinity, -5, 0), (mps) => {
-        const spk = speedToSecsPerKm(mps);
-        expect(Number.isNaN(spk)).toBe(false);
-      })
-    );
-  });
-});
-
-describe('tsbFromLoads', () => {
-  it('equals ctl - atl for finite inputs and null otherwise', () => {
-    fc.assert(
-      fc.property(messyNumber, messyNumber, (ctl, atl) => {
-        const r = tsbFromLoads(ctl, atl);
-        if (Number.isFinite(ctl) && Number.isFinite(atl)) {
-          expect(r).toBe(ctl - atl);
-        } else {
-          expect(r).toBeNull();
-        }
-      })
-    );
-  });
-});
-
-describe('getFormZone', () => {
-  const ZONES = ['highRisk', 'optimal', 'greyZone', 'fresh', 'transition'];
-
-  it('maps every finite TSB to exactly one valid zone', () => {
-    fc.assert(
-      fc.property(finiteNumber, (tsb) => {
-        expect(ZONES).toContain(getFormZone(tsb));
-      })
-    );
-  });
-
-  it('partitions at the -30 / -10 / 5 / 25 boundaries with no gaps', () => {
-    const cases: [number, string][] = [
-      [-31, 'highRisk'],
-      [-30, 'optimal'],
-      [-11, 'optimal'],
-      [-10, 'greyZone'],
-      [4, 'greyZone'],
-      [5, 'fresh'],
-      [24, 'fresh'],
-      [25, 'transition'],
-    ];
-    for (const [tsb, zone] of cases) expect(getFormZone(tsb)).toBe(zone);
   });
 });

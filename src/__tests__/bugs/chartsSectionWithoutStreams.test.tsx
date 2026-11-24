@@ -13,7 +13,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 
 import { ActivityChartsSection } from '@/features/activity/components/ActivityChartsSection';
 import type { ActivityInterval, ActivityStreams } from '@/types';
-import { IntervalKind, type ActivityRecord, type HrZoneBand, type PowerZoneBand } from 'veloqrs';
+import { FfiIntervalKind, type ActivityRecord, type HrZoneBand, type PowerZoneBand } from 'veloqrs';
 import { activityRecord } from '../__shared__/activityRecord';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -74,7 +74,7 @@ jest.mock('@/shared/debug/useFFITimer', () => ({
 const intervals: ActivityInterval[] = [
   {
     id: 1,
-    kind: IntervalKind.Work,
+    kind: FfiIntervalKind.Work,
     zone: 3,
     movingTime: 300,
     startTime: 0,

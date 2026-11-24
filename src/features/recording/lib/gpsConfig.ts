@@ -3,7 +3,7 @@ import * as Location from 'expo-location';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import type { GpsAccuracyMode } from '@/features/recording/stores/RecordingPreferencesStore';
 
-export interface GpsWatchOptions {
+interface GpsWatchOptions {
   accuracy: Location.Accuracy;
   timeInterval: number;
   distanceInterval: number;

@@ -27,8 +27,7 @@ export function aboutInsightsBody(t: TFunction, tab: InsightsTab): string {
 }
 
 /** The kinds the Insights card explains, each covering one or more categories. */
-export type InsightKind =
-  'sectionsAndRoutes' | 'fitness' | 'week' | 'hrv' | 'strength' | 'sectionChanges';
+type InsightKind = 'sectionsAndRoutes' | 'fitness' | 'week' | 'hrv' | 'strength' | 'sectionChanges';
 
 /** The kind each category is explained under, so no category goes unexplained. */
 export const INSIGHT_KIND: Record<InsightCategory, InsightKind> = {

@@ -16,6 +16,7 @@ import type {
   FfiFtpTrend,
   FfiInsightsData,
   FfiInsightsParams,
+  FfiPaceText,
   FfiPaceTrend,
   FfiPeriodStats,
   FfiPlannedEvent,
@@ -128,8 +129,7 @@ export function getFitnessScreenData(
     return {
       ftpTrend: EMPTY_FTP_TREND,
       ftpTrendCoverage: RangeCoverage.NotFetched,
-      runPaceTrend: EMPTY_PACE_TREND,
-      swimPaceTrend: EMPTY_PACE_TREND,
+      thresholdPaces: [],
       sportMix: { rides: 0, runs: 0, swims: 0 },
       // The engine never answers zero days, so zero says there is no read.
       fitnessDays: 0,
@@ -224,12 +224,44 @@ export interface WellnessDays {
   /** Oldest first. */
   days: WellnessDay[];
   coverage: RangeCoverage;
+  /**
+   * Beside `days`, one per day, absent where the day cannot be read in the
+   * athlete's unit: form in that unit, the zone it falls in, and its printed
+   * text, plus the absolute TSB as printed whatever the unit.
+   */
+  form: (number | undefined)[];
+  formZone: (string | undefined)[];
+  formText: (string | undefined)[];
+  tsbText: (string | undefined)[];
+  /** Whether `form` is a share of fitness rather than absolute TSB. */
+  formAsPercent: boolean;
+  /** Where the form zones change in either unit, lowest first. */
+  formZoneEdges: number[];
 }
+
+/** A window nothing is known about: the engine is not open, or answered nothing. */
+const noWellnessDays = (): WellnessDays => ({
+  days: [],
+  coverage: RangeCoverage.NotFetched,
+  form: [],
+  formZone: [],
+  formText: [],
+  tsbText: [],
+  formAsPercent: false,
+  formZoneEdges: [],
+});
 
 export interface WellnessSparklines {
   fitness: number[];
   fatigue: number[];
   form: number[];
+  /**
+   * Beside `form`, one per day, each day against its own fitness: the zone it
+   * falls in and its printed text in the athlete's unit, absent on a day with
+   * no fitness under the percentage setting.
+   */
+  formZone: (string | undefined)[];
+  formText: (string | undefined)[];
   hrv: number[];
   rhr: number[];
   /** Beside `hrv` and `rhr`: whether each day had a reading of its own. */
@@ -295,12 +327,12 @@ function wellnessRowToFfi(r: WellnessRowInput): FfiWellnessRow {
  * window, and `Empty` would be a claim.
  */
 export function getWellnessDays(host: DelegateHost, oldest: string, newest: string): WellnessDays {
-  if (!host.ready) return { days: [], coverage: RangeCoverage.NotFetched };
+  if (!host.ready) return noWellnessDays();
   const window = host.timed('getWellnessDays', () =>
     host.engine.fitness().getWellnessDays(oldest, newest)
   );
-  if (!window) return { days: [], coverage: RangeCoverage.NotFetched };
-  return { days: window.days.map((d) => present(d)), coverage: window.coverage };
+  if (!window) return noWellnessDays();
+  return { ...window, days: window.days.map((d) => present(d)) };
 }
 
 export function getWellnessSparklines(host: DelegateHost, days: number): WellnessSparklines | null {
@@ -361,7 +393,11 @@ export interface PaceCurveRow extends CurveRow {
   distances: number[];
   times: number[];
   pace: number[];
+  /** `pace` as the engine's text in both unit systems, one per point. */
+  paceTexts: (FfiPaceText | undefined)[];
   criticalSpeed?: number;
+  /** `criticalSpeed` as the engine's text in both unit systems. */
+  criticalPace?: FfiPaceText;
   dPrime?: number;
   r2?: number;
 }

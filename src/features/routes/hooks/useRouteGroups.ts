@@ -71,7 +71,7 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
 
   const result = useMemo(() => {
     // Convert summaries to extended format. The trace is not loaded here, to
-    // keep sync FFI calls off the render: useRepresentativeRoute loads it.
+    // keep sync FFI calls off the render.
     // Names are stored persistently in Rust and available via customName
 
     const extended: RouteGroupExtended[] = summaries.map((g) => {

@@ -7,15 +7,7 @@
  * the next minute wherever it is formatted.
  */
 
-import {
-  formatMinSec,
-  formatPace,
-  formatPaceCompact,
-  formatPaceFromSecsPerKm,
-  formatSwimPace,
-} from '@/shared/format/format';
-import { getIndexAtDuration } from '@/features/stats/hooks/usePowerCurve';
-import type { PowerCurve } from '@/types';
+import { formatMinSec } from '@/shared/format/format';
 import { CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
 
 describe('formatMinSec', () => {
@@ -42,60 +34,6 @@ describe('formatMinSec', () => {
       const seconds = formatMinSec(tenths / 10).split(':')[1];
       expect(Number(seconds)).toBeLessThan(60);
     }
-  });
-});
-
-describe('every pace formatter shares that split', () => {
-  vaultIt('agrees with formatMinSec on the seconds-per-km scalar', () => {
-    expect(formatPaceFromSecsPerKm(119.7, true)).toBe(formatMinSec(119.7));
-    expect(formatPaceFromSecsPerKm(330, true)).toBe(formatMinSec(330));
-  });
-
-  vaultIt('agrees with formatMinSec on a speed, compact and with a unit', () => {
-    const metresPerSecond = 1000 / 330;
-    expect(formatPaceCompact(metresPerSecond, true)).toBe(formatMinSec(330));
-    expect(formatPace(metresPerSecond, true)).toBe(`${formatMinSec(330)} /km`);
-  });
-
-  vaultIt('agrees with formatMinSec on swim pace per 100 m', () => {
-    const metresPerSecond = 100 / 95;
-    expect(formatSwimPace(metresPerSecond, true)).toBe(formatMinSec(95));
-  });
-
-  vaultIt('carries the swim-pace rounding the same way, at 119.5 s per 100 m', () => {
-    // Was `paceToMinPer100m`'s own case before that formatter was collapsed
-    // into `formatSwimPace`: the remainder rounds to 60 and must carry.
-    expect(formatSwimPace(100 / 119.5, true)).toBe('2:00');
-  });
-
-  vaultIt('keeps rejecting a non-physical or absent pace', () => {
-    expect(formatSwimPace(0, true)).toBe('--:--');
-    expect(formatPaceFromSecsPerKm(-1, true)).toBe('--:--');
-    expect(formatPaceCompact(Number.NaN, true)).toBe('--:--');
-  });
-});
-
-describe('duration search behind the power curve readers', () => {
-  vaultIt('answers null for an empty curve rather than undefined', () => {
-    expect(getIndexAtDuration({ secs: [], watts: [] } as unknown as PowerCurve, 60)).toBeNull();
-  });
-
-  it('takes the exact duration when the curve holds it', () => {
-    const curve = { secs: [5, 60, 300], watts: [900, 400, 300] } as unknown as PowerCurve;
-
-    expect(getIndexAtDuration(curve, 60)).toBe(1);
-  });
-
-  it('takes the closest duration when it does not', () => {
-    const curve = { secs: [5, 60, 300], watts: [900, 400, 300] } as unknown as PowerCurve;
-
-    expect(getIndexAtDuration(curve, 1)).toBe(0);
-    expect(getIndexAtDuration(curve, 100)).toBe(1);
-    expect(getIndexAtDuration(curve, 9000)).toBe(2);
-  });
-
-  vaultIt('answers null when the curve is absent', () => {
-    expect(getIndexAtDuration(undefined, 60)).toBeNull();
   });
 });
 

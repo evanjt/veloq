@@ -9,6 +9,7 @@
 //! steps each read takes are held to a ceiling in the same way. Neither sees a
 //! Rust loop over an in-memory catalogue, which a bench would measure.
 
+use crate::poison::Recover;
 use std::hint::black_box;
 use std::sync::Mutex;
 
@@ -27,15 +28,15 @@ const NOW: i64 = 1_757_000_000;
 static STATEMENTS: Mutex<usize> = Mutex::new(0);
 
 fn count(_sql: &str) {
-    *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner()) += 1;
+    *STATEMENTS.lock_recover() += 1;
 }
 
 fn statements_in(engine: &mut PersistentEngine, read: impl FnOnce(&mut PersistentEngine)) -> usize {
-    *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner()) = 0;
+    *STATEMENTS.lock_recover() = 0;
     crate::test_trace::trace_statements!(engine.db, count);
     read(engine);
     crate::test_trace::untrace(&mut engine.db);
-    *STATEMENTS.lock().unwrap_or_else(|e| e.into_inner())
+    *STATEMENTS.lock_recover()
 }
 
 fn track(seed: usize) -> Vec<GpsPoint> {
@@ -295,10 +296,6 @@ fn reads(small: Ids, large: Ids) -> Vec<(&'static str, Read)> {
                         heatmap_first_day: "2024-09-01".into(),
                         heatmap_last_day: "2025-09-04".into(),
                         months: span(730),
-                        year_current: span(365),
-                        year_previous: span(730),
-                        month_current: span(30),
-                        month_previous: span(60),
                         now_wall_seconds: NOW as f64,
                     },
                 ))
@@ -499,7 +496,7 @@ fn route_detail_data_carries_the_same_bytes_for_one_route_in_a_larger_library() 
 
 #[test]
 fn map_screen_data_draws_no_routes_with_matching_off() {
-    let mut engine = seeded(LARGE);
+    let engine = seeded(LARGE);
     engine.set_detection_enabled(false).expect("switch");
 
     let data = engine.map_screen_data(

@@ -17,7 +17,8 @@
 //! than opening it unprotected.
 
 use crate::objects::init::FfiStorageShortfall;
-use rusqlite::{Connection, OpenFlags, OptionalExtension, Result as SqlResult, params};
+use crate::persistence::schema_info;
+use rusqlite::{Connection, OpenFlags, Result as SqlResult};
 
 /// `schema_info` key naming the copy the last upgrade of this file wrote. A
 /// fresh file has none, so a library recreated beside an earlier copy never
@@ -236,11 +237,7 @@ fn take_on(
 
 /// Stamp the copy an upgrade that succeeded wrote, so the next open removes it.
 pub(super) fn record(conn: &Connection, copy: &str) -> SqlResult<()> {
-    conn.execute(
-        "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?1, ?2)",
-        params![COPY_KEY, copy],
-    )?;
-    Ok(())
+    schema_info::set(conn, COPY_KEY, copy)
 }
 
 /// On an open with nothing to migrate, remove the copy the last upgrade of
@@ -257,13 +254,7 @@ pub(super) fn release(conn: &Connection) {
 }
 
 fn release_recorded(conn: &Connection) -> SqlResult<()> {
-    let copy: Option<String> = conn
-        .query_row(
-            "SELECT value FROM schema_info WHERE key = ?1",
-            params![COPY_KEY],
-            |row| row.get(0),
-        )
-        .optional()?;
+    let copy = schema_info::get(conn, COPY_KEY)?;
     let Some(copy) = copy else {
         return Ok(());
     };
@@ -276,7 +267,7 @@ fn release_recorded(conn: &Connection) -> SqlResult<()> {
     if db_path(conn).is_some_and(|db| copy.starts_with(&copy_prefix(&db))) {
         remove_copy(&copy);
     }
-    conn.execute("DELETE FROM schema_info WHERE key = ?1", params![COPY_KEY])?;
+    schema_info::delete(conn, COPY_KEY)?;
     Ok(())
 }
 

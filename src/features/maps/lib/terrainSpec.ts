@@ -1,7 +1,7 @@
 import type { MapTerrainSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import { TERRAIN_3D_CONFIG } from '@/features/maps/components/mapStyles';
 
-export interface SubjectTerrainInput {
+interface SubjectTerrainInput {
   /** The geojson source holding the line the camera must keep in view. */
   subjectSource: string;
   /** The tilt to ease to, in degrees. Defaults to the shared 3D tilt. */

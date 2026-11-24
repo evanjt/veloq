@@ -30,7 +30,7 @@ export type MapSheetCardKind = MapSheetKind | 'section-history' | 'section-laps'
 export type MapSheetCardParams = Readonly<Record<string, string | undefined>>;
 
 /** A card in a host's sheet: its subject and the state the map and the card share. */
-export interface MapSheetCard {
+interface MapSheetCard {
   kind: MapSheetCardKind;
   id: string;
   params: MapSheetCardParams;
@@ -46,7 +46,7 @@ export interface MapSheetCardSubject {
 
 const NO_PARAMS: MapSheetCardParams = {};
 
-export interface MapSheetHostEntry {
+interface MapSheetHostEntry {
   /** The cards the sheet holds, the root first and the one on show last. */
   cards: readonly MapSheetCard[];
   /** How many mounted screens hold this entry. */
@@ -63,7 +63,7 @@ export interface MapSheetHostEntry {
   terrain3DFailed?: boolean;
 }
 
-export type MapSheetHosts = Readonly<Record<string, MapSheetHostEntry>>;
+type MapSheetHosts = Readonly<Record<string, MapSheetHostEntry>>;
 
 /** The key a host's entry is held under. */
 export function mapSheetHostKey(kind: MapSheetKind, id: string): string {

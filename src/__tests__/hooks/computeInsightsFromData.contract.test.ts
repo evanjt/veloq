@@ -20,7 +20,7 @@
 
 import { computeInsightsFromData } from '@/features/insights/lib/computeInsightsData';
 import * as sectionDisplayNames from '@/features/routes/lib/sectionDisplayNames';
-import { LoadMetric } from 'veloqrs';
+import { FfiLoadMetric } from 'veloqrs';
 import type { FfiImprovementBasis, InsightsData } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
@@ -131,6 +131,10 @@ function buildFfiData(): InsightsData {
     },
     runPaceTrend: {
       latestPace: 4.55,
+      latestPaceMetricText: '3:40',
+      latestPaceImperialText: '5:54',
+      previousPaceMetricText: '3:33',
+      previousPaceImperialText: '5:43',
       latestDate: 1_745_000_000,
       previousPace: 4.7,
       previousDate: 1_700_000_000,
@@ -180,18 +184,22 @@ function buildFfiData(): InsightsData {
     efficiencyTrends: [],
     hasStrengthData: false,
     weekOverWeek: {
-      metric: LoadMetric.Tss,
+      metric: FfiLoadMetric.Tss,
       current: 320,
       previous: 220,
       ratio: 320 / 220 - 1,
       comparedStart: 1_700_000_000,
+      direction: 'up',
+      verdict: 'moved',
     },
     weekAgainstChronic: {
-      metric: LoadMetric.Tss,
+      metric: FfiLoadMetric.Tss,
       current: 220,
       previous: 320,
       ratio: 220 / 320 - 1,
       comparedStart: 1_699_395_200,
+      direction: 'down',
+      verdict: 'moved',
     },
     hrvTrend: {
       label: 'trendingDown',
@@ -417,6 +425,10 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
       ...buildFfiData(),
       swimPaceTrend: {
         latestPace: 1.25,
+        latestPaceMetricText: '1:20',
+        latestPaceImperialText: '1:13',
+        previousPaceMetricText: '1:40',
+        previousPaceImperialText: '1:31',
         latestDate: yesterday,
         previousPace: 1.0,
         previousDate: yesterday - 40 * 86_400,

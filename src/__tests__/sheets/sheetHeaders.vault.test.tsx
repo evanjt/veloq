@@ -13,6 +13,7 @@ import React from 'react';
 import { Platform, StyleSheet } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { SCREEN_SHEETS } from '@/shared/app/screenHeaders';
 import { openSheet } from '@/shared/app/sheetRequest';
@@ -39,7 +40,7 @@ jest.mock('@/shared/app', () => ({
   useMetricSystem: () => true,
 }));
 jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => ({ getSetting: () => null, setSetting: () => {} }),
+  getEngine: () => ({ getSetting: () => null, setSetting: () => {}, subscribe: () => () => {} }),
 }));
 jest.mock('@/features/routes/hooks/useEngine', () => ({
   useGroupSummaries: () => ({ totalCount: 0, summaries: [] }),
@@ -199,7 +200,11 @@ async function openRoute(route: string) {
     mockParams = { request: mockPush.mock.calls.at(-1)[0].params.request };
   }
   const Route = sheet.load();
-  await render(<Route />);
+  await render(
+    <QueryClientProvider client={new QueryClient()}>
+      <Route />
+    </QueryClientProvider>
+  );
 }
 
 beforeAll(async () => {

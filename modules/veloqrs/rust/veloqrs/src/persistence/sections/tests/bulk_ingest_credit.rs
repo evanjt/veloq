@@ -101,10 +101,12 @@ fn seeded(dir: &TempDir) -> (PersistentEngine, SectionIdentity) {
         store(&mut engine, id, Some(day(i as i64)));
     }
     let mut identity = SectionIdentity::default();
-    let seed = engine.section_identity_apply_into(
-        &mut identity,
-        SectionReplay::whole(vec![cut(long_line(), &SEED)]),
-    );
+    let seed = engine
+        .section_identity_apply_into(
+            &mut identity,
+            SectionReplay::whole(vec![cut(long_line(), &SEED)]),
+        )
+        .expect("replay");
     assert_eq!(seed.visible.len(), 1, "the seed holds the long line");
     (engine, identity)
 }
@@ -129,10 +131,12 @@ fn bulk(
         store(&mut engine, id, *date);
     }
     let members: Vec<&str> = SEED.iter().chain(riders).copied().collect();
-    let applied = engine.section_identity_apply_into(
-        &mut identity,
-        SectionReplay::whole(vec![cut(short_line(), &members)]),
-    );
+    let applied = engine
+        .section_identity_apply_into(
+            &mut identity,
+            SectionReplay::whole(vec![cut(short_line(), &members)]),
+        )
+        .expect("replay");
     (identity, applied.events, held)
 }
 
@@ -257,23 +261,27 @@ fn a_merge_the_earliest_ride_supports_applies_in_one_ingest() {
         store(&mut engine, id, Some(day(i as i64)));
     }
     let mut identity = SectionIdentity::default();
-    engine.section_identity_apply_into(
-        &mut identity,
-        SectionReplay::whole(vec![
-            cut(short_line(), &SEED[..1]),
-            cut(far_half(), &SEED[1..]),
-        ]),
-    );
+    engine
+        .section_identity_apply_into(
+            &mut identity,
+            SectionReplay::whole(vec![
+                cut(short_line(), &SEED[..1]),
+                cut(far_half(), &SEED[1..]),
+            ]),
+        )
+        .expect("replay");
     assert_eq!(identity.rows.len(), 2, "the seed holds two halves");
     for (id, date) in THREE {
         store(&mut engine, id, date);
     }
 
     let members: Vec<&str> = SEED.iter().copied().chain(["ride-c"]).collect();
-    let applied = engine.section_identity_apply_into(
-        &mut identity,
-        SectionReplay::whole(vec![cut(long_line(), &members)]),
-    );
+    let applied = engine
+        .section_identity_apply_into(
+            &mut identity,
+            SectionReplay::whole(vec![cut(long_line(), &members)]),
+        )
+        .expect("replay");
 
     let mut fired = kinds(&applied.events);
     fired.sort();
@@ -310,10 +318,12 @@ fn bulk_gone(on_line: &str) -> (SectionIdentity, Vec<SectionLifecycleEvent>, Str
         };
         store_on(&mut engine, id, date, track);
     }
-    let applied = engine.section_identity_apply_into(
-        &mut identity,
-        SectionReplay::whole(vec![cut(elsewhere(), &away)]),
-    );
+    let applied = engine
+        .section_identity_apply_into(
+            &mut identity,
+            SectionReplay::whole(vec![cut(elsewhere(), &away)]),
+        )
+        .expect("replay");
     (identity, applied.events, held)
 }
 

@@ -1,16 +1,7 @@
 export { ActivityCard } from './ActivityCard';
-export { FeedFilterChips } from './FeedFilterChips';
-export { ActivitySyncFailureChip, ActivitySyncFailureNotice } from './ActivitySyncFailure';
-export { ActivityHeldBackNotice } from './ActivityHeldBack';
 export { ActivityCardContextMenu } from './ActivityCardContextMenu';
-export { ActivityMapPreview } from './ActivityMapPreview';
-export { ChartTypeSelector } from './ChartTypeSelector';
-export { ActivityStreams } from './ActivityStreams';
-export { HRZonesChart } from './HRZonesChart';
-export { PowerZonesChart } from './PowerZonesChart';
-export { IntervalsTable } from './IntervalsTable';
 export { SkylineBar } from './SkylineBar';
-export { InsightfulStats, StatDetailSheet, type StatDetail } from './stats';
+export { StatDetailSheet, type StatDetail } from './stats';
 export { ActivityChartsSection } from './ActivityChartsSection';
 export { ActivityRoutesSection } from './ActivityRoutesSection';
 export { ActivityDetailLoading } from './ActivityDetailLoading';

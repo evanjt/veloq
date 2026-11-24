@@ -1,5 +1,5 @@
 import type { SeriesSample } from '@/features/insights';
-import type { ExerciseDetailData } from 'veloqrs';
+import type { FfiExerciseDetailData } from 'veloqrs';
 
 /**
  * The estimated one-rep max of each session that has one, on the session's
@@ -7,7 +7,7 @@ import type { ExerciseDetailData } from 'veloqrs';
  * with no estimate is left out rather than drawn at zero.
  */
 export function exerciseTrendSamples(
-  sessions: readonly ExerciseDetailData['sessions'][number][]
+  sessions: readonly FfiExerciseDetailData['sessions'][number][]
 ): SeriesSample[] {
   return sessions.flatMap((session) =>
     session.estimatedOneRepMaxKg == null

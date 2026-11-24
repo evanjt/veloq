@@ -6,13 +6,13 @@
  * The FIT file and a manual entry's body stay the caller's to write and delete.
  */
 
-import {
-  FfiStrengthFinish_Tags,
-  FfiUploadOutcome,
-  UploadRefusal,
-  UploadTransition,
+import { FfiStrengthFinish_Tags, FfiUploadOutcome } from '../generated/veloqrs';
+import type {
+  FfiLivePace,
+  FfiRecordingEntry,
+  FfiRecordingFit,
+  FfiUploadResult,
 } from '../generated/veloqrs';
-import type { FfiRecordingEntry, FfiUploadResult } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 import { present } from './optional';
 
@@ -191,106 +191,6 @@ export function holdRecordingsOfOtherAthletes(host: DelegateHost, athleteId: str
 }
 
 /**
- * One move of one recording's upload. Every outcome carries `install`, the
- * install the begin it settles answered, so an outcome that outlived a restore
- * or a wipe is refused instead of written into another library.
- */
-export type RecordingTransition =
-  | { kind: 'begin' }
-  | { kind: 'requeue' }
-  | { kind: 'uploaded'; install: number; intervalsActivityId?: string | undefined }
-  | {
-      kind: 'failed' | 'rejected' | 'heldForAuth' | 'heldForNetwork';
-      install: number;
-      error: string;
-    }
-  | { kind: 'permissionBlocked'; install: number };
-
-/** What a transition did. A refusal is an answer: nothing was written. */
-export interface RecordingTransitionAnswer {
-  applied: boolean;
-  /** Why nothing was written, absent when the move applied. */
-  refusal?:
-    | 'NoRecording'
-    | 'IllegalTransition'
-    | 'AnotherActivity'
-    | 'AnotherInstall'
-    | 'EngineNotReady'
-    | undefined;
-  /** The upload status the row was in when the transition read it. */
-  found?: string | undefined;
-  /** The attempts counted against the ride now. */
-  retryCount: number;
-  /** The install the transition ran under. A begin's answer is the attempt. */
-  install: number;
-}
-
-function toEngineTransition(transition: RecordingTransition): UploadTransition {
-  switch (transition.kind) {
-    case 'begin':
-      return UploadTransition.Begin.new();
-    case 'requeue':
-      return UploadTransition.Requeue.new();
-    case 'uploaded':
-      return UploadTransition.Uploaded.new({
-        install: transition.install,
-        ...(transition.intervalsActivityId !== undefined && {
-          intervalsActivityId: transition.intervalsActivityId,
-        }),
-      });
-    case 'failed':
-      return UploadTransition.Failed.new({ install: transition.install, error: transition.error });
-    case 'rejected':
-      return UploadTransition.Rejected.new({
-        install: transition.install,
-        error: transition.error,
-      });
-    case 'heldForAuth':
-      return UploadTransition.HeldForAuth.new({
-        install: transition.install,
-        error: transition.error,
-      });
-    case 'heldForNetwork':
-      return UploadTransition.HeldForNetwork.new({
-        install: transition.install,
-        error: transition.error,
-      });
-    case 'permissionBlocked':
-      return UploadTransition.PermissionBlocked.new({ install: transition.install });
-    default:
-      return transition satisfies never;
-  }
-}
-
-/**
- * Move one recording's upload by a named transition, if the engine's table
- * allows it from the state the row is in. Before the engine opens nothing is
- * written and the answer says so.
- */
-export function transitionRecording(
-  host: DelegateHost,
-  id: string,
-  transition: RecordingTransition,
-  nowMs: number
-): RecordingTransitionAnswer {
-  if (!host.ready) {
-    return { applied: false, refusal: 'EngineNotReady', retryCount: 0, install: 0 };
-  }
-  const answer = host.timed('transitionRecording', () =>
-    host.engine.recordings().transition(id, toEngineTransition(transition), nowMs)
-  );
-  return {
-    applied: answer.applied,
-    ...(answer.refusal !== undefined && {
-      refusal: UploadRefusal[answer.refusal] as RecordingTransitionAnswer['refusal'],
-    }),
-    found: answer.found ?? undefined,
-    retryCount: answer.retryCount,
-    install: answer.install,
-  };
-}
-
-/**
  * Name the library's athlete on every ride adopted from an older build's
  * storage with none. Rows of another athlete and every upload status stay as
  * they are.
@@ -383,6 +283,39 @@ export function finishStrengthRecording(
   return answer.tag === FfiStrengthFinish_Tags.Finished
     ? { kind: 'finished', entry: toEntry(answer.inner.entry) }
     : { kind: 'noSets' };
+}
+
+/**
+ * The FIT file of a recorded activity, written by the engine from the streams
+ * and laps the recording store holds. Nothing is stored: the caller writes the
+ * bytes under the recording's file name. The call blocks for the whole write,
+ * so it belongs on the save tap, where a transition is already running.
+ */
+export function writeRecordingFit(host: DelegateHost, recording: FfiRecordingFit): ArrayBuffer {
+  if (!host.ready) throw new Error('Engine not initialised');
+  return host.timed('writeRecordingFit', () =>
+    host.engine.recordings().writeRecordingFit(recording)
+  );
+}
+
+/**
+ * The pace a live recording shows for a speed in metres per second, and the
+ * seconds behind it. Pure arithmetic in the engine, read once a second for
+ * each figure on screen, so it belongs inside a mount or tap budget. Before the
+ * engine opens it answers the no-pace text.
+ */
+export function livePace(
+  host: DelegateHost,
+  metersPerSecond: number,
+  activityType: string | undefined,
+  isMetric: boolean
+): FfiLivePace {
+  if (!host.ready) return { text: '--:--' };
+  return host.timed(
+    'livePace',
+    () => host.engine.recordings().livePace(metersPerSecond, activityType, isMetric),
+    'tap'
+  );
 }
 
 /**

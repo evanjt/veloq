@@ -124,7 +124,7 @@ function useEventGeneration(events: EngineEvent[]): number {
  * `undefined` when the engine is not open, which is the same answer a caller
  * got from `getEngine()?.x()` and needs no new branch.
  */
-export type EngineReadKey = string | number | boolean | null | undefined;
+type EngineReadKey = string | number | boolean | null | undefined;
 
 export function useEngineRead(
   events: EngineEvent[],

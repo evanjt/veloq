@@ -9,12 +9,13 @@ import { attemptEngineRead } from '@/shared/native/engineError';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { decodeCoords, routes } from 'veloqrs';
 import type {
-  MergeCandidate,
+  FfiMergeCandidate,
   Section as NativeSection,
   SectionDetailData,
   SectionPerformanceData,
 } from 'veloqrs';
 import type { RoutePoint } from '@/types';
+import { shortCoordsFromNative } from '@/shared/ffi/shortPoints';
 
 /**
  * The section detail reads that do not depend on time streams.
@@ -28,7 +29,7 @@ import type { RoutePoint } from '@/types';
 export interface SectionDetailBundle {
   activityCount: number;
   section: NativeSection | undefined;
-  mergeCandidates: MergeCandidate[];
+  mergeCandidates: FfiMergeCandidate[];
   excludedActivityIds: string[];
   hasOriginalBounds: boolean;
   activityRows: SectionDetailData['activityRows'];
@@ -136,10 +137,7 @@ export function useSectionDetailData(
     try {
       const traces: Record<string, RoutePoint[]> = {};
       for (const signature of bundledSignatures) {
-        const points = decodeCoords(signature.encodedCoords).map((point) => ({
-          lat: point.latitude,
-          lng: point.longitude,
-        }));
+        const points = shortCoordsFromNative(decodeCoords(signature.encodedCoords));
         if (points.length >= 2) traces[signature.activityId] = points;
       }
       return Object.keys(traces).length ? traces : undefined;

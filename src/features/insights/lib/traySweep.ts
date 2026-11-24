@@ -28,7 +28,7 @@ export interface TrayEntry {
   data: unknown;
 }
 
-export interface TrayReplacement {
+interface TrayReplacement {
   activityId: string;
   /** The tray as it stands. Read before the post, so the fresh entry is not in it. */
   listPresented: () => Promise<TrayEntry[]>;

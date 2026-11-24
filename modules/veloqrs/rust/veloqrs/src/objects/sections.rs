@@ -36,7 +36,7 @@ pub(crate) fn rename_section(
         .set_section_name(section_id, name)
         .map_err(|e| match e {
             SectionNameError::Taken(name) => VeloqError::NameTaken { name },
-            SectionNameError::Failed(msg) => VeloqError::Database { msg },
+            SectionNameError::Failed(msg) => VeloqError::database(msg),
         })
 }
 
@@ -61,7 +61,7 @@ pub(crate) fn exclude_activity_from(
 ) -> Result<(), VeloqError> {
     engine
         .exclude_activity_from_section(section_id, activity_id)
-        .map_err(|msg| VeloqError::Database { msg })?;
+        .map_err(|msg| VeloqError::database(msg))?;
     refresh_indicators(engine, section_id, "exclude_activity");
     Ok(())
 }
@@ -74,7 +74,7 @@ pub(crate) fn include_activity_in(
 ) -> Result<(), VeloqError> {
     engine
         .include_activity_in_section(section_id, activity_id)
-        .map_err(|msg| VeloqError::Database { msg })?;
+        .map_err(|msg| VeloqError::database(msg))?;
     refresh_indicators(engine, section_id, "include_activity");
     Ok(())
 }
@@ -88,7 +88,7 @@ pub(crate) fn exclude_lap_from(
 ) -> Result<(), VeloqError> {
     engine
         .exclude_section_lap(section_id, activity_id, start_index)
-        .map_err(|msg| VeloqError::Database { msg })?;
+        .map_err(|msg| VeloqError::database(msg))?;
     refresh_indicators(engine, section_id, "exclude_lap");
     Ok(())
 }
@@ -102,7 +102,7 @@ pub(crate) fn include_lap_in(
 ) -> Result<(), VeloqError> {
     engine
         .include_section_lap(section_id, activity_id, start_index)
-        .map_err(|msg| VeloqError::Database { msg })?;
+        .map_err(|msg| VeloqError::database(msg))?;
     refresh_indicators(engine, section_id, "include_lap");
     Ok(())
 }
@@ -132,7 +132,7 @@ pub(crate) fn create_section_from_range(
             .check_new_section_name(&polyline, name)
             .map_err(|e| match e {
                 SectionNameError::Taken(name) => VeloqError::NameTaken { name },
-                SectionNameError::Failed(msg) => VeloqError::Database { msg },
+                SectionNameError::Failed(msg) => VeloqError::database(msg),
             })?;
     }
     let params = crate::sections::CreateSectionParams {
@@ -146,7 +146,7 @@ pub(crate) fn create_section_from_range(
     };
     engine
         .create_section(params)
-        .map_err(|e| VeloqError::Database { msg: e })
+        .map_err(|e| VeloqError::database(e))
 }
 
 /// Merge `secondary_id` into `primary_id`, resolving with the section kept and
@@ -247,7 +247,7 @@ where
     F: FnOnce(&mut crate::persistence::PersistentEngine) -> Result<T, String> + Send + 'static,
 {
     crate::persistence::with_persistent_engine_blocking_for(install, move |e| {
-        let done = edit(e).map_err(|msg| VeloqError::Database { msg });
+        let done = edit(e).map_err(|msg| VeloqError::database(msg));
         drop(slot);
         done
     })
@@ -498,14 +498,14 @@ impl SectionManager {
     fn accept(&self, section_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.accept_section(&section_id)
-                .map_err(|e| VeloqError::Database { msg: e.to_string() })
+                .map_err(|e| VeloqError::database(e.to_string()))
         })?
     }
 
     fn accept_all(&self) -> Result<u32, VeloqError> {
         with_engine(|e| {
             e.accept_all_sections()
-                .map_err(|e| VeloqError::Database { msg: e.to_string() })
+                .map_err(|e| VeloqError::database(e.to_string()))
         })?
     }
 
@@ -521,7 +521,7 @@ impl SectionManager {
     fn set_is_lift(&self, section_id: String, is_lift: bool) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.set_section_is_lift(&section_id, is_lift)
-                .map_err(|msg| VeloqError::Database { msg })
+                .map_err(|msg| VeloqError::database(msg))
         })?
     }
 
@@ -537,9 +537,7 @@ impl SectionManager {
     fn remove_named_corridor(&self, intent_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.remove_named_corridor(&intent_id)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
+                .map_err(|e| VeloqError::database(format!("{}", e)))
         })?
     }
 
@@ -613,9 +611,7 @@ impl SectionManager {
     fn unpin(&self, section_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.unpin_section_geometry(&section_id)
-                .map_err(|err| VeloqError::Database {
-                    msg: err.to_string(),
-                })
+                .map_err(|err| VeloqError::database(err.to_string()))
         })?
     }
 
@@ -641,7 +637,7 @@ impl SectionManager {
     fn delete(&self, section_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.delete_section(&section_id)
-                .map_err(|e| VeloqError::Database { msg: e })
+                .map_err(|e| VeloqError::database(e))
         })?
     }
 
@@ -651,10 +647,10 @@ impl SectionManager {
     ) -> Result<crate::FfiSectionExtensionTrack, VeloqError> {
         with_reader(|conn| {
             let config = crate::persistence::settings::section_config_from(conn)
-                .map_err(|e| VeloqError::Database { msg: e.to_string() })?;
+                .map_err(|e| VeloqError::database(e.to_string()))?;
             let (track, start, end) =
                 queries::pooled::section_extension_track(conn, &section_id, &config)
-                    .map_err(|msg| VeloqError::Database { msg })?;
+                    .map_err(|msg| VeloqError::database(msg))?;
             Ok(crate::FfiSectionExtensionTrack {
                 encoded_track: crate::persistence::codec::encode_polyline(&track),
                 section_start_idx: start,
@@ -694,14 +690,14 @@ impl SectionManager {
     fn disable(&self, section_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.disable_section(&section_id)
-                .map_err(|e| VeloqError::Database { msg: e })
+                .map_err(|e| VeloqError::database(e))
         })?
     }
 
     fn enable(&self, section_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.enable_section(&section_id)
-                .map_err(|e| VeloqError::Database { msg: e })
+                .map_err(|e| VeloqError::database(e))
         })?
     }
 
@@ -720,7 +716,7 @@ impl SectionManager {
                     (crate::FfiIndexActivitySummary::from(summary), scheduled)
                 })
         })?
-        .map_err(|e| VeloqError::Database { msg: e })?;
+        .map_err(|e| VeloqError::database(e))?;
         if let Some(scheduled) = scheduled {
             scheduled.start();
         }
@@ -760,9 +756,7 @@ impl SectionManager {
                 &primary_id,
                 &secondary_id,
             )
-            .map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })
+            .map_err(|e| VeloqError::database(format!("{}", e)))
         })?
     }
 
@@ -870,7 +864,7 @@ impl SectionManager {
                 })
             })
             .await
-            .map_err(|e| VeloqError::Database { msg: e.to_string() })?
+            .map_err(|e| VeloqError::database(e.to_string()))?
     }
 }
 
@@ -888,24 +882,6 @@ impl SectionManager {
                 min_visits,
                 &named::pooled::overlay_names(conn),
             )
-        })
-    }
-
-    pub(crate) fn get_reference_info(
-        &self,
-        section_id: String,
-    ) -> Result<crate::FfiSectionReferenceInfo, VeloqError> {
-        // The raw row: neither field is one the corridor-name overlay touches.
-        with_reader(|conn| {
-            queries::pooled::section_raw(conn, &section_id)
-                .map(|s| crate::FfiSectionReferenceInfo {
-                    activity_id: s.representative_activity_id.unwrap_or_default(),
-                    is_user_defined: s.is_user_defined,
-                })
-                .unwrap_or(crate::FfiSectionReferenceInfo {
-                    activity_id: String::new(),
-                    is_user_defined: false,
-                })
         })
     }
 

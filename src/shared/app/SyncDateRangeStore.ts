@@ -10,7 +10,7 @@
  */
 
 import { create } from 'zustand';
-import { formatLocalDate } from '@/shared/format/format';
+import { formatLocalDate, addLocalDays } from '@/shared/time/localDay';
 import { debug } from '@/shared/debug/debug';
 import { DEFAULT_ACTIVITY_DAYS } from '@/shared/native/activityWindow.generated';
 import {
@@ -92,8 +92,7 @@ interface SyncDateRangeState {
 
 function getDefaultRange() {
   const today = new Date();
-  const defaultStart = new Date(today);
-  defaultStart.setDate(defaultStart.getDate() - DEFAULT_ACTIVITY_DAYS);
+  const defaultStart = addLocalDays(today, -DEFAULT_ACTIVITY_DAYS);
   return {
     oldest: formatLocalDate(defaultStart),
     newest: formatLocalDate(today),

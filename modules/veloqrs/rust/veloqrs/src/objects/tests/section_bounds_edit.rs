@@ -233,9 +233,7 @@ fn set_and_reset_reference_run_as_section_edits() {
 
     crate::runtime::block_on(sections.run_section_bounds_edit(set_reference(&id, "b0")))
         .expect("set reference");
-    let info = sections.get_reference_info(id.clone()).expect("reference");
-    assert_eq!(info.activity_id, "b0");
-    assert!(info.is_user_defined);
+    assert_eq!(reference_of(&id), ("b0".to_string(), true));
     let line = latitudes(&stored_polyline(&id));
     assert!(
         line.len() > 8,
@@ -255,12 +253,7 @@ fn set_and_reset_reference_run_as_section_edits() {
     ))
     .expect("reset reference");
     assert_eq!(stored_polyline(&id), drawn);
-    assert!(
-        !sections
-            .get_reference_info(id.clone())
-            .expect("reference")
-            .is_user_defined
-    );
+    assert!(!reference_of(&id).1);
 }
 
 /// Scenario: a reference is set or reset while a bounds edit is waiting on
@@ -315,8 +308,21 @@ fn a_reference_edit_while_a_bounds_edit_runs_is_refused() {
         .join()
         .expect("first edit thread")
         .expect("first edit");
-    let info = sections.get_reference_info(id.clone()).expect("reference");
-    assert_eq!(info.activity_id, "a0");
+    assert_eq!(reference_of(&id).0, "a0");
+}
+
+/// A section's reference activity and whether the athlete drew it, off the
+/// stored row.
+fn reference_of(section_id: &str) -> (String, bool) {
+    with_reader(|conn| {
+        let row = crate::persistence::sections::queries::pooled::section_raw(conn, section_id)
+            .expect("section row");
+        (
+            row.representative_activity_id.unwrap_or_default(),
+            row.is_user_defined,
+        )
+    })
+    .expect("reader")
 }
 
 fn section_exists(section_id: &str) -> bool {

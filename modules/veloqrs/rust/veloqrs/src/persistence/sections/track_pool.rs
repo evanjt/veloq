@@ -2,6 +2,7 @@
 
 use crate::GpsPoint;
 use crate::persistence::codec::TrackRead;
+use crate::persistence::sql::question_marks;
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -65,9 +66,7 @@ pub(crate) fn load_tracks_chunked(
         if cancel.load(Ordering::SeqCst) {
             return Err(TrackLoadError::Cancelled);
         }
-        let placeholders: String = std::iter::repeat_n("?", chunk.len())
-            .collect::<Vec<_>>()
-            .join(",");
+        let placeholders: String = question_marks(chunk.len());
         let sql = format!(
             "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({})",
             placeholders
@@ -175,9 +174,7 @@ pub(crate) fn load_seconds_chunked(
     let mut streams: HashMap<String, Vec<u32>> = HashMap::with_capacity(tracks.len());
 
     for chunk in tracks.chunks(CHUNK_SIZE) {
-        let placeholders: String = std::iter::repeat_n("?", chunk.len())
-            .collect::<Vec<_>>()
-            .join(",");
+        let placeholders: String = question_marks(chunk.len());
         let sql = format!(
             "SELECT activity_id, times FROM time_streams WHERE activity_id IN ({})",
             placeholders

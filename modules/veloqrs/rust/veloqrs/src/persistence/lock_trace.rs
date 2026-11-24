@@ -8,6 +8,7 @@
 //! tables every fifteen seconds, by hold, by call count and by longest wait, so
 //! the histogram can be read out of logcat.
 
+use crate::poison::Recover;
 use std::collections::HashMap;
 use std::panic::Location;
 use std::sync::{Mutex, Once};
@@ -105,7 +106,7 @@ fn record(caller: &'static Location<'static>, wait: Duration, hold: Duration) {
             ms(hold),
         );
     }
-    let mut table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
+    let mut table = TABLE.lock_recover();
     let wb = bucket(wait);
     let hb = bucket(hold);
     table.wait_hist[wb] += 1;
@@ -142,7 +143,7 @@ fn spawn_reporter() {
 }
 
 fn report() {
-    let mut table = TABLE.lock().unwrap_or_else(|e| e.into_inner());
+    let mut table = TABLE.lock_recover();
     if !table.dirty {
         return;
     }

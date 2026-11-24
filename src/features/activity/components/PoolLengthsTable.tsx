@@ -3,12 +3,18 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { PoolSwimState, PoolUnit, type PoolLength, type PoolSwim } from 'veloqrs';
+import {
+  FfiPoolSwimState,
+  FfiPoolUnit,
+  type FfiPaceText,
+  type FfiPoolLength,
+  type FfiPoolSwim,
+} from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
 import { ABSENT } from '@/shared/format/absent';
 import { formatDecimalTrimmed } from '@/shared/format/number';
-import { formatDuration, formatSwimPace, swimPaceUnitLabel } from '@/shared/format/format';
+import { formatDuration, swimPaceUnitLabel } from '@/shared/format/format';
 import { Card, CardHeader, DataTable, type DataTableRow } from '@/shared/ui';
 import { spacing, themePalette, typography } from '@/theme';
 
@@ -23,16 +29,16 @@ const LENGTH_TABLE_WEIGHTS = [0.6, 2.4, 1, 1.1, 1.2, 1];
  * owed, so the pending line has somewhere to stand, and once lengths are
  * stored. A swim settled with none has nothing to put in it.
  */
-export function showsPoolLengthsTab(poolSwim: PoolSwim | null | undefined): boolean {
+export function showsPoolLengthsTab(poolSwim: FfiPoolSwim | null | undefined): boolean {
   if (!poolSwim) return false;
-  if (poolSwim.state === PoolSwimState.Owed) return true;
-  return poolSwim.state === PoolSwimState.Read && poolSwim.lengths.length > 0;
+  if (poolSwim.state === FfiPoolSwimState.Owed) return true;
+  return poolSwim.state === FfiPoolSwimState.Read && poolSwim.lengths.length > 0;
 }
 
 /** A distance in the pool's own unit, whole metres or whole yards. */
-function formatPoolDistance(metres: number | undefined, unit: PoolUnit): string {
+function formatPoolDistance(metres: number | undefined, unit: FfiPoolUnit): string {
   if (metres == null) return ABSENT;
-  return unit === PoolUnit.Yards
+  return unit === FfiPoolUnit.Yards
     ? `${Math.round(metres / METRES_PER_YARD)} yd`
     : `${Math.round(metres)} m`;
 }
@@ -62,11 +68,16 @@ function strokeName(key: string | undefined, t: TFunction): string {
   return t(label);
 }
 
+/** The engine's swim pace text for the pool's unit, the absent mark where it wrote none. */
+function paceCell(pace: FfiPaceText | undefined, isMetric: boolean): string {
+  return (isMetric ? pace?.metricText : pace?.imperialText) ?? ABSENT;
+}
+
 /**
  * The lengths in file order, each active one numbered among the active ones
  * and each rest a row of its own, so the runs between rests read as runs.
  */
-function lengthRows(lengths: PoolLength[], isMetric: boolean, t: TFunction): DataTableRow[] {
+function lengthRows(lengths: FfiPoolLength[], isMetric: boolean, t: TFunction): DataTableRow[] {
   let swum = 0;
   return lengths.map((length) => {
     const time = length.elapsedSecs != null ? formatDuration(length.elapsedSecs) : ABSENT;
@@ -81,7 +92,7 @@ function lengthRows(lengths: PoolLength[], isMetric: boolean, t: TFunction): Dat
         strokeName(length.strokeKey, t),
         time,
         length.strokes != null ? String(length.strokes) : ABSENT,
-        length.speedMps != null ? formatSwimPace(length.speedMps, isMetric) : ABSENT,
+        paceCell(length.pace, isMetric),
         formatSwolf(length.swolf),
       ],
     };
@@ -89,7 +100,7 @@ function lengthRows(lengths: PoolLength[], isMetric: boolean, t: TFunction): Dat
 }
 
 interface PoolLengthsTableProps {
-  poolSwim: PoolSwim;
+  poolSwim: FfiPoolSwim;
 }
 
 /** A pool swim's per-stroke totals and its lengths, every figure as the read gives it. */
@@ -98,7 +109,7 @@ export function PoolLengthsTable({ poolSwim }: PoolLengthsTableProps) {
   const { isDark } = useTheme();
   const palette = themePalette(isDark);
 
-  if (poolSwim.state === PoolSwimState.Owed) {
+  if (poolSwim.state === FfiPoolSwimState.Owed) {
     return (
       <View style={styles.frame}>
         <Card variant="raised">
@@ -113,7 +124,7 @@ export function PoolLengthsTable({ poolSwim }: PoolLengthsTableProps) {
   if (!showsPoolLengthsTab(poolSwim)) return null;
 
   const unit = poolSwim.poolUnit;
-  const isMetric = unit !== PoolUnit.Yards;
+  const isMetric = unit !== FfiPoolUnit.Yards;
   const pace = `${t('poolSwim.columns.pace')} ${swimPaceUnitLabel(isMetric)}`;
   const poolLength =
     poolSwim.poolLengthM != null
@@ -127,7 +138,7 @@ export function PoolLengthsTable({ poolSwim }: PoolLengthsTableProps) {
       String(total.lengths),
       formatPoolDistance(total.distanceM, unit),
       formatDuration(total.elapsedSecs),
-      total.speedMps != null ? formatSwimPace(total.speedMps, isMetric) : ABSENT,
+      paceCell(total.pace, isMetric),
       formatSwolf(total.avgSwolf),
     ],
   }));

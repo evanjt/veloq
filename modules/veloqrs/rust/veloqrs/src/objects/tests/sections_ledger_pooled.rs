@@ -24,12 +24,17 @@ fn test_get_map_sections_writer_held() {
 
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
-fn test_get_reference_info_writer_held() {
+fn test_section_raw_writer_held() {
     let _guard = serial_global_state();
     let (_tmp, sections) = empty_engine("section_reference_under_writer.db");
-    let info = read_while_writer_holds(|| sections.get_reference_info("s1".into()).unwrap());
-    assert!(info.activity_id.is_empty());
-    assert!(!info.is_user_defined);
+    let _ = &sections;
+    let row = read_while_writer_holds(|| {
+        super::super::error::with_reader(|conn| {
+            crate::persistence::sections::queries::pooled::section_raw(conn, "s1")
+        })
+        .unwrap()
+    });
+    assert!(row.is_none());
 }
 
 #[test]
@@ -192,9 +197,16 @@ fn test_ledger_reads_match_the_engine() {
     let locked_line = crate::with_persistent_engine(|e| e.get_section_polyline(&id)).unwrap();
     assert_eq!(pooled_line, locked_line);
 
-    let info = sections.get_reference_info(id.clone()).unwrap();
+    let pooled_row = super::super::error::with_reader(|conn| {
+        crate::persistence::sections::queries::pooled::section_raw(conn, &id)
+    })
+    .unwrap()
+    .unwrap();
     assert_eq!(
-        (info.activity_id.clone(), info.is_user_defined),
+        (
+            pooled_row.representative_activity_id.unwrap_or_default(),
+            pooled_row.is_user_defined
+        ),
         crate::with_persistent_engine(|e| {
             let s = e.get_section(&id).unwrap();
             (

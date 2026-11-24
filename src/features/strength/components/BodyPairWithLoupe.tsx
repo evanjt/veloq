@@ -66,7 +66,7 @@ const STEP_ACTIONS = [{ name: 'increment' }, { name: 'decrement' }];
  * With none selected an increment starts at the first and a decrement at the
  * last. It holds at either end, because selecting the same muscle again clears it.
  */
-export function steppedMuscle(
+function steppedMuscle(
   order: readonly string[],
   selected: string | null | undefined,
   step: 'increment' | 'decrement'

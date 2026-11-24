@@ -31,6 +31,8 @@ mod mutations;
 pub(crate) mod named;
 pub(crate) mod naming;
 pub(crate) mod numbers;
+pub(crate) mod pace_gap;
+pub(crate) mod pace_text;
 pub(crate) mod pass_rule;
 #[cfg(all(test, feature = "real-corpus"))]
 #[path = "tests/pass_timing_measure.rs"]
@@ -46,6 +48,8 @@ pub(crate) mod scatter_focus;
 pub(crate) mod track_pool;
 pub(crate) mod trend_curve;
 
+use crate::persistence::schema_info;
+use crate::persistence::sql::question_marks;
 pub(crate) use anchoring::anchoring_owed;
 pub use history::{
     DetectorGeneration, KIND_ARCHIVED, KIND_RESTORED, KIND_REVERTED, RetiredSection,
@@ -663,11 +667,6 @@ fn reapply_auto_exclusions(
 /// the whole library holds every decoded series resident at once, which on a
 /// long-ride library is around 100 MB on top of the pool that is already there.
 const STREAM_READ_CHUNK: usize = 150;
-
-/// `?,?,?` for a batch of `n`.
-fn placeholders_for(n: usize) -> String {
-    std::iter::repeat_n("?", n).collect::<Vec<_>>().join(",")
-}
 
 impl PersistentEngine {
     /// Load sections from database.
@@ -1456,22 +1455,6 @@ impl PersistentEngine {
         queries::pooled::section_count(&self.db)
     }
 
-    /// Auto sections the athlete retired, disabled or superseded by a custom
-    /// one. `VISIBLE_FILTER` is the complement of this, so no list query can
-    /// answer it: the rows it counts are exactly the ones every section view
-    /// leaves out, which is why the figure beside the "Removed" chip needs its
-    /// own count.
-    pub fn get_retired_section_count(&self) -> u32 {
-        self.db
-            .query_row(
-                "SELECT COUNT(*) FROM sections
-                 WHERE section_type = 'auto' AND (disabled = 1 OR superseded_by IS NOT NULL)",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap_or(0)
-    }
-
     /// Get lightweight section summaries without polyline data.
     /// Queries SQLite and extracts only summary fields, skipping heavy data like
     /// polylines, activityTraces, and pointDensity.
@@ -2008,10 +1991,7 @@ impl PersistentEngine {
         // The insert triggers recount a section's summary on every junction
         // row, quadratic in the rows a section carries. Suspend them for the
         // bulk write and recount the saved rows once below.
-        tx.execute(
-            "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, '1')",
-            params![SECTION_SUMMARY_BULK_KEY],
-        )?;
+        schema_info::set(&tx, SECTION_SUMMARY_BULK_KEY, "1")?;
 
         // The apply stores sensor means before replacing section rows.
         let (db_hr_series, db_power_series) = {
@@ -2028,7 +2008,7 @@ impl PersistentEngine {
             for chunk in ids.chunks(STREAM_READ_CHUNK) {
                 let sql = format!(
                     "SELECT activity_id, kind, data FROM activity_streams WHERE kind IN ('heartrate', 'watts') AND activity_id IN ({})",
-                    placeholders_for(chunk.len())
+                    question_marks(chunk.len())
                 );
                 let params_vec: Vec<&dyn rusqlite::ToSql> =
                     chunk.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
@@ -2221,10 +2201,7 @@ impl PersistentEngine {
         place_held_supersessions(&tx, pending)?;
 
         recount_section_summaries(&tx, DERIVED_SECTION_PREDICATE)?;
-        tx.execute(
-            "DELETE FROM schema_info WHERE key = ?",
-            params![SECTION_SUMMARY_BULK_KEY],
-        )?;
+        schema_info::delete(&tx, SECTION_SUMMARY_BULK_KEY)?;
 
         // Sections whose id survived the re-detect get their exclusions
         // back; a section that died has no rows and the updates are no-ops.
@@ -2316,10 +2293,7 @@ impl PersistentEngine {
                     section_config_digest(&self.section_config),
                 ),
             ] {
-                tx.execute(
-                    "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-                    params![key, value],
-                )?;
+                schema_info::set(&tx, key, &value)?;
             }
         }
 
@@ -2340,7 +2314,7 @@ impl PersistentEngine {
     }
 
     fn schema_info_value(&self, key: &str) -> Option<String> {
-        pooled::schema_info_value(&self.db, key)
+        schema_info::get(&self.db, key).ok().flatten()
     }
 }
 
@@ -2787,20 +2761,13 @@ pub(crate) mod pooled {
     use crate::sections::Section;
 
     use crate::persistence::PersistentEngine;
-
-    /// One `schema_info` row, absent when unset or unreadable.
-    pub(crate) fn schema_info_value(conn: &Connection, key: &str) -> Option<String> {
-        conn.query_row(
-            "SELECT value FROM schema_info WHERE key = ?",
-            params![key],
-            |row| row.get(0),
-        )
-        .ok()
-    }
+    use crate::persistence::schema_info;
 
     /// The detection method that cut the stored catalogue.
     pub(crate) fn catalogue_detection_method(conn: &Connection) -> Option<String> {
-        schema_info_value(conn, super::CATALOGUE_METHOD_KEY)
+        schema_info::get(conn, super::CATALOGUE_METHOD_KEY)
+            .ok()
+            .flatten()
     }
 
     /// Sections whose latest outing that could hold a record does hold one.
@@ -2816,7 +2783,7 @@ pub(crate) mod pooled {
         if section_ids.is_empty() {
             return std::collections::HashSet::new();
         }
-        let placeholders = vec!["?"; section_ids.len()].join(",");
+        let placeholders = crate::persistence::sql::question_marks(section_ids.len());
         let sport_param = section_ids.len() + 1;
         let query = format!(
             "SELECT DISTINCT ai.target_id
@@ -3023,12 +2990,12 @@ pub(crate) mod pooled {
             return HashMap::new();
         }
 
-        let placeholders: Vec<&str> = section_ids.iter().map(|_| "?").collect();
+        let placeholders = crate::persistence::sql::question_marks(section_ids.len());
         let query = format!(
             "SELECT id, polyline_blob, polyline_json, representative_activity_id,
                     rep_start_index, rep_end_index, rep_reversed
              FROM sections WHERE id IN ({})",
-            placeholders.join(",")
+            placeholders
         );
 
         let mut stmt = match conn.prepare(&query) {

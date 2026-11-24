@@ -59,7 +59,6 @@ describe('AuthStore', () => {
       apiKey: null,
       accessToken: null,
       athleteId: null,
-      athlete: null,
       isLoading: true,
       isAuthenticated: false,
       isDemoMode: false,
@@ -292,15 +291,6 @@ describe('AuthStore', () => {
       expect(useAuthStore.getState().apiKey).toBeNull();
     });
 
-    vaultIt('sets athlete info when name provided', async () => {
-      await useAuthStore.getState().setOAuthCredentials('token', 'i77777', 'John Doe');
-
-      const state = useAuthStore.getState();
-      expect(state.athlete).not.toBeNull();
-      expect(state.athlete?.id).toBe('i77777');
-      expect(state.athlete?.name).toBe('John Doe');
-    });
-
     vaultIt('updates state correctly after OAuth login', async () => {
       await useAuthStore.getState().setOAuthCredentials('oauth-xyz', 'i99999');
 
@@ -381,7 +371,6 @@ describe('AuthStore', () => {
         apiKey: 'key',
         accessToken: 'token',
         athleteId: 'id',
-        athlete: { id: 'id', name: 'Test' },
         isAuthenticated: true,
         isDemoMode: true,
         authMethod: 'oauth',
@@ -393,7 +382,6 @@ describe('AuthStore', () => {
       expect(state.apiKey).toBeNull();
       expect(state.accessToken).toBeNull();
       expect(state.athleteId).toBeNull();
-      expect(state.athlete).toBeNull();
       expect(state.isAuthenticated).toBe(false);
       expect(state.isDemoMode).toBe(false);
       expect(state.authMethod).toBeNull();
@@ -409,14 +397,6 @@ describe('AuthStore', () => {
       expect(state.isAuthenticated).toBe(true);
       expect(state.authMethod).toBe('demo');
       expect(state.athleteId).toBe(DEMO_ATHLETE_ID);
-    });
-
-    it('enterDemoMode() clears athlete profile', () => {
-      useAuthStore.setState({ athlete: { id: 'i123', name: 'Real User' } });
-
-      useAuthStore.getState().enterDemoMode();
-
-      expect(useAuthStore.getState().athlete).toBeNull();
     });
 
     it('enterDemoMode() discards a backup held for the next sign-in', async () => {

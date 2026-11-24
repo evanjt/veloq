@@ -6,10 +6,11 @@
 //! collects the replies the workers send back. Asks of one connection start in
 //! the order they came, and may finish in any order.
 
+use crate::poison::Recover;
 use std::collections::{HashSet, VecDeque};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Arc, Mutex, MutexGuard, Weak};
+use std::sync::{Arc, Mutex, Weak};
 
 use str0m::channel::ChannelId;
 
@@ -28,16 +29,10 @@ pub struct Pool {
 
 static POOL: Mutex<Weak<Pool>> = Mutex::new(Weak::new());
 
-fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-}
-
 impl Pool {
     /// The pool the process shares, started if no connection holds one.
     pub fn shared() -> std::io::Result<Arc<Pool>> {
-        let mut held = lock(&POOL);
+        let mut held = POOL.lock_recover();
         if let Some(pool) = held.upgrade() {
             return Ok(pool);
         }
@@ -51,7 +46,7 @@ impl Pool {
                     loop {
                         // The lock is held only while waiting for a ticket, so
                         // the other worker takes the next one while this runs.
-                        let ticket = lock(&queue).recv();
+                        let ticket = queue.lock_recover().recv();
                         match ticket {
                             Ok(conn) => conn.run_next(),
                             Err(_) => return,
@@ -133,7 +128,7 @@ impl Conn {
         request: &str,
     ) -> bool {
         {
-            let mut pending = lock(&self.pending);
+            let mut pending = self.pending.lock_recover();
             if pending.closed || pending.outstanding() >= MAX_OUTSTANDING {
                 return false;
             }
@@ -149,7 +144,7 @@ impl Conn {
     /// Withdraw ask `id`: a queued one is removed, and a running one has its
     /// reply dropped when it returns.
     pub fn cancel(&self, id: u64) {
-        let mut pending = lock(&self.pending);
+        let mut pending = self.pending.lock_recover();
         if let Some(at) = pending.queued.iter().position(|job| job.id == Some(id)) {
             pending.queued.remove(at);
         } else if pending.running_ids.contains(&id) {
@@ -160,18 +155,18 @@ impl Conn {
     /// A reply handed over is gone from the send queue, written or dropped:
     /// `count` asks stop counting as outstanding.
     pub fn release(&self, count: usize) {
-        let mut pending = lock(&self.pending);
+        let mut pending = self.pending.lock_recover();
         pending.unsent = pending.unsent.saturating_sub(count);
     }
 
     /// Whether any ask is queued or running.
     pub fn busy(&self) -> bool {
-        lock(&self.pending).outstanding() > 0
+        self.pending.lock_recover().outstanding() > 0
     }
 
     /// The connection ended: queued asks are dropped unrun.
     pub fn close(&self) {
-        let mut pending = lock(&self.pending);
+        let mut pending = self.pending.lock_recover();
         pending.closed = true;
         pending.queued.clear();
     }
@@ -179,7 +174,7 @@ impl Conn {
     /// Answer the ask at the head of the queue, if a cancel has not taken it.
     fn run_next(&self) {
         let job = {
-            let mut pending = lock(&self.pending);
+            let mut pending = self.pending.lock_recover();
             let Some(job) = pending.queued.pop_front() else {
                 return;
             };
@@ -194,7 +189,7 @@ impl Conn {
                 .answer_bytes(&self.presented, &self.local, &job.request)
         }))
         .unwrap_or_else(|_| Answer::Text(protocol::failed(job.id)));
-        let mut pending = lock(&self.pending);
+        let mut pending = self.pending.lock_recover();
         let cancelled = job.id.is_some_and(|id| pending.cancelled.remove(&id));
         if !cancelled {
             let wire = protocol::wire_of(&job.request);

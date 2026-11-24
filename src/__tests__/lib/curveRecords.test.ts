@@ -48,9 +48,11 @@ const PACE: PaceCurveRow = {
   distances: [100],
   times: [20],
   pace: [5],
+  paceTexts: [{ metricText: '3:20', imperialText: '5:22' }],
   activityIds: ['i3'],
   activities: { i2: ACTIVITY },
   criticalSpeed: 3.1,
+  criticalPace: { metricText: '5:23', imperialText: '8:39' },
   dPrime: 150,
   r2: 0.99,
   startDate: '2026-06-08T00:00:00',
@@ -125,6 +127,8 @@ describe('a pace curve on its way to the chart', () => {
     expect(curve.times).toEqual([20]);
     expect(curve.pace).toEqual([5]);
     expect(curve.criticalSpeed).toBe(3.1);
+    expect(curve.pace_texts).toEqual([{ metricText: '3:20', imperialText: '5:22' }]);
+    expect(curve.criticalPace).toEqual({ metricText: '5:23', imperialText: '8:39' });
     expect(curve.dPrime).toBe(150);
     expect(curve.r2).toBe(0.99);
     expect(curve.type).toBe('pace');

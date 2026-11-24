@@ -10,14 +10,10 @@ export {
   DecouplingChart,
   CurveFreshnessLine,
 } from './components';
-export type { ActivityHeatmapHandle } from './components';
 
 export {
   usePaceCurve,
-  getIndexAtDistance,
-  getTimeAtDistance,
   usePowerCurve,
-  getIndexAtDuration,
   BEST_EFFORTS_SPORT,
   bestEffortsOf,
   climbBestsOf,

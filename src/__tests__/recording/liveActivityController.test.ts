@@ -4,6 +4,8 @@
  * outlived a terminated app reaped at launch.
  */
 
+import { recordings } from 'veloqrs';
+
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { buildRecordingNotificationPayload } from '@/features/recording/lib/recordingNotification';
 import { i18n } from '@/i18n';
@@ -45,6 +47,8 @@ const mockNative = {
 
 // Only the one lookup is replaced, so `requireNativeModule` survives for
 // expo's lazy `fetch` global. See memoryPressure.test.ts.
+const livePace = recordings.livePace as jest.Mock;
+
 jest.mock('expo-modules-core', () => ({
   ...jest.requireActual('expo-modules-core'),
   requireOptionalNativeModule: jest.fn(() => mockNative),
@@ -89,6 +93,11 @@ describe('live activity controller', () => {
   it.each(['Run', 'Ride'] as const)(
     'shows the same distance and pace or speed for a %s',
     (sport) => {
+      livePace.mockImplementation(
+        (_speed: number, _sport: string | undefined, isMetric: boolean) => ({
+          text: `5:00 ${isMetric ? '/km' : '/mi'}`,
+        })
+      );
       useRecordingStore.getState().startRecording(sport, 'gps');
       useRecordingStore.setState({
         startTime: Date.now() - 300_000,
@@ -109,8 +118,10 @@ describe('live activity controller', () => {
       });
 
       expect(notification?.body).toBe(`${card.distanceLabel} · ${card.speedLabel}`);
-      if (sport === 'Run') expect(card.speedLabel).toMatch(/\/(km|mi)$/);
-      else expect(card.speedLabel).toMatch(/(km\/h|mph)$/);
+      if (sport === 'Run') {
+        expect(card.speedLabel).toMatch(/\/(km|mi)$/);
+        expect(livePace).toHaveBeenCalledWith(5, 'Run', getIsMetric());
+      } else expect(card.speedLabel).toMatch(/(km\/h|mph)$/);
     }
   );
 

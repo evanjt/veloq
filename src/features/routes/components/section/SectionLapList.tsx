@@ -23,7 +23,7 @@ import type {
 import { NameText } from '@/shared/ui/NameText';
 import { FitText } from '@/shared/ui/FitText';
 
-export interface SectionLapListProps {
+interface SectionLapListProps {
   isDark: boolean;
   initiallyExpanded?: boolean;
   /** Off where the screen's own header already names the laps. */

@@ -8,6 +8,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
+import type { FfiPaceText } from 'veloqrs';
 import { getIntlLocale } from '@/shared/format/format';
 import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
 import { colors, darkColors, iconSize, spacing, themePalette, typography } from '@/theme';
@@ -21,6 +22,8 @@ interface CalendarDirectionBest {
   count: number;
   bestTime: number;
   bestPace: number;
+  /** `bestPace` as the engine's pace text, for a sport read as a pace. */
+  bestPaceText?: FfiPaceText | null | undefined;
   bestActivityId: string;
   bestActivityName: string;
 }
@@ -98,7 +101,7 @@ export function SectionStatsCards({
   }, []);
 
   const formatBest = (entry: CalendarDirectionBest) =>
-    formatAttemptFigure(basis, entry.bestTime, entry.bestPace, isMetric);
+    formatAttemptFigure(basis, entry.bestTime, entry.bestPaceText, isMetric);
 
   if (calendarSummary.years.length < 1) {
     return null;

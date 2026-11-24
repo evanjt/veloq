@@ -6,7 +6,7 @@
  * sort replaces the nearest-first order rather than refining it, so `nearby` is
  * itself one of the modes here.
  */
-import { GroupSort, SectionSort, type SectionHiddenFilters } from 'veloqrs';
+import { FfiGroupSort, FfiSectionSort, type SectionHiddenFilters } from 'veloqrs';
 
 /** The orders the sections list offers. `nearby` is ranked in Rust. */
 export type SectionsSortOption = 'signature' | 'visits' | 'distance' | 'name' | 'nearby';
@@ -36,31 +36,31 @@ export function hidesBeyondDefault(hidden: SectionHideFlags): boolean {
   );
 }
 
-export function groupSortFor(option: RoutesSortOption): GroupSort {
+export function groupSortFor(option: RoutesSortOption): FfiGroupSort {
   switch (option) {
     case 'nearby':
-      return GroupSort.Nearby;
+      return FfiGroupSort.Nearby;
     case 'distance':
-      return GroupSort.Distance;
+      return FfiGroupSort.Distance;
     case 'name':
-      return GroupSort.Name;
+      return FfiGroupSort.Name;
     default:
-      return GroupSort.Activities;
+      return FfiGroupSort.Activities;
   }
 }
 
-export function sectionSortFor(option: SectionsSortOption): SectionSort {
+export function sectionSortFor(option: SectionsSortOption): FfiSectionSort {
   switch (option) {
     case 'nearby':
-      return SectionSort.Nearby;
+      return FfiSectionSort.Nearby;
     case 'signature':
-      return SectionSort.Signature;
+      return FfiSectionSort.Signature;
     case 'distance':
-      return SectionSort.Distance;
+      return FfiSectionSort.Distance;
     case 'name':
-      return SectionSort.Name;
+      return FfiSectionSort.Name;
     default:
-      return SectionSort.Visits;
+      return FfiSectionSort.Visits;
   }
 }
 
@@ -73,7 +73,7 @@ export function sectionFiltersFor(hidden: SectionHideFlags): SectionHiddenFilter
   };
 }
 
-export interface SectionCounts {
+interface SectionCounts {
   total: number;
   shown: number;
   custom: number;

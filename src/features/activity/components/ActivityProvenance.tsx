@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityProvenance } from 'veloqrs';
+import { FfiActivityProvenance } from 'veloqrs';
 import { navigateTo } from '@/shared/app/navigation';
 import { useExperimental } from '@/features/settings/light';
 import { TextLink } from '@/shared/ui/TextLink';
@@ -8,7 +8,7 @@ import { spacing } from '@/theme';
 
 interface Props {
   /** Where the ride's data was filled from; null until the detail read answers. */
-  provenance: ActivityProvenance | null | undefined;
+  provenance: FfiActivityProvenance | null | undefined;
 }
 
 /**
@@ -19,7 +19,7 @@ interface Props {
 export function ActivityProvenanceLine({ provenance }: Props) {
   const { t } = useTranslation();
   const garminOn = useExperimental('garminUpdate');
-  if (!garminOn || provenance !== ActivityProvenance.GarminOnPhone) return null;
+  if (!garminOn || provenance !== FfiActivityProvenance.GarminOnPhone) return null;
 
   return (
     <TextLink

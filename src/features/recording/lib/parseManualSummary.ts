@@ -1,10 +1,10 @@
-export interface ManualSummaryParams {
+interface ManualSummaryParams {
   durationSeconds?: string | undefined;
   distance?: string | undefined;
   avgHr?: string | undefined;
 }
 
-export interface ManualSummary {
+interface ManualSummary {
   duration: number;
   distance: number;
   avgSpeed: number;

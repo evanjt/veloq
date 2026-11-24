@@ -18,10 +18,10 @@ import { sparkline } from '../lib/sparkline';
 import { printedValue } from '../lib/printedValue';
 import {
   trendIcon,
-  trendOfMetric,
-  trendVerdict,
   verdictRung,
+  type TrendDirection,
   type TrendMetric,
+  type TrendVerdict,
 } from '@/shared/format/trend';
 import { formatPercent, formatSignedPercent, formatSignedPercentage } from '@/shared/format';
 
@@ -49,18 +49,22 @@ function weeksTarget(weeks: WeeklyTotal[] | undefined, fallbackDays: number): st
 }
 
 /**
- * The comparison judged by the polarity table. Load is `weekTss`, which has a
- * direction and no judgement, and time is `weekHours`, where more is better.
- * The engine states time in seconds and the table in hours.
+ * The comparison as the engine judged it. Load is `weekTss` and time is
+ * `weekHours`, which names the metric for the icon table; the direction and
+ * verdict are the engine's and are not re-judged here.
  */
 function comparisonTrend(comparison: PeriodComparison): {
   metric: TrendMetric;
   trend: SupportingTrend;
 } {
   const metric: TrendMetric = comparison.metric === 'tss' ? 'weekTss' : 'weekHours';
-  const scale = comparison.metric === 'tss' ? 1 : 1 / 3600;
-  const direction = trendOfMetric(metric, comparison.current * scale, comparison.previous * scale);
-  return { metric, trend: { direction, verdict: trendVerdict(metric, direction) } };
+  return {
+    metric,
+    trend: {
+      direction: comparison.direction as TrendDirection,
+      verdict: comparison.verdict as TrendVerdict,
+    },
+  };
 }
 
 /** A comparison's total as the caption states it, in the unit it was compared in. */

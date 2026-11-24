@@ -6,22 +6,13 @@
 
 use crate::GpsPoint;
 use crate::fit_write::{
-    BASE_ENUM, BASE_SINT32, BASE_STRING, BASE_UINT16, BASE_UINT32, FIT_EPOCH_UNIX, INVALID_SINT32,
-    INVALID_UINT16, INVALID_UINT32, definition, wrap,
+    APP_NAME, BASE_ENUM, BASE_SINT32, BASE_STRING, BASE_UINT16, BASE_UINT32, FIT_EPOCH_UNIX,
+    MANUFACTURER_DEVELOPMENT, MESG_EVENT, MESG_FILE_ID, MESG_LAP, MESG_RECORD, PRODUCT_ID,
+    altitude_field, definition, scaled_u32, semicircles, wrap,
 };
 
-const MESG_FILE_ID: u16 = 0;
-const MESG_LAP: u16 = 19;
-const MESG_RECORD: u16 = 20;
-const MESG_EVENT: u16 = 21;
 const MESG_COURSE: u16 = 31;
 const MESG_COURSE_POINT: u16 = 32;
-
-/// The profile's development manufacturer, and the product number this app
-/// writes under it.
-const MANUFACTURER_DEVELOPMENT: u16 = 255;
-const PRODUCT_ID: u16 = 1;
-const APP_NAME: &str = "Veloq";
 
 /// The profile's `file` type for a course.
 const FILE_TYPE_COURSE: u8 = 6;
@@ -58,10 +49,11 @@ pub fn fit_sport(sport: Option<&str>) -> u8 {
 
 impl CourseLine<'_> {
     /// The points a record can hold: those with a finite position.
-    fn finite_points(&self) -> Vec<&GpsPoint> {
+    fn finite_points(&self) -> Vec<GpsPoint> {
         self.points
             .iter()
             .filter(|p| p.latitude.is_finite() && p.longitude.is_finite())
+            .copied()
             .collect()
     }
 
@@ -77,18 +69,8 @@ impl CourseLine<'_> {
         if points.len() < 2 {
             return None;
         }
-        let mut distances = Vec::with_capacity(points.len());
-        let mut total = 0.0;
-        distances.push(total);
-        for pair in points.windows(2) {
-            total += crate::persistence::haversine_distance_meters(
-                pair[0].latitude,
-                pair[0].longitude,
-                pair[1].latitude,
-                pair[1].longitude,
-            );
-            distances.push(total);
-        }
+        let distances = tracematch::matching::cumulative_distances(&points);
+        let total = distances.last().copied().unwrap_or(0.0);
 
         let mut data = Vec::new();
         self.write_identity(&mut data);
@@ -146,7 +128,7 @@ impl CourseLine<'_> {
         out.push(event_type);
     }
 
-    fn write_lap(&self, out: &mut Vec<u8>, points: &[&GpsPoint], total: f64) {
+    fn write_lap(&self, out: &mut Vec<u8>, points: &[GpsPoint], total: f64) {
         let last = points.len() - 1;
         let elapsed = scaled_u32(last as f64 * POINT_SPACING_SECS as f64 * 1000.0);
         definition(
@@ -177,7 +159,7 @@ impl CourseLine<'_> {
         out.extend_from_slice(&scaled_u32(total * 100.0).to_le_bytes());
     }
 
-    fn write_records(&self, out: &mut Vec<u8>, points: &[&GpsPoint], distances: &[f64]) {
+    fn write_records(&self, out: &mut Vec<u8>, points: &[GpsPoint], distances: &[f64]) {
         definition(
             out,
             4,
@@ -200,7 +182,7 @@ impl CourseLine<'_> {
         }
     }
 
-    fn write_course_points(&self, out: &mut Vec<u8>, points: &[&GpsPoint], total: f64) {
+    fn write_course_points(&self, out: &mut Vec<u8>, points: &[GpsPoint], total: f64) {
         let last = points.len() - 1;
         let start = name_field("Start");
         let finish = name_field("Finish");
@@ -242,31 +224,6 @@ fn name_field(name: &str) -> Vec<u8> {
     let mut bytes = name.as_bytes()[..end].to_vec();
     bytes.push(0);
     bytes
-}
-
-fn semicircles(degrees: f64) -> i32 {
-    let value = (degrees * (2_147_483_648.0 / 180.0)).round();
-    if value.is_finite() {
-        value.clamp(f64::from(i32::MIN), f64::from(INVALID_SINT32 - 1)) as i32
-    } else {
-        INVALID_SINT32
-    }
-}
-
-/// The profile's altitude: scaled by 5, offset by 500 m.
-fn altitude_field(elevation: Option<f64>) -> u16 {
-    match elevation {
-        Some(m) if m.is_finite() => ((m + 500.0) * 5.0).round().clamp(0.0, 65_534.0) as u16,
-        _ => INVALID_UINT16,
-    }
-}
-
-fn scaled_u32(value: f64) -> u32 {
-    if value.is_finite() {
-        value.round().clamp(0.0, f64::from(u32::MAX - 1)) as u32
-    } else {
-        INVALID_UINT32
-    }
 }
 
 #[cfg(test)]

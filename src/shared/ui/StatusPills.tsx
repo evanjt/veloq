@@ -43,7 +43,7 @@ export function OfflinePill() {
  * offline, and draws nothing signed out or in demo mode, where there is no
  * account sync.
  */
-export function usePausedSyncUntil(): number | null {
+function usePausedSyncUntil(): number | null {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const { isOnline } = useNetwork();

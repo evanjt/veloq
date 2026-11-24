@@ -16,11 +16,8 @@ pub fn backup_screen_data(
 ) -> Result<crate::FfiBackupScreenData, crate::objects::error::VeloqError> {
     use crate::objects::error::VeloqError;
     let setting = |key| {
-        crate::persistence::settings::setting_from(conn, key).map_err(|error| {
-            VeloqError::Database {
-                msg: error.to_string(),
-            }
-        })
+        crate::persistence::settings::setting_from(conn, key)
+            .map_err(|error| VeloqError::database(error.to_string()))
     };
     let home_lat = setting("__export_home_lat")?;
     let home_lng = setting("__export_home_lng")?;
@@ -48,9 +45,8 @@ pub fn backup_screen_data(
 pub fn record_screen_data(
     conn: &rusqlite::Connection,
 ) -> Result<crate::FfiRecordScreenData, crate::objects::error::VeloqError> {
-    let database = |error: rusqlite::Error| crate::objects::error::VeloqError::Database {
-        msg: error.to_string(),
-    };
+    let database =
+        |error: rusqlite::Error| crate::objects::error::VeloqError::database(error.to_string());
     let library_sports = conn
         .prepare_cached(
             "SELECT sport_type FROM activity_metrics
@@ -69,20 +65,14 @@ pub fn cache_screen_data(
 ) -> Result<crate::FfiCacheScreenData, crate::objects::error::VeloqError> {
     let stream_retention_days =
         crate::persistence::streams::pooled::retention_days(conn).unwrap_or(0);
-    let stream_store_bytes =
-        crate::persistence::streams::pooled::store_bytes(conn).map_err(|error| {
-            crate::objects::error::VeloqError::Database {
-                msg: error.to_string(),
-            }
-        })?;
+    let stream_store_bytes = crate::persistence::streams::pooled::store_bytes(conn)
+        .map_err(|error| crate::objects::error::VeloqError::database(error.to_string()))?;
     Ok(crate::FfiCacheScreenData {
         stream_retention_days: stream_retention_days as f64,
         stream_store_bytes: stream_store_bytes as f64,
-        original_store_bytes: crate::persistence::originals::originals_bytes(conn).map_err(
-            |error| crate::objects::error::VeloqError::Database {
-                msg: error.to_string(),
-            },
-        )? as f64,
+        original_store_bytes: crate::persistence::originals::originals_bytes(conn)
+            .map_err(|error| crate::objects::error::VeloqError::database(error.to_string()))?
+            as f64,
         activity_year_counts: activity_year_counts(conn)?,
     })
 }
@@ -320,9 +310,7 @@ pub fn history_range_estimate(
     to: &str,
 ) -> Result<crate::FfiHistoryRangeEstimate, crate::objects::error::VeloqError> {
     use crate::objects::error::VeloqError;
-    let database = |error: rusqlite::Error| VeloqError::Database {
-        msg: error.to_string(),
-    };
+    let database = |error: rusqlite::Error| VeloqError::database(error.to_string());
     let missing: i64 = conn
         .query_row(
             "SELECT COUNT(DISTINCT CASE WHEN NOT EXISTS (
@@ -376,9 +364,7 @@ fn activity_year_counts(
         conn,
         crate::objects::sync::ACTIVITY_YEAR_COUNTS_KEY,
     )
-    .map_err(|error| crate::objects::error::VeloqError::Database {
-        msg: error.to_string(),
-    })?;
+    .map_err(|error| crate::objects::error::VeloqError::database(error.to_string()))?;
     let Some(stored) = stored else {
         return Ok(Vec::new());
     };
@@ -403,9 +389,7 @@ pub fn exercise_detail_data(
 ) -> Result<crate::FfiExerciseDetailData, crate::objects::error::VeloqError> {
     use crate::objects::error::VeloqError;
     let rows = crate::persistence::strength::pooled::exercise_history(conn, exercise_category)
-        .map_err(|error| VeloqError::Database {
-            msg: error.to_string(),
-        })?;
+        .map_err(|error| VeloqError::database(error.to_string()))?;
     let mut sessions: Vec<crate::FfiExerciseHistorySession> = Vec::new();
     let mut exercise_name = String::new();
     for (activity_id, activity_name, date, set) in rows {
@@ -464,9 +448,7 @@ pub fn exercise_picker_data(
     use crate::persistence::exercise_usage;
     use crate::strength::catalogue::{self, Equipment, Region};
     use crate::strength::exercise_picker::{self, PickerFilter};
-    let database = |error: rusqlite::Error| VeloqError::Database {
-        msg: error.to_string(),
-    };
+    let database = |error: rusqlite::Error| VeloqError::database(error.to_string());
     let vocabulary = crate::FfiExercisePickerData {
         rows: Vec::new(),
         equipment: Equipment::ALL
@@ -549,11 +531,8 @@ pub(crate) fn background_jobs_data_under(
     share_today: Option<u32>,
 ) -> Result<crate::FfiBackgroundJobsData, crate::objects::error::VeloqError> {
     let first_day = share_today.unwrap_or_default();
-    let runs = crate::persistence::job_runs::job_runs(conn).map_err(|error| {
-        crate::objects::error::VeloqError::Database {
-            msg: error.to_string(),
-        }
-    })?;
+    let runs = crate::persistence::job_runs::job_runs(conn)
+        .map_err(|error| crate::objects::error::VeloqError::database(error.to_string()))?;
     let detection_awaiting =
         crate::persistence::sections::pooled::activities_awaiting_detection(conn)
             .ok()
@@ -743,12 +722,19 @@ fn period_comparison(
     if prev <= 0.0 || cur <= 0.0 {
         return None;
     }
+    let (name, scale) = match metric {
+        crate::FfiLoadMetric::Tss => ("weekTss", 1.0),
+        crate::FfiLoadMetric::Duration => ("weekHours", 1.0 / 3600.0),
+    };
+    let (direction, verdict) = crate::trend_table::judge(name, cur * scale, prev * scale);
     Some(crate::FfiPeriodComparison {
         metric,
         current: cur,
         previous: prev,
         ratio: cur / prev - 1.0,
         compared_start,
+        direction: direction.to_string(),
+        verdict: verdict.to_string(),
     })
 }
 
@@ -1153,14 +1139,45 @@ fn activity_hr_zones_from(
 /// missing, zero or not a number is `None`: a manual entry or a trainer ride
 /// sends zeros for what it never measured, and a zero speed is not a reading.
 /// Cadence is in the unit of `sport`, so a run's strides are steps.
-fn activity_summary(body: Option<&str>, sport: &str) -> crate::FfiActivitySummary {
+///
+/// The average shown is `distance` over the moving time, which the stored
+/// summary wins over `moving_time` when it has one; the stored average speed
+/// stands only when either is missing.
+fn activity_summary(
+    body: Option<&str>,
+    sport: &str,
+    distance: f64,
+    moving_time: u32,
+) -> crate::FfiActivitySummary {
     let body: Option<serde_json::Value> = body.and_then(|b| serde_json::from_str(b).ok());
     let field = |name: &str| positive(body.as_ref()?.get(name)?.as_f64());
+    let stored_moving = field("moving_time");
+    let timed_speed = positive(
+        stored_moving
+            .or_else(|| positive(Some(f64::from(moving_time))))
+            .map(|seconds| distance / seconds),
+    );
+    let average_speed = field("average_speed");
+    let shown_average_speed = timed_speed.or(average_speed);
+    let max_speed = field("max_speed");
+    let pace = |speed: Option<f64>| {
+        speed
+            .and_then(|speed| crate::widget_snapshot::sport_pace_text(speed, sport))
+            .unzip()
+    };
+    let (shown_average_pace_metric_text, shown_average_pace_imperial_text) =
+        pace(shown_average_speed);
+    let (max_pace_metric_text, max_pace_imperial_text) = pace(max_speed);
     crate::FfiActivitySummary {
-        moving_time: field("moving_time"),
+        moving_time: stored_moving,
         elapsed_time: field("elapsed_time"),
-        average_speed: field("average_speed"),
-        max_speed: field("max_speed"),
+        average_speed,
+        max_speed,
+        shown_average_speed,
+        shown_average_pace_metric_text,
+        shown_average_pace_imperial_text,
+        max_pace_metric_text,
+        max_pace_imperial_text,
         average_cadence: field("average_cadence")
             .map(|cadence| crate::sport::cadence_per_minute(sport, cadence)),
         cadence_unit: crate::sport::cadence_unit(sport),
@@ -1636,6 +1653,8 @@ fn power_bests(
                     .and(index)
                     .and_then(|i| curve?.wkg_activity_ids.as_ref()?.get(i).cloned()),
                 activity: None,
+                pace_metric_text: None,
+                pace_imperial_text: None,
             }
         })
         .collect()
@@ -1643,6 +1662,7 @@ fn power_bests(
 
 fn pace_bests(
     curve: Option<&crate::persistence::curves::FfiPaceCurve>,
+    sport: &str,
     checkpoints: &[(f64, crate::FfiBestEffortKind)],
 ) -> Vec<crate::FfiBestEffort> {
     checkpoints
@@ -1656,6 +1676,9 @@ fn pace_bests(
             let value = time
                 .and(index)
                 .and_then(|i| positive(curve?.pace.get(i).copied()));
+            let (pace_metric_text, pace_imperial_text) = value
+                .and_then(|v| crate::widget_snapshot::sport_pace_text(v, sport))
+                .unzip();
             crate::FfiBestEffort {
                 kind,
                 checkpoint: metres,
@@ -1667,6 +1690,8 @@ fn pace_bests(
                 watts_per_kg: None,
                 wkg_activity_id: None,
                 activity: None,
+                pace_metric_text,
+                pace_imperial_text,
             }
         })
         .collect()
@@ -1879,6 +1904,10 @@ where
 
     let all = read(filter.as_deref(), laps::Rows::Included);
     let mut chart_data = chart_from_cutoff(&all, cutoff);
+    crate::persistence::sections::pace_gap::stamp_point_gaps(
+        &mut chart_data.points,
+        sport_type.as_deref(),
+    );
     // Taken after the cached performances, so the highlighted attempt is no
     // part of any cache key and one cached read serves every activity.
     let scatter_focus = crate::persistence::sections::scatter_focus::scatter_focus(
@@ -1954,12 +1983,18 @@ where
         .as_deref()
         .and_then(|sport| efficiency_of(sport, cutoff));
     // Over the whole record, like the ring: a range only filters what is drawn.
-    let record_progression = crate::FfiRecordProgressions {
+    let mut record_progression = crate::FfiRecordProgressions {
         forward: crate::persistence::records::section_record_progression(&all, false),
         reverse: crate::persistence::records::section_record_progression(&all, true),
     };
+    for steps in [
+        &mut record_progression.forward,
+        &mut record_progression.reverse,
+    ] {
+        crate::persistence::sections::pace_gap::stamp_step_gains(steps, sport_type.as_deref());
+    }
 
-    crate::FfiSectionPerformanceData {
+    let mut data = crate::FfiSectionPerformanceData {
         best_forward_is_record,
         best_reverse_is_record,
         sport_type,
@@ -1983,7 +2018,9 @@ where
         efficiency_trend,
         scatter_focus,
         record_progression,
-    }
+    };
+    crate::persistence::sections::pace_text::stamp_detail(&mut data);
+    data
 }
 
 /// Whether the best a direction shows is that direction's record: the same lap
@@ -2242,10 +2279,74 @@ pub(crate) fn summary_comparison(
     })
 }
 
+/// The season card's four windows, each `(first second, last second)` inclusive
+/// in the wall-clock seconds an activity's date is recorded in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SeasonWindows {
+    pub year_current: (i64, i64),
+    pub year_previous: (i64, i64),
+    pub month_current: (i64, i64),
+    pub month_previous: (i64, i64),
+}
+
+/// The year and the month to date, each against the same elapsed days of the
+/// year before, for the day `now_wall_seconds` falls on.
+///
+/// Every window runs from midnight on its first day to the last second of its
+/// last. The current windows end on today; a previous window starts on the
+/// same calendar day a year back and runs as many days as the current one has,
+/// and never past the last day of its own year or month, so 29 February is set
+/// against the whole of the previous February.
+pub(crate) fn season_windows(now_wall_seconds: i64) -> SeasonWindows {
+    use chrono::{Datelike, NaiveDate};
+    let today = chrono::DateTime::from_timestamp(now_wall_seconds, 0)
+        .map_or(NaiveDate::default(), |now| now.date_naive());
+    let midnight = |date: NaiveDate| date.and_time(chrono::NaiveTime::MIN).and_utc().timestamp();
+    let last_second =
+        |date: NaiveDate| midnight(date) + chrono::Duration::days(1).num_seconds() - 1;
+    let last_day_of_month = |year: i32, month: u32| {
+        let next = if month == 12 {
+            NaiveDate::from_ymd_opt(year + 1, 1, 1)
+        } else {
+            NaiveDate::from_ymd_opt(year, month + 1, 1)
+        };
+        next.and_then(|first| first.pred_opt())
+    };
+    let window = |first: NaiveDate, previous_first: NaiveDate, previous_last: NaiveDate| {
+        let elapsed = today.signed_duration_since(first);
+        let previous_end = (previous_first + elapsed).min(previous_last);
+        (
+            (midnight(first), last_second(today)),
+            (midnight(previous_first), last_second(previous_end)),
+        )
+    };
+    let (year, month) = (today.year(), today.month());
+    let year_start = NaiveDate::from_ymd_opt(year, 1, 1).unwrap_or(today);
+    let month_start = NaiveDate::from_ymd_opt(year, month, 1).unwrap_or(today);
+    let previous_year_start = NaiveDate::from_ymd_opt(year - 1, 1, 1).unwrap_or(year_start);
+    let previous_month_start = NaiveDate::from_ymd_opt(year - 1, month, 1).unwrap_or(month_start);
+    let (year_current, year_previous) = window(
+        year_start,
+        previous_year_start,
+        NaiveDate::from_ymd_opt(year - 1, 12, 31).unwrap_or(previous_year_start),
+    );
+    let (month_current, month_previous) = window(
+        month_start,
+        previous_month_start,
+        last_day_of_month(year - 1, month).unwrap_or(previous_month_start),
+    );
+    SeasonWindows {
+        year_current,
+        year_previous,
+        month_current,
+        month_previous,
+    }
+}
+
 /// The season card's months, each against the same month a year before:
 /// every whole month of this year before the current one, then the month to
 /// date against the same span of last year's. The months are read off the
-/// year and month windows the screen names, so no clock is read here.
+/// season windows of the instant the screen names.
 fn season_month_bounds(
     year_current: (i64, i64),
     month_current: (i64, i64),
@@ -2307,6 +2408,23 @@ pub(crate) fn series_tail<T>(
     })
 }
 
+/// Gives each point of a pace series its pace text in both unit systems, per
+/// 100 m and 100 yd for a swim and per kilometre and mile otherwise.
+pub(crate) fn with_pace_text(
+    mut points: Vec<crate::FfiSeriesPoint>,
+    is_swim: bool,
+) -> Vec<crate::FfiSeriesPoint> {
+    for p in &mut points {
+        p.metric_text = Some(crate::widget_snapshot::format_sport_pace(
+            p.value, is_swim, true,
+        ));
+        p.imperial_text = Some(crate::widget_snapshot::format_sport_pace(
+            p.value, is_swim, false,
+        ));
+    }
+    points
+}
+
 /// [`series_tail`] for points that stand on an activity, each carrying the id
 /// of the activity it was recorded in.
 pub(crate) fn activity_series_tail<T>(
@@ -2322,6 +2440,8 @@ pub(crate) fn activity_series_tail<T>(
                 value,
                 date,
                 activity_id,
+                metric_text: None,
+                imperial_text: None,
             }
         })
         .filter(|p| p.value.is_finite() && p.date.is_finite())
@@ -2455,16 +2575,12 @@ pub mod pooled {
         let (calendar_first_day, calendar_older_owed) =
             calendar_span(conn, today_date, &windows.heatmap_first_day)?;
         let span = |r: &crate::FfiTimestampRange| (r.start_ts as i64, r.end_ts as i64);
-        let pair = |current: &crate::FfiTimestampRange, previous: &crate::FfiTimestampRange| {
-            let ((cs, ce), (ps, pe)) = (span(current), span(previous));
-            (cs, ce, ps, pe)
-        };
         let (months_start, months_end) = span(&windows.months);
+        let now_wall_seconds = crate::ffi_types::int_from_wire(windows.now_wall_seconds);
+        let season = super::season_windows(now_wall_seconds);
         let [week, month, three_months, six_months, year] =
-            crate::widget_snapshot::summary_period_bounds(crate::ffi_types::int_from_wire(
-                windows.now_wall_seconds,
-            ))
-            .map(|bounds| super::summary_comparison(conn, bounds));
+            crate::widget_snapshot::summary_period_bounds(now_wall_seconds)
+                .map(|bounds| super::summary_comparison(conn, bounds));
         let dots = load_dots(conn, today_date, span_days);
         Ok(crate::FfiFitnessScreenData {
             ftp_trend: fitness::ftp_trend_with_history(conn, today, FITNESS_FTP_LOOKBACK_DAYS),
@@ -2473,8 +2589,7 @@ pub mod pooled {
                 &window_start,
                 today,
             ),
-            run_pace_trend: fitness::pace_trend(conn, "Run"),
-            swim_pace_trend: fitness::pace_trend(conn, "Swim"),
+            threshold_paces: threshold_paces(conn, span_days),
             sport_mix: sport_mix(conn),
             fitness_days,
             fatigue_days,
@@ -2490,12 +2605,17 @@ pub mod pooled {
             months: monthly_stats(conn, months_start, months_end)?,
             season_year: super::summary_comparison(
                 conn,
-                pair(&windows.year_current, &windows.year_previous),
+                (
+                    season.year_current.0,
+                    season.year_current.1,
+                    season.year_previous.0,
+                    season.year_previous.1,
+                ),
             )?,
             season_months: super::season_month_bounds(
-                span(&windows.year_current),
-                span(&windows.month_current),
-                span(&windows.month_previous),
+                season.year_current,
+                season.month_current,
+                season.month_previous,
             )
             .into_iter()
             .map(|bounds| super::summary_comparison(conn, bounds))
@@ -2512,7 +2632,57 @@ pub mod pooled {
         })
     }
 
-    /// The shortest ride the decoupling card reports, in seconds.
+    /// The running and swimming threshold pace of each span, in order.
+    ///
+    /// The one place the rule lives: the pace the athlete set, else the
+    /// critical speed of the span's stored curve, else the last critical speed
+    /// a download stored. A set pace is the athlete's own word and the curve
+    /// is a measurement, the order the cycling FTP follows. The stored speed
+    /// stands in offline and before a session's first download, so the figure
+    /// does not vanish. A speed that is not a positive number is absent at
+    /// every step.
+    fn threshold_paces(conn: &Connection, span_days: &[u32]) -> Vec<crate::FfiSpanThresholdPaces> {
+        use crate::persistence::curves::pooled::pace_curve;
+        use crate::persistence::fitness::derivations::pooled::pace_trend;
+        use crate::persistence::fitness::sport_settings::{ThresholdField, thresholds_for};
+        use crate::widget_snapshot::{format_pace_compact, format_swim_pace};
+
+        let positive = |speed: Option<f64>| speed.filter(|s| s.is_finite() && *s > 0.0);
+        let now = chrono::Utc::now().timestamp();
+        // The set and stored speeds do not depend on the span, so each is read once.
+        let fixed = |sport: &str| {
+            let set = thresholds_for(conn, sport, now).get(ThresholdField::ThresholdPace);
+            let stored = pace_trend(conn, sport).latest_pace;
+            (positive(set.map(|set| set.value)), positive(stored))
+        };
+        let measured = |sport: &str, days: u32| {
+            let (_, curve) = pace_curve(conn, sport, i64::from(days), false).ok()?;
+            positive(curve?.critical_speed)
+        };
+        let chosen = |sport: &str,
+                      days: u32,
+                      (set, stored): (Option<f64>, Option<f64>),
+                      text: fn(f64, bool) -> String| {
+            set.or_else(|| measured(sport, days))
+                .or(stored)
+                .map(|speed| crate::FfiThresholdPace {
+                    speed,
+                    metric_text: text(speed, true),
+                    imperial_text: text(speed, false),
+                })
+        };
+        let (run, swim) = (fixed("Run"), fixed("Swim"));
+        span_days
+            .iter()
+            .map(|&days| crate::FfiSpanThresholdPaces {
+                days,
+                run: chosen("Run", days, run, format_pace_compact),
+                swim: chosen("Swim", days, swim, format_swim_pace),
+            })
+            .collect()
+    }
+
+    /// The shortest ride the decoupling card reports, in seconds."""
     pub const DECOUPLING_MIN_MOVING_SECONDS: i64 = 30 * 60;
 
     /// The wall-clock seconds the span of `days` back from `today` runs over,
@@ -2892,7 +3062,10 @@ pub mod pooled {
                 } else {
                     &super::SWIM_CHECKPOINTS
                 };
-                (fetched, super::pace_bests(curve.as_ref(), checkpoints))
+                (
+                    fetched,
+                    super::pace_bests(curve.as_ref(), sport, checkpoints),
+                )
             };
             sports.push(crate::FfiBestEffortsSport {
                 sport: sport.to_string(),
@@ -3466,10 +3639,15 @@ pub mod pooled {
             max_hr,
             max_hr_source,
             hr_zones: super::activity_hr_zones_from(conn, activity_id),
-            summary: super::activity_summary(
-                body.as_deref(),
-                &activities::activity_sport(conn, activity_id).unwrap_or_default(),
-            ),
+            summary: {
+                let metrics = activities::metrics_of(conn, activity_id);
+                super::activity_summary(
+                    body.as_deref(),
+                    &activities::activity_sport(conn, activity_id).unwrap_or_default(),
+                    metrics.as_ref().map_or(0.0, |m| m.distance),
+                    metrics.as_ref().map_or(0, |m| m.moving_time),
+                )
+            },
             power_zones: super::activity_power_zones(body.as_deref()).unwrap_or_default(),
             ledger_changes:
                 crate::persistence::sections::history::pooled::ledger_changes_naming_activity(
@@ -4698,6 +4876,10 @@ mod history_range_estimate_tests;
 mod best_efforts_tests;
 
 #[cfg(test)]
+#[path = "tests/activity_pace_text.rs"]
+mod activity_pace_text_tests;
+
+#[cfg(test)]
 #[path = "tests/fitness_screen_calendar.rs"]
 mod fitness_screen_calendar_tests;
 
@@ -4738,6 +4920,8 @@ mod tests {
     pub(super) fn lap_record(age_days: i64, time: f64) -> crate::SectionPerformanceRecord {
         let date = chrono::Utc::now().timestamp() - age_days * 86_400;
         crate::SectionPerformanceRecord {
+            avg_pace_text: None,
+            best_pace_text: None,
             activity_id: format!("act{age_days}"),
             activity_name: String::new(),
             activity_date: crate::WholeNumber(date),
@@ -6579,6 +6763,38 @@ mod tests {
     }
 
     #[test]
+    fn a_comparison_carries_the_move_judged_on_the_metric_it_was_taken_on() {
+        // Load has no polarity: a rise of 70 is a move, not an improvement.
+        let load = period_comparison(&period(5, 7_200.0, 320.0), &period(4, 5_000.0, 250.0), 0.0)
+            .expect("one");
+        assert_eq!(
+            (load.direction.as_str(), load.verdict.as_str()),
+            ("up", "moved")
+        );
+
+        // Seconds are judged in hours: 1,000 s is under the half-hour deadband,
+        // 1,900 s is over it, and more time is better.
+        let flat = period_comparison(&period(5, 5_000.0, 0.0), &period(4, 4_000.0, 0.0), 0.0)
+            .expect("one");
+        assert_eq!(
+            (flat.direction.as_str(), flat.verdict.as_str()),
+            ("flat", "flat")
+        );
+        let more = period_comparison(&period(5, 6_900.0, 0.0), &period(4, 5_000.0, 0.0), 0.0)
+            .expect("one");
+        assert_eq!(
+            (more.direction.as_str(), more.verdict.as_str()),
+            ("up", "improved")
+        );
+        let less = period_comparison(&period(5, 5_000.0, 0.0), &period(4, 6_900.0, 0.0), 0.0)
+            .expect("one");
+        assert_eq!(
+            (less.direction.as_str(), less.verdict.as_str()),
+            ("down", "declined")
+        );
+    }
+
+    #[test]
     fn a_week_without_load_is_compared_on_moving_time() {
         let comparison =
             period_comparison(&period(5, 7_200.0, 0.0), &period(4, 5_000.0, 250.0), 0.0)
@@ -8214,10 +8430,6 @@ mod tests {
             heatmap_first_day: today.into(),
             heatmap_last_day: today.into(),
             months: day.clone(),
-            year_current: day.clone(),
-            year_previous: day.clone(),
-            month_current: day.clone(),
-            month_previous: day,
             now_wall_seconds: 1_782_820_800.0,
         };
         let read = |today| pooled::fitness_screen_data(&engine.db, today, &[], &windows).unwrap();

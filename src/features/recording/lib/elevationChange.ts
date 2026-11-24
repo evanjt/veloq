@@ -47,7 +47,7 @@ export const EMPTY_ELEVATION_TRACK: ElevationTrack = {
 };
 
 /** Gain and loss in metres. */
-export interface ElevationTotals {
+interface ElevationTotals {
   gain: number;
   loss: number;
 }

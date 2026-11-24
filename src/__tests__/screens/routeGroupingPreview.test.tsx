@@ -15,13 +15,19 @@ import { stubIdleScheduler, type IdleScheduler } from '../__shared__/idleSchedul
 import RouteGroupingPreviewScreen from '@/app/route-grouping-preview';
 import { GROUPING_DEFAULTS } from '@/features/routes/lib/groupingParams';
 
-jest.mock('veloqrs', () =>
-  require('../__shared__/veloqrsStub').withOverrides(
-    require('../__shared__/veloqrsStub').namespacesOver(() =>
-      require('@/shared/native/engine').getEngine()
-    )
-  )
-);
+jest.mock('veloqrs', () => {
+  const stub = require('../__shared__/veloqrsStub');
+  const over = stub.namespacesOver(() => require('@/shared/native/engine').getEngine());
+  return stub.withOverrides({
+    ...over,
+    // The grouping pair is read and written through its namespace, the way the screen calls it.
+    detection: {
+      ...over.detection,
+      getMatchStrictness: () => mockStrictness,
+      setMatchStrictness: (...args: unknown[]) => mockSetMatchStrictness(...args),
+    },
+  });
+});
 
 const boxAround = (lat: number, lng: number) => ({
   minLat: lat - 0.01,
@@ -85,12 +91,10 @@ jest.mock('@/shared/native/engine', () => {
     pollRouteGroupingPreview: () => mockPreviewStatus,
     takeRouteGroupingPreviewResult: () => mockPreviewGroups,
     cancelRouteGroupingPreview: jest.fn(),
-    getMatchStrictness: () => mockStrictness,
     getPreviewCentres: () => {
       if (mockCentresThrow != null) throw mockCentresThrow;
       return mockCentres;
     },
-    setMatchStrictness: (...args: unknown[]) => mockSetMatchStrictness(...args),
   };
   return { getEngine: () => engine };
 });

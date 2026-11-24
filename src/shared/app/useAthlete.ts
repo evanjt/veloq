@@ -23,7 +23,6 @@ function readAthlete(): Athlete | null {
 }
 
 export function useAthlete() {
-  const setAthlete = useAuthStore((state) => state.setAthlete);
   // The profile outlives a plain sign-out, so the credential is what says
   // whether it may be drawn. Without this the login screen would show the
   // previous athlete's name and photo.
@@ -43,8 +42,6 @@ export function useAthlete() {
 
   useEffect(() => {
     if (query.data) {
-      setAthlete(query.data);
-
       const { measurementPreference, formAsPercent } = query.data;
       if (measurementPreference != null) {
         setIntervalsPreferences({
@@ -62,7 +59,7 @@ export function useAthlete() {
         if (moved) scheduleWidgetSnapshot();
       }
     }
-  }, [query.data, setAthlete, setIntervalsPreferences, setFormAsPercent]);
+  }, [query.data, setIntervalsPreferences, setFormAsPercent]);
 
   return query;
 }

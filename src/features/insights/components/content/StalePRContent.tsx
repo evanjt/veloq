@@ -134,6 +134,7 @@ const StalePrChart = React.memo(function StalePrChart({
               title={entry.fitness.label}
               color={color}
               formatValue={format(entry.fitness)}
+              {...(entry.fitness.marksOnSamples ? { marksOnSamples: true } : {})}
               area={false}
               marker={fitnessAt >= 0 ? { index: fitnessAt, kind: 'this' } : null}
               band={entry.gap}

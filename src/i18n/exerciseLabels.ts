@@ -11,13 +11,13 @@ import { loadLocale, ROOT_LOCALE } from './localeBundles';
 import { strength } from 'veloqrs';
 
 /** Every catalogue label key, read from the root bundle that holds all of them. */
-export function exerciseLabelKeys(): string[] {
+function exerciseLabelKeys(): string[] {
   const labels = loadLocale(ROOT_LOCALE).exerciseLabels as Record<string, string> | undefined;
   return Object.keys(labels ?? {});
 }
 
 /** Each catalogue label key resolved to its text in the current language. */
-export function exerciseLabelTable(): Map<string, string> {
+function exerciseLabelTable(): Map<string, string> {
   const resolve = i18n.t as unknown as (key: string) => string;
   const table = new Map<string, string>();
   for (const key of exerciseLabelKeys()) {

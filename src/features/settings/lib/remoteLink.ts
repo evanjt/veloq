@@ -34,7 +34,7 @@ export interface RemoteLinkEngine {
 }
 
 /** Keeps the screen awake from one `on` call until the matching `off`. */
-export interface KeepAwake {
+interface KeepAwake {
   on(): void;
   off(): void;
 }
@@ -50,7 +50,7 @@ interface RemoteLinkOptions {
   diagnose?: ((line: string) => void) | undefined;
 }
 
-export interface RemoteLinkState {
+interface RemoteLinkState {
   /** Browsers connected now. */
   connected: number;
   /** Rooms the phone is open in on the relay, waiting for a browser to join. */

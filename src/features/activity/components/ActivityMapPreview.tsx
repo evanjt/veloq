@@ -39,7 +39,8 @@ import {
   spacing,
 } from '@/theme';
 import { CARD_FIT_INSET, CARD_FOOTER_CLEARANCE } from '@/features/activity/lib/cardLayout';
-import type { ActivityType, FeedCard } from '@/types';
+import type { FeedCard } from '@/types';
+import { toActivityType } from '@/types';
 import type { PreviewTrack } from '@/features/home';
 import { debug } from '@/shared/debug/debug';
 import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
@@ -75,7 +76,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   const { getStyleForActivity, getTerrain3DMode, hasActivityOverride, getActivityCamera } =
     useMapPreferences();
   // A body with no sport falls back to Other in every helper, as it always has.
-  const sport = activity.sportType as ActivityType;
+  const sport = toActivityType(activity.sportType);
   const mapStyle = getStyleForActivity(sport, activity.id);
   const activityColor = getActivityColor(sport);
   const terrain3DMode = getTerrain3DMode(sport, activity.id);

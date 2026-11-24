@@ -9,7 +9,7 @@ export interface ZoneBandPx {
 }
 
 /** Where a zone's name sits: the top left of its label box. */
-export interface ZoneLabelSpot {
+interface ZoneLabelSpot {
   zone: FormZone;
   x: number;
   y: number;

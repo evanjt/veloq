@@ -7,7 +7,7 @@
  * is the feed's own filter, with the date range as the days it names.
  */
 
-import { EngineSportFamily } from 'veloqrs';
+import { FfiSportFamily } from 'veloqrs';
 
 import type { FeedFilter } from '../feedFilter';
 import {
@@ -95,7 +95,7 @@ describe('remoteSearchQuery', () => {
 
     expect(query).toEqual({
       needle: 'ferry',
-      sportFamilies: [EngineSportFamily.Ride],
+      sportFamilies: [FfiSportFamily.Ride],
       minDistance: 10_000,
       maxDistance: 50_000,
       minMovingTime: 1_800,

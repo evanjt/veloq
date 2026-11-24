@@ -14,6 +14,7 @@
 //! network push it is a process-wide value behind a free function, so a push
 //! before the engine opens still lands.
 
+use crate::poison::Recover;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -34,7 +35,7 @@ pub const STALE_AFTER: Duration = Duration::from_secs(5);
 static STATE: Mutex<Option<(bool, Instant)>> = Mutex::new(None);
 
 fn state() -> std::sync::MutexGuard<'static, Option<(bool, Instant)>> {
-    STATE.lock().unwrap_or_else(|e| e.into_inner())
+    STATE.lock_recover()
 }
 
 /// Record what TypeScript sees. Called on the first touch, on every restate

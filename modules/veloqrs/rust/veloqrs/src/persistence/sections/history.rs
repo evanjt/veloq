@@ -18,6 +18,8 @@
 //! row per outgoing section naming a milestone version, so a past catalogue
 //! state is pinned, rolled back and backed up like any other version.
 
+use crate::persistence::schema_info;
+use crate::persistence::sql::question_marks;
 use rusqlite::{OptionalExtension, params};
 
 use crate::persistence::PersistentEngine;
@@ -619,7 +621,7 @@ fn salvage_table(
         return 0;
     }
     let list = columns.join(", ");
-    let placeholders = vec!["?"; columns.len()].join(", ");
+    let placeholders = question_marks(columns.len());
     salvage_rows(
         src,
         dst,
@@ -1059,12 +1061,7 @@ pub(in crate::persistence) fn seed_baseline_geometry_on(
     conn: &rusqlite::Connection,
     schema_from: i32,
 ) -> rusqlite::Result<(usize, usize)> {
-    let done: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM schema_info WHERE key = ?)",
-        params![BASELINE_MARKER_KEY],
-        |row| row.get(0),
-    )?;
-    if done {
+    if schema_info::get(conn, BASELINE_MARKER_KEY)?.is_some() {
         return Ok((0, 0));
     }
 
@@ -1073,13 +1070,7 @@ pub(in crate::persistence) fn seed_baseline_geometry_on(
     let tx = conn.unchecked_transaction()?;
     let conn = &*tx;
 
-    let stored_detector: Option<String> = conn
-        .query_row(
-            "SELECT value FROM schema_info WHERE key = ?",
-            params![super::CATALOGUE_METHOD_KEY],
-            |row| row.get(0),
-        )
-        .optional()?;
+    let stored_detector = schema_info::get(conn, super::CATALOGUE_METHOD_KEY)?;
 
     let rows = pending_baselines_on(conn)?;
 
@@ -1105,10 +1096,7 @@ pub(in crate::persistence) fn seed_baseline_geometry_on(
             (super::CATALOGUE_METHOD_KEY, PRE_LEDGER_METHOD),
             (super::CATALOGUE_CONFIG_DIGEST_KEY, PRE_LEDGER_DIGEST),
         ] {
-            conn.execute(
-                "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-                params![key, value],
-            )?;
+            schema_info::set(conn, key, value)?;
         }
     }
 
@@ -1136,14 +1124,7 @@ pub(in crate::persistence) fn seed_baseline_geometry_on(
 
 /// The generation stored beside a catalogue, absent until a save records one.
 pub(super) fn stored_generation_on(conn: &rusqlite::Connection) -> Option<DetectorGeneration> {
-    let value = |key: &str| -> Option<String> {
-        conn.query_row(
-            "SELECT value FROM schema_info WHERE key = ?",
-            params![key],
-            |row| row.get(0),
-        )
-        .ok()
-    };
+    let value = |key: &str| -> Option<String> { schema_info::get(conn, key).ok().flatten() };
     Some(DetectorGeneration {
         method: value(super::CATALOGUE_METHOD_KEY)?,
         digest: value(super::CATALOGUE_CONFIG_DIGEST_KEY)?,
@@ -1645,7 +1626,7 @@ impl PersistentEngine {
             0
         } else {
             let names = geometry_columns.join(", ");
-            let marks = vec!["?"; geometry_columns.len()].join(", ");
+            let marks = question_marks(geometry_columns.len());
             salvage_rows(
                 &src,
                 &self.db,
@@ -1655,13 +1636,7 @@ impl PersistentEngine {
             )
         };
         let records = salvage_declared_records(&src, &self.db);
-        let needs_name_promotion = src
-            .query_row(
-                "SELECT 1 FROM schema_info WHERE key = 'named_backfill_done'",
-                [],
-                |_| Ok(()),
-            )
-            .optional()
+        let needs_name_promotion = schema_info::get(&src, "named_backfill_done")
             .ok()
             .flatten()
             .is_none();
@@ -1697,12 +1672,10 @@ impl PersistentEngine {
                 &format!("WHERE {}", predicate.join(" OR ")),
             )
         };
-        let schema_from: i32 = src
-            .query_row(
-                "SELECT CAST(value AS INTEGER) FROM schema_info WHERE key = 'schema_version'",
-                [],
-                |row| row.get(0),
-            )
+        let schema_from: i32 = schema_info::get_integer(&src, "schema_version")
+            .ok()
+            .flatten()
+            .and_then(|v| i32::try_from(v).ok())
             .unwrap_or(0);
         if let Ok(rows) = pending_baselines_on(&self.db) {
             for row in rows {
@@ -1905,7 +1878,7 @@ pub(crate) mod pooled {
             return 0;
         }
         let ids: Vec<String> = retired.iter().map(|r| r.section_id.clone()).collect();
-        let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        let placeholders = crate::persistence::sql::question_marks(ids.len());
         let sql = format!(
             "SELECT COUNT(DISTINCT section_id) FROM section_history
              WHERE kind = ? AND section_id IN ({placeholders})"

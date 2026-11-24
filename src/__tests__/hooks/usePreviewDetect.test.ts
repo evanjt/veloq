@@ -7,7 +7,7 @@
  */
 
 import { act, renderHook } from '@testing-library/react-native';
-import { isRetryableStart, StartOutcome, type StartVerdict } from 'veloqrs';
+import { isRetryableStart, FfiStartOutcome, type StartVerdict } from 'veloqrs';
 import {
   PREVIEW_DEBOUNCE_MS,
   PREVIEW_LAPSE_AFTER_MS,
@@ -86,14 +86,14 @@ function makeClient(over: Partial<PreviewClient> = {}) {
     }),
     getPreviewCentres: jest.fn(() => []),
     getPreviewCurrentSections: jest.fn((): PreviewSection[] => []),
-    startPreviewDetect: jest.fn(() => StartOutcome.Started),
+    startPreviewDetect: jest.fn(() => FfiStartOutcome.Started),
     pollPreviewDetect: jest.fn((): PreviewPollStatus => 'running'),
     getPreviewProgress: jest.fn(() => null),
     takePreviewResult: jest.fn((): PreviewResult | null => null),
     cancelPreviewDetect: jest.fn(),
     getSectionConfig: jest.fn((): FfiSectionConfig | null => ({ ...LIVE_CONFIG })),
     setSectionConfig: jest.fn(),
-    forceRedetectSections: jest.fn(() => StartOutcome.Started),
+    forceRedetectSections: jest.fn(() => FfiStartOutcome.Started),
     ...over,
   };
 }
@@ -300,25 +300,25 @@ describe('usePreviewDetect', () => {
   });
 
   it("passes the engine's own refusal through rather than one standing for four", async () => {
-    const client = makeClient({ startPreviewDetect: jest.fn(() => StartOutcome.Held) });
+    const client = makeClient({ startPreviewDetect: jest.fn(() => FfiStartOutcome.Held) });
     const { result } = await renderHook(() => usePreviewDetect(client));
 
-    let outcome: StartVerdict = StartOutcome.Started;
+    let outcome: StartVerdict = FfiStartOutcome.Started;
     await act(() => {
       outcome = result.current.start(10, 20, PARAMS);
     });
 
-    expect(outcome).toBe(StartOutcome.Held);
-    expect(result.current.refusal).toBe(StartOutcome.Held);
+    expect(outcome).toBe(FfiStartOutcome.Held);
+    expect(result.current.refusal).toBe(FfiStartOutcome.Held);
     expect(result.current.status).toBe('idle');
   });
 
   it('keeps the retry time of a refused preview start', async () => {
-    const held = { outcome: StartOutcome.Held, retryAtMs: 1_500_000 };
+    const held = { outcome: FfiStartOutcome.Held, retryAtMs: 1_500_000 };
     const client = makeClient({ startPreviewDetect: jest.fn(() => held) });
     const { result } = await renderHook(() => usePreviewDetect(client));
 
-    let outcome: StartVerdict = StartOutcome.Started;
+    let outcome: StartVerdict = FfiStartOutcome.Started;
     await act(() => {
       outcome = result.current.start(10, 20, PARAMS);
     });
@@ -329,55 +329,55 @@ describe('usePreviewDetect', () => {
   });
 
   vaultIt('reads a run already in flight as busy, and still waiting', async () => {
-    const client = makeClient({ startPreviewDetect: jest.fn(() => StartOutcome.Busy) });
+    const client = makeClient({ startPreviewDetect: jest.fn(() => FfiStartOutcome.Busy) });
     const { result } = await renderHook(() => usePreviewDetect(client));
 
-    let outcome: StartVerdict = StartOutcome.Started;
+    let outcome: StartVerdict = FfiStartOutcome.Started;
     await act(() => {
       outcome = result.current.start(10, 20, PARAMS);
     });
 
-    expect(outcome).toBe(StartOutcome.Busy);
-    expect(result.current.refusal).toBe(StartOutcome.Busy);
+    expect(outcome).toBe(FfiStartOutcome.Busy);
+    expect(result.current.refusal).toBe(FfiStartOutcome.Busy);
   });
 
   vaultIt('does not read a point nothing covers as something that will lift', async () => {
-    const client = makeClient({ startPreviewDetect: jest.fn(() => StartOutcome.NotOwed) });
+    const client = makeClient({ startPreviewDetect: jest.fn(() => FfiStartOutcome.NotOwed) });
     const { result } = await renderHook(() => usePreviewDetect(client));
 
-    let outcome: StartVerdict = StartOutcome.Started;
+    let outcome: StartVerdict = FfiStartOutcome.Started;
     await act(() => {
       outcome = result.current.start(10, 20, PARAMS);
     });
 
-    expect(outcome).toBe(StartOutcome.NotOwed);
-    expect(result.current.refusal).toBe(StartOutcome.NotOwed);
+    expect(outcome).toBe(FfiStartOutcome.NotOwed);
+    expect(result.current.refusal).toBe(FfiStartOutcome.NotOwed);
     expect(result.current.status).toBe('idle');
   });
 
   vaultIt('keeps a not-ready refusal as its own outcome', async () => {
-    const client = makeClient({ startPreviewDetect: jest.fn(() => StartOutcome.NotReady) });
+    const client = makeClient({ startPreviewDetect: jest.fn(() => FfiStartOutcome.NotReady) });
     const { result } = await renderHook(() => usePreviewDetect(client));
 
     await act(() => {
       result.current.start(10, 20, PARAMS);
     });
 
-    expect(result.current.refusal).toBe(StartOutcome.NotReady);
+    expect(result.current.refusal).toBe(FfiStartOutcome.NotReady);
   });
 
   vaultIt('clears a refusal when the next start is accepted', async () => {
     const startPreviewDetect = jest
       .fn()
-      .mockReturnValueOnce(StartOutcome.Held)
-      .mockReturnValueOnce(StartOutcome.Started);
+      .mockReturnValueOnce(FfiStartOutcome.Held)
+      .mockReturnValueOnce(FfiStartOutcome.Started);
     const client = makeClient({ startPreviewDetect });
     const { result } = await renderHook(() => usePreviewDetect(client));
 
     await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    expect(result.current.refusal).toBe(StartOutcome.Held);
+    expect(result.current.refusal).toBe(FfiStartOutcome.Held);
     await act(() => {
       result.current.start(10, 20, PARAMS);
     });
@@ -463,12 +463,12 @@ describe('usePreviewDetect', () => {
     const client = makeClient({ getSectionConfig: jest.fn(() => null) });
     const { result } = await renderHook(() => usePreviewDetect(client));
 
-    let outcome: StartVerdict = StartOutcome.Started;
+    let outcome: StartVerdict = FfiStartOutcome.Started;
     await act(() => {
       outcome = result.current.start(10, 20, PARAMS);
     });
 
-    expect(outcome).toBe(StartOutcome.NotConfigured);
+    expect(outcome).toBe(FfiStartOutcome.NotConfigured);
     expect(isRetryableStart(outcome)).toBe(false);
     expect(client.startPreviewDetect).not.toHaveBeenCalled();
     expect(result.current.status).toBe('error');
@@ -1044,10 +1044,10 @@ describe('usePreviewDetect', () => {
       let polled: PreviewPollStatus = 'idle';
       const client = makeClient({
         startPreviewDetect: jest.fn(() => {
-          if (held) return StartOutcome.Busy;
+          if (held) return FfiStartOutcome.Busy;
           held = true;
           polled = 'running';
-          return StartOutcome.Started;
+          return FfiStartOutcome.Started;
         }),
         pollPreviewDetect: jest.fn(() => polled),
         takePreviewResult: jest.fn(() => RESULT),

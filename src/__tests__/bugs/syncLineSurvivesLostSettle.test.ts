@@ -14,7 +14,7 @@ import { act, renderHook } from '@testing-library/react-native';
 
 import { getEngine } from '@/shared/native/engine';
 import { SYNC_RUNNING_REREAD_MS, useSyncStatus } from '@/shared/native/useSyncStatus';
-import { SyncState, SyncStep, type SyncStatus } from 'veloqrs';
+import { SyncState, FfiSyncStep, type SyncStatus } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -24,7 +24,7 @@ const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 function status(state: SyncStatus['state']): SyncStatus {
   return {
     state,
-    step: state === SyncState.Syncing ? SyncStep.Activities : undefined,
+    step: state === SyncState.Syncing ? FfiSyncStep.Activities : undefined,
     completed: 0,
     total: 7,
     inFlight: 0,

@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 
-import { strength, type ExercisePickerData } from 'veloqrs';
+import { strength, type FfiExercisePickerData } from 'veloqrs';
 
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 
 import type { PickerFilterState } from '../lib/pickerFilter';
 
-const NO_PICKER_DATA: ExercisePickerData = { rows: [], equipment: [], muscles: [] };
+const NO_PICKER_DATA: FfiExercisePickerData = { rows: [], equipment: [], muscles: [] };
 
 /** The exercise the athlete just did, whose usual followers lead the list. */
 export interface JustDone {
@@ -21,7 +21,7 @@ export interface JustDone {
 export function useExercisePicker(
   filter: PickerFilterState,
   after: JustDone | null
-): ExercisePickerData {
+): FfiExercisePickerData {
   // The ageing is in whole days, so the time the screen opened is fresh enough.
   const readEngine = useEngineRead(['activities', 'fitParsed']);
   const [now] = useState(() => Date.now() / 1000);

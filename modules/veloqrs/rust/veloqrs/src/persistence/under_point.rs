@@ -10,6 +10,7 @@
 //! decoded, tested and dropped before the next row is read, so what is held
 //! decoded at once is one track and never a chunk of them.
 
+use crate::persistence::sql::question_marks;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use rstar::AABB;
@@ -18,7 +19,7 @@ use tracematch::GpsPoint;
 use tracematch::geo_utils::distance_to_segment;
 
 use super::codec::TrackRead;
-use super::line_simplify::{Metres, simplify};
+use super::line_simplify::{METRES_PER_DEGREE, Metres, simplify};
 use super::tiles::{HeatmapSource, heatmap_source, with_track_reader};
 use crate::ffi_types::{
     FfiActivitiesUnderPoint, FfiUnderPointActivity, FfiUnderPointGroup, FfiUnderPointKind,
@@ -43,7 +44,7 @@ const TILE_PX: f64 = crate::tiles::TILE_SIZE as f64;
 /// The equator's length in metres on the spherical Web Mercator model.
 const EQUATOR_METRES: f64 = 40_075_016.686;
 
-use crate::persistence::nearby_routes::{self, METRES_PER_DEGREE};
+use crate::persistence::nearby_routes;
 
 /// Rows per `IN (...)` statement, under SQLite's default limit of 999 bound
 /// parameters.
@@ -170,7 +171,7 @@ pub(super) fn query(
 
     let mut hits = Vec::new();
     for chunk in candidates.chunks(CHUNK) {
-        let marks = vec!["?"; chunk.len()].join(",");
+        let marks = question_marks(chunk.len());
         let sql = format!(
             "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({marks})"
         );
@@ -227,7 +228,7 @@ pub(super) fn query(
 fn routes_of(conn: &Connection, ids: &[&str]) -> HashMap<String, String> {
     let mut route_ids: Vec<String> = Vec::new();
     for chunk in ids.chunks(CHUNK) {
-        let marks = vec!["?"; chunk.len()].join(",");
+        let marks = question_marks(chunk.len());
         let sql = format!(
             "SELECT DISTINCT route_id FROM activity_matches WHERE activity_id IN ({marks})"
         );
@@ -266,7 +267,7 @@ fn route_labels(
     let mut names = HashMap::new();
     let mut numbers = HashMap::new();
     for chunk in route_ids.chunks(CHUNK) {
-        let marks = vec!["?"; chunk.len()].join(",");
+        let marks = question_marks(chunk.len());
         let bound = || rusqlite::params_from_iter(chunk.iter());
         let named = conn
             .prepare(&format!(
@@ -322,7 +323,7 @@ fn sections_under(
 
     let mut found: BTreeMap<String, SectionUnder> = BTreeMap::new();
     for chunk in ids.chunks(CHUNK) {
-        let marks = vec!["?"; chunk.len()].join(",");
+        let marks = question_marks(chunk.len());
         let sql = format!(
             "SELECT sa.section_id, s.name, sa.activity_id
              FROM section_activities sa JOIN sections s ON s.id = sa.section_id
