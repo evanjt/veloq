@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { activities } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { BODY_STORED_CHANNEL } from '@/shared/native/engineChannels';
 import { presentActivityNotification } from '@/features/settings/light';
@@ -9,7 +10,7 @@ import {
 } from '@/features/insights/lib/pulledRideNotification';
 
 function readEntry(activityId: string): PulledRideEntry | null {
-  return getEngine()?.pulledRideEntry(activityId) ?? null;
+  return activities.pulledRideEntry(activityId);
 }
 
 /**

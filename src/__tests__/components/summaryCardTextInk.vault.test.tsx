@@ -30,7 +30,10 @@ jest.mock('@/shared/app/ThemeProvider', () => ({
   ...jest.requireActual('@/shared/app/ThemeProvider'),
   useResolvedColorScheme: () => mockScheme.current,
 }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: jest.fn(() => null),
+}));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
 jest.mock('@/features/stats', () => ({ usePaceCurve: () => ({ data: undefined }) }));
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));

@@ -17,6 +17,7 @@ import { ExerciseTable } from '@/features/strength/components/ExerciseTable';
 import { getEngine } from '@/shared/native/engine';
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 

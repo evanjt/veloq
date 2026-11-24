@@ -11,6 +11,7 @@ import { FfiStartOutcome } from 'veloqrs';
 import { useStreamBackfill } from '@/features/settings/hooks/useStreamBackfill';
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 

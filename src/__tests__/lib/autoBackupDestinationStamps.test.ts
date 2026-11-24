@@ -19,7 +19,15 @@ const mockCarriers: BackupBackend[] = [];
 let mockWebdavUrl: string | null = 'https://dav.example.org/files/rider';
 let mockFolderUri: string | null = 'content://tree/primary%3ALogbook';
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     getSetting: (key: string) => mockSettings.get(key),
     deleteSetting: (key: string) => mockSettings.delete(key),

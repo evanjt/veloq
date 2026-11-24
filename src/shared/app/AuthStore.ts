@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 
+import { sync } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { rememberStoredActivityCount } from '@/shared/storage/cachedAthleteId';
 import { DEMO_ATHLETE_ID, sourceFor, type AuthMethod } from '@/shared/app/source';
@@ -87,20 +88,17 @@ function disablePushForSession(): void {
 }
 
 export function pushCredentialsToEngine(): void {
-  const engine = getEngine();
-  if (!engine) return;
-
   const { apiKey, accessToken, athleteId, authMethod } = getStoredCredentials();
 
   if (athleteId && authMethod === 'oauth' && isValidCredential(accessToken)) {
-    engine.setSyncCredentials('oauth', accessToken, athleteId);
+    sync.setSyncCredentials('oauth', accessToken, athleteId);
     return;
   }
   if (athleteId && authMethod === 'apiKey' && isValidCredential(apiKey)) {
-    engine.setSyncCredentials('api_key', apiKey, athleteId);
+    sync.setSyncCredentials('api_key', apiKey, athleteId);
     return;
   }
-  engine.clearSyncCredentials();
+  sync.clearSyncCredentials();
 }
 
 /**

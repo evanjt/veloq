@@ -7,8 +7,7 @@
 // other. Both read this module, so a new door is added in one place.
 //
 // The doors: the shared engine module under any path spelling (the alias, a
-// relative path, `require`, a dynamic `import`), the `useEngineReady` hook,
-// the `engine` `veloqrs` export and the delegate namespaces bound to it,
+// relative path, `require`, a dynamic `import`), the `engine` `veloqrs` export and the delegate namespaces bound to it,
 // however one is taken (a named import, a `require` destructure, a property
 // read off the module, a namespace import or a variable holding the module),
 // and `EngineClient.getInstance()`. The class's statics set process-wide
@@ -21,10 +20,10 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
 /** What `git grep` looks for to find candidates, POSIX extended. */
-export const ENGINE_CANDIDATE_ERE = 'native/engine|veloqrs|getInstance|useEngineReady';
+export const ENGINE_CANDIDATE_ERE = 'native/engine|veloqrs|getInstance';
 
 /** Calls that return the engine handle. */
-export const HANDLE_CALLS = new Set(['getEngine', 'getNativeModule', 'useEngineReady']);
+export const HANDLE_CALLS = new Set(['getEngine', 'getNativeModule']);
 
 const VELOQRS = 'veloqrs';
 
@@ -94,13 +93,6 @@ function loaderSpecifier(node) {
   if ((isRequireCall(n) || isDynamicImport(n)) && isStringArg(n)) return n.arguments[0].text;
   return null;
 }
-
-const calleeName = (call) => {
-  const c = call.expression;
-  if (ts.isIdentifier(c)) return c.text;
-  if (ts.isPropertyAccessExpression(c)) return c.name.text;
-  return null;
-};
 
 /** `EngineClient.getInstance()`, with any `?.` and a module read in front. */
 function isInstanceCall(n) {
@@ -207,7 +199,7 @@ export function isVeloqrsEngineName(id) {
   return veloqrsBindings(id.getSourceFile()).engine.has(id.text);
 }
 
-/** Does this call return the engine handle: `getEngine()`, `useEngineReady()` and the like? */
+/** Does this call return the engine handle: `getEngine()` and the like? */
 export function isHandleCall(node) {
   const n = unwrap(node);
   if (!ts.isCallExpression(n)) return false;
@@ -230,14 +222,6 @@ export function reachesEngine(source, fileName = 'file.tsx') {
     if (found) return;
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
       if (isEngineModuleSpecifier(node.moduleSpecifier.text)) found = true;
-      const named = node.importClause?.namedBindings;
-      if (
-        named &&
-        ts.isNamedImports(named) &&
-        named.elements.some((el) => (el.propertyName ?? el.name).text === 'useEngineReady')
-      ) {
-        found = true;
-      }
     } else if (
       ts.isImportEqualsDeclaration(node) &&
       ts.isExternalModuleReference(node.moduleReference) &&
@@ -248,9 +232,7 @@ export function reachesEngine(source, fileName = 'file.tsx') {
     } else if (ts.isCallExpression(node)) {
       const spec = loaderSpecifier(node);
       if (spec !== null && isEngineModuleSpecifier(spec)) found = true;
-      else if (calleeName(node) === 'useEngineReady' && ts.isIdentifier(node.expression)) {
-        found = true;
-      } else if (isInstanceCall(node)) found = true;
+      else if (isInstanceCall(node)) found = true;
     } else if (
       (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) &&
       isEngineHandleExpression(node)

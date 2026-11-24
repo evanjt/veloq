@@ -18,7 +18,7 @@ import {
 } from '@/features/routes/hooks/useSectionPerformances';
 import type { FrequentSection } from '@/types';
 import { engineErrorTag } from '@/shared/native/engineError';
-import { engine, FfiStartOutcome } from 'veloqrs';
+import { activities, FfiStartOutcome, sections, sync } from 'veloqrs';
 
 type MockListener = (payload?: unknown) => void;
 
@@ -26,10 +26,11 @@ const mockListeners = new Map<string, Set<MockListener>>();
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    sync: { syncTimeStreams: jest.fn() },
+    activities: { getActivitiesMissingTimeStreams: jest.fn(() => [] as string[]) },
+    sections: { getSectionPerformances: jest.fn() },
     engine: {
-      getActivitiesMissingTimeStreams: jest.fn(() => [] as string[]),
-      syncTimeStreams: jest.fn(),
-      getSectionPerformances: jest.fn(),
+      ready: true,
       subscribe: jest.fn((event: string, callback: MockListener) => {
         const forEvent = mockListeners.get(event) ?? new Set<MockListener>();
         forEvent.add(callback);
@@ -40,9 +41,9 @@ jest.mock('veloqrs', () =>
   })
 );
 
-const getSectionPerformances = engine.getSectionPerformances as unknown as jest.Mock;
-const missing = engine.getActivitiesMissingTimeStreams as unknown as jest.Mock;
-const syncTimeStreams = engine.syncTimeStreams as unknown as jest.Mock;
+const getSectionPerformances = sections.getSectionPerformances as unknown as jest.Mock;
+const missing = activities.getActivitiesMissingTimeStreams as unknown as jest.Mock;
+const syncTimeStreams = sync.syncTimeStreams as unknown as jest.Mock;
 
 function performances(activityIds: string[]) {
   return {

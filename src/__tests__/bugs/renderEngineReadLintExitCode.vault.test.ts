@@ -91,40 +91,6 @@ describe('render-time engine read lint', () => {
     expect(runLint(root).status).toBe(1);
   });
 
-  it('fails a read through a const bound from useEngineReady, which returns the same handle', () => {
-    const root = withHook(
-      [
-        "import { useEngineReady } from '@/shared/native/useEngineReady';",
-        'export function Row() {',
-        '  const engine = useEngineReady();',
-        "  const radius = Number(engine?.getSetting?.('radius') ?? '0');",
-        '  return radius;',
-        '}',
-        '',
-      ].join('\n'),
-      'src/features/x/components/Row.tsx'
-    );
-    const { status, output } = runLint(root);
-    expect(status).toBe(1);
-    expect(output).toContain('Row.tsx:7  Row  engine.getSetting');
-  });
-
-  it('passes a useEngineReady handle read only inside an effect', () => {
-    const root = withHook(
-      [
-        "import { useEngineReady } from '@/shared/native/useEngineReady';",
-        'export function useThing() {',
-        '  const engine = useEngineReady();',
-        '  const [n, setN] = useState(0);',
-        '  useEffect(() => { setN(engine?.getActivityCount() ?? 0); }, [engine]);',
-        '  return n;',
-        '}',
-        '',
-      ].join('\n')
-    );
-    expect(runLint(root).status).toBe(0);
-  });
-
   it('passes a read inside a queryFn, a useEffect, a useCallback and an event handler', () => {
     const root = withHook(
       [

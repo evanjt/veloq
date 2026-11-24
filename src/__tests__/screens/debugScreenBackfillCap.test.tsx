@@ -35,7 +35,10 @@ const mockEngine = { backfillCapLifted: false };
 const mockSetBackfillCapLifted = jest.fn((lifted: boolean) => {
   mockEngine.backfillCapLifted = lifted;
 });
-const mockSyncManager = { setBackfillCapLifted: mockSetBackfillCapLifted };
+const mockSyncManager = {
+  setBackfillCapLifted: mockSetBackfillCapLifted,
+  getSyncStatus: () => undefined,
+};
 
 const requestBudget = () => ({
   userToday: 41,
@@ -71,6 +74,7 @@ jest.mock('veloqrs', () => {
     ready: true,
     engine: { sync: () => mockSyncManager },
     write: (_name: string, run: () => void) => run(),
+    timed: (_name: string, run: () => unknown) => run(),
   };
   return require('../__shared__/veloqrsStub').withOverrides({
     EngineClient: {

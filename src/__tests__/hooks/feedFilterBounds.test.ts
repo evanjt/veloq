@@ -16,6 +16,7 @@ import React from 'react';
 import { useFeedFilterBounds } from '@/features/activity/hooks/useFeedFilterBounds';
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({ subscribe: () => () => {} }),
 }));
 

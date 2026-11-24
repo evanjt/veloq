@@ -11,6 +11,13 @@ import { swipeAction } from '@/theme';
 const mockSectionInlinePlot = jest.fn((_props: unknown) => null);
 const mockDisableSection = jest.fn(() => true);
 
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides({
+    sections: require('../../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).sections,
+  })
+);
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 jest.mock('@/features/activity/components/SectionInlinePlot', () => ({
   SectionInlinePlot: (props: unknown) => mockSectionInlinePlot(props),
@@ -22,6 +29,7 @@ jest.mock('@/features/routes', () => ({
     .removeSectionWithUndo,
 }));
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({ disableSection: mockDisableSection }),
 }));
 

@@ -17,8 +17,17 @@ import { getEngine } from '@/shared/native/engine';
 import { atUtcOffsetAsync } from '../__shared__/fixedOffsetDate';
 import { noCalendarParts } from '../__shared__/fitnessScreenRead';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 
 const listeners = new Map<string, Set<() => void>>();
 

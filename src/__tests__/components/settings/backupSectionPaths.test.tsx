@@ -101,7 +101,14 @@ jest.mock('@/features/settings/lib/autobackup/autoBackup', () => ({
   onBackupCarrierSignedIn: (id: string) => mockCarrierSignedIn(id),
 }));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
-jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides({
+    settings: {
+      ...require('../../__shared__/veloqrsStub').settings,
+      getBackupScreenData: () => mockScreen(),
+    },
+  })
+);
 let mockIsDark = false;
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: mockIsDark }) }));
 const mockOpenExplainer = jest.fn();

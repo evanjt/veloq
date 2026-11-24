@@ -19,7 +19,13 @@ import { formatRelativeDate } from '@/shared/format/format';
 import type { ActivityRecord } from 'veloqrs';
 import { activityRecord } from '../__shared__/activityRecord';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
@@ -61,7 +67,10 @@ const mockEngine = {
     ...require('../__shared__/fitnessScreenRead').noCalendarParts(),
   })),
 };
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: () => mockEngine,
+}));
 jest.mock('@/features/wellness', () => ({
   useWellness: () => ({ data: [], isLoading: false }),
   useWellnessCoverage: () => require('veloqrs').RangeCoverage.Loaded,

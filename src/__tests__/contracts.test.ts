@@ -21,7 +21,7 @@ import {
 import { ABSENT } from '@/shared/format/absent';
 
 // Mock veloqrs native module
-jest.mock('veloqrs', () => require('__shared__/veloqrsStub'));
+jest.mock('veloqrs', () => require('./__shared__/veloqrsStub'));
 
 // ============================================================================
 // FIXTURES - stable test activities from demo data

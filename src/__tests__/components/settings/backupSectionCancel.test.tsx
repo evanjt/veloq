@@ -13,7 +13,13 @@ import { BackupSection } from '@/features/settings/components/BackupSection';
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 
-jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides({
+    settings: require('../../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).settings,
+  })
+);
 
 jest.mock('@/shared/native/useSyncStatus', () => ({ useSyncStatus: () => null }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -79,6 +85,7 @@ let mockProgress: { running: boolean; run?: number; visited: number; total: numb
 let mockRecordRun: number | undefined;
 let rejectBulk: (err: unknown) => void = () => {};
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     getUnplacedBackupRecords: async () => [],
     runBulkExport: () =>

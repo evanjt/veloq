@@ -13,6 +13,7 @@ const mockMark = jest.fn();
 const mockProcessed = jest.fn();
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({ markForRecomputation: mockMark }),
 }));
 jest.mock('@/shared/app/SyncDateRangeStore', () => ({

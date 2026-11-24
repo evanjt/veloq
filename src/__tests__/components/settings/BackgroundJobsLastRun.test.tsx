@@ -15,9 +15,18 @@ import { BackgroundJobsActivityBar } from '@/features/settings/components/Backgr
 import { getEngine } from '@/shared/native/engine';
 import { initialiseI18n, changeLanguage } from '@/i18n';
 
-jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides({
+    settings: require('../../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).settings,
+  })
+);
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 jest.mock('@/features/routes', () => ({ getPhaseDisplayKey: () => null }));
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;

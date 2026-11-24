@@ -39,6 +39,7 @@ const mockEngine = {
 let mockEngineOpen = true;
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => (mockEngineOpen ? mockEngine : null),
   getRouteDbPath: () => '/data/routes.db',
 }));

@@ -1,20 +1,20 @@
 /**
- * The engine handle, or null until the root layout has opened it.
+ * Whether the root layout has opened the engine.
  *
- * Hooks mount before that init effect runs, so an effect that reads the engine
- * at mount reaches a null handle. This re-renders on the ready nonce the init
- * bumps, so those effects run again the moment the handle exists, in place of
- * the 200 ms poll each of them used to carry.
+ * Hooks mount before that init effect runs. The handle exists before and
+ * after the open, so only this answer moves. It re-renders on the ready nonce
+ * the init bumps, so an effect keyed on it runs again the moment the engine
+ * opens, in place of the 200 ms poll each of them used to carry.
  */
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 
-import { getEngine } from './engine';
+import { isEngineReady } from './engine';
 
-export function useEngineReady(): ReturnType<typeof getEngine> {
-  // Read on every render the nonce changes, never cached: the handle is
-  // replaced by a clear or a quarantine, not only by the first open.
+export function useEngineReady(): boolean {
+  // Read on every render the nonce changes, never cached: a clear or a
+  // quarantine closes the engine as well as the first open opening it.
   useEngineStatus((s) => s.readyNonce);
-  return getEngine();
+  return isEngineReady();
 }
 
 /**
@@ -29,12 +29,12 @@ export function useEngineOpenCount(): number {
 }
 
 /**
- * Whether the engine is still opening: no handle yet, and the init has not
+ * Whether the engine is still opening: not open yet, and the init has not
  * failed. A read that throws meanwhile is a load still under way rather than a
  * failure, and an effect keyed on `useEngineReady` reads again once it opens.
  */
 export function useEngineOpening(): boolean {
-  const engine = useEngineReady();
+  const ready = useEngineReady();
   const initFailed = useEngineStatus((s) => s.initFailed);
-  return engine == null && !initFailed;
+  return !ready && !initFailed;
 }

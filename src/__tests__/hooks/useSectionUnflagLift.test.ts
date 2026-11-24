@@ -14,9 +14,16 @@ import type { FrequentSection } from '@/types';
  * up rather than hiding a flag that is still set.
  */
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    sections: require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).sections,
+  })
+);
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 

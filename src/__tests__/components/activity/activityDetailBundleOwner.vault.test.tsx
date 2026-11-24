@@ -18,7 +18,11 @@ import { useMapSheetHosts } from '@/shared/app/mapSheetHost';
 import { useMapSheetStops } from '@/shared/app/mapSheetStop';
 import type { SectionOverlay } from '@/features/maps/components/ActivityMapView';
 
-jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides({
+    activities: { getActivityDetailData: () => mockRead() },
+  })
+);
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 jest.mock('@/features/activity/hooks/useMapPreviewCoordinates', () => ({
   useMapPreviewCoordinates: () => ({ coordinates: [], altitude: undefined, isLoading: false }),
@@ -142,8 +146,8 @@ const mockBundle = {
 const mockListeners: Record<string, ((payload: unknown) => void)[]> = {};
 const mockRead = jest.fn(() => mockBundle);
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
-    getActivityDetailData: () => mockRead(),
     subscribe: (event: string, fn: (payload: unknown) => void) => {
       (mockListeners[event] ??= []).push(fn);
       return () => {

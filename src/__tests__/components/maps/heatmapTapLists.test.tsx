@@ -23,7 +23,7 @@ import { FfiUnderPointKind, maps } from '../../__shared__/veloqrsStub';
 import type { SheetResult } from '@/shared/app/sheetRequest';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
+jest.mock('@/shared/native/engine', () => ({ isEngineReady: () => true, getEngine: () => null }));
 jest.mock('expo-location', () => ({
   ...jest.requireActual('expo-location'),
   Accuracy: { Balanced: 3 },

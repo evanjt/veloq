@@ -16,7 +16,23 @@ import { fireEvent, render } from '@testing-library/react-native';
 
 import { ActivitySyncRow } from '@/features/settings/components/ActivitySyncRow';
 
-jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
+// The real cancel delegate over a host that is open only while `mockEngine` is
+// set, so a press with the engine closed reaches the delegate's own guard.
+jest.mock('veloqrs', () => {
+  const { bindDelegates } = require('../../../../modules/veloqrs/src/delegates/bind');
+  const syncDelegates = require('../../../../modules/veloqrs/src/delegates/sync');
+  const host = {
+    get ready() {
+      return mockEngine !== null;
+    },
+    engine: { sync: () => ({ cancel: () => mockEngine?.cancelSync() }) },
+    timed: (_name: string, run: () => unknown) => run(),
+    notify: () => {},
+  };
+  return require('../../__shared__/veloqrsStub').withOverrides({
+    sync: bindDelegates(host, syncDelegates),
+  });
+});
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 
@@ -39,9 +55,6 @@ jest.mock('@/shared/native/useSyncStatus', () => ({
 
 const cancelSync = jest.fn();
 let mockEngine: { cancelSync: jest.Mock } | null = null;
-jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => mockEngine,
-}));
 
 describe('ActivitySyncRow', () => {
   beforeEach(() => {
@@ -111,7 +124,7 @@ describe('ActivitySyncRow', () => {
     expect(cancelSync).toHaveBeenCalledTimes(2);
   });
 
-  it('survives a press with no engine handle', async () => {
+  it('survives a press with the engine closed', async () => {
     mockEngine = null;
     mockStatus = { state: SyncState.Syncing, completed: 1, total: 9 };
     const { getByTestId } = await render(<ActivitySyncRow />);

@@ -12,6 +12,7 @@ const mockShowNotice = jest.fn();
 const mockInform = jest.fn();
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({ preferSection: mockPreferSection }),
 }));
 jest.mock('@/shared/ui/Notice', () => ({ showNotice: (n: unknown) => mockShowNotice(n) }));

@@ -15,6 +15,7 @@ import type { FeedCard } from '@/types';
 const mockGetEngine = jest.fn(() => null);
 jest.mock('@/shared/native/engine', () => ({
   ...jest.requireActual('@/shared/native/engine'),
+  isEngineReady: () => true,
   getEngine: () => mockGetEngine(),
 }));
 

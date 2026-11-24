@@ -5,8 +5,8 @@
  * Returning users see their last-viewed map position instead of a computed bounds view.
  */
 
+import { settings } from 'veloqrs';
 import { getSetting, removeSetting, setSetting } from '@/shared/storage';
-import { getEngine } from '@/shared/native/engine';
 import { safeJsonParseWithSchema } from '@/shared/validation/validation';
 import { isCentreZoom } from './storedCamera';
 
@@ -57,7 +57,7 @@ initMapCameraState();
 export function getMapCameraState(): MapCameraState | null {
   if (state) return state;
   try {
-    const raw = getEngine()?.getSetting(STORAGE_KEY);
+    const raw = settings.getSetting(STORAGE_KEY);
     if (raw) state = parseCamera(raw);
   } catch {
     // Best effort - a malformed value reads as no saved camera

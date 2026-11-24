@@ -13,7 +13,10 @@ import { useGroupSummaries } from '@/features/routes/hooks/useEngine';
 jest.mock('@/features/routes/hooks/useEngine', () => ({
   useGroupSummaries: jest.fn(),
 }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => ({})) }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: jest.fn(() => ({})),
+}));
 
 function summary(customName?: string) {
   return {

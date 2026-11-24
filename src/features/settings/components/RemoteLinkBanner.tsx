@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { remote, type FfiRemoteWrite } from 'veloqrs';
 import { useRemoteLinkStatus } from '@/shared/app/remoteLinkStatus';
+import { getEngine } from '@/shared/native/engine';
 import { useEngineReady } from '@/shared/native/useEngineReady';
 import { NoticeBanner } from '@/shared/ui/NoticeBanner';
 import { disconnectRemoteLink } from '../lib/remoteLinkSession';
@@ -28,11 +29,12 @@ function newestRemoteWrite(): { browser: string; write: FfiRemoteWrite } | null 
 export function RemoteLinkBanner() {
   const { t } = useTranslation();
   const connected = useRemoteLinkStatus((state) => state.connected);
-  const engine = useEngineReady();
+  const ready = useEngineReady();
   const [named, setNamed] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!engine) return undefined;
+    const engine = getEngine();
+    if (!ready || !engine) return undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const off = engine.subscribe('remoteWrote', () => {
       const newest = newestRemoteWrite();
@@ -45,7 +47,7 @@ export function RemoteLinkBanner() {
       off();
       clearTimeout(timer);
     };
-  }, [engine, t]);
+  }, [ready, t]);
 
   if (connected === 0) return null;
 

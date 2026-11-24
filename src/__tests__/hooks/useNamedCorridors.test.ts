@@ -18,6 +18,16 @@ jest.mock('@/shared/native/engine', () => {
 // Real decoder, native binding stubbed out: the footprint bytes are the point.
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    sections: {
+      ...require('../__shared__/veloqrsStub').namespacesOver(() =>
+        require('@/shared/native/engine').getEngine()
+      ).sections,
+      // The bound namespace answers a closed handle with its typed default.
+      getNamedCorridors: () =>
+        require('@/shared/native/engine').getEngine()?.getNamedCorridors() ?? [],
+      removeNamedCorridor: (intentId: string) =>
+        require('@/shared/native/engine').getEngine()?.removeNamedCorridor(intentId) ?? false,
+    },
     decodeCoords: jest.requireActual('../../../modules/veloqrs/src/coords').decodeCoords,
   })
 );

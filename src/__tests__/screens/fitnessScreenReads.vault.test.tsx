@@ -20,8 +20,17 @@ import { i18n, initialiseI18n } from '@/i18n';
 import { recordAppMetric } from '@/shared/debug/renderTimer';
 import { FLOW_FITNESS_RANGE } from '@/shared/debug/flowTiming';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 jest.mock('@/shared/native/useSyncStatus', () => ({ useSyncState: () => null }));
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('@/shared/debug/tabSwitchTiming', () => ({ useTabFirstFrame: jest.fn() }));

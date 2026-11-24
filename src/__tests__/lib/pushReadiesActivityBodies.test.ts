@@ -23,6 +23,7 @@ jest.mock('@/features/insights/lib/taskRunLog', () => ({
   appendTaskRun: jest.fn(async () => undefined),
 }));
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(() => ({
     setSyncCredentials: jest.fn(),
     clearSyncCredentials: jest.fn(),
@@ -42,13 +43,15 @@ jest.mock('@/features/settings/lib/notificationService', () => ({
 }));
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    sync: {
+      ...require('../__shared__/veloqrsStub').sync,
+      readyActivityBodies: (activityId: string) => mockReadyActivityBodies(activityId),
+    },
+    activities: { hasActivity: jest.fn(() => true), activityNotification: jest.fn(() => null) },
+    sections: { indexNewActivity: jest.fn(() => ({ matchedSections: 0, insertedPortions: 0 })) },
     engine: {
       ...require('../__shared__/veloqrsStub').fetchCalls,
-      hasActivity: jest.fn(() => true),
-      indexNewActivity: jest.fn(() => ({ matchedSections: 0, insertedPortions: 0 })),
       triggerRefresh: jest.fn(),
-      activityNotification: jest.fn(() => null),
-      readyActivityBodies: (activityId: string) => mockReadyActivityBodies(activityId),
     },
   })
 );

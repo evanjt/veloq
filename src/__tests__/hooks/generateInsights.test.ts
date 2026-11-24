@@ -12,6 +12,7 @@ import type { HrvTrend, StalePrOpportunity } from 'veloqrs';
 import { datedSeries } from '../__shared__/datedSeries';
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(() => null),
 }));
 

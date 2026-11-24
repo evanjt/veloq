@@ -33,6 +33,7 @@ jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
 }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     getSectionConfig: () => ({
       proximityThreshold: 50,

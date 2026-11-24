@@ -268,10 +268,9 @@ export const engine = EngineClient.getInstance();
 
 // The engine's TypeScript API: one namespace per delegate, bound to the one
 // host. A component names the delegate it reaches into, and every function is
-// total, answering its typed default until the engine opens. The client's
-// forwards are the older door to the same functions and leave as their call
-// sites move here. `scripts/lib/engineReach.mjs` reads this list to count
-// every file that imports one.
+// total, answering its typed default until the engine opens. The client holds
+// no forward to these functions. `scripts/lib/engineReach.mjs` reads this list
+// to count every file that imports one.
 export const activities = bindDelegates(engine, activityDelegates);
 export const connectivity = bindDelegates(engine, connectivityDelegates);
 export const cutover = bindDelegates(engine, cutoverDelegates);

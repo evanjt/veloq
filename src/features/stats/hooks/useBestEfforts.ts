@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { getEngine } from '@/shared/native/engine';
 import { bodyNamed, useEngineBody, type EngineBodyWait } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
-import type { BestEffortsData } from 'veloqrs';
+import { fitness, sync, type BestEffortsData } from 'veloqrs';
 
 /** The sports the Best Efforts read carries, by the engine's name for each. */
 export type BestEffortsSport = 'Ride' | 'Run' | 'Swim';
@@ -31,7 +30,7 @@ export function useBestEfforts(days: number, shown: readonly BestEffortsSport[])
 
   const query = useQuery<BestEffortsData | null>({
     queryKey,
-    queryFn: () => getEngine()?.getBestEffortsData(days) ?? null,
+    queryFn: () => fitness.getBestEffortsData(days) ?? null,
     // SQLite is the source, so a sync decides freshness, not a clock.
     staleTime: Infinity,
   });
@@ -43,21 +42,21 @@ export function useBestEfforts(days: number, shown: readonly BestEffortsSport[])
   // One wait per curve, so each is asked for and announced on its own.
   const ride = useEngineBody(
     fetched('Ride'),
-    () => getEngine()?.syncPowerCurve('Ride', days),
+    () => sync.syncPowerCurve('Ride', days),
     queryKey,
     asks('Ride'),
     bodyNamed(['power_curve'])
   );
   const run = useEngineBody(
     fetched('Run'),
-    () => getEngine()?.syncPaceCurve('Run', days, false),
+    () => sync.syncPaceCurve('Run', days, false),
     queryKey,
     asks('Run'),
     bodyNamed(['pace_curve'])
   );
   const swim = useEngineBody(
     fetched('Swim'),
-    () => getEngine()?.syncPaceCurve('Swim', days, false),
+    () => sync.syncPaceCurve('Swim', days, false),
     queryKey,
     asks('Swim'),
     bodyNamed(['pace_curve'])

@@ -47,6 +47,7 @@ jest.mock('@/features/routes/hooks/useCustomSections', () => ({
 }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({ enableSection: jest.fn() }),
 }));
 

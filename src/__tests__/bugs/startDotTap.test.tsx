@@ -21,6 +21,7 @@ const mockGetGpsTrack = jest.fn((_id: string) => '');
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({ getGpsTrack: (id: string) => mockGetGpsTrack(id) }),
 }));
 jest.mock('expo-location', () => ({

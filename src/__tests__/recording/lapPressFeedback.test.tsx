@@ -20,7 +20,7 @@ import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import * as haptics from '@/shared/ui/haptics';
 import { i18n, initialiseI18n } from '@/i18n';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
+jest.mock('@/shared/native/engine', () => ({ isEngineReady: () => true, getEngine: () => null }));
 jest.mock('@/shared/ui/haptics');
 
 const noop = () => {};

@@ -5,7 +5,7 @@
  */
 import { useMemo } from 'react';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { readLibraryCount } from '@/shared/native/libraryCount';
+import { readCurrentLibraryCount } from '@/shared/native/libraryCount';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { calendarDaysBetween } from '@/shared/format/format';
 import { DEFAULT_ACTIVITY_DAYS } from '@/shared/native/activityWindow.generated';
@@ -24,8 +24,7 @@ export function useCacheDays(preComputedActivityCount?: number): number {
 
   return useMemo(() => {
     // Check if we have any activities in the engine
-    const activityCount =
-      preComputedActivityCount ?? readActivities((engine) => readLibraryCount(engine)) ?? 0;
+    const activityCount = preComputedActivityCount ?? readActivities(readCurrentLibraryCount);
 
     if (activityCount === 0 || !oldest || !newest) {
       return DEFAULT_ACTIVITY_DAYS;

@@ -54,7 +54,10 @@ jest.mock('veloqrs', () => {
   return stub;
 });
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => ({ subscribe: () => () => {} }) }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: () => ({ subscribe: () => () => {} }),
+}));
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 

@@ -20,7 +20,10 @@ import type { Insight, SectionTrendData } from '@/features/insights/types';
 import { EfficiencyDirection } from 'veloqrs';
 import type { EfficiencyTrend, InsightsData, StalePrOpportunity } from 'veloqrs';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: jest.fn(() => null),
+}));
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
   isRouteMatchingEnabled: jest.fn(() => true),
 }));

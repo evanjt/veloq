@@ -16,7 +16,10 @@ const mockEngine = {
   triggerRefresh: jest.fn(),
 };
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: () => mockEngine,
+}));
 
 jest.mock('@/shared/storage', () => ({
   getSetting: jest.fn(async () => null),

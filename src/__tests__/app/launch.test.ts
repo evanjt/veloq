@@ -105,7 +105,13 @@ jest.mock('@/features/settings/lib/shareFile', () => ({
   shareExistingFile: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    settings: require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).settings,
+  })
+);
 
 jest.mock('@/shared/native/backupExclusion', () => ({
   excludeFromBackup: jest.fn(() => true),

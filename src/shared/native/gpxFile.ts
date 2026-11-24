@@ -15,7 +15,7 @@ export function buildGpxFile(
 ): GpxFile | null {
   const engine = getEngine();
   if (!engine) throw new Error('Engine not available');
-  return engine.buildGpxFile(name, sport, time, points);
+  return settings.buildGpxFile(name, sport, time, points);
 }
 
 /**

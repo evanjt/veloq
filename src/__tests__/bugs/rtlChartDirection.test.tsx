@@ -42,10 +42,19 @@ import { localDay } from '../__shared__/clockEdges';
 import { fitnessScreenRead } from '../__shared__/fitnessScreenRead';
 import { WithScreenRead } from '../__shared__/withScreenRead';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: jest.fn(() => null),
+}));
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));
 
 type Tree = Awaited<ReturnType<typeof render>>;

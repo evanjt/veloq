@@ -4,6 +4,7 @@
  * any one of those features.
  */
 import { useMemo } from 'react';
+import { sections } from 'veloqrs';
 import type { FrequentSection } from '@/types';
 import { convertNativeSectionToApp } from '@/shared/ffi/sectionConversions';
 import { useEngineRead, useReadRetry } from './useEngineSubscription';
@@ -29,11 +30,8 @@ export function useSectionDetail(sectionId: string | null): UseSectionDetailResu
   return useMemo<UseSectionDetailResult>(() => {
     if (!sectionId) return { section: null, retry };
 
-    const engine = readSections((open) => open);
-    if (!engine) return { section: null, retry };
-
     try {
-      const native = engine.getSectionById(sectionId);
+      const native = readSections(() => sections.getSectionById(sectionId));
       return { section: native ? convertNativeSectionToApp(native) : null, retry };
     } catch (error) {
       return { section: null, error, retry };

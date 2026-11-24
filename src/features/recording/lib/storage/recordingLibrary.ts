@@ -23,7 +23,7 @@ import type {
   RecordingUploadStatus,
 } from '@/types';
 import { toActivityType } from '@/types';
-import { recordings } from 'veloqrs';
+import { activities, recordings } from 'veloqrs';
 
 const log = debug.create('RecordingLibrary');
 
@@ -188,12 +188,12 @@ export async function saveRecording(
 ): Promise<RecordingLibraryEntry | null> {
   const written: string[] = [];
   try {
-    const engine = library(true);
+    library(true);
     await ensureRecordingsDir();
     const id = newRecordingId();
     // The key is a pure function of the id, so it goes in with the row: an
     // upload that lands before the provisional write finds it and waits.
-    const engineActivityId = engine.provisionalActivityId(id) || undefined;
+    const engineActivityId = activities.provisionalActivityId(id) || undefined;
     const manual = params.manualBody !== undefined;
 
     // A manual entry names no file. The column cannot hold a null, so the empty

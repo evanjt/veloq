@@ -14,7 +14,7 @@ jest.mock('@/features/activity/components/SectionInlinePlot', () => ({
   SectionInlinePlot: () => null,
 }));
 jest.mock('@/features/routes', () => ({ DataRangeFooter: () => null }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
+jest.mock('@/shared/native/engine', () => ({ isEngineReady: () => true, getEngine: () => null }));
 
 function renderTab(encounterCount: number) {
   const encounters = Array.from({ length: encounterCount }, (_, i) => ({

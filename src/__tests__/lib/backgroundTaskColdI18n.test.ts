@@ -16,6 +16,7 @@ import { Platform } from 'react-native';
 const mockSetNotificationTemplates = jest.fn();
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(() => ({
     setNotificationTemplates: (...args: unknown[]) => mockSetNotificationTemplates(...args),
     setSyncCredentials: jest.fn(),
@@ -37,12 +38,17 @@ jest.mock('@/features/settings/lib/notificationService', () => ({
 }));
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    settings: require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).settings,
+    sync: {
+      ...require('../__shared__/veloqrsStub').sync,
+      readyActivityBodies: jest.fn(async () => true),
+    },
+    activities: { hasActivity: jest.fn(() => false), activityNotification: jest.fn(() => null) },
     engine: {
       ...require('../__shared__/veloqrsStub').fetchCalls,
-      hasActivity: jest.fn(() => false),
       triggerRefresh: jest.fn(),
-      activityNotification: jest.fn(() => null),
-      readyActivityBodies: jest.fn(async () => true),
     },
   })
 );

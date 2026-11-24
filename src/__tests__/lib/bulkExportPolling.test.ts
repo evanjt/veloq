@@ -22,6 +22,7 @@ const mockDeleteAsync = jest.fn();
 let mockProgress = { running: false, visited: 0, total: 0 };
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     runBulkExport: (format: unknown, path: string) => mockRunBulkExport(format, path),
     bulkExportProgress: () => mockProgress,

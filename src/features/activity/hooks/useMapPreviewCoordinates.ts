@@ -11,7 +11,7 @@ import { bodyNamed, useEngineBody } from '@/shared/native/engineBodies';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { CACHE } from '@/shared/app/constants';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { decodeCoords } from 'veloqrs';
+import { activities, decodeCoords } from 'veloqrs';
 import { previewLineFromStreams, previewLineOf } from '@/shared/geo/polyline';
 import type { LatLng } from '@/shared/geo/polyline';
 import type { ActivityStreams } from '@/types';
@@ -27,10 +27,11 @@ import { deleteTerrainPreviewsForActivity } from '@/features/maps';
  */
 export function useMutatedPreviewTracks(): void {
   const queryClient = useQueryClient();
-  const engine = useEngineReady();
+  const ready = useEngineReady();
 
   useEffect(() => {
-    if (!engine) return undefined;
+    const engine = getEngine();
+    if (!ready || !engine) return undefined;
     return engine.subscribe('gpsTracksMutated', (payload) => {
       if (!payload || !('activityIds' in payload)) return;
       for (const id of payload.activityIds) {
@@ -38,7 +39,7 @@ export function useMutatedPreviewTracks(): void {
         void deleteTerrainPreviewsForActivity(id);
       }
     });
-  }, [engine, queryClient]);
+  }, [ready, queryClient]);
 }
 
 /**
@@ -55,17 +56,18 @@ export function useMutatedPreviewTracks(): void {
  */
 export function useStoredPreviewTracks(): void {
   const queryClient = useQueryClient();
-  const engine = useEngineReady();
+  const ready = useEngineReady();
 
   useEffect(() => {
-    if (!engine) return undefined;
+    const engine = getEngine();
+    if (!ready || !engine) return undefined;
     return engine.subscribe('gpsTrackStored', (payload) => {
       if (!payload || !('activityId' in payload)) return;
       const { activityId } = payload as { activityId?: unknown };
       if (typeof activityId !== 'string' || !activityId) return;
       queryClient.invalidateQueries({ queryKey: queryKeys.activities.previewTrack(activityId) });
     });
-  }, [engine, queryClient]);
+  }, [ready, queryClient]);
 }
 
 /**
@@ -101,8 +103,7 @@ export function useMapPreviewCoordinates(
   const { data: previewPoints, status: previewStatus } = useQuery({
     queryKey: queryKeys.activities.previewTrack(activityId),
     queryFn: () => {
-      const engine = getEngine();
-      const track = engine?.getPreviewTrack(activityId);
+      const track = activities.getPreviewTrack(activityId);
       if (!track) return null;
       const points = decodeCoords(track.encodedCoords);
       return points.length > 0 ? points : null;

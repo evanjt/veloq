@@ -15,6 +15,13 @@ import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useRouteSettingsFollowsEngine } from '@/features/routes/hooks/useRouteSettingsFollowsEngine';
 import { getSetting } from '@/shared/storage';
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/storage', () => ({
   getSetting: jest.fn(async () => null),
   setSetting: jest.fn(async () => {}),
@@ -22,13 +29,12 @@ jest.mock('@/shared/storage', () => ({
 
 let mockEngineSwitch: string | undefined;
 const mockTriggerRefresh = jest.fn();
-jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => ({ getSetting: () => mockEngineSwitch, triggerRefresh: mockTriggerRefresh }),
-}));
-
 const listeners: Record<string, (() => void)[]> = {};
-jest.mock('@/shared/native/useEngineReady', () => ({
-  useEngineReady: () => ({
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: () => ({
+    getSetting: () => mockEngineSwitch,
+    triggerRefresh: mockTriggerRefresh,
     subscribe: (event: string, cb: () => void) => {
       (listeners[event] ||= []).push(cb);
       return () => {
@@ -36,6 +42,10 @@ jest.mock('@/shared/native/useEngineReady', () => ({
       };
     },
   }),
+}));
+
+jest.mock('@/shared/native/useEngineReady', () => ({
+  useEngineReady: () => true,
 }));
 
 function Probe() {

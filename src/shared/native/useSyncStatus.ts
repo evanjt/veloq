@@ -32,7 +32,13 @@ import { useSyncExternalStore } from 'react';
 import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 import { getEngine } from './engine';
 import { reconsiderFallback, subscribeToFallbackTick } from './eventFallback';
-import { SyncState, type FfiSyncErrorReason, type SyncStatus, type FfiTrackStage } from 'veloqrs';
+import {
+  sync,
+  SyncState,
+  type FfiSyncErrorReason,
+  type SyncStatus,
+  type FfiTrackStage,
+} from 'veloqrs';
 
 /**
  * What the sync service announces: every step, and the terminal transition.
@@ -101,7 +107,7 @@ function sameStatus(a: SyncStatus | null, b: SyncStatus | null): boolean {
 function read() {
   const engine = getEngine();
   if (!engine) return;
-  const next = engine.getSyncStatus();
+  const next = sync.getSyncStatus();
   freshLoginTimeline.observeSync(next);
   if (sameStatus(snapshot, next)) {
     armReread();

@@ -9,6 +9,7 @@
  */
 
 import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
+import * as settingsDelegates from '../../../modules/veloqrs/src/delegates/settings';
 import { bindDelegates } from '../../../modules/veloqrs/src/delegates/bind';
 import { engineErrorTag } from '@/shared/native/engineError';
 import * as cutoverDelegates from '../../../modules/veloqrs/src/delegates/cutover';
@@ -16,6 +17,7 @@ import * as heatmapDelegates from '../../../modules/veloqrs/src/delegates/heatma
 import * as launchDelegates from '../../../modules/veloqrs/src/delegates/launch';
 import * as routesStatusDelegates from '../../../modules/veloqrs/src/delegates/routesStatus';
 import * as detectionDelegates from '../../../modules/veloqrs/src/delegates/detection';
+import * as sectionDelegates from '../../../modules/veloqrs/src/delegates/sections';
 import * as previewDelegates from '../../../modules/veloqrs/src/delegates/preview';
 
 /** The shape a `VeloqError` crosses the binding in. */
@@ -108,13 +110,22 @@ const READS: [string, (client: EngineClient) => unknown][] = [
   ['getPreviewProgress', (c) => bindDelegates(c, previewDelegates).getPreviewProgress()],
   ['takePreviewResult', (c) => bindDelegates(c, previewDelegates).takePreviewResult()],
   ['getRoutesStatusData', (c) => bindDelegates(c, routesStatusDelegates).getRoutesStatusData()],
-  ['getSectionGeometryVersionPolyline', (c) => c.getSectionGeometryVersionPolyline('sec-1', 2)],
-  ['acceptAllSections', (c) => c.acceptAllSections()],
-  ['getSectionExtensionTrack', (c) => c.getSectionExtensionTrack('sec-1')],
-  ['getAthleteProfile', (c) => c.getAthleteProfile()],
-  ['hrZoneFor', (c) => c.hrZoneFor('Ride', 140)],
-  ['exportPrivacyPreview', (c) => c.exportPrivacyPreview(46.5, 6.6, 200)],
-  ['engineInstall', (c) => c.engineInstall()],
+  [
+    'getSectionGeometryVersionPolyline',
+    (c) => bindDelegates(c, sectionDelegates).getSectionGeometryVersionPolyline('sec-1', 2),
+  ],
+  ['acceptAllSections', (c) => bindDelegates(c, sectionDelegates).acceptAllSections()],
+  [
+    'getSectionExtensionTrack',
+    (c) => bindDelegates(c, sectionDelegates).getSectionExtensionTrack('sec-1'),
+  ],
+  ['getAthleteProfile', (c) => bindDelegates(c, settingsDelegates).getAthleteProfile()],
+  ['hrZoneFor', (c) => bindDelegates(c, settingsDelegates).hrZoneFor('Ride', 140)],
+  [
+    'exportPrivacyPreview',
+    (c) => bindDelegates(c, settingsDelegates).exportPrivacyPreview(46.5, 6.6, 200),
+  ],
+  ['engineInstall', (c) => bindDelegates(c, settingsDelegates).engineInstall()],
 ];
 
 describe('engine client reads', () => {

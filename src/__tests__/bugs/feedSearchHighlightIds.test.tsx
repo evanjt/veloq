@@ -51,6 +51,9 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    activities: require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).activities,
     decodeCoords: () => [],
   })
 );

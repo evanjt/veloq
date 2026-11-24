@@ -37,7 +37,10 @@ jest.mock('@/features/routes/hooks/useElevationBackfill', () => ({
 jest.mock('@/features/routes/hooks/useCustomSections', () => ({
   useSectionCommands: () => ({ removeSection: jest.fn() }),
 }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => ({ enableSection: jest.fn() }) }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: () => ({ enableSection: jest.fn() }),
+}));
 jest.mock('@/shared/native/useSyncStatus', () => ({ useSyncState: () => null }));
 
 async function routes(sportType: string | undefined, sportOptions: string[] = ['Ride', 'Run']) {

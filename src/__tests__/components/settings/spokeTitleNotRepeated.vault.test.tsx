@@ -33,7 +33,10 @@ jest.mock('@/shared/storage', () => ({
   setSetting: jest.fn(async () => {}),
   removeSetting: jest.fn(async () => {}),
 }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: jest.fn(() => null),
+}));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
 jest.mock('@/features/stats', () => ({ usePaceCurve: () => ({ data: undefined }) }));
 

@@ -72,7 +72,7 @@ jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
+jest.mock('@/shared/native/engine', () => ({ isEngineReady: () => true, getEngine: () => null }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: null }) }));
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn(), replaceTo: jest.fn() }));
 jest.mock('@/features/recording/components/RecordingMap', () => ({ RecordingMap: () => null }));

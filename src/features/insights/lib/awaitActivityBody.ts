@@ -14,30 +14,19 @@
 
 import { awaitEngineAnnouncement } from '@/shared/native/awaitEngineAnnouncement';
 import { BODY_STORED_CHANNEL } from '@/shared/native/engineChannels';
-import {
-  hasStarted,
-  isRetryableStart,
-  type ActivityRecord,
-  type FfiStartOutcome,
-  type FfiStartResult,
-} from 'veloqrs';
+import { activities, hasStarted, isRetryableStart, sync, type ActivityRecord } from 'veloqrs';
 
 /** Max time to wait for the engine to store the body. */
 const DEFAULT_TIMEOUT_MS = 15_000;
 
 /** The engine surface this needs, so a caller can hand it a double. */
 export interface ActivityBodyReader {
-  getActivityRecord: (activityId: string) => ActivityRecord | null;
-  syncActivityDetail: (activityId: string) => FfiStartOutcome | FfiStartResult;
   subscribe: (event: string, callback: (payload?: { activityId?: string }) => void) => () => void;
 }
 
 /** The stored activity, typed by the engine, or null if it has not got it. */
-export function readStoredActivity(
-  engine: ActivityBodyReader,
-  activityId: string
-): ActivityRecord | null {
-  return engine.getActivityRecord(activityId) ?? null;
+export function readStoredActivity(activityId: string): ActivityRecord | null {
+  return activities.getActivityRecord(activityId) ?? null;
 }
 
 /**
@@ -50,7 +39,7 @@ export function awaitActivityBody(
   activityId: string,
   timeoutMs: number = DEFAULT_TIMEOUT_MS
 ): Promise<ActivityRecord | null> {
-  const stored = readStoredActivity(engine, activityId);
+  const stored = readStoredActivity(activityId);
   if (stored) return Promise.resolve(stored);
 
   const refused = new AbortController();
@@ -64,7 +53,7 @@ export function awaitActivityBody(
     timeoutMs,
     read: (payload) =>
       (payload as { activityId?: string } | undefined)?.activityId === activityId
-        ? (readStoredActivity(engine, activityId) ?? undefined)
+        ? (readStoredActivity(activityId) ?? undefined)
         : undefined,
     onDeadline: () => null,
     subscribe: (channel, listener) => engine.subscribe(channel, listener),
@@ -76,7 +65,7 @@ export function awaitActivityBody(
   // nothing and the headless task spends them before it can write anything
   // at all. A retryable refusal is different: the work may still land from
   // whatever holds the slot, so that one waits.
-  const outcome = engine.syncActivityDetail(activityId);
+  const outcome = sync.syncActivityDetail(activityId);
   if (!hasStarted(outcome) && !isRetryableStart(outcome)) refused.abort();
 
   return body;

@@ -33,6 +33,7 @@ jest.mock('expo-file-system/legacy', () => ({
 }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => mockEngine,
   getRouteDbPath: () => '/tmp/routes.db',
 }));

@@ -1,4 +1,4 @@
-import { getEngine } from '@/shared/native/engine';
+import { fitness, sync } from 'veloqrs';
 import { paceCurveOf } from '@/features/stats/lib/curveRecords';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { PaceCurve } from '@/types';
@@ -18,10 +18,10 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
   return useStoredCurve<PaceCurve>({
     queryKey: queryKeys.charts.paceCurve.bySport(sport, days, gap),
     read: () => {
-      const stored = getEngine()?.getPaceCurve(sport, days, gap);
+      const stored = fitness.getPaceCurve(sport, days, gap);
       return stored ? { curve: paceCurveOf(stored), fetchedAt: stored.fetchedAt } : null;
     },
-    sync: () => getEngine()?.syncPaceCurve(sport, days, gap),
+    sync: () => sync.syncPaceCurve(sport, days, gap),
     bodyName: 'pace_curve',
     empty: { type: 'pace', sport, distances: [], times: [], pace: [] },
     days,

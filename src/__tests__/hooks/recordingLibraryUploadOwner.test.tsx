@@ -29,9 +29,8 @@ jest.mock('expo-router', () => ({
   useFocusEffect: jest.fn(),
 }));
 
-const mockEngine = {};
 jest.mock('@/shared/native/useEngineReady', () => ({
-  useEngineReady: jest.fn(() => mockEngine),
+  useEngineReady: jest.fn(() => true),
   useEngineOpening: jest.fn(() => false),
 }));
 

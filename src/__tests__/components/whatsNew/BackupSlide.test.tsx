@@ -22,6 +22,7 @@ const mockSettings = new Map<string, string>();
 const mockRunRecordBackup = jest.fn(async (_path: string) => {});
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     getSetting: (key: string) => mockSettings.get(key),
     setSetting: (key: string, value: string) => mockSettings.set(key, value),
@@ -50,7 +51,13 @@ jest.mock('@/shared/storage', () => ({
   getSetting: jest.fn().mockResolvedValue(null),
   setSetting: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides({
+    settings: require('../../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).settings,
+  })
+);
 
 // The slide reaches the app barrel for `useTheme`, and the barrel pulls the
 // IAP binding in behind it.

@@ -15,8 +15,17 @@ import type { getEngine } from '@/shared/native/engine';
 // One instance across `jest.resetModules()`, so the fresh copy of the module
 // under test still talks to the engine each case set up.
 const mockGetEngine = jest.fn();
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/shared/native/engine', () => ({ getEngine: mockGetEngine }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: mockGetEngine,
+}));
 
 /**
  * The deferral is module state, and a module holds it for the life of the

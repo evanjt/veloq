@@ -26,7 +26,7 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
   useMetricSystem: () => true,
 }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
+jest.mock('@/shared/native/engine', () => ({ isEngineReady: () => true, getEngine: () => null }));
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/features/recording', () =>

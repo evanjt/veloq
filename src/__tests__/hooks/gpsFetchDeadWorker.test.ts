@@ -16,6 +16,7 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 
 jest.mock('@/shared/native/engine', () => ({
   getNativeModule: () => ({ engine: { pollSectionDetection: () => 'idle' } }),
+  isEngineReady: () => true,
   getEngine: () => null,
 }));
 

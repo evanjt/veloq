@@ -47,6 +47,7 @@ jest.mock('expo-file-system/legacy', () => ({
 }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(() => null),
 }));
 

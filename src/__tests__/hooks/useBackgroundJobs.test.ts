@@ -23,6 +23,7 @@ jest.mock('veloqrs', () =>
 );
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 

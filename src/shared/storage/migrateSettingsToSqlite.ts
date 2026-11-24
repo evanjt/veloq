@@ -7,7 +7,8 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getEngine, isEngineReady } from '@/shared/native/engine';
+import { settings } from 'veloqrs';
+import { isEngineReady } from '@/shared/native/engine';
 import { debug } from '@/shared/debug/debug';
 
 /**
@@ -91,12 +92,10 @@ export async function migrateSettingsToSqlite(): Promise<void> {
   // answers undefined, so a pass run then would copy everything and set the
   // sentinel into a database that never took the writes.
   if (!isEngineReady()) return;
-  const engine = getEngine();
-  if (!engine) return;
 
-  await copyMissingPreferences(engine, PREFERENCE_KEYS, SETTINGS_MIGRATED_KEY);
-  await copyMissingPreferences(engine, REPAIR_KEYS, REPAIRED_SETTINGS_KEY);
-  clearStoredTerrainFailures(engine);
+  await copyMissingPreferences(PREFERENCE_KEYS, SETTINGS_MIGRATED_KEY);
+  await copyMissingPreferences(REPAIR_KEYS, REPAIRED_SETTINGS_KEY);
+  clearStoredTerrainFailures();
 }
 
 const ACTIVITY_OVERRIDES_KEY = 'veloq-map-activity-overrides';
@@ -107,9 +106,9 @@ const TERRAIN_CLEANUP_DONE_KEY = 'veloq-terrain-override-cleanup-done';
  * terrain load failed once, which kept 3D off for that activity for good. Runs
  * once: drops every such field and leaves each override's style alone.
  */
-function clearStoredTerrainFailures(engine: NonNullable<ReturnType<typeof getEngine>>): void {
-  if (engine.getSetting(TERRAIN_CLEANUP_DONE_KEY) !== undefined) return;
-  const raw = engine.getSetting(ACTIVITY_OVERRIDES_KEY);
+function clearStoredTerrainFailures(): void {
+  if (settings.getSetting(TERRAIN_CLEANUP_DONE_KEY) !== undefined) return;
+  const raw = settings.getSetting(ACTIVITY_OVERRIDES_KEY);
   if (raw !== undefined) {
     let parsed: unknown;
     try {
@@ -131,27 +130,23 @@ function clearStoredTerrainFailures(engine: NonNullable<ReturnType<typeof getEng
         }
         cleaned[id] = entry;
       }
-      if (changed) engine.setSetting(ACTIVITY_OVERRIDES_KEY, JSON.stringify(cleaned));
+      if (changed) settings.setSetting(ACTIVITY_OVERRIDES_KEY, JSON.stringify(cleaned));
     }
   }
-  engine.setSetting(TERRAIN_CLEANUP_DONE_KEY, '1');
+  settings.setSetting(TERRAIN_CLEANUP_DONE_KEY, '1');
 }
 
-async function copyMissingPreferences(
-  engine: NonNullable<ReturnType<typeof getEngine>>,
-  keys: readonly string[],
-  sentinelKey: string
-): Promise<void> {
-  if (engine.getSetting(sentinelKey) !== undefined) return;
+async function copyMissingPreferences(keys: readonly string[], sentinelKey: string): Promise<void> {
+  if (settings.getSetting(sentinelKey) !== undefined) return;
   let complete = true;
   let migrated = 0;
   for (const key of keys) {
     try {
-      if (engine.getSetting(key) !== undefined) continue;
+      if (settings.getSetting(key) !== undefined) continue;
       const value = await AsyncStorage.getItem(key);
       // A store can write a newer value while the legacy read is pending.
-      if (value !== null && engine.getSetting(key) === undefined) {
-        engine.setSetting(key, value);
+      if (value !== null && settings.getSetting(key) === undefined) {
+        settings.setSetting(key, value);
         migrated++;
       }
     } catch {
@@ -159,6 +154,6 @@ async function copyMissingPreferences(
     }
   }
   // Failed reads or writes must remain eligible for the next boot's retry.
-  if (complete) engine.setSetting(sentinelKey, '1');
+  if (complete) settings.setSetting(sentinelKey, '1');
   debug.log(`[Settings Migration] ${sentinelKey}: ${migrated} keys copied, complete=${complete}`);
 }

@@ -22,6 +22,13 @@ import {
 const mockSettings = new Map<string, string>();
 const mockIcloudList = jest.fn(async (): Promise<unknown[]> => []);
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/storage/platformRecord', () => ({ platformRecordUri: () => null }));
 jest.mock('@/features/settings/lib/autobackup/webdavConfig', () => ({
   initWebdavConfig: async () => {},
@@ -38,6 +45,7 @@ jest.mock('@/features/settings/lib/autobackup/backends', () => {
 });
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     getSetting: (key: string) => mockSettings.get(key) ?? null,
     setSetting: (key: string, value: string) => mockSettings.set(key, value),

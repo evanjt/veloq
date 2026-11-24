@@ -7,8 +7,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getEngine } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
+import { sections } from 'veloqrs';
 import type { FfiDepartedRide, FfiSectionEventDetails } from 'veloqrs';
 import type { RoutePoint } from '@/types';
 import { announceDepartedRides } from '@/features/routes/lib/departedRides';
@@ -108,12 +108,11 @@ export function useSectionLedger(
 
   const versionPolyline = useCallback(
     (version: number): RoutePoint[] => {
-      const engine = getEngine();
-      if (!engine || !sectionId) return [];
+      if (!sectionId) return [];
       // Read during render to draw the version shown, so a failure draws no
       // line rather than taking the screen down with it.
       try {
-        return engine.getSectionGeometryVersionPolyline(sectionId, version);
+        return sections.getSectionGeometryVersionPolyline(sectionId, version);
       } catch (error) {
         // empty-on-error: one version's outline drawn on demand; the ledger rows beside it
         // carry their own failure key, and a missing outline is not read as an empty section.
@@ -132,14 +131,13 @@ export function useSectionLedger(
   // is refused rather than queued.
   const revert = useCallback(
     async (version: number): Promise<boolean> => {
-      const engine = getEngine();
-      if (!engine || !sectionId || revertInFlight.current) return false;
+      if (!sectionId || revertInFlight.current) return false;
       revertInFlight.current = true;
       setIsReverting(true);
 
       let departed: FfiDepartedRide[] | null = null;
       try {
-        departed = await engine.runSectionBoundsEdit({ kind: 'revert', sectionId, version });
+        departed = await sections.runSectionBoundsEdit({ kind: 'revert', sectionId, version });
       } catch {
         departed = null;
       } finally {
@@ -161,9 +159,8 @@ export function useSectionLedger(
   );
 
   const unpin = useCallback((): boolean => {
-    const engine = getEngine();
-    if (!engine || !sectionId) return false;
-    return engine.unpinSection(sectionId);
+    if (!sectionId) return false;
+    return sections.unpinSection(sectionId);
   }, [sectionId]);
 
   return { ...state, versionPolyline, revert, isReverting, unpin };

@@ -33,8 +33,17 @@ const mockEngine = {
   },
 };
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => mockEngine,
 }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    activities: {
+      getActivityHighlightsBundle: (...args: unknown[]) =>
+        mockEngine.getActivityHighlightsBundle(...args),
+    },
+  })
+);
 
 jest.mock('@/shared/debug/debug', () => ({
   debug: { create: () => ({ log: jest.fn() }) },

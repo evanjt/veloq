@@ -21,7 +21,7 @@
  */
 
 import { useMemo, useRef } from 'react';
-import type { ActivityHighlightsBundle } from 'veloqrs';
+import { activities, type ActivityHighlightsBundle } from 'veloqrs';
 import { isRouteMatchingEnabled } from '@/features/routes';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { debug } from '@/shared/debug/debug';
@@ -151,7 +151,7 @@ export function useActivitySectionHighlights(
       // unless the caller already has the bundle.
       let bundle = preComputedBundle;
       if (!bundle) {
-        bundle = readHighlights((engine) => engine.getActivityHighlightsBundle(ids));
+        bundle = readHighlights(() => activities.getActivityHighlightsBundle(ids));
         if (!bundle) return empty;
       }
       const indicators = matching ? bundle.indicators : [];

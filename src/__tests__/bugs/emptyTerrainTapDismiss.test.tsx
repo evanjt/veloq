@@ -11,7 +11,7 @@ import { useMapHandlers } from '@/features/maps/components/regional/useMapHandle
 import { SECTIONS_LINE_LAYER_ID } from '@/features/maps/components/regional/regionalMapLayerSpecs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
+jest.mock('@/shared/native/engine', () => ({ isEngineReady: () => true, getEngine: () => null }));
 jest.mock('expo-location', () => ({
   ...jest.requireActual('expo-location'),
   Accuracy: { Balanced: 3 },

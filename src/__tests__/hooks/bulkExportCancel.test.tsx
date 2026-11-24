@@ -25,6 +25,7 @@ let mockProgress: { running: boolean; run?: number; visited: number; total: numb
   total: 0,
 };
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     runBulkExport: (...args: unknown[]) => mockRunBulkExport(...args),
     bulkExportProgress: () => mockProgress,

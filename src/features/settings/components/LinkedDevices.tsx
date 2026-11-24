@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { remote, type FfiLinkedDevice, type FfiLinkedDevicesScreen } from 'veloqrs';
 import { useTheme } from '@/shared/app';
 import { formatDateTime } from '@/shared/format';
+import { getEngine } from '@/shared/native/engine';
 import { useEngineReady } from '@/shared/native/useEngineReady';
 import { Button, Icon, ROW_DIVIDER_INSET, Row, RowGroup, Spinner, TextField } from '@/shared/ui';
 import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
@@ -40,7 +41,7 @@ export function LinkedDevices({ inviteCode }: { inviteCode?: string | undefined 
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const palette = isDark ? darkColors : colors;
-  const engine = useEngineReady();
+  const ready = useEngineReady();
   const [screen, setScreen] = useState<FfiLinkedDevicesScreen>(readScreen);
   const { browsers, refusedToday } = screen;
   const [openId, setOpenId] = useState<string | null>(null);
@@ -53,9 +54,10 @@ export function LinkedDevices({ inviteCode }: { inviteCode?: string | undefined 
   const pairing = useDevicePairing(reload, inviteCode);
 
   useEffect(() => {
-    if (!engine) return undefined;
+    const engine = getEngine();
+    if (!ready || !engine) return undefined;
     return engine.subscribe('remoteWrote', () => setScreen(readScreen()));
-  }, [engine]);
+  }, [ready]);
 
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
 

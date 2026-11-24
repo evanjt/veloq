@@ -10,12 +10,13 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { readRecordingTrack } from '@/features/recording/lib/storage/recordingTrack';
-import { engine } from 'veloqrs';
+import { activities, engine } from 'veloqrs';
 import type { RecordingLibraryEntry } from '@/types';
 
 jest.mock('veloqrs', () =>
   require('../../__shared__/veloqrsStub').withOverrides({
-    engine: { ready: true, getGpsTrack: jest.fn(() => ({ points: [] })) },
+    engine: { ready: true },
+    activities: { getGpsTrack: jest.fn(() => ({ points: [] })) },
     // The track crosses coordinate-encoded. What stands in for the blob here is
     // an object carrying the points, which this reads back out.
     decodeCoords: (buf: ArrayBuffer) =>
@@ -29,7 +30,7 @@ jest.mock('expo-file-system/legacy', () => ({
   readAsStringAsync: jest.fn(async () => JSON.stringify({ latlng: [[-33.86, 151.2]] })),
 }));
 
-const mockGetTrack = engine.getGpsTrack as unknown as jest.Mock;
+const mockGetTrack = activities.getGpsTrack as unknown as jest.Mock;
 
 const ENTRY: RecordingLibraryEntry = {
   id: 'rec-1',

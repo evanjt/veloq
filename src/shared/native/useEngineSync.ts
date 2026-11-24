@@ -26,7 +26,7 @@
  * pull once the key is back in the engine, and a wipe starts it again here.
  */
 import { useEffect, useRef, useState } from 'react';
-import { hasStarted, SyncState } from 'veloqrs';
+import { hasStarted, sync, SyncState } from 'veloqrs';
 
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -84,7 +84,7 @@ export function useEngineSync(): void {
     // brings the effect back with a real engine.
     // The profile is left to the engine's age gate, and a pull to refresh is
     // what forces it.
-    startedRef.current = hasStarted(engine.syncNow(false));
+    startedRef.current = hasStarted(sync.syncNow(false));
   }, [
     isAuthenticated,
     isDemoMode,

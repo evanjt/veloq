@@ -16,14 +16,27 @@ import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import { useMuscleGroups } from '@/features/strength/hooks/useExerciseSets';
 import { engineErrorTag } from '@/shared/native/engineError';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
-jest.mock('veloqrs', () =>
-  require('../__shared__/veloqrsStub').withOverrides({
-    ...require('../__shared__/veloqrsStub').namespacesOver(() =>
-      require('@/shared/native/engine').getEngine()
-    ),
-  })
-);
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
+// The routes namespace answers through the engine handle unless a test sets
+// its own answer here, so the handle and the namespace can be told apart.
+const mockRouteAnswer: { groups?: unknown } = {};
+
+jest.mock('veloqrs', () => {
+  const stub = require('../__shared__/veloqrsStub');
+  const over = stub.namespacesOver(() => require('@/shared/native/engine').getEngine());
+  return stub.withOverrides({
+    ...over,
+    routes: {
+      ...over.routes,
+      getFilteredGroupSummaries: (...args: unknown[]) =>
+        mockRouteAnswer.groups ??
+        (over.routes.getFilteredGroupSummaries as (...a: unknown[]) => unknown)(...args),
+    },
+  });
+});
 jest.mock('@/shared/ffi/sectionConversions', () => ({
   convertNativeSectionToApp: (native: { id: string }) => ({ ...native }),
 }));
@@ -56,6 +69,19 @@ describe('route engine hooks', () => {
   it('useGroupSummaries reports a thrown read', async () => {
     const { result } = await renderHook(() => useGroupSummaries());
     expect(engineErrorTag(result.current.error)).toBe('Database');
+  });
+
+  it('useGroupSummaries takes its rows from the routes namespace, not the handle', async () => {
+    const groups = { totalCount: 1, summaries: [{ groupId: 'g1' }] };
+    mockRouteAnswer.groups = groups;
+    try {
+      const { result } = await renderHook(() => useGroupSummaries());
+      expect(result.current.error).toBeUndefined();
+      expect(result.current.totalCount).toBe(1);
+      expect(result.current.summaries).toEqual(groups.summaries);
+    } finally {
+      delete mockRouteAnswer.groups;
+    }
   });
 
   vaultIt('useGroupSummaries reads nothing while disabled', async () => {

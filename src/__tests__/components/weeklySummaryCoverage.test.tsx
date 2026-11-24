@@ -19,8 +19,17 @@ import { getEngine } from '@/shared/native/engine';
 import { summaryComparison, fitnessScreenRead, wallSeconds } from '../__shared__/fitnessScreenRead';
 import { WithScreenRead } from '../__shared__/withScreenRead';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
 /** Totals for any window: three activities, or none. */

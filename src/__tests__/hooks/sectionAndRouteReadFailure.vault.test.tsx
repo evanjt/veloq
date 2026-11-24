@@ -11,7 +11,10 @@ import { renderHook } from '@testing-library/react-native';
 import { getEngine } from '@/shared/native/engine';
 import { useSectionChartData } from '@/features/routes/hooks/useSectionChartData';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides({}));
 
 const lockFailed = { tag: 'Database', inner: { msg: 'poisoned' } };

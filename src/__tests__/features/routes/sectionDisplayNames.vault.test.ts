@@ -16,7 +16,13 @@ jest.mock('@/i18n', () => ({
   i18n: { t: (key: string) => key },
   getCurrentLanguage: () => 'en-GB',
 }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides({
+    sections: {
+      getSectionSummaries: (...args: unknown[]) => mockEngine.getSectionSummaries(...args),
+    },
+  })
+);
 
 describe('getAllSectionDisplayNames', () => {
   beforeEach(() => jest.clearAllMocks());

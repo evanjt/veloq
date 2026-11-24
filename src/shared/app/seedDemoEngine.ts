@@ -12,6 +12,7 @@
  */
 
 import { getEngine } from '@/shared/native/engine';
+import { activities, fitness, settings } from 'veloqrs';
 import { present } from 'veloqrs/src/delegates/optional';
 import type { Activity, WellnessData } from '@/types';
 import { PACE_SNAPSHOT_WINDOW_DAYS, TIME_RANGES } from '@/shared/app/constants';
@@ -27,7 +28,6 @@ const CURVE_WINDOWS = [
   ...new Set([...TIME_RANGES.map((range) => PERIOD_DAYS[range.id]), PACE_SNAPSHOT_WINDOW_DAYS]),
 ];
 
-type DemoEngine = NonNullable<ReturnType<typeof getEngine>>;
 type DemoCurves = typeof import('@/shared/demo/fitness/curves');
 
 /**
@@ -39,8 +39,8 @@ interface DemoLibrary {
   /** Raw JSON, matching what the live write-through stores. */
   athleteJson: string;
   sportSettingsJson: string;
-  wellness: Parameters<DemoEngine['upsertWellness']>[0];
-  activities: Parameters<DemoEngine['upsertActivityBodies']>[0];
+  wellness: Parameters<typeof fitness.upsertWellness>[0];
+  activities: Parameters<typeof activities.upsertActivityBodies>[0];
   /** The start of the oldest activity, absent with none. */
   oldestActivity: string | undefined;
 }
@@ -54,7 +54,7 @@ export function demoLibrary(): DemoLibrary {
     require('@/shared/demo/fitness/curves') as typeof import('@/shared/demo/fitness/curves');
 
   const wellness = getWellness() as unknown as WellnessData[];
-  const activities = fixtures.activities as unknown as Activity[];
+  const fixtureActivities = fixtures.activities as unknown as Activity[];
   return {
     // The records model fewer fields than the hooks read, so the body is the
     // source of truth.
@@ -81,16 +81,16 @@ export function demoLibrary(): DemoLibrary {
         raw: JSON.stringify(w),
       })
     ),
-    activities: activities.map((a) => ({
+    activities: fixtureActivities.map((a) => ({
       activityId: a.id,
       date: startDateLocalToEpochSeconds(a.start_date_local) ?? 0,
       raw: JSON.stringify(a),
     })),
     oldestActivity:
-      activities.length > 0
-        ? activities.reduce(
+      fixtureActivities.length > 0
+        ? fixtureActivities.reduce(
             (min, a) => (a.start_date_local < min ? a.start_date_local : min),
-            activities[0].start_date_local
+            fixtureActivities[0].start_date_local
           )
         : undefined,
   };
@@ -105,11 +105,11 @@ export function seedDemoEngine(): void {
       require('@/shared/demo/fitness/curves') as typeof import('@/shared/demo/fitness/curves');
     const library = demoLibrary();
 
-    engine.setAthleteProfile(library.athleteJson);
-    engine.setSportSettings(library.sportSettingsJson);
+    settings.setAthleteProfile(library.athleteJson);
+    settings.setSportSettings(library.sportSettingsJson);
 
     if (library.wellness.length > 0) {
-      engine.upsertWellness(library.wellness);
+      fitness.upsertWellness(library.wellness);
       // Rust announces a wellness write by kind; a seeded one has to say so
       // too, or the wellness screens never hear the fixtures landed.
       engine.announceBodyStored?.('wellness');
@@ -117,14 +117,15 @@ export function seedDemoEngine(): void {
 
     if (library.activities.length > 0) {
       // The engine derives metrics from the bodies it stores for the feed.
-      engine.upsertActivityBodies(library.activities);
-      if (library.oldestActivity) engine.setSetting('oldest_activity_date', library.oldestActivity);
+      activities.upsertActivityBodies(library.activities);
+      if (library.oldestActivity)
+        settings.setSetting('oldest_activity_date', library.oldestActivity);
     }
 
     const { fixtures } = require('@/data/demo/fixtures') as typeof import('@/data/demo/fixtures');
-    seedActivityBodies(engine, fixtures.activities as unknown as Activity[]);
-    seedCurves(engine, curves);
-    seedCalendarEvents(engine);
+    seedActivityBodies(fixtures.activities as unknown as Activity[]);
+    seedCurves(curves);
+    seedCalendarEvents();
 
     engine.triggerRefresh('activities');
   } catch (err) {
@@ -134,7 +135,7 @@ export function seedDemoEngine(): void {
 
 /** Streams and intervals for every fixture activity, in the tables the charts
  *  read. Without these the detail screen would be blank in demo only. */
-function seedActivityBodies(engine: DemoEngine, activities: Activity[]): void {
+function seedActivityBodies(fixtureActivities: Activity[]): void {
   const { getActivityIntervals } =
     require('@/data/demo/fixtures') as typeof import('@/data/demo/fixtures');
 
@@ -142,17 +143,17 @@ function seedActivityBodies(engine: DemoEngine, activities: Activity[]): void {
   // bounded LRU far smaller than the fixture set, so seeding every activity
   // evicts all but the tail of the pass. `readStreams` answers demo misses
   // from the generator instead.
-  for (const activity of activities) {
+  for (const activity of fixtureActivities) {
     const intervals = getActivityIntervals(activity.id);
     if (intervals) {
-      engine.setIntervalBody(activity.id, JSON.stringify(intervals));
+      activities.setIntervalBody(activity.id, JSON.stringify(intervals));
     }
   }
 }
 
 /** The power and pace curves the Fitness tab requests, under the windows it
  *  asks for. */
-function seedCurves(engine: DemoEngine, curves: DemoCurves): void {
+function seedCurves(curves: DemoCurves): void {
   const power = JSON.stringify({
     list: [{ secs: curves.demoPowerCurve.secs, values: curves.demoPowerCurve.watts }],
   });
@@ -176,20 +177,20 @@ function seedCurves(engine: DemoEngine, curves: DemoCurves): void {
 
   for (const days of CURVE_WINDOWS) {
     for (const sport of ['Ride', 'VirtualRide']) {
-      engine.setCurveBody('power', sport, days, false, power);
+      activities.setCurveBody('power', sport, days, false, power);
     }
   }
   for (const days of CURVE_WINDOWS) {
     for (const sport of ['Run', 'Swim']) {
-      engine.setCurveBody('pace', sport, days, false, pace);
-      if (sport === 'Run') engine.setCurveBody('pace', sport, days, true, pace);
+      activities.setCurveBody('pace', sport, days, false, pace);
+      if (sport === 'Run') activities.setCurveBody('pace', sport, days, true, pace);
     }
   }
 }
 
 /** Planned workouts, over a window wide enough to cover the screens that
  *  read them (today, tomorrow, and the record screen's single day). */
-function seedCalendarEvents(engine: DemoEngine): void {
+function seedCalendarEvents(): void {
   const { getDemoCalendarEvents } =
     require('@/data/demo/calendarEvents') as typeof import('@/data/demo/calendarEvents');
 
@@ -197,7 +198,7 @@ function seedCalendarEvents(engine: DemoEngine): void {
   if (events.length === 0) return;
 
   const dates = events.map((e) => startDateLocalToEpochSeconds(e.start_date_local) ?? 0);
-  engine.replaceCalendarEvents(
+  activities.replaceCalendarEvents(
     Math.min(...dates) - 86400,
     Math.max(...dates) + 86400,
     events.map((e, i) => ({

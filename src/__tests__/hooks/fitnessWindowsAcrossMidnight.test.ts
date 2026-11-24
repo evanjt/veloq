@@ -16,8 +16,17 @@ import { useDailyActivityLoads } from '@/features/fitness/hooks/useDailyActivity
 import { useZoneDistribution } from '@/features/fitness/hooks/useZoneDistribution';
 import { localDay } from '../__shared__/clockEdges';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 
 const getDailyActivityLoads = jest.fn(() => []);
 const getZoneDistribution = jest.fn(() => ({

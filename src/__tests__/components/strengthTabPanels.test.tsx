@@ -19,6 +19,7 @@ import { getEngine, getNativeModule } from '@/shared/native/engine';
 import { BODY_WAIT_MS } from '@/shared/native/engineBodies';
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
   getNativeModule: jest.fn(),
 }));

@@ -38,7 +38,7 @@ jest.mock('@/shared/app/appLocale', () => ({
 }));
 
 // No engine is open, as on a signed-out launch: settings read and write AsyncStorage.
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
+jest.mock('@/shared/native/engine', () => ({ isEngineReady: () => true, getEngine: () => null }));
 
 const STORAGE_KEY = 'veloq-language-preference';
 const mockGetLocales = Localization.getLocales as jest.Mock;

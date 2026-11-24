@@ -24,6 +24,8 @@ jest.mock('veloqrs', () =>
         mockEngine.open
           ? { retired: mockEngine.retired.map((section) => ({ section })), current: [], pairs: [] }
           : undefined,
+      getNamedCorridors: () => (mockEngine.open ? mockEngine.corridors : []),
+      removeNamedCorridor: () => false,
     },
   })
 );
@@ -56,8 +58,6 @@ jest.mock('@/shared/native/engine', () => {
       return mockEngine.open;
     },
     subscribe: () => () => {},
-    getNamedCorridors: () => (mockEngine.open ? mockEngine.corridors : []),
-    removeNamedCorridor: () => false,
   };
   return {
     getEngine: () => handle,

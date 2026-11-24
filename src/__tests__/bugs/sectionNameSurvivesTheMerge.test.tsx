@@ -28,6 +28,7 @@ jest.mock('@tanstack/react-query', () => ({
 }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({ getExcludedActivityIds: () => [] }),
 }));
 

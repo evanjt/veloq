@@ -15,7 +15,7 @@ import { Icon } from '@/shared/ui/Icon';
 import { RowDivider } from '@/shared/ui/RowGroup';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { SyncState, FfiSyncStep } from 'veloqrs';
+import { SyncState, FfiSyncStep, settings } from 'veloqrs';
 import type { FfiUnplacedRecord } from 'veloqrs';
 import {
   useExportRecordBackup,
@@ -270,7 +270,7 @@ export function BackupSection() {
   // since a later pass can add to it.
   const readRestoreDrops = useEngineRead(['sections', 'detectionApplied'], [restoreGeneration]);
   const restoreDrops = useMemo(() => {
-    const data = readRestoreDrops((engine) => engine.getBackupScreenData());
+    const data = readRestoreDrops(() => settings.getBackupScreenData());
     return data ? restoreDropLines(data, t) : [];
   }, [readRestoreDrops, t]);
   const [resumingImport, setResumingImport] = useState(false);

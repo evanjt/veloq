@@ -20,9 +20,18 @@ import { getEngine } from '@/shared/native/engine';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { streamBuffers } from '../__shared__/streamBuffers';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 
 const engine = {
   getActivityRecord: jest.fn(() => ({ id: 'a1', name: 'Morning ride', isDetail: true })),

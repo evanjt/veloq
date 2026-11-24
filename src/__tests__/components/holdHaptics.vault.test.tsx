@@ -41,7 +41,7 @@ jest.mock('@/features/activity/components/SectionInlinePlot', () => ({
   SectionInlinePlot: (props: unknown) => mockSectionInlinePlot(props),
 }));
 jest.mock('@/features/routes', () => ({ DataRangeFooter: () => null }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => ({}) }));
+jest.mock('@/shared/native/engine', () => ({ isEngineReady: () => true, getEngine: () => ({}) }));
 
 type Handlers = { onStart: (e: { x: number; y: number; absoluteY: number }) => void };
 

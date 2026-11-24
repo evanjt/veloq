@@ -19,6 +19,7 @@ jest.mock('@/features/insights/lib/taskRunLog', () => ({
   appendTaskRun: jest.fn(async () => undefined),
 }));
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(() => ({
     setSyncCredentials: jest.fn(),
     clearSyncCredentials: jest.fn(),
@@ -209,7 +210,7 @@ describe('background insight task, cold start', () => {
       name: 'Morning Ride',
       sportType: 'Ride',
     } as never);
-    const { engine } = require('veloqrs') as typeof import('veloqrs');
+    const { sync } = require('veloqrs') as typeof import('veloqrs');
 
     try {
       await runTask({
@@ -220,7 +221,7 @@ describe('background insight task, cold start', () => {
       });
 
       expect(mockAwaitActivityBody).toHaveBeenCalled();
-      expect(engine.readyActivityBodies).not.toHaveBeenCalled();
+      expect(sync.readyActivityBodies).not.toHaveBeenCalled();
       expect(presentActivityNotification).not.toHaveBeenCalled();
     } finally {
       credentials.mockRestore();

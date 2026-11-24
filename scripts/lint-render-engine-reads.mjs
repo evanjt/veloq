@@ -40,8 +40,7 @@
 //            once per mount, before the first paint. Reported, not failed.
 //
 // An engine read is a call through getEngine(), getNativeModule(), a binding
-// initialised from one of those or from useEngineReady(), which returns the
-// same handle, one of those held in a useMemo, useRef or useState, the `engine`
+// initialised from one of those, one of those held in a useMemo, useRef or useState, the `engine`
 // veloqrs exports, or a parameter named engine. Reads inside a boundary are not
 // reported.
 //
@@ -313,8 +312,7 @@ function holdsHandle(init) {
 }
 
 // Is this identifier bound to an engine handle? A `const engine = getEngine()`
-// is a handle, and so is `useEngineReady()`, which returns the same one, the
-// same call held in a useMemo, a useRef or a useState, the `engine` `veloqrs`
+// is a handle, and so is the same call held in a useMemo, a useRef or a useState, the `engine` `veloqrs`
 // exports, and a parameter called engine. A loop variable or a destructured
 // field is not, whatever it is called.
 function bindsEngine(id) {

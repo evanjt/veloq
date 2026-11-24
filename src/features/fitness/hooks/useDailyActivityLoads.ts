@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { DayLoad } from 'veloqrs';
+import { fitness, type DayLoad } from 'veloqrs';
 
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { formatLocalDate, addLocalDays } from '@/shared/time/localDay';
@@ -23,8 +23,8 @@ export function useDailyActivityLoads(days: number, enabled = true): DayLoad[] {
     const windowStart = addLocalDays(today, -days);
     try {
       return (
-        read((engine) =>
-          engine.getDailyActivityLoads(
+        read(() =>
+          fitness.getDailyActivityLoads(
             dayStartEpochSeconds(formatLocalDate(windowStart)),
             dayEndEpochSeconds(formatLocalDate(today))
           )

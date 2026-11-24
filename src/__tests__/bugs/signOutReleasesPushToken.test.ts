@@ -20,6 +20,7 @@ jest.mock('expo-notifications', () => ({
 }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => null,
 }));
 

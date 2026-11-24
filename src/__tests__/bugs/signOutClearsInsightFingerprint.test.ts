@@ -34,6 +34,13 @@ import {
 const mockSettings = new Map<string, string>();
 const mockAsyncStorage = new Map<string, string>();
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    settings: require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).settings,
+  })
+);
 jest.mock('@/shared/storage/settingsStorage', () => ({
   getSetting: jest.fn(async (key: string) => mockSettings.get(key) ?? null),
   setSetting: jest.fn(async (key: string, value: string) => {

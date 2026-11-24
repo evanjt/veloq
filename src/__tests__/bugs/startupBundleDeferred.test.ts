@@ -19,11 +19,15 @@ import { useStartupData } from '@/features/home/hooks/useStartupData';
 import { getEngine } from '@/shared/native/engine';
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    ...require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ),
     decodeCoords: jest.fn(() => [{ latitude: 1, longitude: 2 }]),
   })
 );

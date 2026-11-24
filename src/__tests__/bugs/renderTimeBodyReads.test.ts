@@ -18,9 +18,16 @@ import { usePaceCurve } from '@/features/stats/hooks/usePaceCurve';
 import { useActivityIntervals } from '@/features/activity/hooks/useActivities';
 import { getEngine } from '@/shared/native/engine';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 

@@ -40,7 +40,12 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   useScreenSafeAreaEdges: () => [],
 }));
 jest.mock('veloqrs', () =>
-  require('../__shared__/veloqrsStub').withOverrides({ decodeCoords: () => [] })
+  require('../__shared__/veloqrsStub').withOverrides({
+    ...require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ),
+    decodeCoords: () => [],
+  })
 );
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('@/shared/native/engine', () => ({

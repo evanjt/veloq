@@ -21,7 +21,17 @@ import { getEngine } from '@/shared/native/engine';
 import type { HomeRadiusMapProps } from '@/features/maps';
 import { opacity } from '@/theme';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides(
+    require('../../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 // The map is the maps feature's, tested there. Here the row is asked what it
 // told the map to draw and what it did when the pin moved.
 const mapProps: HomeRadiusMapProps[] = [];

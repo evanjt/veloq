@@ -12,17 +12,19 @@
  */
 import { useEffect, useState } from 'react';
 
+import { getEngine } from './engine';
 import { useEngineReady } from './useEngineReady';
 
 export function useTrackRevision(activityId: string | null | undefined): number {
-  const engine = useEngineReady();
+  const ready = useEngineReady();
   const [count, setCount] = useState<{ id: string | null | undefined; revision: number }>({
     id: activityId,
     revision: 0,
   });
 
   useEffect(() => {
-    if (!engine || !activityId) return undefined;
+    const engine = getEngine();
+    if (!ready || !engine || !activityId) return undefined;
     return engine.subscribe('gpsTracksMutated', (payload) => {
       if (!payload || !('activityIds' in payload)) return;
       if (!payload.activityIds.includes(activityId)) return;
@@ -31,7 +33,7 @@ export function useTrackRevision(activityId: string | null | undefined): number 
         revision: (prior.id === activityId ? prior.revision : 0) + 1,
       }));
     });
-  }, [engine, activityId]);
+  }, [ready, activityId]);
 
   return count.id === activityId ? count.revision : 0;
 }

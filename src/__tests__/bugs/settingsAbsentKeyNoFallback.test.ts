@@ -9,14 +9,26 @@
 
 const mockGetSetting = jest.fn().mockReturnValue(undefined);
 const mockGetItem = jest.fn().mockResolvedValue(null);
+let mockEngineAbsent = false;
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => ({
-    getSetting: mockGetSetting,
-    setSetting: jest.fn(),
-    setSettings: jest.fn(),
-    deleteSetting: jest.fn(),
-  }),
+  isEngineReady: () => true,
+  getEngine: () =>
+    mockEngineAbsent
+      ? null
+      : {
+          getSetting: mockGetSetting,
+          setSetting: jest.fn(),
+          setSettings: jest.fn(),
+          deleteSetting: jest.fn(),
+        },
 }));
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
@@ -43,6 +55,7 @@ function migrated(done: boolean): void {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockEngineAbsent = false;
   mockGetItem.mockResolvedValue(null);
 });
 
@@ -97,11 +110,10 @@ describe('an absent setting after the migration', () => {
 
   /** With no engine at all there is nothing to trust, so the fallback stands. */
   it('reads AsyncStorage when the engine is not open', async () => {
-    jest.doMock('@/shared/native/engine', () => ({ getEngine: () => null }));
+    mockEngineAbsent = true;
     mockGetItem.mockResolvedValue('en-AU');
     const { getSetting } = loadStorage();
 
     await expect(getSetting('veloq-language-preference')).resolves.toBe('en-AU');
-    jest.dontMock('@/shared/native/engine');
   });
 });

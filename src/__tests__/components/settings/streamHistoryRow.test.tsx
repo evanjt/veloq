@@ -22,6 +22,13 @@ import {
 } from '@/features/settings/components/StreamHistoryRow';
 import { DEFAULT_STREAM_RETENTION_DAYS } from '@/features/settings/lib/streamRetention';
 
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides(
+    require('../../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
   useTranslation: () => ({
@@ -43,6 +50,7 @@ let bytes = 4 * 1024 * 1024;
 let mockEngineHandle: object | null = null;
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => mockEngineHandle,
 }));
 

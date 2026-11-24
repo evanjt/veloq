@@ -15,7 +15,7 @@ import { useMapHandlers } from '@/features/maps/components/regional/useMapHandle
 import type { MapCameraState, MapSurfaceRef } from '@/features/maps/components/MapSurface';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
+jest.mock('@/shared/native/engine', () => ({ isEngineReady: () => true, getEngine: () => null }));
 
 function cameraState(bearing: number): MapCameraState {
   return {

@@ -24,7 +24,15 @@ const mockSettings = new Map<string, string>();
 const CHECKED = { writtenAt: WRITTEN_AT, namesAccount: true, names: 1, settings: 1, decisions: 0 };
 const mockCheckRecordBackup = jest.fn(async (_uri: string) => CHECKED);
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     getSetting: (key: string) => mockSettings.get(key) ?? null,
     setSetting: (key: string, value: string) => mockSettings.set(key, value),

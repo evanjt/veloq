@@ -15,7 +15,10 @@ jest.mock('veloqrs/src/coords', () => ({
   decodeCoords: jest.fn(),
 }));
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides({}));
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: jest.fn(() => null),
+}));
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
   isRouteMatchingEnabled: jest.fn(() => true),
 }));

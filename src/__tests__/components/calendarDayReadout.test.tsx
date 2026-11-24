@@ -15,7 +15,13 @@ import { CalendarDayReadout } from '@/features/fitness/components/CalendarDayRea
 import { initialiseI18n } from '@/i18n';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: (selector: (s: { isAuthenticated: boolean }) => unknown) =>
     selector({ isAuthenticated: true }),
@@ -24,6 +30,7 @@ jest.mock('@/shared/native/useEngineChannel', () => ({ useEngineChannel: () => u
 
 const mockGetWellnessDays = jest.fn();
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({ getWellnessDays: mockGetWellnessDays }),
 }));
 

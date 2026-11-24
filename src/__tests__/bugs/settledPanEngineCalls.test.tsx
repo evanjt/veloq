@@ -23,7 +23,10 @@ const mockEngine = new Proxy({ getActivityCount: jest.fn(() => 2000) } as Record
 });
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: () => mockEngine,
+}));
 jest.mock('expo-location', () => ({
   ...jest.requireActual('expo-location'),
   Accuracy: { Balanced: 3 },

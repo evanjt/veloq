@@ -71,7 +71,7 @@ import { formatDuration, formatElevation } from '@/shared/format/format';
 import { formatLocalDate } from '@/shared/time/localDay';
 import { SessionSensorList, useEntrySensors } from '@/features/sensors';
 import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
-import type { FfiPlannedEvent } from 'veloqrs';
+import { sync, type FfiPlannedEvent } from 'veloqrs';
 import type { ActivityType } from '@/types';
 import { toActivityType } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
@@ -171,7 +171,7 @@ function RecordScreenContent() {
       reread();
     });
     const offActivities = engine.subscribe('activities', reread);
-    engine.syncCalendarEvents(today, today);
+    sync.syncCalendarEvents(today, today);
     return () => {
       offCalendar();
       offActivities();

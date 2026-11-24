@@ -138,6 +138,7 @@ jest.mock('@/features/routes/hooks/useDetectionHold', () => {
 });
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => mockEnv.engine(),
   get UNIFIED_CONFIG() {
     return mockEnv.unifiedConfig;

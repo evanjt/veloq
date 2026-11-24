@@ -14,6 +14,7 @@ import { savePendingApiKey } from '@/features/auth/lib/pendingSignIn';
 import { KEYCHAIN_ACCESS_GROUP } from '@/shared/app/credentialKeychain';
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 

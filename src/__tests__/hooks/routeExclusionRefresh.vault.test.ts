@@ -18,7 +18,10 @@ jest.mock('veloqrs', () =>
   )
 );
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 jest.mock('@/shared/native/useEngineSubscription', () => ({
   useEngineRead:
     () =>

@@ -13,11 +13,22 @@ import type { Insight } from '@/types';
 
 const mockEngineSettings = new Map<string, string>();
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     getSetting: (key: string) => mockEngineSettings.get(key),
     setSetting: (key: string, value: string) => {
       mockEngineSettings.set(key, value);
+    },
+    setSettings: (pairs: { key: string; value: string }[]) => {
+      for (const { key, value } of pairs) mockEngineSettings.set(key, value);
     },
     removeSetting: (key: string) => {
       mockEngineSettings.delete(key);

@@ -33,7 +33,10 @@ jest.mock('@/shared/app/SyncDateRangeStore', () => ({
       newest: '2026-09-01',
     }),
 }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: () => mockEngine,
+}));
 jest.mock('@/shared/native/useSyncStatus', () => ({
   useTrackStage: () => null,
   useLastSyncSuccessAt: () => null,

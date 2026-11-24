@@ -18,13 +18,13 @@ import {
   attachEngineActivity,
   listRecordings,
 } from '@/features/recording/lib/storage/recordingLibrary';
-import { engine } from 'veloqrs';
+import { activities, engine } from 'veloqrs';
 import type { RecordingLibraryEntry } from '@/types';
 
 jest.mock('veloqrs', () =>
   require('../../__shared__/veloqrsStub').withOverrides({
-    engine: {
-      ready: true,
+    engine: { ready: true },
+    activities: {
       provisionalActivityId: jest.fn(() => 'local-deadbeef'),
       hasActivity: jest.fn(() => true),
       saveProvisionalActivity: jest.fn(() => true),
@@ -45,11 +45,11 @@ jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
 }));
 
 const mockList = listRecordings as jest.Mock;
-const mint = engine.provisionalActivityId as unknown as jest.Mock;
-const addActivities = engine.addActivities as unknown as jest.Mock;
-const upsertBodies = engine.upsertActivityBodies as unknown as jest.Mock;
-const hasActivity = engine.hasActivity as unknown as jest.Mock;
-const saveProvisional = engine.saveProvisionalActivity as unknown as jest.Mock;
+const mint = activities.provisionalActivityId as unknown as jest.Mock;
+const addActivities = activities.addActivities as unknown as jest.Mock;
+const upsertBodies = activities.upsertActivityBodies as unknown as jest.Mock;
+const hasActivity = activities.hasActivity as unknown as jest.Mock;
+const saveProvisional = activities.saveProvisionalActivity as unknown as jest.Mock;
 
 /** The stub's readiness, which is what the delegate's false actually means. */
 function setReady(ready: boolean): void {

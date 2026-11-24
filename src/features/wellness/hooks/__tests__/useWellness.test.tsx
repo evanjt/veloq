@@ -21,6 +21,13 @@ jest.mock('@/shared/app/AuthStore', () => ({
 
 const mockGetWellnessDays = jest.fn<WellnessDays, [string, string]>();
 
+jest.mock('veloqrs', () =>
+  require('../../../../__tests__/__shared__/veloqrsStub').withOverrides(
+    require('../../../../__tests__/__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({ getWellnessDays: mockGetWellnessDays }),
 }));

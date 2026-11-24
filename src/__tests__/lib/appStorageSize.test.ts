@@ -57,6 +57,7 @@ jest.mock('@/features/maps/lib/storage/terrainPreviewCache', () => ({
 }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(() => null),
   getRouteDbPath: jest.fn(() => '/mock/docs/routes.db'),
 }));

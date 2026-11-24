@@ -10,10 +10,18 @@ import { readFeedCards } from '@/features/activity/light';
 
 import { useGpsDataFetcher } from './useGpsDataFetcher';
 import { i18n } from '@/i18n';
-import { getNativeModule } from '@/shared/native/engine';
+import { getEngine, getNativeModule } from '@/shared/native/engine';
 import { readLibraryCount } from '@/shared/native/libraryCount';
 import { engineErrorTag } from '@/shared/native/engineError';
-import { engine, hasStarted, startOutcome, type StartVerdict, detection, strength } from 'veloqrs';
+import {
+  activities,
+  engine,
+  hasStarted,
+  startOutcome,
+  type StartVerdict,
+  detection,
+  strength,
+} from 'veloqrs';
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { useEngineReady } from '@/shared/native/useEngineReady';
@@ -141,8 +149,11 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
   // The add-one span starts where a track lands, not at this sync's download:
   // the engine also stores tracks while it pulls an activity's streams, and
   // then this sync finds nothing to fetch.
-  const readyEngine = useEngineReady();
-  useEffect(() => (readyEngine ? markAddOneOnTrackStored(readyEngine) : undefined), [readyEngine]);
+  const engineReady = useEngineReady();
+  useEffect(() => {
+    const handle = getEngine();
+    return engineReady && handle ? markAddOneOnTrackStored(handle) : undefined;
+  }, [engineReady]);
 
   // Counter to force a re-sync after an engine reset.
   const [syncTrigger, setSyncTrigger] = useState(0);
@@ -207,12 +218,9 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
       // Demo mode pulls no census, so the fixtures say it themselves.
       const { oldest, newest } = useSyncDateRange.getState();
       const candidates = isDemo
-        ? demoGpsCandidates(
-            readFeedCards(oldest, newest),
-            new Set(nativeModule.engine.getActivityIds())
-          )
-        : nativeModule.engine.getGpsFetchCandidates(oldest, newest);
-      const engineActivityCount = nativeModule.engine.getActivityCount();
+        ? demoGpsCandidates(readFeedCards(oldest, newest), new Set(activities.getActivityIds()))
+        : activities.getGpsFetchCandidates(oldest, newest);
+      const engineActivityCount = activities.getActivityCount();
       const withGps = headFirst(candidates, feedHeadIds(), (c) => c.activityId);
 
       // Published before the first fetch goes out, so a card already on

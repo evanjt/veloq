@@ -17,7 +17,13 @@ import type { SectionWithPolyline } from 'veloqrs';
  * of custom sections read before it can run.
  */
 
-jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides({
+    sections: require('../../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).sections,
+  })
+);
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({
@@ -61,6 +67,7 @@ const mockEngine = new Proxy(
 );
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => mockEngine,
 }));
 

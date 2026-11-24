@@ -25,6 +25,9 @@ const mockClearCredentials = jest.fn();
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    settings: require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).settings,
     decodeCoords: (buf: ArrayBuffer) =>
       (buf as unknown as { points?: { latitude: number; longitude: number }[] }).points ?? [],
   })

@@ -8,6 +8,7 @@
  * place protects nothing while looking as though it does.
  */
 
+import { settings } from 'veloqrs';
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -17,7 +18,6 @@ import { useMetricSystem, useTheme } from '@/shared/app';
 import { formatElevation } from '@/shared/format/format';
 import { formatPercent } from '@/shared/format';
 import { HomeRadiusMap, type LngLat } from '@/features/maps';
-import { getEngine } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
 import { useEngineReady } from '@/shared/native/useEngineReady';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
@@ -69,10 +69,10 @@ export function ExportPrivacyRow() {
   // Read through, rather than copied into state on mount: what is stored is
   // the truth until the athlete changes it, and the two edits below are the
   // only things that do.
-  const engine = useEngineReady();
+  const ready = useEngineReady();
   const readScreen = useEngineRead(['cutoverSettled']);
   const stored = useMemo(() => {
-    const data = readScreen((engine) => engine.getBackupScreenData());
+    const data = readScreen(() => settings.getBackupScreenData());
     const lat = data?.homeLat;
     const lng = data?.homeLng;
     const hasHome = Boolean(lat && lng);
@@ -113,17 +113,16 @@ export function ExportPrivacyRow() {
   const mapRadius = activeRadius > 0 ? activeRadius : (radius ?? DEFAULT_RADIUS_M);
 
   const preview: ExportPrivacyPreview | null = useMemo(() => {
-    if (!home || !engine?.exportPrivacyPreview) return null;
+    if (!home || !ready) return null;
     return advisory('preview the trim', () =>
-      engine.exportPrivacyPreview(home.lat, home.lng, activeRadius)
+      settings.exportPrivacyPreview(home.lat, home.lng, activeRadius)
     );
-  }, [engine, home, activeRadius]);
+  }, [ready, home, activeRadius]);
 
   // Placing the pin and confirming the guess are the same two writes.
   const handleMove = useCallback((next: LngLat) => {
-    const client = getEngine();
-    client?.setSetting?.(HOME_LAT_KEY, String(next[1]));
-    client?.setSetting?.(HOME_LNG_KEY, String(next[0]));
+    settings.setSetting(HOME_LAT_KEY, String(next[1]));
+    settings.setSetting(HOME_LNG_KEY, String(next[0]));
     setConfirmedHome(next);
   }, []);
 
@@ -137,10 +136,8 @@ export function ExportPrivacyRow() {
       // A radius with no home trims nothing, so the switch does not move until
       // there is one. Off is a zero radius, which is the engine's own off.
       if (!confirmed) return;
-      const client = getEngine();
-      if (!client) return;
       const next_m = next ? mapRadius : 0;
-      client.setSetting?.(RADIUS_KEY, String(next_m));
+      settings.setSetting(RADIUS_KEY, String(next_m));
       setToggled(next);
       if (next) setRadius(next_m);
     },
@@ -148,9 +145,7 @@ export function ExportPrivacyRow() {
   );
 
   const handleRadius = useCallback((metres: number) => {
-    const client = getEngine();
-    if (!client) return;
-    client.setSetting?.(RADIUS_KEY, String(metres));
+    settings.setSetting(RADIUS_KEY, String(metres));
     setRadius(metres);
     setToggled(true);
   }, []);

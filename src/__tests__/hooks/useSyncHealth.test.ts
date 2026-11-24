@@ -16,6 +16,7 @@ import { SyncState, type SyncStatus } from 'veloqrs';
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 

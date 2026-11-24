@@ -24,10 +24,11 @@ const mockEngine: Record<string, unknown> = {};
 const listeners = new Map<string, (payload?: unknown) => void>();
 
 jest.mock('@/shared/native/useEngineReady', () => ({
-  useEngineReady: () => mockEngine,
+  useEngineReady: () => true,
 }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => mockEngine,
 }));
 

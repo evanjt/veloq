@@ -32,6 +32,7 @@ jest.mock('@/shared/app', () => ({
   useMetricSystem: () => true,
 }));
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({ getPlannedEvents: () => [], subscribe: () => () => {} }),
 }));
 jest.mock('@/shared/app/navigation', () => ({

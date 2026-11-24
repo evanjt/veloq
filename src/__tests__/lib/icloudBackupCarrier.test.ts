@@ -57,6 +57,13 @@ function mockParent(path: string): string {
   return path.slice(0, path.lastIndexOf('/')) || '/';
 }
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('react-native-cloud-storage', () => ({
   ...jest.requireActual('react-native-cloud-storage'),
   CloudStorageScope: { Documents: 'documents', AppData: 'app_data' },
@@ -117,6 +124,7 @@ jest.mock('react-native-cloud-storage', () => ({
 }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     getSetting: (key: string) => mockSettings.get(key),
     setSetting: (key: string, value: string) => mockSettings.set(key, value),

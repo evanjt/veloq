@@ -18,7 +18,15 @@ import { getEngine } from '@/shared/native/engine';
 import { FfiBestEffortKind, type BestEffortsData } from 'veloqrs';
 import { initialiseI18n } from '@/i18n';
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 

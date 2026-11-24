@@ -20,8 +20,18 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { resetGlobalSyncState } from '@/features/routes/hooks/useRouteSyncContext';
 import { getEngine, getNativeModule } from '@/shared/native/engine';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(), getNativeModule: jest.fn() }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: jest.fn(),
+  getNativeModule: jest.fn(),
+}));
 jest.mock('@/shared/native/useEngineSync', () => ({ useEngineSync: jest.fn() }));
 jest.mock('@/shared/native/useSyncAuthExpiry', () => ({ useSyncAuthExpiry: jest.fn() }));
 jest.mock('@/shared/native/usePushedWritesOnForeground', () => ({

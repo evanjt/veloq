@@ -13,19 +13,20 @@ const mockAddActivities = jest.fn(async () => undefined);
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
-    engine: {
+    engine: { triggerRefresh: jest.fn() },
+    activities: {
       setTimeStreams: jest.fn(),
-      triggerRefresh: jest.fn(),
+      addActivities: (...args: unknown[]) => mockAddActivities(...(args as [])),
     },
   })
 );
 jest.mock('@/shared/native/engine', () => ({
   getNativeModule: () => ({
     engine: {
-      addActivities: (...args: unknown[]) => mockAddActivities(...(args as [])),
       getSectionDetectionProgress: () => null,
     },
   }),
+  isEngineReady: () => true,
   getEngine: () => null,
 }));
 jest.mock('@/data/demo/fixtures', () => ({

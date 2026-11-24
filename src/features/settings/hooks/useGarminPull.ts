@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FfiGarminPullPhase, type FfiGarminPull } from 'veloqrs';
+import { FfiGarminPullPhase, type FfiGarminPull, settings } from 'veloqrs';
 
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { pullGarminNow } from '@/shared/native/garminPull';
@@ -18,9 +18,9 @@ export function useGarminPull(): { pull: FfiGarminPull | undefined; pullNow: () 
   const readEngine = useEngineRead([], [tick]);
   const pull = useMemo(
     () =>
-      readEngine((engine) => {
+      readEngine(() => {
         try {
-          return engine.getBackgroundJobsData?.()?.garminPull;
+          return settings.getBackgroundJobsData()?.garminPull;
         } catch {
           // empty-on-error: undefined is "could not answer", and the row stays away.
           return undefined;

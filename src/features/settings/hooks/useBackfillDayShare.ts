@@ -1,3 +1,4 @@
+import { settings } from 'veloqrs';
 import { useMemo } from 'react';
 
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
@@ -11,9 +12,9 @@ export function useBackfillDayShare(): number | undefined {
   const readEngine = useEngineRead([]);
   return useMemo(
     () =>
-      readEngine((engine) => {
+      readEngine(() => {
         try {
-          return engine.getBackgroundJobsData?.()?.backfillDayShare;
+          return settings.getBackgroundJobsData()?.backfillDayShare;
         } catch {
           // empty-on-error: undefined is "could not answer", and the confirm names no days.
           return undefined;

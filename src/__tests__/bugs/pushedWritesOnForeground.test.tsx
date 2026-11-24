@@ -19,6 +19,7 @@ import { queryKeys } from '@/shared/query/queryKeys';
 
 const mockTakeExternalWrites = jest.fn();
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({ takeExternalWrites: () => mockTakeExternalWrites() }),
 }));
 

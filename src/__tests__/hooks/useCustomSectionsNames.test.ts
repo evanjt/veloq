@@ -3,9 +3,17 @@ import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
 import { getEngine } from '@/shared/native/engine';
 
 jest.mock('veloqrs', () =>
-  require('../__shared__/veloqrsStub').withOverrides({ decodeCoords: () => [] })
+  require('../__shared__/veloqrsStub').withOverrides({
+    sections: require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).sections,
+    decodeCoords: () => [],
+  })
 );
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 jest.mock('@/shared/native/useEngineSubscription', () => ({ useEngineSubscription: () => 0 }));
 jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),

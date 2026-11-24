@@ -32,7 +32,6 @@ jest.mock('@/shared/storage', () => ({
 jest.mock('@/shared/native/engine', () => ({
   getNativeModule: () => ({
     engine: {
-      addActivities: async () => undefined,
       getSectionDetectionProgress: () => ({ percent: 0 }),
     },
   }),
@@ -49,6 +48,7 @@ let mockRunResult: unknown = null;
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
     activities: {
+      setTimeStreams: jest.fn(),
       getGivenUpTracks: () => ({
         tracks: mockGivenUp.map((activityId: string) => ({
           activityId,
@@ -67,7 +67,6 @@ jest.mock('veloqrs', () =>
       cancelFetchAndStore: jest.fn(),
       getFetchRunProgress: jest.fn(() => null),
       triggerRefresh: jest.fn(),
-      setTimeStreams: jest.fn(),
       getStats: () => ({ sectionsDirty: false }),
     },
   })

@@ -5,12 +5,12 @@
  * it into a typed profile, so the unit and form preferences this hook lifts
  * arrive as fields rather than keys dug out of the body.
  */
+import { settings } from 'veloqrs';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
-import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
@@ -19,7 +19,7 @@ import type { Athlete } from '@/types';
 import { TIME } from '@/shared/app/time';
 
 function readAthlete(): Athlete | null {
-  return getEngine()?.getAthleteProfile() ?? null;
+  return settings.getAthleteProfile() ?? null;
 }
 
 export function useAthlete() {

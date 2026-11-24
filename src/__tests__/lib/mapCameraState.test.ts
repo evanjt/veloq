@@ -9,7 +9,17 @@
  * module registry and `require` is the only way to reach one.
  */
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 
 const STORAGE_KEY = '@map_camera_state';
 const BERN = { center: [7.44, 46.95] as [number, number], zoom: 11 };

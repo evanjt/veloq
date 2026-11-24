@@ -41,6 +41,7 @@ const mockCancel = jest.fn();
 // The routes status read names the running cutover by its id.
 let mockCutoverRun: number | null = 7;
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     cancelRun: mockCancel,
     getRoutesStatusData: () => ({ cutover: { run: mockCutoverRun } }),

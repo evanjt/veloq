@@ -9,6 +9,7 @@ const mockReleaseMemory = jest.fn();
 let mockEngine: { releaseMemory: typeof mockReleaseMemory } | null = null;
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => mockEngine,
 }));
 

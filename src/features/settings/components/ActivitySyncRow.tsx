@@ -10,13 +10,12 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { SyncState } from 'veloqrs';
+import { sync, SyncState } from 'veloqrs';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { getEngine } from '@/shared/native/engine';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
 import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
 import { formatLibraryCoverage } from '@/shared/format/libraryCoverage';
@@ -45,7 +44,7 @@ export function ActivitySyncRow() {
     if (stopping) return;
     setStopping(true);
     freshLoginTimeline.markCancelRequested();
-    getEngine()?.cancelSync();
+    sync.cancelSync();
   }, [stopping]);
 
   if (!isSyncing) return null;

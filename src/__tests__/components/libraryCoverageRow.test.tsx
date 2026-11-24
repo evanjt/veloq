@@ -36,6 +36,7 @@ jest.mock('@/shared/native/useLibraryCoverage', () => ({
 }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({ cancelSync: jest.fn() }),
 }));
 

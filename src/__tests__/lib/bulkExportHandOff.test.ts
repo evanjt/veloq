@@ -18,6 +18,7 @@ const mockShare = jest.fn();
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     runBulkExport: (format: unknown, path: string) => mockRunBulkExport(format, path),
     bulkExportProgress: () => ({ running: false, visited: 0, total: 0 }),

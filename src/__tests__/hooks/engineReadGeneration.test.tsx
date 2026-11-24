@@ -38,10 +38,11 @@ const mockEngine = {
 };
 
 jest.mock('@/shared/native/useEngineReady', () => ({
-  useEngineReady: () => mockEngine,
+  useEngineReady: () => true,
 }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 
@@ -56,7 +57,7 @@ let reads = 0;
 function Probe({ events, other }: { events: EngineEvent[]; other: string }) {
   const readEngine = useEngineRead(events);
   const shown = React.useMemo(
-    () => readEngine((engine) => (engine as unknown as { read: () => string }).read()),
+    () => readEngine(() => (getEngine() as unknown as { read: () => string }).read()),
     [readEngine]
   );
   return (
@@ -95,7 +96,7 @@ vaultIt(
   }
 );
 
-it('hands the read undefined rather than throwing when the engine is not there', async () => {
+it('runs the read when no handle loaded, since a namespace answers its own default', async () => {
   mockGetEngine.mockReturnValue(null);
 
   function NoEngine() {
@@ -106,13 +107,13 @@ it('hands the read undefined rather than throwing when the engine is not there',
 
   const screen = await render(<NoEngine />);
 
-  expect(screen.getByTestId('shown')).toHaveTextContent('undefined');
+  expect(screen.getByTestId('shown')).toHaveTextContent('read ran');
 });
 
 function KeyedProbe({ refreshKey, other }: { refreshKey: number; other: string }) {
   const readEngine = useEngineRead([], [refreshKey]);
   const shown = React.useMemo(
-    () => readEngine((engine) => (engine as unknown as { read: () => string }).read()),
+    () => readEngine(() => (getEngine() as unknown as { read: () => string }).read()),
     [readEngine]
   );
   return (

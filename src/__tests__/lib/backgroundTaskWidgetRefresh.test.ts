@@ -18,6 +18,7 @@ jest.mock('@/features/insights/lib/taskRunLog', () => ({
   appendTaskRun: jest.fn(async () => undefined),
 }));
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(() => ({
     setSyncCredentials: jest.fn(),
     clearSyncCredentials: jest.fn(),

@@ -21,6 +21,7 @@ const mockBulkExportProgress = jest.fn();
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     runBulkExport: mockRunBulkExport,
     bulkExportProgress: mockBulkExportProgress,

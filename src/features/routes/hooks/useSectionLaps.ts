@@ -6,7 +6,7 @@
  */
 
 import { useCallback } from 'react';
-import { getEngine } from '@/shared/native/engine';
+import { sections } from 'veloqrs';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
 export interface SectionLaps {
@@ -17,17 +17,15 @@ export interface SectionLaps {
 export function useSectionLaps(sectionId: string | undefined): SectionLaps {
   const excludeLap = useCallback(
     (activityId: string, startIndex: number) => {
-      const engine = getEngine();
-      if (!engine || !sectionId) return;
-      engine.excludeSectionLap(sectionId, activityId, startIndex);
+      if (!sectionId) return;
+      sections.excludeSectionLap(sectionId, activityId, startIndex);
     },
     [sectionId]
   );
   const includeLap = useCallback(
     (activityId: string, startIndex: number) => {
-      const engine = getEngine();
-      if (!engine || !sectionId) return;
-      engine.includeSectionLap(sectionId, activityId, startIndex);
+      if (!sectionId) return;
+      sections.includeSectionLap(sectionId, activityId, startIndex);
     },
     [sectionId]
   );

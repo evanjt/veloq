@@ -48,7 +48,7 @@ jest.mock('@/shared/app/navigation', () => ({
   returnTo: (...a: unknown[]) => mockReturnTo(...a),
   goBack: jest.fn(),
 }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
+jest.mock('@/shared/native/engine', () => ({ isEngineReady: () => true, getEngine: () => null }));
 jest.mock('@/shared/ui/haptics', () => ({
   ...jest.requireActual('@/shared/ui/haptics'),
   medium: jest.fn(),

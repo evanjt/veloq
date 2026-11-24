@@ -18,6 +18,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { settings } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { SETTINGS_MIGRATED_KEY } from './migrateSettingsToSqlite';
 import { libraryOpenCount } from './routeDbLocation';
@@ -34,16 +35,9 @@ function commitPending(): void {
   if (pending.size === 0) return;
   const pairs = [...pending].map(([key, value]) => ({ key, value }));
   pending.clear();
-  const engine = getEngine();
-  if (!engine) return;
+  if (!getEngine()) return;
   try {
-    // A native binary older than the batch export has no `setSettings`, and
-    // dropping the writes there would lose every preference silently.
-    if (typeof engine.setSettings === 'function') {
-      engine.setSettings(pairs);
-    } else {
-      for (const { key, value } of pairs) engine.setSetting(key, value);
-    }
+    settings.setSettings(pairs);
   } catch {
     // Settings write failed - non-critical, AsyncStorage still holds the value
   }
@@ -57,12 +51,11 @@ export async function getSetting(key: string): Promise<string | null> {
   // missed it would answer with the value the write was replacing.
   const queued = pending.get(key);
   if (queued !== undefined) return queued;
-  const engine = getEngine();
-  if (engine) {
+  if (getEngine()) {
     try {
-      const value = engine.getSetting(key);
+      const value = settings.getSetting(key);
       if (value !== undefined) return value;
-      if (sqliteHoldsEverything(engine)) return null;
+      if (sqliteHoldsEverything()) return null;
     } catch {
       // A failed engine read falls through to the mirror, as an unready engine does
     }
@@ -87,10 +80,10 @@ export async function getSetting(key: string): Promise<string | null> {
  */
 let migrationSeenInOpening: number | null = null;
 
-function sqliteHoldsEverything(engine: NonNullable<ReturnType<typeof getEngine>>): boolean {
+function sqliteHoldsEverything(): boolean {
   const opening = libraryOpenCount();
   if (migrationSeenInOpening === opening) return true;
-  if (engine.getSetting(SETTINGS_MIGRATED_KEY) === undefined) return false;
+  if (settings.getSetting(SETTINGS_MIGRATED_KEY) === undefined) return false;
   migrationSeenInOpening = opening;
   return true;
 }
@@ -126,9 +119,8 @@ export function flushSettingWrites(): Promise<void> {
 export async function removeSetting(key: string): Promise<void> {
   // A key queued for this tick and then removed must not be written after it.
   pending.delete(key);
-  const engine = getEngine();
-  if (engine) {
-    engine.deleteSetting(key);
+  if (getEngine()) {
+    settings.deleteSetting(key);
   }
   await AsyncStorage.removeItem(key);
 }

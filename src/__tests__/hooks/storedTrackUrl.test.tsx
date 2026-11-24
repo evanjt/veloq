@@ -28,7 +28,7 @@ jest.mock('@/shared/native/engine', () => ({
   isEngineReady: () => true,
 }));
 jest.mock('@/shared/native/useEngineReady', () => ({
-  useEngineReady: () => require('@/shared/native/engine').getEngine(),
+  useEngineReady: () => true,
   useEngineOpenCount: () => 1,
 }));
 jest.mock('expo-location', () => ({

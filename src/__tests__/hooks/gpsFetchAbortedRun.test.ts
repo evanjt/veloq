@@ -28,6 +28,10 @@ const mockAddActivities = jest.fn(async () => mockAbortIf('store'));
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    activities: {
+      setTimeStreams: jest.fn(),
+      addActivities: (...args: unknown[]) => mockAddActivities(...(args as [])),
+    },
     engine: {
       startGpsPass: jest.fn((_oldest: string, _newest: string, head: string[]) => ({
         outcome: 1,
@@ -38,7 +42,6 @@ jest.mock('veloqrs', () =>
       cancelFetchAndStore: jest.fn(),
       getFetchRunProgress: jest.fn(() => null),
       triggerRefresh: jest.fn(),
-      setTimeStreams: jest.fn(),
       getStats: () => ({ sectionsDirty: false }),
     },
   })
@@ -47,10 +50,10 @@ jest.mock('veloqrs', () =>
 jest.mock('@/shared/native/engine', () => ({
   getNativeModule: () => ({
     engine: {
-      addActivities: (...args: unknown[]) => mockAddActivities(...(args as [])),
       getSectionDetectionProgress: () => ({ percent: 0 }),
     },
   }),
+  isEngineReady: () => true,
   getEngine: () => null,
 }));
 

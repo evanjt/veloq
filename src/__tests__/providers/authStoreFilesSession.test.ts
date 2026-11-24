@@ -18,7 +18,19 @@ import { readStoredActivityCountMirror } from '@/shared/storage';
 jest.mock('@/features/recording/lib/holdRecordingOnSignOut', () => ({
   holdRecordingOnSignOut: jest.fn(async () => undefined),
 }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+const mockSync = { setSyncCredentials: jest.fn(), clearSyncCredentials: jest.fn() };
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    sync: {
+      setSyncCredentials: (...args: unknown[]) => mockSync.setSyncCredentials(...args),
+      clearSyncCredentials: () => mockSync.clearSyncCredentials(),
+    },
+  })
+);
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 
 const mockGetItemAsync = SecureStore.getItemAsync as jest.MockedFunction<
   typeof SecureStore.getItemAsync
@@ -44,6 +56,7 @@ beforeEach(async () => {
   mockGetEngine.mockReturnValue(null);
   reset();
   await useAuthStore.getState().exitFilesMode();
+  jest.clearAllMocks();
 });
 
 it('is a session with no credential and no athlete id', () => {
@@ -60,13 +73,10 @@ it('is a session with no credential and no athlete id', () => {
 });
 
 it('hands the engine no credential, clearing one it held', () => {
-  const engine = { setSyncCredentials: jest.fn(), clearSyncCredentials: jest.fn() };
-  mockGetEngine.mockReturnValue(engine as never);
-
   useAuthStore.getState().enterFilesMode();
 
-  expect(engine.clearSyncCredentials).toHaveBeenCalledTimes(1);
-  expect(engine.setSyncCredentials).not.toHaveBeenCalled();
+  expect(mockSync.clearSyncCredentials).toHaveBeenCalledTimes(1);
+  expect(mockSync.setSyncCredentials).not.toHaveBeenCalled();
 });
 
 it('survives a relaunch', async () => {
@@ -122,8 +132,6 @@ it('ends at a sign-out that deletes the data', async () => {
 
 it('leaves the library count for the sign-in screen when the athlete leaves it', async () => {
   const engine = {
-    setSyncCredentials: jest.fn(),
-    clearSyncCredentials: jest.fn(),
     getStats: () => ({ activityCount: 120, libraryCount: 300 }),
   };
   mockGetEngine.mockReturnValue(engine as never);

@@ -145,7 +145,7 @@ export function useStrengthTabState(): StrengthTabState {
   // awaiting tab into a ready one, and it is the only signal the demo seed
   // below sends.
   const readStrength = useEngineRead(['activities', 'fitParsed']);
-  const engine = useEngineReady();
+  const ready = useEngineReady();
   const isSyncing = useSyncState() === SyncState.Syncing;
 
   // The demo seed is a write, and a write does not belong in a render. It still
@@ -156,9 +156,9 @@ export function useStrengthTabState(): StrengthTabState {
   // nothing at all; a demo mount whose sets are already in the engine reads
   // them and writes nothing.
   useEffect(() => {
-    if (!engine) return;
+    if (!ready) return;
     ensureDemoStrengthSeeded();
-  }, [engine]);
+  }, [ready]);
 
   return useMemo(
     () =>

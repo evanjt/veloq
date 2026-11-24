@@ -17,6 +17,13 @@ import { initialiseI18n } from '@/i18n';
 const mockSaveDocument = jest.fn();
 const mockGetSetting = jest.fn();
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('expo-sharing', () => ({
   ...jest.requireActual('expo-sharing'),
   shareAsync: jest.fn(async () => undefined),
@@ -27,6 +34,7 @@ jest.mock('expo-modules-core', () => ({
     name === 'VeloqBackupExclusion' ? { saveDocument: mockSaveDocument } : null,
 }));
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({ getSetting: mockGetSetting }),
 }));
 

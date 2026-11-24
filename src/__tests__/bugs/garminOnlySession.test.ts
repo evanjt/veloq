@@ -16,7 +16,10 @@ import { GARMIN_KEY_STORAGE_KEY } from '@/shared/app/credentialKeychain';
 const mockEngine = { setSyncCredentials: jest.fn(), clearSyncCredentials: jest.fn() };
 const mockDisconnect = jest.fn(async () => {});
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: () => mockEngine,
+}));
 jest.mock('@/features/settings/lib/garminConnector', () => ({
   disconnectGarmin: () => mockDisconnect(),
 }));

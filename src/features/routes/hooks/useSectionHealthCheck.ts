@@ -13,7 +13,7 @@
 
 import { useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { hasStarted, cutover, detection } from 'veloqrs';
+import { activities, hasStarted, cutover, detection, sections, settings } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 
@@ -34,22 +34,21 @@ export function useSectionHealthCheck(syncComplete: boolean): void {
 
     (async () => {
       try {
-        const engine = getEngine();
-        if (!engine) return;
+        if (!getEngine()) return;
 
         const legacy = await AsyncStorage.getItem(LEGACY_SECTION_HEALTH_CHECK_KEY);
         if (legacy !== null) {
-          if (legacy === 'done') engine.setSetting(SECTION_HEALTH_CHECK_SETTING, '1');
+          if (legacy === 'done') settings.setSetting(SECTION_HEALTH_CHECK_SETTING, '1');
           await AsyncStorage.removeItem(LEGACY_SECTION_HEALTH_CHECK_KEY);
         }
-        if (engine.getSetting(SECTION_HEALTH_CHECK_SETTING)) return;
+        if (settings.getSetting(SECTION_HEALTH_CHECK_SETTING)) return;
 
-        const activityCount = engine.getActivityCount?.() ?? 0;
+        const activityCount = activities.getActivityCount();
         if (activityCount === 0) return;
 
-        const sectionCount = engine.getSectionCount?.() ?? 0;
+        const sectionCount = sections.getSectionCount();
         if (sectionCount > 0) {
-          engine.setSetting(SECTION_HEALTH_CHECK_SETTING, '1');
+          settings.setSetting(SECTION_HEALTH_CHECK_SETTING, '1');
           return;
         }
 
@@ -61,7 +60,7 @@ export function useSectionHealthCheck(syncComplete: boolean): void {
         // Stamp only on a redetect the engine actually accepted. A refusal
         // means detection is suspended, and the check is owed a later launch.
         if (hasStarted(detection.forceRedetectSections())) {
-          engine.setSetting(SECTION_HEALTH_CHECK_SETTING, '1');
+          settings.setSetting(SECTION_HEALTH_CHECK_SETTING, '1');
         }
       } catch {
         // best-effort

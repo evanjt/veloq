@@ -14,7 +14,10 @@ import { buildInsightsParams } from '@/features/insights/lib/insightsParams';
 import type { InsightsData } from 'veloqrs';
 import { CLOCK_EDGES, localDay } from '../__shared__/clockEdges';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: jest.fn(() => null),
+}));
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
   isRouteMatchingEnabled: jest.fn(() => false),
 }));

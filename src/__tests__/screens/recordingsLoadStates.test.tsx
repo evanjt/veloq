@@ -89,9 +89,8 @@ jest.mock('@/features/recording/hooks/useRecordingLibrary', () => ({
   ...jest.requireActual('@/features/recording/hooks/useRecordingLibrary'),
   useRecordingLibrary: jest.fn(),
 }));
-const mockOpenEngine = { id: 'open-handle' };
 jest.mock('@/shared/native/useEngineReady', () => ({
-  useEngineReady: () => mockOpenEngine,
+  useEngineReady: () => true,
   useEngineOpening: () => false,
 }));
 

@@ -3,7 +3,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatWeekRange, getMonday, getSunday } from '@/shared/format/format';
 import { formatLocalDate, addLocalDays } from '@/shared/time/localDay';
-import { getEngine } from '@/shared/native/engine';
+import { fitness } from 'veloqrs';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { AthleteSummary } from '@/types';
@@ -83,14 +83,11 @@ const WEEK_SECONDS = 7 * 24 * 60 * 60;
  * question Rust cannot answer.
  */
 function readWeeklySummaries(currentMonday: Date, weeksBack: number): AthleteSummary[] {
-  const engine = getEngine();
-  if (!engine?.getWeeklySummaries) return [];
-
   const mondays = mondayAnchors(currentMonday, weeksBack);
 
   // Wall-clock stamps, not instants: `activity_metrics.date` is a zoneless
   // local time, so a true instant here slides every week by the UTC offset.
-  const rows = engine.getWeeklySummaries(mondays.map(weekAnchorSeconds), WEEK_SECONDS);
+  const rows = fitness.getWeeklySummaries(mondays.map(weekAnchorSeconds), WEEK_SECONDS);
 
   return rows
     .map((row, i) => toSummary(mondays[i], row))

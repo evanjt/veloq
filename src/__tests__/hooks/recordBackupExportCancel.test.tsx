@@ -13,6 +13,13 @@ import { useExportRecordBackup } from '@/features/settings/hooks/useBackup';
 import { FOREGROUND_BACKUP_TIMEOUT_MS } from '@/features/settings/lib/backup';
 import { shareExistingFile } from '@/features/settings/lib/shareFile';
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 const mockRunRecordBackup = jest.fn<Promise<void>, [string]>();

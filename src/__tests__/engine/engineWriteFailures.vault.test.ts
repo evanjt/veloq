@@ -7,6 +7,8 @@
  */
 
 import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
+import * as settingsDelegates from '../../../modules/veloqrs/src/delegates/settings';
+import { bindDelegates } from '../../../modules/veloqrs/src/delegates/bind';
 
 const mockSettings = {
   setAthleteProfile: jest.fn(),
@@ -52,7 +54,7 @@ describe('engine write failures', () => {
       throw new Error('database is locked');
     });
 
-    client.setAthleteProfile('{}');
+    bindDelegates(client, settingsDelegates).setAthleteProfile('{}');
 
     expect(errorSpy).toHaveBeenCalledWith(
       expect.stringContaining('setAthleteProfile'),
@@ -66,7 +68,7 @@ describe('engine write failures', () => {
       throw new Error('database is locked');
     });
 
-    client.setSportSettings('[]');
+    bindDelegates(client, settingsDelegates).setSportSettings('[]');
 
     expect(errorSpy).toHaveBeenCalledWith(
       expect.stringContaining('setSportSettings'),

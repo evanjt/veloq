@@ -18,9 +18,8 @@
 
 import { streamsFromArrays, streamsFromBuffers } from '@/features/activity/lib/streams';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { getEngine } from '@/shared/native/engine';
 import type { ActivityStreams } from '@/types';
-import type { FfiStartOutcome, FfiStartResult } from 'veloqrs';
+import { activities, sync, type FfiStartOutcome, type FfiStartResult } from 'veloqrs';
 
 /** The full series set the detail charts render. */
 export const DETAIL_STREAM_TYPES = [
@@ -55,10 +54,9 @@ export function streamTypesKey(types: readonly string[]): string {
 
 /** Streams read from the stored body, or null when nothing is stored. */
 export function readStreams(activityId: string, types: readonly string[]): ActivityStreams | null {
-  const engine = getEngine();
-  if (!engine?.getActivityStreams || !activityId) return null;
+  if (!activityId) return null;
 
-  const buffers = engine.getActivityStreams(activityId, streamTypesKey(types));
+  const buffers = activities.getActivityStreams(activityId, streamTypesKey(types));
   if (!buffers) return demoStreams(activityId);
   return streamsFromBuffers(buffers);
 }
@@ -87,5 +85,5 @@ export function requestStreams(
   if (!activityId) return undefined;
   // Demo mode has no account to fetch against, the generator answers instead.
   if (useAuthStore.getState().isDemoMode) return undefined;
-  return getEngine()?.syncActivityStreams(activityId, streamTypesKey(types));
+  return sync.syncActivityStreams(activityId, streamTypesKey(types));
 }

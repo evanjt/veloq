@@ -23,7 +23,10 @@ import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-librar
 
 // The shared setup stubs the router for render tests; this suite needs the real one.
 jest.mock('expo-router', () => ({ ...jest.requireActual('expo-router') }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app/useTheme', () => ({ useTheme: () => ({ isDark: false }) }));

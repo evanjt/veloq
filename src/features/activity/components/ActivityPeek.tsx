@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { engine } from 'veloqrs';
+import { activities } from 'veloqrs';
 
 import { repostActivityNotification } from '@/features/insights';
 import { requestNotificationPermissionOutcome } from '@/shared/app/permissions/notifications';
@@ -112,7 +112,7 @@ async function repostNotification(activityId: string, name: string, delaySeconds
     !(await repostActivityNotification(
       activityId,
       name,
-      engine.activityNotification.bind(engine),
+      activities.activityNotification,
       delaySeconds
     ))
   ) {
@@ -122,7 +122,7 @@ async function repostNotification(activityId: string, name: string, delaySeconds
 
 function offerClones(activityId: string, name: string) {
   const doClone = (n: number) => {
-    const created = engine.debugCloneActivity(activityId, n);
+    const created = activities.debugCloneActivity(activityId, n);
     inform({ title: 'Done', message: `Created ${created} clones` });
   };
   chooseAction({

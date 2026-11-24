@@ -41,6 +41,7 @@ jest.mock('@/shared/app', () => ({
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     getSectionConfig: () => ({
       proximityThreshold: 50,

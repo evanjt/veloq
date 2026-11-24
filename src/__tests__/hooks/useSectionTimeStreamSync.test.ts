@@ -10,7 +10,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { useSectionTimeStreamSync } from '@/features/routes/hooks/useSectionPerformances';
-import { engine, FfiStartOutcome } from 'veloqrs';
+import { activities, FfiStartOutcome, sync } from 'veloqrs';
 
 type MockListener = (payload?: unknown) => void;
 
@@ -23,9 +23,9 @@ jest.mock('@/shared/app/NetworkContext', () => ({
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    sync: { syncTimeStreams: jest.fn() },
+    activities: { getActivitiesMissingTimeStreams: jest.fn(() => [] as string[]) },
     engine: {
-      getActivitiesMissingTimeStreams: jest.fn(() => [] as string[]),
-      syncTimeStreams: jest.fn(),
       subscribe: jest.fn((event: string, callback: MockListener) => {
         const forEvent = mockListeners.get(event) ?? new Set<MockListener>();
         forEvent.add(callback);
@@ -36,8 +36,8 @@ jest.mock('veloqrs', () =>
   })
 );
 
-const missing = engine.getActivitiesMissingTimeStreams as unknown as jest.Mock;
-const syncTimeStreams = engine.syncTimeStreams as unknown as jest.Mock;
+const missing = activities.getActivitiesMissingTimeStreams as unknown as jest.Mock;
+const syncTimeStreams = sync.syncTimeStreams as unknown as jest.Mock;
 
 /** Stands in for the announcement Rust makes off the JS thread. */
 async function announce(activityIds: string[]) {

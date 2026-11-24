@@ -12,16 +12,27 @@ import { useSectionDetailData } from '@/features/routes/hooks/useSectionDetailDa
 import { useRouteDetailData } from '@/features/routes/hooks/useRouteDetailData';
 import type { SectionDetailData } from 'veloqrs';
 
-jest.mock('veloqrs', () =>
-  require('../__shared__/veloqrsStub').withOverrides(
-    require('../__shared__/veloqrsStub').namespacesOver(() =>
-      require('@/shared/native/engine').getEngine()
-    )
-  )
-);
+// The routes namespace answers through the engine handle unless a test sets
+// its own answer here, so the handle and the namespace can be told apart.
+const mockRouteAnswer: { detail?: unknown } = {};
+
+jest.mock('veloqrs', () => {
+  const stub = require('../__shared__/veloqrsStub');
+  const over = stub.namespacesOver(() => require('@/shared/native/engine').getEngine());
+  return stub.withOverrides({
+    ...over,
+    routes: {
+      ...over.routes,
+      getRouteDetailData: (...args: unknown[]) =>
+        mockRouteAnswer.detail ??
+        (over.routes.getRouteDetailData as (...a: unknown[]) => unknown)(...args),
+    },
+  });
+});
 
 const mockGetEngine = jest.fn();
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => mockGetEngine(),
 }));
 
@@ -43,7 +54,10 @@ describe('section detail read status', () => {
   });
 
   it('reports a closed engine as closed', async () => {
-    mockGetEngine.mockReturnValue(null);
+    mockGetEngine.mockReturnValue({
+      subscribe: () => () => {},
+      getSectionDetailData: () => undefined,
+    });
     const { result } = await renderHook(() => useSectionDetailData('s1', 0));
     expect(result.current.status).toEqual({ kind: 'closed' });
   });
@@ -161,7 +175,10 @@ describe('route detail read status', () => {
   });
 
   it('reports a closed engine as closed', async () => {
-    mockGetEngine.mockReturnValue(null);
+    mockGetEngine.mockReturnValue({
+      subscribe: () => () => {},
+      getRouteDetailData: () => undefined,
+    });
     const { result } = await renderHook(() => useRouteDetailData('g1'));
     expect(result.current.status).toEqual({ kind: 'closed' });
   });
@@ -173,5 +190,18 @@ describe('route detail read status', () => {
     });
     const { result } = await renderHook(() => useRouteDetailData('g1'));
     expect(result.current.status).toEqual({ kind: 'missing' });
+  });
+
+  it('reads the detail through the routes namespace, not the handle', async () => {
+    const detail = { activityCount: 2, group: { groupId: 'g1' } };
+    mockGetEngine.mockReturnValue({ subscribe: () => () => {} });
+    mockRouteAnswer.detail = detail;
+    try {
+      const { result } = await renderHook(() => useRouteDetailData('g1'));
+      expect(result.current.status).toEqual({ kind: 'ok' });
+      expect(result.current.data).toEqual(detail);
+    } finally {
+      delete mockRouteAnswer.detail;
+    }
   });
 });

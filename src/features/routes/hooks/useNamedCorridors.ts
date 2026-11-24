@@ -5,8 +5,7 @@
  */
 
 import { useCallback, useMemo } from 'react';
-import { decodeCoords, type LatLng } from 'veloqrs';
-import { getEngine } from '@/shared/native/engine';
+import { decodeCoords, sections, type LatLng } from 'veloqrs';
 import {
   useEngineRead,
   useEngineReadState,
@@ -43,8 +42,8 @@ export function useNamedCorridors(): UseNamedCorridorsResult {
   const corridors = useMemo(() => {
     // Engine order is the persisted order. Sorting here would fight it.
     return (
-      readCorridors((engine) =>
-        engine.getNamedCorridors().map((c) => ({
+      readCorridors(() =>
+        sections.getNamedCorridors().map((c) => ({
           intentId: c.intentId,
           name: c.name,
           footprint: decodeCoords(c.encodedFootprint),
@@ -62,9 +61,7 @@ export function useNamedCorridors(): UseNamedCorridorsResult {
   // The removal announces `sections` from the client
   // (`delegates/sections/mutations.ts`), which is what brings the read back.
   const remove = useCallback((intentId: string): boolean => {
-    const engine = getEngine();
-    if (!engine) return false;
-    return engine.removeNamedCorridor(intentId);
+    return sections.removeNamedCorridor(intentId);
   }, []);
 
   return { corridors, state, remove };

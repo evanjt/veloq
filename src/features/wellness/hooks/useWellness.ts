@@ -20,7 +20,7 @@ import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { BODY_STORED_CHANNEL, payloadKind } from '@/shared/native/engineChannels';
 import type { FormZone, WellnessData } from '@/types';
-import { RangeCoverage, type WellnessDay, type WellnessDays } from 'veloqrs';
+import { fitness, RangeCoverage, type WellnessDay, type WellnessDays } from 'veloqrs';
 import type { TimeRange } from '@/shared/app/timeRange';
 import { TIME } from '@/shared/app/time';
 
@@ -111,17 +111,8 @@ interface WellnessWindow {
   formZoneEdges: readonly number[];
 }
 
-const NOTHING_KNOWN: WellnessWindow = {
-  days: [],
-  coverage: RangeCoverage.NotFetched,
-  formAsPercent: false,
-  formZoneEdges: [],
-};
-
 function readWellness(oldest: string, newest: string): WellnessWindow {
-  const engine = getEngine();
-  if (!engine?.getWellnessDays) return NOTHING_KNOWN;
-  const window = engine.getWellnessDays(oldest, newest);
+  const window = fitness.getWellnessDays(oldest, newest);
   return {
     days: window.days.map((day, index) => toWellnessData(day, dayForm(window, index))),
     coverage: window.coverage,

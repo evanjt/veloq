@@ -11,9 +11,8 @@ import { epochDayKeyUtc } from '@/shared/format/format';
 import { addDaysToDay, dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared/time/startDate';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { hasStarted, type ActivityRecord } from 'veloqrs';
+import { activities, fitness, hasStarted, sync, type ActivityRecord } from 'veloqrs';
 import { freshLoginTimeline, type TrackWait } from '@/shared/debug/freshLoginTimeline';
-import { getEngine } from '@/shared/native/engine';
 import { bodyNamed, useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import type { ActivityInterval, ActivityStreams, FeedCard } from '@/types';
@@ -47,10 +46,8 @@ import {
  * coverage.
  */
 function requestActivityWindow(oldest: string, newest: string): void {
-  const engine = getEngine();
-  if (!engine?.syncActivitiesWindow) return;
   try {
-    if (hasStarted(engine.syncActivitiesWindow(oldest, newest))) {
+    if (hasStarted(sync.syncActivitiesWindow(oldest, newest))) {
       // The download the surfaces name starts here and nowhere else, so this
       // is where they are told it is running. A refusal, `NotOwed` included,
       // names nothing.
@@ -183,7 +180,7 @@ function readSearchPage(
   limit: number,
   bounds: FeedSizeBounds = {}
 ): FeedSearchPage | undefined {
-  const page = getEngine()?.searchFeedCards({
+  const page = activities.searchFeedCards({
     ...bounds,
     needle,
     sportFamilies: [...groups].map(feedSportGroup),
@@ -302,7 +299,7 @@ export function useActivity(id: string) {
   // is never coming.
   const wait = useEngineBody(
     query.data?.isDetail ?? false,
-    () => getEngine()?.syncActivityDetail(id),
+    () => sync.syncActivityDetail(id),
     queryKey,
     // `undefined` is the query not having run, which is not the same as
     // nothing being stored, and asking then would fire before the read.
@@ -389,7 +386,7 @@ export function useActivityIntervals(id: string) {
   // fetched", which is the cue to ask Rust for them.
   const query = useQuery<ActivityInterval[] | null>({
     queryKey,
-    queryFn: () => getEngine()?.getActivityIntervals(id)?.intervals ?? null,
+    queryFn: () => fitness.getActivityIntervals(id)?.intervals ?? null,
     // Intervals never change
     staleTime: Infinity,
     // Held for as long as the body they belong to, and no longer.
@@ -398,7 +395,7 @@ export function useActivityIntervals(id: string) {
   });
   const wait = useEngineBody(
     query.data !== null,
-    () => getEngine()?.syncActivityIntervals(id),
+    () => sync.syncActivityIntervals(id),
     queryKey,
     !!id && query.data !== undefined,
     bodyNamed(['intervals'], id)

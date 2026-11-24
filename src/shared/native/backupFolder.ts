@@ -1,8 +1,8 @@
+import { settings } from 'veloqrs';
 import { requireOptionalNativeModule } from 'expo-modules-core';
 import { Platform } from 'react-native';
 
 import { debug } from '@/shared/debug/debug';
-import { getEngine } from '@/shared/native/engine';
 
 const log = debug.create('BackupFolder');
 
@@ -80,7 +80,7 @@ export function isFolderUnavailableError(error: unknown): boolean {
 
 /** The held folder's reference, or null when none is held. */
 export function heldBackupFolder(): string | null {
-  return getEngine()?.getSetting(SETTING_FOLDER) || null;
+  return settings.getSetting(SETTING_FOLDER) || null;
 }
 
 /**
@@ -91,7 +91,7 @@ export function heldBackupFolder(): string | null {
  */
 export function canWriteSharedFolder(): boolean {
   if (Platform.OS !== 'android') return false;
-  if (getEngine()?.getSetting(SETTING_FOLDER_OFF) === '1') return false;
+  if (settings.getSetting(SETTING_FOLDER_OFF) === '1') return false;
   try {
     return (
       requireOptionalNativeModule<VeloqBackupFolderModule>(
@@ -119,7 +119,7 @@ export function backupFolderTarget(): string | null {
 /** The display name of the folder a run writes to, or null when there is none. */
 export function heldBackupFolderName(): string | null {
   if (!heldBackupFolder()) return isSharedBackupFolder() ? SHARED_BACKUP_FOLDER : null;
-  return getEngine()?.getSetting(SETTING_FOLDER_NAME) || null;
+  return settings.getSetting(SETTING_FOLDER_NAME) || null;
 }
 
 /**
@@ -131,10 +131,9 @@ export function heldBackupFolderName(): string | null {
 export function holdBackupFolder(uri: string, name: string): void {
   const reference = Platform.OS === 'ios' ? nativeModule().bookmarkFolder(uri) : uri;
   const previous = heldBackupFolder();
-  const engine = getEngine();
-  engine?.setSetting(SETTING_FOLDER, reference);
-  engine?.setSetting(SETTING_FOLDER_NAME, name);
-  engine?.deleteSetting(SETTING_FOLDER_OFF);
+  settings.setSetting(SETTING_FOLDER, reference);
+  settings.setSetting(SETTING_FOLDER_NAME, name);
+  settings.deleteSetting(SETTING_FOLDER_OFF);
   if (previous && previous !== reference) releaseFolderGrant(previous);
 }
 
@@ -145,10 +144,9 @@ export function holdBackupFolder(uri: string, name: string): void {
  */
 export function forgetBackupFolder(): void {
   const folder = heldBackupFolder();
-  const engine = getEngine();
-  engine?.deleteSetting(SETTING_FOLDER);
-  engine?.deleteSetting(SETTING_FOLDER_NAME);
-  engine?.deleteSetting(SETTING_FOLDER_OFF);
+  settings.deleteSetting(SETTING_FOLDER);
+  settings.deleteSetting(SETTING_FOLDER_NAME);
+  settings.deleteSetting(SETTING_FOLDER_OFF);
   if (folder) releaseFolderGrant(folder);
 }
 
@@ -159,7 +157,7 @@ export function forgetBackupFolder(): void {
  */
 export function stopBackupFolder(): void {
   forgetBackupFolder();
-  getEngine()?.setSetting(SETTING_FOLDER_OFF, '1');
+  settings.setSetting(SETTING_FOLDER_OFF, '1');
 }
 
 /**
@@ -202,7 +200,7 @@ async function throughBookmark<T extends BookmarkedResult>(
   if (!bookmark) throw new Error('No backup folder chosen');
   const result = await call(bookmark);
   if (result.bookmark && result.bookmark !== bookmark) {
-    getEngine()?.setSetting(SETTING_FOLDER, result.bookmark);
+    settings.setSetting(SETTING_FOLDER, result.bookmark);
   }
   return result;
 }

@@ -27,7 +27,13 @@ import { stubHardwareBack, type HardwareBack } from '../../__shared__/hardwareBa
 const mockMapProps = jest.fn();
 const mockBoundsEdit = jest.fn();
 
-jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides({
+    sections: require('../../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).sections,
+  })
+);
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 jest.mock('@/features/routes/components/SectionMapView', () => ({
   SectionMapView: (props: unknown) => {
@@ -40,6 +46,7 @@ jest.mock('@/shared/async/useAfterNavigationTransition', () => ({
     jest.requireActual('react').useEffect(task, [task]),
 }));
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({ runSectionBoundsEdit: mockBoundsEdit }),
 }));
 jest.mock('@/features/routes/hooks/useSectionDetailData', () => ({

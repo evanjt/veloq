@@ -22,9 +22,10 @@ jest.mock('expo-router', () => ({
   useFocusEffect: (effect: () => void) => require('react').useEffect(() => effect(), [effect]),
 }));
 
-jest.mock('@/shared/native/engine', () => ({
-  getEngine: jest.fn(),
-}));
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 
 jest.mock('@/features/recording/lib/upload/intervalsUploads', () => ({
   uploadRecordingNow: jest.fn(),
@@ -111,13 +112,17 @@ describe('loading My Recordings', () => {
     expect(result.current.entries.map((e) => e.id)).toEqual(['rec-hill']);
   });
 
-  it('reads the list again when the engine handle is replaced', async () => {
+  it('reads the list again when the engine closes and opens again', async () => {
     mockList.mockResolvedValue([]);
     const { result } = renderHook(() => useRecordingLibrary());
     await act(async () => {});
     expect(mockList).toHaveBeenCalledTimes(1);
 
-    mockGetEngine.mockReturnValue({ id: 'reopened-handle' });
+    mockGetEngine.mockReturnValue(null);
+    await act(async () => {
+      useEngineStatus.getState().markEngineReady();
+    });
+    mockGetEngine.mockReturnValue(OPEN);
     mockList.mockResolvedValue([HILL_REPEATS]);
     await act(async () => {
       useEngineStatus.getState().markEngineReady();

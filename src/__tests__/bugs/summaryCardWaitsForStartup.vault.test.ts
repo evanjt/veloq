@@ -15,9 +15,16 @@ import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { getEngine } from '@/shared/native/engine';
 import { summaryCardBundle } from '../__shared__/summaryCardBundle';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 

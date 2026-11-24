@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { LibraryCoverage } from 'veloqrs';
+import { sync, type LibraryCoverage } from 'veloqrs';
 
 import { useEngineRead } from './useEngineSubscription';
 
@@ -18,7 +18,7 @@ export function useLibraryCoverage(): LibraryCoverage | null {
 
   return useMemo(() => {
     try {
-      const coverage = readEngine((engine) => engine.libraryCoverage());
+      const coverage = readEngine(() => sync.libraryCoverage());
       if (!coverage || coverage.upstream === 0) return null;
       return coverage;
     } catch {

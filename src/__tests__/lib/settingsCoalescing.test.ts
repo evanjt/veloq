@@ -17,14 +17,18 @@ import {
 const mockSetSettings = jest.fn().mockReturnValue(3);
 const mockGetSetting = jest.fn().mockReturnValue(undefined);
 const mockDeleteSetting = jest.fn();
-const mockSetSettingOne = jest.fn();
 
-let mockEngineHasBatch = true;
-
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
-    setSettings: mockEngineHasBatch ? mockSetSettings : undefined,
-    setSetting: mockSetSettingOne,
+    setSettings: mockSetSettings,
     getSetting: mockGetSetting,
     deleteSetting: mockDeleteSetting,
   }),
@@ -38,7 +42,6 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockEngineHasBatch = true;
   mockSetSettings.mockReturnValue(3);
 });
 
@@ -56,7 +59,6 @@ describe('settings written in one tick', () => {
       { key: 'units', value: 'metric' },
       { key: 'sport', value: 'Ride' },
     ]);
-    expect(mockSetSettingOne).not.toHaveBeenCalled();
   });
 
   it('keep the last value written for a key', async () => {
@@ -102,15 +104,5 @@ describe('settings written in one tick', () => {
 
     expect(mockSetSettings).not.toHaveBeenCalledWith([{ key: 'theme', value: 'dark' }]);
     expect(mockDeleteSetting).toHaveBeenCalledWith('theme');
-  });
-
-  it('fall back to one write each when the engine has no batch call', async () => {
-    mockEngineHasBatch = false;
-
-    await Promise.all([setSetting('theme', 'dark'), setSetting('units', 'metric')]);
-
-    expect(mockSetSettings).not.toHaveBeenCalled();
-    expect(mockSetSettingOne).toHaveBeenCalledWith('theme', 'dark');
-    expect(mockSetSettingOne).toHaveBeenCalledWith('units', 'metric');
   });
 });

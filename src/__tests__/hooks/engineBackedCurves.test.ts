@@ -20,7 +20,15 @@ import { getEngine } from '@/shared/native/engine';
 import type { PaceCurveRow, PowerCurveRow } from 'veloqrs';
 import { CLOCK_EDGES, localDay } from '../__shared__/clockEdges';
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 

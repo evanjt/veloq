@@ -16,7 +16,7 @@
  */
 import { useMemo } from 'react';
 
-import { decodeCoords } from 'veloqrs';
+import { activities, decodeCoords } from 'veloqrs';
 
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import type { LatLng } from '@/shared/geo/polyline';
@@ -36,7 +36,7 @@ export function useDetailCoordinates(
   const gpsTrack = useMemo(() => {
     if (streamsPending || (streamLatLng && streamLatLng.length > 0)) return undefined;
     if (!activityId) return undefined;
-    const encoded = readTrack((engine) => engine.getGpsTrack(activityId));
+    const encoded = readTrack(() => activities.getGpsTrack(activityId));
     return encoded ? decodeCoords(encoded) : undefined;
   }, [activityId, streamLatLng, streamsPending, readTrack]);
 

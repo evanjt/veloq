@@ -18,7 +18,7 @@ jest.mock('@/features/activity/components/SectionInlinePlot', () => ({
   SectionInlinePlot: () => null,
 }));
 jest.mock('@/features/routes', () => ({ DataRangeFooter: () => null }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
+jest.mock('@/shared/native/engine', () => ({ isEngineReady: () => true, getEngine: () => null }));
 
 // Twelve sections, the third crossed both ways, so it draws one card and the
 // card index is not the encounter index.

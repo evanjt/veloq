@@ -5,6 +5,7 @@ import type { PrimarySport } from '@/features/fitness/stores/SportPreferenceStor
 import { formZoneBands, type FormZone } from '@/features/fitness/lib/fitness';
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => null,
 }));
 

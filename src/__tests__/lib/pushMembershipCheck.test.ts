@@ -14,14 +14,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { awaitActivityBody } from '@/features/insights/lib/awaitActivityBody';
 
-const mockHasActivity = jest.fn(() => true);
+const mockHasActivity = jest.fn((_id: string) => true);
 const mockGetActivityIds = jest.fn(() => ['i1234']);
-const mockIndexNewActivity = jest.fn(() => ({ matchedSections: 0, insertedPortions: 0 }));
+const mockIndexNewActivity = jest.fn((_id: string) => ({
+  matchedSections: 0,
+  insertedPortions: 0,
+}));
 
 jest.mock('@/features/insights/lib/taskRunLog', () => ({
   appendTaskRun: jest.fn(async () => undefined),
 }));
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(() => ({
     setSyncCredentials: jest.fn(),
     clearSyncCredentials: jest.fn(),
@@ -41,11 +45,13 @@ jest.mock('@/features/settings/lib/notificationService', () => ({
 }));
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    activities: {
+      hasActivity: (id: string) => mockHasActivity(id),
+      getActivityIds: () => mockGetActivityIds(),
+    },
+    sections: { indexNewActivity: (id: string) => mockIndexNewActivity(id) },
     engine: {
       ...require('../__shared__/veloqrsStub').fetchCalls,
-      hasActivity: mockHasActivity,
-      getActivityIds: mockGetActivityIds,
-      indexNewActivity: mockIndexNewActivity,
       triggerRefresh: jest.fn(),
     },
   })
@@ -152,12 +158,12 @@ describe('the push task asking whether an activity is already held', () => {
   });
 
   vaultIt('readies the activity through the engine', async () => {
-    const { engine } = require('veloqrs');
-    engine.readyActivityBodies.mockClear();
+    const { sync } = require('veloqrs');
+    sync.readyActivityBodies.mockClear();
     mockHasActivity.mockReturnValue(false);
 
     await deliverPush();
 
-    expect(engine.readyActivityBodies).toHaveBeenCalledWith('i1234');
+    expect(sync.readyActivityBodies).toHaveBeenCalledWith('i1234');
   });
 });

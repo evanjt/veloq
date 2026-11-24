@@ -29,6 +29,7 @@ jest.mock('veloqrs', () =>
 );
 jest.mock('@/shared/native/engine', () => ({
   getNativeModule: () => ({ engine: { getSectionDetectionProgress: () => null } }),
+  isEngineReady: () => true,
   getEngine: () => null,
 }));
 jest.mock('@/features/routes/lib/gpsDownloadPoll', () => ({

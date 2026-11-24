@@ -64,6 +64,7 @@ jest.mock('@/shared/app', () => ({
 }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     getGpsTrack: () => 'encoded',
     subscribe: () => () => {},

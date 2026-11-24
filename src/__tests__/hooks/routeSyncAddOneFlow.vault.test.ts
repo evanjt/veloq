@@ -20,9 +20,16 @@ import { setFeedHeadIds } from '@/shared/activity/feedHead';
 import { FLOW_ADD_ONE, completeFlow } from '@/shared/debug/flowTiming';
 import { clearFFIMetrics, getFFIMetrics, setAppMetricsEnabled } from '@/shared/debug/renderTimer';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(
+      () => require('@/shared/native/engine').getNativeModule()?.engine
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
   getNativeModule: jest.fn(),
+  isEngineReady: () => true,
   getEngine: jest.fn(() => undefined),
 }));
 jest.mock('@/shared/app/NetworkContext', () => ({

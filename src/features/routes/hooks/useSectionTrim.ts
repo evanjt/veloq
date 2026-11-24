@@ -10,10 +10,9 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { getEngine } from '@/shared/native/engine';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import { engineErrorKey, engineErrorTag } from '@/shared/native/engineError';
-import { decodeCoords } from 'veloqrs';
+import { decodeCoords, sections } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { haversineDistance, polylineDistance } from '@/shared/geo/distance';
 import type { FfiDepartedRide, SectionBoundsEdit } from 'veloqrs';
@@ -194,11 +193,8 @@ export function useSectionTrim(
     }
 
     // Switch to expand mode - load extension track and compute padded window
-    const engine = getEngine();
-    if (!engine) return;
-
     try {
-      const result = engine.getSectionExtensionTrack(section.id);
+      const result = sections.getSectionExtensionTrack(section.id);
       if (!result) {
         inform({
           title: t('sections.trimFailedTitle'),
@@ -256,7 +252,7 @@ export function useSectionTrim(
 
       let departed: FfiDepartedRide[] | null = null;
       try {
-        departed = (await getEngine()?.runSectionBoundsEdit(edit)) ?? null;
+        departed = (await sections.runSectionBoundsEdit(edit)) ?? null;
       } catch {
         departed = null;
       } finally {

@@ -19,10 +19,19 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { getEngine } from '@/shared/native/engine';
 import { requestStreams } from '@/features/activity/lib/engineStreams';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    activities: require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).activities,
+  })
+);
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 jest.mock('@/shared/native/useEngineReady', () => ({
-  useEngineReady: () => require('@/shared/native/engine').getEngine(),
+  useEngineReady: () => true,
 }));
 jest.mock('@/features/activity/lib/engineStreams', () => ({
   ...jest.requireActual('@/features/activity/lib/engineStreams'),

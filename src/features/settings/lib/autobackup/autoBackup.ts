@@ -21,7 +21,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Network from 'expo-network';
 import Constants from 'expo-constants';
-import { RecordScope, type FfiUnplacedRecord } from 'veloqrs';
+import { RecordScope, type FfiUnplacedRecord, settings } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
 import { platformRecordUri } from '@/shared/storage/platformRecord';
@@ -73,14 +73,12 @@ const STALE_INTERVAL_MS = 7 * TIME.DAY; // 7 days
 
 /** Check if auto-backup is enabled (defaults to false). */
 export function isAutoBackupEnabled(): boolean {
-  const engine = getEngine();
-  return engine?.getSetting(SETTING_AUTO_BACKUP_ENABLED) === '1';
+  return settings.getSetting(SETTING_AUTO_BACKUP_ENABLED) === '1';
 }
 
 /** Enable or disable auto-backup. */
 export function setAutoBackupEnabled(enabled: boolean): void {
-  const engine = getEngine();
-  engine?.setSetting(SETTING_AUTO_BACKUP_ENABLED, enabled ? '1' : '0');
+  settings.setSetting(SETTING_AUTO_BACKUP_ENABLED, enabled ? '1' : '0');
 }
 
 /**
@@ -98,7 +96,7 @@ export function turnOnAutoBackup(): Promise<BackupRunResult> {
  * the old local backend wrote are left alone.
  */
 export function cleanUpRetiredBackupSettings(): void {
-  getEngine()?.deleteSetting(SETTING_RETIRED_BACKEND_ID);
+  settings.deleteSetting(SETTING_RETIRED_BACKEND_ID);
 }
 
 /**
@@ -112,7 +110,6 @@ export function cleanUpRetiredBackupSettings(): void {
  * after, and iCloud Drive is on again for whoever signs in next.
  */
 export function forgetBackupCarrier(): void {
-  const engine = getEngine();
   for (const key of [
     SETTING_RETIRED_BACKEND_ID,
     SETTING_AUTO_BACKUP_ENABLED,
@@ -122,7 +119,7 @@ export function forgetBackupCarrier(): void {
     SETTING_DESTINATION_STAMPS,
     SETTING_ICLOUD_ENABLED,
   ]) {
-    engine?.deleteSetting(key);
+    settings.deleteSetting(key);
   }
   forgetBackupFolder();
   void forgetGoogleDrive();
@@ -130,14 +127,13 @@ export function forgetBackupCarrier(): void {
 
 /** Whether the athlete has left iCloud Drive on. On unless they turned it off. */
 export function isIcloudBackupOn(): boolean {
-  return getEngine()?.getSetting(SETTING_ICLOUD_ENABLED) !== '0';
+  return settings.getSetting(SETTING_ICLOUD_ENABLED) !== '0';
 }
 
 /** Turn iCloud Drive on or off. Turning it off leaves the backups in iCloud. */
 export function setIcloudBackupOn(on: boolean): void {
-  const engine = getEngine();
-  if (on) engine?.deleteSetting(SETTING_ICLOUD_ENABLED);
-  else engine?.setSetting(SETTING_ICLOUD_ENABLED, '0');
+  if (on) settings.deleteSetting(SETTING_ICLOUD_ENABLED);
+  else settings.setSetting(SETTING_ICLOUD_ENABLED, '0');
 }
 
 /**
@@ -160,18 +156,17 @@ function isCarrierOn(id: string): boolean {
 
 /** Whether the platform zip needs no offer on this library. */
 export function isPlatformRecordAnswered(): boolean {
-  return getEngine()?.getSetting(SETTING_PLATFORM_RECORD_ANSWERED) === '1';
+  return settings.getSetting(SETTING_PLATFORM_RECORD_ANSWERED) === '1';
 }
 
 /** Record that the zip in the documents directory needs no offer. */
 export function markPlatformRecordAnswered(): void {
-  getEngine()?.setSetting(SETTING_PLATFORM_RECORD_ANSWERED, '1');
+  settings.setSetting(SETTING_PLATFORM_RECORD_ANSWERED, '1');
 }
 
 /** Get timestamp of the last auto-backup, or null if never. */
 export function getLastBackupTimestamp(): number | null {
-  const engine = getEngine();
-  const value = engine?.getSetting(SETTING_LAST_BACKUP);
+  const value = settings.getSetting(SETTING_LAST_BACKUP);
   return value != null ? Number(value) : null;
 }
 
@@ -206,7 +201,7 @@ function destinationTarget(id: string): string | null {
 }
 
 function readDestinationStamps(): Record<string, DestinationStamp> {
-  const raw = getEngine()?.getSetting(SETTING_DESTINATION_STAMPS);
+  const raw = settings.getSetting(SETTING_DESTINATION_STAMPS);
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw) as Record<string, DestinationStamp>;
@@ -219,7 +214,7 @@ function readDestinationStamps(): Record<string, DestinationStamp> {
 function stampDestination(id: string, at: number): void {
   const to = destinationTarget(id);
   if (to === null) return;
-  getEngine()?.setSetting(
+  settings.setSetting(
     SETTING_DESTINATION_STAMPS,
     JSON.stringify({ ...readDestinationStamps(), [id]: { at, to } })
   );
@@ -254,7 +249,7 @@ export interface BackupFailure {
  * noise rather than information.
  */
 export function getBackupFailures(): Record<string, BackupFailure> {
-  const raw = getEngine()?.getSetting(SETTING_LAST_FAILURE);
+  const raw = settings.getSetting(SETTING_LAST_FAILURE);
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw) as Record<string, BackupFailure>;
@@ -276,7 +271,7 @@ export function getLastBackupFailure(): BackupFailure | null {
 }
 
 function writeBackupFailures(failures: Record<string, BackupFailure>): void {
-  getEngine()?.setSetting(
+  settings.setSetting(
     SETTING_LAST_FAILURE,
     Object.keys(failures).length === 0 ? '' : JSON.stringify(failures)
   );
@@ -313,7 +308,7 @@ function recordBackupFailure(carrierId: string, error: unknown): void {
  * for a sign-in that lapsed.
  */
 function getOwedCarriers(): string[] {
-  const raw = getEngine()?.getSetting(SETTING_OWED_CARRIERS);
+  const raw = settings.getSetting(SETTING_OWED_CARRIERS);
   if (!raw) return [];
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -334,9 +329,8 @@ function owedCarriersDue(): string[] {
 
 function writeOwedCarriers(ids: string[]): void {
   const value = ids.length === 0 ? '' : JSON.stringify(ids);
-  const engine = getEngine();
-  if ((engine?.getSetting(SETTING_OWED_CARRIERS) ?? '') === value) return;
-  engine?.setSetting(SETTING_OWED_CARRIERS, value);
+  if ((settings.getSetting(SETTING_OWED_CARRIERS) ?? '') === value) return;
+  settings.setSetting(SETTING_OWED_CARRIERS, value);
 }
 
 /** Whether the automatic schedule is due a run. */
@@ -430,12 +424,12 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
 
   // Read before the first await, so a wipe while the run is choosing its
   // carriers already counts as a move.
-  const install = engine.engineInstall();
+  const install = settings.engineInstall();
   // A read that fails cannot say this is still the library the backup started
   // on, so it counts as moved and nothing more is written or uploaded.
   const libraryMoved = (): boolean => {
     try {
-      return engine.engineInstall() !== install;
+      return settings.engineInstall() !== install;
     } catch {
       return true;
     }
@@ -547,7 +541,7 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
     // passingly stay in the owed list and are retried alone, so the zip is not
     // rewritten and re-sent to carriers that already hold it.
     if (anyWritten || (!anyOwedPassing && !anyFailed))
-      engine.setSetting(SETTING_LAST_BACKUP, String(Date.now()));
+      settings.setSetting(SETTING_LAST_BACKUP, String(Date.now()));
     if (libraryMoved()) return NOTHING_WRITTEN;
     log.log(`Record backup complete: ${entry.sizeBytes} bytes`);
     return { wroteZip: true, carriers };

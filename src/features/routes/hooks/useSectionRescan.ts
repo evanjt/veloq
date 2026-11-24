@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { hasStarted, FfiStartOutcome, type StartVerdict, detection } from 'veloqrs';
+import { hasStarted, FfiStartOutcome, type StartVerdict, detection, sections } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
 import { attemptEngineRead } from '@/shared/native/engineError';
 import {
@@ -60,9 +60,8 @@ interface SectionRescanState {
  * failed read never becomes a before or after of zero.
  */
 function getSectionCount(): number | null {
-  const engine = getEngine();
-  if (!engine) return null;
-  const read = attemptEngineRead(() => engine.getSectionCount());
+  if (!getEngine()) return null;
+  const read = attemptEngineRead(() => sections.getSectionCount());
   return read.ok ? read.value : null;
 }
 

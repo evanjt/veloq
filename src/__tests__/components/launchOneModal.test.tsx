@@ -27,6 +27,7 @@ jest.mock('@/shared/native/engine', () => {
   const actual = jest.requireActual('@/shared/native/engine');
   return {
     ...actual,
+    isEngineReady: () => true,
     getEngine: () => {
       const engine = actual.getEngine();
       return new Proxy(engine ?? {}, {

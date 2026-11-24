@@ -26,6 +26,7 @@ const emit = (event: string) => listeners.get(event)?.forEach((callback) => call
 
 jest.mock('@/shared/native/engine', () => ({
   ...jest.requireActual('@/shared/native/engine'),
+  isEngineReady: () => true,
   getEngine: () => mockEngine,
 }));
 

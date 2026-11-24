@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(() => null),
   getRouteDbPath: jest.fn(() => '/mock/docs/routes.db'),
 }));

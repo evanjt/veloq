@@ -11,6 +11,7 @@
  */
 
 import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
+import * as settingsDelegates from '../../../modules/veloqrs/src/delegates/settings';
 import { bindDelegates } from '../../../modules/veloqrs/src/delegates/bind';
 import * as heatmapDelegates from '../../../modules/veloqrs/src/delegates/heatmap';
 
@@ -147,9 +148,9 @@ describe('EngineClient.clear', () => {
     const client = openClient();
 
     await client.clear();
-    client.setSetting('__athlete_id', 'a-99');
+    bindDelegates(client, settingsDelegates).setSetting('__athlete_id', 'a-99');
 
-    expect(client.getSetting('__athlete_id')).toBe('a-99');
+    expect(bindDelegates(client, settingsDelegates).getSetting('__athlete_id')).toBe('a-99');
   });
 
   /**
@@ -204,7 +205,7 @@ describe('EngineClient.clear', () => {
     await client.clear();
 
     expect(client.isInitialized()).toBe(false);
-    expect(client.getSetting('__athlete_id')).toBeUndefined();
+    expect(bindDelegates(client, settingsDelegates).getSetting('__athlete_id')).toBeUndefined();
   });
 
   // Was: resolves quietly having done nothing. That is the shape the login

@@ -32,12 +32,11 @@ jest.mock('veloqrs', () =>
         percent: 50,
       }),
     },
+    activities: { setTimeStreams: jest.fn(), addActivities: jest.fn() },
     engine: {
       ...require('../__shared__/veloqrsStub').fetchCalls,
       ready: true,
       triggerRefresh: jest.fn(),
-      setTimeStreams: jest.fn(),
-      addActivities: jest.fn(),
       getStats: () => ({ sectionsDirty: true }),
     },
   })
@@ -47,6 +46,7 @@ jest.mock('veloqrs', () =>
 // initialised when the factory above runs.
 jest.mock('@/shared/native/engine', () => ({
   getNativeModule: () => ({ engine: jest.requireMock('veloqrs').engine }),
+  isEngineReady: () => true,
   getEngine: () => jest.requireMock('veloqrs').engine,
 }));
 

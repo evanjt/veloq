@@ -14,7 +14,7 @@ import { useLastSyncSuccessAt, useTrackStage } from '@/shared/native/useSyncStat
 import { attemptEngineRead, engineErrorKey, engineErrorText } from '@/shared/native/engineError';
 import { i18n } from '@/i18n';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { FfiTrackStep, type PersistentEngineStats, detection } from 'veloqrs';
+import { FfiTrackStep, type PersistentEngineStats, activities, detection } from 'veloqrs';
 import { ABSENT } from '@/shared/format/absent';
 import { formatEpochDayUtc } from '@/shared/format/format';
 import { confirmAction, inform } from '@/shared/ui/dialog';
@@ -100,14 +100,14 @@ export function SyncDebugSection() {
 
   const engine = getEngine();
   const engineActivityIds = useMemo(
-    () => readActivities((client) => client.getActivityIds()) ?? [],
+    () => readActivities(() => activities.getActivityIds()) ?? [],
     [readActivities]
   );
 
   const engineStatsRead = useMemo(
     () =>
       attemptEngineRead((): PersistentEngineStats | undefined =>
-        readActivities((client) => client.getStats())
+        readActivities(() => getEngine()?.getStats())
       ),
     [readActivities]
   );
@@ -187,7 +187,7 @@ export function SyncDebugSection() {
         let removed = 0;
         const refused: string[] = [];
         for (const id of toRemove) {
-          const result = engine.removeActivity(id);
+          const result = activities.removeActivity(id);
           if (result.ok) {
             removed++;
           } else {

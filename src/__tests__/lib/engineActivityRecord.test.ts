@@ -12,8 +12,16 @@ import { readActivityRecord } from '@/features/activity/lib/engineActivityRecord
 import { getEngine } from '@/shared/native/engine';
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    activities: require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).activities,
+  })
+);
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
@@ -82,14 +90,8 @@ describe('readActivityRecord', () => {
     expect(readActivityRecord('a')).toBeNull();
   });
 
-  it('reads null when the engine is not up', () => {
-    withEngine(null);
-
-    expect(readActivityRecord('a')).toBeNull();
-  });
-
-  vaultIt('reads null when the engine predates the primary-key read', () => {
-    withEngine({ getFeedCards: () => [] });
+  it('reads null when the engine is not up and answers nothing', () => {
+    withEngine({ getActivityRecord: () => undefined });
 
     expect(readActivityRecord('a')).toBeNull();
   });

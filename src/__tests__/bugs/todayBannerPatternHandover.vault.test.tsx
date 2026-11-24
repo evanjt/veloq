@@ -50,6 +50,7 @@ jest.mock('react-i18next', () => {
 });
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 

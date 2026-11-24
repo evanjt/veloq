@@ -182,10 +182,6 @@ describe('the engine call sites, which carry no ceiling', () => {
       'the engine read off a dynamic import of veloqrs',
       "export const load = async () => (await import('veloqrs')).engine;\n",
     ],
-    [
-      'a handle that only useEngineReady returns',
-      "import { useEngineReady } from '@/shared/native/useEngineReady';\nexport function useThing() {\n  const engine = useEngineReady();\n  return engine;\n}\n",
-    ],
   ])('counts %s', (_form, body) => {
     const root = treeWith({ 'src/features/a/task.ts': body });
 

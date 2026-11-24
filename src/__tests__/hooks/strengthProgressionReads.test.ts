@@ -26,10 +26,11 @@ jest.mock('veloqrs', () =>
 const mockEngine: Record<string, unknown> = {};
 
 jest.mock('@/shared/native/useEngineReady', () => ({
-  useEngineReady: () => mockEngine,
+  useEngineReady: () => true,
 }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => mockEngine,
 }));
 

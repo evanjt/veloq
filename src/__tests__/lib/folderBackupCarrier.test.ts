@@ -57,7 +57,15 @@ const mockWebdavUpload = jest.fn(async (_path: string, _entry: unknown) => {});
 /** What the stub WebDAV server holds, by the id its upload returned. */
 const mockWebdavHeld = new Map<string, Uint8Array>();
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     getSetting: (key: string) => mockSettings.get(key),
     setSetting: (key: string, value: string) => mockSettings.set(key, value),

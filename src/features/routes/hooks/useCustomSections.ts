@@ -5,10 +5,9 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getEngine } from '@/shared/native/engine';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { SectionRenameError } from '../lib/sectionRenameFailure';
-import { decodeCoords } from 'veloqrs';
+import { decodeCoords, sections as sectionsNs } from 'veloqrs';
 import type { Section as NativeSection } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { Section } from '@/types';
@@ -89,17 +88,12 @@ export function useSectionCommands(): SectionCommands {
   // Create a new section
   const createSection = useCallback(
     async (params: CreateSectionParams): Promise<Section> => {
-      const engine = getEngine();
-      if (!engine) {
-        throw new Error('Route engine not initialised');
-      }
-
       // No name leaves the section unnamed, shown under the number the engine
       // gives it.
       const name = params.name?.trim() ? params.name : undefined;
 
       // Create section via unified FFI
-      const sectionId = engine.createSectionFromIndices(
+      const sectionId = sectionsNs.createSectionFromIndices(
         params.sourceActivityId,
         params.startIndex,
         params.endIndex,
@@ -112,7 +106,7 @@ export function useSectionCommands(): SectionCommands {
       }
 
       // Get the created section
-      const section = engine.getSectionById(sectionId);
+      const section = sectionsNs.getSectionById(sectionId);
       if (!section) {
         throw new Error('Section created but could not be retrieved');
       }
@@ -143,12 +137,7 @@ export function useSectionCommands(): SectionCommands {
   // Delete a section
   const removeSection = useCallback(
     async (sectionId: string): Promise<void> => {
-      const engine = getEngine();
-      if (!engine) {
-        throw new Error('Route engine not initialised');
-      }
-
-      const deleted = engine.deleteSection(sectionId);
+      const deleted = sectionsNs.deleteSection(sectionId);
       if (!deleted) {
         throw new Error(`Failed to delete section ${sectionId}`);
       }
@@ -167,12 +156,7 @@ export function useSectionCommands(): SectionCommands {
   // Rename a section
   const renameSection = useCallback(
     async (sectionId: string, name: string): Promise<void> => {
-      const engine = getEngine();
-      if (!engine) {
-        throw new Error('Route engine not initialised');
-      }
-
-      const outcome = engine.setSectionName(sectionId, name);
+      const outcome = sectionsNs.setSectionName(sectionId, name);
       if (outcome !== 'saved') {
         throw new SectionRenameError(`Failed to rename section ${sectionId}`, outcome);
       }
@@ -211,13 +195,8 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     queryKey: queryKeys.sections.custom,
     enabled: enabled && !skipOwnFfiCall,
     queryFn: async () => {
-      const engine = getEngine();
-      if (!engine) {
-        return [];
-      }
-
       // Get custom sections from unified table
-      return toAppSections(engine.getSectionsByType('custom'));
+      return toAppSections(sectionsNs.getSectionsByType('custom'));
     },
     // SQLite is the source and the engine says when it moved, so the clock
     // only bounds how long a read that missed the announcement can be wrong.

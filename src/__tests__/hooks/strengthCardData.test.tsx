@@ -32,6 +32,7 @@ const mockEngine = {
   subscribe: () => () => {},
 };
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => mockEngine,
 }));
 

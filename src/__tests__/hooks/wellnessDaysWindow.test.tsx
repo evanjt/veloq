@@ -20,7 +20,15 @@ jest.mock('@/shared/app/AuthStore', () => ({
 jest.mock('@/shared/native/useEngineChannel', () => ({ useEngineChannel: () => undefined }));
 
 const mockGetWellnessDays = jest.fn<WellnessDays, [string, string]>();
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({ getWellnessDays: mockGetWellnessDays }),
 }));
 

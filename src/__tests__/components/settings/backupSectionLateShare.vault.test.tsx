@@ -71,6 +71,7 @@ jest.mock('@/features/settings/components/NextcloudQrScanner', () => ({
 let mockProgress = { running: false, visited: 0, total: 0 };
 let mockFinishWrite: (written: unknown) => void = () => {};
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     getUnplacedBackupRecords: async () => [],
     runBulkExport: () =>

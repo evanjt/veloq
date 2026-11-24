@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { RangeCoverage, type FitnessScreenData, type SpanThresholdPaces } from 'veloqrs';
+import { fitness, RangeCoverage, type FitnessScreenData, type SpanThresholdPaces } from 'veloqrs';
 
 import type { DecouplingSource } from '@/features/activity';
 import type { DayActivity } from '@/features/activity/light';
@@ -157,8 +157,8 @@ export function useFitnessScreenRead(
     let read: FitnessScreenData | undefined;
     let error: unknown = null;
     try {
-      read = readActivities((engine) =>
-        engine.getFitnessScreenData(SPAN_DAYS, trainingEngineWindows(windows, new Date()))
+      read = readActivities(() =>
+        fitness.getFitnessScreenData(SPAN_DAYS, trainingEngineWindows(windows, new Date()))
       );
     } catch (err) {
       error = err;

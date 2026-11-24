@@ -46,10 +46,9 @@ import {
   markFlow,
 } from '@/shared/debug/flowTiming';
 import { debug } from '@/shared/debug/debug';
-import { getEngine } from '@/shared/native/engine';
 import { engineErrorKey } from '@/shared/native/engineError';
 import type { FrequentSection } from '@/types';
-import { type FfiCatalogueEmptyReason, type SectionWithPolyline } from 'veloqrs';
+import { sections, type FfiCatalogueEmptyReason, type SectionWithPolyline } from 'veloqrs';
 import { convertSectionWithPolylineToApp } from '@/shared/ffi/sectionConversions';
 import { computeCenter, haversineDistance, type LatLngShort } from '@/shared/geo/distance';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
@@ -341,7 +340,7 @@ export const SectionsList = memo(function SectionsList({
       onConfirm: () => {
         // A null is a write that never ran, so it is said as a failure and never as a count.
         try {
-          const count = getEngine()?.acceptAllSections() ?? null;
+          const count = sections.acceptAllSections() ?? null;
           if (count === null) {
             inform({
               title: t('sections.acceptAllFailedTitle'),

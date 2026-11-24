@@ -12,7 +12,7 @@ import { useCallback } from 'react';
 import { i18n } from '@/i18n';
 import { getNativeModule } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
-import { engine, FfiStartOutcome, type ActivitySportMapping, detection } from 'veloqrs';
+import { activities, engine, FfiStartOutcome, type ActivitySportMapping, detection } from 'veloqrs';
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import type { SyncProgress } from './useRouteSyncProgress';
@@ -231,7 +231,7 @@ export function useGpsDataFetcher() {
         }
 
         // Add to engine
-        await nativeModule.engine.addActivities(ids, allCoords, offsets, sportTypes);
+        await activities.addActivities(ids, allCoords, offsets, sportTypes);
         if (!owns()) return ending('cancelled');
 
         engine.triggerRefresh('activities');
@@ -253,7 +253,7 @@ export function useGpsDataFetcher() {
           );
         }
         if (demoTimeStreams.length > 0) {
-          engine.setTimeStreams(demoTimeStreams);
+          activities.setTimeStreams(demoTimeStreams);
         }
 
         // Demo: detection 25-75%, tiles 75-100%. The engine starts the

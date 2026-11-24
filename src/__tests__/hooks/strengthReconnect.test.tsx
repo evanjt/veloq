@@ -31,6 +31,7 @@ jest.mock('@/shared/app/NetworkContext', () => ({
 }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 

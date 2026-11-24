@@ -182,6 +182,7 @@ const setUploadStatus = (id: string, uploadStatus: string) => {
 let mockEngineOpen = true;
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => (mockEngineOpen ? mockEngine : null),
 }));
 

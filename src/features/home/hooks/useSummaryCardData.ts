@@ -13,7 +13,12 @@ import { formatWeightCompact } from '@/shared/format/weight';
 import { localizeFormText } from '@/shared/format/number';
 import { ABSENT } from '@/shared/format/absent';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
-import type { FfiPaceTrend, FfiSummaryCardData, WellnessSparklines } from 'veloqrs';
+import {
+  fitness,
+  type FfiPaceTrend,
+  type FfiSummaryCardData,
+  type WellnessSparklines,
+} from 'veloqrs';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
@@ -288,7 +293,7 @@ export function useSummaryCardData(
 
       // The engine resolves matching week windows from this wall-clock stamp.
       const nowWallSeconds = localWallClockToEpochSeconds(new Date());
-      cardData = readCardData((engine) => engine.getSummaryCardData(nowWallSeconds));
+      cardData = readCardData(() => fitness.getSummaryCardData(nowWallSeconds));
     }
 
     if (!cardData?.currentWeek) return defaults;
@@ -518,10 +523,9 @@ export function useSummaryCardData(
     // The feed's bundle has not answered: draw no series rather than read a second time.
     if (awaitPrecomputed) return null;
     return (
-      readSparklines((engine) => {
-        if (!engine.getWellnessSparklines) return null;
+      readSparklines(() => {
         try {
-          return engine.getWellnessSparklines(FEED_SPARKLINE_DAYS);
+          return fitness.getWellnessSparklines(FEED_SPARKLINE_DAYS);
         } catch {
           // empty-on-error: sparklines under the card's headline numbers, which come from the startup bundle; the card draws without them.
           return null;

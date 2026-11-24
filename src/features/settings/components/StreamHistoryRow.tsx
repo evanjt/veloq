@@ -16,6 +16,7 @@
  * differently.
  */
 
+import { settings } from 'veloqrs';
 import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -62,7 +63,7 @@ function readStore(): StreamStore | StreamStoreFailure | null {
   const engine = getEngine();
   if (!engine) return null;
   try {
-    const data = engine.getCacheScreenData();
+    const data = settings.getCacheScreenData();
     if (!data) return null;
     return { days: data.streamRetentionDays, bytes: data.streamStoreBytes };
   } catch (error) {
@@ -90,7 +91,7 @@ export function StreamHistoryRow({ isDark }: StreamHistoryRowProps) {
     const engine = getEngine();
     if (!engine) return;
     try {
-      engine.setStreamRetentionDays(next);
+      settings.setStreamRetentionDays(next);
     } catch (error) {
       console.warn(
         '[StreamHistory] Could not write the stream window:',

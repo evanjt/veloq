@@ -75,10 +75,11 @@ function useEventGeneration(events: EngineEvent[]): number {
 
   // Null only when the native module never loaded, and that does not change
   // later, so there is nothing to subscribe to and nothing missed.
-  const engine = useEngineReady();
+  const ready = useEngineReady();
 
   useEffect(() => {
-    if (!engine) return undefined;
+    const engine = getEngine();
+    if (!ready || !engine) return undefined;
 
     // Rebuilt from the key rather than read from `events`, so the key is the
     // whole dependency and a changed list cannot hide behind an unchanged one.
@@ -90,7 +91,7 @@ function useEventGeneration(events: EngineEvent[]): number {
     return () => {
       unsubscribes.forEach((u) => u());
     };
-  }, [eventKey, engine]);
+  }, [eventKey, ready]);
 
   return trigger;
 }
@@ -111,7 +112,7 @@ function useEventGeneration(events: EngineEvent[]): number {
  *
  *     const readSections = useEngineRead(['sections']);
  *     const rows = useMemo(
- *       () => readSections((engine) => engine.getSectionById(id)),
+ *       () => readSections(() => sections.getSectionById(id)),
  *       [id, readSections]
  *     );
  *
@@ -121,15 +122,15 @@ function useEventGeneration(events: EngineEvent[]): number {
  * still names one honest dependency. An empty event list is a reader keyed on
  * those alone.
  *
- * `undefined` when the engine is not open, which is the same answer a caller
- * got from `getEngine()?.x()` and needs no new branch.
+ * Before the engine opens a namespace function answers its typed default, so
+ * the reader needs no branch of its own.
  */
 type EngineReadKey = string | number | boolean | null | undefined;
 
 export function useEngineRead(
   events: EngineEvent[],
   keys: readonly EngineReadKey[] = []
-): <T>(read: (engine: NonNullable<ReturnType<typeof getEngine>>) => T) => T | undefined {
+): <T>(read: () => T) => T {
   // The handle exists before it opens and answers every read with its empty
   // default, and opening it announces nothing on any channel. So the open is a
   // reason to look again in its own right, or a screen mounted while the
@@ -145,12 +146,11 @@ export function useEngineRead(
   // keyed on this reader, and holding it stable in between is what stops one
   // re-running on an unrelated render.
   return useCallback(
-    <T>(read: (engine: NonNullable<ReturnType<typeof getEngine>>) => T): T | undefined => {
+    <T>(read: () => T): T => {
       void generation;
       void opened;
       void keyId;
-      const engine = getEngine();
-      return engine ? read(engine) : undefined;
+      return read();
     },
     [generation, opened, keyId]
   );

@@ -21,7 +21,10 @@ import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { spacing } from '@/theme';
 import { FfiSyncErrorReason } from '../__shared__/veloqrsStub';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 

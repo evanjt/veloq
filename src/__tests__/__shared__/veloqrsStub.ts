@@ -522,8 +522,6 @@ export const createPreviewClientStub = () => ({
 export const takeFetchAndStoreResult = jest.fn(() => undefined);
 export const cancelFetchAndStore = jest.fn(() => true);
 export const getFetchRunProgress = jest.fn(() => ({ active: false, completed: 0, total: 0 }));
-/** Readying one activity's owed bodies, answering that it still owes them. */
-export const readyActivityBodies = jest.fn(async (_activityId: string) => false);
 /** A GPS pass the engine started, as run 0 over the ids it was handed. */
 export const startGpsPass = jest.fn((_oldest?: string, _newest?: string, head: string[] = []) => ({
   outcome: FfiStartOutcome.Started,
@@ -536,7 +534,6 @@ export const fetchCalls = {
   takeFetchAndStoreResult,
   cancelFetchAndStore,
   getFetchRunProgress,
-  readyActivityBodies,
 };
 
 /**
@@ -551,12 +548,7 @@ export const engine = {
   // closed engine still has to hand back an unsubscribe rather than throw.
   ...fetchCalls,
   subscribe: jest.fn(() => () => {}),
-  getSyncStatus: jest.fn(() => null),
   getStats: jest.fn(() => undefined),
-  getSetting: jest.fn(() => undefined),
-  setSetting: jest.fn(),
-  setSettings: jest.fn(),
-  deleteSetting: jest.fn(),
 };
 
 /**
@@ -576,6 +568,23 @@ export const streamBackfill = {
 };
 
 export const settings = {
+  setNameTranslations: jest.fn(),
+  setAthleteProfile: jest.fn(),
+  getAthleteProfile: jest.fn(),
+  setSportSettings: jest.fn(),
+  hrZoneFor: jest.fn(),
+  getBackupScreenData: jest.fn(),
+  getCacheScreenData: jest.fn(),
+  getBackgroundJobsData: jest.fn(),
+  exportPrivacyPreview: jest.fn(),
+  buildGpxFile: jest.fn(),
+  engineInstall: jest.fn(),
+  getSetting: jest.fn(() => undefined),
+  setSetting: jest.fn(),
+  setSettings: jest.fn(),
+  setNotificationTemplates: jest.fn(),
+  deleteSetting: jest.fn(),
+  setStreamRetentionDays: jest.fn(),
   getRecordScreenData: jest.fn(() => undefined),
   getThresholdsScreenData: jest.fn(() => undefined),
   setThresholdOverride: jest.fn(),
@@ -672,6 +681,57 @@ export const strength = {
   hasStrengthData: jest.fn(),
 };
 
+export const sync = {
+  setSyncCredentials: jest.fn(),
+  clearSyncCredentials: jest.fn(),
+  syncNow: jest.fn(),
+  syncActivitiesWindow: jest.fn(),
+  rangeCoverage: jest.fn(),
+  libraryCoverage: jest.fn(),
+  syncPowerCurve: jest.fn(),
+  syncPaceCurve: jest.fn(),
+  syncActivityIntervals: jest.fn(),
+  syncCalendarEvents: jest.fn(),
+  syncActivityStreams: jest.fn(),
+  syncActivityDetail: jest.fn(),
+  syncTimeStreams: jest.fn(),
+  /** Readying one activity's owed bodies, answering that it still owes them. */
+  readyActivityBodies: jest.fn(async (_activityId: string) => false),
+  cancelSync: jest.fn(),
+  getSyncStatus: jest.fn(() => null),
+  getBodiesStored: jest.fn(),
+};
+
+/** Closed like the delegates: a read of a list answers an empty list, and the wellness window answers that nothing is known. */
+export const fitness = {
+  getSummaryCardData: jest.fn(),
+  getInsightsData: jest.fn(),
+  getStartupData: jest.fn(),
+  composeWidgetSnapshot: jest.fn(),
+  setWidgetContext: jest.fn(),
+  getZoneDistribution: jest.fn(),
+  getFitnessScreenData: jest.fn(),
+  getDailyActivityLoads: jest.fn(() => []),
+  upsertWellness: jest.fn(),
+  getWellnessDays: jest.fn(() => ({
+    days: [],
+    coverage: RangeCoverage.NotFetched,
+    form: [],
+    formZone: [],
+    formText: [],
+    tsbText: [],
+    formAsPercent: false,
+    formZoneEdges: [],
+  })),
+  getPowerCurve: jest.fn(),
+  getPaceCurve: jest.fn(),
+  getBestEffortsData: jest.fn(),
+  getActivityIntervals: jest.fn(),
+  getPlannedEvents: jest.fn(() => []),
+  getWeeklySummaries: jest.fn(() => []),
+  getWellnessSparklines: jest.fn(),
+};
+
 export const routes = {
   getFilteredGroupSummaries: jest.fn(),
   setRouteName: jest.fn(),
@@ -727,11 +787,69 @@ export const remote = {
 /** The activity delegates a screen test feeds its own answer through `withOverrides`. */
 export const activities = {
   getFeedFilterBounds: jest.fn(),
+  addActivities: jest.fn(),
+  saveProvisionalActivity: jest.fn(),
+  provisionalActivityId: jest.fn(),
+  activityNotification: jest.fn(),
+  pulledRideEntry: jest.fn(),
+  getActivityIds: jest.fn(),
+  getGpsFetchCandidates: jest.fn(),
+  hasActivity: jest.fn(),
+  getActivityCount: jest.fn(),
+  getGpsTrack: jest.fn(),
+  getPreviewTrack: jest.fn(),
+  setTimeStreams: jest.fn(),
+  getActivitiesMissingTimeStreams: jest.fn(),
+  getActivityRecord: jest.fn(),
+  getFeedCards: jest.fn(),
+  searchFeedCards: jest.fn(),
+  upsertActivityBodies: jest.fn(),
+  getActivityNames: jest.fn(),
+  setIntervalBody: jest.fn(),
+  setCurveBody: jest.fn(),
+  replaceCalendarEvents: jest.fn(),
+  getActivityStreams: jest.fn(),
+  removeActivity: jest.fn(),
+  debugCloneActivity: jest.fn(),
+  getActivityHighlightsBundle: jest.fn(),
+  getActivityDetailData: jest.fn(),
 };
 
 /** The section delegates a screen test feeds its own answer through `withOverrides`. */
 export const sections = {
   getRetiredMapData: jest.fn(),
+  getSectionCount: jest.fn(),
+  getSectionSummaries: jest.fn(),
+  getFilteredSectionSummaries: jest.fn(),
+  getSectionById: jest.fn(),
+  setSectionName: jest.fn(),
+  setSectionIsLift: jest.fn(),
+  getNamedCorridors: jest.fn(),
+  removeNamedCorridor: jest.fn(),
+  getSectionPerformances: jest.fn(),
+  getWorkoutSections: jest.fn(),
+  excludeActivityFromSection: jest.fn(),
+  includeActivityInSection: jest.fn(),
+  getExcludedActivityIds: jest.fn(),
+  excludeSectionLap: jest.fn(),
+  includeSectionLap: jest.fn(),
+  getSectionGeometryVersionPolyline: jest.fn(),
+  unpinSection: jest.fn(),
+  getSectionDetailData: jest.fn(),
+  getSectionDetailPerformance: jest.fn(),
+  loadSectionDetailPerformance: jest.fn(),
+  getSectionsByType: jest.fn(),
+  createSectionFromIndices: jest.fn(),
+  deleteSection: jest.fn(),
+  disableSection: jest.fn(),
+  enableSection: jest.fn(),
+  runSectionBoundsEdit: jest.fn(),
+  getSectionExtensionTrack: jest.fn(),
+  indexNewActivity: jest.fn(),
+  runSectionMerge: jest.fn(),
+  mergePreview: jest.fn(),
+  acceptSection: jest.fn(),
+  acceptAllSections: jest.fn(),
 };
 
 export const preview = {
@@ -781,6 +899,11 @@ export function namespacesOver(source: () => unknown): Record<string, Record<str
     recordings: over(recordings),
     strength: over(strength),
     routes: over(routes),
+    sync: over(sync),
+    activities: over(activities),
+    sections: over(sections),
+    fitness: over(fitness),
+    settings: over(settings),
     detection: over(detection),
     preview: over(preview),
     routeGroupingPreview: over(routeGroupingPreview),
@@ -895,6 +1018,8 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     recordings,
     strength,
     routes,
+    sync,
+    fitness,
     detection,
     activities,
     sections,

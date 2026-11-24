@@ -3,8 +3,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getEngine } from '@/shared/native/engine';
 import { useTranslation } from 'react-i18next';
+import { sections } from 'veloqrs';
 import type { FfiMergeOutcome, FfiMergeDropped } from 'veloqrs';
 import { announceDepartedRides } from '../lib/departedRides';
 import { inform } from '@/shared/ui/dialog';
@@ -42,14 +42,13 @@ export function useMergeSections(): UseMergeSectionsResult {
   // than queued.
   const merge = useCallback(
     async (primaryId: string, secondaryId: string): Promise<string | null> => {
-      const engine = getEngine();
-      if (!engine || mergeInFlight.current) return null;
+      if (mergeInFlight.current) return null;
       mergeInFlight.current = true;
       setIsMerging(true);
 
       let outcome: FfiMergeOutcome | null = null;
       try {
-        outcome = await engine.runSectionMerge(primaryId, secondaryId);
+        outcome = await sections.runSectionMerge(primaryId, secondaryId);
       } catch {
         outcome = null;
       } finally {
@@ -69,7 +68,7 @@ export function useMergeSections(): UseMergeSectionsResult {
 
   const previewDropped = useCallback(
     (primaryId: string, secondaryId: string): FfiMergeDropped[] =>
-      getEngine()?.mergePreview(primaryId, secondaryId) ?? [],
+      sections.mergePreview(primaryId, secondaryId) ?? [],
     []
   );
 

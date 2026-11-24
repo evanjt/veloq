@@ -4,8 +4,7 @@
  * The Rust sync replaces a whole window rather than upserting into it, so an
  * event cancelled on intervals.icu disappears here too.
  */
-import { FfiPlannedCategory, type FfiPlannedEvent } from 'veloqrs';
-import { getEngine } from '@/shared/native/engine';
+import { fitness, FfiPlannedCategory, type FfiPlannedEvent } from 'veloqrs';
 import { dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared/time/startDate';
 
 /**
@@ -14,9 +13,7 @@ import { dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared/time/startDat
  * it by the device offset.
  */
 export function readCalendarEvents(oldest: string, newest: string): FfiPlannedEvent[] {
-  const engine = getEngine();
-  if (!engine?.getPlannedEvents) return [];
-  return engine.getPlannedEvents(dayStartEpochSeconds(oldest), dayEndEpochSeconds(newest));
+  return fitness.getPlannedEvents(dayStartEpochSeconds(oldest), dayEndEpochSeconds(newest));
 }
 
 /**

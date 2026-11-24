@@ -26,7 +26,7 @@ jest.mock('@/features/routes/hooks/useCustomSections', () => ({
   useSectionCommands: () => ({ removeSection: mockRemoveSection, renameSection: jest.fn() }),
 }));
 jest.mock('@/features/routes/hooks/useDetectionHold', () => ({ useDetectionHold: () => null }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
+jest.mock('@/shared/native/engine', () => ({ isEngineReady: () => true, getEngine: () => null }));
 
 const section: FrequentSection = {
   id: 'custom-kiln',

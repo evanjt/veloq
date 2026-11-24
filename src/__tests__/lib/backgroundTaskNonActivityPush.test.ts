@@ -32,7 +32,10 @@ const mockInsights: Insight[] = [
   },
 ];
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: jest.fn(() => null),
+}));
 jest.mock('expo-task-manager', () => ({
   ...jest.requireActual('expo-task-manager'),
   defineTask: jest.fn(),

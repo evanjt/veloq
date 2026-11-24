@@ -12,7 +12,7 @@
  * is pure; `gatherWidgetSnapshot` is the entry point the write hooks call.
  */
 import { getIntlLocale } from '@/shared/format';
-import { getEngine, isEngineReady } from '@/shared/native/engine';
+import { isEngineReady } from '@/shared/native/engine';
 import { demoLibrary } from '@/shared/app/seedDemoEngine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getRecentRecordingTypes, getRecordedRecordingTypes } from '@/shared/recording';
@@ -20,13 +20,14 @@ import { getActivityCategory } from '@/shared/activity/sportCategories';
 import { widgetPalette } from '@/shared/theme/widgetTheme';
 import { sportFamilyColours, type SportFamilyName } from '@/theme';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
-import type {
-  DatePart,
-  DatePattern,
-  DateWords,
-  FfiWidgetContext,
-  NumberWords,
-  RecordShortcut,
+import {
+  fitness,
+  type DatePart,
+  type DatePattern,
+  type DateWords,
+  type FfiWidgetContext,
+  type NumberWords,
+  type RecordShortcut,
 } from 'veloqrs';
 import type { SampleWidgetLibrary } from 'veloqrs/src/delegates/fitness';
 
@@ -348,8 +349,6 @@ export function gatherWidgetSnapshot(opts: {
    */
   translateInsight?: TFunc | undefined;
 }): WidgetSnapshotPayload | null {
-  const engine = getEngine();
-  if (!engine) return null;
   if (!isEngineReady()) return null;
   const sampleOnly = showsSampleLibrary();
 
@@ -383,7 +382,7 @@ export function gatherWidgetSnapshot(opts: {
 
   let json: string | undefined;
   try {
-    json = engine.composeWidgetSnapshot(
+    json = fitness.composeWidgetSnapshot(
       context,
       nowSeconds,
       nowWallSeconds,
@@ -401,7 +400,7 @@ export function gatherWidgetSnapshot(opts: {
   // same words and the same settings as the file the app just wrote. A sample's
   // context is stored too, marked, so the worker leaves its file alone instead
   // of redrawing a previous athlete's stored rows over it.
-  engine.setWidgetContext(context);
+  fitness.setWidgetContext(context);
   return { json, launcherShortcuts: context.launcherShortcuts };
 }
 

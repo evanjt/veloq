@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { fitness } from 'veloqrs';
 import type { ZoneDistribution } from '@/types';
 import { useTranslation } from 'react-i18next';
 import { DEFAULT_ZONE_NAME_KEYS } from '@/shared/app/zoneNameKeys';
@@ -70,9 +71,7 @@ export function useZoneDistribution({
     if (!sportType) return undefined;
 
     const { startTs, endTs } = trailingDaysWindow(days, new Date());
-    const read = readActivities((engine) =>
-      engine.getZoneDistribution(sportType, type, startTs, endTs)
-    );
+    const read = readActivities(() => fitness.getZoneDistribution(sportType, type, startTs, endTs));
     const defaultName: DefaultZoneName = (zoneType, zone) => {
       const key = DEFAULT_ZONE_NAME_KEYS[zoneType][zone - 1];
       return key ? t(key) : undefined;

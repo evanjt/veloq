@@ -21,7 +21,7 @@ import {
 import type { MapSurfaceRef } from '@/features/maps/components/MapSurface';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
+jest.mock('@/shared/native/engine', () => ({ isEngineReady: () => true, getEngine: () => null }));
 jest.mock('expo-location', () => ({
   ...jest.requireActual('expo-location'),
   getForegroundPermissionsAsync: jest.fn(),

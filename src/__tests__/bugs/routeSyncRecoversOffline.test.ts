@@ -25,6 +25,7 @@ jest.mock('veloqrs', () =>
 );
 jest.mock('@/shared/native/engine', () => ({
   getNativeModule: jest.fn(),
+  isEngineReady: () => true,
   getEngine: jest.fn(() => undefined),
 }));
 let mockOnline = true;

@@ -30,6 +30,7 @@ import { datedSeries } from '../__shared__/datedSeries';
 const MEDIAN_OF_THREE = 0 as FfiImprovementBasis;
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({

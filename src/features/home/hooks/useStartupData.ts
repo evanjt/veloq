@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { runWhenIdle } from '@/shared/async/runWhenIdle';
 import { useForeground } from '@/shared/app/useRetryTriggers';
-import { getEngine } from '@/shared/native/engine';
 import { BODY_STORED_CHANNEL, payloadKind } from '@/shared/native/engineChannels';
 import { timeAppWork } from '@/shared/debug/renderTimer';
+import { getEngine } from '@/shared/native/engine';
 import { useEngineOpenCount, useEngineReady } from '@/shared/native/useEngineReady';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
-import { decodeCoords, SyncState } from 'veloqrs';
+import { decodeCoords, fitness, sync, SyncState } from 'veloqrs';
 import type {
   PreviewTrack as PreviewTrackRecord,
   SummaryCardData,
@@ -81,12 +81,9 @@ function retainUnchangedPreviewTracks(
  * reads as "keep what is already on screen".
  */
 function fetchStartupData(previewActivityIds: string[]): StartupResult | null {
-  const engine = getEngine();
-  if (!engine) return null;
-
   try {
     const params = buildInsightsParams();
-    const result = engine.getStartupData(params, previewActivityIds);
+    const result = fitness.getStartupData(params, previewActivityIds);
     if (!result) return null;
 
     return {
@@ -113,7 +110,7 @@ function bundleHoldsActivities(result: StartupResult): boolean {
 /** Whether the engine says a sync is running right now. */
 function syncInFlight(): boolean {
   try {
-    return getEngine()?.getSyncStatus()?.state === SyncState.Syncing;
+    return sync.getSyncStatus()?.state === SyncState.Syncing;
   } catch {
     return false;
   }
@@ -132,10 +129,11 @@ function syncInFlight(): boolean {
 function useEngineSignals(): { settled: number; wellnessStored: number } {
   const [settled, setSettled] = useState(0);
   const [wellnessStored, setWellnessStored] = useState(0);
-  const engine = useEngineReady();
+  const ready = useEngineReady();
 
   useEffect(() => {
-    if (!engine) return undefined;
+    const engine = getEngine();
+    if (!ready || !engine) return undefined;
     const offSettled = engine.subscribe('syncSettled', () => setSettled((n) => n + 1));
     const offBody = engine.subscribe(BODY_STORED_CHANNEL, (payload) => {
       if (payloadKind(payload) !== 'wellness') return;
@@ -145,7 +143,7 @@ function useEngineSignals(): { settled: number; wellnessStored: number } {
       offSettled?.();
       offBody?.();
     };
-  }, [engine]);
+  }, [ready]);
 
   return { settled, wellnessStored };
 }

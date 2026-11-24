@@ -16,7 +16,13 @@ import { getEngine } from '@/shared/native/engine';
 import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
 import { useRangeCoverage } from '@/shared/native/useRangeCoverage';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 
 const listeners: Record<string, (() => void)[]> = {};
 
@@ -32,10 +38,11 @@ const mockEngine = {
 };
 
 jest.mock('@/shared/native/useEngineReady', () => ({
-  useEngineReady: () => mockEngine,
+  useEngineReady: () => true,
 }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 

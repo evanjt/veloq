@@ -6,10 +6,10 @@
  * app holding every activity.
  */
 
+import { settings } from 'veloqrs';
 import { useQuery } from '@tanstack/react-query';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { getEngine } from '@/shared/native/engine';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { TIME } from '@/shared/app/time';
@@ -26,8 +26,7 @@ export function useOldestActivityDate() {
   return useQuery({
     queryKey: queryKeys.calendar.oldestDate,
     queryFn: () => {
-      const engine = getEngine();
-      const stored = engine?.getSetting(OLDEST_ACTIVITY_DATE_KEY);
+      const stored = settings.getSetting(OLDEST_ACTIVITY_DATE_KEY);
       if (!stored) return null;
       const parsed = new Date(stored);
       return Number.isNaN(parsed.getTime()) ? null : parsed;

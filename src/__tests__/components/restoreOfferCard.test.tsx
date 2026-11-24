@@ -21,6 +21,13 @@ import { openLaunchSession } from '../__shared__/launchSession';
 const mockSettings = new Map<string, string>();
 let mockFinishRestore: () => void = () => {};
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
     getSetting: (key: string) => mockSettings.get(key) ?? null,

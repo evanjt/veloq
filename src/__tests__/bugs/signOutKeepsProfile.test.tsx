@@ -18,7 +18,15 @@ import { useAthlete } from '@/shared/app/useAthlete';
 import { getEngine } from '@/shared/native/engine';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
   // The wipe carries the path, so a handle closed on the login screen has
   // a database to open rather than skipping the wipe.

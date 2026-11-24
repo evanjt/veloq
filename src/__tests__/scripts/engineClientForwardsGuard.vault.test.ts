@@ -4,9 +4,8 @@
  * export grew a second door and the client grew by one line each time.
  *
  * Expected behaviour: the guard fails a client member whose whole body is a
- * call into a delegate with `this`, in any of the arrow shapes, unless the
- * baseline still lists it; it fails a baseline entry that is no longer a
- * forward, so the list only shrinks; and it leaves a real method alone.
+ * call into a delegate with `this`, in any of the arrow shapes, and no list
+ * can excuse it; and it leaves a real method alone.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -91,15 +90,10 @@ it('passes a real method and a member that does more than forward', () => {
   expect(run.status).toBe(0);
 });
 
-it('passes a forward the baseline still lists', () => {
+it('fails a forward even when a leftover baseline file lists it', () => {
   const run = runGuard(fixture(['x = (): number => kiteDelegates.x(this);'], ['x']));
-  expect(run.status).toBe(0);
-});
-
-it('fails a baseline entry that is no longer a forward', () => {
-  const run = runGuard(fixture(['x = (): number => kiteDelegates.x(this);'], ['x', 'gone']));
   expect(run.status).toBe(1);
-  expect(run.output).toContain('gone');
+  expect(run.output).toContain('x');
 });
 
 it('fails when the client cannot be read', () => {

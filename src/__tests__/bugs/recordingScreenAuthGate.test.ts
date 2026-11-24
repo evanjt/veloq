@@ -87,10 +87,16 @@ describe('the surfaces are handed no ride-starting URL while signed out', () => 
       getEngine: () => mockEngine,
       isEngineReady: () => true,
     }));
+    jest.doMock('veloqrs', () =>
+      require('../__shared__/veloqrsStub').withOverrides(
+        require('../__shared__/veloqrsStub').namespacesOver(() => mockEngine)
+      )
+    );
   });
 
   afterEach(() => {
     jest.dontMock('@/shared/native/engine');
+    jest.dontMock('veloqrs');
   });
 
   function gather() {

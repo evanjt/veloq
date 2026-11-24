@@ -17,6 +17,7 @@ jest.mock('@/features/recording/lib/holdRecordingOnSignOut', () => ({
   holdRecordingOnSignOut: jest.fn(async () => undefined),
 }));
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(() => null),
 }));
 jest.mock('@/features/settings/lib/pushTokenRegistration', () => ({

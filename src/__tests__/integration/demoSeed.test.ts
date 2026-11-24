@@ -12,7 +12,15 @@ import { formatLocalDate } from '@/shared/time/localDay';
 import { dayEndEpochSeconds, dayStartEpochSeconds } from '@/shared/time/startDate';
 import { atUtcOffset } from '../__shared__/fixedOffsetDate';
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 

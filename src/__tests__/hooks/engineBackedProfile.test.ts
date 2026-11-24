@@ -17,7 +17,15 @@ import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { useWellness, useWellnessForDate } from '@/features/wellness/hooks/useWellness';
 import { getEngine } from '@/shared/native/engine';
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 

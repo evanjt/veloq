@@ -32,7 +32,10 @@ jest.mock('@/shared/app/AuthStore', () => ({
   DEMO_ATHLETE_ID: 'demo',
 }));
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => ({ ready: true }) }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: () => ({ ready: true }),
+}));
 
 const mockWriteProvisional = jest.fn();
 jest.mock('@/features/recording/lib/storage/provisionalActivity', () => ({

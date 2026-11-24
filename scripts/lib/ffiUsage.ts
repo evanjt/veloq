@@ -448,11 +448,6 @@ export const CLIENT_UNREACHED_ALLOWED: Record<string, string> = {
   // Read by tests, which are not callers, and by nothing in the app.
   isInitialized: 'no production caller; the engine tests read it to see that an open landed',
   getBackupMetadata: 'no production caller; the backup tests read it',
-
-  // The representative track's only caller was the hook that loaded it, now
-  // removed. It stays until the route group reads move onto a screen read.
-  getRepresentativeRoute:
-    'no production caller since the representative-route hook was removed; kept until the route group reads move onto a screen read',
 };
 
 /**

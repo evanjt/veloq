@@ -1,5 +1,11 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { engine, type FfiPaceText, type SectionPerformanceResult } from 'veloqrs';
+import {
+  activities,
+  sections,
+  sync,
+  type FfiPaceText,
+  type SectionPerformanceResult,
+} from 'veloqrs';
 import type { FrequentSection, DirectionStats } from '@/types';
 import {
   toDirectionStats,
@@ -258,7 +264,7 @@ export function useSectionTimeStreamSync(
         // missing at the deadline.
         const missingIds =
           (isRetry ? undefined : knownMissingIds) ??
-          engine.getActivitiesMissingTimeStreams(allActivityIds);
+          activities.getActivitiesMissingTimeStreams(allActivityIds);
         requested = missingIds.length;
 
         // If all time streams are cached, we're done immediately
@@ -274,7 +280,7 @@ export function useSectionTimeStreamSync(
 
         // Rust fetches the missing streams behind the shared governor and
         // persists them, announcing each one as it lands.
-        const start = engine.syncTimeStreams(missingIds);
+        const start = sync.syncTimeStreams(missingIds);
 
         const remaining = willAnnounce(start)
           ? await awaitTimeStreams(missingIds, { timeoutMs: TIME_STREAM_TIMEOUT_MS, signal })
@@ -372,7 +378,7 @@ export function useSectionPerformances(
     }
     // A thrown read is a failure, not a section with no efforts.
     const read = attemptEngineRead(() =>
-      readSections((client) => client.getSectionPerformances(section.id, sportType))
+      readSections(() => sections.getSectionPerformances(section.id, sportType))
     );
     if (!read.ok) return { view: EMPTY_PERFORMANCE_VIEW, readError: read.error };
     return {

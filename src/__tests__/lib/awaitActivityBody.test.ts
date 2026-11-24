@@ -19,7 +19,19 @@ import { awaitActivityBody, readStoredActivity } from '@/features/insights/lib/a
 // Hoisted above the imports by babel-jest whatever it is written after, so it
 // sits here rather than ahead of them, where `import/first` reads it as an
 // import out of order.
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+// The sync and activities namespaces answer through the engine the last `fakeEngine` call made.
+const mockCurrent: {
+  engine?: {
+    syncActivityDetail: (id: string) => unknown;
+    getActivityRecord: (id: string) => unknown;
+  };
+} = {};
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    sync: { syncActivityDetail: (id: string) => mockCurrent.engine?.syncActivityDetail(id) },
+    activities: { getActivityRecord: (id: string) => mockCurrent.engine?.getActivityRecord(id) },
+  })
+);
 
 type Listener = (payload?: { kind?: string; activityId?: string }) => void;
 
@@ -64,6 +76,7 @@ function fakeEngine(stored: Record<string, Stored> = {}, outcome = FfiStartOutco
     reads: () => reads.length,
     windowReads: () => windowReads.length,
   };
+  mockCurrent.engine = engine;
   return engine;
 }
 
@@ -175,7 +188,7 @@ describe('awaiting an activity body', () => {
   vaultIt('reads null for an activity the engine has not got, without scanning', () => {
     const engine = fakeEngine({ 'i-9': { id: 'i-9' } });
 
-    expect(readStoredActivity(engine, 'i-1')).toBeNull();
+    expect(readStoredActivity('i-1')).toBeNull();
     expect(engine.windowReads()).toBe(0);
   });
 });

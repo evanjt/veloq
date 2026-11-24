@@ -24,6 +24,7 @@ jest.mock('veloqrs', () =>
 
 const mockGetEngine = jest.fn();
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => mockGetEngine(),
 }));
 

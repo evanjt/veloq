@@ -14,6 +14,7 @@ import {
   useEngineSubscription,
   useReadRetry,
 } from '@/shared/native/useEngineSubscription';
+import { routes, sections } from 'veloqrs';
 import type { SectionSummary, GroupSummary } from 'veloqrs';
 
 // ============================================================================
@@ -62,17 +63,13 @@ export function useSectionSummaries(
   const read = useMemo(() => {
     if (!enabled) return { totalCount: 0, summaries: [] };
     try {
-      const engine = readSections((open) => open);
-      if (!engine) return { totalCount: 0, summaries: [] };
-
       // Visit-count filter + sort done in Rust; TS only fills display names.
-      const { totalCount, summaries: rawSummaries } = engine.getFilteredSectionSummaries(
-        sportType,
-        minVisits,
-        'visits'
+      const page = readSections(() =>
+        sections.getFilteredSectionSummaries(sportType, minVisits, 'visits')
       );
+      if (!page) return { totalCount: 0, summaries: [] };
 
-      return { totalCount, summaries: rawSummaries };
+      return { totalCount: page.totalCount, summaries: page.summaries };
     } catch (error) {
       return { totalCount: 0, summaries: [], error };
     }
@@ -113,11 +110,13 @@ export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGr
   const read = useMemo(() => {
     if (!enabled) return { totalCount: 0, summaries: [] };
     try {
-      const engine = readGroups((open) => open);
-      if (!engine) return { totalCount: 0, summaries: [] };
-
-      // Filter + sort pushed into Rust.
-      return engine.getFilteredGroupSummaries(minActivities, sortBy);
+      // Filter + sort pushed into Rust. Undefined while the engine is not open.
+      return (
+        readGroups(() => routes.getFilteredGroupSummaries(minActivities, sortBy)) ?? {
+          totalCount: 0,
+          summaries: [],
+        }
+      );
     } catch (error) {
       return { totalCount: 0, summaries: [], error };
     }

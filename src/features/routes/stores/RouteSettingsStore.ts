@@ -3,6 +3,7 @@
  * Controls whether route matching is enabled and other route-related preferences.
  */
 
+import { settings } from 'veloqrs';
 import { create } from 'zustand';
 import { getSetting, setSetting } from '@/shared/storage';
 import { debug } from '@/shared/debug/debug';
@@ -77,9 +78,9 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
       const { getEngine } = require('@/shared/native/engine');
       const engine = getEngine();
       const detectionEnabled = get().settings.enabled ? '1' : '0';
-      if (engine && engine.getSetting(DETECTION_ENABLED_KEY) !== detectionEnabled) {
+      if (engine && settings.getSetting(DETECTION_ENABLED_KEY) !== detectionEnabled) {
         // The delegate holds this write until the engine opens on a cold start.
-        engine.setSetting(DETECTION_ENABLED_KEY, detectionEnabled);
+        settings.setSetting(DETECTION_ENABLED_KEY, detectionEnabled);
       }
     } catch {
       set({ isLoaded: true });
@@ -92,15 +93,15 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
       const parsed = stored
         ? safeJsonParseWithSchema(stored, isRouteSettings, DEFAULT_SETTINGS)
         : DEFAULT_SETTINGS;
-      const settings = pickSettings(parsed);
+      const routeSettings = pickSettings(parsed);
       // The engine owns the switch, and a linked browser writes it there
       // alone, so the engine's value wins over the stored copy.
       const { getEngine } = require('@/shared/native/engine');
       const engine = getEngine();
-      const held = engine?.getSetting?.(DETECTION_ENABLED_KEY);
-      if (held === '0' || held === '1') settings.enabled = held === '1';
-      const changed = settings.enabled !== get().settings.enabled;
-      set({ settings, isLoaded: true });
+      const held = settings.getSetting(DETECTION_ENABLED_KEY);
+      if (held === '0' || held === '1') routeSettings.enabled = held === '1';
+      const changed = routeSettings.enabled !== get().settings.enabled;
+      set({ settings: routeSettings, isLoaded: true });
       // Section counts and highlights read on these channels, and a settings
       // announcement alone does not reach them.
       if (changed) {
@@ -130,7 +131,7 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
         // kept cutting the catalogue while the screens looked away.
         // Written before the refresh below, so nothing can start a detect in
         // the window between the two.
-        engine.setSetting?.(DETECTION_ENABLED_KEY, enabled ? '1' : '0');
+        settings.setSetting(DETECTION_ENABLED_KEY, enabled ? '1' : '0');
         // Notify UI to update sections/routes visibility
         engine.triggerRefresh('sections');
         engine.triggerRefresh('groups');

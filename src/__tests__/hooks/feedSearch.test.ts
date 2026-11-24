@@ -25,10 +25,17 @@ import { getEngine } from '@/shared/native/engine';
 import { feedCard } from '../__shared__/feedCard';
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    activities: require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).activities,
+  })
+);
 
 const engine = {
   searchFeedCards: jest.fn(),

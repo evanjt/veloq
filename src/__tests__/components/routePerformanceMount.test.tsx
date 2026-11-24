@@ -9,7 +9,10 @@ import { render } from '@testing-library/react-native';
 import { RoutePerformanceSection } from '@/features/routes/components/performance/RoutePerformanceSection';
 import { getEngine } from '@/shared/native/engine';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides(
     require('../__shared__/veloqrsStub').namespacesOver(() =>

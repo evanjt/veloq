@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import { routes } from 'veloqrs';
 import type { RouteDetailData } from 'veloqrs';
 import {
   classifyDetailRead,
@@ -23,9 +24,9 @@ export function useRouteDetailData(
     const closed: DetailRead<RouteDetailData> = { status: { kind: 'closed' }, data: null };
     if (!groupId) return { status: { kind: 'missing' } as DetailReadStatus, data: null };
     return (
-      readGroups((engine) =>
+      readGroups(() =>
         classifyDetailRead(
-          () => engine.getRouteDetailData(groupId),
+          () => routes.getRouteDetailData(groupId),
           (result) => result,
           (result) => !result.group
         )

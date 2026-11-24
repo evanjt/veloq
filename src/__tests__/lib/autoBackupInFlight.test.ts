@@ -23,6 +23,13 @@ const mockStartBackup = jest.fn();
 let mockSettled = false;
 const mockCarriers: BackupBackend[] = [];
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/features/settings/lib/autobackup/backends/carriers', () => ({
   get backupCarriers() {
     return mockCarriers;
@@ -30,6 +37,7 @@ jest.mock('@/features/settings/lib/autobackup/backends/carriers', () => ({
 }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     getSetting: (key: string) => mockSettings.get(key),
     engineInstall: () => 1,

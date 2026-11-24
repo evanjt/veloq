@@ -27,6 +27,7 @@ let wipeSettles: () => void = () => {};
 const mockEngine = {
   clear: jest.fn(),
   setSetting: jest.fn(),
+  setSettings: jest.fn(),
   getSetting: jest.fn(),
   deleteSetting: jest.fn(),
   getAthleteProfile: jest.fn().mockReturnValue(null),
@@ -34,6 +35,13 @@ const mockEngine = {
 
 const mockClearCredentials = jest.fn();
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => mockEngine,
   getRouteDbPath: () => '/data/routes.db',
@@ -68,6 +76,11 @@ beforeEach(() => {
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   mockClearCredentials.mockReset();
   mockEngine.setSetting.mockReset().mockImplementation((key: string) => trace.push(`set ${key}`));
+  mockEngine.setSettings
+    .mockReset()
+    .mockImplementation((pairs: { key: string }[]) =>
+      pairs.forEach(({ key }) => trace.push(`set ${key}`))
+    );
   // The real clear() returns at its first await with the wipe still running on
   // a Rust thread, and only then destroys and re-opens the handle.
   mockEngine.clear.mockReset().mockImplementation(

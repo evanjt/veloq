@@ -87,6 +87,7 @@ jest.mock('@/shared/app/SyncDateRangeStore', () => ({
 }));
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => null,
 }));
 

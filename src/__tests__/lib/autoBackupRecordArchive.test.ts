@@ -11,7 +11,15 @@ import * as Network from 'expo-network';
 const mockSettings = new Map<string, string>();
 const mockRunRecordBackup = jest.fn(async (_path: string) => {});
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     getSetting: (key: string) => mockSettings.get(key),
     engineInstall: () => 1,

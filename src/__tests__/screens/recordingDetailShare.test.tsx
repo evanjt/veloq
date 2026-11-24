@@ -16,7 +16,13 @@ import type { RecordingLibraryEntry } from '@/types';
 import { useRecordingLibrary } from '@/features/recording/hooks/useRecordingLibrary';
 import { goBack } from '@/shared/app/navigation';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    settings: require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).settings,
+  })
+);
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
   useTranslation: () => ({
@@ -62,9 +68,8 @@ jest.mock('@/shared/ui', () => ({
   },
   ErrorState: () => null,
 }));
-const mockOpenEngine = { id: 'open-handle' };
 jest.mock('@/shared/native/useEngineReady', () => ({
-  useEngineReady: () => mockOpenEngine,
+  useEngineReady: () => true,
   useEngineOpening: () => false,
 }));
 jest.mock('@/features/recording/components/RecordingMap', () => ({

@@ -35,9 +35,9 @@ export function useRecordingLibrary(): UseRecordingLibrary {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
-  const engine = useEngineReady();
+  const ready = useEngineReady();
   const opening = useEngineOpening();
-  const readOn = useRef(engine);
+  const readOn = useRef(ready);
 
   // Every read ends the load, so a throw shows as a failure with a retry
   // rather than a spinner nothing clears.
@@ -59,17 +59,20 @@ export function useRecordingLibrary(): UseRecordingLibrary {
   );
 
   useEffect(() => {
-    if (!engine) return undefined;
-    // A handle that opened after the screen mounted, or replaced the one the
-    // list was read on, holds a library the screen has not read yet.
-    if (engine !== readOn.current) {
-      readOn.current = engine;
+    if (!ready) {
+      readOn.current = false;
+      return undefined;
+    }
+    // An engine that opened after the screen mounted holds a library the
+    // screen has not read yet.
+    if (ready !== readOn.current) {
+      readOn.current = ready;
       void refresh();
     }
     return onRecordingsChanged(() => {
       void refresh();
     });
-  }, [engine, refresh]);
+  }, [ready, refresh]);
 
   const uploadNow = useCallback(
     async (id: string): Promise<FfiUploadResult | null> => {
@@ -144,7 +147,7 @@ export function useVisibleRecording(id: string | undefined): VisibleRecording {
   const [fitAvailable, setFitAvailable] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
-  const engine = useEngineReady();
+  const ready = useEngineReady();
   const opening = useEngineOpening();
 
   const reload = useCallback(
@@ -165,11 +168,11 @@ export function useVisibleRecording(id: string | undefined): VisibleRecording {
     [id]
   );
 
-  // Read again when the engine opens or its handle is replaced: a read before
-  // it opened threw and is not the answer.
+  // Read again when the engine opens: a read before it opened threw and is not
+  // the answer.
   useEffect(() => {
     void reload();
-  }, [reload, engine]);
+  }, [reload, ready]);
 
   return {
     entry,

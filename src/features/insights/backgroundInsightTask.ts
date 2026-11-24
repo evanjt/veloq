@@ -69,17 +69,11 @@ async function ensureI18nInitialised(): Promise<void> {
  * the background push budget where a full O(N²) detection cannot. New sections
  * the activity might create wait for the next full detection run.
  */
-async function indexActivity(
-  engine: { indexNewActivity: (activityId: string) => unknown },
-  activityId: string
-): Promise<void> {
+async function indexActivity(activityId: string): Promise<void> {
   const start = Date.now();
   try {
-    const summary = engine.indexNewActivity(activityId) as {
-      matchedSections: number;
-      insertedPortions: number;
-      regroupScheduled: boolean;
-    } | null;
+    const { sections } = require('veloqrs') as typeof import('veloqrs');
+    const summary = sections.indexNewActivity(activityId);
     await appendTaskRun({
       stage: 'indexed',
       activityId,
@@ -112,12 +106,12 @@ async function readyActivity(activityId: string): Promise<void> {
   const start = Date.now();
   let detail: string;
   try {
-    const { engine } = require('veloqrs') as typeof import('veloqrs');
+    const { sync } = require('veloqrs') as typeof import('veloqrs');
     let timer: ReturnType<typeof setTimeout> | undefined;
     const deadline = new Promise<null>((resolve) => {
       timer = setTimeout(() => resolve(null), ACTIVITY_READY_TIMEOUT_MS);
     });
-    const ready = await Promise.race([engine.readyActivityBodies(activityId), deadline]);
+    const ready = await Promise.race([sync.readyActivityBodies(activityId), deadline]);
     clearTimeout(timer);
     const elapsed = `${Date.now() - start}ms`;
     detail =
@@ -159,7 +153,7 @@ async function fetchAndIngestActivity(
     // so hand it the rehydrated credential before asking it to fetch.
     pushCredentialsToEngine();
 
-    const { engine } = require('veloqrs');
+    const { engine, activities } = require('veloqrs');
     const { awaitActivityBody } =
       require('./lib/awaitActivityBody') as typeof import('./lib/awaitActivityBody');
 
@@ -190,7 +184,7 @@ async function fetchAndIngestActivity(
 
     activityInfo.ingested = (() => {
       try {
-        return engine.hasActivity(activityId);
+        return activities.hasActivity(activityId);
       } catch {
         return false;
       }
@@ -200,7 +194,7 @@ async function fetchAndIngestActivity(
       log.log(`Activity ingested: ${activityInfo.name}`);
       // Idempotent, and covers a webhook that arrived before indexing ran, so
       // the activity's PRs are present when the notification body is built.
-      await indexActivity(engine, activityId);
+      await indexActivity(activityId);
     }
 
     return activityInfo;
@@ -339,10 +333,10 @@ export async function handleBackgroundInsightTask({
       pushNotificationTemplates();
       // Lazily required like every other engine reach in this file, to keep
       // the headless module graph lean.
-      const { engine } = require('veloqrs') as typeof import('veloqrs');
+      const { activities } = require('veloqrs') as typeof import('veloqrs');
       // The engine finds a fitness milestone itself, so the switch is all it
       // is told.
-      const { title, body } = engine.activityNotification(
+      const { title, body } = activities.activityNotification(
         activityId,
         activityInfo?.name ?? '',
         prefs.categories.sectionPr,

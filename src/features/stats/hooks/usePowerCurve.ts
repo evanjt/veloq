@@ -1,4 +1,4 @@
-import { getEngine } from '@/shared/native/engine';
+import { fitness, sync } from 'veloqrs';
 import { powerCurveOf } from '@/features/stats/lib/curveRecords';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { PowerCurve } from '@/types';
@@ -16,10 +16,10 @@ export function usePowerCurve(options: UsePowerCurveOptions = {}) {
   return useStoredCurve<PowerCurve>({
     queryKey: queryKeys.charts.powerCurve.bySport(sport, days),
     read: () => {
-      const stored = getEngine()?.getPowerCurve(sport, days);
+      const stored = fitness.getPowerCurve(sport, days);
       return stored ? { curve: powerCurveOf(stored), fetchedAt: stored.fetchedAt } : null;
     },
-    sync: () => getEngine()?.syncPowerCurve(sport, days),
+    sync: () => sync.syncPowerCurve(sport, days),
     bodyName: 'power_curve',
     empty: { type: 'power', sport, secs: [], watts: [] },
     days,

@@ -97,7 +97,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   const [isSubscribed, setIsSubscribed] = useState(() => getEngine() !== null);
 
   // Track mount state to prevent setState after unmount
-  const engine = useEngineReady();
+  const ready = useEngineReady();
   const isMountedRef = useRef(true);
   useEffect(() => {
     isMountedRef.current = true;
@@ -110,7 +110,8 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   // the ready nonce, so an engine that opens after this mounts arrives here as
   // a dependency change rather than through a poll of its own.
   useEffect(() => {
-    if (!engine) return undefined;
+    const engine = getEngine();
+    if (!ready || !engine) return undefined;
     let cancelled = false;
     let unsubscribe: (() => void) | null = null;
 
@@ -157,7 +158,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [engine, engineGeneration]); // Re-subscribe when engine is destroyed and re-created
+  }, [ready, engineGeneration]); // Re-subscribe when engine is destroyed and re-created
 
   // Cache statistics from engine (date range from engine's actual data)
   const cacheStats: CacheStats = useMemo(() => {

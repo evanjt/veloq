@@ -15,7 +15,13 @@ import type { SectionWithPolyline } from 'veloqrs';
  * said as a failed accept, with no "accepted" line in the header.
  */
 
-jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides({
+    sections: require('../../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).sections,
+  })
+);
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({
@@ -37,6 +43,7 @@ jest.mock('@/features/routes/hooks/useElevationBackfill', () => ({
 }));
 const mockAcceptAllSections = jest.fn();
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({ acceptAllSections: mockAcceptAllSections }),
 }));
 

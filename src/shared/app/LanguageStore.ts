@@ -1,3 +1,4 @@
+import { settings } from 'veloqrs';
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
@@ -146,7 +147,7 @@ async function applyLanguage(language: LanguageChoice): Promise<void> {
   if (engine) {
     const routeWord = i18n.t('routes.routeWord');
     const sectionWord = i18n.t('routes.sectionWord');
-    engine.setNameTranslations(routeWord, sectionWord);
+    settings.setNameTranslations(routeWord, sectionWord);
   }
 
   // The notification templates go with them, so a push handler woken with

@@ -14,9 +14,16 @@ import { getEngine } from '@/shared/native/engine';
 import { TRACK_STAGE_REREAD_MS } from '@/shared/native/useSyncStatus';
 import { SyncState, FfiTrackStep, type SyncStatus, type FfiTrackStage } from 'veloqrs';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 jest.mock('@/features/maps', () => ({

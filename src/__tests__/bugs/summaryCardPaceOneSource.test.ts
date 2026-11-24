@@ -23,7 +23,10 @@ jest.mock('@/i18n', () => ({
   i18n: { t: (key: string) => key },
   getCurrentLanguage: () => 'en-GB',
 }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: jest.fn(() => null),
+}));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
 const mockPaceCurve = jest.fn((_options: unknown) => ({ data: { criticalSpeed: 3.1 } }));
 jest.mock('@/features/stats', () => ({ usePaceCurve: (o: unknown) => mockPaceCurve(o) }));

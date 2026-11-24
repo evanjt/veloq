@@ -13,7 +13,17 @@ import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { useFormPreferenceAtLaunch } from '@/shared/app/useFormPreferenceAtLaunch';
 import { getEngine } from '@/shared/native/engine';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 jest.mock('@/features/home/lib/widgetBridge', () => ({ scheduleWidgetSnapshot: jest.fn() }));
 
 const engine = { getAthleteProfile: jest.fn(), subscribe: jest.fn(() => () => {}) };

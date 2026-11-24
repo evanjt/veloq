@@ -8,6 +8,7 @@
  * silently destroy synced data.
  */
 
+import { settings } from 'veloqrs';
 import { i18n } from '@/i18n';
 import { getEngine, isEngineReady } from '@/shared/native/engine';
 import { engineErrorKey } from '@/shared/native/engineError';
@@ -42,7 +43,7 @@ export async function getCachedAthleteId(): Promise<string | null> {
   if (engine) {
     let id: string | undefined;
     try {
-      id = engine.getAthleteProfile()?.id || engine.getSetting('__athlete_id');
+      id = settings.getAthleteProfile()?.id || settings.getSetting('__athlete_id');
     } catch {
       // A failed read names no one, and the mirror below is the fallback for that.
       id = undefined;
@@ -60,7 +61,7 @@ export async function nameLibrary(athleteId: string): Promise<void> {
   const engine = getEngine();
   let previous: string | undefined;
   try {
-    previous = engine?.getSetting('__athlete_id') || undefined;
+    previous = settings.getSetting('__athlete_id') || undefined;
   } catch {
     previous = undefined;
   }
@@ -70,7 +71,7 @@ export async function nameLibrary(athleteId: string): Promise<void> {
     const { adoptRecordingsIdentity } = await import('@/features/recording');
     await adoptRecordingsIdentity(previous, athleteId);
   }
-  getEngine()?.setSetting('__athlete_id', athleteId);
+  settings.setSetting('__athlete_id', athleteId);
   await rememberCachedAthleteId(athleteId);
 }
 

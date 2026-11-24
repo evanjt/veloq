@@ -31,8 +31,12 @@ const mockEngine = {
   },
 };
 
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: () => mockEngine,
+  isEngineReady: () => true,
+}));
 jest.mock('@/shared/native/useEngineReady', () => ({
-  useEngineReady: () => mockEngine,
+  useEngineReady: () => true,
 }));
 
 function Probe({ events }: { events: EngineEvent[] }) {

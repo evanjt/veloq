@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { RangeCoverage } from 'veloqrs';
+import { RangeCoverage, sync } from 'veloqrs';
 
 import { formatLocalDate, addLocalDays } from '@/shared/time/localDay';
 
@@ -39,9 +39,7 @@ export function useWindowCoverage(oldest: string, newest: string, enabled = true
   return useMemo(() => {
     if (!enabled) return RangeCoverage.NotFetched;
     try {
-      return (
-        readEngine((engine) => engine.rangeCoverage(oldest, newest)) ?? RangeCoverage.NotFetched
-      );
+      return readEngine(() => sync.rangeCoverage(oldest, newest)) ?? RangeCoverage.NotFetched;
     } catch {
       // A throw is the engine refusing the read, which is ignorance too.
       return RangeCoverage.NotFetched;

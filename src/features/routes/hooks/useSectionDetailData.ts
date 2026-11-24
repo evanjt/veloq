@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { getEngine } from '@/shared/native/engine';
 import {
   classifyDetailRead,
   type DetailRead,
@@ -7,7 +6,7 @@ import {
 } from '../lib/detailReadResult';
 import { attemptEngineRead } from '@/shared/native/engineError';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
-import { decodeCoords, routes } from 'veloqrs';
+import { decodeCoords, routes, sections } from 'veloqrs';
 import type {
   FfiMergeCandidate,
   Section as NativeSection,
@@ -45,15 +44,13 @@ export type SectionDeparture = NonNullable<SectionDetailData['retirement']>;
 
 type SectionDetailRead = DetailRead<SectionDetailBundle> & { retirement: SectionDeparture | null };
 
-type Engine = NonNullable<ReturnType<typeof getEngine>>;
-
-function fetchSectionDetailData(engine: Engine, sectionId: string): SectionDetailRead {
+function fetchSectionDetailData(sectionId: string): SectionDetailRead {
   if (!sectionId) return { status: { kind: 'missing' }, data: null, retirement: null };
 
   let retirement: SectionDeparture | null = null;
   const read = classifyDetailRead(
     () => {
-      const result = engine.getSectionDetailData(sectionId);
+      const result = sections.getSectionDetailData(sectionId);
       retirement = result?.section ? null : (result?.retirement ?? null);
       return result;
     },
@@ -104,9 +101,11 @@ export function useSectionDetailData(
 
   const initial = useMemo<SectionDetailRead>(
     () =>
-      (sectionId
-        ? readSection((engine) => fetchSectionDetailData(engine, sectionId))
-        : undefined) ?? { status: { kind: 'closed' }, data: null, retirement: null },
+      (sectionId ? readSection(() => fetchSectionDetailData(sectionId)) : undefined) ?? {
+        status: { kind: 'closed' },
+        data: null,
+        retirement: null,
+      },
     [sectionId, readSection]
   );
   const initialData = initial.data;
@@ -123,9 +122,8 @@ export function useSectionDetailData(
   }
 
   const refresh = useCallback(() => {
-    const engine = getEngine();
-    if (!isMountedRef.current || !sectionId || !engine) return;
-    const result = fetchSectionDetailData(engine, sectionId);
+    if (!isMountedRef.current || !sectionId) return;
+    const result = fetchSectionDetailData(sectionId);
     if (result.data && isMountedRef.current) {
       setData(result.data);
     }
@@ -179,10 +177,10 @@ export function useSectionDetailPerformance(
 
   const read = useMemo(() => {
     if (!enabled || !sectionId) return { data: null, error: undefined };
-    const result = readPerformance((engine) =>
+    const result = readPerformance(() =>
       attemptEngineRead(
         () =>
-          engine.getSectionDetailPerformance(
+          sections.getSectionDetailPerformance(
             sectionId,
             timeRangeDays,
             sportFilter,
@@ -229,12 +227,11 @@ function useLoadedCurves(
   } | null>(null);
   const owed = read.data?.curvesPending ? read.data : null;
   useEffect(() => {
-    const engine = getEngine();
-    if (!owed || !ready || !id || !engine) return undefined;
+    if (!owed || !ready || !id) return undefined;
     let live = true;
     const load =
       subject === 'section'
-        ? engine.loadSectionDetailPerformance(id, timeRangeDays, sportFilter, highlightActivityId)
+        ? sections.loadSectionDetailPerformance(id, timeRangeDays, sportFilter, highlightActivityId)
         : routes.loadRouteDetailPerformance(id, timeRangeDays, sportFilter, highlightActivityId);
     load
       .then((data) => {

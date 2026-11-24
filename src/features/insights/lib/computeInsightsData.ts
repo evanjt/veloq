@@ -5,10 +5,9 @@ import {
   normaliseStrengthProgression,
   normaliseStrengthSummary,
 } from '@/features/strength';
-import { getEngine } from '@/shared/native/engine';
 import { debug } from '@/shared/debug/debug';
 
-import type { InsightsData } from 'veloqrs';
+import { fitness, type InsightsData } from 'veloqrs';
 
 import type { Insight } from '../types';
 import { buildInsightsParams } from './insightsParams';
@@ -66,11 +65,8 @@ export function computeInsightsFromData(
  * Pure function - calls synchronous FFI, no React.
  */
 export function fetchInsightsDataFromEngine(): InsightsEnginePayload | null {
-  const engine = getEngine();
-  if (!engine) return null;
-
   const params = buildInsightsParams();
-  const insightsData = engine.getInsightsData(params) ?? null;
+  const insightsData = fitness.getInsightsData(params) ?? null;
   if (!insightsData) return null;
 
   return { insightsData };

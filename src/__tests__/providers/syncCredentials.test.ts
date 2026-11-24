@@ -10,7 +10,15 @@ import * as SecureStore from 'expo-secure-store';
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 
@@ -95,14 +103,6 @@ describe('sync credential ownership', () => {
 
     expect(clearSyncCredentials).toHaveBeenCalled();
     expect(setSyncCredentials).not.toHaveBeenCalled();
-  });
-
-  it('is a no-op before the engine exists', () => {
-    mockGetEngine.mockReturnValue(null);
-
-    expect(() => pushCredentialsToEngine()).not.toThrow();
-    expect(setSyncCredentials).not.toHaveBeenCalled();
-    expect(clearSyncCredentials).not.toHaveBeenCalled();
   });
 
   it('clears rather than sends a half-populated credential', () => {

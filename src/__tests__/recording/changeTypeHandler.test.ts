@@ -3,7 +3,7 @@ import { renderHook, act } from '@testing-library/react-native';
 import { useRecordingHandlers } from '@/features/recording/hooks/useRecordingHandlers';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
+jest.mock('@/shared/native/engine', () => ({ isEngineReady: () => true, getEngine: () => null }));
 
 it('changes the live session type when a new type is chosen', async () => {
   useRecordingStore.getState().reset();

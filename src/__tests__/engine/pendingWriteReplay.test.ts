@@ -9,12 +9,26 @@
  */
 
 import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
+import * as settingsDelegates from '../../../modules/veloqrs/src/delegates/settings';
+import { bindDelegates } from '../../../modules/veloqrs/src/delegates/bind';
+import * as activityDelegates from '../../../modules/veloqrs/src/delegates/activities';
+import * as fitnessDelegates from '../../../modules/veloqrs/src/delegates/fitness';
+import * as syncDelegates from '../../../modules/veloqrs/src/delegates/sync';
 
 import { initialiseRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => require('../../../modules/veloqrs/src/EngineClient').EngineClient.getInstance(),
 }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    settings: require('../../../modules/veloqrs/src/delegates/bind').bindDelegates(
+      require('../../../modules/veloqrs/src/EngineClient').EngineClient.getInstance(),
+      require('../../../modules/veloqrs/src/delegates/settings')
+    ),
+  })
+);
 jest.mock('@/shared/storage', () => ({
   getSetting: jest.fn(async () => JSON.stringify({ enabled: false })),
 }));
@@ -95,7 +109,7 @@ describe('writes made before the engine opens', () => {
       { key: 'units', value: 'metric' },
     ];
 
-    client.setSettings(pairs);
+    bindDelegates(client, settingsDelegates).setSettings(pairs);
     expect(mockSettings.setSettings).not.toHaveBeenCalled();
 
     expect(client.initWithPath(DB)).toBe(true);
@@ -108,7 +122,7 @@ describe('writes made before the engine opens', () => {
     const client = closedClient();
     client.initWithPath(DB);
 
-    client.setSettings([{ key: 'language', value: 'fr' }]);
+    bindDelegates(client, settingsDelegates).setSettings([{ key: 'language', value: 'fr' }]);
 
     expect(mockSettings.setSettings).toHaveBeenCalledWith([{ key: 'language', value: 'fr' }]);
   });
@@ -116,7 +130,7 @@ describe('writes made before the engine opens', () => {
   it('replays a credential written before init, exactly once', () => {
     const client = closedClient();
 
-    client.setSyncCredentials('oauth', 'secret-token', '12345');
+    syncDelegates.setSyncCredentials(client, 'oauth', 'secret-token', '12345');
     expect(mockSync.setCredentials).not.toHaveBeenCalled();
 
     expect(client.initWithPath(DB)).toBe(true);
@@ -131,9 +145,9 @@ describe('writes made before the engine opens', () => {
     mockSync.setCredentials.mockImplementation((_m, secret) => order.push(`set:${secret}`));
     mockSync.clearCredentials.mockImplementation(() => order.push('clear'));
 
-    client.setSyncCredentials('api_key', 'first', 'a1');
-    client.clearSyncCredentials();
-    client.setSyncCredentials('oauth', 'second', 'a2');
+    syncDelegates.setSyncCredentials(client, 'api_key', 'first', 'a1');
+    syncDelegates.clearSyncCredentials(client);
+    syncDelegates.setSyncCredentials(client, 'oauth', 'second', 'a2');
 
     client.initWithPath(DB);
 
@@ -148,10 +162,10 @@ describe('writes made before the engine opens', () => {
     mockSettings.setSetting.mockImplementation(() => order.push('setting'));
     mockActivities.setCurveBody.mockImplementation(() => order.push('curveBody'));
 
-    client.setAthleteProfile('{"id":"demo"}');
-    client.setSportSettings('{"Ride":{}}');
-    client.setSetting('units', 'metric');
-    client.setCurveBody('power', 'Ride', 90, false, '{}');
+    bindDelegates(client, settingsDelegates).setAthleteProfile('{"id":"demo"}');
+    bindDelegates(client, settingsDelegates).setSportSettings('{"Ride":{}}');
+    bindDelegates(client, settingsDelegates).setSetting('units', 'metric');
+    activityDelegates.setCurveBody(client, 'power', 'Ride', 90, false, '{}');
 
     expect(order).toEqual([]);
 
@@ -163,9 +177,9 @@ describe('writes made before the engine opens', () => {
   it('replays time streams written before init and skips empty batches', () => {
     const client = closedClient();
 
-    client.setTimeStreams([{ activityId: 'a1', times: [1, 2] }]);
-    client.setTimeStreams([]);
-    client.setTimeStreams([{ activityId: 'a2', times: [3] }]);
+    activityDelegates.setTimeStreams(client, [{ activityId: 'a1', times: [1, 2] }]);
+    activityDelegates.setTimeStreams(client, []);
+    activityDelegates.setTimeStreams(client, [{ activityId: 'a2', times: [3] }]);
     expect(mockActivities.setTimeStreams).not.toHaveBeenCalled();
 
     client.initWithPath(DB);
@@ -181,9 +195,9 @@ describe('writes made before the engine opens', () => {
     const first = { activityId: 'a1', date: 1, raw: '{"name":"first"}' };
     const second = { activityId: 'a2', date: 2, raw: '{"name":"second"}' };
 
-    client.upsertActivityBodies([first]);
-    client.upsertActivityBodies([]);
-    client.upsertActivityBodies([second]);
+    activityDelegates.upsertActivityBodies(client, [first]);
+    activityDelegates.upsertActivityBodies(client, []);
+    activityDelegates.upsertActivityBodies(client, [second]);
     expect(mockActivities.upsertActivityBodies).not.toHaveBeenCalled();
 
     client.initWithPath(DB);
@@ -196,9 +210,9 @@ describe('writes made before the engine opens', () => {
     const first = { date: '2026-01-01', ctl: 12 };
     const second = { date: '2026-01-02', hrv: 45 };
 
-    client.upsertWellness([first]);
-    client.upsertWellness([]);
-    client.upsertWellness([second]);
+    fitnessDelegates.upsertWellness(client, [first]);
+    fitnessDelegates.upsertWellness(client, []);
+    fitnessDelegates.upsertWellness(client, [second]);
     expect(mockFitness.upsertWellness).not.toHaveBeenCalled();
 
     client.initWithPath(DB);
@@ -210,7 +224,7 @@ describe('writes made before the engine opens', () => {
     const client = closedClient();
     client.initWithPath(DB);
 
-    client.setSetting('units', 'imperial');
+    bindDelegates(client, settingsDelegates).setSetting('units', 'imperial');
 
     expect(mockSettings.setSetting).toHaveBeenCalledTimes(1);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -220,7 +234,7 @@ describe('writes made before the engine opens', () => {
   it('drops what it held when the engine is torn down before it opens', () => {
     const client = closedClient();
 
-    client.setSetting('units', 'metric');
+    bindDelegates(client, settingsDelegates).setSetting('units', 'metric');
     client.destroyEngine();
     client.initWithPath(DB);
 
@@ -249,7 +263,7 @@ describe('writes made before the engine opens', () => {
     const client = closedClient();
     initSucceeds = false;
 
-    client.setSyncCredentials('oauth', 'secret-token', '12345');
+    syncDelegates.setSyncCredentials(client, 'oauth', 'secret-token', '12345');
     expect(client.initWithPath(DB)).toBe(false);
     expect(mockSync.setCredentials).not.toHaveBeenCalled();
 
@@ -262,7 +276,7 @@ describe('writes made before the engine opens', () => {
   it('never replays a cancel issued before the engine opened', () => {
     const client = closedClient();
 
-    client.cancelSync();
+    syncDelegates.cancelSync(client);
     client.initWithPath(DB);
 
     expect(mockSync.cancel).not.toHaveBeenCalled();
@@ -272,7 +286,7 @@ describe('writes made before the engine opens', () => {
     const client = closedClient();
 
     for (let i = 0; i < 300; i += 1) {
-      client.setSetting(`key-${i}`, String(i));
+      bindDelegates(client, settingsDelegates).setSetting(`key-${i}`, String(i));
     }
 
     client.initWithPath(DB);
@@ -290,7 +304,7 @@ describe('writes made before the engine opens', () => {
     const client = closedClient();
 
     for (let i = 0; i < 258; i += 1) {
-      client.setSetting(`key-${i}`, String(i));
+      bindDelegates(client, settingsDelegates).setSetting(`key-${i}`, String(i));
     }
 
     const dropped = warn.mock.calls.map(([message]) => String(message));
@@ -304,7 +318,7 @@ describe('writes made before the engine opens', () => {
     const client = closedClient();
 
     for (let i = 0; i < 300; i += 1) {
-      client.setSetting(`key-${i}`, String(i));
+      bindDelegates(client, settingsDelegates).setSetting(`key-${i}`, String(i));
     }
 
     expect(client.droppedPendingWrites).toBe(44);
@@ -314,7 +328,7 @@ describe('writes made before the engine opens', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const client = closedClient();
     for (let i = 0; i < 300; i += 1) {
-      client.setSetting(`key-${i}`, String(i));
+      bindDelegates(client, settingsDelegates).setSetting(`key-${i}`, String(i));
     }
     warn.mockClear();
 
@@ -329,7 +343,7 @@ describe('writes made before the engine opens', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const client = closedClient();
 
-    client.setSetting('units', 'metric');
+    bindDelegates(client, settingsDelegates).setSetting('units', 'metric');
     client.initWithPath(DB);
 
     const aboutDrops = warn.mock.calls
@@ -346,8 +360,8 @@ describe('writes made before the engine opens', () => {
       throw new Error('engine refused the profile');
     });
 
-    client.setAthleteProfile('{"id":"demo"}');
-    client.setSetting('units', 'metric');
+    bindDelegates(client, settingsDelegates).setAthleteProfile('{"id":"demo"}');
+    bindDelegates(client, settingsDelegates).setSetting('units', 'metric');
 
     client.initWithPath(DB);
 

@@ -1,4 +1,4 @@
-import { getEngine } from './engine';
+import { settings } from 'veloqrs';
 
 /**
  * The heart rate zone, numbered from 1, that a live reading falls in for a
@@ -10,7 +10,7 @@ import { getEngine } from './engine';
  */
 export function engineHrZone(sportType: string, bpm: number): number | null {
   try {
-    return getEngine()?.hrZoneFor(sportType, bpm) ?? null;
+    return settings.hrZoneFor(sportType, bpm) ?? null;
   } catch {
     return null;
   }

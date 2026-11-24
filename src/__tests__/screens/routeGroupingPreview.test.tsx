@@ -96,7 +96,7 @@ jest.mock('@/shared/native/engine', () => {
       return mockCentres;
     },
   };
-  return { getEngine: () => engine };
+  return { isEngineReady: () => true, getEngine: () => engine };
 });
 
 jest.mock('expo-router', () => ({

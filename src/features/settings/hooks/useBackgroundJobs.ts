@@ -18,6 +18,7 @@
  * so a resting row reports the work waiting rather than a run that is over.
  */
 
+import { settings } from 'veloqrs';
 import { useEffect, useMemo, useState } from 'react';
 
 import { followRoutesStatus, readRoutesStatus } from '@/shared/native/routesStatusPoll';
@@ -195,9 +196,9 @@ function useBackgroundJobsData(): BackgroundJobsData | undefined {
   ]);
   return useMemo(
     () =>
-      readEngine((engine) => {
+      readEngine(() => {
         try {
-          return engine.getBackgroundJobsData?.();
+          return settings.getBackgroundJobsData();
         } catch {
           // empty-on-error: undefined is "could not answer", which the rows read as unknown and
           // never as nothing left to do.

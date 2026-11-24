@@ -21,6 +21,7 @@ jest.mock('veloqrs', () =>
 const mockHoldOtherAthletes = jest.fn(() => 2);
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     holdRecordingsOfOtherAthletes: mockHoldOtherAthletes,
   }),

@@ -5,7 +5,7 @@
  * it, and the sync matches on that column rather than storing the ride twice.
  */
 
-import { engine } from 'veloqrs';
+import { activities, engine } from 'veloqrs';
 
 import { debug } from '@/shared/debug/debug';
 import { getStoredCredentials } from '@/shared/app/AuthStore';
@@ -59,13 +59,13 @@ export async function writeProvisionalActivity(
     return null;
   }
 
-  const activityId = entry.engineActivityId ?? engine.provisionalActivityId(entry.id);
+  const activityId = entry.engineActivityId ?? activities.provisionalActivityId(entry.id);
   if (!activityId) return null;
 
   try {
     const body = buildProvisionalBody(entry, activityId);
     const fitPath = entry.kind === 'fit' && entry.fitPath ? entry.fitPath : undefined;
-    const saved = await engine.saveProvisionalActivity(activityId, fitPath, {
+    const saved = await activities.saveProvisionalActivity(activityId, fitPath, {
       activityId,
       date: startDateLocalToEpochSeconds(body.start_date_local) ?? 0,
       raw: JSON.stringify(body),
@@ -102,7 +102,7 @@ export async function replayProvisionalWrites(): Promise<number> {
   const signedIn = getStoredCredentials().athleteId;
   const owed = (await listRecordings()).filter(
     (entry) =>
-      (!entry.engineActivityId || !engine.hasActivity(entry.engineActivityId)) &&
+      (!entry.engineActivityId || !activities.hasActivity(entry.engineActivityId)) &&
       (!entry.athleteId || entry.athleteId === signedIn) &&
       (entry.uploadStatus !== 'uploaded' || !!entry.intervalsActivityId)
   );

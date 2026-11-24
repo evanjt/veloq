@@ -154,6 +154,9 @@ const mockClearTiles = jest.fn(async (): Promise<number> => {
 });
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    settings: require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).settings,
     basemapStore: () => ({ clearTiles: () => mockClearTiles() }),
   })
 );

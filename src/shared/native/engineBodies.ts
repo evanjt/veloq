@@ -34,6 +34,7 @@ import {
   isRetryableStart,
   startOutcome,
   FfiStartOutcome,
+  sync,
   type FfiStartResult,
 } from 'veloqrs';
 
@@ -143,7 +144,7 @@ export interface EngineBodyWait {
  */
 function bodiesStored(): number | null {
   try {
-    return getEngine()?.getBodiesStored?.() ?? null;
+    return sync.getBodiesStored();
   } catch {
     return null;
   }

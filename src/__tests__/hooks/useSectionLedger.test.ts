@@ -3,7 +3,17 @@ import { renderHook, act } from '@testing-library/react-native';
 import { useSectionLedger, type BundledLedger } from '@/features/routes/hooks/useSectionLedger';
 import { getEngine } from '@/shared/native/engine';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    sections: require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).sections,
+  })
+);
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 
 function engineWith() {
   return {

@@ -10,6 +10,13 @@ const mockEngine = {
   getSetting: jest.fn((key: string) => mockRows.get(key)),
   setSetting: jest.fn((key: string, value: string) => mockRows.set(key, value)),
 };
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => mockEngine,
   isEngineReady: () => mockEngine.ready,

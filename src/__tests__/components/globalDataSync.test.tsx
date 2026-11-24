@@ -37,8 +37,17 @@ jest.mock('@/features/routes/hooks/useSectionHealthCheck', () => ({
 }));
 jest.mock('@/shared/native/useEngineSync', () => ({ useEngineSync: jest.fn() }));
 jest.mock('@/shared/native/useSyncAuthExpiry', () => ({ useSyncAuthExpiry: jest.fn() }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/features/settings/lib/notificationService', () => ({
   updateSyncNotification: jest.fn(),
   dismissSyncNotification: jest.fn(),

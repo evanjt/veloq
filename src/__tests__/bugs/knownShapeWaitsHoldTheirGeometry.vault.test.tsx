@@ -28,7 +28,10 @@ jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/features/routes/components/SectionMapView', () => ({
   SectionMapView: () => null,
 }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: jest.fn(() => null),
+}));
 // The map waits on the host route's push, which this suite has no navigator to make.
 jest.mock('@/shared/async/useAfterNavigationTransition', () => ({
   useAfterNavigationTransition: () => undefined,

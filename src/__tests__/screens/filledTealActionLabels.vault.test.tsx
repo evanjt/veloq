@@ -39,9 +39,8 @@ jest.mock('@/shared/ui', () => ({
   useScrollEndInset: () => 0,
   useHeroMapHeight: () => 300,
 }));
-const mockOpenEngine = { id: 'open-handle' };
 jest.mock('@/shared/native/useEngineReady', () => ({
-  useEngineReady: () => mockOpenEngine,
+  useEngineReady: () => true,
   useEngineOpening: () => false,
 }));
 jest.mock('@/shared/ui/withScreenBoundary', () => ({

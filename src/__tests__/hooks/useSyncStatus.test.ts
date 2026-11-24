@@ -20,9 +20,26 @@ import {
 } from '@/shared/native/useSyncStatus';
 import { SyncState, FfiTrackStep, type SyncStatus, type FfiTrackStage } from 'veloqrs';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+// The sync namespace answers through the engine handle unless a test sets its
+// own status here, so the handle and the namespace can be told apart.
+const mockNamespaceStatus: { value?: unknown } = {};
+
+jest.mock('veloqrs', () => {
+  const stub = require('../__shared__/veloqrsStub');
+  const over = stub.namespacesOver(() => require('@/shared/native/engine').getEngine());
+  return stub.withOverrides({
+    ...over,
+    sync: {
+      ...over.sync,
+      getSyncStatus: (...args: unknown[]) =>
+        mockNamespaceStatus.value ??
+        (over.sync.getSyncStatus as (...a: unknown[]) => unknown)(...args),
+    },
+  });
+});
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 
@@ -77,6 +94,20 @@ vaultIt('reads once at mount and never on a timer while idle', async () => {
     jest.advanceTimersByTime(30_000);
   });
   expect(engine.getSyncStatus).toHaveBeenCalledTimes(1);
+});
+
+it('reads the status through the sync namespace, not the handle', async () => {
+  const engine = fakeEngine(status(SyncState.Idle, 0));
+  mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
+  mockNamespaceStatus.value = status(SyncState.Syncing, 2);
+  try {
+    const { result } = await renderHook(() => useSyncStatus());
+    expect(result.current?.state).toBe(SyncState.Syncing);
+    expect(result.current?.completed).toBe(2);
+    expect(engine.getSyncStatus).not.toHaveBeenCalled();
+  } finally {
+    delete mockNamespaceStatus.value;
+  }
 });
 
 it('re-reads when the engine announces a step', async () => {

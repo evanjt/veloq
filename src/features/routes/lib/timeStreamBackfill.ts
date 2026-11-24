@@ -7,7 +7,7 @@
  */
 
 import type { TFunction } from 'i18next';
-import { engine } from 'veloqrs';
+import { engine, sync } from 'veloqrs';
 
 import type { SyncProgress } from '@/features/routes/hooks/useRouteSyncProgress';
 
@@ -41,7 +41,7 @@ export async function backfillTimeStreams(
   const total = needing.length;
   // A refused start fetches nothing, so there is nothing to wait for: the
   // next sync asks again.
-  if (!willAnnounce(engine.syncTimeStreams(needing))) {
+  if (!willAnnounce(sync.syncTimeStreams(needing))) {
     return { total, remaining: total };
   }
   onProgress(0, total);

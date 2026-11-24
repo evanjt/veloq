@@ -17,7 +17,17 @@ import { WithScreenRead } from '../__shared__/withScreenRead';
  * the `activities` channel.
  */
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 
 // The shared Skia mock has the components but not the imperative recorder the
 // grid is drawn with, so this file stands one up.

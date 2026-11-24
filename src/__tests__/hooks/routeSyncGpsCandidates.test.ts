@@ -20,9 +20,16 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { setFeedHeadIds } from '@/shared/activity/feedHead';
 import type { FeedCard } from '@/types';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(
+      () => require('@/shared/native/engine').getNativeModule()?.engine
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
   getNativeModule: jest.fn(),
+  isEngineReady: () => true,
   getEngine: jest.fn(() => undefined),
 }));
 jest.mock('@/shared/app/NetworkContext', () => ({

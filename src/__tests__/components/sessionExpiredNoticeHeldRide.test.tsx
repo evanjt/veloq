@@ -37,7 +37,7 @@ jest.mock('expo-file-system/legacy', () => ({
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
+jest.mock('@/shared/native/engine', () => ({ isEngineReady: () => true, getEngine: () => null }));
 jest.mock('@/features/auth/lib/accountChange', () => ({
   getCachedAthleteId: jest.fn(async () => 'i1'),
 }));

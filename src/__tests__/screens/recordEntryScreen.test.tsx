@@ -41,9 +41,18 @@ type Listener = (payload?: unknown) => void;
 const mockListeners: Record<string, Listener[]> = {};
 let mockEvents: FfiPlannedEvent[] = [];
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     getPlannedEvents: () => mockEvents,
+    getRecordScreenData: () => undefined,
     syncCalendarEvents: jest.fn(),
     subscribe: (event: string, listener: Listener) => {
       (mockListeners[event] ??= []).push(listener);

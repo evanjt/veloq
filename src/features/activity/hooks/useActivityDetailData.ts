@@ -3,7 +3,7 @@ import { getEngine } from '@/shared/native/engine';
 import { attemptEngineRead } from '@/shared/native/engineError';
 import { BODY_STORED_CHANNEL, payloadKind } from '@/shared/native/engineChannels';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
-import { decodeCoords, FfiPoolSwimState } from 'veloqrs';
+import { activities, decodeCoords, FfiPoolSwimState } from 'veloqrs';
 import { requestFitFile } from '@/features/strength/light';
 import type {
   ActivityHighlightsBundle,
@@ -116,11 +116,10 @@ const NOTHING_READ: DetailRead = { data: null, error: undefined };
  * and the manual refresh so both run the same pipeline.
  */
 function fetchActivityDetailData(activityId: string): DetailRead {
-  const engine = getEngine();
-  if (!engine || !activityId) return NOTHING_READ;
+  if (!activityId) return NOTHING_READ;
 
   const attempt = attemptEngineRead(() =>
-    engine.getActivityDetailData(activityId, MIN_ROUTE_ACTIVITIES)
+    activities.getActivityDetailData(activityId, MIN_ROUTE_ACTIVITIES)
   );
   if (!attempt.ok) return { data: null, error: attempt.error };
   const result = attempt.value;

@@ -16,7 +16,15 @@ const mockRemoveItem = jest.fn().mockResolvedValue(undefined);
 
 let mockEngine: Record<string, unknown> | null = null;
 
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => mockEngine,
 }));
 

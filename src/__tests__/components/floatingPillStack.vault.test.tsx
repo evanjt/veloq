@@ -23,8 +23,17 @@ import { SyncErrorBanner } from '@/shared/ui/SyncErrorBanner';
 import { colors, darkColors, shadows, spacing, stroke } from '@/theme';
 import { FfiSyncErrorReason } from '../__shared__/veloqrsStub';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 const TOP_INSET = 47;

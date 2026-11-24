@@ -19,6 +19,7 @@ import { useSectionCommands } from '@/features/routes/hooks/useCustomSections';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { announceDepartedRides } from '@/features/routes/lib/departedRides';
+import { sections } from 'veloqrs';
 import type { FfiDepartedRide, SectionBoundsEdit, StartVerdict } from 'veloqrs';
 import { useDetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import type { FrequentSection } from '@/types';
@@ -182,11 +183,9 @@ export function useSectionActions({
       setExcludedActivityIds(new Set(preComputedExcludedActivityIds));
       return;
     }
-    const engine = getEngine();
-    if (!engine) return;
     // A failed read keeps the set it has rather than taking the screen down;
     // the bundle's own exclusions replace it when they arrive.
-    const read = attemptEngineRead(() => engine.getExcludedActivityIds(id));
+    const read = attemptEngineRead(() => sections.getExcludedActivityIds(id));
     if (!read.ok) {
       log.warn('excluded ids read failed', id, read.error);
       return;
@@ -264,7 +263,7 @@ export function useSectionActions({
 
       let departed: FfiDepartedRide[] | null = null;
       try {
-        departed = (await getEngine()?.runSectionBoundsEdit(edit)) ?? null;
+        departed = (await sections.runSectionBoundsEdit(edit)) ?? null;
       } catch {
         departed = null;
       } finally {
@@ -352,9 +351,7 @@ export function useSectionActions({
   const handleIncludeActivity = useCallback(
     (activityId: string) => {
       if (!id) return;
-      const engine = getEngine();
-      if (!engine) return;
-      if (!engine.includeActivityInSection(id, activityId)) {
+      if (!sections.includeActivityInSection(id, activityId)) {
         informSectionWriteRefused(t);
         return;
       }
@@ -372,9 +369,7 @@ export function useSectionActions({
   const handleExcludeActivity = useCallback(
     (activityId: string) => {
       if (!id) return;
-      const engine = getEngine();
-      if (!engine) return;
-      if (!engine.excludeActivityFromSection(id, activityId)) {
+      if (!sections.excludeActivityFromSection(id, activityId)) {
         informSectionWriteRefused(t);
         return;
       }
@@ -397,9 +392,7 @@ export function useSectionActions({
   // --- accept/pin ---
   const handleAcceptSection = useCallback(() => {
     if (!id || isCustomId) return;
-    const engine = getEngine();
-    if (!engine) return;
-    if (!engine.acceptSection(id)) {
+    if (!sections.acceptSection(id)) {
       informSectionWriteRefused(t);
       return;
     }
@@ -416,8 +409,6 @@ export function useSectionActions({
   // that spends it has to be a deliberate one.
   const handleUnflagLift = useCallback(() => {
     if (!id) return;
-    const engine = getEngine();
-    if (!engine) return;
     confirmAction({
       title: t('sections.unflagLift'),
       message: t('sections.unflagLiftConfirm'),
@@ -425,7 +416,7 @@ export function useSectionActions({
       cancelLabel: t('common.cancel'),
       destructive: true,
       onConfirm: () => {
-        if (!engine.setSectionIsLift(id, false)) {
+        if (!sections.setSectionIsLift(id, false)) {
           log.warn('unflag refused', id);
           informSectionWriteRefused(t);
           return;

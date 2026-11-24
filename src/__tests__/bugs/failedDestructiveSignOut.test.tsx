@@ -44,6 +44,7 @@ const mockDemote = () => {
   }
 };
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({
     ready: true,
     demoteRecordingsToLocalOnly: mockDemote,

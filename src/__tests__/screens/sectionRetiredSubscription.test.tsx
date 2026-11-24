@@ -24,6 +24,7 @@ jest.mock('veloqrs', () =>
         current: [],
         pairs: [],
       }),
+      runSectionBoundsEdit: (edit: unknown) => mockRunSectionBoundsEdit(edit),
     },
   })
 );
@@ -84,7 +85,6 @@ jest.mock('@/shared/native/engine', () => ({
       mockListeners.set(event, set);
       return () => set.delete(cb);
     },
-    runSectionBoundsEdit: (edit: unknown) => mockRunSectionBoundsEdit(edit),
   }),
   isEngineReady: () => true,
 }));

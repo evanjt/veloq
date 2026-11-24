@@ -34,7 +34,10 @@ const mockEngine = {
   getSectionCount: jest.fn(() => 3),
   getSectionDetectionProgress: jest.fn(() => null),
 };
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: () => mockEngine,
+}));
 
 const section: FrequentSection = {
   id: 's1',

@@ -51,6 +51,7 @@ jest.mock('@/features/settings/lib/autobackup/backends', () => ({
   isIcloudSupported: () => false,
 }));
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => ({ getSetting: () => null, setSetting: () => {} }),
 }));
 

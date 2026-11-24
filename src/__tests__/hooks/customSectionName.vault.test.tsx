@@ -14,9 +14,16 @@ import { getEngine } from '@/shared/native/engine';
  * it. It never receives an empty string or a generated name.
  */
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    sections: require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).sections,
+  })
+);
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 

@@ -3,7 +3,7 @@
 import { RestoreRefusedError, type RestoreRefusal } from './restoreRefusal';
 import type { RestoreReport } from './restoreNotice';
 import * as FileSystem from 'expo-file-system/legacy';
-import { RecordScope } from 'veloqrs';
+import { RecordScope, sync, settings } from 'veloqrs';
 import { getEngine, getNativeModule, isEngineReady } from '@/shared/native/engine';
 import { exportFileUri, restoreCopyUri } from '@/shared/storage/cacheFiles';
 import { shareExistingFile, type ShareAnchor } from '@/features/settings/lib/shareFile';
@@ -137,7 +137,7 @@ export async function exportRecordBackup(anchor?: ShareAnchor): Promise<RecordEx
 export function cancelRecordBackup(): boolean {
   const engine = getEngine();
   // The backup screen's read names the running backup, since one runs at a time.
-  const run = engine?.getBackupScreenData()?.recordBackupRun;
+  const run = settings.getBackupScreenData()?.recordBackupRun;
   if (!engine || run === undefined) return false;
   return engine.cancelRun(run);
 }
@@ -204,28 +204,23 @@ interface RecordRestoreOutcome extends RestoreReport {
  * the network, and an import made offline or killed part way resumes at the
  * next sync. A sync already running reaches that step on its own.
  */
-function requestRecordActivities(
-  engine: NonNullable<ReturnType<typeof getEngine>>,
-  restored: RecordRestoreOutcome
-): void {
+function requestRecordActivities(restored: RecordRestoreOutcome): void {
   if (restored.missingActivityIds.length === 0) return;
   try {
-    engine.syncNow(false);
+    sync.syncNow(false);
   } catch (error) {
     log.warn('Record source fetch left for the next sync:', error);
   }
 }
 
 /** Keep preferences needed without an open engine in step with restored SQLite settings. */
-async function mirrorRestoredPreferences(
-  engine: NonNullable<ReturnType<typeof getEngine>>
-): Promise<void> {
+async function mirrorRestoredPreferences(): Promise<void> {
   for (const key of [
     'veloq-theme-preference',
     'veloq-language-preference',
     'veloq-notification-preferences',
   ]) {
-    const value = engine.getSetting(key);
+    const value = settings.getSetting(key);
     if (value !== undefined && value !== null) {
       try {
         await AsyncStorage.setItem(key, value);
@@ -300,8 +295,8 @@ export async function restoreRecordBackup(fileUri: string): Promise<RecordRestor
     await FileSystem.copyAsync({ from: fileUri, to: copyUri });
     const path = copyUri.startsWith('file://') ? copyUri.slice(7) : copyUri;
     const result = await engine.restoreRecordZip(path);
-    requestRecordActivities(engine, result);
-    await mirrorRestoredPreferences(engine);
+    requestRecordActivities(result);
+    await mirrorRestoredPreferences();
     await reinitialiseAllStores();
     await queryClient.invalidateQueries();
     return result;
@@ -324,8 +319,8 @@ export async function resumeRecordImport(): Promise<RecordRestoreOutcome | null>
   if (!waiting.some((record) => record.reason === 'import_paused')) return null;
   // An import of no entries carries the paused one, under the same checks.
   const restored = await engine.restoreRecordJson(JSON.stringify(EMPTY_RECORD));
-  requestRecordActivities(engine, restored);
-  await mirrorRestoredPreferences(engine);
+  requestRecordActivities(restored);
+  await mirrorRestoredPreferences();
   await reinitialiseAllStores();
   await queryClient.invalidateQueries();
   return restored;
@@ -641,8 +636,8 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
     return { refusal: 'signInRequired' };
   }
   const restored = await engine.restoreRecordJson(JSON.stringify(record));
-  requestRecordActivities(engine, restored);
-  await mirrorRestoredPreferences(engine);
+  requestRecordActivities(restored);
+  await mirrorRestoredPreferences();
   await reinitialiseAllStores();
   await queryClient.invalidateQueries();
   return { unplacedCount: restored.unplaced, drops: restored };

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import { sections as sectionsNs } from 'veloqrs';
 
 export interface WorkoutSection {
   id: string;
@@ -17,7 +18,7 @@ export interface WorkoutSection {
 /**
  * Home-screen "Sections for you" list.
  *
- * Thin pass-through to `engine.getWorkoutSections` - ranking, PR lookup,
+ * Thin pass-through to `sections.getWorkoutSections` - ranking, PR lookup,
  * previous-best, trend computation all happen in Rust in a single FFI
  * round-trip (was previously an N+1 loop calling `getSectionPerformances`
  * per ranked section from TS).
@@ -31,8 +32,8 @@ export function useWorkoutSections(sportType: string | undefined): {
     if (!sportType) return [];
 
     return (
-      readSections((engine) =>
-        engine.getWorkoutSections(sportType, 5).map((row) => ({
+      readSections(() =>
+        sectionsNs.getWorkoutSections(sportType, 5).map((row) => ({
           id: row.id,
           name: row.name,
           prTimeSecs: row.prTimeSecs ?? null,

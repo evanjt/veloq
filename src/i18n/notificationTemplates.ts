@@ -12,6 +12,7 @@
  * the settings table.
  */
 
+import { settings } from 'veloqrs';
 import { i18n } from './index';
 import { getEngine } from '@/shared/native/engine';
 import { debug } from '@/shared/debug/debug';
@@ -102,7 +103,7 @@ export function pushNotificationTemplates(): void {
   }
 
   try {
-    engine.setNotificationTemplates(locale, templates);
+    settings.setNotificationTemplates(locale, templates);
   } catch (e) {
     log.warn('could not store notification templates', e);
   }

@@ -8,7 +8,7 @@
 
 import type { TFunction } from 'i18next';
 import { backfillTimeStreams, timeStreamsProgress } from '@/features/routes/lib/timeStreamBackfill';
-import { engine, FfiStartOutcome } from 'veloqrs';
+import { engine, FfiStartOutcome, sync } from 'veloqrs';
 
 type MockListener = (payload?: unknown) => void;
 
@@ -16,9 +16,9 @@ const mockListeners = new Map<string, Set<MockListener>>();
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
+    sync: { syncTimeStreams: jest.fn(() => ({ outcome: 1 })) },
     engine: {
       getActivitiesNeedingTimeStreams: jest.fn(() => [] as string[]),
-      syncTimeStreams: jest.fn(() => ({ outcome: 1 })),
       subscribe: jest.fn((event: string, callback: MockListener) => {
         const forEvent = mockListeners.get(event) ?? new Set<MockListener>();
         forEvent.add(callback);
@@ -30,7 +30,7 @@ jest.mock('veloqrs', () =>
 );
 
 const needing = engine.getActivitiesNeedingTimeStreams as unknown as jest.Mock;
-const syncTimeStreams = engine.syncTimeStreams as unknown as jest.Mock;
+const syncTimeStreams = sync.syncTimeStreams as unknown as jest.Mock;
 
 /** Stands in for the announcement Rust makes off the JS thread. */
 function announce(activityIds: string[]) {

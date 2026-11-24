@@ -15,6 +15,7 @@ import {
 } from '@/shared/app/AuthStore';
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(() => null),
 }));
 

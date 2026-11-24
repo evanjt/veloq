@@ -15,7 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
-import { connectivity, isRetryableInit, launch } from 'veloqrs';
+import { connectivity, isRetryableInit, launch, settings } from 'veloqrs';
 
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
@@ -365,7 +365,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             // one athlete's credentials into a library that may be another's.
             let cachedAthleteId: string | undefined;
             try {
-              cachedAthleteId = engine.getSetting('__athlete_id');
+              cachedAthleteId = settings.getSetting('__athlete_id');
             } catch {
               return 'failed';
             }
@@ -526,7 +526,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       if (launchIdentityRef.current === 'settled' && currentAthleteId && engine) {
         let stampedId: string | undefined;
         try {
-          stampedId = engine.getSetting('__athlete_id');
+          stampedId = settings.getSetting('__athlete_id');
         } catch {
           // An unreadable identity is not stamped over: the next launch reads it again.
           enterApp();

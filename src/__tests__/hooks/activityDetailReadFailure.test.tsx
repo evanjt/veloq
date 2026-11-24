@@ -14,10 +14,17 @@ import {
   useActivityDetailData,
 } from '@/features/activity/hooks/useActivityDetailData';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    activities: require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).activities,
+  })
+);
 
 const mockGetEngine = jest.fn();
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: () => mockGetEngine(),
 }));
 
@@ -80,8 +87,9 @@ it('reports no error when the bundle reads', async () => {
   expect(result.current.error).toBeUndefined();
 });
 
-it('reports no error for a missing engine or activity', async () => {
-  mockGetEngine.mockReturnValue(null);
+it('reports no error for a closed engine or a missing activity', async () => {
+  const { engine } = engineWith(jest.fn(() => undefined));
+  mockGetEngine.mockReturnValue(engine);
   const { result } = await renderHook(() => useActivityDetailData('a1'));
   expect(result.current.data).toBeNull();
   expect(result.current.error).toBeUndefined();

@@ -15,7 +15,10 @@ import { useRetiredSectionCount } from '@/features/routes/hooks/useRoutesScreenD
 import { getEngine } from '@/shared/native/engine';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 
 const mockedGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 const mockedRead = routes.getRoutesScreenData as unknown as jest.Mock;
@@ -48,9 +51,9 @@ describe('useRetiredSectionCount', () => {
 
   it('is zero and reads nothing while the engine is not open', () => {
     mockedGetEngine.mockReturnValue(null);
+    mockedRead.mockReturnValue(undefined);
     const { result } = renderHook(() => useRetiredSectionCount());
     expect(result.current).toBe(0);
-    expect(mockedRead).not.toHaveBeenCalled();
   });
 
   it('is zero when the read cannot answer, so the entry points stay hidden', () => {

@@ -19,8 +19,11 @@ import { encodeTrack } from '../__shared__/trackBytes';
 const mockDecoded: unknown[] = [];
 
 jest.mock('veloqrs', () =>
-  require('@/__tests__/__shared__/veloqrsStub').withOverrides(
-    Object.fromEntries(
+  require('@/__tests__/__shared__/veloqrsStub').withOverrides({
+    activities: require('@/__tests__/__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).activities,
+    ...Object.fromEntries(
       ['decodeCoords', 'decodeCoordsFlat'].map((name) => {
         const decode = jest.requireActual('../../../modules/veloqrs/src/coords')[name];
         return [
@@ -32,11 +35,12 @@ jest.mock('veloqrs', () =>
           },
         ];
       })
-    )
-  )
+    ),
+  })
 );
 
 jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
   getEngine: jest.fn(),
 }));
 

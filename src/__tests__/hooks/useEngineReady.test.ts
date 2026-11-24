@@ -1,21 +1,22 @@
 /**
  * Scenario: a screen's hook mounts before the root layout has opened the
- * engine, which is every cold launch.
- * Expected behaviour: it sees null, then sees the handle on the render the
- * ready nonce triggers, with no polling of its own.
+ * engine, which is every cold launch. The handle exists before and after the
+ * open, so only the answer to "is it open" can move.
+ * Expected behaviour: false while the engine is not open, true on the render
+ * the ready nonce triggers once it is, with no polling of its own.
  */
 import { act, renderHook } from '@testing-library/react-native';
 
 import { useEngineReady } from '@/shared/native/useEngineReady';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
-import { getEngine } from '@/shared/native/engine';
+import { isEngineReady } from '@/shared/native/engine';
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
+  isEngineReady: jest.fn(),
 }));
 
-const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
-const HANDLE = { id: 'engine' } as unknown as ReturnType<typeof getEngine>;
+const mockIsEngineReady = isEngineReady as jest.MockedFunction<typeof isEngineReady>;
 
 describe('useEngineReady', () => {
   beforeEach(() => {
@@ -23,34 +24,33 @@ describe('useEngineReady', () => {
     useEngineStatus.setState({ readyNonce: 0 });
   });
 
-  it('answers null while the engine is not open', async () => {
-    mockGetEngine.mockReturnValue(null);
+  it('answers false while the engine is not open', async () => {
+    mockIsEngineReady.mockReturnValue(false);
 
     const { result } = await renderHook(() => useEngineReady());
 
-    expect(result.current).toBeNull();
+    expect(result.current).toBe(false);
   });
 
-  it('answers the handle on the render the ready nonce triggers', async () => {
-    mockGetEngine.mockReturnValue(null);
+  it('answers true on the render the ready nonce triggers', async () => {
+    mockIsEngineReady.mockReturnValue(false);
     const { result } = await renderHook(() => useEngineReady());
-    expect(result.current).toBeNull();
+    expect(result.current).toBe(false);
 
-    mockGetEngine.mockReturnValue(HANDLE);
+    mockIsEngineReady.mockReturnValue(true);
     await act(() => useEngineStatus.getState().markEngineReady());
 
-    expect(result.current).toBe(HANDLE);
+    expect(result.current).toBe(true);
   });
 
-  it('answers the replacement after a clear reopens the engine', async () => {
-    mockGetEngine.mockReturnValue(HANDLE);
+  it('answers false again after the engine closes and the nonce moves', async () => {
+    mockIsEngineReady.mockReturnValue(true);
     const { result } = await renderHook(() => useEngineReady());
-    expect(result.current).toBe(HANDLE);
+    expect(result.current).toBe(true);
 
-    const replacement = { id: 'reopened' } as unknown as ReturnType<typeof getEngine>;
-    mockGetEngine.mockReturnValue(replacement);
+    mockIsEngineReady.mockReturnValue(false);
     await act(() => useEngineStatus.getState().markEngineReady());
 
-    expect(result.current).toBe(replacement);
+    expect(result.current).toBe(false);
   });
 });

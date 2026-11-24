@@ -21,7 +21,17 @@ const mockEngine = {
   triggerRefresh: jest.fn(),
 };
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: () => mockEngine,
+}));
 
 jest.mock('@/shared/storage', () => ({
   getSetting: jest.fn(async () => null),

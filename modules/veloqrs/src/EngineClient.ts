@@ -1,85 +1,38 @@
 /**
- * EngineClient - Backward compatibility layer for existing app code.
+ * EngineClient - the host the delegate namespaces are bound to.
  *
- * Delegates to the generated UniFFI engine handle (`VeloqEngineLike`). Every
- * call is checked by tsc against `./generated/veloqrs`, so a method the
- * bindings no longer export fails the typecheck.
+ * Holds the generated UniFFI engine handle (`VeloqEngineLike`), the ready
+ * flag, the writes held until the engine opens, the timing wrapper every
+ * delegate calls its FFI through, and the change channels (`subscribe`,
+ * `notify`). It also carries the engine lifecycle: opening, clearing and
+ * destroying the engine. Callers reach the functions through the namespaces
+ * the veloqrs barrel exports, not as members of this class. Every engine call
+ * is checked by tsc against `./generated/veloqrs`, so a method the bindings no
+ * longer export fails the typecheck.
  */
 
 import type {
-  GroupSummary,
-  AthleteProfile,
-  FfiStartResult,
-  FfiWidgetContext,
-  ExportPrivacyPreview,
-  FfiGpsPoint,
-  GpxFile as FfiGpxFile,
   PersistentEngineStats,
   EngineObserver,
   FfiBulkExportResult,
   VeloqEngineLike,
-  FfiActivityDetailData,
-  FfiActivityStreams,
-  FfiActivityNotification,
-  FfiPulledRideEntry,
-  FfiBackupScreenData,
-  FfiCacheScreenData,
-  FfiBackgroundJobsData,
-  FfiPreviewTrack,
-  FfiActivityIntervals,
-  FfiBestEffortsData,
-  FfiPlannedEvent,
-  FfiSection,
-  FfiNamedCorridor,
-  FfiSectionDetailData,
-  FfiSectionPerformanceData,
-  FfiSectionPerformanceResult,
-  SectionSummary,
-  FfiSummaryCardData,
-  FfiFitnessScreenData,
-  FfiFitnessScreenWindows,
-  FfiInsightsData,
-  FfiInsightsParams,
-  FfiStartupData,
-  FfiActivityRecord,
-  FfiFeedCard,
-  FfiFeedCardsPage,
-  FfiIndexActivitySummary,
-  FfiMergeDropped,
   DownloadProgressResult,
   DerivedClearCounts,
-  SettingPair,
   BulkExportFormat,
   FfiQuarantineReport,
   FfiDashboardData,
-  LibraryCoverage,
-  FfiDepartedRide,
-  FfiMergeOutcome,
   FfiRecordCheck,
   FfiRecordRestoreResult,
   FfiStorageShortfall,
   FfiUnplacedRecord,
   RecordScope,
 } from './generated/veloqrs';
-import {
-  FfiInitOutcome,
-  FfiRecordSource,
-  FfiStartOutcome,
-  RangeCoverage,
-} from './generated/veloqrs';
+import { FfiInitOutcome, FfiRecordSource, FfiStartOutcome } from './generated/veloqrs';
 import * as generated from './generated/veloqrs';
 
 import { validateId } from './conversions';
 import type { DelegateHost } from './delegates/host';
-import * as activityDelegates from './delegates/activities';
-import * as fitnessDelegates from './delegates/fitness';
 import * as heatmapDelegates from './delegates/heatmap';
-import * as routeDelegates from './delegates/routes';
-import * as sectionDelegates from './delegates/sections';
-import type { SectionBoundsEdit } from './delegates/sections';
-import * as settingsDelegates from './delegates/settings';
-import * as syncDelegates from './delegates/sync';
-import type { SyncAuthMethod, SyncStatus } from './delegates/sync';
 import type { HeatmapDay } from './delegates/shared-types';
 
 // Declarations live in ./delegates/shared-types.ts; re-exported here so
@@ -604,48 +557,6 @@ class EngineClient implements DelegateHost {
     if (wipeError) throw wipeError;
   }
 
-  addActivities = (
-    activityIds: string[],
-    allCoords: number[],
-    offsets: number[],
-    sportTypes: string[]
-  ): Promise<void> =>
-    activityDelegates.addActivities(this, activityIds, allCoords, offsets, sportTypes);
-
-  saveProvisionalActivity = (
-    activityId: string,
-    fitPath: string | undefined,
-    body: { activityId: string; date: number; raw: string }
-  ): Promise<boolean> => activityDelegates.saveProvisionalActivity(this, activityId, fitPath, body);
-
-  provisionalActivityId = (recordingId: string): string =>
-    activityDelegates.provisionalActivityId(this, recordingId);
-
-  activityNotification = (
-    activityId: string,
-    activityName: string,
-    announcePrs: boolean,
-    announceMilestones: boolean = false
-  ): FfiActivityNotification | null =>
-    activityDelegates.activityNotification(
-      this,
-      activityId,
-      activityName,
-      announcePrs,
-      announceMilestones
-    );
-
-  pulledRideEntry = (activityId: string): FfiPulledRideEntry | null =>
-    activityDelegates.pulledRideEntry(this, activityId);
-
-  getActivityIds = (): string[] => activityDelegates.getActivityIds(this);
-
-  getGpsFetchCandidates = (oldest: string, newest: string): generated.ActivitySportMapping[] =>
-    activityDelegates.getGpsFetchCandidates(this, oldest, newest);
-  hasActivity = (activityId: string): boolean => activityDelegates.hasActivity(this, activityId);
-
-  getActivityCount = (): number => activityDelegates.getActivityCount(this);
-
   /** Whether the engine took the request; false when it is closed or the call failed. */
   markForRecomputation(): boolean {
     if (!this.ready) return false;
@@ -676,169 +587,6 @@ class EngineClient implements DelegateHost {
       return false;
     }
   };
-
-  setSyncCredentials = (method: SyncAuthMethod, secret: string, athleteId: string): void =>
-    syncDelegates.setSyncCredentials(this, method, secret, athleteId);
-
-  clearSyncCredentials = (): void => syncDelegates.clearSyncCredentials(this);
-
-  syncNow = (force: boolean): FfiStartResult => syncDelegates.syncNow(this, force);
-
-  syncActivitiesWindow = (oldest: string, newest: string): FfiStartOutcome =>
-    syncDelegates.syncActivitiesWindow(this, oldest, newest);
-
-  rangeCoverage = (oldest: string, newest: string): RangeCoverage =>
-    syncDelegates.rangeCoverage(this, oldest, newest);
-
-  libraryCoverage = (): LibraryCoverage => syncDelegates.libraryCoverage(this);
-
-  syncPowerCurve = (sport: string, days: number): FfiStartResult =>
-    syncDelegates.syncPowerCurve(this, sport, days);
-
-  syncPaceCurve = (sport: string, days: number, gap: boolean): FfiStartResult =>
-    syncDelegates.syncPaceCurve(this, sport, days, gap);
-
-  syncActivityIntervals = (activityId: string): FfiStartResult =>
-    syncDelegates.syncActivityIntervals(this, activityId);
-
-  syncCalendarEvents = (oldest: string, newest: string): FfiStartResult =>
-    syncDelegates.syncCalendarEvents(this, oldest, newest);
-
-  syncActivityStreams = (activityId: string, types: string): FfiStartResult =>
-    syncDelegates.syncActivityStreams(this, activityId, types);
-
-  syncActivityDetail = (activityId: string): FfiStartResult =>
-    syncDelegates.syncActivityDetail(this, activityId);
-
-  syncTimeStreams = (activityIds: string[]): FfiStartResult =>
-    syncDelegates.syncTimeStreams(this, activityIds);
-
-  readyActivityBodies = (activityId: string): Promise<boolean> =>
-    syncDelegates.readyActivityBodies(this, activityId);
-
-  cancelSync = (): void => syncDelegates.cancelSync(this);
-
-  getSyncStatus = (): SyncStatus | null => syncDelegates.getSyncStatus(this);
-
-  getBodiesStored = (): number => syncDelegates.getBodiesStored(this);
-
-  getFilteredGroupSummaries = (
-    minActivities: number,
-    sortKey: routeDelegates.GroupSortKey
-  ): { totalCount: number; summaries: GroupSummary[] } =>
-    routeDelegates.getFilteredGroupSummaries(this, minActivities, sortKey);
-
-  /** Coordinate-encoded; put it through `decodeCoords`. */
-  getRepresentativeRoute = (groupId: string): ArrayBuffer =>
-    routeDelegates.getRepresentativeRoute(this, groupId);
-
-  getRouteDetailData = (groupId: string): routeDelegates.RouteDetailData | undefined =>
-    routeDelegates.getRouteDetailData(this, groupId);
-
-  getSectionCount = (): number => sectionDelegates.getSectionCount(this);
-
-  getSectionSummaries = (sportType?: string): { totalCount: number; summaries: SectionSummary[] } =>
-    sectionDelegates.getSectionSummaries(this, sportType);
-
-  getFilteredSectionSummaries = (
-    sportType: string | undefined,
-    minVisits: number,
-    sortKey: sectionDelegates.SectionSortKey
-  ): { totalCount: number; summaries: SectionSummary[] } =>
-    sectionDelegates.getFilteredSectionSummaries(this, sportType, minVisits, sortKey);
-
-  getSectionById = (sectionId: string): FfiSection | null =>
-    sectionDelegates.getSectionById(this, sectionId);
-
-  setSectionName = (
-    sectionId: string,
-    name: string
-  ): import('./delegates/sections/mutations').SetSectionNameOutcome =>
-    sectionDelegates.setSectionName(this, sectionId, name);
-
-  setSectionIsLift = (sectionId: string, isLift: boolean): boolean =>
-    sectionDelegates.setSectionIsLift(this, sectionId, isLift);
-
-  getNamedCorridors = (): FfiNamedCorridor[] => sectionDelegates.getNamedCorridors(this);
-
-  removeNamedCorridor = (intentId: string): boolean =>
-    sectionDelegates.removeNamedCorridor(this, intentId);
-
-  setNameTranslations = (routeWord: string, sectionWord: string): void =>
-    settingsDelegates.setNameTranslations(this, routeWord, sectionWord);
-
-  /** Coordinate-encoded; put it through `decodeCoords`. */
-  getGpsTrack = (activityId: string): ArrayBuffer =>
-    activityDelegates.getGpsTrack(this, activityId);
-
-  /**
-   * One feed card's preview line, from the cached signature. Coordinate
-   * encoded, so put `encodedCoords` through `decodeCoords`.
-   */
-  getPreviewTrack = (activityId: string): FfiPreviewTrack | undefined =>
-    activityDelegates.getPreviewTrack(this, activityId);
-
-  getSectionPerformances = (sectionId: string, sportType?: string): FfiSectionPerformanceResult =>
-    sectionDelegates.getSectionPerformances(this, sectionId, sportType);
-
-  getWorkoutSections = (sportType: string, limit: number): sectionDelegates.FfiWorkoutSection[] =>
-    sectionDelegates.getWorkoutSections(this, sportType, limit);
-
-  excludeActivityFromSection = (sectionId: string, activityId: string): boolean =>
-    sectionDelegates.excludeActivityFromSection(this, sectionId, activityId);
-
-  includeActivityInSection = (sectionId: string, activityId: string): boolean =>
-    sectionDelegates.includeActivityInSection(this, sectionId, activityId);
-
-  getExcludedActivityIds = (sectionId: string): string[] =>
-    sectionDelegates.getExcludedActivityIds(this, sectionId);
-
-  excludeSectionLap = (sectionId: string, activityId: string, startIndex: number): boolean =>
-    sectionDelegates.excludeSectionLap(this, sectionId, activityId, startIndex);
-
-  includeSectionLap = (sectionId: string, activityId: string, startIndex: number): boolean =>
-    sectionDelegates.includeSectionLap(this, sectionId, activityId, startIndex);
-
-  getSectionGeometryVersionPolyline = (sectionId: string, version: number) =>
-    sectionDelegates.getSectionGeometryVersionPolyline(this, sectionId, version);
-  unpinSection = (sectionId: string) => sectionDelegates.unpinSection(this, sectionId);
-
-  getSectionDetailData = (sectionId: string): FfiSectionDetailData | undefined =>
-    sectionDelegates.getSectionDetailData(this, sectionId);
-
-  getSectionDetailPerformance = (
-    sectionId: string,
-    timeRangeDays: number,
-    sportFilter?: string,
-    highlightActivityId?: string
-  ): FfiSectionPerformanceData | undefined =>
-    sectionDelegates.getSectionDetailPerformance(
-      this,
-      sectionId,
-      timeRangeDays,
-      sportFilter,
-      highlightActivityId
-    );
-
-  loadSectionDetailPerformance = (
-    sectionId: string,
-    timeRangeDays: number,
-    sportFilter?: string,
-    highlightActivityId?: string
-  ): Promise<FfiSectionPerformanceData | undefined> =>
-    sectionDelegates.loadSectionDetailPerformance(
-      this,
-      sectionId,
-      timeRangeDays,
-      sportFilter,
-      highlightActivityId
-    );
-
-  setTimeStreams = (streams: { activityId: string; times: number[] }[]): void =>
-    activityDelegates.setTimeStreams(this, streams);
-
-  getActivitiesMissingTimeStreams = (activityIds: string[]): string[] =>
-    activityDelegates.getActivitiesMissingTimeStreams(this, activityIds);
 
   getStats(): PersistentEngineStats | undefined {
     if (!this.ready) return undefined;
@@ -877,46 +625,6 @@ class EngineClient implements DelegateHost {
     );
   }
 
-  getSummaryCardData = (nowWallSeconds: number): FfiSummaryCardData =>
-    fitnessDelegates.getSummaryCardData(this, nowWallSeconds);
-
-  getInsightsData = (params: FfiInsightsParams): FfiInsightsData | undefined =>
-    fitnessDelegates.getInsightsData(this, params);
-
-  getStartupData = (
-    params: FfiInsightsParams,
-    previewActivityIds: string[]
-  ): FfiStartupData | undefined =>
-    fitnessDelegates.getStartupData(this, params, previewActivityIds);
-
-  composeWidgetSnapshot = (
-    ctx: FfiWidgetContext,
-    nowSeconds: number,
-    nowWallSeconds: number,
-    sample?: fitnessDelegates.SampleWidgetLibrary
-  ): string | undefined =>
-    fitnessDelegates.composeWidgetSnapshot(this, ctx, nowSeconds, nowWallSeconds, sample);
-
-  setWidgetContext = (ctx: FfiWidgetContext): boolean =>
-    fitnessDelegates.setWidgetContext(this, ctx);
-
-  getZoneDistribution = (sportType: string, zoneType: string, startTs: number, endTs: number) =>
-    fitnessDelegates.getZoneDistribution(this, sportType, zoneType, startTs, endTs);
-
-  /** The activities that moved the accepted eFTP, oldest first. */
-
-  /**
-   * The fitness tab's one read, its range-led parts over each of `spanDays`
-   * and its calendar, weekly card and year comparison over `windows`.
-   */
-  getFitnessScreenData = (
-    spanDays: number[],
-    windows: FfiFitnessScreenWindows
-  ): FfiFitnessScreenData => fitnessDelegates.getFitnessScreenData(this, spanDays, windows);
-
-  getDailyActivityLoads = (startTs: number, endTs: number) =>
-    fitnessDelegates.getDailyActivityLoads(this, startTs, endTs);
-
   /**
    * The tiles path in force, or null when the athlete has the heatmap off.
    *
@@ -933,124 +641,6 @@ class EngineClient implements DelegateHost {
       console.warn('[EngineClient] Failed to re-apply the heatmap tiles path:', e);
     }
   }
-
-  upsertWellness = (rows: fitnessDelegates.WellnessRowInput[]): void =>
-    fitnessDelegates.upsertWellness(this, rows);
-
-  getWellnessDays = (oldest: string, newest: string): fitnessDelegates.WellnessDays =>
-    fitnessDelegates.getWellnessDays(this, oldest, newest);
-
-  getActivityRecord = (activityId: string): FfiActivityRecord | null =>
-    activityDelegates.getActivityRecord(this, activityId);
-
-  getFeedCards = (oldestTs: number, newestTs: number): FfiFeedCard[] =>
-    activityDelegates.getFeedCards(this, oldestTs, newestTs);
-
-  searchFeedCards = (query: activityDelegates.FeedCardsSearch): FfiFeedCardsPage | undefined =>
-    activityDelegates.searchFeedCards(this, query);
-
-  upsertActivityBodies = (rows: activityDelegates.ActivityBodyInput[]): void =>
-    activityDelegates.upsertActivityBodies(this, rows);
-
-  getActivityNames = (activityIds: string[]): activityDelegates.ActivityName[] =>
-    activityDelegates.getActivityNames(this, activityIds);
-
-  setIntervalBody = (activityId: string, raw: string): void =>
-    activityDelegates.setIntervalBody(this, activityId, raw);
-
-  setCurveBody = (
-    kind: 'power' | 'pace',
-    sport: string,
-    days: number,
-    gap: boolean,
-    raw: string
-  ): void => activityDelegates.setCurveBody(this, kind, sport, days, gap, raw);
-
-  replaceCalendarEvents = (
-    oldestTs: number,
-    newestTs: number,
-    rows: activityDelegates.CalendarEventBodyInput[]
-  ): void => activityDelegates.replaceCalendarEvents(this, oldestTs, newestTs, rows);
-
-  getActivityStreams = (activityId: string, types: string): FfiActivityStreams | null =>
-    activityDelegates.getActivityStreams(this, activityId, types);
-
-  getPowerCurve = (sport: string, days: number): fitnessDelegates.PowerCurveRow | null =>
-    fitnessDelegates.getPowerCurve(this, sport, days);
-
-  getPaceCurve = (
-    sport: string,
-    days: number,
-    gap: boolean
-  ): fitnessDelegates.PaceCurveRow | null => fitnessDelegates.getPaceCurve(this, sport, days, gap);
-
-  getBestEffortsData = (days: number): FfiBestEffortsData | null =>
-    fitnessDelegates.getBestEffortsData(this, days);
-
-  getActivityIntervals = (activityId: string): FfiActivityIntervals | null =>
-    fitnessDelegates.getActivityIntervals(this, activityId);
-
-  getPlannedEvents = (oldestTs: number, newestTs: number): FfiPlannedEvent[] =>
-    fitnessDelegates.getPlannedEvents(this, oldestTs, newestTs);
-
-  getWeeklySummaries = (weekStarts: number[], weekLengthSecs: number) =>
-    fitnessDelegates.getWeeklySummaries(this, weekStarts, weekLengthSecs);
-
-  getWellnessSparklines = (days: number): fitnessDelegates.WellnessSparklines | null =>
-    fitnessDelegates.getWellnessSparklines(this, days);
-
-  // ==========================================================================
-  // Athlete Profile & Sport Settings Cache
-  // ==========================================================================
-
-  setAthleteProfile = (json: string): void => settingsDelegates.setAthleteProfile(this, json);
-
-  getAthleteProfile = (): AthleteProfile | null => settingsDelegates.getAthleteProfile(this);
-
-  setSportSettings = (json: string): void => settingsDelegates.setSportSettings(this, json);
-
-  hrZoneFor = (sportType: string, bpm: number): number | null =>
-    settingsDelegates.hrZoneFor(this, sportType, bpm);
-
-  // ==========================================================================
-  // User Preferences (SQLite settings table)
-  // ==========================================================================
-  getBackupScreenData = (): FfiBackupScreenData | undefined =>
-    settingsDelegates.getBackupScreenData(this);
-  getCacheScreenData = (): FfiCacheScreenData | undefined =>
-    settingsDelegates.getCacheScreenData(this);
-  getBackgroundJobsData = (): FfiBackgroundJobsData | undefined =>
-    settingsDelegates.getBackgroundJobsData(this);
-
-  exportPrivacyPreview = (
-    homeLat: number,
-    homeLng: number,
-    radiusM: number
-  ): ExportPrivacyPreview | null =>
-    settingsDelegates.exportPrivacyPreview(this, homeLat, homeLng, radiusM);
-
-  buildGpxFile = (
-    name: string,
-    sport: string | undefined,
-    time: string | undefined,
-    points: FfiGpsPoint[]
-  ): FfiGpxFile | null => settingsDelegates.buildGpxFile(this, name, sport, time, points);
-
-  engineInstall = (): number => settingsDelegates.engineInstall(this);
-
-  getSetting = (key: string): string | undefined => settingsDelegates.getSetting(this, key);
-
-  setSetting = (key: string, value: string): void => settingsDelegates.setSetting(this, key, value);
-
-  setSettings = (pairs: SettingPair[]): void => settingsDelegates.setSettings(this, pairs);
-
-  setNotificationTemplates = (locale: string, templates: SettingPair[]): boolean =>
-    settingsDelegates.setNotificationTemplates(this, locale, templates);
-
-  deleteSetting = (key: string): void => settingsDelegates.deleteSetting(this, key);
-
-  setStreamRetentionDays = (days: number): void =>
-    settingsDelegates.setStreamRetentionDays(this, days);
 
   // ==========================================================================
   // Backup
@@ -1179,41 +769,9 @@ class EngineClient implements DelegateHost {
     return this.timed('bulkExportProgress', () => this.engine.bulkExportProgress());
   }
 
-  getSectionsByType = (sectionType?: 'auto' | 'custom'): FfiSection[] =>
-    sectionDelegates.getSectionsByType(this, sectionType);
-
-  createSectionFromIndices = (
-    activityId: string,
-    startIndex: number,
-    endIndex: number,
-    sportType: string,
-    name?: string
-  ): string =>
-    sectionDelegates.createSectionFromIndices(
-      this,
-      activityId,
-      startIndex,
-      endIndex,
-      sportType,
-      name
-    );
-
-  deleteSection = (sectionId: string): boolean => sectionDelegates.deleteSection(this, sectionId);
-
-  disableSection = (sectionId: string): boolean => sectionDelegates.disableSection(this, sectionId);
-
-  enableSection = (sectionId: string): boolean => sectionDelegates.enableSection(this, sectionId);
-
   // ==========================================================================
   // Section Bounds Trimming
   // ==========================================================================
-
-  /**
-   * Trim, reset or expand a section's bounds, set or reset its reference, or
-   * revert it to a stored version, off the JS thread.
-   */
-  runSectionBoundsEdit = (edit: SectionBoundsEdit): Promise<FfiDepartedRide[] | null> =>
-    sectionDelegates.runSectionBoundsEdit(this, edit);
 
   /**
    * Keep one of two sections on the same ground and let the other leave the
@@ -1237,14 +795,6 @@ class EngineClient implements DelegateHost {
     }
   }
 
-  getSectionExtensionTrack = (
-    sectionId: string
-  ): {
-    encodedTrack: ArrayBuffer;
-    sectionStartIdx: number;
-    sectionEndIdx: number;
-  } | null => sectionDelegates.getSectionExtensionTrack(this, sectionId);
-
   getFetchRunProgress(run: number): DownloadProgressResult {
     return this.timed('getFetchRunProgress', () => generated.getFetchRunProgress(run));
   }
@@ -1264,41 +814,6 @@ class EngineClient implements DelegateHost {
   takeFetchAndStoreResult(run: number): generated.FetchAndStoreResult | undefined {
     return this.timed('takeFetchAndStoreResult', () => generated.takeFetchAndStoreResult(run));
   }
-
-  removeActivity = (activityId: string): activityDelegates.RemoveActivityResult =>
-    activityDelegates.removeActivity(this, activityId);
-
-  debugCloneActivity = (sourceId: string, count: number): number =>
-    activityDelegates.debugCloneActivity(this, sourceId, count);
-
-  getActivityHighlightsBundle = (
-    activityIds: string[]
-  ): activityDelegates.ActivityHighlightsBundle =>
-    activityDelegates.getActivityHighlightsBundle(this, activityIds);
-
-  getActivityDetailData = (
-    activityId: string,
-    minRouteActivities: number
-  ): FfiActivityDetailData | undefined =>
-    activityDelegates.getActivityDetailData(this, activityId, minRouteActivities);
-
-  // ========================================================================
-  // Section Matching, Nearby, Merge, Re-detect
-  // ========================================================================
-
-  indexNewActivity = (activityId: string): FfiIndexActivitySummary | null =>
-    sectionDelegates.indexNewActivity(this, activityId);
-
-  /** Merge the secondary section into the primary, off the JS thread. */
-  runSectionMerge = (primaryId: string, secondaryId: string): Promise<FfiMergeOutcome | null> =>
-    sectionDelegates.runSectionMerge(this, primaryId, secondaryId);
-
-  mergePreview = (primaryId: string, secondaryId: string): FfiMergeDropped[] | null =>
-    sectionDelegates.mergePreview(this, primaryId, secondaryId);
-
-  acceptSection = (sectionId: string): boolean => sectionDelegates.acceptSection(this, sectionId);
-
-  acceptAllSections = (): number | null => sectionDelegates.acceptAllSections(this);
 
   /**
    * Whether a subscription can ever fire.

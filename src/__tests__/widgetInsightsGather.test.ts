@@ -12,6 +12,13 @@ import type { Insight, InsightCategory } from '@/features/insights/light';
 
 const mockEngine = { composeWidgetSnapshot: jest.fn(), setWidgetContext: jest.fn() };
 
+jest.mock('veloqrs', () =>
+  require('./__shared__/veloqrsStub').withOverrides(
+    require('./__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => mockEngine,
   isEngineReady: () => true,

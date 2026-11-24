@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { readLibraryCount } from './libraryCount';
+import { readCurrentLibraryCount } from './libraryCount';
 import { useEngineRead } from './useEngineSubscription';
 
 /**
@@ -12,5 +12,5 @@ import { useEngineRead } from './useEngineSubscription';
 export function useActivityCount(): number {
   const readActivities = useEngineRead(['activities']);
 
-  return useMemo(() => readActivities((engine) => readLibraryCount(engine)) ?? 0, [readActivities]);
+  return useMemo(() => readActivities(readCurrentLibraryCount), [readActivities]);
 }

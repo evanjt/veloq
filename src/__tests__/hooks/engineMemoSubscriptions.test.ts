@@ -33,7 +33,10 @@ import { useEngineMapActivities } from '@/features/maps/hooks/useEngineMapActivi
 import { useActivityDetailData } from '@/features/activity/hooks/useActivityDetailData';
 import { encodeTrack } from '../__shared__/trackBytes';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 // `useEngine` decodes the section polyline, so it imports a value from the
 // binding rather than only types, and the real module registers a TurboModule.
 jest.mock('veloqrs', () => {
@@ -280,7 +283,11 @@ describe('useEngineSubscription', () => {
   });
 
   it('re-reads a memo whose engine arrived late', async () => {
-    (getEngine as jest.Mock).mockReturnValue(null);
+    const closedRead = jest.fn(() => undefined);
+    (getEngine as jest.Mock).mockReturnValue({
+      subscribe: () => () => {},
+      getZoneDistribution: closedRead,
+    });
 
     await renderHook(() => useZoneDistribution({ type: 'power', sport: 'Cycling', days: 7 }));
     expect(getZoneDistribution).not.toHaveBeenCalled();

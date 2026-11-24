@@ -273,7 +273,6 @@ const GUARDS = [
     kind: 'style',
     paths: [
       'modules/veloqrs/src/EngineClient.ts',
-      'scripts/engine-client-forwards-baseline.json',
       'scripts/lint-engine-client-forwards.mjs',
       'scripts/lib/',
     ],

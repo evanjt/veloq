@@ -3,7 +3,17 @@ import { useSectionLaps, hasPartialExclusion } from '@/features/routes/hooks/use
 import { getEngine } from '@/shared/native/engine';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    sections: require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    ).sections,
+  })
+);
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 
 /** Laps as the screen read returns them, the excluded ones flagged. */
 function record(

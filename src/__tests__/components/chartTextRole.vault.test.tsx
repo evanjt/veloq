@@ -27,8 +27,17 @@ import { fitnessScreenRead } from '../__shared__/fitnessScreenRead';
 import { WithScreenRead } from '../__shared__/withScreenRead';
 import { statedForm } from '../__shared__/statedForm';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
 const NEUTRAL_TEXT = new Set(
@@ -143,6 +152,15 @@ describe('chart text', () => {
   });
 
   it('is never below 12px nor in a zone colour on the form chart', async () => {
+    (getEngine as jest.MockedFunction<typeof getEngine>).mockReturnValue({
+      subscribe: () => () => {},
+      getWellnessDays: jest.fn(() => ({
+        days: [],
+        coverage: RangeCoverage.NotFetched,
+        formAsPercent: false,
+        formZoneEdges: [],
+      })),
+    } as unknown as ReturnType<typeof getEngine>);
     expectChartText(await render(<FormZoneChart data={LOAD_DAYS} />));
   });
 

@@ -13,7 +13,10 @@ import { getEngine } from '@/shared/native/engine';
 import { FfiOffScale, type FfiSectionChartPoint } from 'veloqrs';
 import type { PerformanceDataPoint } from '@/types';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 
 const counted: (PerformanceDataPoint & { x: number })[] = [
   {

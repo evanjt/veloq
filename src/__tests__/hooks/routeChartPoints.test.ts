@@ -13,7 +13,10 @@ import { useSectionChartData } from '@/features/routes/hooks/useSectionChartData
 import { useSectionChartDataEnriched } from '@/features/routes/hooks/useSectionChartDataEnriched';
 import { FfiOffScale, type FfiSectionChartData, type FfiSectionChartPoint } from 'veloqrs';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: jest.fn(() => null),
+}));
 
 function attempt(
   activityId: string,

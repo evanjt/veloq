@@ -13,7 +13,17 @@ import { buildMapSurfaceHtml } from '@/features/maps/lib/htmlBuilders/mapSurface
 import type { MapSurfaceHtmlConfig } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import { jsNumber } from '@/features/maps/lib/webViewLiterals';
 
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 
 const HOSTILE = '1;globalThis.__injected=1//' as unknown as number;
 

@@ -35,7 +35,10 @@ jest.mock('@/shared/app/useTheme', () => ({
   useTheme: () => ({ isDark: false, colors: require('@/theme').colors }),
 }));
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
+jest.mock('@/shared/native/engine', () => ({
+  isEngineReady: () => true,
+  getEngine: jest.fn(() => null),
+}));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
 jest.mock('@/shared/app/useCacheDays', () => ({ useCacheDays: () => 30 }));
 jest.mock('@/features/routes/components/DataRangeFooter', () => ({

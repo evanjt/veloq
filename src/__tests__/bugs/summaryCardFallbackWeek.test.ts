@@ -16,12 +16,21 @@ import { getEngine } from '@/shared/native/engine';
 import { startDateLocalToEpochSeconds } from '@/shared/time/startDate';
 import { installUtcOffset } from '../__shared__/fixedOffsetDate';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 jest.mock('@/i18n', () => ({
   i18n: { t: (key: string) => key },
   getCurrentLanguage: () => 'en-GB',
 }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('@/shared/native/engine', () => {
+  const getEngine = jest.fn();
+  return { getEngine, isEngineReady: () => getEngine() != null };
+});
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
 jest.mock('@/features/stats', () => ({ usePaceCurve: () => ({ data: undefined }) }));
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { activities } from 'veloqrs';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { ledgerChipIds } from '../lib/sectionLedger';
 import { MAX_CHIPS } from '../components/section/SectionHistoryPanel';
@@ -25,11 +26,9 @@ export function useLedgerActivityNames(history: SectionHistoryEvent[]): Record<s
     if (ids.length === 0) return {};
 
     return (
-      readNames((engine) => {
-        if (!engine.getActivityNames) return {};
-
+      readNames(() => {
         const names: Record<string, string> = {};
-        for (const row of engine.getActivityNames(ids)) names[row.activityId] = row.name;
+        for (const row of activities.getActivityNames(ids)) names[row.activityId] = row.name;
         return names;
       }) ?? {}
     );

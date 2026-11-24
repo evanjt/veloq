@@ -20,14 +20,15 @@ import type { FeedCard } from '@/types';
 
 configure({ defaultIncludeHiddenElements: true });
 
-jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides({
+    sync: { readyActivityBodies: (id: string) => mockReadyActivityBodies(id) },
+  })
+);
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 
 const mockReadyActivityBodies = jest.fn();
-jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => ({ readyActivityBodies: mockReadyActivityBodies }),
-}));
 
 jest.mock('@/features/activity/components/ActivityCardContextMenu', () => {
   const { View } = require('react-native');

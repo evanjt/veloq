@@ -18,7 +18,13 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 
 import { stubIdleScheduler, type IdleScheduler } from '../__shared__/idleScheduler';
 
-jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides(
+    require('../__shared__/veloqrsStub').namespacesOver(() =>
+      require('@/shared/native/engine').getEngine()
+    )
+  )
+);
 
 const mockEngine = {
   syncNow: jest.fn(),
