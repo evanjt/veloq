@@ -67,6 +67,39 @@ pub(crate) fn announce_pulled_ride(install: u64, key: &str, name: &str) -> bool 
     posts
 }
 
+/// The title and body recorded for the pulled ride `key` when it was
+/// announced: the entry the app posts. Whatever the ladder found, a plain entry
+/// included, is what was recorded, so the app presents this rather than
+/// building the entry a second time and finding a quiet ride empty. `None`
+/// when no entry was recorded for the ride.
+pub(crate) fn recorded_entry(key: &str) -> Option<crate::FfiPulledRideEntry> {
+    crate::persistence::read_pool::with_read_conn(|conn| {
+        conn.query_row(
+            "SELECT posted_title, posted_body FROM push_runs
+             WHERE activity_id = ? AND posted_title IS NOT NULL
+             ORDER BY ts DESC, id DESC LIMIT 1",
+            [key],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<String>>(1)?.unwrap_or_default(),
+                ))
+            },
+        )
+        .ok()
+    })
+    .flatten()
+    .map(|(title, body)| crate::FfiPulledRideEntry { title, body })
+}
+
+/// The entry recorded for a pulled ride, as the app presents it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiPulledRideEntry {
+    pub title: String,
+    pub body: String,
+}
+
 /// The `body_stored` kind that tells the app a pulled ride has an entry to post.
 pub(crate) const RIDE_NOTIFICATION: &str = "ride_notification";
 
@@ -149,6 +182,24 @@ mod tests {
         assert!(announce_pulled_ride(install, KEY, "Morning Ride"));
         assert!(!announce_pulled_ride(install, KEY, "Morning Ride"));
         assert_eq!(posted_runs(KEY), 1);
+    }
+
+    #[test]
+    fn a_quiet_pulled_ride_records_its_plain_entry_for_the_app_to_present() {
+        let _guard = serial_global_state();
+        let _tmp = engine_with(r#"{"enabled":true}"#);
+        let install = crate::persistence::engine_install();
+
+        assert_eq!(
+            recorded_entry(KEY),
+            None,
+            "nothing is recorded before the announcement"
+        );
+        assert!(announce_pulled_ride(install, KEY, "Morning Ride"));
+
+        let entry = recorded_entry(KEY).expect("the recorded entry");
+        assert!(!entry.title.is_empty());
+        assert_eq!(entry.body, "Morning Ride");
     }
 
     #[test]

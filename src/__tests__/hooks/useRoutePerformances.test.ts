@@ -24,19 +24,12 @@ jest.mock('veloqrs', () =>
 );
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
-jest.mock('@/features/routes/hooks/useEngine', () => ({
-  useEngineSubscription: () => 0,
-  useEngineGroups: () => ({
-    groups: [
-      {
-        groupId: 'g1',
-        activityIds: ['a1', 'a2', 'a3'],
-        activityCount: 3,
-        sportType: 'Ride',
-      },
-    ],
-  }),
-}));
+const G1 = {
+  groupId: 'g1',
+  activityIds: ['a1', 'a2', 'a3'],
+  activityCount: 3,
+  sportType: 'Ride',
+} as never;
 
 function metrics(activityId: string, movingTime: number) {
   return {
@@ -87,7 +80,7 @@ it('takes the fastest attempt from the engine, not from the metrics it holds', a
     currentRank: 1,
   });
 
-  const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
+  const { result } = await renderHook(() => useRoutePerformances('a1', { groups: [G1] }, 'g1'));
 
   expect(result.current.best?.activityId).toBe('a2');
 });
@@ -102,7 +95,7 @@ it('carries the engine verdict on whether each direction best is a record', asyn
     currentRank: 1,
   });
 
-  const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
+  const { result } = await renderHook(() => useRoutePerformances('a1', { groups: [G1] }, 'g1'));
 
   expect(result.current.bestForwardIsRecord).toBe(true);
   expect(result.current.bestReverseIsRecord).toBe(false);
@@ -120,7 +113,7 @@ it('has no best when the engine names none', async () => {
     currentRank: undefined,
   });
 
-  const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
+  const { result } = await renderHook(() => useRoutePerformances('a1', { groups: [G1] }, 'g1'));
 
   expect(result.current.performances).toHaveLength(1);
   expect(result.current.best).toBeNull();
@@ -139,7 +132,7 @@ it('has no best when the engine names an attempt the chart dropped', async () =>
     currentRank: 2,
   });
 
-  const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
+  const { result } = await renderHook(() => useRoutePerformances('a1', { groups: [G1] }, 'g1'));
 
   expect(result.current.performances.map((p) => p.activityId)).toEqual(['a2']);
   expect(result.current.best).toBeNull();
@@ -150,7 +143,7 @@ it('has no best when the engine throws', async () => {
     throw new Error('engine down');
   });
 
-  const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
+  const { result } = await renderHook(() => useRoutePerformances('a1', { groups: [G1] }, 'g1'));
 
   expect(result.current.performances).toEqual([]);
   expect(result.current.best).toBeNull();
@@ -170,7 +163,7 @@ vaultIt(
       currentRank: undefined,
     });
 
-    const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
+    const { result } = await renderHook(() => useRoutePerformances('a1', { groups: [G1] }, 'g1'));
 
     expect(result.current.routeGroup?.id).toBe('g1');
     expect(result.current.routeGroup?.name).toBe('');
@@ -217,7 +210,7 @@ describe('a sport filter over a screen bundle', () => {
     // new object with the same contents.
     const { result, rerender } = await renderHook(
       ({ sport }: { sport?: string | undefined }) =>
-        useRoutePerformances('a1', 'g1', sport, { groups, result: undefined }),
+        useRoutePerformances('a1', { groups, result: undefined }, 'g1', sport),
       { initialProps: { sport: 'Ride' } }
     );
     expect(result.current.performances).toHaveLength(1);
@@ -233,10 +226,7 @@ describe('a sport filter over a screen bundle', () => {
 
     const { result, rerender } = await renderHook(
       ({ sport }: { sport?: string | undefined }) =>
-        useRoutePerformances('a1', 'g1', sport, {
-          groups,
-          result: sport ? undefined : unfiltered,
-        }),
+        useRoutePerformances('a1', { groups, result: sport ? undefined : unfiltered }, 'g1', sport),
       { initialProps: { sport: 'Ride' as string | undefined } }
     );
     expect(getRoutePerformances).toHaveBeenCalledTimes(1);
@@ -265,7 +255,7 @@ it('marks an attempt the engine flagged outside the distance band', async () => 
     currentRank: 1,
   });
 
-  const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
+  const { result } = await renderHook(() => useRoutePerformances('a1', { groups: [G1] }, 'g1'));
 
   const flagged = Object.fromEntries(
     result.current.performances.map((p) => [p.activityId, p.outsideDistanceBand])
@@ -286,13 +276,13 @@ describe('the trend curves the engine fitted', () => {
       activityMetrics: [metrics('a1', 3600)],
       trendCurves,
     });
-    const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
+    const { result } = await renderHook(() => useRoutePerformances('a1', { groups: [G1] }, 'g1'));
     expect(result.current.trendCurves).toBe(trendCurves);
   });
 
   it('has no curves when the engine has no route to read', async () => {
     getRoutePerformances.mockReturnValue(undefined);
-    const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
+    const { result } = await renderHook(() => useRoutePerformances('a1', { groups: [G1] }, 'g1'));
     expect(result.current.trendCurves).toEqual({});
   });
 });
@@ -309,7 +299,7 @@ describe('chart points come from the engine performances', () => {
       currentRank: 1,
     });
 
-    const { result } = await renderHook(() => useRoutePerformances('a2', 'g1'));
+    const { result } = await renderHook(() => useRoutePerformances('a2', { groups: [G1] }, 'g1'));
 
     expect(result.current.performances.map((p) => [p.activityId, p.speed, p.isCurrent])).toEqual([
       ['a1', 7.5, false],
@@ -325,7 +315,7 @@ describe('chart points come from the engine performances', () => {
       currentRank: 1,
     });
 
-    const { result } = await renderHook(() => useRoutePerformances('a1', 'g1'));
+    const { result } = await renderHook(() => useRoutePerformances('a1', { groups: [G1] }, 'g1'));
 
     expect(result.current.performances.map((p) => p.activityId)).toEqual(['a2']);
   });

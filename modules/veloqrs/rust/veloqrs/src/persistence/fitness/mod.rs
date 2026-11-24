@@ -240,7 +240,7 @@ impl PersistentEngine {
                 // activity row fills itself from its metrics as it is written;
                 // what is worth saying is how many.
                 match self.db.execute(
-                    "UPDATE activities SET start_date = COALESCE(start_date, ?), name = ?, distance_meters = ?, duration_secs = ? WHERE id = ?",
+                    "UPDATE activities SET start_date = ?, name = ?, distance_meters = ?, duration_secs = ? WHERE id = ?",
                     params![m.date, &m.name, m.distance, m.moving_time as i64, &m.activity_id],
                 ) {
                     Ok(0) => unplaced += 1,
@@ -413,6 +413,41 @@ mod tests {
 
         assert_eq!(commits.load(Ordering::SeqCst), 1);
         assert_eq!(engine.activity_metrics.len(), 50);
+    }
+
+    // A ride retimed upstream arrives as a later metrics write with a new
+    // date, and the activity row's start date is what ordering and window
+    // reads use.
+    #[test]
+    fn a_later_metrics_date_moves_the_activity_start_date() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+                 VALUES ('a7', 'Ride', 0, 0, 0, 0)",
+                [],
+            )
+            .unwrap();
+        let start = |engine: &PersistentEngine| -> Option<i64> {
+            engine
+                .db
+                .query_row(
+                    "SELECT start_date FROM activities WHERE id = 'a7'",
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap()
+        };
+
+        let mut m = metric(7);
+        m.date = 1_700_000_000;
+        engine.set_activity_metrics(vec![m.clone()]).unwrap();
+        assert_eq!(start(&engine), Some(1_700_000_000));
+
+        m.date = 1_700_500_000;
+        engine.set_activity_metrics(vec![m]).unwrap();
+        assert_eq!(start(&engine), Some(1_700_500_000));
     }
 
     fn extended(i: usize) -> ActivityMetrics {

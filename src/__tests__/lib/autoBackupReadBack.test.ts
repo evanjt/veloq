@@ -17,6 +17,7 @@ import {
   type BackupBackend,
   type BackupEntry,
 } from '@/features/settings/lib/autobackup';
+import { BackupTransferError } from '@/features/settings/lib/autobackup/backends/errors';
 
 const MOCK_ZIP = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2, 3, 4, 5, 6, 7, 8]);
 const RUN_AT = Date.parse('2026-05-04T06:30:00Z');
@@ -105,7 +106,7 @@ jest.mock('expo-network', () => ({
 }));
 
 /** How a carrier answers when the run asks for its copy back. */
-type ReadBack = 'faithful' | 'altered' | 'truncated' | 'throws';
+type ReadBack = 'faithful' | 'altered' | 'truncated' | 'throws' | 'refused';
 
 interface StubCarrier extends BackupBackend {
   readBack: ReadBack;
@@ -132,6 +133,9 @@ function stubCarrier(id: 'webdav' | 'folder'): StubCarrier {
     async download(backupId: string, destPath: string) {
       carrier.downloads.push({ id: backupId, dest: destPath });
       const held = carrier.held.get(backupId);
+      if (carrier.readBack === 'refused') {
+        throw new BackupTransferError('Download', 'auth', 'Download failed: 403', 403);
+      }
       if (!held || carrier.readBack === 'throws') throw new Error('read refused');
       if (carrier.readBack === 'altered') {
         const altered = held.slice();
@@ -242,4 +246,21 @@ it('keeps a carrier on its previous stamp when a later copy does not read back',
 
   expect(getDestinationLastBackup('folder')).toBe(RUN_AT);
   expect(getDestinationLastBackup('webdav')).toBe(later);
+});
+
+it('keeps the kind of a transfer failure from the read-back, stores it and does not resend on the next trigger', async () => {
+  webdav.readBack = 'refused';
+
+  const result = await performBackup(true);
+
+  expect(result.carriers.webdav).toEqual({ status: 'failed', kind: 'auth' });
+  expect(getBackupFailures().webdav?.kind).toBe('auth');
+  expect(getDestinationLastBackup('webdav')).toBeNull();
+  expect(owedCarriers()).toEqual([]);
+  expect(cacheFiles()).toEqual([]);
+
+  const uploadsBefore = webdav.held.size;
+  (Date.now as jest.Mock).mockReturnValue(RUN_AT + 60_000);
+  await performBackup();
+  expect(webdav.downloads.length).toBe(uploadsBefore);
 });

@@ -102,6 +102,8 @@ const INSIDE: (Point & { land: (typeof LAENDER)[number] })[] = [
 const ACROSS_THE_BORDER: (Point & { provider: string | undefined })[] = [
   { provider: 'satellite-swisstopo', name: 'Basel', lat: 47.559, lng: 7.588 },
   { provider: 'satellite-ign', name: 'Strasbourg', lat: 48.573, lng: 7.752 },
+  { provider: 'satellite-ign', name: 'Metz', lat: 49.119, lng: 6.176 },
+  { provider: 'satellite-ign', name: 'Sarreguemines', lat: 49.11, lng: 7.07 },
   { provider: 'satellite-austria', name: 'Salzburg', lat: 47.8, lng: 13.045 },
   { provider: 'satellite-luxembourg', name: 'Luxembourg', lat: 49.611, lng: 6.13 },
   { provider: 'satellite-netherlands', name: 'Maastricht', lat: 50.851, lng: 5.69 },
@@ -136,7 +138,13 @@ describe('each Land draws from its own provider', () => {
 
   it('leaves Hamburg and Saarland out, which publish no open orthophotos over a service', () => {
     expect(resolve({ name: 'Hamburg', lat: 53.55, lng: 10.0 })).toBeUndefined();
-    expect(resolve({ name: 'Saarbrücken', lat: 49.234, lng: 6.997 })).toBe('satellite-ign');
+    expect(resolve({ name: 'Saarbrücken', lat: 49.234, lng: 6.997 })).toBeUndefined();
+    expect(resolve({ name: 'Saarlouis', lat: 49.314, lng: 6.752 })).toBeUndefined();
+  });
+
+  it('credits the global imagery over Saarland, where the French service answers 404', () => {
+    expect(getCombinedSatelliteAttribution(49.234, 6.997, 16)).toContain('EOX');
+    expect(getCombinedSatelliteAttribution(49.314, 6.752, 16)).toContain('EOX');
   });
 });
 
@@ -151,6 +159,27 @@ describe('Mecklenburg-Vorpommern has no regional source', () => {
     for (const provider of providers()) {
       expect(provider.template).not.toContain('geodaten-mv.de');
     }
+  });
+});
+
+describe('Rhineland-Palatinate stops at the French and Luxembourg border', () => {
+  it.each([
+    { name: 'Thionville', lat: 49.36, lng: 6.17 },
+    { name: 'French Moselle', lat: 49.44, lng: 6.25 },
+    { name: 'Metz', lat: 49.1197, lng: 6.1757 },
+    { name: 'Metz north', lat: 49.14, lng: 6.18 },
+    { name: 'Luxembourg east', lat: 49.6, lng: 6.3 },
+  ])('does not draw $name from Rhineland-Palatinate', (point) => {
+    expect(resolve(point)).not.toBe('satellite-rhineland-palatinate');
+  });
+
+  it.each([
+    { name: 'Trier', lat: 49.75, lng: 6.7 },
+    { name: 'Bitburg', lat: 49.97, lng: 6.52 },
+    { name: 'Prüm', lat: 50.21, lng: 6.42 },
+    { name: 'Mayen', lat: 50.33, lng: 7.22 },
+  ])('draws $name from Rhineland-Palatinate', (point) => {
+    expect(resolve(point)).toBe('satellite-rhineland-palatinate');
   });
 });
 

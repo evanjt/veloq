@@ -513,6 +513,11 @@ interface NativeModuleInterface {
     recordingId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_pulled_ride_entry(
+    uniffiSelf: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_remove(
     uniffiSelf: bigint,
     activityId: Uint8Array,
@@ -996,6 +1001,12 @@ interface NativeModuleInterface {
     entry: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_recordingmanager_adopt_identity(
+    uniffiSelf: bigint,
+    from: Uint8Array,
+    to: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_recordingmanager_attach_engine_activity(
     uniffiSelf: bigint,
     id: Uint8Array,
@@ -1208,6 +1219,12 @@ interface NativeModuleInterface {
     timeRangeDays: number,
     sportFilter: Uint8Array,
     highlightActivityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_get_guide_payload(
+    uniffiSelf: bigint,
+    kind: Uint8Array,
+    id: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_nearby_places(
@@ -2130,6 +2147,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_preview_track(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_has(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_provisional_id(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_pulled_ride_entry(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_remove(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_replace_calendar_events(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_save_provisional(): number;
@@ -2227,6 +2245,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_screen_data(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_recordingmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_add_recording(): number;
+  ubrn_uniffi_veloqrs_checksum_method_recordingmanager_adopt_identity(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_attach_engine_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_clear_permission_blocked(): number;
   ubrn_uniffi_veloqrs_checksum_method_recordingmanager_delete_own_recording(): number;
@@ -2269,6 +2288,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_all(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_detail_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_detail_performance(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_get_guide_payload(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_nearby_places(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_performances(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_representative_route(): number;

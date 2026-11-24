@@ -1270,7 +1270,7 @@ impl PersistentEngine {
                     &moved_tracks,
                     apply_on,
                 );
-                (groups, Some(save == GroupSave::Superseded))
+                (groups, Some(save.owes_regroup()))
             } else if needs_group_recompute {
                 log::info!(
                     "veloqrs: [SectionDetection] A regroup is already in flight, leaving the grouping to it"
@@ -3247,5 +3247,38 @@ mod tests {
             )
             .unwrap();
         assert!(engine.detector_generation_change().is_none());
+    }
+
+    /// Scenario: a library cut by the previous release holds the digest that
+    /// release stamped (revision 2, default config).
+    /// Expected behaviour: the live detector reads it as a generation change.
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn a_catalogue_stamped_by_the_previous_release_reports_a_generation_change() {
+        const PREVIOUS_RELEASE_REVISION: u32 = 2;
+        let engine = PersistentEngine::in_memory().unwrap();
+        for (key, value) in [
+            (
+                super::super::CATALOGUE_METHOD_KEY,
+                super::super::DETECTOR_METHOD.to_string(),
+            ),
+            (
+                super::super::CATALOGUE_CONFIG_DIGEST_KEY,
+                super::super::section_config_digest_at(
+                    &engine.section_config,
+                    PREVIOUS_RELEASE_REVISION,
+                ),
+            ),
+        ] {
+            engine
+                .db
+                .execute(
+                    "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
+                    params![key, value],
+                )
+                .unwrap();
+        }
+
+        assert!(engine.detector_generation_change().is_some());
     }
 }

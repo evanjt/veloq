@@ -115,7 +115,7 @@ describe('useEngineSync', () => {
     }) as unknown as typeof AppState.addEventListener);
     resetListeners.length = 0;
     storedListeners.length = 0;
-    useEngineStatus.setState({ readyNonce: 0 });
+    useEngineStatus.setState({ readyNonce: 1 });
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false, authMethod: null });
   });
 
@@ -181,6 +181,30 @@ describe('useEngineSync', () => {
 
     await rerender({});
     expect(syncNow).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Scenario: the engine handle exists, but the launch identity gate has not
+   * settled, so the ready nonce is still 0. A sync started now could write one
+   * athlete's activities into another's library while the mismatch prompt is up.
+   *
+   * Expected behaviour: neither the reading nor a wipe's `syncReset` starts a
+   * sync before the nonce is bumped; the bump starts exactly one.
+   */
+  it('starts no sync before the engine-ready nonce is bumped', async () => {
+    useEngineStatus.setState({ readyNonce: 0 });
+    mockHasReading = false;
+    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+    mockGetEngine.mockReturnValue(engineWith(syncNow));
+
+    const { rerender } = await renderHook(() => useEngineSync());
+    mockHasReading = true;
+    await rerender({});
+    await act(() => resetListeners.forEach((fire) => fire()));
+    expect(syncNow).not.toHaveBeenCalled();
+
+    await act(() => useEngineStatus.getState().markEngineReady());
+    expect(syncNow.mock.calls).toEqual([[false]]);
   });
 
   it('retries once the engine is ready when the first call found none', async () => {

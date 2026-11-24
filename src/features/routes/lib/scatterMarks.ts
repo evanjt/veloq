@@ -83,20 +83,6 @@ export function scatterMarkFor(point: PerformanceDataPoint, ctx: ScatterMarkCont
 }
 
 /**
- * Whether a direction's best time is an estimate: the engine flagged the
- * counted pass that holds that time. False with no best, or no such pass drawn.
- */
-export function bestIsEstimated(
-  points: readonly PerformanceDataPoint[],
-  best: { bestTime: number } | null
-): boolean {
-  if (!best) return false;
-  return points.some(
-    (point) => !point.isExcluded && point.sectionTime === best.bestTime && point.estimated === true
-  );
-}
-
-/**
  * The value range the axis draws, low to high in the axis's own value. The
  * engine's focus range when the read carries one; else every drawn value,
  * padded, for a read that has no focus to give.

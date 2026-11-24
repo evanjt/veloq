@@ -176,6 +176,7 @@ export function useStrengthTabState(): StrengthTabState {
               : 0;
           return strengthTabState({ hasSets: open.hasStrengthData(), unfetchedCount, isSyncing });
         } catch {
+          // empty-on-error: the strength tab stays hidden when the engine cannot say it has sets
           return 'hidden' as StrengthTabState;
         }
       }) ?? 'hidden',

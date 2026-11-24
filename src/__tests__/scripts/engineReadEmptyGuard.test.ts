@@ -347,3 +347,48 @@ describe('screens under the app directory', () => {
     expect(runGuard({ [SCREEN]: screen }).status).toBe(0);
   });
 });
+
+describe('a catch that returns a module-level constant', () => {
+  const hook = (decl: string, marker = '') =>
+    [
+      decl,
+      'export function usePearRows(host: Host) {',
+      '  try {',
+      '    return host.engine.orchards().pearRows();',
+      `  } catch {${marker}`,
+      '    return NO_ROWS;',
+      '  }',
+      '}',
+    ].join('\n');
+
+  it.each([
+    'const NO_ROWS: Row[] = [];',
+    "const NO_ROWS = 'hidden' as const;",
+    'const NO_ROWS = { count: 0 };',
+  ])('fails when the constant is %s', (decl) => {
+    const { status, output } = runGuard({ [HOOK]: hook(decl) });
+
+    expect(status).toBe(1);
+    expect(output).toContain('usePears.ts:6');
+  });
+
+  it('passes with an empty-on-error reason', () => {
+    const source = hook('const NO_ROWS: Row[] = [];', ' // empty-on-error: the grid is optional');
+
+    expect(runGuard({ [HOOK]: source }).status).toBe(0);
+  });
+
+  it('leaves an identifier that is not a module-level constant alone', () => {
+    const source = [
+      'export function usePearRows(host: Host, fallback: Row[]) {',
+      '  try {',
+      '    return host.engine.orchards().pearRows();',
+      '  } catch {',
+      '    return fallback;',
+      '  }',
+      '}',
+    ].join('\n');
+
+    expect(runGuard({ [HOOK]: source }).status).toBe(0);
+  });
+});

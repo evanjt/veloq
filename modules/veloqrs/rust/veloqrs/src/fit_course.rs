@@ -53,14 +53,7 @@ pub struct CourseLine<'a> {
 
 /// The profile's `sport` number for a sport as the app names it; 0 is generic.
 pub fn fit_sport(sport: Option<&str>) -> u8 {
-    match sport {
-        Some("Run" | "TrailRun" | "VirtualRun") => 1,
-        Some("Ride" | "VirtualRide" | "GravelRide" | "MountainBikeRide" | "EBikeRide") => 2,
-        Some("Swim" | "OpenWaterSwim") => 5,
-        Some("Walk") => 11,
-        Some("Hike") => 17,
-        _ => 0,
-    }
+    sport.map_or(0, |name| crate::sport::to_fit(name).0)
 }
 
 impl CourseLine<'_> {
@@ -448,7 +441,7 @@ mod tests {
     fn sports_map_to_the_profile_numbers() {
         assert_eq!(fit_sport(Some("Ride")), 2);
         assert_eq!(fit_sport(Some("TrailRun")), 1);
-        assert_eq!(fit_sport(Some("Kitesurf")), 0);
+        assert_eq!(fit_sport(Some("Unlisted")), 0);
         assert_eq!(fit_sport(None), 0);
     }
 }

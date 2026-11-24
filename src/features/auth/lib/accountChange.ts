@@ -57,6 +57,19 @@ export async function getCachedAthleteId(): Promise<string | null> {
 
 /** Names the library for `athleteId`, in the engine and in the device mirror a closed engine reads. */
 export async function nameLibrary(athleteId: string): Promise<void> {
+  const engine = getEngine();
+  let previous: string | undefined;
+  try {
+    previous = engine?.getSetting('__athlete_id') || undefined;
+  } catch {
+    previous = undefined;
+  }
+  if (engine && previous && adoptsGarminLibrary(previous, athleteId)) {
+    // The rides recorded beside a Garmin library move with it, or the library
+    // hides them and the sign-in hold demotes them.
+    const { adoptRecordingsIdentity } = await import('@/features/recording');
+    await adoptRecordingsIdentity(previous, athleteId);
+  }
   getEngine()?.setSetting('__athlete_id', athleteId);
   await rememberCachedAthleteId(athleteId);
 }

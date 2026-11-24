@@ -113,7 +113,6 @@ fn pairs_of(data: &FfiRetiredMapData) -> Vec<(String, String, FfiRetiredPairLink
 /// `ground` with the overlap measured, both carry their lines, the far
 /// section pairs with nothing, and the far section was never compared.
 #[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_retired_line_pairs_with_the_live_section_on_its_ground_and_skips_the_far_one() {
     let dir = TempDir::new().expect("tempdir");
     let engine = library(&dir, "ground-pair.db");

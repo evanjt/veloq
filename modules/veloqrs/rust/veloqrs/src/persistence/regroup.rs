@@ -26,16 +26,16 @@ use crate::{ActivityMatchInfo, GpsPoint};
 
 /// Load all route signatures from the DB (standalone, no engine needed).
 /// Returns the signatures that decoded and the ones that did not, so the
-/// caller decides whether a reduced pool may be grouped over.
-pub(super) fn load_all_signatures(conn: &Connection) -> (Vec<RouteSignature>, Vec<CorruptTrack>) {
-    let mut stmt = match conn.prepare(
+/// caller decides whether a reduced pool may be grouped over. A statement or
+/// row that cannot be read is an error, never an empty pool.
+pub(super) fn load_all_signatures(
+    conn: &Connection,
+) -> SqlResult<(Vec<RouteSignature>, Vec<CorruptTrack>)> {
+    let mut stmt = conn.prepare(
         "SELECT activity_id, points, start_point_lat, start_point_lng,
                 end_point_lat, end_point_lng, total_distance
          FROM signatures",
-    ) {
-        Ok(s) => s,
-        Err(_) => return (Vec::new(), Vec::new()),
-    };
+    )?;
 
     let rows = stmt.query_map([], |row| {
         Ok((
@@ -45,16 +45,13 @@ pub(super) fn load_all_signatures(conn: &Connection) -> (Vec<RouteSignature>, Ve
             GpsPoint::new(row.get(4)?, row.get(5)?),
             row.get::<_, f64>(6)?,
         ))
-    });
-    let rows = match rows {
-        Ok(r) => r,
-        Err(_) => return (Vec::new(), Vec::new()),
-    };
+    })?;
 
     let mut signatures: Vec<RouteSignature> = Vec::new();
     let mut corrupt: Vec<CorruptTrack> = Vec::new();
 
-    for (id, blob, start_point, end_point, total_distance) in rows.flatten() {
+    for row in rows {
+        let (id, blob, start_point, end_point, total_distance) = row?;
         let points: Vec<GpsPoint> = match TrackRead::from_blob(&blob) {
             TrackRead::Present(points) => points,
             TrackRead::Missing => Vec::new(),
@@ -84,7 +81,37 @@ pub(super) fn load_all_signatures(conn: &Connection) -> (Vec<RouteSignature>, Ve
         });
     }
 
-    (signatures, corrupt)
+    Ok((signatures, corrupt))
+}
+
+/// The signatures a regroup may group over, or `None` when it must keep the
+/// catalogue it holds: the pool could not be read, too much of it is
+/// unreadable, or nothing is left of it. Both regroup writers go through this,
+/// so neither can dissolve routes and delete their names over a pool the other
+/// would have refused.
+pub(super) fn usable_signatures(conn: &Connection, context: &str) -> Option<Vec<RouteSignature>> {
+    let (signatures, corrupt) = match load_all_signatures(conn) {
+        Ok(pool) => pool,
+        Err(e) => {
+            log::error!(
+                "veloqrs: [{context}] Keeping the existing groups: signatures unreadable: {e}"
+            );
+            return None;
+        }
+    };
+    if !corrupt.is_empty() {
+        log_corrupt_tracks(context, signatures.len(), &corrupt);
+        if !pool_is_usable(signatures.len(), corrupt.len()) {
+            log::error!(
+                "veloqrs: [{context}] Keeping the existing groups: too much of the signature pool is unreadable to regroup over"
+            );
+            return None;
+        }
+    }
+    if signatures.is_empty() {
+        return None;
+    }
+    Some(signatures)
 }
 
 /// Compute route groups from DB signatures and save them back, and say what
@@ -107,7 +134,10 @@ pub(crate) fn recompute_and_save_groups(
 
     // Grouping signatures an earlier matcher built would stamp them with the
     // current rule, and nothing would group them again.
-    if super::routes::signatures_behind_matcher(conn) {
+    let Some(behind) = read_piece(|| super::routes::signatures_behind_matcher(conn)) else {
+        return (existing_groups.to_vec(), GroupSave::Kept);
+    };
+    if behind {
         let rebuilt = worker_write(conn, install, || {
             super::routes::rebuild_signatures(conn, match_config).map(|_| ())
         });
@@ -117,22 +147,10 @@ pub(crate) fn recompute_and_save_groups(
         }
     }
 
-    let (signatures, corrupt) = load_all_signatures(conn);
-    let sig_ms = start.elapsed().as_millis();
-
-    if !corrupt.is_empty() {
-        log_corrupt_tracks("BG Groups", signatures.len(), &corrupt);
-        if !pool_is_usable(signatures.len(), corrupt.len()) {
-            log::error!(
-                "veloqrs: [BG Groups] Keeping the existing groups: too much of the signature pool is unreadable to regroup over"
-            );
-            return (existing_groups.to_vec(), GroupSave::Kept);
-        }
-    }
-
-    if signatures.is_empty() {
+    let Some(signatures) = read_piece(|| usable_signatures(conn, "BG Groups")).flatten() else {
         return (existing_groups.to_vec(), GroupSave::Kept);
-    }
+    };
+    let sig_ms = start.elapsed().as_millis();
 
     let live: HashSet<&str> = signatures.iter().map(|s| s.activity_id.as_str()).collect();
     let seed_groups = super::routes::groups_of_live_members(existing_groups, &live);
@@ -146,8 +164,14 @@ pub(crate) fn recompute_and_save_groups(
         .partition(|s| !already_grouped.contains(s.activity_id.as_str()));
 
     let total = signatures.len();
-    let chosen = super::routes::routes_keeping_representative(conn, existing_groups);
-    let rule_changed = super::routes::groups_match_rule_changed(conn, match_config);
+    let Some((chosen, rule_changed)) = read_piece(|| {
+        (
+            super::routes::routes_keeping_representative(conn, existing_groups),
+            super::routes::groups_match_rule_changed(conn, match_config),
+        )
+    }) else {
+        return (existing_groups.to_vec(), GroupSave::Kept);
+    };
     let use_incremental = !seed_groups.is_empty()
         && !new_sigs.is_empty()
         && (new_sigs.len() as f64) < (total as f64 * 0.9)
@@ -176,7 +200,9 @@ pub(crate) fn recompute_and_save_groups(
     // path persists the raw Union-Find roots, re-keying the catalogue behind the
     // stable ids `route_names` and `activity_matches` are keyed on, and the user's
     // route names are orphaned by whichever writer happened to run last.
-    let mut identity = load_identity(conn, existing_groups);
+    let Some(mut identity) = read_piece(|| load_identity(conn, existing_groups)) else {
+        return (existing_groups.to_vec(), GroupSave::Kept);
+    };
     let (mut groups, id_map) = identity.remap(existing_groups.to_vec(), result.groups, &chosen);
 
     for group in &mut groups {
@@ -187,7 +213,7 @@ pub(crate) fn recompute_and_save_groups(
     // stored tracks of the routes owed a measurement, and the lock is held only
     // for the rows.
     let measured_against: &[RouteGroup] = if rule_changed { &[] } else { existing_groups };
-    let matches = measure_group_matches(
+    let Some(matches) = measure_group_matches(
         conn,
         measured_against,
         &groups,
@@ -195,7 +221,9 @@ pub(crate) fn recompute_and_save_groups(
         &id_map,
         match_config,
         moved_tracks,
-    );
+    ) else {
+        return (existing_groups.to_vec(), GroupSave::Kept);
+    };
 
     let save = match save_groups_to_db(
         conn,
@@ -231,6 +259,44 @@ pub(crate) fn recompute_and_save_groups(
     (groups, save)
 }
 
+/// Run one read of the library under a suspension read hold, or `None` when
+/// the engine is suspended and this thread may not wait. The hold covers the
+/// read and ends with it, so a pass that groups or measures between reads
+/// holds no read mark while it does.
+fn read_piece<T>(read: impl FnOnce() -> T) -> Option<T> {
+    let _hold = super::suspension::begin_read()?;
+    Some(read())
+}
+
+/// Every stored match row, by route.
+fn stored_matches(conn: &Connection) -> HashMap<String, Vec<ActivityMatchInfo>> {
+    let mut held: HashMap<String, Vec<ActivityMatchInfo>> = HashMap::new();
+    let Ok(mut stmt) = conn
+        .prepare("SELECT route_id, activity_id, match_percentage, direction FROM activity_matches")
+    else {
+        return held;
+    };
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, f64>(2)?,
+            row.get::<_, String>(3)?,
+        ))
+    });
+    for (route_id, activity_id, match_percentage, direction) in rows.into_iter().flatten().flatten()
+    {
+        if let Ok(direction) = direction.parse() {
+            held.entry(route_id).or_default().push(ActivityMatchInfo {
+                activity_id,
+                match_percentage,
+                direction,
+            });
+        }
+    }
+    held
+}
+
 /// The match rows the worker's grouping owes. A route that kept its members,
 /// its representative and their tracks since `previous` keeps the rows already
 /// stored. Every other route takes each member's direction from the grouping,
@@ -244,31 +310,9 @@ fn measure_group_matches(
     id_map: &HashMap<String, String>,
     match_config: &MatchConfig,
     moved_tracks: &HashSet<String>,
-) -> HashMap<String, Vec<ActivityMatchInfo>> {
-    let mut held: HashMap<String, Vec<ActivityMatchInfo>> = HashMap::new();
-    if let Ok(mut stmt) = conn
-        .prepare("SELECT route_id, activity_id, match_percentage, direction FROM activity_matches")
-    {
-        let rows = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, f64>(2)?,
-                row.get::<_, String>(3)?,
-            ))
-        });
-        for (route_id, activity_id, match_percentage, direction) in
-            rows.into_iter().flatten().flatten()
-        {
-            if let Ok(direction) = direction.parse() {
-                held.entry(route_id).or_default().push(ActivityMatchInfo {
-                    activity_id,
-                    match_percentage,
-                    direction,
-                });
-            }
-        }
-    }
+) -> Option<HashMap<String, Vec<ActivityMatchInfo>>> {
+    let refused = std::cell::Cell::new(false);
+    let mut held = read_piece(|| stored_matches(conn))?;
     let owed = super::routes::groups_owing_measurement(previous, groups, &held, moved_tracks);
     for (old_id, matches) in reported {
         let id = id_map.get(&old_id).cloned().unwrap_or(old_id);
@@ -289,24 +333,30 @@ fn measure_group_matches(
             entry.retain(|m| members.contains(m.activity_id.as_str()));
         }
     }
-    super::routes::measure_match_percentages(
+    let measured = super::routes::measure_match_percentages(
         groups,
         &held,
         match_config,
-        |id| match conn
-            .query_row(
-                "SELECT track_data FROM gps_tracks WHERE activity_id = ?",
-                [id],
-                |row| row.get::<_, Vec<u8>>(0),
-            )
-            .map(|blob| TrackRead::from_blob(&blob))
-        {
-            Ok(TrackRead::Present(points)) => Some(points),
-            _ => None,
+        |id| {
+            let Some(read) = read_piece(|| {
+                conn.query_row(
+                    "SELECT track_data FROM gps_tracks WHERE activity_id = ?",
+                    [id],
+                    |row| row.get::<_, Vec<u8>>(0),
+                )
+            }) else {
+                refused.set(true);
+                return None;
+            };
+            match read.map(|blob| TrackRead::from_blob(&blob)) {
+                Ok(TrackRead::Present(points)) => Some(points),
+                _ => None,
+            }
         },
         Some(&owed),
         None,
-    )
+    );
+    (!refused.get()).then_some(measured)
 }
 
 /// What became of a background group write.
@@ -319,6 +369,15 @@ pub(crate) enum GroupSave {
     Superseded,
     /// Nothing was written: the pool was empty or unusable, or the save failed.
     Kept,
+}
+
+impl GroupSave {
+    /// Whether the regroup the run was for is still owed. Only a committed
+    /// write settles it: a refused or failed one leaves stored rides out of
+    /// their routes.
+    pub(crate) fn owes_regroup(self) -> bool {
+        self != GroupSave::Committed
+    }
 }
 
 /// Save route groups and the registry that keyed them to DB (standalone, no
@@ -665,9 +724,9 @@ impl PersistentEngine {
     /// snapshot. Then the indicators the new groups change.
     #[doc(hidden)]
     pub fn swap_regroup(&mut self, computed: &RegroupComputed) -> RegroupSwap {
-        let committed = computed.save == GroupSave::Committed;
+        let committed = !computed.save.owes_regroup();
         let adopt_start = Instant::now();
-        self.adopt_run_groups(!committed, computed.epoch);
+        self.adopt_run_groups(computed.save.owes_regroup(), computed.epoch);
         let adopt = adopt_start.elapsed();
         let indicators_start = Instant::now();
         if committed && let Err(e) = self.recompute_activity_indicators() {
@@ -717,3 +776,7 @@ fn hold_regroup_swap() {
 #[cfg(test)]
 #[path = "tests/regroup_worker.rs"]
 mod regroup_worker_tests;
+
+#[cfg(test)]
+#[path = "tests/foreground_regroup_guard.rs"]
+mod foreground_regroup_guard_tests;

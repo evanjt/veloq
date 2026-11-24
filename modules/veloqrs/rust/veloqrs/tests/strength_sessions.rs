@@ -408,6 +408,40 @@ fn finishing_a_live_session_writes_its_fit_and_a_fit_row() {
 }
 
 #[test]
+fn a_finished_rows_duration_is_the_files_elapsed_time_however_late_it_is_saved() {
+    use veloqrs::strength::recording::{FinishRecording, StrengthFinish};
+    let dir = TempDir::new().unwrap();
+    let engine = open(&dir);
+    live_with_one_done_set(&engine);
+
+    let StrengthFinish::Finished(entry) = engine
+        .finish_strength_recording(&FinishRecording {
+            now: 5_060 + 4 * 60,
+            ..finish_input(dir.path())
+        })
+        .unwrap()
+    else {
+        panic!("a session with a done set finishes");
+    };
+
+    let file = std::fs::read(dir.path().join(&entry.fit_path)).unwrap();
+    let elapsed = veloqrs::fit::parse_fit_recording(&file)
+        .unwrap()
+        .elapsed_seconds
+        .unwrap();
+    assert!(elapsed > 0.0);
+    assert_eq!(entry.duration_seconds, elapsed);
+    assert_eq!(
+        engine
+            .get_recording("r-1")
+            .unwrap()
+            .unwrap()
+            .duration_seconds,
+        elapsed
+    );
+}
+
+#[test]
 fn a_pound_athletes_finished_session_is_written_in_pounds_for_the_upload() {
     use veloqrs::strength::recording::StrengthFinish;
     use veloqrs::strength::weight::WeightUnit;

@@ -21,7 +21,7 @@ import {
 } from '@/shared/format/format';
 import { colors, darkColors, spacing, stroke, typography, zoneColour, zoneTint } from '@/theme';
 import type { ActivityType, DataFieldType } from '@/types';
-import { isSwimmingActivity } from '@/shared/activity/activityUtils';
+import { countsCadenceInSteps, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { accessibleActions, KeyDot, PressTarget } from '@/shared/ui';
 import { FitText } from '@/shared/ui/FitText';
 import { useTextScaleColumns } from '@/shared/ui/useLargeText';
@@ -102,8 +102,9 @@ function formatFieldValue(
       return Number.isFinite(w) && w > 0 ? formatPower(w) : ABSENT;
     }
     case 'cadence': {
-      const rpm = Math.round(metrics.cadence);
-      return Number.isFinite(rpm) && rpm > 0 ? formatCadence(rpm) : ABSENT;
+      const cadence = Math.round(metrics.cadence);
+      const unit = activityType != null && countsCadenceInSteps(activityType) ? 'spm' : 'rpm';
+      return Number.isFinite(cadence) && cadence > 0 ? formatCadence(cadence, unit) : ABSENT;
     }
     case 'elevation':
       return formatElevation(metrics.elevation, isMetric);

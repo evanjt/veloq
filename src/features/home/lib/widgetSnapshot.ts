@@ -18,6 +18,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { getRecentRecordingTypes, getRecordedRecordingTypes } from '@/shared/recording';
 import { getActivityCategory } from '@/shared/activity/sportCategories';
 import { widgetPalette } from '@/shared/theme/widgetTheme';
+import { sportFamilyColours, type SportFamilyName } from '@/theme';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 import type {
   DatePart,
@@ -190,8 +191,13 @@ export function composeWidgetContext(input: WidgetContextInput): FfiWidgetContex
     // Absent hides the widget summary block.
     ...(input.summaryPrefs ? { summaryCard: input.summaryPrefs } : {}),
     theme: { light: widgetPalette.light, dark: widgetPalette.dark },
-    // Each sport mark draws its family token natively, so no tint is handed over.
-    activityTints: new Map(),
+    // The engine looks the latest activity's family up here; the dark shade reads on the widget ground.
+    activityTints: new Map(
+      (Object.keys(sportFamilyColours.dark) as SportFamilyName[]).map((family) => [
+        family,
+        sportFamilyColours.dark[family][0],
+      ])
+    ),
     recordShortcuts: composeRecordShortcuts(
       [...(input.recentRecordingTypes ?? []), ...(input.recordedRecordingTypes ?? [])],
       t
@@ -314,7 +320,7 @@ export function widgetNumberWords(locale: string = getIntlLocale()): NumberWords
 /** Seconds since the epoch the snapshot is stamped with, and the same moment on the wall clock. */
 function clock(now: Date): { nowSeconds: number; nowWallSeconds: number } {
   return {
-    nowSeconds: Math.floor(now.getTime() / 1000),
+    nowSeconds: Math.floor(now.getTime() / 1000), // true-instant: the device clock, as the engine's own now
     // An activity's date comes from `start_date_local` as zoneless wall-clock
     // seconds, so its age and its week are judged on the same clock.
     nowWallSeconds: localWallClockToEpochSeconds(now),

@@ -1,6 +1,7 @@
 // Build the bundle `measure-recording-save.sh` serves to the handset: the save
-// tap's two JavaScript legs, `generateFitFile` and `bufferToBase64`, over a
-// three-hour ride, timed in the app's own Hermes with nothing else loaded.
+// tap's JavaScript leg, `generateFitFile`, over a three-hour ride, timed in
+// the app's own Hermes with nothing else loaded. The FIT bytes now go to disk
+// as bytes, so the base64 encode that used to follow the build is not timed.
 //
 // `node scripts/measure-recording-save-bundle.mjs OUT.js` writes the source,
 // transpiled from the tree so it times the code that ships. `ROUNDS` sets how
@@ -20,11 +21,12 @@ if (!out) {
 const rounds = Number(process.env.ROUNDS ?? 10);
 const probe = process.env.PROBE === '1';
 
-// The modules the two legs reach, each under the specifier its importers use.
+// The modules the build reaches, each under the specifier its importers use.
 const modules = {
   fitGenerator: 'src/features/recording/lib/fitGenerator.ts',
   './savedLaps': 'src/features/recording/lib/savedLaps.ts',
   './pausedTime': 'src/features/recording/lib/pausedTime.ts',
+  './elevationChange': 'src/features/recording/lib/elevationChange.ts',
 };
 
 function transpile(file) {
@@ -33,18 +35,6 @@ function transpile(file) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   }).outputText;
 }
-
-// `bufferToBase64` lives beside the file system and the engine, so it is taken
-// out of its module by its text rather than importing either.
-const library = fs.readFileSync(
-  path.join(root, 'src/features/recording/lib/storage/recordingLibrary.ts'),
-  'utf8'
-);
-const chunk = library.match(/const BASE64_CHUNK = \d+;/)[0];
-const encoder = library.match(/export function bufferToBase64[\s\S]*?\n}\n/)[0];
-const base64 = ts.transpileModule(`${chunk}\n${encoder}`, {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
-}).outputText;
 
 const defs = Object.entries(modules)
   .map(
@@ -79,8 +69,6 @@ function req(name) {
   return module.exports;
 }
 ${defs}
-var encoderExports = {};
-(function (exports) {\n${base64}\n})(encoderExports);
 
 function buildStreams(samples) {
   var s = { time: [], latlng: [], altitude: [], heartrate: [], power: [], cadence: [], speed: [], distance: [] };
@@ -150,14 +138,9 @@ async function run() {
       laps: [],
     });
     var t1 = now();
-    var text = encoderExports.bufferToBase64(buffer);
-    var t2 = now();
     emit((round === 0 ? 'warmup' : 'round ' + round) +
       ' fit_kb=' + (buffer.byteLength / 1024).toFixed(0) +
-      ' build_ms=' + (t1 - t0).toFixed(1) +
-      ' base64_ms=' + (t2 - t1).toFixed(1) +
-      ' total_ms=' + (t2 - t0).toFixed(1) +
-      ' b64_kb=' + (text.length / 1024).toFixed(0));
+      ' build_ms=' + (t1 - t0).toFixed(1));
     if (${probe ? 'true' : 'false'}) probeRound(buffer);
   }
   emit('done');

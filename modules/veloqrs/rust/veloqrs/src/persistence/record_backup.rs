@@ -398,15 +398,9 @@ fn row_ground(db: &Connection, row: &RecordRow) -> Result<Option<RecordGround>, 
             polyline_json: string(values, "polyline_json").map(str::to_string),
             activity_ids: None,
         })),
-        "section_activities" => Ok(Some(RecordGround {
-            rep_activity_id: string(values, "activity_id").map(str::to_string),
-            rep_start_index: integer(values, "start_index"),
-            rep_end_index: integer(values, "end_index"),
-            rep_reversed: false,
-            point_count: None,
-            polyline_json: None,
-            activity_ids: None,
-        })),
+        "section_activities" => {
+            string(values, "section_id").map_or(Ok(None), |id| section_ground(db, id, None))
+        }
         "sections" => string(values, "id").map_or(Ok(None), |id| section_ground(db, id, None)),
         "section_numbers" => {
             string(values, "section_id").map_or(Ok(None), |id| section_ground(db, id, None))
@@ -682,6 +676,57 @@ fn upstream_ids(
     Ok(upstream)
 }
 
+/// The heart rate readings of each session as one row, in the form
+/// [`place_packed_heart_rate`] reads: the session, the time of the first
+/// reading, each reading's seconds after it and its beats a minute. A reading
+/// a second is about six bytes here and about 140 as a row of its own, which
+/// is what keeps a year of strap sessions inside the size a restore reads.
+fn packed_heart_rate(db: &Connection) -> Result<Vec<RecordRow>, String> {
+    let table = super::strength_sessions::HEART_RATE_TABLE;
+    if !table_exists(db, table)? {
+        return Ok(Vec::new());
+    }
+    let mut statement = db
+        .prepare(&format!(
+            "SELECT session_id, at, bpm FROM {table} ORDER BY session_id, at"
+        ))
+        .map_err(|e| e.to_string())?;
+    let mut readings = statement.query([]).map_err(|e| e.to_string())?;
+    let mut packed = Vec::new();
+    let mut open: Option<(String, i64, Vec<i64>, Vec<i64>)> = None;
+    let mut close = |open: Option<(String, i64, Vec<i64>, Vec<i64>)>| {
+        if let Some((session_id, first, offsets, bpm)) = open {
+            let mut values = Map::new();
+            values.insert("session_id".to_string(), Value::String(session_id));
+            values.insert("first_at".to_string(), Value::from(first));
+            values.insert("offsets".to_string(), Value::from(offsets));
+            values.insert("bpm".to_string(), Value::from(bpm));
+            packed.push(RecordRow {
+                table: table.to_string(),
+                values,
+                ground: None,
+            });
+        }
+    };
+    while let Some(row) = readings.next().map_err(|e| e.to_string())? {
+        let session_id: String = row.get(0).map_err(|e| e.to_string())?;
+        let at: i64 = row.get(1).map_err(|e| e.to_string())?;
+        let bpm: i64 = row.get(2).map_err(|e| e.to_string())?;
+        match open.as_mut() {
+            Some((id, first, offsets, beats)) if *id == session_id => {
+                offsets.push(at - *first);
+                beats.push(bpm);
+            }
+            _ => {
+                close(open.take());
+                open = Some((session_id, at, vec![0], vec![bpm]));
+            }
+        }
+    }
+    close(open.take());
+    Ok(packed)
+}
+
 /// Read only the athlete's decisions from one consistent SQLite snapshot,
 /// whole.
 pub(crate) fn collect_record_payload(db: &Connection) -> Result<RecordPayload, String> {
@@ -700,8 +745,17 @@ pub(crate) fn collect_record_payload_for(
     };
     let mut entries = Vec::new();
     for &(table, filter) in RECORD_TABLES {
+        if table == super::strength_sessions::HEART_RATE_TABLE {
+            entries.extend(packed_heart_rate(db)?);
+            continue;
+        }
         for mut row in rows(db, table, filter)?.into_iter().filter(carried) {
             row.ground = row_ground(db, &row)?;
+            // A force-match whose section is gone has nothing to re-key it
+            // on, so a restore could never place it.
+            if table == "section_forced_matches" && row.ground.is_none() {
+                continue;
+            }
             if table == "section_numbers" {
                 carry_section_type(db, &mut row)?;
             }
@@ -772,6 +826,30 @@ pub(crate) fn names_setting(row: &RecordRow, keys: &[&str]) -> bool {
     row.table == "settings" && string(&row.values, "key").is_some_and(|key| keys.contains(&key))
 }
 
+/// A writer that stops at the size a restore will read, so a record the
+/// restore would refuse is refused when it is written.
+struct BoundedWriter<W> {
+    inner: W,
+    written: u64,
+}
+
+impl<W: std::io::Write> std::io::Write for BoundedWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let next = self.written + buf.len() as u64;
+        if next > RECORD_JSON_LIMIT {
+            self.written = next;
+            return Err(std::io::Error::other("record over the size limit"));
+        }
+        let n = self.inner.write(buf)?;
+        self.written += n as u64;
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
 /// Write one deflated JSON entry beside `path`, ready to replace it.
 fn stage_record_zip(
     payload: &RecordPayload,
@@ -785,7 +863,17 @@ fn stage_record_zip(
             .compression_level(Some(6));
         zip.start_file("record.json", options)
             .map_err(|e| e.to_string())?;
-        serde_json::to_writer(&mut zip, payload).map_err(|e| e.to_string())?;
+        let mut bounded = BoundedWriter {
+            inner: &mut zip,
+            written: 0,
+        };
+        serde_json::to_writer(&mut bounded, payload).map_err(|e| {
+            if bounded.written > RECORD_JSON_LIMIT {
+                format!("Record backup is over the {RECORD_JSON_LIMIT} byte size limit")
+            } else {
+                e.to_string()
+            }
+        })?;
         zip.finish().map_err(|e| e.to_string())?;
     }
     temporary.as_file().sync_all().map_err(|e| e.to_string())?;
@@ -1723,6 +1811,46 @@ mod tests {
     }
 
     #[test]
+    fn test_record_backup_leaves_out_forced_matches_of_a_removed_section() {
+        let db = fixture();
+        db.execute_batch(
+            "CREATE TABLE section_forced_matches (section_id TEXT, activity_id TEXT, forced_at INTEGER);
+             INSERT INTO section_forced_matches VALUES ('removed-section', 'attached-ride', 1700000000);",
+        )
+        .unwrap();
+        let payload = collect_record_payload(&db).unwrap();
+        assert!(
+            payload
+                .entries
+                .iter()
+                .all(|r| r.table != "section_forced_matches")
+        );
+    }
+
+    #[test]
+    fn test_record_backup_grounds_an_exclusion_on_its_section() {
+        let db = fixture();
+        db.execute_batch(
+            "CREATE TABLE IF NOT EXISTS section_activities (section_id TEXT, activity_id TEXT, start_index INTEGER, end_index INTEGER, excluded INTEGER DEFAULT 0);
+             INSERT INTO section_activities VALUES ('old-section', 'attached-ride', 12, 30, 1);",
+        )
+        .unwrap();
+        let payload = collect_record_payload(&db).unwrap();
+        let exclusion = payload
+            .entries
+            .iter()
+            .find(|r| r.table == "section_activities")
+            .expect("the exclusion is in the backup");
+        let ground = exclusion
+            .ground
+            .as_ref()
+            .expect("a ground to find the section again");
+        assert_eq!(ground.rep_activity_id.as_deref(), Some("ride-1"));
+        assert_eq!(ground.rep_start_index, Some(10));
+        assert_eq!(ground.rep_end_index, Some(40));
+    }
+
+    #[test]
     fn test_record_zip_is_deflated_and_replaces_only_after_complete_write() {
         let db = fixture();
         let dir = tempfile::tempdir().unwrap();
@@ -1737,6 +1865,152 @@ mod tests {
         assert_eq!(zip.len(), 1);
         let entry = zip.by_name("record.json").unwrap();
         assert_eq!(entry.compression(), zip::CompressionMethod::Deflated);
+    }
+
+    fn seed_heart_rate(db: &Connection, session: &str, from: i64, readings: i64) {
+        db.execute(
+            "INSERT OR IGNORE INTO strength_sessions (id, kind, created_at)
+             VALUES (?1, 'finished', 1)",
+            [session],
+        )
+        .unwrap();
+        db.execute_batch("BEGIN").unwrap();
+        let mut insert = db
+            .prepare(
+                "INSERT INTO strength_session_heart_rate (session_id, at, bpm)
+                 VALUES (?1, ?2, ?3)",
+            )
+            .unwrap();
+        for at in from..from + readings {
+            insert
+                .execute(rusqlite::params![session, at, 90 + at % 80])
+                .unwrap();
+        }
+        drop(insert);
+        db.execute_batch("COMMIT").unwrap();
+    }
+
+    fn heart_rate_count(db: &Connection) -> i64 {
+        db.query_row(
+            "SELECT COUNT(*) FROM strength_session_heart_rate",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap()
+    }
+
+    /// Scenario: a year of strap heart rate, one reading a second, is in the
+    /// library when the record backup is written and read back.
+    ///
+    /// Expected behaviour: the readings travel as one row per session, the
+    /// zip reads back inside the restore limit, and a restore places every
+    /// reading.
+    #[test]
+    fn test_record_zip_carries_half_a_million_heart_rate_readings_and_restores_them() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("source.db");
+        drop(super::PersistentEngine::new(source.to_str().unwrap()).unwrap());
+        let db = Connection::open(&source).unwrap();
+        seed_heart_rate(&db, "morning", 1_700_000_000, 300_000);
+        seed_heart_rate(&db, "evening", 1_800_000_000, 200_000);
+
+        let payload = collect_record_payload(&db).unwrap();
+        let carried = payload
+            .entries
+            .iter()
+            .filter(|row| row.table == "strength_session_heart_rate")
+            .count();
+        assert_eq!(carried, 2, "one packed row per session");
+
+        let zip = dir.path().join("record.zip");
+        write_record_zip(&payload, zip.to_str().unwrap()).unwrap();
+        let read = read_record_zip(zip.to_str().unwrap()).unwrap();
+
+        let target = dir.path().join("target.db");
+        let mut engine = super::PersistentEngine::new(target.to_str().unwrap()).unwrap();
+        engine.restore_record_payload(read).unwrap();
+        let restored = Connection::open(&target).unwrap();
+        assert_eq!(heart_rate_count(&restored), 500_000);
+        let (at, bpm): (i64, i64) = restored
+            .query_row(
+                "SELECT at, bpm FROM strength_session_heart_rate
+                 WHERE session_id = 'evening' ORDER BY at DESC LIMIT 1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            (at, bpm),
+            (1_800_000_000 + 199_999, 90 + (1_800_000_000 + 199_999) % 80)
+        );
+    }
+
+    /// Scenario: a record written before readings were packed holds one row
+    /// per reading.
+    ///
+    /// Expected behaviour: a restore still places each of them.
+    #[test]
+    fn test_restore_places_heart_rate_written_one_row_per_reading() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("target.db");
+        let mut engine = super::PersistentEngine::new(target.to_str().unwrap()).unwrap();
+        let row = |table: &str, values: serde_json::Value| super::RecordRow {
+            table: table.to_string(),
+            values: values.as_object().unwrap().clone(),
+            ground: None,
+        };
+        let mut entries = vec![row(
+            "strength_sessions",
+            serde_json::json!({"id": "old", "kind": "finished", "created_at": 1}),
+        )];
+        for at in 100..110 {
+            entries.push(row(
+                "strength_session_heart_rate",
+                serde_json::json!({"session_id": "old", "at": at, "bpm": 120}),
+            ));
+        }
+        let payload = super::RecordPayload {
+            version: super::RECORD_VERSION,
+            athlete_id: None,
+            entries,
+            upstream_ids: Default::default(),
+            written_at: None,
+            left_out: Vec::new(),
+        };
+        engine.restore_record_payload(payload).unwrap();
+        let restored = Connection::open(&target).unwrap();
+        assert_eq!(heart_rate_count(&restored), 10);
+    }
+
+    /// Scenario: a payload larger than a restore will read is written.
+    ///
+    /// Expected behaviour: the writer refuses it and leaves the destination
+    /// as it was, rather than write a backup that verifies and cannot restore.
+    #[test]
+    fn test_record_zip_that_cannot_be_read_back_is_refused_by_the_writer() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("record.zip");
+        std::fs::write(&path, b"prior").unwrap();
+        let mut values = serde_json::Map::new();
+        values.insert(
+            "text".to_string(),
+            serde_json::Value::String("a".repeat(super::RECORD_JSON_LIMIT as usize)),
+        );
+        let payload = super::RecordPayload {
+            version: super::RECORD_VERSION,
+            athlete_id: None,
+            entries: vec![super::RecordRow {
+                table: "settings".to_string(),
+                values,
+                ground: None,
+            }],
+            upstream_ids: Default::default(),
+            written_at: None,
+            left_out: Vec::new(),
+        };
+        assert!(write_record_zip(&payload, path.to_str().unwrap()).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), b"prior");
+        assert_eq!(files_in(dir.path()), vec!["record.zip".to_string()]);
     }
 
     /// Scenario: a record zip comes back through the platform's restore, which

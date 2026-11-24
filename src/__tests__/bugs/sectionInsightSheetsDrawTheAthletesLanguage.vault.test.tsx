@@ -38,6 +38,7 @@ function record(id: string, bestTime: number, day: number): SectionPerformanceRe
     bestPace: 5,
     bestForwardTime: bestTime,
     bestReverseTime: null,
+    bestEstimated: false,
     avgTime: bestTime,
     avgPace: 5,
     direction: 'same',

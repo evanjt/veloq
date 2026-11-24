@@ -156,6 +156,12 @@ impl RecordingManager {
         with_engine(|e| e.stamp_ownerless_recordings(&athlete_id).map_err(db))?
     }
 
+    /// A sign-in adopted a library named for another identity: its rides take
+    /// the new one. Returns how many moved.
+    fn adopt_identity(&self, from: String, to: String) -> Result<u32, VeloqError> {
+        with_engine(|e| e.adopt_recordings_identity(&from, &to).map_err(db))?
+    }
+
     /// After an OAuth write upgrade, the upgrading athlete's permission-blocked
     /// rides become uploadable again, and nobody else's. Returns how many moved.
     fn clear_permission_blocked(&self, athlete_id: String) -> Result<u32, VeloqError> {

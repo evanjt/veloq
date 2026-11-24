@@ -139,6 +139,21 @@ describe('planClusterZoom', () => {
     }
   });
 
+  // Scenario: 500 points in the cluster, the first 100 returned all stacked.
+  // Expected behaviour: the leaves are a partial view, so the plan asks the map
+  // where the cluster splits rather than fanning out or framing part of it.
+  it('returns an expand plan when fewer leaves came back than the cluster holds', () => {
+    const stacked = Array.from({ length: 100 }, (_, i) => pointFeature(10, 45, `s${i}`));
+    expect(planClusterZoom(stacked, center, 500).kind).toBe('expand');
+    const spread = [pointFeature(10, 45, 'a'), pointFeature(10.1, 45.1, 'b')];
+    expect(planClusterZoom(spread, center, 500).kind).toBe('expand');
+  });
+
+  it('plans from the leaves when they are the whole cluster', () => {
+    const stacked = [pointFeature(10, 45, 'a'), pointFeature(10, 45, 'b')];
+    expect(planClusterZoom(stacked, center, 2).kind).toBe('stacked');
+  });
+
   vaultIt('exposes the tuning constants so spec and impl stay aligned', () => {
     expect(CLUSTER_ZOOM_CONSTANTS.SMALL_CLUSTER_LEAF_COUNT).toBe(20);
     expect(CLUSTER_ZOOM_CONSTANTS.STACKED_LEAF_SPAN_DEG).toBeGreaterThan(0);

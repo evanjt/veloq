@@ -19,7 +19,10 @@ function ActivityDetailFirstFrame() {
   // The content mounts after the preview, often once the transition has ended,
   // so the route reads the transition and hands the content the result.
   const [transitionSettled, setTransitionSettled] = useState(false);
-  useAfterNavigationTransition(useCallback(() => setTransitionSettled(true), []));
+  useAfterNavigationTransition(
+    useCallback(() => setTransitionSettled(true), []),
+    true
+  );
 
   useEffect(() => {
     const fallback = setTimeout(onPosterSettled, 250);

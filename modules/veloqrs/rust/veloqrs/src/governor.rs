@@ -835,12 +835,12 @@ impl Budget {
     /// Until when a request for `intent` would be deferred at `now`, without
     /// counting or sending anything. `None` when it would go. A user request is
     /// deferred inside a cooldown before the `Retry-After` it carried has
-    /// passed, and after that it may go as the probe.
+    /// passed, and after that one probe goes per probe interval.
     pub fn deferred_until(&mut self, intent: Intent, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
         self.roll(now);
         if let Some(until) = self.cooldown_until.filter(|until| *until > now) {
             return match intent {
-                Intent::User => self.asked_until(now).map(|asked| asked.min(until)),
+                Intent::User => self.user_hold_in_cooldown(now, until),
                 _ => Some(until),
             };
         }
@@ -849,6 +849,23 @@ impl Budget {
             Intent::Sync => window_full(&self.sync_recent, self.sync_allowance),
             Intent::Backfill => self.backfill_held_until(now),
         }
+    }
+
+    /// Until when a user request is held inside a cooldown that ends at
+    /// `until`: the `Retry-After` the refusal carried, then the interval since
+    /// the last probe. `None` means it may go as the probe. The one verdict
+    /// behind both `admit` and `deferred_until`.
+    fn user_hold_in_cooldown(
+        &self,
+        now: DateTime<Utc>,
+        until: DateTime<Utc>,
+    ) -> Option<DateTime<Utc>> {
+        if let Some(asked) = self.asked_until(now) {
+            return Some(asked.min(until));
+        }
+        self.last_probe_at
+            .filter(|last| now < *last + PROBE_INTERVAL)
+            .map(|last| (last + PROBE_INTERVAL).min(until))
     }
 
     /// Until when the backfill's own share holds it at `now`: a low budget
@@ -874,16 +891,9 @@ impl Budget {
         self.roll(now);
         if let Some(until) = self.cooldown_until.filter(|until| *until > now) {
             return match intent {
-                Intent::User => match self.last_probe_at {
-                    _ if self.asked_until(now).is_some() => Admission::Deferred {
-                        until: self
-                            .asked_until(now)
-                            .map_or(until, |asked| asked.min(until)),
-                    },
-                    Some(last) if now < last + PROBE_INTERVAL => Admission::Deferred {
-                        until: (last + PROBE_INTERVAL).min(until),
-                    },
-                    _ => {
+                Intent::User => match self.user_hold_in_cooldown(now, until) {
+                    Some(until) => Admission::Deferred { until },
+                    None => {
                         self.last_probe_at = Some(now);
                         self.today.user = self.today.user.saturating_add(1);
                         Admission::Probe
@@ -2698,6 +2708,22 @@ mod tests {
                 until: at("2026-03-05T00:20:00Z")
             },
             "a probe refused with no Retry-After says the day is spent"
+        );
+    }
+
+    #[test]
+    fn a_user_request_inside_the_probe_interval_is_held_as_admit_holds_it() {
+        let mut budget = Budget::new(0);
+        let (rate, via) = via_app(3_600);
+        budget.refused(&rate, via, b"", false, at("2026-03-04T10:00:00Z"), 1.0);
+        let probe_at = at("2026-03-04T11:00:00Z");
+        assert_eq!(budget.admit(Intent::User, probe_at), Admission::Probe);
+        let inside = at("2026-03-04T11:01:00Z");
+        let end = at("2026-03-04T11:05:00Z");
+        assert_eq!(budget.deferred_until(Intent::User, inside), Some(end));
+        assert_eq!(
+            budget.admit(Intent::User, inside),
+            Admission::Deferred { until: end }
         );
     }
 

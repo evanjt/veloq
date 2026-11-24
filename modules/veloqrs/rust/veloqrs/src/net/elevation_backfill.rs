@@ -39,7 +39,9 @@
 //! no claim about the ground. Both are stamped with the activity's version in
 //! the census and asked again when a sync moves it, and a withheld track also
 //! when the athlete asks. A network failure, a 5xx or a refusal leaves the row
-//! untouched, so it can be asked again. A 401 ends the pass outright rather
+//! untouched, so it can be asked again; the pass counts that ask once against
+//! the track's limit, and a track retired by its limit is reopened by a sync
+//! that moves its version and by the athlete's request. A 401 ends the pass outright rather
 //! than spending the whole library on rejected requests. An elevation ask that
 //! comes back with nothing at all cannot tell the first case from the second,
 //! since the request carried no coordinates, so that activity alone is asked
@@ -1659,7 +1661,9 @@ fn drain_staged(install: u64, session: &LiveSource, queue: &[(String, String)]) 
 
 /// Walk a list of tracks in batches, fetching and storing what it can.
 ///
-/// `count_progress` is false for a retry round: those tracks are already in
+/// `count_progress` is false for a retry round, which also counts no failed ask
+/// against a track's limit, so one pass costs a track one ask however many
+/// rounds re-ask it: those tracks are already in
 /// the completed count from the first walk, and counting them again pushes the
 /// progress line past its own total.
 fn drain_queue(
@@ -1912,7 +1916,7 @@ fn drain_queue_asking(
                 }
             }
         }
-        if batch_answered || crate::net::connectivity::has_link_proof() {
+        if count_progress && (batch_answered || crate::net::connectivity::has_link_proof()) {
             count_failures_beside_answers(install, &mut plan.refused);
         }
         refused.append(&mut plan.refused);
@@ -2739,7 +2743,9 @@ pub fn start_elevation_backfill() -> FfiStartOutcome {
 /// is off, and with no credential nothing is armed, since the credential's
 /// arrival asks again. A queue that is empty hands over to the detector
 /// cutover, which answers held while any of it remains and refuses while Route
-/// Matching is off; the pass that drains the queue hands over itself. The
+/// Matching is off; the pass that drains the queue hands over itself. A pass
+/// refused for any reason, offline or paused included, asks the cutover too,
+/// which starts once its newest slice is decided. The
 /// stored climb rows owed to a library that predates them start first, on a
 /// thread of their own, and so do the load and zone times owed to the source
 /// rows that have streams and no figures. The series of tracks fetched before
@@ -2757,10 +2763,10 @@ pub fn start_owed_work() -> FfiStartOutcome {
         Some(true) if crate::objects::current_session().is_none() => FfiStartOutcome::NotConfigured,
         Some(true) => start_elevation_backfill(),
     };
-    if matches!(
-        outcome,
-        FfiStartOutcome::NotOwed | FfiStartOutcome::NotConfigured
-    ) {
+    // The cutover needs no network and answers for itself whether its slice is
+    // decided, so a pass that was refused (offline, paused, busy) does not
+    // hold it back. Only a started pass hands over on its own when it drains.
+    if outcome != FfiStartOutcome::Started {
         crate::persistence::cutover::start_cutover();
     }
     // The open's load finds the regroup owed for any activity stored after the
@@ -4100,6 +4106,34 @@ mod tests {
             crate::net::connectivity::reset();
         }
 
+        /// Scenario: a short outage makes the only owed track answer 500 to
+        /// the pass's ask and to each of the re-ask rounds that follow, while
+        /// another response shows the link works.
+        ///
+        /// Expected behaviour: the re-ask rounds count nothing, so the track
+        /// stays owed for the next pass instead of retiring inside this one.
+        #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+        fn re_ask_rounds_do_not_count_against_the_limit() {
+            let _serial = serial_global_state();
+            crate::net::connectivity::reset();
+            let _tmp = engine_with(&["bad"]);
+            crate::net::connectivity::note_link_proof();
+
+            for _ in 0..ELEVATION_ATTEMPT_LIMIT + 1 {
+                drain_queue_with(engine_install(), &queue(), false, |ids, _ask| {
+                    ids.iter().map(|id| (id.clone(), server_error())).collect()
+                });
+            }
+
+            assert_eq!(remaining(), 1, "the track is still owed");
+            assert_eq!(
+                with_persistent_engine(|e| e.elevation_state_of_track("bad")).expect("engine"),
+                Some(crate::persistence::ELEVATION_STATE_UNKNOWN)
+            );
+            crate::net::connectivity::reset();
+        }
+
         #[test]
         #[cfg_attr(not(feature = "vault"), ignore = "vault")]
         fn a_batch_where_nothing_is_answered_counts_nothing() {
@@ -4822,6 +4856,74 @@ mod tests {
 
             assert_eq!(catalogue_method(), method);
             assert!(with_persistent_engine(|e| e.cutover_is_owed()).expect("engine"));
+        }
+
+        /// Owes the cutover with the newest slice decided and one older track
+        /// still queued, so the pass has work and the cutover is ready.
+        fn owe_the_cutover_with_a_decided_slice_and_an_older_queue() {
+            owe_the_cutover_with_an_empty_elevation_queue();
+            with_persistent_engine(|e| {
+                e.db.execute(
+                    "UPDATE activities SET start_date = start_date - 31536000
+                      WHERE id = 'a5'",
+                    [],
+                )
+                .expect("age one activity out of the slice");
+                e.db.execute(
+                    "UPDATE gps_tracks SET elevation_state = ?1 WHERE activity_id = 'a5'",
+                    [i64::from(crate::persistence::ELEVATION_STATE_UNKNOWN)],
+                )
+                .expect("queue it");
+                assert_eq!(e.elevation_backfill_remaining().expect("queue"), 1);
+            })
+            .expect("engine");
+        }
+
+        /// Wait for the cutover to have started and finished, bounded.
+        fn wait_for_cutover_to_finish() -> bool {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+            while std::time::Instant::now() < deadline {
+                if !with_persistent_engine(|e| e.cutover_is_owed()).expect("engine")
+                    && !crate::persistence::cutover::cutover_running()
+                {
+                    return true;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            false
+        }
+
+        /// Scenario: a launch finds the device offline, or the download
+        /// paused, while the newest slice is decided and the cutover is owed.
+        /// Expected behaviour: the pass is refused with its own verdict and
+        /// the cutover still runs, since it needs no network.
+        #[test]
+        #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+        fn a_refused_pass_still_starts_a_cutover_whose_slice_is_decided() {
+            use crate::objects::FfiStartOutcome;
+
+            for refusal in ["offline", "paused"] {
+                let _serial = serial_global_state();
+                let _tmp = seeded_global_engine();
+                connectivity::reset();
+                clear_detection_handle();
+                let _creds = crate::objects::test_credentials();
+                owe_the_cutover_with_a_decided_slice_and_an_older_queue();
+                let expected = if refusal == "offline" {
+                    connectivity::set_online(false);
+                    FfiStartOutcome::Offline
+                } else {
+                    pause_elevation_backfill();
+                    FfiStartOutcome::Held
+                };
+
+                assert_eq!(start_owed_work(), expected, "{refusal}");
+                assert!(wait_for_cutover_to_finish(), "{refusal}: cutover never ran");
+
+                PAUSED.store(false, Ordering::SeqCst);
+                connectivity::reset();
+                drain_detection();
+            }
         }
 
         /// Scenario: a pass drains the queue and Route Matching is switched off

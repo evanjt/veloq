@@ -49,6 +49,16 @@ pub struct GuidePayload {
 /// The number of splits: one per tenth of the length.
 const SPLIT_COUNT: usize = 10;
 
+/// The line tolerance a watch send uses, in metres.
+pub const WATCH_TOLERANCE_M: f64 = 5.0;
+
+/// The guide payload of the section or route `id` as JSON text, simplified to the watch tolerance.
+/// `None` when it is gone or has no line.
+pub fn guide_payload_json(conn: &Connection, kind: NearbyKind, id: &str) -> Option<String> {
+    let payload = guide_payload(conn, kind, id, WATCH_TOLERANCE_M)?;
+    serde_json::to_string(&payload).ok()
+}
+
 /// The guide payload of the section or route `id`, its line simplified to `tolerance_m` metres.
 /// `None` when it is gone or has no line.
 pub fn guide_payload(
@@ -60,7 +70,7 @@ pub fn guide_payload(
     let (name, sport_type, figures, line, best_pass) = match kind {
         NearbyKind::Section => {
             let (name, sport_type, line) = section_identity(conn, id)?;
-            let figures = section_figures(conn, id)?;
+            let figures = section_figures(conn, id, None)?;
             let pass = figures
                 .best_activity_id
                 .as_deref()
@@ -178,20 +188,11 @@ fn section_best_pass(
     section_id: &str,
     activity: &str,
 ) -> Option<(String, Option<(usize, usize)>)> {
-    let range = conn
-        .query_row(
-            "SELECT start_index, end_index FROM section_activities
-             WHERE section_id = ?1 AND activity_id = ?2 AND excluded = 0 AND lap_time > 0
-             ORDER BY lap_time LIMIT 1",
-            [section_id, activity],
-            |row| {
-                Ok((
-                    row.get::<_, u32>(0)? as usize,
-                    row.get::<_, u32>(1)? as usize,
-                ))
-            },
-        )
-        .ok()?;
+    let range = crate::persistence::records::record_eligible_passes(conn, section_id)
+        .into_iter()
+        .filter(|pass| pass.activity_id == activity)
+        .min_by(|a, b| a.time.total_cmp(&b.time))
+        .map(|pass| (pass.start_index, pass.end_index))?;
     Some((activity.to_string(), Some(range)))
 }
 

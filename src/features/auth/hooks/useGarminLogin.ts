@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { GarminKeyStatus } from 'veloqrs';
 
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { signInFailureKey } from '@/features/auth/lib/libraryWipe';
 import { liveGarminSignInSteps, signInWithGarminKey } from '@/features/auth/lib/garminSignIn';
 
 const STATUS_KEY = {
@@ -44,8 +45,8 @@ export function useGarminLogin({ setError }: UseGarminLoginParams) {
           case 'failed':
             setError(t(STATUS_KEY[outcome.status]));
         }
-      } catch {
-        setError(t(STATUS_KEY[GarminKeyStatus.Unreachable]));
+      } catch (error) {
+        setError(t(signInFailureKey(error, STATUS_KEY[GarminKeyStatus.Unreachable])));
       } finally {
         setIsGarminLoading(false);
       }

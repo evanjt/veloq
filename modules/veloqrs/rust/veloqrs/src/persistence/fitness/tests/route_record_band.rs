@@ -230,6 +230,24 @@ fn route_average_speed_is_counted_distance_over_counted_time() {
 }
 
 #[test]
+fn a_tie_for_first_has_no_rank_and_a_tie_below_it_shares_one() {
+    let tied_top = vec![
+        attempt("a", "Run", 4300.0, 1190),
+        attempt("b", "Run", 4300.0, 1190),
+        attempt("c", "Run", 4300.0, 1210),
+    ];
+    assert_eq!(page(&tied_top, &[], "a").current_rank, None);
+
+    let tied_second = vec![
+        attempt("a", "Run", 4300.0, 1180),
+        attempt("b", "Run", 4300.0, 1190),
+        attempt("c", "Run", 4300.0, 1190),
+    ];
+    assert_eq!(page(&tied_second, &[], "b").current_rank, Some(2));
+    assert_eq!(page(&tied_second, &[], "c").current_rank, Some(2));
+}
+
+#[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_route_highlight_trend_ignores_short_attempt() {
     let attempts = vec![

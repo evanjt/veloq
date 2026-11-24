@@ -886,7 +886,6 @@ mod tests {
     /// loop breaks on, so it has to be cleared on every way out of the fetch
     /// thread. An unwind used to skip the clear at the tail and strand it.
     #[test]
-    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn a_panicking_fetch_thread_still_clears_the_download_flag() {
         let _serial = crate::test_globals::serial_global_state();
         enqueue_download(test_run_id(1), 3, DownloadPriority::Bulk);
@@ -954,7 +953,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn cancelling_all_downloads_releases_every_queued_run() {
         let _serial = crate::test_globals::serial_global_state();
         enqueue_download(test_run_id(1), 4, DownloadPriority::Bulk);

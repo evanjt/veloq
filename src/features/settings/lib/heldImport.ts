@@ -23,6 +23,7 @@ import {
   restoreBackup,
   restoreRecordBackup,
 } from './backup';
+import { engineErrorTag } from '@/shared/native/engineError';
 import { inform } from '@/shared/ui/dialog';
 import { showRestoreNotice, type RestoreReport } from './restoreNotice';
 import { RESTORE_REFUSAL_KEYS, RestoreRefusedError, restoreRefusal } from './restoreRefusal';
@@ -132,6 +133,16 @@ async function restoreHeld(jsonUri: string, zipUri: string): Promise<RestoreRepo
   return null;
 }
 
+/** Whether a restore's failure repeats for this file, so retrying it would only fail again. */
+function refusesAgain(error: unknown): boolean {
+  const refusal = restoreRefusal(error);
+  return (
+    refusal === 'differentAccount' ||
+    refusal === 'missing' ||
+    engineErrorTag(error) === 'ParseError'
+  );
+}
+
 async function applyHeld(t: TFunction): Promise<boolean> {
   if (importWaitsForSignIn()) return false;
   const jsonUri = heldUri(HELD_LEGACY_JSON);
@@ -142,12 +153,15 @@ async function applyHeld(t: TFunction): Promise<boolean> {
   try {
     drops = await restoreHeld(jsonUri, zipUri);
   } catch (error) {
-    // A record the restore refused is refused again on every try, and one a
-    // write failure paused is the engine's to resume, so either way the held
-    // file has had its one restore.
+    // A record the restore refused for what it holds is refused again on every
+    // try, so it has had its one restore. A write failure, a closed engine or
+    // an unknown failure says nothing about the file, so it is kept and the
+    // offer stays open for the next launch.
     log.warn('Held import not restored:', error instanceof Error ? error.message : error);
-    await discardHeldImport().catch(() => {});
-    markPlatformRecordAnswered();
+    if (refusesAgain(error)) {
+      await discardHeldImport().catch(() => {});
+      markPlatformRecordAnswered();
+    }
     inform({
       title: t('backup.notRestoredTitle'),
       message: t(RESTORE_REFUSAL_KEYS[restoreRefusal(error)]),

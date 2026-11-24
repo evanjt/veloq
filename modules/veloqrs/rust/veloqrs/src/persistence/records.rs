@@ -42,6 +42,16 @@ pub fn is_personal_record(time_secs: f64, rival_secs: Option<f64>) -> bool {
 /// beaten nothing and takes no place, and a tie for first beats nobody, so it
 /// takes none either: `Some(1)` is exactly [`is_personal_record`].
 pub fn podium_place(time_secs: f64, rivals: &[f64]) -> Option<u32> {
+    rank_among(time_secs, rivals).filter(|place| *place <= 3)
+}
+
+/// The rank, 1 or more, an effort takes among the other outings over the same
+/// ground: one plus the number of them that beat it by [`PR_TOLERANCE_SECS`].
+///
+/// A tie below first is the same rank for both. An effort with no other outing
+/// has beaten nothing, and a tie for first beats nobody, so neither has a
+/// rank: `Some(1)` is exactly [`is_personal_record`].
+pub fn rank_among(time_secs: f64, rivals: &[f64]) -> Option<u32> {
     if rivals.is_empty() || !time_secs.is_finite() || time_secs <= 0.0 {
         return None;
     }
@@ -58,7 +68,7 @@ pub fn podium_place(time_secs: f64, rivals: &[f64]) -> Option<u32> {
             .fold(None, |b: Option<f64>, r| Some(b.map_or(r, |b| b.min(r))));
         return is_personal_record(time_secs, best).then_some(1);
     }
-    (place <= 3).then_some(place)
+    Some(place)
 }
 
 /// How far from a route's usual distance an attempt may be and still count
@@ -208,9 +218,34 @@ pub(crate) fn record_eligible_laps(
     result: &crate::SectionPerformanceResult,
     reverse: bool,
 ) -> impl Iterator<Item = (&crate::SectionPerformanceRecord, &crate::SectionLap)> {
+    record_eligible_laps_in(&result.records, reverse)
+}
+
+/// [`record_eligible_laps`] over a bare list of records.
+pub(crate) fn record_eligible_laps_in(
+    records: &[crate::SectionPerformanceRecord],
+    reverse: bool,
+) -> impl Iterator<Item = (&crate::SectionPerformanceRecord, &crate::SectionLap)> {
+    standing_tier(charted_laps_in(records, reverse), |(_, lap)| lap.estimated).into_iter()
+}
+
+/// Every lap in one direction that counts as a traversal, timed or
+/// estimated: the set a chart and a traversal count read. The record figures
+/// read only its standing tier, [`record_eligible_laps`].
+pub(crate) fn charted_laps(
+    result: &crate::SectionPerformanceResult,
+    reverse: bool,
+) -> Vec<(&crate::SectionPerformanceRecord, &crate::SectionLap)> {
+    charted_laps_in(&result.records, reverse)
+}
+
+/// [`charted_laps`] over a bare list of records.
+pub(crate) fn charted_laps_in(
+    records: &[crate::SectionPerformanceRecord],
+    reverse: bool,
+) -> Vec<(&crate::SectionPerformanceRecord, &crate::SectionLap)> {
     let direction = if reverse { "reverse" } else { "same" };
-    let eligible: Vec<_> = result
-        .records
+    records
         .iter()
         .flat_map(move |record| {
             record
@@ -225,8 +260,89 @@ pub(crate) fn record_eligible_laps(
                 })
                 .map(move |lap| (record, lap))
         })
-        .collect();
-    standing_tier(eligible, |(_, lap)| lap.estimated).into_iter()
+        .collect()
+}
+
+/// One pass of a section that may stand for its figures.
+pub(crate) struct RecordPass {
+    pub(crate) time: f64,
+    pub(crate) date: i64,
+    pub(crate) activity_id: String,
+    pub(crate) start_index: usize,
+    pub(crate) end_index: usize,
+}
+
+/// The passes of a section that the record rule admits, oldest first: timed,
+/// included, covering enough of the section, and in each direction timed on
+/// the ground when any is. This is [`record_eligible_laps`] read from the
+/// junction table for the surfaces that need no performance bundle.
+pub(crate) fn record_eligible_passes(
+    conn: &rusqlite::Connection,
+    section_id: &str,
+) -> Vec<RecordPass> {
+    let sql = format!(
+        "SELECT sa.lap_time, m.date, sa.activity_id, sa.start_index, sa.end_index,
+                sa.direction, sa.projected_m
+         FROM section_activities sa
+         JOIN activity_metrics m ON m.activity_id = sa.activity_id
+         JOIN sections s ON s.id = sa.section_id
+         WHERE sa.section_id = ?1 AND sa.excluded = 0 AND sa.lap_time > 0
+           AND sa.direction IN ('same', 'reverse') AND ({})
+         ORDER BY m.date",
+        complete_traversal_sql_for("sa", "s")
+    );
+    let Ok(mut stmt) = conn.prepare(&sql) else {
+        return Vec::new();
+    };
+    let rows: Vec<(RecordPass, bool, bool)> = stmt
+        .query_map([section_id], |row| {
+            let projected: Option<f64> = row.get(6)?;
+            Ok((
+                RecordPass {
+                    time: row.get(0)?,
+                    date: row.get(1)?,
+                    activity_id: row.get(2)?,
+                    start_index: row.get::<_, u32>(3)? as usize,
+                    end_index: row.get::<_, u32>(4)? as usize,
+                },
+                row.get::<_, String>(5)? == "reverse",
+                crate::persistence::sections::lap_timing::is_estimated(projected),
+            ))
+        })
+        .map(|rows| rows.filter_map(Result::ok).collect())
+        .unwrap_or_default();
+    let mut passes = Vec::new();
+    for reverse in [false, true] {
+        let direction: Vec<_> = rows.iter().filter(|r| r.1 == reverse).collect();
+        let timed_on_ground = direction.iter().any(|r| !r.2);
+        passes.extend(
+            direction
+                .into_iter()
+                .filter(|r| !timed_on_ground || !r.2)
+                .map(|r| {
+                    (
+                        r.0.date,
+                        r.0.time,
+                        r.0.activity_id.clone(),
+                        r.0.start_index,
+                        r.0.end_index,
+                    )
+                }),
+        );
+    }
+    passes.sort_by_key(|p| p.0);
+    passes
+        .into_iter()
+        .map(
+            |(date, time, activity_id, start_index, end_index)| RecordPass {
+                time,
+                date,
+                activity_id,
+                start_index,
+                end_index,
+            },
+        )
+        .collect()
 }
 
 /// The part of `candidates` that may stand for a record: those timed on the
@@ -260,7 +376,7 @@ pub fn section_record_lap(
 }
 
 /// A direction's record progression, oldest step first: each eligible lap
-/// strictly faster than every eligible lap before it, over the whole included
+/// faster, by more than the tolerance, than the last step before it, over the whole included
 /// history.
 ///
 /// Eligibility is [`section_record_lap`]'s, and so is the tie rule: a lap
@@ -282,7 +398,9 @@ pub fn section_record_progression(
     let mut steps: Vec<crate::FfiRecordStep> = Vec::new();
     for (record, lap) in laps {
         let previous = steps.last();
-        if previous.is_some_and(|step| lap.time >= step.section_time) {
+        let is_holder = record.activity_id == holder.activity_id && lap.id == record_lap.id;
+        let gained = previous.is_none_or(|step| step.section_time - lap.time >= PR_TOLERANCE_SECS);
+        if !gained && !is_holder {
             continue;
         }
         steps.push(crate::FfiRecordStep {
@@ -294,7 +412,7 @@ pub fn section_record_progression(
             improvement_secs: previous.map(|step| step.section_time - lap.time),
             improvement_speed: previous.map(|step| lap.pace - step.speed),
         });
-        if record.activity_id == holder.activity_id && lap.id == record_lap.id {
+        if is_holder {
             break;
         }
     }
@@ -322,6 +440,26 @@ pub fn is_section_record_pr(
     section_record_lap(result, record.direction == "reverse").is_some_and(|(holder, lap)| {
         holder.activity_id == record.activity_id && lap.time == record.best_time
     })
+}
+
+/// A section's headline record, with the direction it was set in: of the two
+/// directions' records that strictly beat another outing in their own
+/// direction, the most recently set.
+///
+/// A descent is never measured against climbs, a faster record set long ago
+/// does not hide a fresh one in the other direction, and a section with no
+/// strict record has none.
+pub fn headline_section_record(
+    result: &crate::SectionPerformanceResult,
+) -> Option<(bool, &crate::SectionPerformanceRecord)> {
+    [
+        (false, result.best_forward_record.as_ref()),
+        (true, result.best_reverse_record.as_ref()),
+    ]
+    .into_iter()
+    .filter_map(|(reverse, record)| record.map(|record| (reverse, record)))
+    .filter(|(_, record)| is_section_record_pr(result, record))
+    .max_by_key(|(_, record)| record.activity_date)
 }
 
 /// Share of a section a traversal must cover before it can be its record.
@@ -420,6 +558,16 @@ mod tests {
     fn a_tie_for_second_is_second_for_both_and_a_tie_for_first_is_unplaced() {
         assert_eq!(podium_place(110.0, &[100.0, 110.0, 130.0]), Some(2));
         assert_eq!(podium_place(100.0, &[100.0, 110.0]), None);
+    }
+
+    #[test]
+    fn rank_counts_only_strictly_faster_rivals_and_a_tie_for_first_has_none() {
+        assert_eq!(rank_among(612.0, &[0.0, 612.0, 620.0, 630.0]), None);
+        assert_eq!(rank_among(610.0, &[600.0, 610.0]), Some(2));
+        assert_eq!(rank_among(610.005, &[600.0, 610.0]), Some(2));
+        assert_eq!(rank_among(650.0, &[600.0, 610.0, 620.0, 630.0]), Some(5));
+        assert_eq!(rank_among(590.0, &[600.0, 610.0]), Some(1));
+        assert_eq!(rank_among(600.0, &[]), None);
     }
 
     #[test]

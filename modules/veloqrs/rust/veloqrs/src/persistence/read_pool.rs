@@ -143,6 +143,7 @@ where
     let conn = take()?;
     let previous = READER_GENERATION.with(|slot| slot.replace(Some(generation)));
     let _scope = ReaderScope(previous);
+    let _pinned = super::read_cache::pin_reader();
     // A deferred transaction pins one WAL snapshot at the first statement, so
     // every statement of the closure reads the same commit. If it cannot
     // begin, the connection is dropped rather than read torn.

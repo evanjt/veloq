@@ -522,7 +522,6 @@ fn rolling_back_a_retired_section_recreates_it_on_the_archived_line() {
 /// state's version, one the detector dissolved afterwards with no archived
 /// state reports none, and neither fails a roll back by the reported version.
 #[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_retired_section_reports_the_version_it_can_be_restored_from() {
     let dir = TempDir::new().expect("tempdir");
     let mut engine = library(&dir, "restorable.db");
@@ -984,7 +983,6 @@ fn preferring_the_restored_section_hides_the_auto_section_behind_it() {
 /// archived states and its junction rows' owner gone; the auto section shows
 /// and is no longer hidden. A second ask changes nothing.
 #[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn preferring_the_auto_section_retires_the_restored_one_into_it() {
     let dir = TempDir::new().expect("tempdir");
     let (mut engine, version) = restored_beside_a_recut(&dir, "prefer-auto.db");

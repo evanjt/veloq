@@ -28,7 +28,8 @@
     "failedToDisconnect": "Couldn't disconnect. Give it another go.",
     "accountChangeMessage": "This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account will permanently delete it. To hang on to it, go back and sign in to that account instead.",
     "accountChangeDemoMessage": "This device has cached data for another account ({{cachedAthleteId}}). Carrying on to demo mode will permanently delete that data. To hang on to it, go back and sign in to that account first.",
-    "unnamedLibraryMessage": "This device holds a library that's not linked to an account. If it's yours, keep it and it'll sync to this account. Otherwise delete it.",
+    "unnamedLibraryMessage_one": "This device holds a library of {{count}} activity that's not linked to an account. If it's yours, keep it and it'll sync to this account. Otherwise delete it.",
+    "unnamedLibraryMessage_other": "This device holds a library of {{count}} activities that's not linked to an account. If it's yours, keep it and it'll sync to this account. Otherwise delete it.",
     "unnamedLibraryMine": "Yep, that's mine",
     "accountChangeUnknownDemoMessage": "This device holds a library from another account. Carrying on to demo mode will permanently delete it. To hang on to it, go back and sign in to that account first.",
     "disconnectAndClearMessage": "This signs you out and clears your library off this phone. This cannot be undone."

@@ -172,6 +172,18 @@ export function useTrackStage(): TrackStage | null {
   return useSyncExternalStore(subscribe, getTracks, getTracks);
 }
 
+function getTrackStep(): TrackStage['step'] | null {
+  return snapshot?.tracks?.step ?? null;
+}
+
+/**
+ * The step of the track work running now, or null. A primitive, so a card
+ * that reads it re-renders when the step changes and not on each progress tick.
+ */
+export function useTrackStep(): TrackStage['step'] | null {
+  return useSyncExternalStore(subscribe, getTrackStep, getTrackStep);
+}
+
 function getLastSuccessAt(): string | null {
   return snapshot?.lastSuccessAt ?? null;
 }

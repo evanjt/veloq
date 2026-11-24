@@ -445,12 +445,20 @@ fn poll_followed_run(run_id: &str) -> Result<String, VeloqError> {
 }
 
 fn poll_followed_run_with(run_id: &str, after_prior: impl FnOnce()) -> Result<String, VeloqError> {
-    let current = SECTION_DETECTION_HANDLE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .as_ref()
-        .map(|handle| handle.checkpoint_slot().run_id())
-        .unwrap_or(0);
+    let current = {
+        let guard = SECTION_DETECTION_HANDLE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        // A start is building the next run: the recorded outcome belongs to
+        // the run before it, so an unbound follower reports a run in flight.
+        if run_id.is_empty() && guard.is_none() && start_window_open() {
+            return Ok("0:running".to_string());
+        }
+        guard
+            .as_ref()
+            .map(|handle| handle.checkpoint_slot().run_id())
+            .unwrap_or(0)
+    };
     let latest = RUN_OUTCOMES
         .lock()
         .unwrap_or_else(|e| e.into_inner())
@@ -1803,6 +1811,34 @@ mod tests {
         assert_eq!(
             poll_followed_run(&first_slot.run_id().to_string()).expect("followed poll"),
             format!("{}:error", first_slot.run_id())
+        );
+        clear_detection_handle();
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn test_poll_followed_unbound_waits_while_a_start_builds() {
+        let _serial = serial_global_state();
+        let _tmp = seeded_global_engine();
+        clear_detection_handle();
+        let install = crate::persistence::engine_install();
+        let first = crate::persistence::SectionDetectionHandle::finished_after_worker_apply();
+        let first_slot = first.checkpoint_slot();
+        record_started_run(&first_slot);
+        record_run_outcome(&first_slot, OUTCOME_COMPLETE);
+        first_slot.mark_installed(install);
+        let finished_id = first_slot.run_id();
+
+        let window = StartWindow::open().expect("slot is free");
+        assert_eq!(
+            poll_followed_run("").expect("poll while building"),
+            "0:running",
+            "an unbound follower must not take the previous run's verdict while the next run builds"
+        );
+        drop(window);
+        assert_eq!(
+            poll_followed_run("").expect("poll after window"),
+            format!("{finished_id}:complete")
         );
         clear_detection_handle();
     }

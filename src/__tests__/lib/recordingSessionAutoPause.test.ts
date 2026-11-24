@@ -100,6 +100,10 @@ describe('recordingSession auto-pause', () => {
   let uninstall: () => void;
 
   beforeEach(() => {
+    jest.useFakeTimers({
+      now: FIX_EPOCH,
+      doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'],
+    });
     useRecordingStore.getState().reset();
     useRecordingLiveStore.getState().reset();
     useRecordingPreferences.setState({
@@ -110,7 +114,10 @@ describe('recordingSession auto-pause', () => {
     uninstall = installRecordingSession();
   });
 
-  afterEach(() => uninstall());
+  afterEach(() => {
+    uninstall();
+    jest.useRealTimers();
+  });
 
   it('pauses after the stationary duration and resumes when moving again', () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
@@ -205,6 +212,33 @@ describe('recordingSession auto-pause', () => {
     recordFix(11, (metres += 10));
     expect(useRecordingStore.getState().status).toBe('recording');
     expect(useRecordingStore.getState().streams.time.length).toBeGreaterThan(0);
+  });
+
+  it("takes the new sport's threshold when the sport changes mid-ride", () => {
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+    let metres = 0;
+    for (let second = 0; second <= 3; second++) pushFix(second, (metres += 10));
+
+    useRecordingStore.getState().changeActivityType('OpenWaterSwim');
+    for (let second = 4; second <= 14; second++) pushFix(second, (metres += 0.5));
+
+    expect(useRecordingStore.getState().status).toBe('recording');
+  });
+
+  it('keeps that the ride has moved when a data field is picked at a stop', () => {
+    const now = jest.spyOn(Date, 'now').mockReturnValue(FIX_EPOCH);
+    useRecordingStore.getState().startRecording('Ride', 'gps');
+    now.mockReturnValue(FIX_EPOCH + 10_000);
+    let metres = 0;
+    for (let second = 0; second <= 3; second++) recordFix(second, (metres += 10));
+    for (let second = 4; second <= 5; second++) recordFix(second, metres);
+
+    useRecordingPreferences.getState().setSlotField('gps', 1, 'cadence');
+    for (let second = 6; second <= 10; second++) recordFix(second, metres);
+    now.mockRestore();
+
+    expect(useRecordingStore.getState().status).toBe('paused');
+    expect(useRecordingStore.getState()._pauseStart).toBe(FIX_EPOCH + 4_000);
   });
 
   it('resumes a ride the session starts on while auto-paused', () => {

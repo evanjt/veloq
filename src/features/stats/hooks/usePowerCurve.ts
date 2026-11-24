@@ -1,7 +1,7 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { getEngine } from '@/shared/native/engine';
-import { useEngineBody } from '@/shared/native/engineBodies';
+import { bodyNamed, useEngineBody } from '@/shared/native/engineBodies';
 import { useRangeCoverage } from '@/shared/native/useRangeCoverage';
 import { powerCurveOf } from '@/features/stats/lib/curveRecords';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -48,7 +48,8 @@ export function usePowerCurve(options: UsePowerCurveOptions = {}) {
     query.data !== null,
     () => getEngine()?.syncPowerCurve(sport, days),
     queryKey,
-    enabled && query.data !== undefined
+    enabled && query.data !== undefined,
+    bodyNamed(['power_curve'])
   );
 
   // An empty activity census proves there is nothing to chart. Downloaded

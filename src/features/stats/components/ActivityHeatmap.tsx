@@ -66,6 +66,7 @@ import {
 } from '../lib/heatmapGrid';
 import { CardHeader } from '@/shared/ui/CardHeader';
 import { EmptyState } from '@/shared/ui/EmptyState';
+import { ErrorState } from '@/shared/ui/ErrorState';
 import { DENSE_TEXT_SCALE, denseExtent } from '@/shared/ui/DenseText';
 import { ABSENT } from '@/shared/format/absent';
 import { PressTarget } from '@/shared/ui/PressTarget';
@@ -185,6 +186,8 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
       windows: { heatmap: grid },
       data: { heatmap, calendarOlderOwed },
       isPending,
+      error: readError,
+      retry,
     } = training;
     const gridWidth = grid.weeks * HEATMAP_PITCH;
     const firstDay = grid.cells[0].date;
@@ -192,7 +195,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
 
     // The engine updates this cache from activity metrics writes and removals.
     // Migration rebuilds it from stored metrics on upgrade. A read that throws
-    // leaves the grid empty rather than failing the tab.
+    // leaves the grid empty, and the card says the read failed.
     const days = useMemo(() => {
       const map = new Map<
         string,
@@ -474,12 +477,21 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
           <CardHeader title={t('stats.activityCalendar')} />
           {/* Until the first answer there is nothing to say about the range. */}
           <View style={styles.emptyState}>
-            {!isPending && (
-              <EmptyState
+            {readError != null ? (
+              <ErrorState
                 variant="inline"
-                title={notDownloaded ? t('stats.rangeNotDownloaded') : t('stats.noActivityData')}
-                description={notDownloaded ? undefined : t('stats.completeActivitiesHeatmap')}
+                error={readError}
+                onRetry={retry}
+                testID="activity-heatmap-failed"
               />
+            ) : (
+              !isPending && (
+                <EmptyState
+                  variant="inline"
+                  title={notDownloaded ? t('stats.rangeNotDownloaded') : t('stats.noActivityData')}
+                  description={notDownloaded ? undefined : t('stats.completeActivitiesHeatmap')}
+                />
+              )
             )}
           </View>
         </View>

@@ -13,6 +13,7 @@ import { RangeCoverage } from 'veloqrs';
 
 import { CalendarDayReadout } from '@/features/fitness/components/CalendarDayReadout';
 import { initialiseI18n } from '@/i18n';
+import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/app/AuthStore', () => ({
@@ -31,6 +32,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  useFormPreference.getState().reset();
   mockGetWellnessDays.mockReset().mockReturnValue({
     days: [
       { date: '2026-06-01', ctl: 50.4, atl: 60.2, hrv: 62, restingHr: 48, sportLoad: [] },
@@ -62,6 +64,29 @@ describe('CalendarDayReadout', () => {
 
     expect(await screen.findByText(/Fitness 50/)).toBeTruthy();
     expect(line()).toMatch(/Fatigue 60 · Form -10 · HRV 62 · Resting HR 48$/);
+  });
+
+  it('prints form as a percentage of fitness under the percentage setting', async () => {
+    mockGetWellnessDays.mockReturnValue({
+      days: [{ date: '2026-06-01', ctl: 50.4, atl: 39.6, sportLoad: [] }],
+      coverage: RangeCoverage.Loaded,
+    });
+    useFormPreference.getState().setFormAsPercent(true);
+    await show('2026-06-01');
+
+    expect(await screen.findByText(/Fitness 50/)).toBeTruthy();
+    expect(line()).toMatch(/Form \+20% · /);
+  });
+
+  it('prints rounded absolute form with its sign otherwise', async () => {
+    mockGetWellnessDays.mockReturnValue({
+      days: [{ date: '2026-06-01', ctl: 50.4, atl: 39.6, sportLoad: [] }],
+      coverage: RangeCoverage.Loaded,
+    });
+    await show('2026-06-01');
+
+    expect(await screen.findByText(/Fitness 50/)).toBeTruthy();
+    expect(line()).toMatch(/Form \+10 · /);
   });
 
   it('says when a day has no wellness logged', async () => {

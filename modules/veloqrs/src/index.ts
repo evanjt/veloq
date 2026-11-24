@@ -329,6 +329,7 @@ export type {
   FfiStrengthStartGroup as StrengthStartGroup,
   FfiStrengthSavedWorkout as StrengthSavedWorkout,
   FfiActivityNotification as ActivityNotification,
+  FfiPulledRideEntry as PulledRideEntry,
 } from './generated/veloqrs';
 /** The fault the last sync met readying one activity. */
 export type { FfiActivitySyncFailure as ActivitySyncFailure } from './generated/veloqrs';

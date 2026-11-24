@@ -783,7 +783,13 @@ fn copy_in_one_step(
 }
 
 /// Copy the database file to `dest_path` from a connection of its own.
+///
+/// The copy is one read of the whole library, held for its length under a
+/// suspension hold, so a suspension waits for it and a copy asked for while
+/// suspended does not start.
 fn copy_database_snapshot(db_path: &str, dest_path: &str) -> Result<(), String> {
+    let _read = super::suspension::begin_read()
+        .ok_or_else(|| "The snapshot was refused while the engine is suspended".to_string())?;
     let source = rusqlite::Connection::open(db_path)
         .map_err(|e| format!("Failed to open backup source: {}", e))?;
     // A WAL read can still meet a transient busy, in recovery or when a
@@ -822,6 +828,37 @@ mod snapshot_copy_tests {
     fn count(conn: &rusqlite::Connection) -> i64 {
         conn.query_row("SELECT COUNT(*) FROM bulk", [], |r| r.get(0))
             .unwrap()
+    }
+
+    /// Scenario: the app is suspended before a clear's rollback snapshot is
+    /// copied, on a thread that is not the engine's own.
+    /// Expected behaviour: the copy is refused and leaves no file, since a
+    /// read of the whole library may not be open across the suspension.
+    #[test]
+    fn a_snapshot_is_refused_while_suspended() {
+        use crate::persistence::suspension::{
+            entered_background, prepare_for_suspension, resume_after_suspension,
+        };
+        let _guard = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("snapshot-suspension.db");
+        let dir = tempfile::TempDir::new().unwrap();
+        let _source = source_in(dir.path());
+        let live = dir.path().join("live.db").to_str().unwrap().to_string();
+        let copy = dir.path().join("copy.db");
+        let copy_path = copy.to_str().unwrap().to_string();
+
+        entered_background();
+        assert!(prepare_for_suspension(std::time::Duration::from_secs(5)));
+        let refused = {
+            let (live, copy_path) = (live.clone(), copy_path.clone());
+            std::thread::spawn(move || copy_database_snapshot(&live, &copy_path))
+                .join()
+                .unwrap()
+        };
+        resume_after_suspension();
+
+        assert!(refused.is_err(), "the copy does not start while suspended");
+        assert!(!copy.exists(), "a refused copy leaves nothing behind");
     }
 
     /// Scenario: a second connection commits in a loop for as long as the

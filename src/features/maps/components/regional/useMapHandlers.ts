@@ -275,7 +275,7 @@ export function useMapHandlers({
           (await surfaceRef.current?.getClusterLeaves(CLUSTER_SOURCE_ID, clusterId, limit, 0)) ??
           [];
 
-        const plan = planClusterZoom(leaves, coords);
+        const plan = planClusterZoom(leaves, coords, pointCount || leaves.length);
         if (plan.kind === 'fitBounds') {
           surfaceRef.current?.fitBounds(
             { sw: plan.bounds.sw, ne: plan.bounds.ne },

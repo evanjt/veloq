@@ -44,7 +44,9 @@ jest.mock('@/features/routes/hooks/useRoutePerformances', () => ({
 beforeEach(() => jest.mocked(navigateTo).mockClear());
 
 it('opens the route page carrying the activity it was opened from', async () => {
-  const view = await render(<RoutePerformanceSection activityId="a1" activityType="Ride" />);
+  const view = await render(
+    <RoutePerformanceSection routeGroups={[]} activityId="a1" activityType="Ride" />
+  );
 
   fireEvent.press(view.getByRole('button', { name: 'Harbour loop' }));
 
@@ -53,7 +55,9 @@ it('opens the route page carrying the activity it was opened from', async () => 
 });
 
 it('carries the activity id escaped so the route page reads it back whole', async () => {
-  const view = await render(<RoutePerformanceSection activityId="a 1&b" activityType="Ride" />);
+  const view = await render(
+    <RoutePerformanceSection routeGroups={[]} activityId="a 1&b" activityType="Ride" />
+  );
 
   fireEvent.press(view.getByRole('button', { name: 'Harbour loop' }));
 

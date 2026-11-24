@@ -15,6 +15,7 @@ import type {
   FfiActivityIndicator,
   FfiActivityNewGround,
   FfiActivityNotification,
+  FfiPulledRideEntry,
   FfiActivityRecord,
   FfiActivityRouteHighlight,
   FfiActivityStreams,
@@ -451,5 +452,19 @@ export function activityNotification(
         .activities()
         .activityNotification(activityId, activityName, announcePrs, announceMilestones)
     ) ?? null
+  );
+}
+
+/**
+ * The title and body the engine recorded when it announced a pulled Garmin
+ * ride, the entry the app posts. Null before the engine opens, and when none
+ * was recorded for the ride.
+ */
+export function pulledRideEntry(host: DelegateHost, activityId: string): FfiPulledRideEntry | null {
+  if (!host.ready) return null;
+  validateId(activityId, 'activity ID');
+  return (
+    host.timed('pulledRideEntry', () => host.engine.activities().pulledRideEntry(activityId)) ??
+    null
   );
 }

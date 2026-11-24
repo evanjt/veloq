@@ -11,9 +11,10 @@ import { checkGarminKey, GarminKeyStatus } from 'veloqrs';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { garminAthleteId } from '@/shared/app/storedSession';
-import { clearAccountData, clearAuthOnly } from '@/shared/storage';
+import { clearAuthOnly } from '@/shared/storage';
 import type { QueryClient } from '@tanstack/react-query';
 
+import { clearLibraryForSignIn } from './libraryWipe';
 import { resolveLoginLibrary, type LoginLibraryOutcome } from './loginLibrary';
 
 export type GarminSignInOutcome =
@@ -41,7 +42,7 @@ export function liveGarminSignInSteps(queryClient: QueryClient): GarminSignInSte
     check: (key) => checkGarminKey(key),
     resolveLibrary: resolveLoginLibrary,
     keepLibrary: () => clearAuthOnly(queryClient),
-    wipeLibrary: () => clearAccountData(queryClient),
+    wipeLibrary: () => clearLibraryForSignIn(queryClient),
     signIn: (key, accountId) => useAuthStore.getState().setGarminCredentials(key, accountId),
   };
 }

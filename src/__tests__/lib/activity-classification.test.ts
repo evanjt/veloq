@@ -6,6 +6,7 @@ import {
   isCyclingActivity,
   isSwimmingActivity,
   measuresPower,
+  countsCadenceInSteps,
 } from '@/shared/activity/activityUtils';
 import { ACTIVITY_TYPES, SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
 import { activityTypeColors } from '@/theme/colors';
@@ -99,5 +100,14 @@ describe('type classification', () => {
       expect(isSwimmingActivity(type as ActivityType)).toBe(true);
       expect(isPaceSport(type as ActivityType)).toBe(false);
     }
+  });
+});
+
+describe('countsCadenceInSteps', () => {
+  it('is true on foot and false on a bike or in the water', () => {
+    expect(countsCadenceInSteps('Run')).toBe(true);
+    expect(countsCadenceInSteps('Hike')).toBe(true);
+    expect(countsCadenceInSteps('Ride')).toBe(false);
+    expect(countsCadenceInSteps('Swim')).toBe(false);
   });
 });

@@ -9,6 +9,7 @@ import type {
 import { makeInsight } from '../lib/insightBuilder';
 import { confidenceFrom, maxAgeDaysFor } from '../lib/config';
 import { sectionPairKey } from '../lib/sectionIdentity';
+import { verdictIcon, verdictRung } from '@/shared/format/trend';
 import { TIME } from '@/shared/app/time';
 
 function fallbackEligible(
@@ -87,13 +88,17 @@ export function generateSectionTrendInsights(
     slower: t('insights.sectionTrendSlower', { count: slower }),
   };
 
+  // A tie between faster and slower sections is no improvement.
+  const direction = faster > slower ? 'up' : slower > faster ? 'down' : 'flat';
+  const verdict = faster > slower ? 'improved' : slower > faster ? 'declined' : 'flat';
+
   return [
     makeInsight({
       id: 'section_trend-summary',
       category: 'section_trend',
       priority: 3,
-      icon: faster >= slower ? 'trending-up' : 'trending-down',
-      iconTone: faster >= slower ? 'positive' : 'negative',
+      icon: verdictIcon(verdict, direction),
+      iconTone: verdictRung(verdict),
       title: t('insights.sectionTrendSummary', counts),
       line: t('insights.line.sectionTrend', counts),
       timestamp: now,

@@ -7,12 +7,18 @@ export const CALORIES_ASSUMED_AGE = 35;
 export const DEFAULT_WEIGHT_KG = 70;
 
 /**
- * The weight the live calories estimate uses: the profile's, else the default,
- * with `assumed` saying which so the field picker can tell the athlete.
+ * The weight and sex the live calories estimate uses: the profile's weight,
+ * else the default, with `assumed` saying which so the field picker can tell
+ * the athlete.
  */
-export function useCaloriesWeight(): { weightKg: number; assumed: boolean } {
+export function useCaloriesWeight(): {
+  weightKg: number;
+  assumed: boolean;
+  sex: string | null | undefined;
+} {
   const profileWeight = useAuthStore((s) => s.athlete?.weightKg);
+  const sex = useAuthStore((s) => s.athlete?.sex);
   return profileWeight === undefined
-    ? { weightKg: DEFAULT_WEIGHT_KG, assumed: true }
-    : { weightKg: profileWeight, assumed: false };
+    ? { weightKg: DEFAULT_WEIGHT_KG, assumed: true, sex }
+    : { weightKg: profileWeight, assumed: false, sex };
 }

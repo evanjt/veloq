@@ -10,9 +10,9 @@ export type GroupingLayerPaint = Record<
 >;
 
 /** How a preview layer draws, shared by the map's line layers and the legend swatches. */
-export function groupingLayerPaint({ layer }: MapPalette): GroupingLayerPaint {
+export function groupingLayerPaint({ layer, casing }: MapPalette): GroupingLayerPaint {
   return {
-    dropped: { colour: layer.casing, opacity: 0.5, width: 1.5 },
+    dropped: { colour: casing, opacity: 0.5, width: 1.5 },
     other: { colour: layer.proposed, opacity: 0.4, width: 2 },
     merging: { colour: layer.merging, opacity: 0.85, width: 3 },
     largest: { colour: layer.proposed, opacity: 1, width: 4 },
@@ -66,7 +66,7 @@ export function groupingLegendRows(
       ? [
           {
             kind: 'area' as const,
-            colour: palette.layer.casing,
+            colour: palette.casing,
             opacity: paint.largest.opacity,
             labelKey: 'settings.previewAreaLayer' as const,
             dashed: true,

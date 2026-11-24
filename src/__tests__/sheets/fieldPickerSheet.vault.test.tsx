@@ -32,7 +32,11 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
-jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+let mockIsMetric = true;
+jest.mock('@/shared/app', () => ({
+  useTheme: () => ({ isDark: false }),
+  useMetricSystem: () => mockIsMetric,
+}));
 jest.mock('@/features/recording', () =>
   require('../__shared__/recordingBarrelStub').withRecordingOverrides()
 );
@@ -89,11 +93,20 @@ describe('field picker sheet', () => {
     await open(null);
     const row = screen.getByTestId('field-option-calories');
     expect(row).toHaveTextContent(/recording\.caloriesMethod/);
-    expect(row).toHaveTextContent(/recording\.caloriesDefaultWeight:\{"weight":70\}/);
+    expect(row).toHaveTextContent(/recording\.caloriesDefaultWeight:\{"weight":"70 kg"\}/);
     expect(screen.getByTestId('field-option-distance')).not.toHaveTextContent(
       /recording\.caloriesMethod/
     );
     await screen.unmount();
+
+    mockIsMetric = false;
+    useAuthStore.setState({ athlete: null });
+    await open(null);
+    expect(screen.getByTestId('field-option-calories')).toHaveTextContent(
+      /caloriesDefaultWeight:\{"weight":"154\.3 lbs"\}/
+    );
+    await screen.unmount();
+    mockIsMetric = true;
 
     useAuthStore.setState({ athlete: { id: 'i1', name: 'Rider', weightKg: 64 } });
     await open(null);

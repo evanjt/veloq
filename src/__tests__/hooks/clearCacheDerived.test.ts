@@ -161,8 +161,51 @@ describe('clearing the cache', () => {
     });
     await running;
     jest.useRealTimers();
+    pendingLands.push(land);
     return { cleared, land, fail };
   }
+
+  /** Wipes left running by a test, landed so the next test starts with none in flight. */
+  const pendingLands: ((removed: DerivedClearResult) => void)[] = [];
+  afterEach(async () => {
+    for (const land of pendingLands.splice(0)) {
+      land({ sectionsRemoved: 0, activitiesRemoved: 0, activitiesKept: 0 });
+    }
+    await act(async () => {
+      await new Promise(process.nextTick);
+    });
+  });
+
+  it('refuses a second clear while the first wipe is still running, touching nothing', async () => {
+    await clearPastTheWait();
+    mockEngine.writeClearSnapshot.mockClear();
+    mockEngine.destroyEngine.mockClear();
+    mockCopyAsync.mockClear();
+    mockEngine.runClearDerived.mockRejectedValue(new Error('A clear is already running'));
+
+    const second = await clear();
+
+    expect(second).toBe(false);
+    expect(mockEngine.writeClearSnapshot).not.toHaveBeenCalled();
+    expect(mockEngine.runClearDerived).toHaveBeenCalledTimes(1);
+    expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
+    expect(mockCopyAsync).not.toHaveBeenCalled();
+  });
+
+  it('clears again once the wipe that outlived the wait has landed', async () => {
+    const { land } = await clearPastTheWait();
+    land({ sectionsRemoved: 1, activitiesRemoved: 1, activitiesKept: 1 });
+    await act(async () => {
+      await new Promise(process.nextTick);
+    });
+    mockEngine.runClearDerived.mockResolvedValue({
+      sectionsRemoved: 0,
+      activitiesRemoved: 0,
+      activitiesKept: 0,
+    });
+
+    expect(await clear()).toBe(true);
+  });
 
   it('says the wipe is still running when it outlives the wait', async () => {
     const { cleared } = await clearPastTheWait();

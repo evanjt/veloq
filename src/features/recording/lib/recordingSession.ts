@@ -21,8 +21,9 @@ import {
   updateRecordingNotification,
 } from './recordingNotification';
 import { sessionGuidanceCue } from './guidanceCue';
+import { followChosenRoute } from './routeFollowing';
 import { fixAltitude, getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
-import { buildAutoPauseDetector, evaluateAutoPause, setAutoPauseDetector } from './manualPause';
+import { evaluateAutoPause, setAutoPauseDetector, syncAutoPauseDetector } from './manualPause';
 import { writeRideBackup, writeRideBackupIfDue } from './rideBackup';
 import {
   BACKUP_INTERVAL_MS,
@@ -312,9 +313,11 @@ function startIndoorService(): void {
 /**
  * Record an indoor sample from a sensor notification while the tick is paused.
  * React Native stops JS timers in the background, and sensor notifications are
- * what still arrives, so each one that lands a sample period after the last
- * sample records the next, and the backup is written once an interval of them
- * has passed. In front the tick owns the sampling, so the two never interleave.
+ * what still arrives. The ride is divided into sample periods and the first
+ * notification in each period records its sample, so a sensor that notifies
+ * slightly under a period apart still records every notification, and one that
+ * notifies faster records once per period. The backup is written once an
+ * interval of them has passed. In front the tick owns the sampling, so the two never interleave.
  */
 function sampleFromSensor(): void {
   if (appState !== 'background') return;
@@ -322,7 +325,8 @@ function sampleFromSensor(): void {
   if (mode !== 'indoor' || status !== 'recording' || startTime == null) return;
   const now = Date.now();
   const last = streams.time[streams.time.length - 1];
-  if (last !== undefined && now - startTime - last * 1000 < INDOOR_SAMPLE_MS) return;
+  const cell = (ms: number): number => Math.floor(ms / INDOOR_SAMPLE_MS);
+  if (last !== undefined && cell(now - startTime) <= cell(last * 1000)) return;
   addIndoorSample();
   void writeRideBackupIfDue(now);
 }
@@ -389,15 +393,14 @@ function startSession(): void {
   // A ride restored mid auto-pause keeps it, so the detector can resume it.
   const live = useRecordingLiveStore.getState();
   live.setAutoPaused(status === 'paused' && live.autoPaused);
-  setAutoPauseDetector(buildAutoPauseDetector());
+  syncAutoPauseDetector();
 
   sessionUnsubscribes.push(
-    useRecordingPreferences.subscribe(() => {
-      setAutoPauseDetector(buildAutoPauseDetector());
-    }),
+    useRecordingPreferences.subscribe(syncAutoPauseDetector),
     useRecordingStore.subscribe((state, previous) => {
       // Raw fixes arrive from the foreground watch and from the background
       // task, so auto-pause reads the store rather than either callback.
+      if (state.activityType !== previous.activityType) syncAutoPauseDetector();
       if (state.rawSpeed !== previous.rawSpeed) evaluateAutoPause();
       if (state.latestSensor !== previous.latestSensor) sampleFromSensor();
       if (state.status !== previous.status || state.laps.length !== previous.laps.length) {
@@ -424,7 +427,8 @@ function startSession(): void {
       updateRecordingNotification();
       refreshLiveActivity();
     }),
-    installRecordingNotificationActions()
+    installRecordingNotificationActions(),
+    followChosenRoute()
   );
 
   armBackups(status, laps.length);

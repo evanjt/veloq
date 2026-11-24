@@ -36,6 +36,7 @@ export function usePreviewCurrentSections(
       const sections = client.getPreviewCurrentSections(lat, lng);
       return sections ? { sections, failed: false } : FAILED;
     } catch {
+      // empty-on-error: FAILED is the failure state itself, the caller shows it as unavailable
       return FAILED;
     }
   }, [client, lat, lng]);

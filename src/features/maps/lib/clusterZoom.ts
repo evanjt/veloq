@@ -94,8 +94,9 @@ export type ClusterZoomPlan = ClusterZoomPlanSmall | ClusterZoomPlanStacked | Cl
  * Decide how to zoom into a cluster given its leaves and tap coordinates.
  *
  * Rules:
- *   - No leaves at all → expand plan: the caller has nothing to fit and nothing
- *     to fan out, so it asks the map where the cluster splits.
+ *   - No leaves at all, or fewer than the cluster's point count → expand plan:
+ *     the caller has nothing reliable to fit or fan out, so it asks the map
+ *     where the cluster splits.
  *   - If leaves collapse to a single point (span < epsilon) → stacked plan,
  *     caller can spider-expand.
  *   - Otherwise → fit to the leaves' bounds.
@@ -104,9 +105,14 @@ export type ClusterZoomPlan = ClusterZoomPlanSmall | ClusterZoomPlanStacked | Cl
  */
 export function planClusterZoom(
   leaves: readonly GeoJSON.Feature[],
-  fallbackCenter: [number, number]
+  fallbackCenter: [number, number],
+  pointCount: number = leaves.length
 ): ClusterZoomPlan {
-  if (leaves.length === 0) return { kind: 'expand', center: fallbackCenter };
+  // Fewer leaves than the cluster holds are a partial view: a pile in them says
+  // nothing of the rest, and their bounds frame only part of it.
+  if (leaves.length === 0 || leaves.length < pointCount) {
+    return { kind: 'expand', center: fallbackCenter };
+  }
 
   const bounds = computeLeafBounds(leaves);
 

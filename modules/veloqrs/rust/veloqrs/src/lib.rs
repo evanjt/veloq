@@ -127,6 +127,7 @@ pub mod widget_snapshot;
 // pull, then the widget snapshot composed from what is stored
 pub mod widget_refresh;
 pub use notifications::FfiActivityNotification;
+pub use push::FfiPulledRideEntry;
 
 /// Captured log lines, for the tests that assert a path says something rather
 /// than dropping silently. The logger is process-wide and the lib tests share

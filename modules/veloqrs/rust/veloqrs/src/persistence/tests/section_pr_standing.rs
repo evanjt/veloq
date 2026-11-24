@@ -55,3 +55,22 @@ fn test_section_pr_standing_counts_forward_lap_inside_a_reverse_outing() {
     assert_eq!(standing.percentile_faster, Some(100));
     assert_eq!(standing.previous_best_time, Some(310.0));
 }
+
+/// Scenario: the record is 100 s; another outing has an estimated 95 s pass and a 40 s pass
+/// covering half the section, and a third has a 110 s pass timed on the ground.
+///
+/// Expected behaviour: only the timed passes stand, so the previous best is 110 s, not 95 s.
+#[test]
+fn test_section_pr_standing_ignores_estimated_and_short_laps() {
+    let pr = lap_record(1, 100.0);
+    let mut estimated = lap_record(2, 95.0);
+    estimated.laps[0].estimated = true;
+    let mut short = lap_record(3, 40.0);
+    short.laps[0].coverage = Some(0.5);
+    let records = [pr, estimated, short, lap_record(4, 110.0)];
+
+    let standing = section_pr_standing(&records, &records[0], false);
+    assert_eq!(standing.standing_count, 2);
+    assert_eq!(standing.previous_best_time, Some(110.0));
+    assert_eq!(standing.delta_seconds, Some(10.0));
+}

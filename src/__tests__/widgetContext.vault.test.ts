@@ -22,6 +22,17 @@ const NO_DATES = {
   months: [],
 };
 
+describe('the sport tints the engine looks up', () => {
+  it('give every sport family a #RRGGBB, with Other as the fallback', () => {
+    const context = composeWidgetContext({ locale: 'en-AU', isMetric: true, dates: NO_DATES });
+
+    expect([...context.activityTints.keys()].sort()).toEqual(
+      ['Other', 'Ride', 'Run', 'Strength', 'Water', 'Foot', 'Winter'].sort()
+    );
+    for (const hex of context.activityTints.values()) expect(hex).toMatch(/^#[0-9A-Fa-f]{6}$/);
+  });
+});
+
 describe('the words the engine writes', () => {
   it('are every key the composer translates, in the app language', () => {
     const context = composeWidgetContext({

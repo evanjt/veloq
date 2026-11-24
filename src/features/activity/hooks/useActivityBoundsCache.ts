@@ -18,6 +18,13 @@ import { epochDayKeyUtc } from '@/shared/format/format';
 import { runDerivedClear } from '@/shared/native/engineClears';
 import { detection } from 'veloqrs';
 
+/**
+ * The clear-cache wipe that outlived its wait and is still on its Rust thread.
+ * The engine admits one clear at a time, so a second tap before it lands would
+ * snapshot, be refused, and roll the live file back under the first wipe.
+ */
+let landingClear: Promise<unknown> | null = null;
+
 interface CacheStats {
   /** Total number of cached activities in the Rust engine */
   totalActivities: number;
@@ -176,6 +183,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     // athlete made, so nothing here needs a list of tables to keep. A rollback
     // copy stands beside the database until it lands, and the re-cut that
     // follows rebuilds the catalogue the clear removed.
+    if (landingClear) return false;
     const engine = getEngine();
     const dbPath = getRouteDbPath();
     let cleared = true;
@@ -194,10 +202,15 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
           // follows it whenever it lands rather than now, and the caller says
           // it is still running rather than reporting a cleared cache. A wipe
           // that fails late rolled back, so there is nothing to re-cut.
-          void outcome.landing.then(
-            () => detection.forceRedetectSections(),
-            () => {}
-          );
+          const landing = outcome.landing;
+          landingClear = landing;
+          const settle = () => {
+            if (landingClear === landing) landingClear = null;
+          };
+          void landing.then(() => {
+            settle();
+            detection.forceRedetectSections();
+          }, settle);
         }
       });
     }

@@ -697,7 +697,7 @@ fn start_fetch_and_store_run_ending(
     let retention = crate::objects::error::with_reader(|conn| {
         (
             crate::persistence::streams::pooled::retention_days(conn),
-            chrono::Utc::now().timestamp(),
+            crate::persistence::streams::wall_now_seconds(),
         )
     })
     .ok()
@@ -1263,7 +1263,6 @@ fn start_fetch_and_store_run_ending(
         // Spawn background heatmap tile generation with the new GPS data
         if success_count > 0 && !install_closed {
             crate::persistence::with_persistent_engine_for(install, |engine| {
-                engine.mark_heatmap_dirty();
                 // The ground the athlete's own regions need, pinned, on the
                 // same trigger and for the same reason: a sync that stored a
                 // track is what moves the bounds both passes key on.

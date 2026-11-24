@@ -56,6 +56,11 @@ export interface MapSheetHostEntry {
    * the mode. Unset until a map in the host has set it.
    */
   terrain3D?: boolean;
+  /**
+   * Set when the last change of `terrain3D` was the map giving up on missing terrain, not the
+   * athlete's choice. The map that reports mode changes reads it and clears it.
+   */
+  terrain3DFailed?: boolean;
 }
 
 export type MapSheetHosts = Readonly<Record<string, MapSheetHostEntry>>;
@@ -145,10 +150,15 @@ export function patchTopCard(
 }
 
 /** The hosts with this host's 3D mode set. The same hosts come back for a host not open or a mode unchanged. */
-export function setTerrain3D(hosts: MapSheetHosts, key: string, on: boolean): MapSheetHosts {
+export function setTerrain3D(
+  hosts: MapSheetHosts,
+  key: string,
+  on: boolean,
+  failed = false
+): MapSheetHosts {
   const entry = hosts[key];
-  if (!entry || entry.terrain3D === on) return hosts;
-  return { ...hosts, [key]: { ...entry, terrain3D: on } };
+  if (!entry || (entry.terrain3D === on && !!entry.terrain3DFailed === failed)) return hosts;
+  return { ...hosts, [key]: { ...entry, terrain3D: on, terrain3DFailed: failed } };
 }
 
 /** The card on show in a host's sheet, or undefined for a host not open. */
@@ -200,8 +210,20 @@ export function patchHostTopCard(key: string, patch: Readonly<Record<string, unk
 }
 
 /** Sets whether a host's map is in 3D, for every card in it. */
-export function setHostTerrain3D(key: string, on: boolean): void {
-  updateHosts((hosts) => setTerrain3D(hosts, key, on));
+export function setHostTerrain3D(key: string, on: boolean, failed = false): void {
+  updateHosts((hosts) => setTerrain3D(hosts, key, on, failed));
+}
+
+/** Whether the host's last 3D change was a terrain failure, clearing the mark when it was. */
+export function takeHostTerrain3DFailure(key: string): boolean {
+  const failed = !!useMapSheetHosts.getState().hosts[key]?.terrain3DFailed;
+  if (failed) {
+    updateHosts((hosts) => {
+      const entry = hosts[key];
+      return entry ? { ...hosts, [key]: { ...entry, terrain3DFailed: false } } : hosts;
+    });
+  }
+  return failed;
 }
 
 /** A host's 3D mode, undefined for a host not open or one no map has set it on. */

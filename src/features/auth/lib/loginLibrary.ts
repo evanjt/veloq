@@ -6,6 +6,7 @@ import {
   settleBeforeNamingLibrary,
 } from './accountChange';
 import { resolveStoredActivityCount } from './storedActivityCount';
+import { wipeListText } from '@/shared/storage';
 import { chooseAction } from '@/shared/ui/dialog';
 
 /** What a sign-in does with the library already on the device. */
@@ -16,18 +17,22 @@ type UnnamedLibraryChoice = 'mine' | 'delete' | 'cancel';
 /**
  * Asks about a library that names no athlete. Adopting it is as destructive
  * to the other account as deleting it is to this one, so neither is a default.
+ * The message counts the activities and lists what Delete it removes.
  */
-function askAboutUnnamedLibrary(): Promise<UnnamedLibraryChoice> {
+function askAboutUnnamedLibrary(activityCount: number): Promise<UnnamedLibraryChoice> {
   const t = i18n.t.bind(i18n);
   return new Promise((resolve) => {
     // Required: login waits on this answer, and neither keeping nor deleting
     // is safe to assume, so back and the scrim do nothing.
     chooseAction({
       title: t('alerts.accountChangeTitle', { defaultValue: 'Different account detected' }),
-      message: t('alerts.unnamedLibraryMessage', {
-        defaultValue:
-          "This device has a library that isn't linked to an account. If it's yours, keep it and it'll sync to this account. Otherwise, delete it.",
-      }),
+      message: `${t('alerts.unnamedLibraryMessage', {
+        count: activityCount,
+        defaultValue_one:
+          "This device has a library of {{count}} activity that isn't linked to an account. If it's yours, keep it and it'll sync to this account. Otherwise, delete it.",
+        defaultValue_other:
+          "This device has a library of {{count}} activities that isn't linked to an account. If it's yours, keep it and it'll sync to this account. Otherwise, delete it.",
+      })}\n\n${wipeListText('deleted', t)}`,
       cancelLabel: t('common.cancel'),
       onCancel: () => resolve('cancel'),
       actions: [
@@ -53,7 +58,8 @@ function askAboutUnnamedLibrary(): Promise<UnnamedLibraryChoice> {
  */
 export async function resolveLoginLibrary(incomingId: string): Promise<LoginLibraryOutcome> {
   const cachedId = await getCachedAthleteId();
-  const action = accountChangeAction(cachedId, incomingId, await resolveStoredActivityCount());
+  const activityCount = await resolveStoredActivityCount();
+  const action = accountChangeAction(cachedId, incomingId, activityCount);
   if (action === 'wipe') return 'wipe';
   if (action === 'confirm-then-wipe') {
     if (cachedId) {
@@ -63,7 +69,7 @@ export async function resolveLoginLibrary(incomingId: string): Promise<LoginLibr
       });
       return proceed ? 'wipe' : 'refused';
     }
-    const choice = await askAboutUnnamedLibrary();
+    const choice = await askAboutUnnamedLibrary(activityCount);
     if (choice === 'cancel') return 'refused';
     if (choice === 'delete') return 'wipe';
   }

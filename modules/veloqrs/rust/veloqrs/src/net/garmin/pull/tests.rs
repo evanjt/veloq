@@ -152,6 +152,8 @@ struct MemoryStore {
     held: Mutex<HashSet<i64>>,
     ingested: Mutex<Vec<i64>>,
     finished: Mutex<Vec<Vec<String>>>,
+    /// Every call the store saw, in order: `ingest:ID`, `finish`, `announce:ID`.
+    calls: Mutex<Vec<String>>,
     on_set: Mutex<Option<OnSet>>,
 }
 
@@ -197,12 +199,24 @@ impl PullStore for MemoryStore {
 
     fn ingest(&self, listed: &ListedActivity, _fit: &[u8]) -> Result<Ingested, IngestError> {
         self.ingested.lock().unwrap().push(listed.activity_id);
+        self.calls
+            .lock()
+            .unwrap()
+            .push(format!("ingest:{}", listed.activity_id));
         self.held.lock().unwrap().insert(listed.activity_id);
         Ok(Ingested::Stored { tracked: true })
     }
 
     fn finish(&self, keys: &[String]) {
         self.finished.lock().unwrap().push(keys.to_vec());
+        self.calls.lock().unwrap().push("finish".to_string());
+    }
+
+    fn announce(&self, listed: &ListedActivity) {
+        self.calls
+            .lock()
+            .unwrap()
+            .push(format!("announce:{}", listed.activity_id));
     }
 }
 
@@ -219,6 +233,28 @@ fn never() -> AtomicBool {
     AtomicBool::new(false)
 }
 
+/// Scenario: a window of two rides is pulled.
+///
+/// Expected behaviour: neither ride is announced until the window has
+/// finished, since the announcement reads the metrics, the fitness series and
+/// the route group that the finish works out.
+#[test]
+fn rides_are_announced_only_after_their_window_finishes() {
+    let garmin = Garmin::new();
+    garmin.lists("2026-09-25", "2026-10-25", &[1, 2]);
+    garmin.serves(1);
+    garmin.serves(2);
+    let store = MemoryStore::with_backfill_done();
+
+    run(&garmin, &store, day(2026, 10, 25), &never()).unwrap();
+
+    let calls = store.calls.lock().unwrap().clone();
+    assert_eq!(
+        calls,
+        ["ingest:1", "ingest:2", "finish", "announce:1", "announce:2"]
+    );
+}
+
 /// Scenario: a window of three rides is pulled, and the next pass finds
 /// nothing new.
 ///
@@ -229,7 +265,7 @@ fn never() -> AtomicBool {
 fn a_window_settles_its_stored_rides_once() {
     let garmin = Garmin::new();
     garmin.lists("2026-09-25", "2026-10-25", &[1, 2, 3]);
-    garmin.lists("2026-10-23", "2026-10-26", &[1, 2, 3]);
+    garmin.lists("2026-09-25", "2026-10-26", &[1, 2, 3]);
     garmin.serves(1);
     garmin.serves(2);
     garmin.serves(3);
@@ -258,7 +294,7 @@ fn a_window_settles_its_stored_rides_once() {
 fn a_second_pass_with_nothing_new_downloads_nothing() {
     let garmin = Garmin::new();
     garmin.lists("2026-09-25", "2026-10-25", &[1, 2]);
-    garmin.lists("2026-10-23", "2026-10-26", &[1, 2]);
+    garmin.lists("2026-09-25", "2026-10-26", &[1, 2]);
     let first = garmin.serves(1);
     let second = garmin.serves(2);
     let store = MemoryStore::with_backfill_done();
@@ -271,15 +307,33 @@ fn a_second_pass_with_nothing_new_downloads_nothing() {
     second.assert_calls(1);
 }
 
+/// Scenario: Garmin lists a ride dated well before the watermark, one
+/// uploaded days after it was recorded.
+///
+/// Expected behaviour: the pass lists far enough back to find it and stores it.
+#[test]
+fn a_ride_uploaded_days_late_is_still_pulled() {
+    let garmin = Garmin::new();
+    garmin.lists("2026-09-24", "2026-10-25", &[9]);
+    let download = garmin.serves(9);
+    let store = MemoryStore::with_backfill_done();
+    set_date(&store, WATERMARK, day(2026, 10, 24));
+
+    run(&garmin, &store, day(2026, 10, 25), &never()).unwrap();
+
+    download.assert_calls(1);
+    assert_eq!(store.ingested(), vec![9]);
+}
+
 /// Scenario: a ride finishes at 23:50 local on the 24th, after the pass of
 /// that evening listed the day.
 ///
-/// Expected behaviour: the next day's pass lists from two days before the
+/// Expected behaviour: the next day's pass lists from thirty days before the
 /// watermark to the local day, so the ride is not missed across midnight UTC.
 #[test]
 fn a_ride_that_finished_after_the_last_pass_is_found_the_next_day() {
     let garmin = Garmin::new();
-    garmin.lists("2026-10-22", "2026-10-25", &[7]);
+    garmin.lists("2026-09-24", "2026-10-25", &[7]);
     let download = garmin.serves(7);
     let store = MemoryStore::with_backfill_done();
     set_date(&store, WATERMARK, day(2026, 10, 24));

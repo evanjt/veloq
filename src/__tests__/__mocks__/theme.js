@@ -59,7 +59,6 @@ module.exports = {
   lightTheme: { colors: {} },
   darkTheme: { colors: {} },
   mapLayerColors: {
-    casing: '#FFFFFF',
     start: 'rgba(34,197,94,0.75)',
     end: 'rgba(239,68,68,0.75)',
     startSolid: 'rgba(34,197,94,0.9)',

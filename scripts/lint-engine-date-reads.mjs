@@ -6,6 +6,9 @@
 // `start_date_local` parsed with `new Date` and turned into epoch seconds stamps the device's
 // zone instead of the athlete's clock. The two owner files hold the reads that are right.
 //
+// `date.getTime() / 1000` is the same read in the other direction: a window bound built that way is a true instant
+// against a wall-clock column, so it goes through `localWallClockToEpochSeconds` or `Date.UTC`.
+//
 // A moment that really is an instant (a recorded run time, a request-budget reset) says so with
 // `// true-instant: <reason>` on the same line, and the reason cannot be blank.
 //
@@ -30,9 +33,10 @@ const BASELINE_FILE = resolve(flag('--baseline') ?? join(HERE, 'engine-date-read
 const OWNERS = new Set(['src/shared/time/startDate.ts', 'src/shared/format/format.ts']);
 const SECONDS_READ = /new Date\([^)]*\*\s*1000\s*\)/;
 const WALL_CLOCK_PARSE = /new Date\([^)]*start_date_local[^)]*\)\.getTime\(\)\s*\/\s*1000/;
+const INSTANT_SECONDS = /\.getTime\(\)\s*\/\s*1000/;
 const MARKER = /\/\/\s*true-instant:\s*(\S.*)?$/;
 
-const sources = treeSources(ROOT, ['src']);
+const sources = treeSources(ROOT, ['src', 'web']);
 refuseEmptyListing(sources, 'engine date read guard');
 
 const counts = new Map();
@@ -43,7 +47,8 @@ for (const [rel, bytes] of sources) {
   if (!/\.(ts|tsx)$/.test(rel) || OWNERS.has(rel) || rel.startsWith('src/__tests__/')) continue;
   const lines = bytes.toString('utf8').split('\n');
   lines.forEach((text, i) => {
-    if (!SECONDS_READ.test(text) && !WALL_CLOCK_PARSE.test(text)) return;
+    if (!SECONDS_READ.test(text) && !WALL_CLOCK_PARSE.test(text) && !INSTANT_SECONDS.test(text))
+      return;
     const marker = MARKER.exec(text);
     if (marker?.[1]) return;
     if (marker) {

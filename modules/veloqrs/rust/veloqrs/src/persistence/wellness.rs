@@ -808,17 +808,27 @@ pub(crate) mod pooled {
             .find(|r| r.date <= newest && r.date >= oldest && field(r).is_some())
     }
 
-    /// The stored wellness dates inside an inclusive `YYYY-MM-DD` window,
+    /// The days intervals.icu served inside an inclusive `YYYY-MM-DD` window,
     /// ascending. A date with a row is a day the sync has stored, whatever
-    /// the row holds.
+    /// the row holds; a day Veloq folded itself is not one, because adopting
+    /// an intervals.icu account removes it.
     pub(crate) fn dates_between(
         conn: &Connection,
         oldest: &str,
         newest: &str,
     ) -> SqlResult<Vec<String>> {
-        let mut stmt =
-            conn.prepare("SELECT date FROM wellness WHERE date BETWEEN ?1 AND ?2 ORDER BY date")?;
-        let rows = stmt.query_map(params![oldest, newest], |row| row.get(0))?;
+        let mut stmt = conn.prepare(
+            "SELECT date FROM wellness
+                  WHERE date BETWEEN ?1 AND ?2 AND source IS NOT ?3 ORDER BY date",
+        )?;
+        let rows = stmt.query_map(
+            params![
+                oldest,
+                newest,
+                crate::persistence::fitness::fitness_series::SOURCE_VELOQ
+            ],
+            |row| row.get(0),
+        )?;
         rows.collect()
     }
 

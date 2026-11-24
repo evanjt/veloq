@@ -61,7 +61,9 @@ beforeEach(() => {
 });
 
 vaultIt('keys the activity line and the route line to their map colours', async () => {
-  const view = await render(<RoutePerformanceSection activityId="a_1" activityType="Ride" />);
+  const view = await render(
+    <RoutePerformanceSection routeGroups={[]} activityId="a_1" activityType="Ride" />
+  );
 
   expect(swatchColour(view, 'route-key-activity')).toBe(mapPalette('dark').route);
   expect(swatchColour(view, 'route-key-route')).toBe(mapPalette('dark').muted);
@@ -72,7 +74,12 @@ vaultIt('keys the activity line and the route line to their map colours', async 
 vaultIt('states how much a record beat the previous best by', async () => {
   mockStanding = { currentRank: 1, attemptCount: 5 };
   const view = await render(
-    <RoutePerformanceSection activityId="a_1" activityType="Ride" improvementSeconds={14} />
+    <RoutePerformanceSection
+      routeGroups={[]}
+      activityId="a_1"
+      activityType="Ride"
+      improvementSeconds={14}
+    />
   );
 
   expect(view.getByText('routes.standingBestBy|{"total":5,"improvement":"14 s"}')).toBeTruthy();
@@ -80,7 +87,9 @@ vaultIt('states how much a record beat the previous best by', async () => {
 
 vaultIt('names the best alone when the screen has no improvement to hand over', async () => {
   mockStanding = { currentRank: 1, attemptCount: 5 };
-  const view = await render(<RoutePerformanceSection activityId="a_1" activityType="Ride" />);
+  const view = await render(
+    <RoutePerformanceSection routeGroups={[]} activityId="a_1" activityType="Ride" />
+  );
 
   expect(view.getByText('routes.standingBest')).toBeTruthy();
 });
@@ -88,7 +97,12 @@ vaultIt('names the best alone when the screen has no improvement to hand over', 
 it('opens the page with the record time to the second', async () => {
   mockStanding = { currentRank: 1, attemptCount: 5 };
   const view = await render(
-    <RoutePerformanceSection activityId="a_1" activityType="Ride" improvementSeconds={65} />
+    <RoutePerformanceSection
+      routeGroups={[]}
+      activityId="a_1"
+      activityType="Ride"
+      improvementSeconds={65}
+    />
   );
 
   expect(view.getByTestId('route-standing').props.children).toBe(
@@ -104,7 +118,12 @@ it("states a slower attempt's gap as the engine's route highlight gives it", asy
     currentDirectionBest: { bestTime: 980 },
   };
   const view = await render(
-    <RoutePerformanceSection activityId="a_1" activityType="Ride" gapToBestSeconds={95} />
+    <RoutePerformanceSection
+      routeGroups={[]}
+      activityId="a_1"
+      activityType="Ride"
+      gapToBestSeconds={95}
+    />
   );
 
   expect(view.getByTestId('route-standing').props.children).toBe(
@@ -115,7 +134,12 @@ it("states a slower attempt's gap as the engine's route highlight gives it", asy
 vaultIt('puts the standing line above the route header', async () => {
   mockStanding = { currentRank: 3, attemptCount: 4 };
   const view = await render(
-    <RoutePerformanceSection activityId="a_1" activityType="Ride" gapToBestSeconds={95} />
+    <RoutePerformanceSection
+      routeGroups={[]}
+      activityId="a_1"
+      activityType="Ride"
+      gapToBestSeconds={95}
+    />
   );
 
   const order = JSON.stringify(view.toJSON());

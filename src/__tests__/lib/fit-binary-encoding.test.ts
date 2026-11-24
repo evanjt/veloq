@@ -1057,11 +1057,20 @@ describe('generateFitFile', () => {
       ['Ride', 2, 0],
       ['VirtualRide', 2, 58],
       ['Run', 1, 0],
-      ['TrailRun', 1, 1],
+      ['TrailRun', 1, 3],
+      ['VirtualRun', 1, 58],
+      ['Treadmill', 1, 1],
+      ['MountainBikeRide', 2, 8],
+      ['GravelRide', 2, 46],
+      ['EBikeRide', 2, 28],
       ['Swim', 5, 0],
+      ['OpenWaterSwim', 5, 18],
       ['Walk', 11, 0],
       ['Hike', 17, 0],
-      ['Yoga', 4, 15],
+      ['Yoga', 4, 43],
+      ['WeightTraining', 4, 20],
+      ['Surfing', 38, 0],
+      ['Kayaking', 41, 0],
     ] as [ActivityType, number, number][])(
       'maps %s to sport %d / sub-sport %d',
       async (activityType, expectedSport, expectedSubSport) => {
@@ -1310,5 +1319,71 @@ describe('generateFitFile', () => {
       expect(messagesOfType(buffer, MESG_RECORD)).toHaveLength(n);
       expect(buffer.byteLength).toBeGreaterThan(n * RECORD_MESSAGE_BYTES);
     }, 10000); // 10s timeout for large file
+  });
+
+  describe('cadence of a sport counted in strides', () => {
+    const SESSION_AVG_CADENCE = 18;
+    const SESSION_MAX_CADENCE = 19;
+    const LAP_AVG_CADENCE = 17;
+    const lap = (avgCadence: number): RecordingLap => ({
+      index: 0,
+      startTime: 0,
+      endTime: 1,
+      startIndex: 0,
+      endIndex: 1,
+      movingEndTime: 1,
+      distance: 3,
+      avgSpeed: 3,
+      avgHeartrate: 150,
+      avgPower: null,
+      avgCadence,
+    });
+    const record = (activityType: ActivityType, cadence: number, avgCadence: number) =>
+      generateFitFile({
+        activityType,
+        startTime,
+        laps: [lap(avgCadence)],
+        streams: makeStreams({
+          time: [0, 1],
+          latlng: [
+            [46.5, 6.6],
+            [46.5001, 6.6001],
+          ],
+          altitude: [420, 421],
+          heartrate: [150, 150],
+          power: [null, null],
+          cadence: [cadence, cadence],
+          speed: [3, 3],
+          distance: [0, 3],
+        }),
+      });
+
+    it.each(['Run', 'TrailRun', 'Walk'] as const)(
+      'writes half the steps a minute on a %s, as strides',
+      async (activityType) => {
+        const buffer = await record(activityType, 170, 170);
+        for (const m of messagesOfType(buffer, MESG_RECORD)) {
+          expect(m.fields.get(RECORD_CADENCE)).toBe(85);
+        }
+        expect(onlyMessage(buffer, MESG_LAP).fields.get(LAP_AVG_CADENCE)).toBe(85);
+        const session = onlyMessage(buffer, MESG_SESSION);
+        expect(session.fields.get(SESSION_AVG_CADENCE)).toBe(85);
+        expect(session.fields.get(SESSION_MAX_CADENCE)).toBe(85);
+      }
+    );
+
+    it('rounds an odd step count to whole strides and keeps a missing reading missing', async () => {
+      const odd = await record('Run', 171, 171);
+      expect(messagesOfType(odd, MESG_RECORD)[0].fields.get(RECORD_CADENCE)).toBe(86);
+      const none = await record('Run', 0, 0);
+      expect(messagesOfType(none, MESG_RECORD)[0].fields.get(RECORD_CADENCE)).toBe(INVALID_UINT8);
+    });
+
+    it('keeps a ride at its revolutions a minute', async () => {
+      const buffer = await record('Ride', 90, 90);
+      expect(messagesOfType(buffer, MESG_RECORD)[0].fields.get(RECORD_CADENCE)).toBe(90);
+      expect(onlyMessage(buffer, MESG_LAP).fields.get(LAP_AVG_CADENCE)).toBe(90);
+      expect(onlyMessage(buffer, MESG_SESSION).fields.get(SESSION_AVG_CADENCE)).toBe(90);
+    });
   });
 });

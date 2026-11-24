@@ -675,6 +675,53 @@ fn a_clear_takes_every_row_keyed_on_a_removed_activity() {
     }
 }
 
+/// Scenario: a removed activity's stored original, by what supplied it.
+///
+/// Expected behaviour: an original a connector supplied is dropped, since the
+/// connector serves it again; one an imported file supplied is kept, because
+/// intervals.icu never held the file.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_clear_keeps_an_original_only_an_imported_file_supplied() {
+    let dir = TempDir::new().unwrap();
+    let path = seed(&dir);
+    let mut engine = open(&path);
+    engine
+        .add_activity("served".into(), track(), "Ride".into())
+        .expect("add activity");
+    engine
+        .update_activity_metadata("served", Some(1_600_000_000), None, None, None)
+        .expect("metadata");
+    let db = Connection::open(&path).expect("raw open");
+    db.execute(
+        "UPDATE activities SET created_at = strftime('%s', 'now') - 400 * 86400",
+        [],
+    )
+    .expect("age the activities");
+    for (id, source) in [("plain", "file"), ("served", "garmin")] {
+        db.execute(
+            "INSERT INTO ride_originals (activity_id, source, format, raw_len, sha256, body, kept_at)
+             VALUES (?1, ?2, 'fit', 0, x'00', x'00', 0)",
+            rusqlite::params![id, source],
+        )
+        .expect("seed original");
+    }
+
+    engine.clear_derived().expect("clear");
+    drop(engine);
+
+    assert_eq!(
+        keyed_rows(&db, "ride_originals", "plain"),
+        1,
+        "the original an imported file supplied was deleted"
+    );
+    assert_eq!(
+        keyed_rows(&db, "ride_originals", "served"),
+        0,
+        "the original a connector can serve again was kept"
+    );
+}
+
 /// Scenario: a table added later, holding athlete data keyed on an activity,
 /// that no clear list names.
 ///

@@ -144,10 +144,21 @@ function parseBackup(value: unknown): RecordingBackup | null {
       obj.version === BACKUP_VERSION
     ),
   };
+  const routeChoice = parseRouteChoice(obj.routeChoice);
+  if (routeChoice) backup.routeChoice = routeChoice;
+  else delete backup.routeChoice;
   const review = backup.status === 'stopped' ? parseReviewDraft(obj.review) : null;
   if (review) backup.review = review;
   else delete backup.review;
   return backup;
+}
+
+function parseRouteChoice(value: unknown): RecordingBackup['routeChoice'] | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const raw = value as Record<string, unknown>;
+  if (typeof raw.activityType !== 'string') return null;
+  if (raw.routeId !== null && typeof raw.routeId !== 'string') return null;
+  return { activityType: raw.activityType, routeId: raw.routeId };
 }
 
 function isIndex(value: unknown): value is number {
@@ -195,6 +206,8 @@ export function buildRecordingBackup(state: {
   pairedEventId: number | null;
   workout?: RecordingBackup['workout'] | null;
   review?: ReviewDraft | null;
+  /** The route choice, which lives beside the recording store rather than in it. */
+  routeChoice?: RecordingBackup['routeChoice'] | null;
   _pauseStart: number | null;
   /** The pause reason, which lives beside the recording store rather than in it. */
   autoPaused?: boolean;
@@ -226,6 +239,7 @@ export function buildRecordingBackup(state: {
     laps: state.laps,
     pairedEventId: state.pairedEventId,
     ...(state.workout ? { workout: state.workout } : {}),
+    ...(state.routeChoice ? { routeChoice: state.routeChoice } : {}),
     ...(status === 'stopped' && state.review ? { review: state.review } : {}),
     savedAt: now,
   };
@@ -325,6 +339,33 @@ export async function loadRecordingBackup(
     } catch {
       log.warn('Failed to load recording backup');
       return null;
+    }
+  });
+}
+
+/**
+ * Moves an interrupted ride's backup from the identity that recorded it to the
+ * one that adopted its library, so the resume prompt still finds it. An
+ * identity that already holds a backup of its own keeps it, and the old file
+ * stays where it is.
+ */
+export async function adoptRecordingBackup(from: string, to: string): Promise<void> {
+  if (from === to) return;
+  const source = backupPath(from);
+  const target = backupPath(to);
+  await queueBackupOperation(source, async () => {
+    try {
+      if (!(await FileSystem.getInfoAsync(source)).exists) return;
+      if ((await FileSystem.getInfoAsync(target)).exists) return;
+      const data = JSON.parse(await FileSystem.readAsStringAsync(source));
+      await FileSystem.writeAsStringAsync(
+        `${target}.tmp`,
+        JSON.stringify({ ...data, athleteId: to })
+      );
+      await replaceFile(`${target}.tmp`, target);
+      await FileSystem.deleteAsync(source, { idempotent: true });
+    } catch (error) {
+      log.warn('Failed to move recording backup to the adopting athlete:', error);
     }
   });
 }

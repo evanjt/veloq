@@ -134,8 +134,8 @@ export function BaseMapView({
     next: nextStyle,
     cycle: toggleStyle,
   } = useMapStyleToggle(chosenStyle, setChosenStyle);
-  const { is3D: is3DMode, setIs3D: setIs3DMode } = useSharedTerrain3D(false);
-  const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(() => setIs3DMode(false));
+  const { is3D: is3DMode, setIs3D: setIs3DMode, leaveForFailure } = useSharedTerrain3D(false);
+  const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(leaveForFailure);
   const [currentCenter, setCurrentCenter] = useState<LngLat | null>(null);
   const [currentZoom, setCurrentZoom] = useState(10);
   const [currentBounds, setCurrentBounds] = useState<LngLatBounds | null>(null);

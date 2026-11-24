@@ -6,6 +6,8 @@
  * broken. While the sync is still running the track is owed rather than
  * missing, so the card waits.
  */
+import { SyncState, TrackStep, type SyncStatus } from 'veloqrs';
+
 export type MapPreviewState = 'noGps' | 'loading' | 'awaitingDownload' | 'track';
 
 interface MapPreviewInputs {
@@ -29,4 +31,17 @@ export function mapPreviewState({
   if (isLoading) return 'loading';
   if (hasTrack) return 'track';
   return isSyncing ? 'loading' : 'awaitingDownload';
+}
+
+/**
+ * Whether a track the device lacks may still arrive. A running sync can bring
+ * it, and so can the GPS pass the engine runs on its own after the sync has
+ * settled. A held pass is waiting on a budget or a cooldown, so it owes
+ * nothing yet and the card says the download is waiting.
+ */
+export function tracksOwed(
+  syncState: SyncStatus['state'] | null,
+  trackStep: TrackStep | null
+): boolean {
+  return syncState === SyncState.Syncing || trackStep === TrackStep.Downloading;
 }

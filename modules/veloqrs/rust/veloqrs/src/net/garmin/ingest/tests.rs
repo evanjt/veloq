@@ -522,6 +522,23 @@ fn an_ingested_originals_thresholds_are_answered_for_its_sport_and_date() {
     assert_eq!(still.ftp.map(|t| t.value), Some(251.0));
 }
 
+/// Scenario: a ride recorded at UTC-8 carries its FTP record. Activity dates are
+/// stored as the wall clock stamped as UTC, and the record was dated by the true
+/// instant, eight hours after the ride's own date, so the ride's own figure was
+/// excluded from its own date.
+///
+/// Expected behaviour: the record is dated by the ride's wall-clock start.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_files_thresholds_are_dated_by_the_wall_clock_start_west_of_greenwich() {
+    let mut ride = outdoor_ride();
+    ride.utc_offset_secs = -8 * 3_600;
+    let prepared = prepare(&listed(GARMIN_ID), &ride.to_fit()).unwrap();
+
+    assert_eq!(prepared.start_wall, ride.start_unix - 8 * 3_600);
+    assert_eq!(prepared.start_wall, prepared.body.date as i64);
+}
+
 /// Scenario: a Garmin-only library ingests a ride with a track and a power
 /// stream, whose clock lives in the track's own time stream.
 ///

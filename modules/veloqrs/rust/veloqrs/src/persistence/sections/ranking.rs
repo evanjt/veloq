@@ -205,22 +205,10 @@ impl PersistentEngine {
 }
 
 /// The record the Today banner calls a PR, with the time it beat.
-///
-/// Of the two directions' records, the ones that strictly beat another outing
-/// in their own direction, the most recently set. A descent is never measured
-/// against climbs, and a section with no strict record has no PR to show.
 fn banner_record(
     perf: &crate::SectionPerformanceResult,
 ) -> Option<(&crate::SectionPerformanceRecord, Option<f64>)> {
-    [
-        perf.best_forward_record.as_ref(),
-        perf.best_reverse_record.as_ref(),
-    ]
-    .into_iter()
-    .flatten()
-    .filter(|r| crate::persistence::records::is_section_record_pr(perf, r))
-    .max_by_key(|r| r.activity_date)
-    .map(|r| {
+    crate::persistence::records::headline_section_record(perf).map(|(_, r)| {
         (
             r,
             crate::persistence::records::section_record_rival(perf, r),
@@ -289,7 +277,15 @@ fn enrich_from_summary(
         .first()
         .map(|r| crate::calendar_days_between(r.activity_date.0, now) as i32);
 
-    let times: Vec<f64> = sorted.iter().rev().map(|r| r.best_time).collect();
+    // The trend describes the effort last made, so it reads the laps in the
+    // newest record's own direction, as the ranked read does.
+    let latest_direction = sorted.first().map(|r| r.direction.as_str());
+    let times: Vec<f64> = sorted
+        .iter()
+        .rev()
+        .filter(|r| Some(r.direction.as_str()) == latest_direction)
+        .map(|r| r.best_time)
+        .collect();
     let trend = Some(crate::trend::median_window_trend(&times, TREND_DEADBAND));
 
     let name = summary
@@ -1039,6 +1035,25 @@ mod workout_trend_encoding_tests {
             ..empty_performances()
         };
         assert_eq!(enrich_from_summary(summary(), perf, NOW).trend, Some(1));
+    }
+
+    /// Scenario: five climbs of 550 to 585 s, then one descent of 340 s.
+    ///
+    /// Expected behaviour: the fallback trend reads only the descent's
+    /// direction, so the descent does not look like a large improvement.
+    #[test]
+    fn a_last_lap_in_the_other_direction_does_not_move_the_fallback_trend() {
+        let mut records: Vec<_> = (0..5)
+            .map(|i| record(1_700_000 + i * 86_400, 550.0 + 8.0 * i as f64))
+            .collect();
+        let mut descent = record(1_700_000 + 5 * 86_400, 340.0);
+        descent.direction = "reverse".to_string();
+        records.push(descent);
+        let perf = crate::SectionPerformanceResult {
+            records,
+            ..empty_performances()
+        };
+        assert_eq!(enrich_from_summary(summary(), perf, NOW).trend, Some(0));
     }
 
     /// Scenario: a ranked row with no records, ridden today.

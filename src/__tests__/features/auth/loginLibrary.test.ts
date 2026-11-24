@@ -6,7 +6,8 @@
  */
 import { Alert } from 'react-native';
 
-import { initialiseI18n } from '@/i18n';
+import { i18n, initialiseI18n } from '@/i18n';
+import { wipeListText } from '@/shared/storage';
 import { resolveLoginLibrary } from '@/features/auth/lib/loginLibrary';
 import * as accountChange from '@/features/auth/lib/accountChange';
 import * as count from '@/features/auth/lib/storedActivityCount';
@@ -92,4 +93,26 @@ it('does not name an unnamed library for the incoming athlete when settlement fa
     .mocked(accountChange.settleBeforeNamingLibrary)
     .mockRejectedValueOnce(new Error('disk full'));
   await expect(resolveLoginLibrary('i-b')).rejects.toThrow('disk full');
+});
+
+describe('the unnamed-library chooser names what Delete it removes', () => {
+  it('carries the deleted list and the count of activities', async () => {
+    jest.mocked(count.resolveStoredActivityCount).mockResolvedValue(3);
+    const message = await new Promise<string>((resolve) => {
+      jest.spyOn(Alert, 'alert').mockImplementation((_t, m) => resolve(String(m)));
+      void resolveLoginLibrary('i-b');
+    });
+    expect(message).toContain('3 activities');
+    expect(message).toContain(wipeListText('deleted', i18n.t.bind(i18n)));
+  });
+
+  it('uses the singular for one activity', async () => {
+    jest.mocked(count.resolveStoredActivityCount).mockResolvedValue(1);
+    const message = await new Promise<string>((resolve) => {
+      jest.spyOn(Alert, 'alert').mockImplementation((_t, m) => resolve(String(m)));
+      void resolveLoginLibrary('i-b');
+    });
+    expect(message).toContain('1 activity');
+    expect(message).not.toContain('1 activities');
+  });
 });

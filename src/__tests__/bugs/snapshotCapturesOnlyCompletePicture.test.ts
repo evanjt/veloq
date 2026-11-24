@@ -150,21 +150,6 @@ describe('a render with a failed tile', () => {
       ]);
     }
   );
-
-  it.each(['satellite-regions'])(
-    'is captured over a 404 from the regional source %s, which is out of coverage',
-    (sourceId) => {
-      const page = bootWorkerPage();
-
-      page.render(request(), 1);
-      page.map.emit('error', tileError(sourceId, 404));
-      jest.advanceTimersByTime(400);
-
-      expect(results(page)).toEqual([
-        expect.objectContaining({ type: 'snapshot', gen: 1, tileErrors: 0 }),
-      ]);
-    }
-  );
 });
 
 it('captures a render that loaded with no error', () => {

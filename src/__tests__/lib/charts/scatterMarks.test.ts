@@ -9,7 +9,6 @@ import {
   clampToRange,
   placeRecordStaircase,
   scatterMarkFor,
-  bestIsEstimated,
   scatterRange,
   scatterStanding,
 } from '@/features/routes/lib/scatterMarks';
@@ -258,17 +257,5 @@ describe('estimated times', () => {
     expect(scatterMarkFor(attempt({ estimated: true, offScale: 'fast' }), CTX).kind).toBe(
       'offScaleTop'
     );
-  });
-
-  it('reads the direction best as estimated from the pass that holds its time', () => {
-    const points = [
-      attempt({ id: 'a', sectionTime: 100, estimated: true }),
-      attempt({ id: 'b', sectionTime: 110 }),
-      attempt({ id: 'c', sectionTime: 100, isExcluded: true }),
-    ];
-    expect(bestIsEstimated(points, { bestTime: 100 })).toBe(true);
-    expect(bestIsEstimated(points, { bestTime: 110 })).toBe(false);
-    expect(bestIsEstimated(points, { bestTime: 90 })).toBe(false);
-    expect(bestIsEstimated(points, null)).toBe(false);
   });
 });

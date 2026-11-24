@@ -14,6 +14,7 @@ import { connectKnownSensors, disconnectAllSensors } from '@/features/sensors/li
 
 const mockCancelDeviceConnection = jest.fn(async () => undefined);
 const mockConnectToDevice = jest.fn();
+const mockOnDeviceDisconnected = jest.fn((_id: string, _cb: () => void) => ({ remove: jest.fn() }));
 
 /** The monitor callback the manager registered, so a test can deliver to it. */
 let deliver: ((error: unknown, characteristic: unknown) => void) | null = null;
@@ -42,7 +43,7 @@ jest.mock('react-native-ble-plx', () => ({
   BleManager: jest.fn(() => ({
     connectToDevice: mockConnectToDevice,
     cancelDeviceConnection: mockCancelDeviceConnection,
-    onDeviceDisconnected: jest.fn(() => ({ remove: jest.fn() })),
+    onDeviceDisconnected: mockOnDeviceDisconnected,
     onStateChange: jest.fn(() => ({ remove: jest.fn() })),
     startDeviceScan: jest.fn(),
     stopDeviceScan: jest.fn(),
@@ -129,6 +130,58 @@ describe('a sensor disconnected while its connect is in flight', () => {
     await connectKnownSensors();
     await settle();
 
+    sendHeartRate();
+    expect(useSensorStore.getState().connections[SENSOR.id]?.status).toBe('connected');
+  });
+});
+
+describe('a sensor that drops while its subscription is being set up', () => {
+  beforeEach(async () => {
+    await disconnectAllSensors();
+    jest.clearAllMocks();
+    deliver = null;
+    useSensorStore.setState({
+      knownSensors: [{ ...SENSOR, kinds: ['heartRate'] }],
+      connections: {},
+    });
+  });
+
+  afterEach(async () => {
+    await disconnectAllSensors();
+  });
+
+  it('keeps the reconnect the drop started', async () => {
+    const heldBattery: { release?: () => void } = {};
+    const heldReconnect: { land?: () => void } = {};
+    mockConnectToDevice.mockResolvedValueOnce(mockDevice).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          heldReconnect.land = () => resolve(mockDevice);
+        })
+    );
+    mockDevice.readCharacteristicForService.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          heldBattery.release = () => resolve({ value: null });
+        })
+    );
+
+    void connectKnownSensors();
+    await settle();
+    // The strap drops while the battery read, the last step of subscribing, is pending.
+    mockOnDeviceDisconnected.mock.calls[0][1]();
+    await settle();
+    expect(mockConnectToDevice).toHaveBeenCalledTimes(2);
+
+    mockCancelDeviceConnection.mockClear();
+    heldBattery.release?.();
+    await settle();
+
+    expect(mockCancelDeviceConnection).not.toHaveBeenCalled();
+    expect(useSensorStore.getState().connections[SENSOR.id]).toBeDefined();
+
+    heldReconnect.land?.();
+    await settle();
     sendHeartRate();
     expect(useSensorStore.getState().connections[SENSOR.id]?.status).toBe('connected');
   });

@@ -4,6 +4,8 @@ export interface DirectionBestRecord {
   bestSpeed?: number; // Speed (m/s) for routes where distance varies
   bestPace?: number; // Pace (s/km) for running sections
   activityDate: Date;
+  /** The engine timed `bestTime` by projection to a gate. */
+  bestEstimated?: boolean;
 }
 
 /** Per-direction summary stats for display alongside the scatter chart */

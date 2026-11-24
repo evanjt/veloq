@@ -155,11 +155,44 @@ describe('handleSurfacePress on a cluster whose leaves never arrive', () => {
     });
     const { rendered } = await mountHandlers(ref);
 
+    const wholeCluster = {
+      ...clusterTap,
+      feature: { ...clusterTap.feature, properties: { cluster_id: 42, point_count: 2 } },
+    };
     await act(async () => {
-      rendered.result.current.handleSurfacePress(clusterTap as never);
+      rendered.result.current.handleSurfacePress(wholeCluster as never);
     });
 
     expect(ref.fitBounds).toHaveBeenCalled();
     expect(ref.getClusterExpansionZoom).not.toHaveBeenCalled();
+  });
+
+  // Scenario: 500 points, the first 100 returned all on one spot.
+  // Expected behaviour: the camera moves to the split zoom and no spider opens.
+  it('moves the camera and opens no spider when the leaves are only the first of many', async () => {
+    const pile: GeoJSON.Feature[] = Array.from({ length: 100 }, (_, i) => ({
+      type: 'Feature',
+      properties: { id: `p${i}` },
+      geometry: { type: 'Point', coordinates: [7.1, 46.2] },
+    }));
+    const ref = surface({
+      getClusterLeaves: jest.fn(async () => pile),
+      getClusterExpansionZoom: jest.fn(async () => 9),
+    });
+    const { rendered, setSpider } = await mountHandlers(ref);
+    const bigCluster = {
+      ...clusterTap,
+      feature: { ...clusterTap.feature, properties: { cluster_id: 42, point_count: 500 } },
+    };
+
+    await act(async () => {
+      rendered.result.current.handleSurfacePress(bigCluster as never);
+    });
+
+    expect(ref.setCamera).toHaveBeenCalledWith(
+      expect.objectContaining({ zoom: 9 }),
+      expect.any(Number)
+    );
+    expect(setSpider).not.toHaveBeenCalled();
   });
 });

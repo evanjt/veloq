@@ -376,6 +376,62 @@ pub fn from_fit(sport: Option<u8>, sub_sport: Option<u8>) -> &'static str {
     }
 }
 
+/// The profile's Sport and SubSport numbers a file writes for a sport in the
+/// names intervals.icu uses: the inverse of [`from_fit`]. A sport with no
+/// profile number is `(0, 0)`, the generic sport.
+///
+/// Every name `from_fit` returns reads back as itself, except `Treadmill`,
+/// which the profile numbers as a run with sub-sport 1 and which `from_fit`
+/// reads as `Run`, and `Velomobile`, which the profile has no number for and
+/// which is written as a plain ride.
+pub fn to_fit(sport: &str) -> (u8, u8) {
+    match sport {
+        "Run" => (1, 0),
+        "Treadmill" => (1, 1),
+        "TrailRun" => (1, 3),
+        "VirtualRun" => (1, 58),
+        "Ride" | "Velomobile" => (2, 0),
+        "MountainBikeRide" => (2, 8),
+        "Cyclocross" => (2, 11),
+        "Handcycle" => (2, 12),
+        "TrackRide" => (2, 13),
+        "EBikeRide" => (2, 28),
+        "GravelRide" => (2, 46),
+        "EMountainBikeRide" => (2, 47),
+        "VirtualRide" => (2, 58),
+        "Workout" => (4, 0),
+        "Rowing" => (15, 0),
+        "Elliptical" => (4, 15),
+        "StairStepper" => (4, 16),
+        "WeightTraining" => (4, 20),
+        "Yoga" => (4, 43),
+        "Pilates" => (4, 44),
+        "HighIntensityIntervalTraining" => (4, 70),
+        "Swim" => (5, 0),
+        "OpenWaterSwim" => (5, 18),
+        "Soccer" => (7, 0),
+        "Tennis" => (8, 0),
+        "Walk" => (11, 0),
+        "NordicSki" => (12, 0),
+        "AlpineSki" => (13, 0),
+        "BackcountrySki" => (13, 37),
+        "Snowboard" => (14, 0),
+        "Hike" => (17, 0),
+        "Golf" => (25, 0),
+        "InlineSkate" => (30, 0),
+        "RockClimbing" => (31, 0),
+        "Sail" => (32, 0),
+        "IceSkate" => (33, 0),
+        "Snowshoe" => (35, 0),
+        "StandUpPaddling" => (37, 0),
+        "Surfing" => (38, 0),
+        "Kayaking" => (41, 0),
+        "Windsurf" => (43, 0),
+        "Kitesurf" => (44, 0),
+        _ => (0, 0),
+    }
+}
+
 /// Sports whose elevation is not the athlete's own climbing: assisted, or simulated.
 pub(crate) const UNPOWERED_ELEVATION_EXCLUDED: &[&str] = &[
     "EBikeRide",
@@ -454,6 +510,38 @@ mod tests {
         }
         assert!(is_cycling(from_fit(Some(2), Some(13))));
         assert!(is_virtual(from_fit(Some(2), Some(58))));
+    }
+
+    /// Scenario: a recorded file names its sport by the numbers `to_fit`
+    /// gives, and the engine reads them back with `from_fit`.
+    ///
+    /// Expected behaviour: every cycling and running sport, and every other
+    /// sport `from_fit` can name, reads back as itself, bar the two the
+    /// profile cannot tell apart.
+    #[test]
+    fn a_written_sport_reads_back_as_itself() {
+        let unreadable = ["Treadmill", "Velomobile"];
+        let every_name = CYCLING
+            .iter()
+            .chain(RUNNING)
+            .chain(FAMILY_STRENGTH)
+            .chain(FAMILY_WATER)
+            .chain(FAMILY_WINTER)
+            .chain(FAMILY_FOOT)
+            .chain(FAMILY_OTHER);
+        for name in every_name.filter(|n| !unreadable.contains(n)) {
+            let (sport, sub) = to_fit(name);
+            let read = from_fit(Some(sport), Some(sub));
+            if sport == 0 {
+                assert_eq!(read, "Other", "{name} has no profile number");
+            } else {
+                assert_eq!(read, *name, "{name} wrote {sport} {sub}");
+            }
+        }
+        assert_eq!(to_fit("Treadmill"), (1, 1));
+        assert_eq!(to_fit("Velomobile"), to_fit("Ride"));
+        assert_eq!(to_fit("Kitesurf"), (44, 0));
+        assert_eq!(to_fit("Unlisted"), (0, 0));
     }
 
     #[test]

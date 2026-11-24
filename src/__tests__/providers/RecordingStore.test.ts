@@ -428,6 +428,31 @@ describe('RecordingStore', () => {
       expect(streams.distance).toHaveLength(1);
     });
 
+    it('keeps the first fix after an indoor stretch: delta and dt share the last positioned fix', () => {
+      useRecordingStore.getState().startRecording('Run', 'gps');
+      const startTime = useRecordingStore.getState().startTime!;
+
+      useRecordingStore
+        .getState()
+        .addGpsPoint(makePoint({ latitude: 45.0, longitude: 10.0, timestamp: startTime + 1000 }));
+
+      jest.spyOn(Date, 'now').mockReturnValue(startTime + 1_800_000);
+      useRecordingStore.getState().setSensorSample('heartrate', 140);
+      useRecordingStore.getState().addIndoorSample();
+
+      // ~111m from the last fix, 1s after the indoor sample, 1799s after the fix
+      useRecordingStore
+        .getState()
+        .addGpsPoint(
+          makePoint({ latitude: 45.001, longitude: 10.0, timestamp: startTime + 1_801_000 })
+        );
+
+      const { streams } = useRecordingStore.getState();
+      expect(streams.time).toHaveLength(3);
+      expect(streams.heartrate[2]).toBe(140);
+      expect(streams.speed[2]).toBeLessThan(1);
+    });
+
     it('teleport ceiling is per sport: a running jump passes for cycling speeds only', () => {
       useRecordingStore.getState().startRecording('Run', 'gps');
       const startTime = useRecordingStore.getState().startTime!;

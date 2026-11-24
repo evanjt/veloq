@@ -197,6 +197,13 @@ fn triple_columns(
     }
 }
 
+/// The source anchor a reference triple implies: the activity and its inclusive range,
+/// where the triple's end is exclusive. `None` when the line has no reference, so the
+/// columns clear and no ride is named as the line's source.
+fn anchor_columns(reference: Option<&(String, u32, u32, bool)>) -> Option<(&str, u32, u32)> {
+    reference.map(|(id, start, end, _)| (id.as_str(), *start, end.saturating_sub(1)))
+}
+
 impl PersistentEngine {
     /// The reference a section stores, when it is whole and its range is exactly as long as
     /// the line the row holds now.
@@ -385,7 +392,11 @@ impl PersistentEngine {
     /// grades, straightness and class. The lift flag is the detector's verdict
     /// on the line's own pass, and an edit does not re-run that, so it stays.
     /// Every writer of a section's line calls this after its UPDATE.
-    fn write_line_profile(&self, section_id: &str, line: &[GpsPoint]) -> rusqlite::Result<()> {
+    pub(super) fn write_line_profile(
+        &self,
+        section_id: &str,
+        line: &[GpsPoint],
+    ) -> rusqlite::Result<()> {
         let (_, profile) = measure(line);
         self.db.execute(
             "UPDATE sections SET
@@ -584,6 +595,9 @@ impl PersistentEngine {
         let done = self.in_write_txn(|e| e.write_reset_section_bounds(section_id));
         self.resync_section_after_edit(section_id, done.is_err());
         if done.is_ok() {
+            self.refresh_badges_of_superseded(section_id);
+        }
+        if done.is_ok() {
             self.section_identity_admit(section_id);
         }
         done
@@ -695,6 +709,8 @@ impl PersistentEngine {
         self.refresh_section_in_memory(section_id);
         self.drop_section_pin(section_id);
 
+        self.supersede_under_custom_line(section_id)?;
+
         self.record_edit_with_line(
             section_id,
             super::history::KIND_BOUNDS_RESET,
@@ -740,10 +756,9 @@ impl PersistentEngine {
         section_id: &str,
         version: i64,
     ) -> Result<Vec<String>, String> {
-        let was_retired = !self.section_row_exists(section_id);
         let done = self.in_write_txn(|e| e.write_revert_section_to_version(section_id, version));
         self.resync_section_after_edit(section_id, done.is_err());
-        if done.is_ok() && was_retired {
+        if done.is_ok() {
             self.refresh_badges_of_superseded(section_id);
         }
         done
@@ -786,6 +801,7 @@ impl PersistentEngine {
             (false, true) => crate::persistence::sections::SOURCE_EXACT,
             (false, false) => crate::persistence::sections::SOURCE_CONSENSUS,
         };
+        let anchor = anchor_columns(reference.as_ref());
         self.db
             .execute(
                 "UPDATE sections SET
@@ -793,6 +809,9 @@ impl PersistentEngine {
                     polyline_blob = ?,
                     distance_meters = ?,
                     updated_at = ?,
+                    source_activity_id = ?,
+                    start_index = ?,
+                    end_index = ?,
                     representative_activity_id = COALESCE(?, representative_activity_id),
                     rep_start_index = ?,
                     rep_end_index = ?,
@@ -808,6 +827,9 @@ impl PersistentEngine {
                     blob,
                     distance,
                     updated_at,
+                    anchor.map(|(id, _, _)| id),
+                    anchor.map(|(_, s, _)| s),
+                    anchor.map(|(_, _, e)| e),
                     reference.as_ref().map(|(id, _, _, _)| id.as_str()),
                     reference.as_ref().map(|(_, s, _, _)| *s),
                     reference.as_ref().map(|(_, _, e, _)| *e),
@@ -843,9 +865,7 @@ impl PersistentEngine {
         self.append_section_history(section_id, kind, Some(&details), Some(version))
             .map_err(|e| format!("Failed to record the revert: {}", e))?;
 
-        if !live {
-            self.supersede_covered_auto_sections(section_id)?;
-        }
+        self.supersede_under_custom_line(section_id)?;
 
         self.invalidate_section_cache(section_id);
         self.refresh_section_in_memory(section_id);
@@ -878,6 +898,23 @@ impl PersistentEngine {
         }
         self.refresh_superseded_ids();
         Ok(hidden)
+    }
+
+    /// [`Self::supersede_covered_auto_sections`] for a writer of a line that
+    /// may belong to an auto row: only a custom row replaces auto rows.
+    fn supersede_under_custom_line(&mut self, section_id: &str) -> Result<(), String> {
+        let is_custom: bool = self
+            .db
+            .query_row(
+                "SELECT section_type = 'custom' FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to read the section type: {e}"))?;
+        if is_custom {
+            self.supersede_covered_auto_sections(section_id)?;
+        }
+        Ok(())
     }
 
     /// Hide one auto section behind a custom one and put the `superseded`
@@ -1312,6 +1349,9 @@ impl PersistentEngine {
             e.write_expand_section_bounds(section_id, activity_id, start_index, end_index)
         });
         self.resync_section_after_edit(section_id, done.is_err());
+        if done.is_ok() {
+            self.refresh_badges_of_superseded(section_id);
+        }
         done
     }
 
@@ -1404,6 +1444,8 @@ impl PersistentEngine {
         self.section_identity_relinquish(section_id);
         self.drop_section_pin(section_id);
 
+        self.supersede_under_custom_line(section_id)?;
+
         self.record_edit_with_line(
             section_id,
             super::history::KIND_EXPANDED,
@@ -1457,7 +1499,15 @@ impl PersistentEngine {
         if section_ids.is_empty() {
             return Ok(());
         }
-        self.in_write_txn(|e| e.write_sections_enabled(section_ids, enabled))?;
+        self.in_write_txn(|e| {
+            e.write_sections_enabled(section_ids, enabled)?;
+            if enabled {
+                for id in section_ids {
+                    e.rescan_enabled_section(id)?;
+                }
+            }
+            Ok(())
+        })?;
         for id in section_ids {
             self.invalidate_section_cache(id);
         }
@@ -1474,6 +1524,24 @@ impl PersistentEngine {
         }
         self.refresh_section_badges(section_ids);
         Ok(())
+    }
+
+    /// Bring an enabled section's rows up to the library: the attach skips a
+    /// disabled section, so rides stored meanwhile have no rows on it.
+    fn rescan_enabled_section(&mut self, section_id: &str) -> Result<(), String> {
+        let sport_type: String = self
+            .db
+            .query_row(
+                "SELECT sport_type FROM sections WHERE id = ?",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to read section {}: {}", section_id, e))?;
+        let line = self
+            .stored_section_polyline(section_id)
+            .map_err(|e| format!("Failed to read section {}: {}", section_id, e))?;
+        self.rescan_section_junctions(section_id, &line, &sport_type)
+            .map(|_| ())
     }
 
     fn write_sections_enabled(
@@ -2394,6 +2462,34 @@ mod tests {
             profile_of_stored_line(&engine),
             "expand"
         );
+
+        make_profile_stale(&engine);
+        engine.set_section_reference("s1", "a2").unwrap();
+        assert_eq!(
+            stored_profile(&engine),
+            profile_of_stored_line(&engine),
+            "set reference"
+        );
+    }
+
+    /// Scenario: a custom section's reference is set to a ride that climbs
+    /// where the drawn line was flat.
+    /// Expected behaviour: the profile columns describe the line the row holds.
+    #[test]
+    fn setting_the_reference_of_a_custom_section_rewrites_its_profile() {
+        let (mut engine, _) = engine_with_section(20, "custom");
+        engine
+            .add_activity("a2".to_string(), hill(20), "Ride".to_string())
+            .unwrap();
+        make_profile_stale(&engine);
+        engine
+            .db
+            .execute("UPDATE sections SET is_lift = 1 WHERE id = 's1'", [])
+            .unwrap();
+
+        engine.set_section_reference("s1", "a2").unwrap();
+
+        assert_eq!(stored_profile(&engine), profile_of_stored_line(&engine));
     }
 }
 

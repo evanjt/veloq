@@ -647,7 +647,7 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-engine-read-empty.mjs'),
     catches:
-      'an engine client read answering a thrown VeloqError with an empty value a caller reads as nothing there',
+      'a catch in the engine client, a delegate, a hook or a screen answering a thrown VeloqError with an empty literal or a module-level sentinel constant a caller reads as nothing there',
   },
   {
     name: 'lint:generated-free-functions',

@@ -510,6 +510,13 @@ impl ActivityManager {
         })
     }
 
+    /// The title and body recorded when the pulled Garmin ride `activity_id`
+    /// was announced, which is the entry the app posts. `None` when none was
+    /// recorded.
+    fn pulled_ride_entry(&self, activity_id: String) -> Option<crate::FfiPulledRideEntry> {
+        crate::push::recorded_entry(&activity_id)
+    }
+
     pub fn remove(&self, activity_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             let referencing = e.sections_referencing_activity(&activity_id);

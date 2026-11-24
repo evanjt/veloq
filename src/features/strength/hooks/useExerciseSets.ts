@@ -65,7 +65,7 @@ const unsettled: ExerciseSetsRead = { session: EMPTY_SESSION, settled: false };
 /**
  * What an empty list means. `pending` is every kind of ignorance: the read has
  * not run, the engine is not open, the FIT download is in flight, and the
- * retryable failure that records no status row at all.
+ * retryable failure that records no status row at all. A thrown read is not among them: it is an error.
  */
 export type ExerciseSetsOutcome = 'loaded' | 'empty' | 'pending';
 
@@ -86,26 +86,23 @@ export function useExerciseSets(activityId: string, activityType: string) {
     ...LOCAL_READ_QUERY,
     queryKey: queryKeys.strength.exerciseSets(activityId),
     queryFn: () => {
-      try {
-        const cached = strength.getExerciseSets(activityId);
-        if (cached.sets.length > 0) return { session: cached, settled: true };
+      // A throw is a failed read and stays one: the query errors, and the
+      // caller offers the read again. Only a download still owed is `pending`.
+      const cached = strength.getExerciseSets(activityId);
+      if (cached.sets.length > 0) return { session: cached, settled: true };
 
-        // A settled activity has nothing more to fetch, whether or not it has sets.
-        if (strength.isFitProcessed(activityId)) return { session: EMPTY_SESSION, settled: true };
+      // A settled activity has nothing more to fetch, whether or not it has sets.
+      if (strength.isFitProcessed(activityId)) return { session: EMPTY_SESSION, settled: true };
 
-        // Demo mode has no FIT file. The engine settles a demo strength session
-        // from its corpus inside this call, then the read goes the normal way.
-        if (isDemo() && isDemoStrengthActivity(activityId)) {
-          requestFitFile(activityId);
-          return { session: strength.getExerciseSets(activityId), settled: true };
-        }
-
+      // Demo mode has no FIT file. The engine settles a demo strength session
+      // from its corpus inside this call, then the read goes the normal way.
+      if (isDemo() && isDemoStrengthActivity(activityId)) {
         requestFitFile(activityId);
-        return unsettled;
-      } catch (err) {
-        console.error('[ExerciseSets] Error:', err);
-        return unsettled;
+        return { session: strength.getExerciseSets(activityId), settled: true };
       }
+
+      requestFitFile(activityId);
+      return unsettled;
     },
     enabled,
     staleTime: Infinity, // exercise data never changes

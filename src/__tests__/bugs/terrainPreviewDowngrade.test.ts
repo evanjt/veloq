@@ -99,7 +99,7 @@ describe('a preview that fell back to flat records what it was asked for', () =>
 
     const uri = getTerrainPreviewUri('a4', 'light', DRAPED);
 
-    expect(mockFileStore.has(uri)).toBe(true);
+    expect(mockFileStore.has(uri.split('?')[0])).toBe(true);
   });
 
   it('prefers the real drape once it has been drawn', async () => {
@@ -107,7 +107,9 @@ describe('a preview that fell back to flat records what it was asked for', () =>
     await saveTerrainPreview('a5', 'light', DRAPED, 'BBBB');
 
     expect(isTerrainPreviewDowngraded('a5', 'light', DRAPED)).toBe(false);
-    expect(mockFileStore.get(getTerrainPreviewUri('a5', 'light', DRAPED))).toBe('BBBB');
+    expect(mockFileStore.get(getTerrainPreviewUri('a5', 'light', DRAPED).split('?')[0])).toBe(
+      'BBBB'
+    );
   });
 
   it('keeps a downgrade for one style clear of another style', async () => {

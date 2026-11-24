@@ -488,6 +488,26 @@ describe('initialiseApp', () => {
     expect(unitReads()).toBe(unitsBefore);
   });
 
+  it('still restores the stores when a step before them throws, and re-runs that step on a retry', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    migratedLibrary();
+    mockEngine.deleteSetting.mockImplementationOnce(() => {
+      throw new Error('settings table locked');
+    });
+
+    const failed = await initialiseApp();
+
+    expect(failed).toEqual(['other']);
+    expect(useLanguageStore.getState().isInitialised).toBe(true);
+    expect(initialiseDebugStore).toHaveBeenCalled();
+    await resumedImportSettled();
+    const deletesBefore = mockEngine.deleteSetting.mock.calls.length;
+
+    await expect(retryStartupAreas(['other'])).resolves.toBeNull();
+
+    expect(mockEngine.deleteSetting.mock.calls.length).toBe(deletesBefore + 1);
+  });
+
   it('names the area again when the retry fails too', async () => {
     keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
     (initialiseDebugStore as jest.Mock)

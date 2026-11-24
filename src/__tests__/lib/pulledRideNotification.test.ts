@@ -3,8 +3,8 @@
  * owed post-ride notification on `bodyStored`.
  *
  * Expected behaviour: the entry is posted once with the engine's own text; a
- * repeat announcement, another kind of body, an unreadable entry and an empty
- * one post nothing.
+ * repeat announcement, another kind of body, a missing entry and an untitled
+ * one post nothing. A quiet ride's plain entry is posted.
  */
 
 import { createPulledRidePoster } from '@/features/insights/lib/pulledRideNotification';
@@ -38,8 +38,16 @@ describe('the pulled ride notification poster', () => {
     expect(present).not.toHaveBeenCalled();
   });
 
-  it('posts nothing when the entry is empty or unreadable', async () => {
-    for (const entry of [null, { title: 'Ride', body: '  ' }]) {
+  it('posts the plain entry of a quiet ride, even with no name to give', async () => {
+    for (const body of ['Morning Ride', '']) {
+      const { post, present } = setup({ title: 'Ride recorded', body });
+      expect(await post(owed)).toBe(true);
+      expect(present).toHaveBeenCalledWith('src-garmin-7001', 'Ride recorded', body);
+    }
+  });
+
+  it('posts nothing when no entry was recorded or it has no title', async () => {
+    for (const entry of [null, { title: '  ', body: 'A PR' }]) {
       const { post, present } = setup(entry);
       expect(await post(owed)).toBe(false);
       expect(present).not.toHaveBeenCalled();

@@ -13,6 +13,7 @@ import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
 import { readFilesSession } from '@/shared/storage/filesSession';
+import { readStoredActivityCountMirror } from '@/shared/storage';
 
 jest.mock('@/features/recording/lib/holdRecordingOnSignOut', () => ({
   holdRecordingOnSignOut: jest.fn(async () => undefined),
@@ -118,4 +119,19 @@ it('ends at a sign-out that deletes the data', async () => {
 
   expect(await readFilesSession()).toBe(false);
   expect(useAuthStore.getState()).toMatchObject({ isAuthenticated: false, authMethod: null });
+});
+
+it('leaves the library count for the sign-in screen when the athlete leaves it', async () => {
+  const engine = {
+    setSyncCredentials: jest.fn(),
+    clearSyncCredentials: jest.fn(),
+    getStats: () => ({ activityCount: 120, libraryCount: 300 }),
+  };
+  mockGetEngine.mockReturnValue(engine as never);
+  useAuthStore.getState().enterFilesMode();
+  await Promise.resolve();
+
+  await useAuthStore.getState().exitFilesMode();
+
+  expect(await readStoredActivityCountMirror()).toBe(300);
 });

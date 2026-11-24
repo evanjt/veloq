@@ -68,12 +68,16 @@ export function useEngineSync(): void {
       garminOnly ||
       filesOnly ||
       startedRef.current ||
-      !hasReading
+      !hasReading ||
+      engineReadyNonce === 0
     ) {
       return;
     }
     const engine = getEngine();
     if (!engine) return;
+    // The nonce is bumped once the launch identity gate has settled, and until
+    // then the library may still belong to another athlete, so a sync started
+    // here, or by a wipe's reset, could write into it.
     // This hook mounts before the root layout has opened the engine, so the
     // first call reaches a null handle and refuses without touching Rust.
     // Latching on the verdict keeps the retry alive until the ready nonce

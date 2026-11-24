@@ -14,7 +14,7 @@ import { queryKeys } from '@/shared/query/queryKeys';
 import { hasStarted, type ActivityRecord } from 'veloqrs';
 import { freshLoginTimeline, type TrackWait } from '@/shared/debug/freshLoginTimeline';
 import { getEngine } from '@/shared/native/engine';
-import { useEngineBody } from '@/shared/native/engineBodies';
+import { bodyNamed, useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import type { ActivityInterval, ActivityStreams, FeedCard } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -302,7 +302,8 @@ export function useActivity(id: string) {
     queryKey,
     // `undefined` is the query not having run, which is not the same as
     // nothing being stored, and asking then would fire before the read.
-    !!id && query.data !== undefined
+    !!id && query.data !== undefined,
+    bodyNamed(['activity_detail'], id)
   );
 
   return { ...query, bodyStatus: wait.status, retryBody: wait.retry };
@@ -334,7 +335,8 @@ export function useActivityStreams(id: string) {
     queryKey,
     // `undefined` is the query not having run, which is not the same as
     // nothing being stored, and asking then would fire before the read.
-    !!id && query.data !== undefined
+    !!id && query.data !== undefined,
+    bodyNamed(['streams'], id)
   );
 
   return {
@@ -396,7 +398,8 @@ export function useActivityIntervals(id: string) {
     query.data !== null,
     () => getEngine()?.syncActivityIntervals(id),
     queryKey,
-    !!id && query.data !== undefined
+    !!id && query.data !== undefined,
+    bodyNamed(['intervals'], id)
   );
 
   // A body never fetched and a ride with no laps both handed back an empty

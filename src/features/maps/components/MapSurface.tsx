@@ -74,7 +74,14 @@ import {
   resumeHeldSurface,
 } from '@/features/maps/lib/mapSurfaceRegistry';
 import type { ReleasableSurface } from '@/features/maps/lib/mapSurfaceRegistry';
-import { pageOpensAt, type SettledCamera } from '@/features/maps/lib/settledCamera';
+import {
+  frameOf,
+  movedFrame,
+  pageOpensAt,
+  restoredCamera,
+  type PageFrame,
+  type SettledCamera,
+} from '@/features/maps/lib/settledCamera';
 import type {
   MapCameraSpec,
   MapImageSpec,
@@ -288,6 +295,8 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   // back where it was, never for data or style.
   const pageCameraRef = useRef<MapCameraSpec>(initialCamera);
   const settledCameraRef = useRef<SettledCamera | null>(null);
+  // What the page frames now, which the camera a rebuilt page opens at must carry.
+  const frameRef = useRef<PageFrame | null>(frameOf(initialCamera));
   const [pageEpoch, setPageEpoch] = useState(0);
   const initialStyleRef = useRef(mapStyle);
   // What the page is showing. A rebuilt page starts from `initialStyleRef`.
@@ -480,15 +489,21 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     ref,
     () => ({
       fitBounds: (bounds, padding, duration) => {
+        frameRef.current = movedFrame(frameRef.current, { bounds, padding });
         inject(buildFitBoundsScript(bounds, padding, duration));
       },
       setCamera: (camera, duration) => {
+        frameRef.current = movedFrame(frameRef.current, {
+          bounds: camera.subjectBounds ?? camera.bounds,
+          padding: camera.padding,
+        });
         inject(buildSetCameraScript(camera, duration));
       },
       resetOrientation: () => {
         inject(buildResetOrientationScript());
       },
       settleInset: (action) => {
+        frameRef.current = movedFrame(frameRef.current, { padding: action.padding });
         inject(buildSettleInsetScript(action, cameraMove.move));
       },
       queryFeatures: (point, queryLayers, radius) =>
@@ -523,22 +538,26 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     pendingRef.current.abandon();
   }, []);
 
+  // The one way a page comes back, after a crash, a reload or a release: a page already built at
+  // the camera the athlete left and the frame it holds needs no new page, so it is reloaded only when
+  // the platform asks for a reload, and any other is built anew at it.
+  const reopenPage = useCallback((reloadWhenCurrent: boolean) => {
+    const settled = settledCameraRef.current;
+    const frame = frameRef.current;
+    if (settled && !pageOpensAt(pageCameraRef.current, settled, frame?.padding)) {
+      pageCameraRef.current = frame ? restoredCamera(settled, frame) : settled;
+      setPageEpoch((epoch) => epoch + 1);
+    } else if (reloadWhenCurrent) {
+      webViewRef.current?.reload();
+    }
+  }, []);
+
   // A page whose renderer died comes back empty, so everything has to resend.
   // A new view opens at the camera the athlete left, the way a released map
   // comes back.
   const { viewKey, lost, onRendererGone } = useRendererRecovery('2D map', {
     forget: forgetPage,
-    restart: (how) => {
-      if (how === 'reload') {
-        webViewRef.current?.reload();
-        return;
-      }
-      const settled = settledCameraRef.current;
-      if (settled && !pageOpensAt(pageCameraRef.current, settled)) {
-        pageCameraRef.current = settled;
-        setPageEpoch((epoch) => epoch + 1);
-      }
-    },
+    restart: (how) => reopenPage(how === 'reload'),
     exhausted: () => reportFailure('renderer kept dying'),
   });
 
@@ -547,14 +566,8 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   // page built at the settled camera rather than a reload.
   const rebuildPage = useCallback(() => {
     forgetPage();
-    const settled = settledCameraRef.current;
-    if (settled && !pageOpensAt(pageCameraRef.current, settled)) {
-      pageCameraRef.current = settled;
-      setPageEpoch((epoch) => epoch + 1);
-    } else {
-      webViewRef.current?.reload();
-    }
-  }, [forgetPage]);
+    reopenPage(true);
+  }, [forgetPage, reopenPage]);
 
   // A surface the reclaimer releases holds no map until the reload, so the
   // patch sender is silenced the same way a crash silences it.

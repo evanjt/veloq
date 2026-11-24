@@ -433,9 +433,18 @@ pub(super) fn answer(
     if hits.is_empty() {
         return FfiActivitiesUnderPoint::default();
     }
-    let (rows, route_of) = listed(conn, &hits);
+    let (rows, mut route_of) = listed(conn, &hits);
     let listed_ids: Vec<&str> = rows.iter().map(|(m, _)| m.activity_id.as_str()).collect();
-    let sections = sections_under(conn, &listed_ids, &tap, &fingertip(&tap, zoom), None);
+    // Matching off, the stored routes and sections are not offered.
+    let matching = crate::persistence::settings::detection_enabled_from(conn);
+    if !matching {
+        route_of.clear();
+    }
+    let sections = if matching {
+        sections_under(conn, &listed_ids, &tap, &fingertip(&tap, zoom), None)
+    } else {
+        Vec::new()
+    };
 
     let mut sections_of: HashMap<&str, Vec<&str>> = HashMap::new();
     for section in &sections {
@@ -525,7 +534,7 @@ pub(super) fn answer(
             };
             let figures = match group {
                 Group::Route(id) => nearby_routes::pooled::route_figures(conn, id, None),
-                Group::Section(id) => nearby_routes::pooled::section_figures(conn, id),
+                Group::Section(id) => nearby_routes::pooled::section_figures(conn, id, None),
                 Group::NoRoute => None,
             };
             FfiUnderPointGroup {

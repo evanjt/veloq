@@ -100,8 +100,10 @@ function ReviewScreenContent() {
   const unbackedRide =
     !isManual && recordingStatus === 'stopped' && !savedToLibrary && backupFailing;
 
-  const lastPoint = Math.max(0, (streams.latlng?.length ?? 0) - 1);
-  const { initial: draft, edit: editDraft } = useReviewDraft(streams.latlng?.length ?? 0);
+  // Time owns the review index space: every sample has a time, only fixes have a position.
+  const pointCount = streams.time?.length ?? 0;
+  const lastPoint = Math.max(0, pointCount - 1);
+  const { initial: draft, edit: editDraft } = useReviewDraft(pointCount);
   const [notes, setNotes] = useState(draft.notes ?? params.notes ?? '');
   const [selectedType, setSelectedType] = useState<ActivityType>(
     draft.reviewedType ?? activityType ?? ('Ride' as ActivityType)
@@ -155,7 +157,7 @@ function ReviewScreenContent() {
       trimEnd !== kept.trimEnd);
 
   const type = selectedType;
-  const canTrim = !isManual && (streams.latlng?.length ?? 0) > 2;
+  const canTrim = !isManual && pointCount > 2;
   const hasGps = !isManual && (streams.latlng?.length ?? 0) >= 2;
 
   const handleTrimChange = useCallback((startIdx: number, endIdx: number) => {
@@ -300,7 +302,7 @@ function ReviewScreenContent() {
           mapTrimStart={mapTrim[0]}
           mapTrimEnd={mapTrim[1]}
           totalDuration={summary.duration}
-          totalPoints={streams.latlng.length}
+          totalPoints={pointCount}
           onTrimChange={handleTrimChange}
           onTrimCommit={handleTrimCommit}
         />

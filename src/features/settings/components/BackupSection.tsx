@@ -704,6 +704,9 @@ export function BackupSection() {
             <Text testID="backup-last-run-text" style={labelStyle}>
               {lastBackupText}
             </Text>
+            {carrierFailures.device ? (
+              <CarrierFailure failure={carrierFailures.device} testID="backup-device-failure" />
+            ) : null}
             {backupCancelled ? (
               <StatusLine tone="info" message={t('common.cancelled')}>
                 <Text testID="backup-cancelled" style={detailStyle}>

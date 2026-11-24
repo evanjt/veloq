@@ -1363,6 +1363,13 @@ pub fn mark_tile_empty(base_path: &Path, z: u8, x: u32, y: u32) -> std::io::Resu
     write_tile_file(base_path, z, x, y, EMPTY_MARKER_EXT, &[])
 }
 
+/// Delete a tile and its empty marker, answering whether either existed.
+pub fn remove_tile(base_path: &Path, z: u8, x: u32, y: u32) -> bool {
+    let png = std::fs::remove_file(tile_path(base_path, z, x, y, "png")).is_ok();
+    let empty = std::fs::remove_file(tile_path(base_path, z, x, y, EMPTY_MARKER_EXT)).is_ok();
+    png || empty
+}
+
 /// The extension of the marker `mark_tile_empty` writes.
 pub const EMPTY_MARKER_EXT: &str = "empty";
 

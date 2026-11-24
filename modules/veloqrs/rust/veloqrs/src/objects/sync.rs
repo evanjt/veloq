@@ -2039,8 +2039,8 @@ where
     // announces nothing, so the screen waits out its deadline. Held with the
     // time the hold lifts instead, which leaves the key free for the resume
     // that asks again. A user request is held here too while a Retry-After the
-    // refusal carried runs; a cooldown with no Retry-After lets it through to
-    // the budget's probe.
+    // refusal carried runs and inside the probe interval after a probe; only
+    // the request that may go as the probe gets through.
     let at = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(now)
         .unwrap_or_else(chrono::Utc::now);
     if let Some(until) = governor.deferred_until(intent, at) {

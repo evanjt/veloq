@@ -498,6 +498,26 @@ fn route_detail_data_carries_the_same_bytes_for_one_route_in_a_larger_library() 
 }
 
 #[test]
+fn map_screen_data_draws_no_routes_with_matching_off() {
+    let mut engine = seeded(LARGE);
+    engine.set_detection_enabled(false).expect("switch");
+
+    let data = engine.map_screen_data(
+        NOW - 365 * DAY,
+        NOW,
+        vec![],
+        crate::MapDistanceBand::All,
+        true,
+        true,
+        false,
+        String::new(),
+    );
+
+    assert_eq!(data.route_count, 0);
+    assert!(data.route_lines.is_none());
+}
+
+#[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn map_screen_data_carries_the_route_count_and_the_lines_only_when_asked() {
     let mut engine = seeded(LARGE);

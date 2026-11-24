@@ -8,7 +8,7 @@ import {
   readStreams,
   requestStreams,
 } from '@/features/activity/lib/engineStreams';
-import { useEngineBody } from '@/shared/native/engineBodies';
+import { bodyNamed, useEngineBody } from '@/shared/native/engineBodies';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { CACHE } from '@/shared/app/constants';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
@@ -141,7 +141,8 @@ export function useMapPreviewCoordinates(
     streams != null,
     () => requestStreams(activityId, PREVIEW_STREAM_TYPES),
     queryKeys.activities.mapPreview(activityId),
-    needsFetch && streams !== undefined && !bulkRunHasIt
+    needsFetch && streams !== undefined && !bulkRunHasIt,
+    bodyNamed(['streams'], activityId)
   );
 
   // 4. One line for every source. Startup and engine hand over decoded points

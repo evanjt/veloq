@@ -154,6 +154,16 @@ impl RouteManager {
         })
     }
 
+    /// One section's or route's guide payload as JSON text, its line simplified for a watch.
+    /// `None` when it is gone or has no line.
+    fn get_guide_payload(
+        &self,
+        kind: crate::persistence::nearby_routes::NearbyKind,
+        id: String,
+    ) -> Result<Option<String>, VeloqError> {
+        with_reader(|conn| crate::persistence::guide_payload::guide_payload_json(conn, kind, &id))
+    }
+
     /// Follow the route's representative line: a handle whose `advance` places each fix of a
     /// ride on it. Fails when the route is unknown or its track holds no line.
     fn follow(&self, route_id: String) -> Result<Arc<RouteFollower>, VeloqError> {

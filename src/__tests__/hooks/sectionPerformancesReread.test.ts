@@ -17,6 +17,7 @@ import {
   type SectionPerformanceRecord,
 } from '@/features/routes/hooks/useSectionPerformances';
 import type { FrequentSection } from '@/types';
+import { engineErrorTag } from '@/shared/native/engineError';
 import { engine, StartOutcome } from 'veloqrs';
 
 type MockListener = (payload?: unknown) => void;
@@ -174,5 +175,31 @@ describe('withoutRecordMarks', () => {
 
   vaultIt('leaves an empty set empty', () => {
     expect(withoutRecordMarks([])).toEqual([]);
+  });
+});
+
+/// Scenario: the read of a section's performances throws a Busy failure.
+///
+/// Expected behaviour: the hook reports the failure as its error instead of an
+/// empty view, and its retry reads again and clears it.
+describe('a failed performances read', () => {
+  it('reports the failure and recovers on retry', async () => {
+    getSectionPerformances.mockImplementation(() => {
+      throw { tag: 'Busy' };
+    });
+
+    const { result } = await renderHook(() => useSectionPerformances(section, 'Ride'));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(engineErrorTag(result.current.error)).toBe('Busy');
+    expect(result.current.records).toHaveLength(0);
+
+    getSectionPerformances.mockReturnValue(performances(['a1']));
+    await act(() => {
+      result.current.refetch();
+    });
+
+    await waitFor(() => expect(result.current.records).toHaveLength(1));
+    expect(result.current.error).toBeFalsy();
   });
 });

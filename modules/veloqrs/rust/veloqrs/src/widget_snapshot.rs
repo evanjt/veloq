@@ -93,7 +93,7 @@ pub struct FfiWidgetContext {
     pub summary_card: Option<SummaryPrefs>,
     /// The resolved light and dark palettes, carried through untouched.
     pub theme: WidgetTheme,
-    /// Sport tint by sport type, with `Other` as the fallback.
+    /// Sport tint by sport family name, with `Other` as the fallback.
     pub activity_tints: HashMap<String, String>,
     /// Every recent sport, most recent first, already labelled and linked.
     pub record_shortcuts: Vec<RecordShortcut>,
@@ -1831,7 +1831,7 @@ fn compose_latest(
         date_label: relative_date_label(date, clock, ctx),
         tint_hex: ctx
             .activity_tints
-            .get(&a.sport_type)
+            .get(crate::sport::sport_family(&a.sport_type))
             .or_else(|| ctx.activity_tints.get("Other"))
             .cloned()
             .unwrap_or_default(),

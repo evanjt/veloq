@@ -299,7 +299,6 @@ fn test_run_clear_all_does_not_restart_a_running_sync() {
 /// Expected behaviour: the wipe gives the lease back itself, and the next
 /// start claims rather than answering Busy.
 #[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn test_run_clear_derived_gives_back_a_cancelled_detection_lease() {
     let _serial = serial_global_state();
     let dir = seeded_global_engine();

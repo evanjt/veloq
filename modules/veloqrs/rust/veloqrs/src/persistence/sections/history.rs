@@ -1598,9 +1598,10 @@ impl PersistentEngine {
     }
 
     /// Drop a section's pin. Every promotion mutation calls this: a user who
-    /// accepts (one or all), trims, expands, resets, merges,
-    /// re-references or re-matches a section has taken it over, and a pin that then holds an older line would fight
-    /// the edit they just made.
+    /// accepts (one or all), trims, expands, resets, merges
+    /// or re-references a section has taken it over, and a pin that then holds
+    /// an older line would fight the edit they just made. Attaching a ride by
+    /// hand leaves the line alone, so it keeps the pin.
     pub(crate) fn drop_section_pin(&self, section_id: &str) {
         let _ = self.db.execute(
             "DELETE FROM section_pins WHERE section_id = ?",
@@ -1627,6 +1628,13 @@ impl PersistentEngine {
     /// re-synced activity against the whole catalogue, custom sections
     /// included, so the members come back as the library does.
     pub fn salvage_ledger_from(&self, corrupt_path: &str) -> SalvageCounts {
+        // Taken before the quarantined file opens so it drops after the
+        // connection closes: every read below runs under it, and the
+        // suspension waits for the salvage to end.
+        let Some(_read) = crate::persistence::suspension::begin_read() else {
+            log::warn!("veloqrs: [salvage] Refused while the engine is suspended");
+            return SalvageCounts::default();
+        };
         let Some(src) = open_quarantined(corrupt_path) else {
             return SalvageCounts::default();
         };
@@ -1731,6 +1739,11 @@ impl PersistentEngine {
 /// The lifecycle reads a screen makes, over a pooled connection rather than
 /// the engine's own. Each one is a plain query on committed rows, so the
 /// engine methods above delegate here rather than carrying a second copy.
+/// The details key a writer sets when it judged a row's `around` list against
+/// every line the change moved. A row without it predates that judgement, and
+/// the read keeps only the rides on the line of the row's own version.
+pub(crate) const AROUND_JUDGED: &str = "around_judged";
+
 pub(crate) mod pooled {
     /// Visible changes on live sections in the last `days`, newest first.
     ///
@@ -1848,7 +1861,38 @@ pub(crate) mod pooled {
     pub(crate) fn retired_sections(conn: &Connection) -> Vec<RetiredSection> {
         let mut retired = ledger_retired_sections(conn);
         retired.extend(crate::persistence::record_restore::pending_retired_sections(conn));
+        resolve_survivors(&mut retired, |id| {
+            conn.query_row("SELECT 1 FROM sections WHERE id = ?1", [id], |_| Ok(()))
+                .is_ok()
+        });
         retired
+    }
+
+    /// Points every retired section's `into` at the live end of its chain: a
+    /// survivor that itself retired later hands on to its own. A chain that
+    /// ends in no live section, or loops, names none.
+    pub(crate) fn resolve_survivors(
+        retired: &mut [RetiredSection],
+        is_live: impl Fn(&str) -> bool,
+    ) {
+        let handed_to: std::collections::HashMap<String, Option<String>> = retired
+            .iter()
+            .map(|r| (r.section_id.clone(), r.into.clone()))
+            .collect();
+        for r in retired.iter_mut() {
+            let mut seen = std::collections::HashSet::from([r.section_id.clone()]);
+            let mut next = r.into.take();
+            r.into = loop {
+                let Some(id) = next else { break None };
+                if !seen.insert(id.clone()) {
+                    break None;
+                }
+                match handed_to.get(&id) {
+                    Some(onward) => next = onward.clone(),
+                    None => break is_live(&id).then_some(id),
+                }
+            };
+        }
     }
 
     /// How many of the ledger's retired sections hold an `archived` row: the
@@ -1885,26 +1929,9 @@ pub(crate) mod pooled {
     /// itself retired later hands on to its own, and a chain that ends in no
     /// live section, or loops, names none.
     pub(crate) fn retirement_of(conn: &Connection, section_id: &str) -> Option<RetiredSection> {
-        let retired = retired_sections(conn);
-        let mut head = retired.iter().find(|r| r.section_id == section_id)?.clone();
-        let mut seen = std::collections::HashSet::from([section_id.to_string()]);
-        let mut next = head.into.take();
-        head.into = loop {
-            let Some(id) = next else { break None };
-            if !seen.insert(id.clone()) {
-                break None;
-            }
-            match retired.iter().find(|r| r.section_id == id) {
-                Some(r) => next = r.into.clone(),
-                None => {
-                    let live = conn
-                        .query_row("SELECT 1 FROM sections WHERE id = ?1", [&id], |_| Ok(()))
-                        .is_ok();
-                    break live.then_some(id);
-                }
-            }
-        };
-        Some(head)
+        retired_sections(conn)
+            .into_iter()
+            .find(|r| r.section_id == section_id)
     }
 
     /// What a retirement event records of the section as it left: the name
@@ -2317,6 +2344,16 @@ pub(crate) mod pooled {
             .unwrap_or_default()
     }
 
+    /// Whether the writer already judged a row's `around` list against every
+    /// line the change moved, so a reader does not judge it again against the
+    /// one line it can see.
+    fn around_is_judged(details: Option<&str>) -> bool {
+        details
+            .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
+            .and_then(|value| value.get(super::AROUND_JUDGED).and_then(|v| v.as_bool()))
+            == Some(true)
+    }
+
     /// The ids of `activity_ids` whose track has portions on `line`, the
     /// rides a change to that line can be around. A ride with no stored track
     /// rides nothing, and a row with no line has no ground to ride.
@@ -2399,7 +2436,9 @@ pub(crate) mod pooled {
                 )
                 .map(|mut details| {
                     let line = row_line(conn, section_id, event.geometry_version);
-                    details.around = rides_on_line(conn, &line, &details.around);
+                    if !around_is_judged(event.details.as_deref()) {
+                        details.around = rides_on_line(conn, &line, &details.around);
+                    }
                     let before = line_before(conn, section_id, event.geometry_version);
                     details.summary = crate::persistence::sections::ledger_details::change_summary(
                         event.details.as_deref(),
@@ -2502,12 +2541,13 @@ pub(crate) mod pooled {
             let is_it = |key: &str| value.get(key).and_then(|v| v.as_str()) == Some(activity_id);
             let mut relations = Vec::new();
             if lists_it("around")
-                && !rides_on_line(
-                    conn,
-                    &row_line(conn, &section_id, geometry_version),
-                    &[activity_id.to_string()],
-                )
-                .is_empty()
+                && (value.get(super::AROUND_JUDGED).and_then(|v| v.as_bool()) == Some(true)
+                    || !rides_on_line(
+                        conn,
+                        &row_line(conn, &section_id, geometry_version),
+                        &[activity_id.to_string()],
+                    )
+                    .is_empty())
             {
                 relations.push("around");
             }
@@ -2568,6 +2608,40 @@ mod tests {
     use super::*;
     use crate::PersistentEngine;
     use tempfile::TempDir;
+
+    fn retired_row(id: &str, into: Option<&str>) -> RetiredSection {
+        RetiredSection {
+            section_id: id.into(),
+            kind: "merged".into(),
+            at: "2026-01-01T00:00:00Z".into(),
+            into: into.map(str::to_string),
+            versions: Vec::new(),
+            name: None,
+            distance_meters: None,
+            visit_count: None,
+            restorable_version: None,
+        }
+    }
+
+    #[test]
+    fn a_merge_survivor_that_retired_resolves_to_the_live_end_of_the_chain() {
+        let mut rows = vec![
+            retired_row("a", Some("b")),
+            retired_row("b", Some("c")),
+            retired_row("d", Some("e")),
+            retired_row("f", Some("g")),
+            retired_row("g", Some("f")),
+            retired_row("h", Some("c")),
+            retired_row("i", None),
+        ];
+        pooled::resolve_survivors(&mut rows, |id| id == "c");
+        let into: Vec<Option<&str>> = rows.iter().map(|r| r.into.as_deref()).collect();
+        assert_eq!(
+            into,
+            [Some("c"), Some("c"), None, None, None, Some("c"), None],
+            "a chain through a retired survivor ends at the live one; a chain ending in nothing live, or looping, names none"
+        );
+    }
 
     #[test]
     fn every_declared_record_identity_and_device_table_enters_quarantine_salvage() {
@@ -3208,6 +3282,50 @@ mod tests {
         assert!(relations_of(&engine.db, "gone").is_empty());
         assert_eq!(
             relations_of(&engine.db, "near"),
+            vec![("s1".to_string(), "around".to_string())]
+        );
+    }
+
+    /// Scenario: a re-cut removed the tail of a section's line, and the row
+    /// the writer stamped lists a ride only on that removed tail.
+    ///
+    /// Expected behaviour: the writer judged the ride against the line before
+    /// and after the change, so the section's ledger and the ride's activity
+    /// read both keep it.
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn a_stamped_row_keeps_a_ride_on_the_ground_the_recut_removed() {
+        let mut engine = PersistentEngine::in_memory().expect("engine");
+        section_row(&engine, "s1", "auto", "Climb");
+        engine
+            .add_activity(
+                "tail_only".into(),
+                path(46.0, 7.0)[60..].to_vec(),
+                "Ride".into(),
+            )
+            .expect("tail_only");
+        record_archived_geometry_on(&engine.db, "s1", &path(46.0, 7.0), None)
+            .expect("long line")
+            .expect("first version");
+        let recut = record_archived_geometry_on(&engine.db, "s1", &path(46.0, 7.0)[..50], None)
+            .expect("short line")
+            .expect("second version");
+        append_history_on(
+            &engine.db,
+            "s1",
+            "recut",
+            Some(r#"{"around":["tail_only"],"around_judged":true}"#),
+            Some(recut),
+            Some("2026-02-01 10:00:00"),
+        )
+        .expect("row");
+        let names = std::collections::BTreeMap::new();
+
+        let history = pooled::linked_section_history(&engine.db, "s1", &names);
+        let details = history[0].details.as_ref().expect("details");
+        assert_eq!(details.around, vec!["tail_only".to_string()]);
+        assert_eq!(
+            relations_of(&engine.db, "tail_only"),
             vec![("s1".to_string(), "around".to_string())]
         );
     }

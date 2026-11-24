@@ -43,6 +43,8 @@ const THREE_ROUTES = [
   row({ routeId: 'r3', routeName: 'Mill road', trend: 1, daysSinceLast: 9, attemptCount: 7 }),
 ];
 
+const NO_RECORD_ROUTES = THREE_ROUTES.map((r) => ({ ...r, isRecentRecord: false }));
+
 const COUNTS = { records: 1, faster: 2, slower: 0 };
 
 const EMPTY_INPUT: InsightInputData = {
@@ -232,6 +234,36 @@ describe('generateRouteInsights', () => {
     expect(card.title).toContain('{"count":4}');
     expect(card.title).toContain('{"count":5}');
     expect(card.title).toContain('{"count":6}');
+  });
+
+  it('draws a tie between faster and slower routes as neutral', () => {
+    const [card] = generateRouteInsights(
+      NO_RECORD_ROUTES,
+      { records: 0, faster: 1, slower: 1 },
+      NOW,
+      t
+    );
+
+    expect(card.icon).toBe('minus');
+    expect(card.iconTone).toBe('neutral');
+  });
+
+  it('draws more slower routes than faster as negative and the reverse as positive', () => {
+    const [worse] = generateRouteInsights(
+      NO_RECORD_ROUTES,
+      { records: 0, faster: 1, slower: 2 },
+      NOW,
+      t
+    );
+    const [better] = generateRouteInsights(
+      NO_RECORD_ROUTES,
+      { records: 0, faster: 2, slower: 1 },
+      NOW,
+      t
+    );
+
+    expect([worse.icon, worse.iconTone]).toEqual(['trending-down', 'negative']);
+    expect([better.icon, better.iconTone]).toEqual(['trending-up', 'positive']);
   });
 
   vaultIt('names the first three routes in the body and the rest as a count', () => {

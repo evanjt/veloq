@@ -100,6 +100,10 @@ describe('formatCadence', () => {
     expect(formatCadence(89.6)).toBe('90 rpm');
   });
 
+  it('prints steps a minute for a sport counted in steps', () => {
+    expect(formatCadence(170, 'spm')).toBe('170 spm');
+  });
+
   it.each([NaN, Infinity, -1])('prints the absent mark for %p', (input) => {
     expect(formatCadence(input)).toBe(ABSENT);
   });

@@ -14,6 +14,7 @@ import { useTrackStage } from '@/shared/native/useSyncStatus';
 import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
 import { useBackfillDayShare } from '../hooks/useBackfillDayShare';
 import { historyConfirmCopy } from '../lib/historyGate';
+import { committedStart } from '../lib/committedStart';
 import { rangeProgress } from '../lib/rangeProgress';
 import { dailyLimitLines } from '../lib/dailyLimitLines';
 import { useDailyLimit } from '../hooks/useBackgroundJobs';
@@ -56,15 +57,10 @@ export function SyncRangePanel() {
   );
   const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
 
-  const cachedStartDate = useMemo(() => {
-    if (isExpansionLocked) return new Date(syncOldest);
-    if (cacheStats.oldestDate) {
-      const cacheOldest = new Date(cacheStats.oldestDate);
-      const syncStart = new Date(syncOldest);
-      return cacheOldest < syncStart ? cacheOldest : syncStart;
-    }
-    return new Date(syncOldest);
-  }, [cacheStats.oldestDate, syncOldest, isExpansionLocked]);
+  const cachedStartDate = useMemo(
+    () => committedStart(syncOldest, cacheStats.oldestDate, isExpansionLocked),
+    [cacheStats.oldestDate, syncOldest, isExpansionLocked]
+  );
 
   // A refused change leaves every input of the slider's range as it was, so the
   // handle is put back by bumping this key.

@@ -8,7 +8,15 @@
 # simulator of its own and deletes it at the end (KEEP_SIMULATOR=1 keeps it).
 # The credential comes from the environment and nothing else.
 # VELOQ_ACTIVITY_ID picks the ride; unset, it is the athlete's newest activity
-# with a GPS track.
+# with a GPS track. VELOQ_STRENGTH_ACTIVITY_ID picks the strength session whose
+# sets the push fetches from its FIT file; unset, it is the athlete's newest
+# weight training in the last year, and none skips that case.
+#
+# Each push prints the host's physical footprint before, at its peak during
+# and after `didReceive`, sampled every two milliseconds, and the process's
+# peak resident size. The host is a plain simulator process rather than an
+# extension, so the figure is what the engine's work costs on top of the
+# baseline, to set against the ceiling an extension runs under.
 #
 # What it proves: the Swift files under `push/ios/VeloqPushExtension/`, compiled
 # unchanged into a second bundle beside the engine's static library, read the
@@ -20,8 +28,8 @@
 # never invokes a service extension.
 #
 # What it does not prove: APNs delivery and `mutable-content` reaching the
-# phone, the thirty-second and memory budgets of an extension process, and the
-# keychain of a locked phone after a reboot. Those stay device work.
+# phone, the thirty-second budget of an extension process, the ceiling itself,
+# and the keychain of a locked phone after a reboot. Those stay device work.
 #
 # Kept out of CI: it needs a real key and a Mac.
 
@@ -55,12 +63,40 @@ fi
 [[ -n $VELOQ_ACTIVITY_ID ]] || { echo "error: no activity with a GPS track in the last 90 days" >&2; exit 1; }
 echo "activity $VELOQ_ACTIVITY_ID"
 
+if [[ -z ${VELOQ_STRENGTH_ACTIVITY_ID:-} ]]; then
+  VELOQ_STRENGTH_ACTIVITY_ID=$(curl -fsS -u "API_KEY:$VELOQ_API_KEY" \
+    "https://intervals.icu/api/v1/athlete/$VELOQ_ATHLETE_ID/activities?oldest=$(date -v-365d +%F)&newest=$(date +%F)" |
+    /usr/bin/python3 -c 'import json, sys
+for a in json.load(sys.stdin):
+    if a.get("type") == "WeightTraining":
+        print(a["id"])
+        break')
+fi
+if [[ -n $VELOQ_STRENGTH_ACTIVITY_ID ]]; then
+  echo "strength activity $VELOQ_STRENGTH_ACTIVITY_ID"
+else
+  echo "no weight training in the last year, so the strength case is skipped"
+fi
+
 echo "building the engine for the simulator"
 node "$ROOT/modules/veloqrs/scripts/build-rust.js" ios --slice iphonesimulator:arm64 --out "$WORK/rust"
 
-UDID=$(xcrun simctl create "push-extension-harness" \
-  com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max \
-  com.apple.CoreSimulator.SimRuntime.iOS-26-2)
+# The newest iOS runtime this Mac has that runs the phone, since a pinned
+# runtime is gone after the next Xcode and a runtime cut for one device
+# refuses every other.
+DEVICE_TYPE=com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max
+RUNTIME=$(xcrun simctl list runtimes available -j | /usr/bin/python3 -c 'import json, sys
+device = sys.argv[1]
+runtimes = [
+    r for r in json.load(sys.stdin)["runtimes"]
+    if r["platform"] == "iOS" and any(d["identifier"] == device for d in r.get("supportedDeviceTypes", []))
+]
+runtimes.sort(key=lambda r: [int(x) for x in r["version"].split(".")])
+if runtimes:
+    print(runtimes[-1]["identifier"])' "$DEVICE_TYPE")
+[[ -n $RUNTIME ]] || { echo "error: no iOS simulator runtime runs $DEVICE_TYPE" >&2; exit 1; }
+echo "runtime $RUNTIME"
+UDID=$(xcrun simctl create "push-extension-harness" "$DEVICE_TYPE" "$RUNTIME")
 cleanup() {
   xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
   if [[ ${KEEP_SIMULATOR:-0} != 1 ]]; then xcrun simctl delete "$UDID" || true; fi
@@ -116,6 +152,55 @@ func container() -> URL? {
   FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: WidgetSnapshotFile.appGroup)
 }
 
+// The process's physical footprint, the figure the memory ceiling of an
+// extension is judged on.
+func footprint() -> UInt64 {
+  var info = task_vm_info_data_t()
+  var count = mach_msg_type_number_t(
+    MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+  let status = withUnsafeMutablePointer(to: &info) {
+    $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+      task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+    }
+  }
+  return status == KERN_SUCCESS ? info.phys_footprint : 0
+}
+
+// Samples the footprint on its own thread until stopped, keeping the peak.
+final class FootprintSampler {
+  private let lock = NSLock()
+  private var running = true
+  private(set) var peak: UInt64 = 0
+
+  init() {
+    let thread = Thread { [self] in
+      while true {
+        let now = footprint()
+        lock.lock()
+        if now > peak { peak = now }
+        let go = running
+        lock.unlock()
+        if !go { return }
+        usleep(2000)
+      }
+    }
+    thread.qualityOfService = .userInteractive
+    thread.start()
+  }
+
+  func stop() -> UInt64 {
+    lock.lock()
+    running = false
+    let value = peak
+    lock.unlock()
+    return value
+  }
+}
+
+func mib(_ bytes: UInt64) -> String {
+  String(format: "%.1f MiB", Double(bytes) / 1_048_576)
+}
+
 switch arguments.first ?? "" {
 case "seed":
   clear()
@@ -164,6 +249,8 @@ case "push":
   content.userInfo = userInfo
   let request = UNNotificationRequest(identifier: "harness", content: content, trigger: nil)
 
+  let before = footprint()
+  let sampler = FootprintSampler()
   let done = DispatchSemaphore(value: 0)
   var posted: UNNotificationContent?
   let service = NotificationService()
@@ -176,8 +263,17 @@ case "push":
     _ = done.wait(timeout: .now() + 5)
     print("  timed out")
   }
+  let peak = sampler.stop()
+  let after = footprint()
+  var usage = rusage()
+  getrusage(RUSAGE_SELF, &usage)
   print("  posted title: \(posted?.title ?? "(nothing)")")
   print("  posted body: \(posted?.body ?? "(nothing)")")
+  print("  footprint before: \(mib(before))")
+  print("  footprint peak: \(mib(max(peak, after)))")
+  print("  footprint after: \(mib(after))")
+  print("  footprint added by the push: \(mib(max(peak, after) - min(before, max(peak, after))))")
+  print("  peak resident size: \(mib(UInt64(usage.ru_maxrss)))")
 
 default:
   print("  unknown mode")
@@ -408,6 +504,12 @@ seed_settings
 rm -f "$SNAPSHOT"
 case_push "a real activity of the seeded athlete" "$ACTIVITY_PUSH" rewritten
 case_snapshot "$VELOQ_ACTIVITY_ID"
+if [[ -n $VELOQ_STRENGTH_ACTIVITY_ID ]]; then
+  # The sets come from the session's FIT file, which the push fetches and
+  # settles before the sentence, so this is the heaviest body a push decodes.
+  case_push "a strength session, its sets fetched from its FIT file" \
+    "$(payload ACTIVITY_UPLOADED "$VELOQ_STRENGTH_ACTIVITY_ID")" rewritten
+fi
 case_push "a wellness event" "$(payload WELLNESS_UPDATED "")" unchanged
 case_push "an activity event with no activity_id" "$(payload ACTIVITY_UPLOADED "")" unchanged
 

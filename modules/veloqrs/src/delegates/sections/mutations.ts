@@ -8,6 +8,7 @@
  */
 
 import { validateId, validateName } from '../../conversions';
+import { VeloqError_Tags } from '../../generated/veloqrs';
 import type {
   FfiIndexActivitySummary,
   FfiMergeDropped,
@@ -38,12 +39,9 @@ export function setSectionIsLift(host: DelegateHost, sectionId: string, isLift: 
 
 export type SetSectionNameOutcome = 'saved' | 'nameTaken' | 'failed';
 
-/** The engine's refusal text for a name another section already shows. */
-const NAME_TAKEN_MESSAGE = 'Another section is already named';
-
+/** The engine refuses a name another section already shows with the `NameTaken` variant. */
 export function isNameTakenError(error: unknown): boolean {
-  const text = error instanceof Error ? error.message : String(error);
-  return text.includes(NAME_TAKEN_MESSAGE);
+  return (error as { tag?: unknown } | null)?.tag === VeloqError_Tags.NameTaken;
 }
 
 export function setSectionName(

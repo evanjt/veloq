@@ -15,6 +15,7 @@ const FAMILIES: Record<string, keyof SportTaxonomy> = {
   WALKING: 'walking',
   SWIMMING: 'swimming',
   POWER: 'power',
+  STRIDE_CADENCE: 'strideCadence',
 };
 
 export interface SportTaxonomy {
@@ -23,6 +24,8 @@ export interface SportTaxonomy {
   walking: readonly string[];
   swimming: readonly string[];
   power: readonly string[];
+  /** Sports whose cadence is stored as strides, half the steps an athlete counts. */
+  strideCadence: readonly string[];
 }
 
 /** The families an activity is drawn in, in stack order, as `sport.rs` names them. */

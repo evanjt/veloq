@@ -92,7 +92,7 @@ export function buildPreviewLayers(
       source: 'current-sections',
       layout: roundLine,
       paint: {
-        'line-color': layer.casing,
+        'line-color': palette.casing,
         'line-opacity': 0.85,
         'line-width': 5,
       },
@@ -165,7 +165,7 @@ export function buildPreviewLayers(
       source: 'retired-selection',
       layout: roundLine,
       paint: {
-        'line-color': layer.casing,
+        'line-color': palette.casing,
         'line-opacity': 1,
         'line-width': 8,
       },
@@ -187,7 +187,7 @@ export function buildPreviewLayers(
       source: 'selected-section',
       layout: roundLine,
       paint: {
-        'line-color': layer.casing,
+        'line-color': palette.casing,
         'line-opacity': 1,
         'line-width': 7,
       },

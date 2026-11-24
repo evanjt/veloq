@@ -5,6 +5,7 @@
     "saveProvisionalActivity",
     "provisionalActivityId",
     "activityNotification",
+    "pulledRideEntry",
     "getActivityIds",
     "getGpsFetchCandidates",
     "hasActivity",

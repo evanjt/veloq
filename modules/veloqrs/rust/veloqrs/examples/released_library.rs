@@ -18,6 +18,7 @@
 //! name is invented, since the fixture is committed to a public repository.
 
 use rusqlite::{Connection, params};
+use veloqrs::net::types::{ActivityCensusEntry, StreamDto};
 use veloqrs::sections::CreateSectionParams;
 use veloqrs::{FfiActivityMetrics, GpsPoint, PersistentEngine};
 
@@ -67,6 +68,54 @@ fn section(
     }
 }
 
+/// The census, body and series rows a sync leaves for each activity: the
+/// census pull records the version, the body write marks it fetched, and the
+/// stream pass stores the series.
+fn store_synced_rows(engine: &mut PersistentEngine, ride: &[GpsPoint], run: &[GpsPoint]) {
+    let activities = [
+        ("lib-ride-1", "2025-10-21", 1_761_000_000_i64, ride.len()),
+        ("lib-ride-2", "2025-10-22", 1_761_086_400, ride.len()),
+        ("lib-ride-3", "2025-10-23", 1_761_172_800, ride.len()),
+        ("lib-run-1", "2025-10-24", 1_761_259_200, run.len()),
+    ];
+    let census: Vec<ActivityCensusEntry> = activities
+        .iter()
+        .map(|(id, day, _, _)| ActivityCensusEntry {
+            id: id.to_string(),
+            start_date_local: Some(format!("{day}T06:00:00")),
+            created: Some(format!("{day}T00:00:00Z")),
+            icu_sync_date: Some(format!("{day}T00:10:00Z")),
+            has_latlng: true,
+            has_series: true,
+        })
+        .collect();
+    engine
+        .record_activity_census("demo", &census)
+        .expect("record census");
+    for (id, _, date, count) in &activities {
+        engine
+            .store_synced_activity_bodies(
+                "demo",
+                &[(id.to_string(), *date, format!("{{\"id\":\"{id}\"}}"))],
+                &[id.to_string()],
+                vec![veloqrs::ActivityMetrics {
+                    activity_id: id.to_string(),
+                    date: *date,
+                    ..Default::default()
+                }],
+            )
+            .expect("store body");
+        let heartrate = StreamDto {
+            kind: "heartrate".to_string(),
+            data: (0..*count).map(|i| Some(120.0 + (i % 40) as f64)).collect(),
+            data2: None,
+        };
+        engine
+            .store_activity_streams(id, &[heartrate])
+            .expect("store series");
+    }
+}
+
 fn main() {
     let path = std::env::args()
         .nth(1)
@@ -86,6 +135,7 @@ fn main() {
     engine
         .add_activity("lib-run-1".to_string(), run.clone(), "Run".to_string())
         .expect("add run");
+    store_synced_rows(&mut engine, &ride, &run);
     engine
         .set_activity_metrics_extended(vec![
             metrics("lib-ride-1", "Morning loop", 1_761_000_000, "Ride"),

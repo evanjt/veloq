@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use super::super::{PersistentEngine, get_section_word};
 use super::numbers::label_number;
+use tracematch::GpsPoint;
 use tracematch::sections::shares_ground;
 
 #[cfg(test)]
@@ -65,11 +66,24 @@ impl PersistentEngine {
         section_id: &str,
         name: Option<&str>,
     ) -> Result<(), SectionNameError> {
+        self.record_shown_name_change(section_id, |engine| {
+            engine.write_section_name(section_id, name)
+        })
+    }
+
+    /// Run a write that can move the name a section shows, inside one savepoint, and append a
+    /// `renamed` ledger row holding the name before and after when it did. A failed write rolls
+    /// back, ledger row included.
+    pub(super) fn record_shown_name_change<E: From<String>>(
+        &mut self,
+        section_id: &str,
+        write: impl FnOnce(&mut Self) -> Result<(), E>,
+    ) -> Result<(), E> {
         let before = pooled::all_section_names(&self.db).remove(section_id);
         self.db
             .execute_batch("SAVEPOINT name_edit")
-            .map_err(|e| e.to_string())?;
-        let written = self.write_section_name(section_id, name).and_then(|()| {
+            .map_err(|e| E::from(e.to_string()))?;
+        let written = write(self).and_then(|()| {
             let after = pooled::all_section_names(&self.db).remove(section_id);
             if before == after {
                 return Ok(());
@@ -80,13 +94,15 @@ impl PersistentEngine {
                 serde_json::json!({ "from": before, "to": after }),
                 None,
             )
-            .map_err(SectionNameError::from)
+            .map_err(E::from)
         });
         let closed = match &written {
             Ok(()) => "RELEASE name_edit",
             Err(_) => "ROLLBACK TO name_edit; RELEASE name_edit",
         };
-        self.db.execute_batch(closed).map_err(|e| e.to_string())?;
+        self.db
+            .execute_batch(closed)
+            .map_err(|e| E::from(e.to_string()))?;
         written
     }
 
@@ -189,6 +205,45 @@ impl PersistentEngine {
     /// ground (a rename relabels that one), since it shows its name again once
     /// its ground is detected.
     fn name_shown_by_another_section(&self, section_id: &str, name: &str) -> Result<bool, String> {
+        let own_line = self.stored_section_polyline(section_id).unwrap_or_default();
+        self.name_shown_beside(section_id, &own_line, name)
+    }
+
+    /// Whether `name` could be given to a section that does not exist yet,
+    /// whose ground is `ground`: another section shows it, or it is the
+    /// numbered label of a section that holds that number.
+    pub(crate) fn check_new_section_name(
+        &self,
+        ground: &[GpsPoint],
+        name: &str,
+    ) -> Result<(), SectionNameError> {
+        let numbered = match label_number(name, &get_section_word()) {
+            Some(number) => self
+                .db
+                .query_row(
+                    "SELECT 1 FROM section_numbers WHERE number = ?",
+                    params![number],
+                    |_| Ok(()),
+                )
+                .optional()
+                .map_err(|e| e.to_string())?
+                .is_some(),
+            None => false,
+        };
+        if numbered || self.name_shown_beside("", ground, name)? {
+            return Err(SectionNameError::Taken(name.to_string()));
+        }
+        Ok(())
+    }
+
+    /// [`Self::name_shown_by_another_section`] for a section whose ground is
+    /// `own_line`, which may be one not stored yet.
+    fn name_shown_beside(
+        &self,
+        section_id: &str,
+        own_line: &[GpsPoint],
+        name: &str,
+    ) -> Result<bool, String> {
         self.ensure_named_overlay();
         let overlay = self.named_overlay_cached_names();
         if overlay
@@ -197,11 +252,10 @@ impl PersistentEngine {
         {
             return Ok(true);
         }
-        let own_line = self.stored_section_polyline(section_id).unwrap_or_default();
         if self.get_named_corridors().iter().any(|c| {
             c.section_id.is_none()
                 && c.name == name
-                && (own_line.is_empty() || !shares_ground(&own_line, &c.footprint))
+                && (own_line.is_empty() || !shares_ground(own_line, &c.footprint))
         }) {
             return Ok(true);
         }

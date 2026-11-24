@@ -48,8 +48,10 @@ pub(crate) const SETTING_KEYS: [&str; 6] =
 /// listed.
 const HISTORY_START: &str = "2000-01-01";
 
-/// Days a pass looks back from its watermark.
-const OVERLAP_DAYS: i64 = 2;
+/// Days a pass looks back from its watermark. Garmin lists by the day a ride
+/// started, and a ride can be uploaded days after it, so the window is wide.
+/// Rides already held are not downloaded again.
+const OVERLAP_DAYS: i64 = 30;
 
 /// Days the first pass lists; the backfill continues from before them.
 const FIRST_WINDOW_DAYS: i64 = 30;
@@ -119,6 +121,9 @@ pub(crate) trait PullStore: Send + Sync {
     /// Work out what the rides stored since the last call owe the library,
     /// once for all of them.
     fn finish(&self, keys: &[String]);
+    /// Tell the athlete of a ride stored in a window that has finished, when
+    /// it is news.
+    fn announce(&self, listed: &ListedActivity);
 }
 
 /// The library open at one install.
@@ -152,24 +157,26 @@ impl PullStore for InstallStore {
     fn ingest(&self, listed: &ListedActivity, fit: &[u8]) -> Result<Ingested, IngestError> {
         use crate::persistence::settings::settings_keys::GARMIN_UPLOAD;
         let keep_for_upload = self.setting(GARMIN_UPLOAD).as_deref() == Some("true");
-        let ingested =
-            super::ingest::ingest_original_in_batch(self.0, listed, fit, keep_for_upload, false)?;
-        if matches!(ingested, Ingested::Stored { .. })
-            && crate::push::is_recent_ride(listed.start_time_gmt.as_deref(), Utc::now())
-        {
-            crate::push::announce_pulled_ride(
-                self.0,
-                &crate::persistence::origin::garmin_source_key(listed.activity_id),
-                listed.activity_name.as_deref().unwrap_or_default(),
-            );
-        }
-        Ok(ingested)
+        super::ingest::ingest_original_in_batch(self.0, listed, fit, keep_for_upload, false)
     }
 
     fn finish(&self, keys: &[String]) {
         if !super::ingest::finish_batch_for(self.0, keys) {
             log::warn!("veloqrs: [garmin] a window's rides were not settled: the engine closed");
         }
+    }
+
+    fn announce(&self, listed: &ListedActivity) {
+        if !crate::push::is_recent_ride(listed.start_time_gmt.as_deref(), Utc::now()) {
+            return;
+        }
+        let key = crate::persistence::origin::garmin_source_key(listed.activity_id);
+        crate::push::ready_stored_ride(self.0, &key);
+        crate::push::announce_pulled_ride(
+            self.0,
+            &key,
+            listed.activity_name.as_deref().unwrap_or_default(),
+        );
     }
 }
 
@@ -365,6 +372,7 @@ async fn pull_window(
     let held = store.completed(&ids);
     let mut stored = 0u32;
     let mut stored_keys: Vec<String> = Vec::new();
+    let mut stored_rides: Vec<&ListedActivity> = Vec::new();
     let mut failures = 0u32;
     let mut skipped = read_skipped(store);
     let before = skipped.clone();
@@ -417,6 +425,7 @@ async fn pull_window(
                 stored_keys.push(crate::persistence::origin::garmin_source_key(
                     ride.activity_id,
                 ));
+                stored_rides.push(ride);
                 failures = 0;
                 skipped.remove(&ride.activity_id);
             }
@@ -439,6 +448,9 @@ async fn pull_window(
     }
     if !stored_keys.is_empty() {
         store.finish(&stored_keys);
+        for ride in &stored_rides {
+            store.announce(ride);
+        }
     }
     if stored > 0 {
         let before: u32 = store

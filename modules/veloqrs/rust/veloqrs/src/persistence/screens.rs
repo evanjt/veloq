@@ -1814,6 +1814,7 @@ pub(crate) fn section_detail_from<R>(
     curves_of: impl FnOnce(Option<&str>) -> Option<std::sync::Arc<Option<crate::FfiSectionLapCurves>>>,
     efficiency_of: impl FnOnce(&str, i64) -> Option<crate::FfiEfficiencyTrend>,
     mut untimed_of: impl FnMut(Option<&str>) -> Vec<crate::SectionPerformanceRecord>,
+    mut untimed_traversals_of: impl FnMut(Option<&str>, i64) -> u32,
     mut read: R,
 ) -> crate::FfiSectionPerformanceData
 where
@@ -1833,21 +1834,24 @@ where
     // A sport is offered when it has a lap on the chart over the range, an
     // excluded lap to restore, or a pass that crosses no gate and is listed as
     // a partial lap. A sport with none would lead to an empty page. Its count
-    // is every pass over the range, timed or not, which is what the lap list
-    // shows.
+    // is the chart's laps plus the untimed passes that are complete
+    // traversals, which is what the section's list row counts.
     let offered: Vec<(String, u32)> = sports
         .iter()
         .filter_map(|(sport, _)| {
             let timed = chart_from_cutoff(&read(Some(sport), laps::Rows::Included), cutoff)
                 .points
                 .len() as u32;
-            let restorable = !read(Some(sport), laps::Rows::Excluded).records.is_empty();
-            let untimed: u32 = untimed_of(Some(sport))
+            let restorable = read(Some(sport), laps::Rows::Excluded)
+                .records
                 .iter()
-                .filter(|r| r.activity_date >= crate::WholeNumber(cutoff))
-                .map(|r| r.laps.len() as u32)
-                .sum();
-            (timed + untimed > 0 || restorable).then(|| (sport.clone(), timed + untimed))
+                .any(|r| r.activity_date >= crate::WholeNumber(cutoff));
+            let untimed = untimed_traversals_of(Some(sport), cutoff);
+            let listed_only = untimed_of(Some(sport))
+                .iter()
+                .any(|r| r.activity_date >= crate::WholeNumber(cutoff));
+            (timed + untimed > 0 || restorable || listed_only)
+                .then(|| (sport.clone(), timed + untimed))
         })
         .collect();
 
@@ -1961,7 +1965,12 @@ where
         sport_type,
         sport_counts,
         calendar_summary: crate::persistence::fitness::derivations::calendar_from(&all),
-        lap_records: lap_records(&all, &excluded.records, &untimed_of(filter.as_deref())),
+        lap_records: lap_records(
+            &all,
+            &excluded.records,
+            &untimed_of(filter.as_deref()),
+            cutoff,
+        ),
         performances: crate::FfiSectionPerformanceResult::from(performances),
         chart_data,
         excluded_points,
@@ -2002,19 +2011,33 @@ fn shown_best_is_record(
         && crate::persistence::records::is_section_record_pr(all, whole)
 }
 
-/// The lap list's rows: every lap of each activity, the record lap of each
-/// direction over the whole included history flagged.
+/// The lap list's rows: every lap of each activity dated at or after the
+/// cutoff, the record lap of each direction over the whole included history
+/// flagged, so a range filters the rows and never moves the record.
 fn lap_records(
     all: &crate::SectionPerformanceResult,
     excluded: &[crate::SectionPerformanceRecord],
     untimed: &[crate::SectionPerformanceRecord],
+    cutoff: i64,
 ) -> Vec<crate::SectionPerformanceRecord> {
+    let in_range = |records: &[crate::SectionPerformanceRecord]| -> Vec<_> {
+        records
+            .iter()
+            .filter(|r| r.activity_date >= crate::WholeNumber(cutoff))
+            .cloned()
+            .collect()
+    };
+    let (included, excluded, untimed) = (
+        in_range(&all.records),
+        in_range(excluded),
+        in_range(untimed),
+    );
     let record_laps: Vec<(&str, &str)> = [false, true]
         .into_iter()
         .filter_map(|reverse| crate::persistence::records::section_record_lap(all, reverse))
         .map(|(record, lap)| (record.activity_id.as_str(), lap.id.as_str()))
         .collect();
-    with_unlisted_laps(&all.records, &[excluded, untimed])
+    with_unlisted_laps(&included, &[&excluded, &untimed])
         .into_iter()
         .map(|mut record| {
             for lap in &mut record.laps {
@@ -2322,26 +2345,15 @@ struct SectionPrStanding {
     delta_seconds: Option<f64>,
 }
 
-fn counted_pr_laps<'a>(
-    records: &'a [crate::SectionPerformanceRecord],
-    direction: &str,
-    section_distance: f64,
-) -> Vec<(&'a crate::SectionPerformanceRecord, &'a crate::SectionLap)> {
-    records
-        .iter()
-        .flat_map(|activity| activity.laps.iter().map(move |lap| (activity, lap)))
-        .filter(|(_, lap)| {
-            lap.direction == direction
-                && !lap.excluded
-                && lap.time.is_finite()
-                && lap.time > 0.0
-                && crate::persistence::records::covers_enough_for_record(
-                    lap.coverage,
-                    lap.distance,
-                    section_distance,
-                )
+/// The passes of a section that may stand for its figures, both directions:
+/// the same set the record and its standing are read from.
+fn section_traversals(records: &[crate::SectionPerformanceRecord]) -> u32 {
+    [false, true]
+        .into_iter()
+        .map(|reverse| {
+            crate::persistence::records::record_eligible_laps_in(records, reverse).count() as u32
         })
-        .collect()
+        .sum()
 }
 
 fn section_pr_standing(
@@ -2349,8 +2361,8 @@ fn section_pr_standing(
     record: &crate::SectionPerformanceRecord,
     reverse: bool,
 ) -> SectionPrStanding {
-    let direction = if reverse { "reverse" } else { "same" };
-    let mut laps = counted_pr_laps(records, direction, record.section_distance);
+    let mut laps: Vec<_> =
+        crate::persistence::records::record_eligible_laps_in(records, reverse).collect();
     let standing_count = laps.len() as u32;
     let Some(pr_index) = laps.iter().position(|(activity, lap)| {
         activity.activity_id == record.activity_id && lap.time == record.best_time
@@ -2975,6 +2987,7 @@ pub mod pooled {
                 section_efficiency_trend_of(conn, section_id, sport, &names, since)
             },
             |sport| pooled::untimed_section_passes(conn, section_id, sport),
+            |sport, since| laps::untimed_traversals(conn, section_id, sport, since),
             |sport, rows| match rows {
                 laps::Rows::Included => {
                     pooled::cached_section_performances(conn, section_id, sport)
@@ -3326,6 +3339,7 @@ pub mod pooled {
                 efficiency_trend(group_id, sport, name, &efforts)
             },
             |_| Vec::new(),
+            |_, _| 0,
             |sport, rows| std::sync::Arc::new(attempts_of(sport, rows)),
         )
     }
@@ -3556,14 +3570,7 @@ pub mod pooled {
             }
             let perf = performances::cached_section_performances(conn, &s.id, Some(sport));
             // The per-direction bests exclude partial and short traversals.
-            let best = [
-                (false, perf.best_forward_record.as_ref()),
-                (true, perf.best_reverse_record.as_ref()),
-            ]
-            .into_iter()
-            .filter_map(|(reverse, record)| record.map(|record| (reverse, record)))
-            .filter(|(_, record)| crate::persistence::records::is_section_record_pr(&perf, record))
-            .min_by(|(_, a), (_, b)| a.best_time.total_cmp(&b.best_time));
+            let best = crate::persistence::records::headline_section_record(&perf);
             if let Some((reverse, record)) = best
                 && record.activity_date >= crate::WholeNumber(recent_since)
             {
@@ -3580,7 +3587,7 @@ pub mod pooled {
                     Some(held) if days_ago < held.days_ago => {
                         held.best_time = record.best_time;
                         held.days_ago = days_ago;
-                        held.traversal_count = perf.records.iter().map(|r| r.lap_count).sum();
+                        held.traversal_count = super::section_traversals(&perf.records);
                         held.standing_count = standing.standing_count;
                         held.percentile_faster = standing.percentile_faster;
                         held.previous_best_time = standing.previous_best_time;
@@ -3609,7 +3616,7 @@ pub mod pooled {
                         // This sport's passes, not the section's. `perf` is
                         // already filtered to the sport the record was set
                         // in, and every record carries its laps.
-                        traversal_count: perf.records.iter().map(|r| r.lap_count).sum(),
+                        traversal_count: super::section_traversals(&perf.records),
                         standing_count: standing.standing_count,
                         percentile_faster: standing.percentile_faster,
                         previous_best_time: standing.previous_best_time,
@@ -4379,6 +4386,8 @@ pub mod pooled {
             None
         };
         let (route_count, route_lines) = match layers.route_lines {
+            // Matching off, no route is stored for the map to count or draw.
+            _ if !crate::persistence::settings::detection_enabled_from(conn) => (0, None),
             Some(held) => route_line_layer(conn, stamp, holds(held)),
             // Off, the read takes the count column alone: no route group or
             // track is touched.
@@ -4787,6 +4796,7 @@ mod tests {
             |_| Some(std::sync::Arc::new(None)),
             |_, _| None,
             |_| Vec::new(),
+            |_, _| 0,
             |_, rows| match rows {
                 laps::Rows::Included => all.clone(),
                 laps::Rows::Excluded => std::sync::Arc::new(laps::empty()),
@@ -7396,6 +7406,46 @@ mod tests {
         assert_eq!(lap_ids(&opened.excluded_points), vec!["ride_x_lap0"]);
     }
 
+    /// Scenario: a section ridden five days ago and 700 days ago (that lap
+    /// excluded), and walked once 700 days ago, the walk excluded. The athlete
+    /// picks one month.
+    ///
+    /// Expected behaviour: the lap list holds only the recent ride, and the
+    /// walk is not offered, since neither has a lap in range. All time lists
+    /// them all again.
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn the_lap_list_follows_the_range() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("laps_range.db");
+        let mut engine = section_detail_engine(
+            path.to_str().expect("utf-8"),
+            &[
+                ("ride_now", "Ride", 5, &[(200.0, false)]),
+                ("ride_old", "Ride", 700, &[(190.0, true)]),
+                ("walk_old", "Walk", 700, &[(900.0, true)]),
+            ],
+        );
+
+        let month = performance_detail(&mut engine, 30, Some("Ride"));
+        let listed: Vec<&str> = month
+            .lap_records
+            .iter()
+            .map(|r| r.activity_id.as_str())
+            .collect();
+        assert_eq!(listed, vec!["ride_now"]);
+        let sports: Vec<&str> = month
+            .sport_counts
+            .iter()
+            .map(|c| c.sport_type.as_str())
+            .collect();
+        assert_eq!(sports, vec!["Ride"]);
+
+        let all = performance_detail(&mut engine, 0, Some("Ride"));
+        assert_eq!(all.lap_records.len(), 2);
+    }
+
     /// Scenario: a section holding one timed pass and one pass that crosses
     /// no gate, so it has no lap time.
     ///
@@ -7665,7 +7715,6 @@ mod tests {
     /// header counts, with the exclusions the chart applies, so on one month
     /// they read Ride 2 and Run 3, and the header under the Run chip reads 3.
     #[test]
-    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn the_sport_counts_are_laps_over_the_range() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");
@@ -7722,6 +7771,54 @@ mod tests {
             .expect("a Run pill");
         assert_eq!(run.count, 3);
         assert_eq!(all.chart_data.points.len(), 3);
+    }
+
+    /// Scenario: a section with one timed ride, a fragment of its ground
+    /// that has no lap time, and a pass that crosses no gate and is stored as
+    /// a partial overlap.
+    ///
+    /// Expected behaviour: the pill counts what the section's list row counts,
+    /// so neither untimed row is added; the lap list still shows the pass that
+    /// crosses no gate.
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn untimed_fragments_are_not_in_the_sport_count() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("untimed_fragments.db");
+        let mut engine = section_detail_engine(
+            path.to_str().expect("utf-8"),
+            &[("ride_a", "Ride", 3, &[(200.0, false)])],
+        );
+        engine
+            .db
+            .execute_batch(
+                "INSERT INTO section_activities (section_id, activity_id, direction,
+                     start_index, end_index, distance_meters, lap_time, lap_pace, coverage)
+                 VALUES ('auto1', 'ride_a', 'same', 160, 170, 300.0, NULL, NULL, 0.3);
+                 INSERT INTO section_activities (section_id, activity_id, direction,
+                     start_index, end_index, distance_meters, lap_time, lap_pace, coverage)
+                 VALUES ('auto1', 'ride_a', 'partial', 200, 210, 900.0, NULL, NULL, 0.9);",
+            )
+            .expect("untimed rows");
+        engine.invalidate_perf_cache();
+
+        let listed: u32 = engine
+            .db
+            .query_row(
+                &crate::persistence::schema::visit_count_sql("'auto1'"),
+                [],
+                |r| r.get(0),
+            )
+            .expect("visit count");
+        let data = performance_detail(&mut engine, 0, Some("Ride"));
+        let ride = data
+            .sport_counts
+            .iter()
+            .find(|c| c.sport_type == "Ride")
+            .expect("a Ride pill");
+        assert_eq!(ride.count, listed);
+        assert_eq!(ride.count, 1);
     }
 
     /// Scenario: a section ridden twice, run three laps and hiked twice, the
@@ -7847,7 +7944,6 @@ mod tests {
     /// in the range, so the run (3) opens ahead of the ride (2) and its chip
     /// is the first offered.
     #[test]
-    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
     fn with_no_sport_asked_the_default_is_the_sport_with_most_traversals() {
         let _serial = crate::test_globals::serial_global_state();
         let dir = tempfile::TempDir::new().expect("tempdir");

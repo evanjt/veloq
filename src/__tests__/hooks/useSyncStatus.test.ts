@@ -16,6 +16,7 @@ import {
   useSyncState,
   useSyncStatus,
   useTrackStage,
+  useTrackStep,
 } from '@/shared/native/useSyncStatus';
 import { SyncState, TrackStep, type SyncStatus, type TrackStage } from 'veloqrs';
 
@@ -223,4 +224,28 @@ vaultIt('wakes no reader for a timed read that found the stage where it was', as
 
   expect(engine.getSyncStatus.mock.calls.length).toBeGreaterThan(1);
   expect(renders).toBe(first);
+});
+
+vaultIt('reports the track step alone, so progress alone does not re-render', async () => {
+  const engine = fakeEngine(settledWith(downloading(0, 12)));
+  mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
+  let renders = 0;
+  const { result } = await renderHook(() => {
+    renders += 1;
+    return useTrackStep();
+  });
+  expect(result.current).toBe(TrackStep.Downloading);
+  const before = renders;
+
+  engine.setSnapshot(settledWith(downloading(6, 12)));
+  await act(() => {
+    jest.advanceTimersByTime(TRACK_STAGE_REREAD_MS);
+  });
+  expect(renders).toBe(before);
+
+  engine.setSnapshot(settledWith({ ...downloading(0, 0), step: TrackStep.Held }));
+  await act(() => {
+    jest.advanceTimersByTime(TRACK_STAGE_REREAD_MS);
+  });
+  expect(result.current).toBe(TrackStep.Held);
 });

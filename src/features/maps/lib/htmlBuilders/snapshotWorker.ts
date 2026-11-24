@@ -201,12 +201,11 @@ ${visibleInsetScript()}
       window.map.on('error', function(e) {
         var msg = e.error ? e.error.message : JSON.stringify(e);
         var status = e.error && e.error.status;
-        // A 404 from a regional satellite source is a tile outside its
-        // coverage, drawn by the global layer beneath. From any other source
-        // it is a hole in the picture, and the tile store answers a refusal
-        // as 404 too. A 404 with no source is a sprite or glyph, not a tile.
+        // MapLibre fires no error for a tile that answered 404: it marks the
+        // tile errored and says nothing. Those are read from the source
+        // caches by _tileFailures. A 404 with no source is a sprite or glyph.
         var is404 = status === 404 || /HTTP 404/.test(msg);
-        if (is404 && (!e.sourceId || window._regionalSatelliteSources.indexOf(e.sourceId) !== -1)) return;
+        if (is404 && !e.sourceId) return;
         window._rn_log('Map error: ' + msg);
         if (e.sourceId || (e.error && (status >= 400 || /tile|source|fetch|network|load/i.test(msg)))) {
           window._tileErrorCount++;
@@ -242,6 +241,28 @@ ${visibleInsetScript()}
       });
     };
     window._bootMap();
+
+    // Tile failures of the render in hand: the error events counted, or the
+    // in-view tiles MapLibre holds as errored, whichever is larger. The
+    // regional satellite source is left out, since a tile outside its
+    // coverage is drawn by the global layer beneath.
+    window._tileFailures = function() {
+      var held = 0;
+      try {
+        var caches = window.map.style.sourceCaches || {};
+        Object.keys(caches).forEach(function(id) {
+          if (window._regionalSatelliteSources.indexOf(id) !== -1) return;
+          var cache = caches[id];
+          cache.getIds().forEach(function(key) {
+            var tile = cache.getTileByID(key);
+            if (tile && tile.state === 'errored') held++;
+          });
+        });
+      } catch (e) {
+        // A style mid-swap has no caches to read.
+      }
+      return Math.max(window._tileErrorCount, held);
+    };
 
     // The map keeps the GPU state of every style it has drawn for as long as
     // it lives, and this page lives as long as the feed. Removing it loses

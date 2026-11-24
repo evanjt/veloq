@@ -5,7 +5,10 @@
  * Expected behaviour: the card waits while the sync is running, and shows the
  * download mark only once a settled sync has left the track behind.
  */
-import { mapPreviewState } from '../mapPreviewState';
+import { SyncState, TrackStep } from 'veloqrs';
+import { mapPreviewState, tracksOwed } from '../mapPreviewState';
+
+jest.mock('veloqrs', () => require('../../../../__tests__/__shared__/veloqrsStub').withOverrides());
 
 const inputs = {
   hasGpsData: true,
@@ -34,5 +37,21 @@ describe('the activity card map preview state', () => {
 
   it("keeps the stream read's own loading state", () => {
     expect(mapPreviewState({ ...inputs, isLoading: true })).toBe('loading');
+  });
+});
+
+describe('whether a track is still owed', () => {
+  it('is owed while a sync runs, whatever the stage', () => {
+    expect(tracksOwed(SyncState.Syncing, null)).toBe(true);
+  });
+
+  it('is owed after the sync settles while the GPS pass downloads', () => {
+    expect(tracksOwed(SyncState.Idle, TrackStep.Downloading)).toBe(true);
+  });
+
+  it('is not owed when settled with no stage, or a held or later stage', () => {
+    expect(tracksOwed(SyncState.Idle, null)).toBe(false);
+    expect(tracksOwed(SyncState.Idle, TrackStep.Held)).toBe(false);
+    expect(tracksOwed(SyncState.Idle, TrackStep.Analysing)).toBe(false);
   });
 });

@@ -696,11 +696,16 @@ fn send_and_settle(
 
     let id = ride.id.as_str();
     let install_f = install as f64;
-    let in_doubt = |value: bool| {
-        if let Some(Err(err)) = under(install, |e| e.set_recording_upload_in_doubt(id, value)) {
-            log::warn!("veloqrs: [upload] could not mark {id}'s attempt: {err}");
-        }
-    };
+    // Whether the mark was written under the live install.
+    let in_doubt =
+        |value: bool| match under(install, |e| e.set_recording_upload_in_doubt(id, value)) {
+            Some(Ok(())) => true,
+            Some(Err(err)) => {
+                log::warn!("veloqrs: [upload] could not mark {id}'s attempt: {err}");
+                false
+            }
+            None => false,
+        };
 
     // An earlier attempt may have created the activity without the answer
     // saying so. Posting again would make a second one, so the server is asked
@@ -724,16 +729,39 @@ fn send_and_settle(
         },
         _ => {
             // Written before the request goes out, so an app killed while it
-            // is in flight leaves the next attempt looking first.
-            in_doubt(true);
-            let answer = match manual_body {
-                Some(body) => uplink.send_manual(ride, body),
-                None => uplink.send_file(ride),
-            };
-            if !may_have_landed(&answer) {
-                in_doubt(false);
+            // is in flight leaves the next attempt looking first. A request
+            // is never sent unmarked: a restore or a failed write leaves
+            // nothing to look for, and the send could post the ride twice.
+            if in_doubt(true) {
+                let manual_for_look = manual_body.clone();
+                let answer = match manual_body {
+                    Some(body) => uplink.send_manual(ride, body),
+                    None => uplink.send_file(ride),
+                };
+                // A success with no id says the server took the ride, not which
+                // activity it made, so the server is asked before the ride settles.
+                // When it names none the ride stays in doubt and the next attempt
+                // looks first.
+                let mut verdict = classify(&answer);
+                let mut named_none = false;
+                if verdict == Verdict::Landed(None) {
+                    verdict = match classify(&uplink.find_landed(ride, manual_for_look.as_ref())) {
+                        found @ Verdict::Landed(Some(_)) => found,
+                        _ => {
+                            named_none = true;
+                            Verdict::Retriable(
+                                "the server took the ride but named no activity".into(),
+                            )
+                        }
+                    };
+                }
+                if !named_none && !may_have_landed(&answer) {
+                    in_doubt(false);
+                }
+                verdict
+            } else {
+                Verdict::Network("the ride could not be marked before it was sent".to_string())
             }
-            classify(&answer)
         }
     };
 

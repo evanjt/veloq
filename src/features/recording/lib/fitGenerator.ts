@@ -2,6 +2,7 @@ import { summariseLap } from './savedLaps';
 import { elevationOver } from './elevationChange';
 import type { ActivityType, RecordingStreams, RecordingLap } from '@/types';
 import { debug } from '@/shared/debug/debug';
+import { SPORT_FAMILIES } from '@/shared/native/sportTaxonomy.generated';
 
 const log = debug.create('FitGenerator');
 
@@ -45,16 +46,16 @@ const APP_VERSION_MAJOR = 0;
 const APP_VERSION_MINOR = 4;
 const SOFTWARE_VERSION = APP_VERSION_MAJOR * 100 + APP_VERSION_MINOR; // 0.4 → 4
 
-// Sport types: [sport, sub_sport]
+// Sport types: [sport, sub_sport]. Mirrors `to_fit` in the engine's sport.rs, the owner of the pairing.
 const SPORT_MAP: Partial<Record<ActivityType, [number, number]>> = {
   Ride: [2, 0],
   VirtualRide: [2, 58],
   EBikeRide: [2, 28],
-  MountainBikeRide: [2, 1],
-  GravelRide: [2, 0],
+  MountainBikeRide: [2, 8],
+  GravelRide: [2, 46],
   Run: [1, 0],
-  VirtualRun: [1, 45],
-  TrailRun: [1, 1],
+  VirtualRun: [1, 58],
+  TrailRun: [1, 3],
   Treadmill: [1, 1],
   Walk: [11, 0],
   Hike: [17, 0],
@@ -64,22 +65,29 @@ const SPORT_MAP: Partial<Record<ActivityType, [number, number]>> = {
   NordicSki: [12, 0],
   Rowing: [15, 0],
   Kayaking: [41, 0],
-  Yoga: [4, 15],
-  WeightTraining: [4, 13],
+  Yoga: [4, 43],
+  WeightTraining: [4, 20],
   Workout: [4, 0],
-  Surfing: [56, 0],
+  Surfing: [38, 0],
   Snowboard: [14, 0],
   Golf: [25, 0],
   Skateboard: [0, 0],
   Other: [0, 0],
 };
 
+/** FIT stores cadence on foot as strides, a stride being two steps. */
+function fitCadence(activityType: ActivityType, stored: number): number {
+  return (SPORT_FAMILIES.strideCadence as readonly string[]).includes(activityType)
+    ? stored / 2
+    : stored;
+}
+
 function getSport(activityType: ActivityType): [number, number] {
   return SPORT_MAP[activityType] ?? [0, 0];
 }
 
 function dateToFitTimestamp(date: Date): number {
-  return Math.floor(date.getTime() / 1000) - FIT_EPOCH;
+  return Math.floor(date.getTime() / 1000) - FIT_EPOCH; // true-instant: FIT timestamps are UTC
 }
 
 function degreesToSemicircles(degrees: number): number {
@@ -359,7 +367,7 @@ export async function generateFitFile(params: {
     }
 
     // Cadence
-    const cad = streams.cadence?.[i] ?? 0;
+    const cad = fitCadence(activityType, streams.cadence?.[i] ?? 0);
     writer.writeUint8(cad > 0 ? Math.min(255, Math.round(cad)) : 0xff);
     if (Number.isFinite(cad) && cad > 0) {
       totalCadence += cad;
@@ -452,7 +460,9 @@ export async function generateFitFile(params: {
     writer.writeUint16(Math.min(65535, Math.round(lap.avgSpeed * 1000)));
     writer.writeUint8(lap.avgHeartrate ? Math.min(255, Math.round(lap.avgHeartrate)) : 0xff);
     writer.writeUint16(lap.avgPower != null ? Math.min(65534, Math.round(lap.avgPower)) : 0xffff);
-    writer.writeUint8(lap.avgCadence ? Math.min(255, Math.round(lap.avgCadence)) : 0xff);
+    writer.writeUint8(
+      lap.avgCadence ? Math.min(255, Math.round(fitCadence(activityType, lap.avgCadence))) : 0xff
+    );
   }
 
   // ── session message (local 3) ──────────────────────────────────────────────
@@ -497,7 +507,7 @@ export async function generateFitFile(params: {
   writer.writeUint8(avgHr > 0 ? Math.min(255, Math.round(avgHr)) : 0xff);
   writer.writeUint8(maxHr > 0 ? Math.min(255, maxHr) : 0xff);
   writer.writeUint8(avgCadence > 0 ? Math.min(255, Math.round(avgCadence)) : 0xff);
-  writer.writeUint8(maxCadence > 0 ? Math.min(255, maxCadence) : 0xff);
+  writer.writeUint8(maxCadence > 0 ? Math.min(255, Math.round(maxCadence)) : 0xff);
   writer.writeUint16(powerCount > 0 ? Math.min(65534, Math.round(avgPower)) : 0xffff);
   writer.writeUint16(powerCount > 0 ? Math.min(65534, Math.round(maxPower)) : 0xffff);
   writer.writeUint16(Math.min(65535, Math.round(climbing.gain)));

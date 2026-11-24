@@ -100,6 +100,9 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_activitymanager_provisional_id(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_activitymanager_pulled_ride_entry(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_activitymanager_remove(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -563,6 +566,9 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_recordingmanager_add_recording(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_recordingmanager_adopt_identity(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_fn_method_recordingmanager_attach_engine_activity(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -707,6 +713,9 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_routemanager_get_detail_performance(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_routemanager_get_guide_payload(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_routemanager_get_nearby_places(
@@ -1621,6 +1630,10 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_checksum_method_activitymanager_provisional_id(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_activitymanager_pulled_ride_entry(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_activitymanager_remove(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -2034,6 +2047,9 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_checksum_method_recordingmanager_add_recording(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value cpp_uniffi_veloqrs_checksum_method_recordingmanager_adopt_identity(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_checksum_method_recordingmanager_attach_engine_activity(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -2161,6 +2177,9 @@ protected:
       size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_checksum_method_routemanager_get_detail_performance(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_checksum_method_routemanager_get_guide_payload(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_routemanager_get_nearby_places(

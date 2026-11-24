@@ -507,6 +507,17 @@ describe('ActivityMapView', () => {
       expect(on3DModeChange).toHaveBeenLastCalledWith(false);
     });
 
+    it('reports the next 3D toggle when a terrain report lands after 3D is already off', async () => {
+      const on3DModeChange = jest.fn();
+      await renderActivityMap({ on3DModeChange });
+      await post({ type: 'mapReady' });
+
+      await post({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' });
+      await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
+
+      expect(on3DModeChange).toHaveBeenCalledWith(true);
+    });
+
     it('reports a toggle that follows a missing elevation model, so a retry is a choice', async () => {
       const on3DModeChange = jest.fn();
       await renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });

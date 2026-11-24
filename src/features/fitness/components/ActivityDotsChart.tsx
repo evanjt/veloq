@@ -22,7 +22,7 @@ import { sortByDateId } from '@/shared/activity/activityUtils';
 import { sportFamilyIcon, sportFamilyLabel } from '@/shared/activity/sportCategories';
 import type { DayLoad } from 'veloqrs';
 import type { WellnessData } from '@/types';
-import { stripMarks, stripKey, markFills, portionGap } from '../lib/stripMarks';
+import { stripMarks, stripKey, markFills, portionGap, noLoadMarkColour } from '../lib/stripMarks';
 import { dayLoadReadout } from '../lib/dayLoadReadout';
 import { groupColor } from '../lib/dayPillTone';
 import { formFromLoads } from '@/shared/math';
@@ -246,7 +246,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     return null;
   }
 
-  const mutedColor = isDark ? darkColors.textDisabled : colors.textDisabled;
+  const mutedColor = noLoadMarkColour(isDark);
   const colorOf = (group: string) => groupColor(group, isDark);
   const mutedTextColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   // The chip stands for the day the scrub or a sibling chart pinned, else the whole range.

@@ -79,8 +79,12 @@ describe('terrain preview cache keys the render, not just the style', () => {
     expect(getTerrainPreviewUri('a1', 'light', FLAT)).not.toBe(
       getTerrainPreviewUri('a1', 'light', DRAPED)
     );
-    expect(mockFileStore.get(getTerrainPreviewUri('a1', 'light', FLAT))).toBe('flatbytes');
-    expect(mockFileStore.get(getTerrainPreviewUri('a1', 'light', DRAPED))).toBe('drapedbytes');
+    expect(mockFileStore.get(getTerrainPreviewUri('a1', 'light', FLAT).split('?')[0])).toBe(
+      'flatbytes'
+    );
+    expect(mockFileStore.get(getTerrainPreviewUri('a1', 'light', DRAPED).split('?')[0])).toBe(
+      'drapedbytes'
+    );
   });
 
   it('survives a restart: the toggle is a key, so nothing has to be remembered', async () => {
@@ -105,7 +109,7 @@ describe('terrain preview cache keys the render, not just the style', () => {
 
     releaseDelete();
     await pending;
-    expect(mockFileStore.has(getTerrainPreviewUri('a1', 'light', FLAT))).toBe(false);
+    expect(mockFileStore.has(getTerrainPreviewUri('a1', 'light', FLAT).split('?')[0])).toBe(false);
   });
 
   it('clears every style and render of an activity and leaves its neighbours alone', async () => {
@@ -128,7 +132,35 @@ describe('terrain preview cache keys the render, not just the style', () => {
     await saveTerrainPreview('a1', 'light', DRAPED, 'first');
     await saveTerrainPreview('a1', 'light', DRAPED, 'second');
 
-    expect(mockFileStore.get(getTerrainPreviewUri('a1', 'light', DRAPED))).toBe('second');
+    expect(mockFileStore.get(getTerrainPreviewUri('a1', 'light', DRAPED).split('?')[0])).toBe(
+      'second'
+    );
     expect(await FileSystem.readDirectoryAsync('/mock/docs/terrain_previews/')).toHaveLength(1);
+  });
+});
+
+describe('a re-render of a key is a new uri', () => {
+  beforeEach(async () => {
+    await clearTerrainPreviews();
+    mockFileStore.clear();
+    mockDirStore.clear();
+    mockDirStore.add('/mock/docs/terrain_previews/');
+  });
+
+  it('hands a mounted card a different uri after a delete and a second save', async () => {
+    const first = await saveTerrainPreview('r1', 'light', DRAPED, 'old angle');
+    await deleteTerrainPreviewsForActivity('r1');
+    const second = await saveTerrainPreview('r1', 'light', DRAPED, 'new angle');
+
+    expect(second).not.toBe(first);
+    expect(getTerrainPreviewUri('r1', 'light', DRAPED)).toBe(second);
+    expect(mockFileStore.get(second.split('?')[0])).toBe('new angle');
+  });
+
+  it('hands a different uri when the same key is saved twice with no delete', async () => {
+    const first = await saveTerrainPreview('r2', 'light', FLAT, 'one');
+    const second = await saveTerrainPreview('r2', 'light', FLAT, 'two');
+
+    expect(second).not.toBe(first);
   });
 });

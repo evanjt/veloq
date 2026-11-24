@@ -76,7 +76,7 @@ const MAX_CACHED_PREVIEWS = 150;
  * (style, hillshade, tile loading, camera, pixel ratio).
  * On mismatch, all cached snapshots are cleared so users get fresh renders.
  */
-export const TERRAIN_CACHE_VERSION = 12;
+export const TERRAIN_CACHE_VERSION = 13;
 /** The rendering version the cached previews on this device were drawn at. */
 export const TERRAIN_PREVIEW_VERSION_KEY = 'terrain-preview-cache-version';
 const VERSION_KEY = TERRAIN_PREVIEW_VERSION_KEY;
@@ -118,6 +118,26 @@ function cacheKey(
 ): string {
   if (!is3D) return `${activityId}_${style}`;
   return downgradedTo ? `${activityId}_${style}_3d_${downgradedTo}` : `${activityId}_${style}_3d`;
+}
+
+/**
+ * The write each key was last given. A file path is a fact of the key alone, so
+ * a re-render lands on the path a mounted card already holds and the image
+ * component, seeing an identical uri, keeps the old picture. The revision rides
+ * on the uri as a query the file loaders ignore, and a counter shared by every
+ * key means a delete then a save can never reuse a number. Memory only: a
+ * launch mounts cards fresh, so it has nothing stale to repaint.
+ */
+const revisions = new Map<string, number>();
+let revisionCounter = 0;
+
+function bumpRevision(key: string): void {
+  revisions.set(key, ++revisionCounter);
+}
+
+function previewUri(key: string): string {
+  const revision = revisions.get(key);
+  return `${TERRAIN_DIR}${key}.jpg${revision ? `?v=${revision}` : ''}`;
 }
 
 /** In-memory index of cached compound keys, least recently served first. */
@@ -377,10 +397,10 @@ export function getTerrainPreviewUri(activityId: string, style: string, is3D: bo
   ) {
     const standIn = cacheKey(activityId, style, is3D, 'flat');
     touch(standIn);
-    return `${TERRAIN_DIR}${standIn}.jpg`;
+    return previewUri(standIn);
   }
   touch(asked);
-  return `${TERRAIN_DIR}${asked}.jpg`;
+  return previewUri(asked);
 }
 
 /**
@@ -441,6 +461,7 @@ export async function saveTerrainPreview(
     // Update index - remove if already present, add to end
     cachedKeys = cachedKeys.filter((k) => k !== key);
     cachedKeys.push(key);
+    bumpRevision(key);
   } finally {
     slotsInFlight.delete(key);
   }
@@ -448,7 +469,7 @@ export async function saveTerrainPreview(
   // have all landed in the index by here.
   writeStoredOrder();
 
-  return filePath;
+  return previewUri(key);
 }
 
 /**
@@ -467,6 +488,7 @@ export async function deleteTerrainPreviewsForActivity(activityId: string): Prom
   const prefix = `${activityId}_`;
   const toDelete = cachedKeys.filter((k) => k.startsWith(prefix));
   cachedKeys = cachedKeys.filter((k) => !k.startsWith(prefix));
+  for (const key of toDelete) revisions.delete(key);
   writeStoredOrder();
 
   for (const key of toDelete) {
@@ -541,6 +563,7 @@ export async function clearTerrainPreviews(): Promise<void> {
     // Best effort cleanup
   }
   cachedKeys = [];
+  revisions.clear();
   initialised = false;
   // A coalesced serve write still holding the old order would land after the
   // removal and put it back.

@@ -30,8 +30,15 @@ export function NotificationSection() {
   const { t } = useTranslation();
   const authMethod = useAuthStore((s) => s.authMethod);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
-  const { enabled, privacyAccepted, categories, setEnabled, acceptPrivacy, setCategoryEnabled } =
-    useNotificationPreferences();
+  const {
+    enabled,
+    privacyAccepted,
+    categories,
+    setEnabled,
+    acceptPrivacy,
+    setCategoryEnabled,
+    disableForApiKey,
+  } = useNotificationPreferences();
   const [toggling, setToggling] = useState(false);
   const permission = useNotificationPermission();
   const requestPermission = permission.request;
@@ -83,7 +90,12 @@ export function NotificationSection() {
 
   const handleMainToggle = useCallback(
     async (value: boolean) => {
-      if (!canEnable) return;
+      if (!canEnable) {
+        // A switch carried over from a session that could push can still be
+        // turned off. This session holds no token, so nothing is owed.
+        if (!value) disableForApiKey();
+        return;
+      }
 
       if (value) {
         if (!privacyAccepted) {
@@ -95,7 +107,14 @@ export function NotificationSection() {
         setEnabled(false);
       }
     },
-    [canEnable, privacyAccepted, setEnabled, showPrivacyNotice, turnOnWithPermission]
+    [
+      canEnable,
+      disableForApiKey,
+      privacyAccepted,
+      setEnabled,
+      showPrivacyNotice,
+      turnOnWithPermission,
+    ]
   );
 
   return (

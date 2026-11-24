@@ -19,6 +19,7 @@ import {
   type Row,
 } from '../../../web/connect/table';
 import { parse, write } from '../../../web/connect/router';
+import { atUtcOffset } from '../__shared__/fixedOffsetDate';
 
 const row = (id: string, over: Partial<Row> = {}): Row => ({ id, name: id, ...over });
 
@@ -162,7 +163,7 @@ describe('the hash query', () => {
 describe('rangeBounds', () => {
   const today = new Date(2026, 10, 12, 15, 30);
   const secs = (y: number, m: number, d: number, h = 0, min = 0, s = 0) =>
-    new Date(y, m, d, h, min, s).getTime() / 1000;
+    Date.UTC(y, m, d, h, min, s) / 1000;
 
   it('reaches back 90 days including today, to the end of today', () => {
     expect(rangeBounds('last90Days', today)).toEqual({
@@ -226,4 +227,35 @@ describe('columnsForWidth', () => {
     expect(columnsForWidth(1600)).toEqual(COLUMNS.map((c) => c.key));
     expect(columnsForWidth(2560)).toEqual(COLUMNS.map((c) => c.key));
   });
+});
+
+describe('rangeBounds off the UTC clock', () => {
+  const utc = (y: number, m: number, d: number, h = 0, min = 0, s = 0) =>
+    Date.UTC(y, m, d, h, min, s) / 1000;
+
+  it.each([10, -5])(
+    'names whole calendar days in the engine date space at UTC%+d',
+    (offsetHours) => {
+      const bounds = atUtcOffset(offsetHours, () => {
+        const today = new Date(2026, 10, 12, 21, 30);
+        return {
+          last90Days: rangeBounds('last90Days', today),
+          thisYear: rangeBounds('thisYear', today),
+          lastYear: rangeBounds('lastYear', today),
+        };
+      });
+      expect(bounds.last90Days).toEqual({
+        oldestTs: utc(2026, 10, 12 - 89),
+        newestTs: utc(2026, 10, 12, 23, 59, 59),
+      });
+      expect(bounds.thisYear).toEqual({
+        oldestTs: utc(2026, 0, 1),
+        newestTs: utc(2026, 10, 12, 23, 59, 59),
+      });
+      expect(bounds.lastYear).toEqual({
+        oldestTs: utc(2025, 0, 1),
+        newestTs: utc(2025, 11, 31, 23, 59, 59),
+      });
+    }
+  );
 });

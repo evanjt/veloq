@@ -1,4 +1,5 @@
 import { parseDecimalInput } from '@/shared/format/decimalInput';
+import { KG_TO_LB, toDisplayWeight } from '@/shared/format/weight';
 
 /** What a threshold field holds once the athlete leaves it. */
 export type ThresholdEntry =
@@ -15,4 +16,14 @@ export function readThresholdEntry(text: string, athleteValue: number | null): T
   const value = parseDecimalInput(text);
   if (value === null || value <= 0) return { kind: 'invalid' };
   return value === athleteValue ? { kind: 'unchanged' } : { kind: 'set', value };
+}
+
+/** The figure as the athlete's unit shows it: weight converts from kilograms, the rest passes through. */
+export function toThresholdDisplay(isWeight: boolean, value: number, isMetric: boolean): number {
+  return isWeight ? toDisplayWeight(value, isMetric) : value;
+}
+
+/** The inverse of {@link toThresholdDisplay}: what the athlete typed, back in the stored unit. */
+export function fromThresholdDisplay(isWeight: boolean, value: number, isMetric: boolean): number {
+  return isWeight && !isMetric ? value / KG_TO_LB : value;
 }

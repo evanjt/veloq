@@ -38,6 +38,7 @@ import {
 import { HIGHLIGHT_THROTTLE_MS, REGION_SETTLE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
 import { TRACK_FIT_PADDING, visibleMapInset } from '@/features/maps/lib/activityCamera';
 import { paddedFit, terrainOpeningCamera } from '@/features/maps/lib/cameraPadding';
+import { restoredCamera } from '@/features/maps/lib/settledCamera';
 import { useSettleCamera } from '@/features/maps/lib/useSettleCamera';
 import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
 import { BaseMapView } from './BaseMapView';
@@ -254,6 +255,8 @@ export const ActivityMapView = memo(function ActivityMapView({
   const {
     is3D: is3DMode,
     setIs3D: setIs3DMode,
+    leaveForFailure,
+    takeFailure,
     inherited: modeInherited,
   } = useSharedTerrain3D(!!initial3DCamera);
   // A screen covered by another keeps its WebViews but releases their maps,
@@ -413,6 +416,8 @@ export const ActivityMapView = memo(function ActivityMapView({
     }
     // A new handler is not a new choice: only a change of mode is written.
     if (prev3DModeRef.current === is3DMode) return;
+    // A failure in the fullscreen map marks the host, since that map has no ref of this view's.
+    if (takeFailure()) modeFromFailureRef.current = true;
     const gestureCamera = gestureCameraRef.current;
     if (!is3DMode) gestureCameraRef.current = null;
     const captured =
@@ -429,7 +434,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     // after moving the camera does not turn 3D off for it.
     if (captured) return;
     on3DModeChange?.(is3DMode);
-  }, [is3DMode, on3DModeChange, onCameraCapture]);
+  }, [is3DMode, on3DModeChange, onCameraCapture, takeFailure]);
 
   // Notify parent when map style changes (skip initial mount - only user-initiated changes)
   const styleInitRef = useRef(true);
@@ -454,10 +459,13 @@ export const ActivityMapView = memo(function ActivityMapView({
   // A page with no elevation tiles draws the flat map with 3D on top, so the map leaves 3D and
   // says why. The mode is not the athlete's choice and is not reported as one.
   const leave3DForMissingTerrain = useCallback(() => {
+    // A report that lands after the athlete left 3D has no mode to leave, and the flag would
+    // swallow their next toggle.
+    if (!is3DModeRef.current) return;
     modeFromFailureRef.current = true;
     userChose3DRef.current = true;
-    setIs3DMode(false);
-  }, [setIs3DMode]);
+    leaveForFailure();
+  }, [leaveForFailure]);
 
   const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(leave3DForMissingTerrain);
 
@@ -632,7 +640,12 @@ export const ActivityMapView = memo(function ActivityMapView({
   const initialCamera = useMemo((): MapCameraSpec => {
     // With no track the view draws its placeholder and no surface.
     if (!bounds) return { center: [0, 0], zoom: 2 };
-    if (camera2DOnHide) return camera2DOnHide;
+    if (camera2DOnHide) {
+      return restoredCamera(camera2DOnHide, {
+        bounds: { sw: bounds.sw, ne: bounds.ne },
+        padding: fitPadding,
+      });
+    }
     if (terrainOn && terrainCamera) return terrainCamera;
     return paddedFit({ sw: bounds.sw, ne: bounds.ne }, fitPadding);
   }, [bounds, camera2DOnHide, terrainOn, terrainCamera, fitPadding]);

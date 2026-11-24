@@ -27,14 +27,18 @@ function fakeMap() {
 
 function loadReport() {
   const posted: Record<string, unknown>[] = [];
+  const veloq: { terrain: unknown } = { terrain: {} };
   const win: Record<string, unknown> = {
+    _veloq: veloq,
     _rn_log: () => {},
     ReactNativeWebView: { postMessage: (m: string) => posted.push(JSON.parse(m)) },
   };
   new Function('window', terrainReportScript())(win);
   return {
     posted,
+    veloq,
     report: win._veloqTerrainReport as {
+      cancel(): void;
       watch(map: unknown): void;
       reportOnceSettled(map: unknown): void;
     },
@@ -96,5 +100,31 @@ describe('terrainReportScript', () => {
 
     map.emit('error', { sourceId: 'other', tile: {} });
     expect(map.repaints).toBe(1);
+  });
+
+  it('posts nothing when the terrain is removed before the report fires', () => {
+    const { posted, report, veloq } = loadReport();
+    const map = fakeMap();
+    report.watch(map);
+    report.reportOnceSettled(map);
+    map.emit('error', { sourceId: 'terrain', tile: {} });
+    map.emit('idle');
+
+    veloq.terrain = null;
+    jest.advanceTimersByTime(5000);
+    expect(posted).toEqual([]);
+  });
+
+  it('cancels a scheduled report', () => {
+    const { posted, report } = loadReport();
+    const map = fakeMap();
+    report.watch(map);
+    report.reportOnceSettled(map);
+    map.emit('error', { sourceId: 'terrain', tile: {} });
+    map.emit('idle');
+
+    report.cancel();
+    jest.advanceTimersByTime(5000);
+    expect(posted).toEqual([]);
   });
 });

@@ -169,6 +169,28 @@ describe('an indoor ride out of the foreground', () => {
     expect(streams.cadence.slice(3)).toEqual([0, 88, 88]);
   });
 
+  it('records every notification of a sensor that notifies a little under a second apart', async () => {
+    startIndoorRide();
+    await settle();
+    leaveTheApp();
+    await settle();
+
+    for (let n = 1; n <= 10; n++) sensor('heartrate', 140 + n, n * 0.99);
+
+    expect(useRecordingStore.getState().streams.time).toHaveLength(10);
+  });
+
+  it('records one sample per second from a sensor that notifies faster than the sample period', async () => {
+    startIndoorRide();
+    await settle();
+    leaveTheApp();
+    await settle();
+
+    for (let n = 1; n <= 29; n++) sensor('power', 200, n * 0.1);
+
+    expect(useRecordingStore.getState().streams.time).toHaveLength(3);
+  });
+
   it('keeps writing the backup from the notifications once an interval has passed', async () => {
     startIndoorRide();
     jest.advanceTimersByTime(2_000);

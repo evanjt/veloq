@@ -22,6 +22,7 @@ import { MAPLIBRE_GL_VERSION } from '@/features/maps/assets/maplibreRenderer.gen
 import {
   buildApplyScript,
   buildMapSurfaceHtml,
+  buildSettleInsetScript,
   buildRenderSnapshotScript,
   buildSetStyleScript,
   buildSnapshotWorkerHtml,
@@ -213,6 +214,15 @@ const RIDE_SPEC: MapSurfaceSpec = {
   interactiveLayers: ['ride-line'],
 };
 
+const STUB_PICK_ANY = `
+  window.__picks = [];
+  window._pickUnhiddenCamera = function(map, camera) {
+    window.__picks.push(1);
+    return { center: camera.center, zoom: camera.zoom, bearing: 180, pitch: camera.pitch };
+  };
+  true;
+`;
+
 const TILTED = { exaggeration: 1.5, pitch: 60 };
 
 /** A surface page opened flat, as `MapSurface` opens it, pitch and rotate gestures off. */
@@ -258,7 +268,11 @@ function isDemRequest(url: string): boolean {
   return url.startsWith(template.slice(0, template.indexOf('{z}')));
 }
 
-async function openSurface(browser: Chromium, failing?: (url: string) => boolean) {
+async function openSurface(
+  browser: Chromium,
+  failing?: (url: string) => boolean,
+  spec: MapSurfaceSpec = RIDE_SPEC
+) {
   const page = await browser.open({
     html: flatSurfaceHtml(),
     url: mapPageBaseUrl(),
@@ -268,7 +282,7 @@ async function openSurface(browser: Chromium, failing?: (url: string) => boolean
   await page.evaluate(HELPERS);
   await page.evaluate('window.__waitForMap(30000)');
   await page.evaluate(`window.__settle('first draw')`);
-  await page.evaluate(buildApplyScript(RIDE_SPEC));
+  await page.evaluate(buildApplyScript(spec));
   await page.evaluate(`window.__settle('ride drawn')`);
   return page;
 }
@@ -436,6 +450,65 @@ describe('the map pages in a headless Chromium', () => {
     );
 
     it(
+      'refits the turned camera so a tall route stays inside the frame',
+      async () => {
+        const tall: [number, number][] = [
+          [7.66, 45.9],
+          [7.665, 45.95],
+          [7.67, 46.0],
+          [7.665, 46.05],
+          [7.66, 46.1],
+        ];
+        const tallSpec: MapSurfaceSpec = {
+          ...RIDE_SPEC,
+          sources: {
+            ride: {
+              kind: 'geojson',
+              data: {
+                type: 'Feature',
+                properties: {},
+                geometry: { type: 'LineString', coordinates: tall },
+              },
+            },
+          },
+        };
+        const page = await openSurface(browser, undefined, tallSpec);
+        try {
+          await page.evaluate(`
+            window._pickUnhiddenCamera = function(map, camera, coords, spans, fit) {
+              var turned = { center: camera.center, zoom: camera.zoom, bearing: 90, pitch: camera.pitch };
+              return fit ? fit(turned) : turned;
+            };
+            true;
+          `);
+          await page.evaluate(
+            buildApplyScript({
+              terrain: { ...TILTED, ...buildSubjectTerrain({ subjectSource: 'ride' }) },
+            })
+          );
+          await page.evaluate(`window.__settle('terrain on')`);
+          await page.evaluate(`window.__settle('camera turned')`);
+          await page.evaluate(`window.__settle('camera refitted')`);
+          const outside = await page.evaluate<number>(`(function() {
+            var box = window.map.getContainer();
+            var coords = ${JSON.stringify(tall)};
+            var out = 0;
+            coords.forEach(function(c) {
+              var p = window.map.project(c);
+              if (p.x < -1 || p.y < -1 || p.x > box.clientWidth + 1 || p.y > box.clientHeight + 1) out++;
+            });
+            return out;
+          })()`);
+          expect(outside).toBe(0);
+          expect(await page.evaluate<number>('window.map.getBearing()')).toBeCloseTo(90, 0);
+        } finally {
+          await page.close();
+        }
+      },
+      PAGE_TIMEOUT_MS
+    );
+
+    it(
       'keeps the opening bearing when the camera is pinned',
       async () => {
         const { bearing, picks } = await terrainOn(
@@ -455,6 +528,88 @@ describe('the map pages in a headless Chromium', () => {
 
         expect(picks).toEqual([]);
         expect(bearing).toBe(0);
+      },
+      PAGE_TIMEOUT_MS
+    );
+  });
+
+  describe('a page opened at a centre and zoom with a frame', () => {
+    const BOUNDS = { sw: [7.65, 45.97] as [number, number], ne: [7.68, 45.98] as [number, number] };
+    const FRAME = { top: 60, right: 40, bottom: 40, left: 40 };
+    const RAISED = { top: 60, right: 40, bottom: 160, left: 40 };
+
+    async function openRestored() {
+      const html = buildMapSurfaceHtml({
+        style: 'light',
+        camera: {
+          center: [7.665, 45.975],
+          zoom: 13,
+          padding: FRAME,
+          padCamera: true,
+          subjectBounds: BOUNDS,
+          pinned: true,
+        },
+        interaction: { scroll: true, zoom: true, rotate: false, pitch: false },
+        devicePixelRatio: 1,
+        reduceMotion: false,
+        regionChangeThrottleMs: 100,
+      });
+      const page = await browser.open({
+        html,
+        url: mapPageBaseUrl(),
+        tileJsonUrls: tileJsonUrls(),
+      });
+      await page.evaluate(HELPERS);
+      await page.evaluate('window.__waitForMap(30000)');
+      await page.evaluate(`window.__settle('first draw')`);
+      return page;
+    }
+
+    it(
+      'refits every corner of the subject into the frame a sheet settle leaves',
+      async () => {
+        const page = await openRestored();
+        try {
+          await page.evaluate(buildSettleInsetScript({ kind: 'refit', padding: RAISED }, 0));
+          await page.evaluate(`window.__settle('refit')`);
+          const corners = await page.evaluate<{ x: number; y: number }[]>(`(function() {
+            var b = window._routeBounds;
+            return [[b[0][0], b[0][1]], [b[1][0], b[0][1]], [b[1][0], b[1][1]], [b[0][0], b[1][1]]]
+              .map(function(c) { var p = window.map.project(c); return { x: p.x, y: p.y }; });
+          })()`);
+          const size = await page.evaluate<{ w: number; h: number }>(
+            `({ w: window.map.getContainer().clientWidth, h: window.map.getContainer().clientHeight })`
+          );
+          for (const c of corners) {
+            expect(c.x).toBeGreaterThanOrEqual(RAISED.left - 1);
+            expect(c.x).toBeLessThanOrEqual(size.w - RAISED.right + 1);
+            expect(c.y).toBeGreaterThanOrEqual(RAISED.top - 1);
+            expect(c.y).toBeLessThanOrEqual(size.h - RAISED.bottom + 1);
+          }
+        } finally {
+          await page.close();
+        }
+      },
+      PAGE_TIMEOUT_MS
+    );
+
+    it(
+      'keeps the opening bearing over terrain because the camera is pinned',
+      async () => {
+        const page = await openRestored();
+        try {
+          await page.evaluate(buildApplyScript(RIDE_SPEC));
+          await page.evaluate(STUB_PICK_ANY);
+          await page.evaluate(
+            buildApplyScript({
+              terrain: { ...TILTED, ...buildSubjectTerrain({ subjectSource: 'ride' }) },
+            })
+          );
+          await page.evaluate(`window.__settle('terrain on')`);
+          expect(await page.evaluate<number>('window.__picks.length')).toBe(0);
+        } finally {
+          await page.close();
+        }
       },
       PAGE_TIMEOUT_MS
     );

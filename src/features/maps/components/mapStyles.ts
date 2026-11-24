@@ -275,8 +275,13 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
   // boxes now stop at the Pyrenean crest, and Corsica is a box of its own
   // because nothing joins it to the mainland at that latitude.
   //
-  // What stays inside is Andorra, the Val d'Aran and the crest itself, which no
-  // rectangle can cut away from the French valleys beside them.
+  // The Pyrenean boxes also leave out the Spanish side of the Val d'Aran and
+  // Irun. IGN answers its all-white tile there at z15 or z16, measured on
+  // 2026-11-20, and PNOA has imagery under it, so the boxes cut around those
+  // tiles. The white tiles run along the border, so the cut is a staircase and
+  // some French tiles at the border fall through to the layer beneath.
+  //
+  // Andorra and the Spanish Cerdanya are cut the same way, along the border.
   ign: {
     tiles: [
       'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
@@ -286,19 +291,49 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     attribution: MAP_SOURCE_CREDITS.ign.shortCredit,
     boxes: [
       [8.5, 41.33, 9.6, 43.05], // Corsica
-      [1.45, 42.33, 9.56, 42.6], // Cerdagne and Roussillon, east of the Segre
-      [0.55, 42.6, 9.56, 42.8], // Ariège, Aude and Luchon
+      // Cerdagne and Roussillon as a staircase along the border: Andorra and
+      // the Spanish Cerdanya below it answer a white tile or a 404.
+      [1.72, 42.48, 1.82, 42.6], // Pas de la Casa to Puymorens
+      [1.82, 42.46, 1.87, 42.6], // Latour-de-Carol
+      [1.87, 42.435, 1.92, 42.6], // Bourg-Madame
+      [1.92, 42.37, 2.12, 42.6], // Cerdagne and Eyne
+      [2.12, 42.41, 2.35, 42.6], // Carlit and the Têt
+      [2.35, 42.39, 2.45, 42.6], // Prats-de-Mollo
+      [2.45, 42.33, 2.65, 42.6], // Vallespir
+      [2.65, 42.39, 2.75, 42.6], // Arles-sur-Tech
+      [2.75, 42.41, 2.85, 42.6], // Albères, west
+      [2.85, 42.45, 3.05, 42.6], // Le Perthus
+      [3.05, 42.41, 9.56, 42.6], // Côte Vermeille and Cerbère
+      [1.72, 42.6, 9.56, 42.61], // Strip between the staircase and the Ariège boxes
+      [0.55, 42.7, 0.665, 42.8], // Luchon and the Pique valley, west of the Aran ridge
       [-0.15, 42.72, 0.55, 42.8], // Gavarnie to Aragnouet
       [-1.3, 42.99, -0.75, 43.05], // Soule and Iraty
-      [-0.75, 42.8, 9.56, 43.05], // Comminges and the Hautes-Pyrénées
-      [-1.8, 43.05, 7.75, 43.35], // Béarn, Marseille and the coast to Hendaye
+      [-0.75, 42.8, 0.665, 43.05], // Comminges and the Hautes-Pyrénées, west of the Aran ridge
+      [0.665, 42.85, 0.725, 43.05], // Comminges north of the ridge, 0.665 to 0.725°E
+      [0.725, 42.835, 9.56, 43.05], // Comminges north of the ridge, Fos and the east
+      [0.9, 42.785, 1.1, 42.815], // The ridge's French side, 0.9 to 1.1°E
+      [0.77, 42.815, 9.56, 42.835], // The ridge's French side, north of 42.815°N
+      [1.1, 42.745, 9.56, 42.815], // Couserans and Aulus-les-Bains
+      [1.15, 42.72, 1.33, 42.745], // Ariège, west of Ax-les-Thermes
+      [1.33, 42.69, 9.56, 42.745], // Ariège, Ax-les-Thermes and east to the crest
+      [1.45, 42.65, 1.6, 42.69], // Ariège's south edge, 1.45 to 1.6°E
+      [1.6, 42.61, 9.56, 42.745], // Roussillon and the east end of the Ariège
+      [-1.76, 43.05, 7.75, 43.35], // Béarn, Marseille and the coast to Biriatou, short of Irun
       [-5.142, 43.35, 7.75, 44.2], // Aquitaine and Provence, north of the border
       [-5.142, 44.2, 7.2, 45.818], // Dauphiné and Savoie, west of Piedmont
       [-5.142, 45.818, 7.05, 46.55], // Haute-Savoie, Chamonix and the lake shore
       [-5.142, 46.55, 6.95, 47.5], // Jura and Doubs
       [-5.142, 47.5, 7.45, 47.85], // Sundgau, west of Basel
       [-5.142, 47.85, 3.2, 51.089], // Alsace north of Switzerland, and the rest, to Lille
-      [3.2, 47.85, 8.25, 50.4], // Hainaut, the Ardennes and Lorraine, below Belgium
+      // A staircase down the Saarland border: the box ran to 8.25 and credited this service over
+      // Saarbrücken and Saarlouis, where it answers 404 and the global imagery draws.
+      [3.2, 47.85, 8.25, 49.0], // Alsace and Lorraine, south of the German border
+      [3.2, 49.0, 6.3, 50.4], // Hainaut, the Ardennes and Lorraine, below Belgium
+      [6.3, 49.0, 6.55, 49.4], // Moselle, west of Saarland
+      [6.55, 49.0, 6.75, 49.2], // Creutzwald
+      [6.75, 49.0, 6.95, 49.15], // Forbach
+      [6.95, 49.0, 7.1, 49.12], // Sarreguemines
+      [7.1, 49.0, 8.25, 49.05], // Bitche and Wissembourg
     ],
   },
   // USA: USGS NAIP (Public Domain - commercial OK)
@@ -329,7 +364,58 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 20,
     attribution: MAP_SOURCE_CREDITS.austria.shortCredit,
-    bounds: [9.53, 46.37, 17.17, 49.02],
+    //
+    // A staircase rather than the Austrian extent. The single box held Bolzano,
+    // Merano, Bormio, Budweis, Znojmo, Bratislava and Sopron, and the service
+    // answers a flat 2,419-byte tile with status 200 over all of them at zoom 15,
+    // so each of those drew blank over ground another provider holds.
+    //
+    // The boxes were set from a probe of the service at zoom 15 on a 0.1 degree
+    // grid, not from a boundary dataset, so each edge is only as close to the
+    // border as that grid. Where the probe found imagery just beyond the border,
+    // the box keeps it.
+    boxes: [
+      [14.95, 48.95, 15.15, 49.05],
+      [15.25, 48.95, 15.35, 49.05],
+      [14.95, 48.85, 15.65, 48.95],
+      [14.95, 48.75, 15.97, 48.85],
+      [16.45, 48.75, 16.55, 48.85],
+      [13.75, 48.65, 14.03, 48.75],
+      [14.73, 48.65, 16.95, 48.75],
+      [13.75, 48.55, 14.21, 48.65],
+      [14.38, 48.55, 16.95, 48.65],
+      [13.45, 48.35, 16.95, 48.55],
+      [13.15, 48.25, 16.95, 48.35],
+      [12.85, 48.15, 16.95, 48.25],
+      [12.75, 48.1, 16.97, 48.15],
+      [12.75, 47.85, 17.15, 48.1],
+      [12.95, 47.75, 13.45, 47.85],
+      [13.55, 47.75, 17.05, 47.85],
+      [12.15, 47.65, 12.45, 47.75],
+      [13.05, 47.45, 16.55, 47.75],
+      [16.75, 47.65, 17.05, 47.75],
+      [9.75, 47.55, 9.85, 47.65],
+      [11.85, 47.55, 12.85, 47.65],
+      [9.55, 47.35, 10.05, 47.55],
+      [10.45, 47.45, 10.95, 47.55],
+      [11.35, 47.45, 12.95, 47.55],
+      [10.45, 47.35, 16.55, 47.45],
+      [9.55, 47.25, 16.55, 47.35],
+      [9.55, 47.15, 16.45, 47.25],
+      [9.55, 47.05, 16.55, 47.15],
+      [9.75, 46.95, 11.85, 47.05],
+      [12.15, 46.95, 16.55, 47.05],
+      [9.95, 46.85, 10.25, 46.95],
+      [10.45, 46.85, 11.15, 46.95],
+      [12.15, 46.75, 16.15, 46.95],
+      [10.75, 46.75, 11.05, 46.85],
+      [12.36, 46.65, 15.75, 46.75],
+      [15.95, 46.65, 16.05, 46.75],
+      [12.83, 46.55, 15.05, 46.65],
+      [13.75, 46.45, 13.85, 46.55],
+      [13.95, 46.45, 14.85, 46.55],
+      [14.45, 46.35, 14.65, 46.45],
+    ],
   },
   // Netherlands: PDOK Luchtfoto (CC BY 4.0 Kadaster - commercial OK)
   netherlands: {
@@ -379,7 +465,56 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 21,
     attribution: MAP_SOURCE_CREDITS.luxembourg.shortCredit,
-    bounds: [5.73, 49.44, 6.53, 50.18],
+    // The service answers a 1,651-byte white tile, not a 404, over the Belgian and French
+    // ground beside Luxembourg, so the boxes stop at the border. Each west edge is the first
+    // zoom 16 tile of its rows that the service fills, and each east edge the last one. Boxes
+    // are merged while no row in them loses more than about 0.03 degrees to the box. The east
+    // edges are measured where the German border runs; Rhineland-Palatinate draws above
+    // Luxembourg there.
+    boxes: [
+      [5.9889, 50.1593, 6.0246, 50.1734],
+      [5.9669, 50.1523, 6.0411, 50.1593],
+      [5.9669, 50.1347, 6.107, 50.1487],
+      [5.9615, 50.1276, 6.107, 50.1347],
+      [5.9395, 50.1206, 6.129, 50.1276],
+      [5.923, 50.0783, 6.118, 50.1206],
+      [5.89, 50.0501, 6.1125, 50.0783],
+      [5.8736, 50.0219, 6.118, 50.0501],
+      [5.8571, 49.9936, 6.129, 50.0219],
+      [5.8406, 49.9618, 6.151, 49.9936],
+      [5.7802, 49.9512, 6.1729, 49.9618],
+      [5.7802, 49.9194, 6.2114, 49.9512],
+      [5.7637, 49.8911, 6.2169, 49.9194],
+      [5.7857, 49.8769, 6.2444, 49.8911],
+      [5.7857, 49.8663, 6.2828, 49.8769],
+      [5.7637, 49.838, 6.3103, 49.8663],
+      [5.7527, 49.8309, 6.3762, 49.838],
+      [5.7527, 49.8167, 6.3817, 49.8309],
+      [5.7527, 49.8096, 6.4256, 49.8167],
+      [5.7527, 49.8061, 6.5025, 49.8096],
+      [5.7802, 49.7954, 6.5025, 49.8061],
+      [5.8186, 49.76, 6.5025, 49.7954],
+      [5.8351, 49.7245, 6.4915, 49.76],
+      [5.89, 49.7067, 6.4861, 49.7245],
+      [5.8846, 49.6925, 6.4586, 49.7067],
+      [5.8846, 49.6747, 6.4366, 49.6925],
+      [5.912, 49.6463, 6.4256, 49.6747],
+      [5.9065, 49.6143, 6.4146, 49.6463],
+      [5.8791, 49.6, 6.3817, 49.6143],
+      [5.8736, 49.5787, 6.3707, 49.6],
+      [5.8736, 49.568, 6.3542, 49.5787],
+      [5.8681, 49.5537, 6.3597, 49.568],
+      [5.8406, 49.5466, 6.3762, 49.5537],
+      [5.8461, 49.5252, 6.3542, 49.5466],
+      [5.8791, 49.5216, 6.3542, 49.5252],
+      [5.8406, 49.5181, 6.3597, 49.5216],
+      [5.8791, 49.5109, 6.3597, 49.5181],
+      [5.89, 49.4967, 6.151, 49.5109],
+      [5.9779, 49.4931, 6.1455, 49.4967],
+      [5.9779, 49.4788, 6.118, 49.4931],
+      [5.9779, 49.4681, 6.096, 49.4788],
+      [5.9889, 49.4574, 6.0411, 49.4681],
+    ],
   },
   // Estonia: orthophoto of the Republic of Estonia Land and Spatial Development Board
   // (Maa- ja Ruumiamet), open data licence (commercial use permitted, attribution required).
@@ -458,9 +593,13 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
       [13.63, 45.9, 14.0, 46.0], // Nova Gorica, beside Gorizia
       [13.5, 46.0, 14.0, 46.38], // The Soča valley, east of Italy
       [13.7, 46.38, 14.0, 46.5], // Kranjska Gora, south of the Karawanks
-      [14.0, 45.5, 14.7, 46.48], // Ljubljana and the Karawanks, south of Klagenfurt
+      [14.0, 45.5, 14.55, 46.48], // Ljubljana and the Karawanks, south of Klagenfurt
+      [14.55, 45.62, 14.7, 46.48], // Beside the Čabranka, north of Čabar
       [14.7, 45.45, 15.1, 46.6], // Kočevje and the Savinja Alps
-      [15.1, 45.5, 15.72, 46.66], // Celje, Maribor and the Sutla
+      [15.1, 45.5, 15.3, 46.66], // Bela krajina and Celje, north of the Kolpa
+      [15.3, 45.62, 15.45, 46.66], // Metlika, north of the Kolpa
+      [15.45, 45.78, 15.58, 46.66], // The Gorjanci ridge
+      [15.58, 45.84, 15.72, 46.66], // Brežice, Maribor and the Sutla
       [15.72, 46.3, 16.1, 46.66], // Ptuj and Ljutomer
       [16.1, 46.4, 16.62, 46.88], // Prekmurje
     ],

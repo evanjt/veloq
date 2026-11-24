@@ -61,6 +61,13 @@ export interface MapCameraSpec {
   padCamera?: boolean | undefined;
   /** Clamp, so fitting a tiny bounding box cannot zoom past useful detail. */
   maxZoom?: number | undefined;
+  /**
+   * The subject a sheet settle refits, held apart from the camera so a camera at a centre and zoom
+   * still has it. Without it the page refits `bounds`.
+   */
+  subjectBounds?: LngLatBounds | undefined;
+  /** The athlete's own camera: the page treats it as moved, so no relief turn takes it. */
+  pinned?: boolean | undefined;
 }
 
 /**
@@ -253,7 +260,9 @@ ${tileHostWarmScript()}
     window._veloqFitPadding = _fitPadding;
     ${visibleInsetScript()}
     window._veloqPadCamera = ${camera.padCamera === true};
-    window._routeBounds = _bounds ? [_bounds.sw, _bounds.ne] : null;
+    var _subject = ${JSON.stringify(camera.subjectBounds ?? null)} || _bounds;
+    window._routeBounds = _subject ? [_subject.sw, _subject.ne] : null;
+    window._veloqPinnedCamera = ${camera.pinned === true};
     ${setReduceMotionStatement(config.reduceMotion)}
 
     function _mapOptions(style) {

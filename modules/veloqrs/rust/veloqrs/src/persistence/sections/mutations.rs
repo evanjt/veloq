@@ -6,6 +6,7 @@
 
 use super::{compute_section_portions, forced_portions, forced_reach_m, may_reach, strict_reach_m};
 use crate::persistence::PersistentEngine;
+use crate::persistence::sections::geometry;
 use crate::sections::{BatchAttachSummary, CreateSectionParams, IndexActivitySummary, SectionType};
 use crate::sections::{LapCarry, assign_carried_exclusions};
 use rusqlite::{OptionalExtension, params};
@@ -111,6 +112,10 @@ impl PersistentEngine {
 
     /// Create a new section.
     pub fn create_section(&mut self, params: CreateSectionParams) -> Result<String, String> {
+        if let Some(name) = params.name.as_deref() {
+            self.check_new_section_name(&params.polyline, name)
+                .map_err(|e| e.to_string())?;
+        }
         let ts = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -562,7 +567,14 @@ impl PersistentEngine {
                     activity_id, section_id
                 ));
             }
-            let polyline: Vec<GpsPoint> = track[lo..hi].to_vec();
+            let reversed = first.direction == tracematch::Direction::Reverse;
+            let polyline = geometry::slice(&track, (activity_id, start, end_exclusive, reversed))
+                .ok_or_else(|| {
+                format!(
+                    "Activity {} does not cover section {}",
+                    activity_id, section_id
+                )
+            })?;
 
             // The first line the athlete drew survives the overwrite.
             self.back_up_original_line(section_id, &drawn)?;
@@ -572,56 +584,27 @@ impl PersistentEngine {
                     section_id,
                     &polyline,
                     true,
-                    Some((activity_id, start, end_exclusive, false)),
+                    Some((activity_id, start, end_exclusive, reversed)),
                 )
                 .map_err(|e| format!("Failed to record section geometry: {}", e))?,
             );
 
-            let polyline_blob = crate::persistence::codec::serialize_track_points(&polyline);
-            let distance = calculate_route_distance(&polyline);
-            let bounds = tracematch::geo_utils::compute_bounds(&polyline);
-
+            self.write_reference_line(
+                section_id,
+                &polyline,
+                (activity_id, start, end_exclusive, reversed),
+                crate::persistence::sections::SOURCE_EXACT,
+                &updated_at,
+            )?;
             self.db
                 .execute(
-                    "UPDATE sections SET
-                        representative_activity_id = ?,
-                        source_activity_id = ?,
-                        start_index = ?,
-                        end_index = ?,
-                        rep_start_index = ?,
-                        rep_end_index = ?,
-                        rep_reversed = 0,
-                        geometry_source = ?,
-                        polyline_json = ?,
-                        polyline_blob = ?,
-                        distance_meters = ?,
-                        is_user_defined = 1,
-                        updated_at = ?,
-                        bounds_min_lat = ?,
-                        bounds_max_lat = ?,
-                        bounds_min_lng = ?,
-                        bounds_max_lng = ?
+                    "UPDATE sections SET source_activity_id = ?, start_index = ?, end_index = ?
                      WHERE id = ?",
-                    params![
-                        activity_id,
-                        activity_id,
-                        start,
-                        end_exclusive - 1,
-                        start,
-                        end_exclusive,
-                        crate::persistence::sections::SOURCE_EXACT,
-                        crate::persistence::codec::NO_POLYLINE_JSON,
-                        polyline_blob,
-                        distance,
-                        updated_at,
-                        bounds.min_lat,
-                        bounds.max_lat,
-                        bounds.min_lng,
-                        bounds.max_lng,
-                        section_id
-                    ],
+                    params![activity_id, start, end_exclusive - 1, section_id],
                 )
                 .map_err(|e| format!("Failed to update section: {}", e))?;
+            self.write_line_profile(section_id, &polyline)
+                .map_err(|e| format!("Failed to update section profile: {}", e))?;
 
             // Every member is matched against the new line, not the old one.
             departed = self.rebuild_section_junctions(section_id, &polyline)?;
@@ -654,7 +637,15 @@ impl PersistentEngine {
             let start = first.start_index as usize;
             // A pass is half-open, so `end` is the first index past it.
             let end = (first.end_index as usize).min(track.len());
-            let new_polyline: Vec<GpsPoint> = track[start..end].to_vec();
+            let reversed = first.direction == tracematch::Direction::Reverse;
+            let new_polyline: Vec<GpsPoint> =
+                geometry::slice(&track, (activity_id, start as u32, end as u32, reversed))
+                    .ok_or_else(|| {
+                        format!(
+                            "Activity {} does not cover section {}",
+                            activity_id, section_id
+                        )
+                    })?;
             let new_distance = calculate_route_distance(&new_polyline);
 
             log::info!(
@@ -708,50 +699,20 @@ impl PersistentEngine {
                         section_id,
                         &new_polyline,
                         true,
-                        Some((activity_id, start as u32, end as u32, false)),
+                        Some((activity_id, start as u32, end as u32, reversed)),
                     )
                     .map_err(|e| format!("Failed to record section geometry: {}", e))?,
                 );
 
-                let polyline_blob =
-                    crate::persistence::codec::serialize_track_points(&new_polyline);
-                let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
-
-                self.db
-                    .execute(
-                        "UPDATE sections SET
-                            representative_activity_id = ?,
-                            rep_start_index = ?,
-                            rep_end_index = ?,
-                            rep_reversed = 0,
-                            geometry_source = ?,
-                            polyline_json = ?,
-                            polyline_blob = ?,
-                            distance_meters = ?,
-                            is_user_defined = 1,
-                            updated_at = ?,
-                            bounds_min_lat = ?,
-                            bounds_max_lat = ?,
-                            bounds_min_lng = ?,
-                            bounds_max_lng = ?
-                         WHERE id = ?",
-                        params![
-                            activity_id,
-                            start as u32,
-                            end as u32,
-                            crate::persistence::sections::SOURCE_EXACT,
-                            crate::persistence::codec::NO_POLYLINE_JSON,
-                            polyline_blob,
-                            new_distance,
-                            updated_at,
-                            bounds.min_lat,
-                            bounds.max_lat,
-                            bounds.min_lng,
-                            bounds.max_lng,
-                            section_id
-                        ],
-                    )
-                    .map_err(|e| format!("Failed to update section reference: {}", e))?;
+                self.write_reference_line(
+                    section_id,
+                    &new_polyline,
+                    (activity_id, start as u32, end as u32, reversed),
+                    crate::persistence::sections::SOURCE_EXACT,
+                    &updated_at,
+                )?;
+                self.write_line_profile(section_id, &new_polyline)
+                    .map_err(|e| format!("Failed to update section profile: {}", e))?;
 
                 // Re-match all activities against the new polyline
                 departed = self.rematch_section_activities(section_id, &new_polyline)?;
@@ -804,6 +765,59 @@ impl PersistentEngine {
         Ok(departed)
     }
 
+    /// Write a section row's line and the triple that rebuilds it, in one
+    /// statement: the reference range, its direction, the cached line, its
+    /// length and bounds. Every reference change goes through here, so the
+    /// direction never lags the range it describes.
+    fn write_reference_line(
+        &self,
+        section_id: &str,
+        polyline: &[GpsPoint],
+        (activity_id, start, end, reversed): (&str, u32, u32, bool),
+        source: &str,
+        updated_at: &str,
+    ) -> Result<(), String> {
+        let blob = crate::persistence::codec::serialize_track_points(polyline);
+        let bounds = tracematch::geo_utils::compute_bounds(polyline);
+        self.db
+            .execute(
+                "UPDATE sections SET
+                    representative_activity_id = ?,
+                    rep_start_index = ?,
+                    rep_end_index = ?,
+                    rep_reversed = ?,
+                    geometry_source = ?,
+                    polyline_json = ?,
+                    polyline_blob = ?,
+                    distance_meters = ?,
+                    is_user_defined = 1,
+                    updated_at = ?,
+                    bounds_min_lat = ?,
+                    bounds_max_lat = ?,
+                    bounds_min_lng = ?,
+                    bounds_max_lng = ?
+                 WHERE id = ?",
+                params![
+                    activity_id,
+                    start,
+                    end,
+                    reversed,
+                    source,
+                    crate::persistence::codec::NO_POLYLINE_JSON,
+                    blob,
+                    calculate_route_distance(polyline),
+                    updated_at,
+                    bounds.min_lat,
+                    bounds.max_lat,
+                    bounds.min_lng,
+                    bounds.max_lng,
+                    section_id
+                ],
+            )
+            .map(|_| ())
+            .map_err(|e| format!("Failed to update section reference: {}", e))
+    }
+
     /// Rebuild a section's junction rows against its new line, the step every
     /// geometry edit ends with. A custom section rescans the library, an auto
     /// section re-cuts the rides it holds. Both carry the athlete's decisions
@@ -825,67 +839,135 @@ impl PersistentEngine {
         if section_type != "custom" {
             return self.rematch_section_activities(section_id, polyline);
         }
+        self.rescan_section_junctions(section_id, polyline, &sport_type)
+    }
+
+    /// Rewrite a section's rows from a scan of the whole library, carrying the
+    /// athlete's decisions across. Rides stored while the section was out of
+    /// memory are found here, which a re-cut of the held rides cannot do.
+    pub(super) fn rescan_section_junctions(
+        &mut self,
+        section_id: &str,
+        polyline: &[GpsPoint],
+        sport_type: &str,
+    ) -> Result<Vec<String>, String> {
         let decisions = self.capture_user_decisions(section_id);
-        self.db
-            .execute(
-                "DELETE FROM section_activities WHERE section_id = ?",
-                params![section_id],
-            )
-            .map_err(|e| format!("Failed to clear section activities: {}", e))?;
-        self.match_activities_to_section(section_id, polyline, &sport_type)?;
+        // A member whose track does not read cannot be re-cut, so its rows stay
+        // as the athlete left them rather than going with the rest.
+        let unreadable = self.unreadable_members(&self.member_ids(section_id, &decisions));
+        self.delete_section_rows_except(section_id, &unreadable)?;
+        self.match_activities_to_section(section_id, polyline, sport_type)?;
         self.restore_user_decisions(section_id, polyline, &decisions)
     }
 
     /// Re-match activities against an updated section polyline.
     /// Checks all previously-associated activities and keeps only those that
     /// still overlap, and returns the rides attached by hand that left.
+    /// A member whose track does not read keeps its rows, exclusion and
+    /// attachment: it is unknown, not departed.
     pub(super) fn rematch_section_activities(
         &mut self,
         section_id: &str,
         new_polyline: &[GpsPoint],
     ) -> Result<Vec<String>, String> {
+        self.rematch_section_rows(section_id, new_polyline)
+            .map(|(departed, _)| departed)
+    }
+
+    /// The rematch, also naming the members it could not read and so left
+    /// untouched. A caller that stamps a rule over the result is not complete
+    /// while that list is not empty.
+    pub(super) fn rematch_section_rows(
+        &mut self,
+        section_id: &str,
+        new_polyline: &[GpsPoint],
+    ) -> Result<(Vec<String>, Vec<String>), String> {
         // ALL members, excluded ones included: the flag is a user
         // decision and must survive the rebuild, not vanish with the rows.
         let decisions = self.capture_user_decisions(section_id);
-        let mut activity_ids = self.get_section_activity_ids(section_id);
-        activity_ids.extend(decisions.full.iter().cloned());
-        activity_ids.extend(decisions.forced.iter().cloned());
-        activity_ids.sort();
-        activity_ids.dedup();
+        let activity_ids = self.member_ids(section_id, &decisions);
 
         if activity_ids.is_empty() || new_polyline.is_empty() {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), Vec::new()));
         }
 
-        // Clear existing junction entries for this section
-        self.db
-            .execute(
-                "DELETE FROM section_activities WHERE section_id = ?",
-                params![section_id],
-            )
-            .map_err(|e| format!("Failed to clear section activities: {}", e))?;
-
-        // Re-add only activities that still match, with full portion details (all laps)
-        if let Some(line) = tracematch::PreparedLine::new(new_polyline, &self.section_config) {
-            for aid in activity_ids
-                .iter()
-                .filter(|id| !decisions.forced.contains(id))
-            {
-                if let Some(track) = self.get_gps_track(aid) {
-                    let heartrate = self.load_heartrate_series(aid);
-                    let power = self.load_power_series(aid);
-                    for portion in line.portions(aid, &track) {
-                        self.add_section_activity_with_portion(
-                            section_id,
-                            &portion,
-                            heartrate.as_deref(),
-                            power.as_deref(),
-                        )?;
-                    }
+        let line = tracematch::PreparedLine::new(new_polyline, &self.section_config);
+        let mut unreadable = Vec::new();
+        // Each member's rows are replaced only once its track has read, so a
+        // member that cannot be read keeps what it had. Forced rides are
+        // re-cut by the restore below.
+        for aid in activity_ids
+            .iter()
+            .filter(|id| !decisions.forced.contains(id))
+        {
+            let Some(track) = self.get_gps_track(aid) else {
+                unreadable.push(aid.clone());
+                continue;
+            };
+            self.db
+                .execute(
+                    "DELETE FROM section_activities WHERE section_id = ? AND activity_id = ?",
+                    params![section_id, aid],
+                )
+                .map_err(|e| format!("Failed to clear section activities: {}", e))?;
+            // Re-add only what still matches, with full portion details (all laps)
+            if let Some(line) = &line {
+                let heartrate = self.load_heartrate_series(aid);
+                let power = self.load_power_series(aid);
+                for portion in line.portions(aid, &track) {
+                    self.add_section_activity_with_portion(
+                        section_id,
+                        &portion,
+                        heartrate.as_deref(),
+                        power.as_deref(),
+                    )?;
                 }
             }
         }
-        self.restore_user_decisions(section_id, new_polyline, &decisions)
+        let departed = self.restore_user_decisions(section_id, new_polyline, &decisions)?;
+        for aid in &decisions.forced {
+            if self.get_gps_track(aid).is_none() {
+                unreadable.push(aid.clone());
+            }
+        }
+        unreadable.sort();
+        unreadable.dedup();
+        Ok((departed, unreadable))
+    }
+
+    /// Every ride a section holds: those with live rows, those excluded
+    /// whole, and those attached by hand.
+    fn member_ids(&self, section_id: &str, decisions: &UserDecisions) -> Vec<String> {
+        let mut ids = self.get_section_activity_ids(section_id);
+        ids.extend(decisions.full.iter().cloned());
+        ids.extend(decisions.forced.iter().cloned());
+        ids.sort();
+        ids.dedup();
+        ids
+    }
+
+    /// The ids among `activity_ids` whose stored track does not read.
+    pub(super) fn unreadable_members(&self, activity_ids: &[String]) -> Vec<String> {
+        activity_ids
+            .iter()
+            .filter(|id| self.get_gps_track(id).is_none())
+            .cloned()
+            .collect()
+    }
+
+    /// Delete a section's junction rows except those of `keep`.
+    fn delete_section_rows_except(&self, section_id: &str, keep: &[String]) -> Result<(), String> {
+        let mut sql = String::from("DELETE FROM section_activities WHERE section_id = ?");
+        if !keep.is_empty() {
+            sql.push_str(" AND activity_id NOT IN (");
+            sql.push_str(&vec!["?"; keep.len()].join(","));
+            sql.push(')');
+        }
+        let args = std::iter::once(section_id).chain(keep.iter().map(String::as_str));
+        self.db
+            .execute(&sql, rusqlite::params_from_iter(args))
+            .map(|_| ())
+            .map_err(|e| format!("Failed to clear section activities: {}", e))
     }
 
     /// Manually attach one activity to one section, for the activity
@@ -932,7 +1014,6 @@ impl PersistentEngine {
         })?;
         self.refresh_section_in_memory(section_id);
         self.invalidate_section_cache(section_id);
-        self.drop_section_pin(section_id);
         self.invalidate_perf_cache();
         self.refresh_section_badges(&[section_id]);
         Ok(true)
@@ -1021,16 +1102,18 @@ impl PersistentEngine {
     ) -> Result<Vec<String>, String> {
         let mut departed = Vec::new();
         for aid in &decisions.forced {
+            // A track that does not read says nothing about the line: the ride
+            // keeps its rows and its record until it can be cut again.
+            let Some(track) = self.get_gps_track(aid) else {
+                continue;
+            };
             self.db
                 .execute(
                     "DELETE FROM section_activities WHERE section_id = ? AND activity_id = ?",
                     params![section_id, aid],
                 )
                 .map_err(|e| format!("Failed to clear a forced ride's rows: {}", e))?;
-            let portions = self
-                .get_gps_track(aid)
-                .map(|track| forced_portions(aid, &track, line, &self.section_config))
-                .unwrap_or_default();
+            let portions = forced_portions(aid, &track, line, &self.section_config);
             if portions.is_empty() {
                 self.db
                     .execute(
@@ -1362,8 +1445,9 @@ impl PersistentEngine {
         result
     }
 
-    /// Delete the activity's rows from every section not in `matched`,
-    /// returning the sections that lost rows. A hand attachment is not
+    /// Delete the activity's rows from every enabled section not in `matched`,
+    /// returning the sections that lost rows. A disabled section is out of
+    /// the match, so its rows are left for the rescan that enabling makes. A hand attachment is not
     /// spared here: it is in `matched` while the relaxed bar still reaches
     /// the track, and a track that left it has nothing to keep.
     fn drop_rows_off_the_track(
@@ -1375,7 +1459,9 @@ impl PersistentEngine {
             let mut stmt = self
                 .db
                 .prepare_cached(
-                    "SELECT DISTINCT section_id FROM section_activities WHERE activity_id = ?",
+                    "SELECT DISTINCT section_id FROM section_activities
+                     WHERE activity_id = ?
+                       AND section_id NOT IN (SELECT id FROM sections WHERE disabled = 1)",
                 )
                 .map_err(|e| format!("Failed to list section_activities: {e}"))?;
             let rows = stmt
@@ -1802,6 +1888,10 @@ mod changed_track_rows;
 mod forced_matches;
 
 #[cfg(test)]
+#[path = "tests/unreadable_tracks.rs"]
+mod unreadable_tracks;
+
+#[cfg(test)]
 #[path = "tests/adoption_ledger.rs"]
 mod adoption_ledger;
 
@@ -1893,6 +1983,34 @@ mod tests {
     fn with_one_second_stream(engine: &mut PersistentEngine) {
         let times: Vec<u32> = (0..200).collect();
         engine.store_time_streams_flat(&["a1".to_string()], &times, &[0, 200]);
+    }
+
+    #[test]
+    fn a_new_section_cannot_take_a_name_another_section_shows() {
+        let mut engine = engine_over_sections(0);
+        drawn_section(&mut engine).unwrap();
+
+        let second = drawn_section(&mut engine);
+
+        assert!(second.is_err(), "{second:?}");
+        assert_eq!(engine.get_sections().len(), 1);
+    }
+
+    #[test]
+    fn a_new_section_cannot_take_a_numbered_label_another_section_holds() {
+        let mut engine = engine_over_sections(3);
+        let points = track();
+        let created = engine.create_section(CreateSectionParams {
+            sport_type: "Ride".to_string(),
+            polyline: points.clone(),
+            distance_meters: tracematch::matching::calculate_route_distance(&points),
+            name: Some("Section 3".to_string()),
+            source_activity_id: Some("a1".to_string()),
+            start_index: Some(0),
+            end_index: Some(199),
+        });
+
+        assert!(created.is_err(), "{created:?}");
     }
 
     #[test]

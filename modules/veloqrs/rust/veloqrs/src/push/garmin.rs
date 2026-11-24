@@ -148,7 +148,7 @@ pub(super) fn complete(
         ingested,
         crate::net::garmin::ingest::Ingested::Stored { tracked: true }
     ) {
-        index(install, &original_key);
+        ready_stored_ride(install, &original_key);
     }
     Step::Completed { key: original_key }
 }
@@ -172,7 +172,7 @@ pub(crate) fn listed_from(garmin_id: i64, record: &ActivityRecord) -> ListedActi
 /// Match the stored original against the catalogue and wait for the regroup
 /// that puts it in a route, as the push does for a track it fetched itself.
 /// Best effort: the sentence is built from whatever has landed.
-fn index(install: u64, key: &str) {
+pub(crate) fn ready_stored_ride(install: u64, key: &str) {
     match crate::ffi::index_stored_track(install, key) {
         Ok(_) => {
             if !crate::persistence::regroup::settle_regroup(install, super::PUSH_REGROUP_LIMIT) {

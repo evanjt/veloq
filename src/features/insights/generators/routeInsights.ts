@@ -5,6 +5,7 @@ import { confidenceFrom } from '../lib/config';
 import { sectionWithSport } from '../lib/cardSport';
 import { sparkline } from '../lib/sparkline';
 import { formatDuration, formatDurationDelta } from '@/shared/format/format';
+import { verdictIcon, verdictRung } from '@/shared/format/trend';
 import { TIME } from '@/shared/app/time';
 import { printedValue } from '../lib/printedValue';
 
@@ -183,7 +184,11 @@ export function generateRouteInsights(
     rows.length > MAX_ROUTES_IN_BODY
       ? ` ${t('insights.route.groupMore', { n: rows.length - MAX_ROUTES_IN_BODY })}`
       : '';
-  const improving = summary.records + summary.faster >= summary.slower;
+  const better = summary.records + summary.faster;
+  // A tie between faster and slower routes is no improvement.
+  const direction = better > summary.slower ? 'up' : summary.slower > better ? 'down' : 'flat';
+  const verdict =
+    better > summary.slower ? 'improved' : summary.slower > better ? 'declined' : 'flat';
   const counted = summaryTitle(summary, t);
 
   return [
@@ -191,8 +196,8 @@ export function generateRouteInsights(
       id: 'route-group',
       category: 'route',
       priority: hasRecord ? 2 : 3,
-      icon: hasRecord ? 'trophy-outline' : improving ? 'trending-up' : 'trending-down',
-      iconTone: hasRecord ? 'record' : improving ? 'positive' : 'negative',
+      icon: hasRecord ? 'trophy-outline' : verdictIcon(verdict, direction),
+      iconTone: hasRecord ? 'record' : verdictRung(verdict),
       title: counted,
       line: t('insights.line.routeGroup', { counts: counted }),
       body: named + more,

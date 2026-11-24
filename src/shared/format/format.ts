@@ -512,10 +512,10 @@ export function formatHrv(milliseconds: number): string {
   return `${Math.round(milliseconds)} ms`;
 }
 
-/** Cadence in revolutions per minute, `90 rpm`. */
-export function formatCadence(rpm: number): string {
-  if (!Number.isFinite(rpm) || rpm < 0) return ABSENT;
-  return `${Math.round(rpm)} rpm`;
+/** Cadence as revolutions a minute, `90 rpm`, or steps a minute, `170 spm`. */
+export function formatCadence(value: number, unit: 'rpm' | 'spm' = 'rpm'): string {
+  if (!Number.isFinite(value) || value < 0) return ABSENT;
+  return `${Math.round(value)} ${unit}`;
 }
 
 /**

@@ -513,6 +513,7 @@ export function ActivityDetailCard({
             routeGapSeconds={routeHighlight?.timeDeltaSeconds ?? null}
             cacheDays={cacheDays}
             isDark={isDark}
+            routeGroups={detail?.routeGroups ?? NO_ROUTE_GROUPS}
           />
         ) : null}
 

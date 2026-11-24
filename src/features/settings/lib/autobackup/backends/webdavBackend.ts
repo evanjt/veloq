@@ -29,6 +29,27 @@ const log = debug.create('WebdavBackend');
 
 const REMOTE_DIR = 'Veloq';
 
+/** Sidecar reads a listing keeps in flight at once: one copy a day makes a year of them. */
+const SIDECAR_CONCURRENCY = 6;
+
+/** `fn` over `items` with at most `limit` running at once, results in the order of `items`. */
+async function mapBounded<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index] as T);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 /** The stored config, or the reason nothing may be sent to it. */
 function requireConfig(operation: string): WebdavConfig {
   const problem = webdavConfigProblem();
@@ -222,18 +243,23 @@ export const webdavBackend: BackupBackend = {
     const entries: BackupEntry[] = [];
 
     const hrefs = extractHrefs(xml);
-    for (const metaHref of hrefs.filter((href) => href.endsWith('.meta.json'))) {
-      try {
-        const metaUrl = resolveHref(config.url, metaHref);
-        if (!metaUrl) continue;
-        const metaRes = await fetchWithDeadline(metaUrl, { headers }, NET_DEADLINE_MS.transfer);
-        if (!metaRes.ok) continue;
-        const meta = backupEntryFromSidecar(await metaRes.json());
-        if (meta) entries.push(meta);
-      } catch {
-        // Skip corrupt metadata
+    const sidecars = await mapBounded(
+      hrefs.filter((href) => href.endsWith('.meta.json')),
+      SIDECAR_CONCURRENCY,
+      async (metaHref) => {
+        try {
+          const metaUrl = resolveHref(config.url, metaHref);
+          if (!metaUrl) return null;
+          const metaRes = await fetchWithDeadline(metaUrl, { headers }, NET_DEADLINE_MS.transfer);
+          if (!metaRes.ok) return null;
+          return backupEntryFromSidecar(await metaRes.json());
+        } catch {
+          // Skip corrupt metadata
+          return null;
+        }
       }
-    }
+    );
+    for (const meta of sidecars) if (meta) entries.push(meta);
 
     // A zip with no sidecar a listing could read, one the athlete put in the
     // folder among them, lists by the instant its name carries.

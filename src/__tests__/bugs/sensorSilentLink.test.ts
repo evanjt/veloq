@@ -20,6 +20,7 @@ import {
   connectKnownSensors,
   disconnectAllSensors,
   reconnectSensor,
+  SCAN_RETRY_BACKOFF_MS,
 } from '@/features/sensors/lib/sensorManager';
 
 const mockCancelDeviceConnection = jest.fn(async () => undefined);
@@ -378,5 +379,27 @@ describe('a silent link whose sensor is advertising', () => {
 
     expect(mockConnectToDevice).toHaveBeenCalledTimes(1);
     expect(useSensorStore.getState().connections[SENSOR.id]?.stuck).toBeUndefined();
+  });
+
+  it('does not restart a failing search scan on every watchdog tick', async () => {
+    const failing = {
+      errorCode: 601,
+      message: 'Location services are disabled',
+    };
+    mockStartDeviceScan.mockImplementation((_s, _o, cb) => {
+      cb(failing, null as never);
+    });
+    void connectKnownSensors();
+    await settle();
+    await silentFor(SENSOR_NO_DATA_MS + 60_000);
+
+    expect(mockStartDeviceScan.mock.calls.length).toBeLessThanOrEqual(5);
+    expect(mockStartDeviceScan.mock.calls.length).toBeGreaterThan(0);
+
+    mockStartDeviceScan.mockImplementation((_s, _o, cb) => {
+      advertise = cb;
+    });
+    await silentFor(SCAN_RETRY_BACKOFF_MS * 2);
+    expect(advertise).not.toBeNull();
   });
 });

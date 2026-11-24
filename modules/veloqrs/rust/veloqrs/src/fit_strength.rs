@@ -25,10 +25,6 @@ const PRODUCT_ID: u16 = 1;
 const SOFTWARE_VERSION: u16 = 4;
 const APP_NAME: &str = "Veloq";
 
-/// The profile's `fitness_equipment` sport and `strength_training` sub sport.
-const SPORT_FITNESS_EQUIPMENT: u8 = 4;
-const SUB_SPORT_STRENGTH_TRAINING: u8 = 13;
-
 /// The profile's `set_type` numbers. The profile at this version names only
 /// these two.
 const SET_TYPE_REST: u8 = 0;
@@ -77,7 +73,7 @@ pub struct StrengthSession {
 
 impl StrengthSession {
     /// Seconds from the start to the last set's end or heart rate sample.
-    fn elapsed_secs(&self) -> u32 {
+    pub fn elapsed_secs(&self) -> u32 {
         let sets = self.sets.iter().map(|s| {
             s.start_offset_secs
                 .saturating_add(s.duration_secs.round().max(0.0) as u32)
@@ -290,8 +286,9 @@ impl StrengthSession {
         out.push(6);
         out.extend_from_slice(&end);
         out.extend_from_slice(&start);
-        out.push(SPORT_FITNESS_EQUIPMENT);
-        out.push(SUB_SPORT_STRENGTH_TRAINING);
+        let (sport, sub_sport) = crate::sport::to_fit("WeightTraining");
+        out.push(sport);
+        out.push(sub_sport);
         out.extend_from_slice(&millis);
         out.extend_from_slice(&millis);
         out.push(avg_hr.unwrap_or(INVALID_UINT8));
@@ -378,6 +375,20 @@ mod tests {
                 .collect(),
             weight_unit: WeightUnit::Kilogram,
         }
+    }
+
+    /// Scenario: the session message of a strength file names its sport by
+    /// profile numbers, and the engine types a stored activity from them.
+    ///
+    /// Expected behaviour: the pairing reads back as `WeightTraining`.
+    #[test]
+    fn the_session_reads_back_as_weight_training() {
+        let file = session().to_fit();
+        let activity = crate::fit::parse_fit_activity(&file).expect("the file decodes");
+        assert_eq!(
+            crate::sport::from_fit(activity.sport, activity.sub_sport),
+            "WeightTraining"
+        );
     }
 
     /// Scenario: a dumbbell exercise, a warm-up, a rest and a hold are written

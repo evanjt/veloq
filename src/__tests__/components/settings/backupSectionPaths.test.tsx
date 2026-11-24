@@ -250,7 +250,9 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
       ? 'backup.backupFailedAuth'
       : kind === 'icloud_unavailable'
         ? 'backup.backupFailedIcloud'
-        : 'backup.backupFailedFolder',
+        : kind === 'device'
+          ? 'backup.backupFailedDevice'
+          : 'backup.backupFailedFolder',
   isIcloudSupported: () => mockIcloudSupported,
   isIcloudBackupOn: () => mockIcloudOn,
   setIcloudBackupOn: (on: boolean) => mockSetIcloudOn(on),
@@ -1122,6 +1124,15 @@ describe('carriers', () => {
 
     const failure = screen.getByTestId('backup-carrier-failure-folder');
     expect(StyleSheet.flatten(failure.props.style).color).toBe(darkColors.errorText);
+  });
+
+  it('shows the device failure on the headline row beside the last backup', async () => {
+    mockFailures = { device: { kind: 'device', status: null, at: Date.now() } };
+    await render(<BackupSection />);
+
+    expect(screen.getByTestId('backup-device-failure')).toHaveTextContent(
+      /backup\.backupFailedDevice/
+    );
   });
 
   it('groups the restore list by carrier and restores from the carrier of the entry', async () => {

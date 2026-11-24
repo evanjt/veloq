@@ -216,10 +216,11 @@ static TABLES: &[Table] = &[
         "EXISTS (SELECT 1 FROM strength_sessions s WHERE s.kind = 'finished' \
          AND s.activity_key = exercise_sets.activity_id)",
     ),
-    t(
+    claimed(
         "ride_originals",
         Identity,
-        "the original file of a ride no connector can serve again, deflated; the athlete's own and salvaged on the device, but too large for the record backup, which carries it only once the backup reads `original_of`",
+        "the original file of a ride no connector can serve again, deflated; the athlete's own and salvaged on the device, but too large for the record backup, which carries it only once the backup reads `original_of`; a derived clear drops the original of a ride a connector serves again and keeps one an imported file supplied",
+        "ride_originals.source = 'file'",
     ),
     t(
         "ride_identity",

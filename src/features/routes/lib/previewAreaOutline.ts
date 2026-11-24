@@ -44,14 +44,14 @@ export function previewAreaOutline(centre: PreviewAreaCentre | null): GeoJSON.Fe
  * which ground the area covers and never takes a tap meant for a line. Both
  * previews draw it through this one spec.
  */
-export function previewAreaLayerSpec({ layer }: MapPalette): MapLayerSpec {
+export function previewAreaLayerSpec({ casing }: MapPalette): MapLayerSpec {
   return {
     id: 'preview-area-line',
     type: 'line',
     source: 'preview-area',
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
-      'line-color': layer.casing,
+      'line-color': casing,
       'line-opacity': 0.8,
       'line-width': 1.5,
       'line-dasharray': [4, 3],

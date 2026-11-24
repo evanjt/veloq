@@ -184,6 +184,27 @@ describe('Resume crash backup', () => {
     expect(useRecordingStore.getState().status).toBe('stopped');
   });
 
+  describe('the route choice', () => {
+    beforeEach(() => useRecordingLiveStore.getState().reset());
+
+    it('comes back with the ride, ready before the session reads it', () => {
+      restoreRecordingBackup({
+        ...backup('paused'),
+        routeChoice: { activityType: 'Ride', routeId: 'r1' },
+      });
+      expect(useRecordingLiveStore.getState().routeChoice).toEqual({
+        activityType: 'Ride',
+        routeId: 'r1',
+      });
+    });
+
+    it('is none for a backup that carries none, whatever an earlier ride chose', () => {
+      useRecordingLiveStore.getState().setRouteChoice('Ride', 'old');
+      restoreRecordingBackup(backup('paused'));
+      expect(useRecordingLiveStore.getState().routeChoice).toBeNull();
+    });
+  });
+
   describe('the pause reason on the prompt path', () => {
     const SIGNED_IN = 'i1';
     beforeEach(() => {

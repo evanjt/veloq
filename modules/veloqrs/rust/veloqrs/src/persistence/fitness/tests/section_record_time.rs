@@ -147,3 +147,19 @@ fn test_record_progression_reads_equal_dates_in_one_order() {
     assert_eq!(forward, reverse);
     assert_eq!(forward, ["upload_a", "upload_b"]);
 }
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn test_record_progression_skips_a_gain_inside_the_tolerance() {
+    let records = vec![
+        named("upload_a", 1, 1558.0, 300.000),
+        named("upload_b", 2, 1558.0, 299.995),
+        named("upload_c", 3, 1558.0, 290.0),
+    ];
+    let result: SectionPerformanceResult = summarise(1837.0, records);
+    let ids: Vec<String> = crate::persistence::records::section_record_progression(&result, false)
+        .into_iter()
+        .map(|step| step.activity_id)
+        .collect();
+    assert_eq!(ids, ["upload_a", "upload_c"]);
+}

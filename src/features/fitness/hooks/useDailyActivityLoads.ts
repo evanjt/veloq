@@ -32,6 +32,7 @@ export function useDailyActivityLoads(days: number, enabled = true): DayLoad[] {
         ) ?? NO_LOADS
       );
     } catch {
+      // empty-on-error: a chart window with no loads draws flat, and the next sync invalidates the read
       return NO_LOADS;
     }
   }, [read, days, enabled]);

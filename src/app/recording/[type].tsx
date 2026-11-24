@@ -46,7 +46,6 @@ import {
   usePermissionUpgrade,
   useUploadPermissionStore,
   useRecordingKeepAwake,
-  useRouteGuidance,
   useRecordingHandlers,
   recordingBackAction,
   styles,
@@ -203,7 +202,6 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
     location: currentLocation,
     enabled: mode === 'gps',
   });
-  useRouteGuidance({ activityType: currentActivityType, enabled: mode === 'gps' });
   const effectiveFields = useMemo(
     () => fieldsForMode(dataFields, mode, currentActivityType),
     [dataFields, mode, currentActivityType]

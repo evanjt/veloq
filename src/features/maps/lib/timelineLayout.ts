@@ -94,7 +94,7 @@ export function createTimelineLayout({
 
   const positionToDate = (pos: number): Date => {
     const exact = snapPoints.find(
-      (p) => p.kind === 'year' && Math.abs(p.position - pos) < SNAP_EPSILON
+      (p) => p.kind !== 'now' && Math.abs(p.position - pos) < SNAP_EPSILON
     );
     if (exact) return new Date(exact.date.getTime());
     if (pos >= recentStartPos) {
@@ -135,12 +135,13 @@ export function createTimelineLayout({
   });
 
   for (let i = 1; i <= 3; i++) {
-    const date = new Date(maxTime);
-    date.setMonth(date.getMonth() - (12 - i * 3));
+    // A quarter tick sits on the 1st of the month it names, so snapping to it fetches that month.
+    const date = addCalendarMonths(maxDate, -(12 - i * 3));
     date.setDate(1);
+    date.setHours(0, 0, 0, 0);
     if (date.getTime() < minTime) continue;
     snapPoints.push({
-      position: hasOlder ? recentStartPos + (i / 4) * recentShare : dateToPosition(date),
+      position: dateToPosition(date),
       date,
       kind: 'quarter',
       showLabel: recentShare >= ALL_QUARTER_LABELS_MIN_SHARE || i === 2,

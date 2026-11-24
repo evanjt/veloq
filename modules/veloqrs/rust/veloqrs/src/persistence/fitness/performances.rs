@@ -246,6 +246,39 @@ pub(crate) mod laps {
         }
     }
 
+    /// How many untimed passes of a section count as traversals over the
+    /// range: included, complete ones, dated at or after `since`, optionally
+    /// of one sport. The lap list shows every untimed pass; this is the
+    /// number the section's list row and the chart's laps are counted by.
+    pub(crate) fn untimed_traversals(
+        conn: &Connection,
+        section_id: &str,
+        sport_type_filter: Option<&str>,
+        since: i64,
+    ) -> u32 {
+        let activity_sport = crate::persistence::records::activity_sport_sql();
+        let complete = crate::persistence::records::complete_traversal_clause("sa", "s");
+        conn.query_row(
+            &format!(
+                "SELECT COUNT(*)
+                 FROM section_activities sa
+                 JOIN sections s ON s.id = sa.section_id
+                 JOIN activities a ON a.id = sa.activity_id
+                 JOIN activity_metrics am ON am.activity_id = sa.activity_id
+                 WHERE sa.section_id = ?1 AND sa.excluded = 0
+                   AND (sa.lap_time IS NULL OR sa.lap_pace IS NULL OR sa.lap_time <= 0)
+                   AND (?2 IS NULL OR {activity_sport} = ?2)
+                   AND am.date >= ?3{complete}"
+            ),
+            params![section_id, sport_type_filter, since],
+            |row| row.get::<_, u32>(0),
+        )
+        .unwrap_or_else(|e| {
+            log::warn!("Failed to count untimed traversals: {}", e);
+            0
+        })
+    }
+
     /// The name and date the record carries, for an activity the portions name.
     pub(crate) fn activity_meta(conn: &Connection, activity_id: &str) -> Option<(String, i64)> {
         conn.query_row(
@@ -1700,27 +1733,15 @@ where
         .cloned()
         .collect();
 
-    // Rank one is a record only when it strictly beats another attempt.
+    // Rank counts attempts strictly faster, as the podium does, and one is a record only when it strictly beats another attempt.
     let current_rank = current_activity_id.and_then(|current_id| {
         let current = comparable.iter().find(|p| p.activity_id == current_id)?;
-        let rival = comparable
+        let rivals: Vec<f64> = comparable
             .iter()
             .filter(|p| p.activity_id != current_id)
-            .map(|p| p.moving_time)
-            .min();
-        if crate::persistence::records::is_personal_record(
-            current.moving_time as f64,
-            rival.map(f64::from),
-        ) {
-            return Some(1);
-        }
-        rival?;
-        Some(
-            comparable
-                .iter()
-                .filter(|p| p.moving_time <= current.moving_time)
-                .count() as u32,
-        )
+            .map(|p| f64::from(p.moving_time))
+            .collect();
+        crate::persistence::records::rank_among(f64::from(current.moving_time), &rivals)
     });
 
     let forward_stats = best_sport.and_then(|_| route_direction_stats(&performances, "same"));

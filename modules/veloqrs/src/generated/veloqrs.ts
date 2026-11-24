@@ -30178,6 +30178,54 @@ const FfiConverterTypeFfiPreviewResult = (() => {
 })();
 
 /**
+ * The entry recorded for a pulled ride, as the app presents it.
+ */
+export type FfiPulledRideEntry = {
+  title: string;
+  body: string;
+};
+
+/**
+ * Generated factory for {@link FfiPulledRideEntry} record objects.
+ */
+export const FfiPulledRideEntry = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiPulledRideEntry, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiPulledRideEntry>,
+  });
+})();
+
+const FfiConverterTypeFfiPulledRideEntry = (() => {
+  type TypeName = FfiPulledRideEntry;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        title: FfiConverterString.readFromCursor(c),
+        body: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.title, c);
+      FfiConverterString.writeIntoCursor(value.body, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.title) +
+        FfiConverterString.allocationSize(value.body)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * One quarantine, and what came out of the file it replaced.
  *
  * Every count is a row a rebuild cannot re-derive. The catalogue is not here
@@ -39418,7 +39466,7 @@ export type FfiWidgetContext = {
    */
   theme: WidgetTheme;
   /**
-   * Sport tint by sport type, with `Other` as the fallback.
+   * Sport tint by sport family name, with `Other` as the fallback.
    */
   activityTints: Map<string, string>;
   /**
@@ -42809,6 +42857,12 @@ export interface ActivityManagerLike {
    * The recording identity survives retries before its library update lands.
    */
   provisionalId(recordingId: string): string;
+  /**
+   * The title and body recorded when the pulled Garmin ride `activity_id`
+   * was announced, which is the entry the app posts. `None` when none was
+   * recorded.
+   */
+  pulledRideEntry(activityId: string): FfiPulledRideEntry | undefined;
   remove(activityId: string) /*throws*/ : void;
   /**
    * Replace the calendar events in a window, for demo seeding.
@@ -43433,6 +43487,29 @@ export class ActivityManager
     );
     try {
       return FfiConverterString.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * The title and body recorded when the pulled Garmin ride `activity_id`
+   * was announced, which is the entry the app posts. `None` when none was
+   * recorded.
+   */
+  pulledRideEntry(activityId: string): FfiPulledRideEntry | undefined {
+    const __rb: Uint8Array = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_pulled_ride_entry(
+          uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(activityId, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterOptionalTypeFfiPulledRideEntry.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -47665,6 +47742,11 @@ export interface RecordingManagerLike {
    */
   addRecording(entry: FfiRecordingEntry) /*throws*/ : boolean;
   /**
+   * A sign-in adopted a library named for another identity: its rides take
+   * the new one. Returns how many moved.
+   */
+  adoptIdentity(from: string, to: string) /*throws*/ : number;
+  /**
    * Remember the engine key the recording was written under. A ride whose
    * upload already landed has the server's id written onto that row and is
    * marked reconciled in the same call.
@@ -47828,6 +47910,29 @@ export class RecordingManager
               entry,
               nativeModule().rustbuffer_alloc,
             ),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      ),
+    );
+  }
+
+  /**
+   * A sign-in adopted a library named for another identity: its rides take
+   * the new one. Returns how many moved.
+   */
+  adoptIdentity(from: string, to: string): number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_recordingmanager_adopt_identity(
+            uniffiTypeRecordingManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(from, nativeModule().rustbuffer_alloc),
+            FfiConverterString.lower(to, nativeModule().rustbuffer_alloc),
             callStatus,
           );
         },
@@ -49384,6 +49489,14 @@ export interface RouteManagerLike {
     highlightActivityId: string | undefined,
   ) /*throws*/ : FfiSectionPerformanceData;
   /**
+   * One section's or route's guide payload as JSON text, its line simplified for a watch.
+   * `None` when it is gone or has no line.
+   */
+  getGuidePayload(
+    kind: FfiNearbyKind,
+    id: string,
+  ) /*throws*/ : string | undefined;
+  /**
    * The routes and sections of `sport`'s family, of the `kinds` asked for, that start near the
    * point, nearest start first, each with its best and latest time, passes, elevation gain and
    * a thinned line. The followed route comes back too, wherever it starts. The line ask caps
@@ -49594,6 +49707,38 @@ export class RouteManager
     );
     try {
       return FfiConverterTypeFfiSectionPerformanceData.lift(__rb);
+    } finally {
+      nativeModule().rustbuffer_free(__rb);
+    }
+  }
+
+  /**
+   * One section's or route's guide payload as JSON text, its line simplified for a watch.
+   * `None` when it is gone or has no line.
+   */
+  getGuidePayload(
+    kind: FfiNearbyKind,
+    id: string,
+  ): string | undefined /*throws*/ {
+    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_guide_payload(
+          uniffiTypeRouteManagerObjectFactory.clonePointer(this),
+          FfiConverterTypeFfiNearbyKind.lower(
+            kind,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterString.lower(id, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+    try {
+      return FfiConverterOptionalString.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -57724,6 +57869,11 @@ const FfiConverterOptionalTypeFfiPreviewTrack = new FfiConverterOptional(
   FfiConverterTypeFfiPreviewTrack,
 );
 
+// FfiConverter for FfiPulledRideEntry | undefined
+const FfiConverterOptionalTypeFfiPulledRideEntry = new FfiConverterOptional(
+  FfiConverterTypeFfiPulledRideEntry,
+);
+
 // FfiConverter for Array<FfiCalendarEventBody>
 const FfiConverterSequenceTypeFfiCalendarEventBody = new FfiConverterArray(
   FfiConverterTypeFfiCalendarEventBody,
@@ -58237,6 +58387,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_provisional_id",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_pulled_ride_entry() !==
+    12597
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_pulled_ride_entry",
     );
   }
   if (
@@ -59016,6 +59174,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_adopt_identity() !==
+    54588
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_recordingmanager_adopt_identity",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_recordingmanager_attach_engine_activity() !==
     17645
   ) {
@@ -59349,6 +59515,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_routemanager_get_detail_performance",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_guide_payload() !==
+    27804
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routemanager_get_guide_payload",
     );
   }
   if (
@@ -61123,6 +61297,7 @@ export default Object.freeze({
     FfiConverterTypeFfiPreviewResult,
     FfiConverterTypeFfiPreviewSection,
     FfiConverterTypeFfiPreviewTrack,
+    FfiConverterTypeFfiPulledRideEntry,
     FfiConverterTypeFfiPushRun,
     FfiConverterTypeFfiQuarantineReport,
     FfiConverterTypeFfiRankedSection,

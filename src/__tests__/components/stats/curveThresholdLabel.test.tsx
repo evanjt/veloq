@@ -228,3 +228,17 @@ describe('the power and swim curve thresholds', () => {
     expect(referenceRules(tree)).toHaveLength(0);
   });
 });
+
+describe('the swim curve distance readout', () => {
+  it('reads pool distances in metres whatever the unit setting', async () => {
+    useUnitPreference.setState({ unitPreference: 'imperial' });
+    const tree = await render(<SwimPaceCurveChart />);
+    const plot = tree.UNSAFE_getByType(CurveChart);
+
+    expect(plot.props.reading.formatX(Math.log10(100))).toBe('100 m');
+    expect(plot.props.reading.formatX(Math.log10(1500))).toBe('1.5 km');
+    expect(plot.props.describePoint({ distance: 100, time: 70, paceMs: 1.43 }).split(', ')[0]).toBe(
+      '100 m'
+    );
+  });
+});

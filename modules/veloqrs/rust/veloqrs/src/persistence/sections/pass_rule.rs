@@ -14,7 +14,7 @@ use crate::persistence::job_runs::{BackgroundJob, JobRun, RunOutcome, record_job
 
 /// Bump this when what counts as a traversal of a section, or the time of one,
 /// changes.
-pub(crate) const PASS_RULE_VERSION: i32 = 4;
+pub(crate) const PASS_RULE_VERSION: i32 = 5;
 
 const STAMP_KEY: &str = "pass_rule_version";
 
@@ -129,7 +129,7 @@ impl PersistentEngine {
     /// section's old rows or its new and never half. Auto, pinned and
     /// user-defined sections all go through the edit path's rematch, so
     /// exclusions and hand-attached rides carry across.
-    fn recount_every_section(&mut self) -> PassRecountReport {
+    pub(crate) fn recount_every_section(&mut self, install: u64) -> PassRecountReport {
         let thread = std::thread::current().id();
         let ids: Vec<String> = match self.section_ids_for_recount() {
             Ok(ids) => ids,
@@ -144,31 +144,62 @@ impl PersistentEngine {
         };
         let mut complete = true;
         for id in &ids {
-            let recounted = self.stored_section_polyline(id).and_then(|line| {
-                self.in_write_txn(|engine| engine.rematch_section_activities(id, &line))
+            let recounted = guarded_write(install, || {
+                self.stored_section_polyline(id).and_then(|line| {
+                    self.in_write_txn(|engine| engine.rematch_section_rows(id, &line))
+                })
             });
-            if let Err(e) = recounted {
-                log::warn!("veloqrs: [pass rule] recount of {id} failed: {e}");
-                complete = false;
+            match recounted {
+                Ok((_, unreadable)) if unreadable.is_empty() => {}
+                Ok((_, unreadable)) => {
+                    log::warn!(
+                        "veloqrs: [pass rule] recount of {id} left {} members whose track does not read",
+                        unreadable.len()
+                    );
+                    complete = false;
+                }
+                Err(e) => {
+                    log::warn!("veloqrs: [pass rule] recount of {id} failed: {e}");
+                    complete = false;
+                    if !install_is_current(install) {
+                        break;
+                    }
+                }
             }
         }
         // The rematch writes rows with no lap time. The backfill times them
         // between the section's gates before any badge reads them.
-        self.backfill_section_performance_cache();
-        if !ids.is_empty()
-            && let Err(e) = self.recompute_activity_indicators()
-        {
-            log::warn!("veloqrs: [pass rule] indicators not recomputed: {e}");
+        let backfilled = guarded_write(install, || {
+            self.backfill_section_performance_cache();
+            Ok(())
+        });
+        if backfilled.is_err() {
             complete = false;
         }
-        if complete
-            && let Err(e) = self.db.execute(
-                "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-                params![STAMP_KEY, PASS_RULE_VERSION.to_string()],
-            )
-        {
-            log::warn!("veloqrs: [pass rule] could not stamp v{PASS_RULE_VERSION}: {e}");
-            complete = false;
+        if !ids.is_empty() {
+            let indicators = guarded_write(install, || {
+                self.recompute_activity_indicators()
+                    .map_err(|e| e.to_string())
+            });
+            if let Err(e) = indicators {
+                log::warn!("veloqrs: [pass rule] indicators not recomputed: {e}");
+                complete = false;
+            }
+        }
+        if complete {
+            let stamped = guarded_write(install, || {
+                self.db
+                    .execute(
+                        "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
+                        params![STAMP_KEY, PASS_RULE_VERSION.to_string()],
+                    )
+                    .map(|_| ())
+                    .map_err(|e| e.to_string())
+            });
+            if let Err(e) = stamped {
+                log::warn!("veloqrs: [pass rule] could not stamp v{PASS_RULE_VERSION}: {e}");
+                complete = false;
+            }
         }
         PassRecountReport {
             thread,
@@ -205,6 +236,30 @@ impl PersistentEngine {
     }
 }
 
+fn install_is_current(install: u64) -> bool {
+    crate::persistence::engine_install() == install
+}
+
+/// Run one of the recount's writes under the suspension hold and the
+/// lifecycle lock, and only while `install` is still the open library.
+///
+/// The recount writes on a connection of its own, so the engine lock does not
+/// gate it. Without the hold a suspension would not wait for its transaction,
+/// and without the install check a restore would receive a stamp and rematched
+/// rows for a library the recount never read. Refused, the write runs nothing.
+fn guarded_write<T>(install: u64, write: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+    let Some(_hold) = crate::persistence::suspension::begin_write() else {
+        return Err("the engine is suspended".to_string());
+    };
+    let _lifecycle = crate::persistence::ENGINE_LIFECYCLE
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    if !install_is_current(install) {
+        return Err("the library was replaced".to_string());
+    }
+    write()
+}
+
 fn run_pass_recount(db_path: &str, install: u64, running: RecountRunning) -> PassRecountReport {
     let thread = std::thread::current().id();
     let opened = PersistentEngine::new_for_push(db_path).and_then(|mut engine| {
@@ -213,7 +268,7 @@ fn run_pass_recount(db_path: &str, install: u64, running: RecountRunning) -> Pas
     });
     let (report, summary_db) = match opened {
         Ok(mut engine) => {
-            let report = engine.recount_every_section();
+            let report = engine.recount_every_section(install);
             record_pass_recount(&engine, &report);
             (report, Some(engine))
         }

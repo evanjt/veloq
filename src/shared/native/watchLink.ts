@@ -1,6 +1,6 @@
 import { requireOptionalNativeModule } from 'expo-modules-core';
 
-import type { LatLngShort } from 'veloqrs';
+import { FfiNearbyKind, routes } from 'veloqrs';
 
 import { requestNotificationPermissionOutcome } from '@/shared/app/permissions/notifications';
 
@@ -20,7 +20,11 @@ interface VeloqWatchModule {
 export async function sendSectionToWatch(reply: string): Promise<boolean> {
   const mod = requireOptionalNativeModule<VeloqWatchModule>('VeloqWatch');
   if (!mod || mod.state().enabled !== true) return false;
-  mod.sendSection(reply);
+  try {
+    mod.sendSection(reply);
+  } catch {
+    return false;
+  }
   await requestNotificationPermissionOutcome();
   return true;
 }
@@ -41,14 +45,12 @@ export function setWatchLinkEnabled(enabled: boolean): void {
 }
 
 /**
- * Hand a section to the watch guide as its name and line. A section with no
- * line has nothing to guide along, so nothing is sent and resolves false.
+ * Hand a section to the watch guide as the engine's guide payload, its line
+ * simplified for the watch. A section the engine no longer holds, or one with no
+ * line, has nothing to guide along, so nothing is sent and resolves false.
  */
-export async function sendSectionGuide(section: {
-  name: string;
-  polyline: readonly LatLngShort[];
-}): Promise<boolean> {
-  if (section.polyline.length === 0) return false;
-  const line = section.polyline.map(({ lat, lng }) => ({ latitude: lat, longitude: lng }));
-  return sendSectionToWatch(JSON.stringify({ name: section.name, line }));
+export async function sendSectionGuide(sectionId: string): Promise<boolean> {
+  const reply = routes.getGuidePayload(FfiNearbyKind.Section, sectionId);
+  if (!reply) return false;
+  return sendSectionToWatch(reply);
 }

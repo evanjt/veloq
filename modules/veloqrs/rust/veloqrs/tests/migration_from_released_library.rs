@@ -33,6 +33,9 @@ const LIBRARY_TABLES: &[&str] = &[
     "route_names",
     "route_numbers",
     "activity_matches",
+    "activity_bodies",
+    "activity_census",
+    "activity_streams",
     "settings",
 ];
 
@@ -126,6 +129,18 @@ fn each_release_library_is_that_release_schema_holding_no_real_athlete_data() {
                 release.name
             );
         }
+        assert!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM activity_census
+                 WHERE fetched_sync_date IS NOT NULL AND fetched_sync_date = icu_sync_date",
+                [],
+                |row| row.get::<_, i64>(0)
+            )
+            .is_ok_and(|n| n > 0),
+            "the {} library holds no census row marked fetched at its version; a migration \
+             that clears the mark would re-owe every window and pass every other check",
+            release.name
+        );
         assert_eq!(
             ids(
                 &conn,

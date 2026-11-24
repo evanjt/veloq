@@ -7,6 +7,7 @@
  * than reading as the `1Y` that means 365 days everywhere else.
  */
 
+import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 import { PERIOD_LABEL_KEYS, periodOptions, periodStart, type Period } from '@/shared/app/period';
 
 export type MapPeriod = Extract<Period, 'all' | '6m' | '3m' | '1m' | '7d'> | 'year';
@@ -29,13 +30,13 @@ export function periodSelectLabelKey(period: MapPeriod): string {
  */
 export const DEFAULT_MAP_PERIOD = 'all' as const satisfies MapPeriod;
 
-/** The instant the filter starts from. */
+/**
+ * Where the filter starts, as a `Date` whose instant is the local wall clock
+ * stamped as UTC. The engine compares it with activity dates stored the same
+ * way, so a true instant would slide the window by the device's UTC offset.
+ */
 export function getPeriodStart(period: MapPeriod, now: Date = new Date()): Date {
-  if (period === 'year') {
-    const start = new Date(now);
-    start.setMonth(0, 1);
-    start.setHours(0, 0, 0, 0);
-    return start;
-  }
-  return periodStart(period, now);
+  if (period === 'year') return new Date(Date.UTC(now.getFullYear(), 0, 1));
+  const start = periodStart(period, now);
+  return new Date(period === 'all' ? start.getTime() : localWallClockToEpochSeconds(start) * 1000);
 }

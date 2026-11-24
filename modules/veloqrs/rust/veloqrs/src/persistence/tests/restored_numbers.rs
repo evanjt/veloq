@@ -265,7 +265,6 @@ fn a_restored_hand_cut_takes_its_number_over_an_auto_section_on_the_same_ground(
 /// another "Harbour loop" on its `r_3`. The new device numbered its own routes
 /// 1 to 9 and its `r_3` is the old route 7's ground.
 #[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_restored_route_number_and_name_land_by_members_not_by_id() {
     let _serial = crate::test_globals::serial_global_state();
     let mut source = PersistentEngine::in_memory().unwrap();

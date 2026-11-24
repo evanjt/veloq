@@ -70,6 +70,7 @@ describe('recordingSession', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    jest.setSystemTime(1_700_000_000_000);
     (Location.watchPositionAsync as jest.Mock).mockImplementation(
       async (_options: unknown, callback: (location: unknown) => void) => {
         onFix = callback;

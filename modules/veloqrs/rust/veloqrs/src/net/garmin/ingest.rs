@@ -64,10 +64,11 @@ pub struct Prepared {
     pub coords: Vec<GpsPoint>,
     pub streams: Vec<StreamDto>,
     pub clock: Vec<u32>,
-    /// The sport the row is stored under and the start in Unix seconds, UTC,
-    /// that the file's thresholds are dated by.
+    /// The sport the row is stored under and the start as the wall clock
+    /// stamped as UTC, the space activity dates are stored in, that the file's
+    /// thresholds are dated by.
     pub sport: String,
-    pub start_unix: i64,
+    pub start_wall: i64,
     /// The thresholds and profile the file carries, if any.
     pub thresholds: Option<crate::fit::FitThresholds>,
     /// The interval body the file's laps make, none for a file with fewer
@@ -232,10 +233,11 @@ pub fn prepare_activity(
         streams = crate::net::types::trackless_series(&without_fix);
     }
     let body = body_of(&key, sport, activity, listed, &stream_types);
+    let start_wall = body.date as i64;
     let identity = RideIdentity {
         device_serial: activity.serial_number,
         created_unix: activity.time_created,
-        start_local: body.date as i64,
+        start_local: start_wall,
         sport: sport.to_string(),
     };
     Ok(Prepared {
@@ -247,7 +249,7 @@ pub fn prepare_activity(
         streams,
         clock,
         sport: sport.to_string(),
-        start_unix: activity.start_unix,
+        start_wall,
         laps: crate::persistence::intervals::lap_body(activity),
         thresholds: activity.thresholds.clone(),
         format,
@@ -321,7 +323,7 @@ pub fn store(
                 crate::persistence::fitness::sport_settings::record_file_thresholds(
                     &engine.db,
                     &prepared.sport,
-                    prepared.start_unix,
+                    prepared.start_wall,
                     found,
                 )
             });
@@ -381,7 +383,7 @@ pub fn finish_batch(engine: &mut PersistentEngine, keys: &[String]) {
     }
     if let Err(e) = crate::persistence::fitness::curves_local::refresh(
         &engine.db,
-        chrono::Utc::now().timestamp(),
+        crate::persistence::streams::wall_now_seconds(),
     ) {
         log::warn!(
             "veloqrs: [garmin] curves after a batch of {} not worked out: {e}",

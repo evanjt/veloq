@@ -39,6 +39,7 @@ struct Fake {
     manual_bodies: Mutex<Vec<ManualActivityBody>>,
     rpe: Mutex<Vec<(String, u32)>>,
     during_send: Option<Box<dyn Fn() + Send + Sync>>,
+    during_look: Option<Box<dyn Fn() + Send + Sync>>,
     /// What reading each activity back answers, by intervals id. An id with
     /// no answer reads as a request that never arrived.
     read_back: Mutex<HashMap<String, FfiCallOutcome>>,
@@ -80,6 +81,7 @@ impl Fake {
             manual_bodies: Mutex::new(Vec::new()),
             rpe: Mutex::new(Vec::new()),
             during_send: None,
+            during_look: None,
             read_back: Mutex::new(HashMap::new()),
             read: Mutex::new(Vec::new()),
             during_read_back: None,
@@ -175,6 +177,9 @@ impl Uplink for Fake {
         manual: Option<&ManualActivityBody>,
     ) -> FfiCallOutcome {
         self.looked.lock().unwrap().push(ride.id.clone());
+        if let Some(during) = &self.during_look {
+            during();
+        }
         if let Some(failed) = &self.find_answer {
             return failed.clone();
         }
@@ -853,6 +858,48 @@ fn a_ride_the_server_does_not_hold_is_sent_again_after_the_look() {
     assert!(!in_doubt("m1"));
 }
 
+/// Scenario: the server created the activity, but its answer carried no id.
+/// Expected behaviour: the ride looks for the activity and settles as it, with
+/// the provisional row reconciled, so the next sync does not store it twice.
+#[test]
+fn a_landed_answer_with_no_id_is_settled_by_looking_for_the_activity() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_idless_answer.db");
+    insert(&with_provisional(ride(&dir, "r1", 1_000), "local-r1"));
+    let fake = Fake::scripted(vec![(
+        answer(FfiCallKind::Ok, None, None),
+        Some("i9".into()),
+    )]);
+
+    one_scheduled_pass(&fake);
+
+    assert_eq!(fake.sent(), vec!["r1"]);
+    assert_eq!(fake.looked(), vec!["r1"]);
+    let r1 = row("r1");
+    assert_eq!(r1.upload_status, "uploaded");
+    assert_eq!(r1.intervals_activity_id.as_deref(), Some("i9"));
+    assert!(r1.engine_reconciled);
+    assert_eq!(intervals_id_of_activity("local-r1").as_deref(), Some("i9"));
+}
+
+/// Scenario: the answer carried no id and the look finds nothing.
+/// Expected behaviour: the ride is not uploaded. It stays pending and in
+/// doubt, so the next attempt looks before it posts.
+#[test]
+fn a_landed_answer_with_no_id_and_no_find_leaves_the_ride_in_doubt() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_idless_unfound.db");
+    insert(&ride(&dir, "r1", 1_000));
+    let fake = Fake::scripted(vec![(answer(FfiCallKind::Ok, None, None), None)]);
+
+    let result = upload_ride("r1", false, &fake, &now);
+
+    assert_eq!(result.outcome, FfiUploadOutcome::Retriable);
+    assert_eq!(fake.looked(), vec!["r1"]);
+    assert_eq!(row("r1").upload_status, "pending");
+    assert!(in_doubt("r1"));
+}
+
 /// Scenario: a ride in doubt is due, and the look itself fails: once to the
 /// network, once to a 500, once to a 400.
 /// Expected behaviour: nothing is posted, the ride stays pending and in doubt,
@@ -884,6 +931,53 @@ fn a_failed_look_sends_nothing_and_keeps_the_ride_in_doubt() {
         assert_eq!(row(&id).upload_status, "pending", "{id}");
         assert!(in_doubt(&id), "{id}");
     }
+}
+
+/// Scenario: a ride is in doubt, and a restore moves the install on while the
+/// look for it is out.
+/// Expected behaviour: the mark cannot be written under the live install, so
+/// nothing is sent.
+#[test]
+fn a_ride_whose_install_changed_during_the_look_is_not_sent() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_install_moved_look.db");
+    insert(&ride(&dir, "r1", 1_000));
+    with_persistent_engine(|e| e.set_recording_upload_in_doubt("r1", true).unwrap()).unwrap();
+    let mut fake = Fake::answering(vec![landed("i9")]);
+    fake.during_look = Some(Box::new(crate::persistence::invalidate_engine_install));
+
+    upload_ride("r1", false, &fake, &now);
+
+    assert_eq!(fake.looked(), vec!["r1"]);
+    assert!(fake.sent().is_empty());
+}
+
+/// Scenario: the write that marks a ride in doubt fails.
+/// Expected behaviour: nothing is sent, the ride waits as a held send and
+/// keeps its attempts, and the next attempt can send once the mark can be
+/// written.
+#[test]
+fn a_ride_whose_mark_cannot_be_written_is_not_sent() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("upload_mark_failed.db");
+    insert(&ride(&dir, "r1", 1_000));
+    with_persistent_engine(|e| {
+        e.db.execute_batch(
+            "CREATE TRIGGER refuse_mark BEFORE UPDATE OF upload_in_doubt ON recordings \
+             WHEN NEW.upload_in_doubt = 1 BEGIN SELECT RAISE(ABORT, 'read-only mark'); END",
+        )
+        .unwrap();
+    })
+    .unwrap();
+    let fake = Fake::answering(vec![landed("i9")]);
+
+    let result = upload_ride("r1", false, &fake, &now);
+
+    assert!(fake.sent().is_empty());
+    assert_eq!(result.outcome, FfiUploadOutcome::Network);
+    assert_eq!(row("r1").upload_status, "pending");
+    assert_eq!(row("r1").retry_count, 0);
+    assert!(!in_doubt("r1"));
 }
 
 /// Scenario: a ride's request is in flight, and the answers that follow: a

@@ -400,16 +400,22 @@ pub(crate) struct OwedPairs {
 /// Measure every pair one of whose lines has moved since it was stored, or
 /// `None` when the stored pairs are level with the lines. An empty table owes
 /// every line, which is the full rebuild.
-pub(crate) fn owed_pairs(conn: &Connection) -> Option<OwedPairs> {
-    let retired: Vec<(String, Vec<GpsPoint>, i64)> = retired_rows(conn)
-        .into_iter()
-        .filter_map(|row| {
-            let (_, print) = row.encoded?;
-            Some((row.section.section_id, row.line, print))
-        })
-        .collect();
-    let current = current_rows(conn);
-    let measured = measured_lines(conn);
+///
+/// The three reads run under one suspension read hold that ends before the
+/// measuring, which reads nothing. `Err` is a read refused because the engine
+/// is suspended.
+pub(crate) fn owed_pairs(conn: &Connection) -> Result<Option<OwedPairs>, ReadRefused> {
+    let (retired, current, measured) = {
+        let _read = crate::persistence::suspension::begin_read().ok_or(ReadRefused)?;
+        let retired: Vec<(String, Vec<GpsPoint>, i64)> = retired_rows(conn)
+            .into_iter()
+            .filter_map(|row| {
+                let (_, print) = row.encoded?;
+                Some((row.section.section_id, row.line, print))
+            })
+            .collect();
+        (retired, current_rows(conn), measured_lines(conn))
+    };
 
     let owed_retired: Vec<bool> = retired
         .iter()
@@ -438,7 +444,7 @@ pub(crate) fn owed_pairs(conn: &Connection) -> Option<OwedPairs> {
         && gone_retired.is_empty()
         && gone_current.is_empty()
     {
-        return None;
+        return Ok(None);
     }
 
     let current_boxes: Vec<PaddedBox> = current
@@ -463,7 +469,7 @@ pub(crate) fn owed_pairs(conn: &Connection) -> Option<OwedPairs> {
         }
     }
 
-    Some(OwedPairs {
+    Ok(Some(OwedPairs {
         retired: retired
             .into_iter()
             .zip(owed_retired)
@@ -479,8 +485,13 @@ pub(crate) fn owed_pairs(conn: &Connection) -> Option<OwedPairs> {
         gone_retired,
         gone_current,
         pairs,
-    })
+    }))
 }
+
+/// A read the suspension refused: the engine is suspended and the calling
+/// thread may not wait for the resume.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ReadRefused;
 
 /// Replace the pairs of every line a pass measured or found gone with what it
 /// found. The caller holds the write transaction.
@@ -535,7 +546,10 @@ pub(crate) fn level_at(install: u64, path: &str) -> SqlResult<usize> {
     crate::persistence::apply_write_pragmas(&conn)?;
     let mut wrote = 0;
     for _ in 0..MAX_PASSES {
-        let Some(owed) = owed_pairs(&conn) else { break };
+        let owed = match owed_pairs(&conn) {
+            Ok(Some(owed)) => owed,
+            Ok(None) | Err(ReadRefused) => break,
+        };
         super::detection::worker_write(&conn, install, || store_owed_pairs(&conn, &owed))?;
         wrote += 1;
     }

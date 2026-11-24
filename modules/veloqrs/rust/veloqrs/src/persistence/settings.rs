@@ -41,6 +41,14 @@ pub mod settings_keys {
     /// pre-blob-install fallback.
     pub const SECTION_CONFIG_JSON: &str = "__section_config_json";
 
+    /// Every row the section config is read from.
+    pub const SECTION_CONFIG_KEYS: &[&str] = &[
+        SECTION_PROXIMITY_THRESHOLD,
+        SECTION_MIN_LENGTH,
+        SECTION_MIN_ACTIVITIES,
+        SECTION_CONFIG_JSON,
+    ];
+
     /// Prefix of one key per sport type, valued with the epoch second an
     /// activity of that sport last left intervals.icu and was removed here.
     /// The curve sweep reads it as an arrival: the server's stored curves
@@ -711,13 +719,27 @@ impl PersistentEngine {
         Ok(())
     }
 
+    /// Whether the section config is fixed at the validated default because
+    /// the detector cutover is still owed. Every writer of it asks this: the
+    /// setter refuses, and a record restore leaves its keys alone, so the flip
+    /// has no athlete value to replace and report as the upgrade's reset.
+    pub(crate) fn section_config_held(&self) -> bool {
+        self.cutover_is_owed()
+    }
+
+    /// Whether a settings row under `key` is one the section config is read
+    /// from and so is held while [`Self::section_config_held`].
+    pub(crate) fn is_held_section_config_key(&self, key: &str) -> bool {
+        settings_keys::SECTION_CONFIG_KEYS.contains(&key) && self.section_config_held()
+    }
+
     /// Put into effect the configs the settings rows hold after something
     /// other than their setters wrote them, as those setters would: a changed
     /// section config re-detects the library and a changed strictness
     /// regroups it. Equal configs change nothing.
     pub(crate) fn adopt_stored_detection_configs(&mut self) -> SqlResult<()> {
         let section = section_config_from(&self.db)?;
-        if section != self.section_config {
+        if section != self.section_config && !self.section_config_held() {
             self.adopt_section_config(section);
         }
         let matching = match_config_from(&self.db)?;

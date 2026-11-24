@@ -741,6 +741,24 @@ impl PersistentEngine {
         Ok(changed as u32)
     }
 
+    /// Move every ride stamped for one library identity to another, and
+    /// answer how many moved.
+    ///
+    /// A Garmin-only library is named `garmin:<account>`. When an intervals.icu
+    /// sign-in adopts it, the rides recorded beside it become that athlete's,
+    /// or the sign-in hold would demote them and the library would hide them.
+    /// Rows of any other identity and every `upload_status` are left as they are.
+    pub fn adopt_recordings_identity(&self, from: &str, to: &str) -> SqlResult<u32> {
+        if from == to {
+            return Ok(0);
+        }
+        let changed = self.db.execute(
+            "UPDATE recordings SET athlete_id = ? WHERE athlete_id = ?",
+            params![to, from],
+        )?;
+        Ok(changed as u32)
+    }
+
     /// The next recording due an automatic upload, respecting the backoff.
     /// Oldest first, so a queue drains in the order it was recorded.
     pub fn next_pending_recording(&self, now: i64) -> SqlResult<Option<FfiRecordingEntry>> {
@@ -1680,6 +1698,39 @@ mod tests {
         let other = e.get_recording("theirs").unwrap().unwrap();
         assert_eq!(other.athlete_id.as_deref(), Some("iOther"));
         assert_eq!(e.stamp_ownerless_recordings("iB").unwrap(), 0);
+    }
+
+    /// Scenario: a Garmin-only athlete recorded rides, then an intervals.icu
+    /// sign-in adopted the library.
+    ///
+    /// Expected behaviour: the adopt verb moves their rides to the new identity,
+    /// so the library shows them and the sign-in hold leaves them queued.
+    #[test]
+    fn adopting_a_garmin_library_keeps_its_rides_visible_and_unheld() {
+        let (_dir, e) = engine();
+        let mut a = entry("a", 1_000, "pending");
+        a.athlete_id = Some("garmin:1".to_string());
+        let mut b = entry("b", 2_000, "uploaded");
+        b.athlete_id = Some("garmin:1".to_string());
+        let mut other = entry("other", 3_000, "pending");
+        other.athlete_id = Some("garmin:2".to_string());
+        for row in [&a, &b, &other] {
+            e.insert_recording(row).unwrap();
+        }
+
+        assert_eq!(e.adopt_recordings_identity("garmin:1", "i5").unwrap(), 2);
+
+        let visible = pooled::list_visible(&e.db, Some("i5")).unwrap();
+        assert_eq!(
+            visible.into_iter().map(|r| r.id).collect::<Vec<_>>(),
+            vec!["b", "a"]
+        );
+        assert_eq!(e.hold_recordings_of_other_athletes("i5").unwrap(), 1);
+        assert_eq!(
+            e.get_recording("a").unwrap().unwrap().upload_status,
+            "pending"
+        );
+        assert_eq!(e.adopt_recordings_identity("garmin:1", "i5").unwrap(), 0);
     }
 
     /// Scenario: athlete A's ride was refused for scope and sits

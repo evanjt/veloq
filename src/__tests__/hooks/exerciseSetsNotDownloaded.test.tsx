@@ -112,8 +112,8 @@ describe('the exercise sets hook', () => {
     await waitFor(() => expect(result.current.outcome).toBe('loaded'));
   });
 
-  /** A throw out of the engine is ignorance, not an empty session. */
-  it('says pending when the engine read threw', async () => {
+  /** A throw out of the engine is a failed read, not ignorance about a download. */
+  it('reports an error when the engine read threw', async () => {
     engine.getExerciseSets.mockImplementation(() => {
       throw new Error('ffi');
     });
@@ -122,7 +122,8 @@ describe('the exercise sets hook', () => {
       wrapper,
     });
 
-    await waitFor(() => expect(result.current.outcome).toBe('pending'));
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(engine.fetchAndParseExerciseSets).not.toHaveBeenCalled();
   });
 
   /** Not a strength activity at all: the hook is disabled and claims nothing. */
@@ -152,6 +153,26 @@ describe('the exercise table with no sets', () => {
     );
 
     await waitFor(() => expect(tree.toJSON()).toBeNull());
+  });
+});
+
+describe('the exercise table when the read throws', () => {
+  it('shows the failure with a retry that reads again', async () => {
+    engine.getExerciseSets.mockImplementationOnce(() => {
+      throw new Error('ffi');
+    });
+
+    await render(<ExerciseTable activityId="act1" activityType="WeightTraining" isDark={false} />, {
+      wrapper,
+    });
+
+    await waitFor(() => expect(screen.getByTestId('exercise-table-error')).toBeTruthy());
+    expect(screen.queryByText('strength.setsNotDownloaded')).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('exercise-table-error-retry'));
+
+    await waitFor(() => expect(screen.getByText('strength.setsNotDownloaded')).toBeTruthy());
+    expect(screen.queryByTestId('exercise-table-error')).toBeNull();
   });
 });
 

@@ -359,6 +359,25 @@ enum SweepGround {
     Track(Vec<GpsPoint>),
 }
 
+/// How far past a box the sweep reaches, for points that bled into a
+/// neighbouring tile (about 111 m at the equator).
+const SWEEP_MARGIN: f64 = 0.001;
+
+/// The tile ranges a sweep of `bound` deletes, one per zoom.
+fn bounds_ground_spans(
+    bound: &Bounds,
+    config: &crate::tiles::HeatmapConfig,
+) -> Vec<crate::tiles::TileSpan> {
+    crate::tiles::bounds_spans(
+        bound.min_lat - SWEEP_MARGIN,
+        bound.max_lat + SWEEP_MARGIN,
+        bound.min_lng - SWEEP_MARGIN,
+        bound.max_lng + SWEEP_MARGIN,
+        config.min_zoom,
+        config.max_zoom,
+    )
+}
+
 /// Delete the heatmap tiles under `ground`, on a thread of its own, then mark
 /// the set dirty and ask for the pass that redraws it.
 ///
@@ -385,7 +404,6 @@ fn spawn_tile_sweep(tiles_path: String, ground: Vec<SweepGround>, reason: &'stat
         let _registration = registration;
         let config = crate::tiles::HeatmapConfig::default();
         let path = std::path::Path::new(&tiles_path);
-        let margin = 0.001; // ~111m at equator, for points that bled into a neighbour
         let mut total_deleted = 0;
         let mut stopped = false;
         let mut swept: Vec<crate::tiles::TileSpan> = Vec::new();
@@ -398,14 +416,7 @@ fn spawn_tile_sweep(tiles_path: String, ground: Vec<SweepGround>, reason: &'stat
                 break;
             }
             swept.extend(match one {
-                SweepGround::Bounds(bound) => crate::tiles::bounds_spans(
-                    bound.min_lat - margin,
-                    bound.max_lat + margin,
-                    bound.min_lng - margin,
-                    bound.max_lng + margin,
-                    config.min_zoom,
-                    config.max_zoom,
-                ),
+                SweepGround::Bounds(bound) => bounds_ground_spans(bound, &config),
                 SweepGround::Track(track) => {
                     crate::tiles::track_spans(track, config.min_zoom, config.max_zoom)
                 }
@@ -413,10 +424,10 @@ fn spawn_tile_sweep(tiles_path: String, ground: Vec<SweepGround>, reason: &'stat
             total_deleted += match one {
                 SweepGround::Bounds(bound) => crate::tiles::invalidate_tiles_in_bounds(
                     path,
-                    bound.min_lat - margin,
-                    bound.max_lat + margin,
-                    bound.min_lng - margin,
-                    bound.max_lng + margin,
+                    bound.min_lat - SWEEP_MARGIN,
+                    bound.max_lat + SWEEP_MARGIN,
+                    bound.min_lng - SWEEP_MARGIN,
+                    bound.max_lng + SWEEP_MARGIN,
                     config.min_zoom,
                     config.max_zoom,
                 ),
@@ -579,6 +590,13 @@ fn delete_activity_keyed_rows(
     id: &str,
     keep: KeepAthleteRows,
 ) -> SqlResult<()> {
+    let metric_date = db
+        .query_row(
+            "SELECT date FROM activity_metrics WHERE activity_id = ?",
+            [id],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()?;
     let exercises = super::exercise_usage::detach(db, id)?;
     for table in ACTIVITY_KEYED_TABLES {
         let sql = match (keep, super::tables::declaration_of(table)) {
@@ -610,6 +628,11 @@ fn delete_activity_keyed_rows(
         .execute(params![id])?;
     db.prepare_cached("DELETE FROM settings WHERE key = ?1 || ?2")?
         .execute(params![super::settings_keys::CURVE_DEPARTED_PREFIX, id])?;
+    // The heatmap counts `activity_metrics` rows by day, so the day that row
+    // sat on is counted again whichever path removed it.
+    if let Some(date) = metric_date {
+        super::schema::recompute_heatmap_day(db, date)?;
+    }
     Ok(())
 }
 
@@ -2118,7 +2141,7 @@ fn reopen_changed_elevation_on(conn: &rusqlite::Connection) -> SqlResult<u64> {
         &format!(
             "UPDATE gps_tracks SET elevation_state = ?1, elevation_attempts = 0, \
                     elevation_settled_version = NULL \
-             WHERE elevation_state IN (?2, ?3) \
+             WHERE elevation_state IN (?2, ?3, ?4) \
                AND elevation_settled_version IS NOT NULL \
                AND ({CENSUS_VERSION_OF_TRACK}) IS NOT NULL \
                AND ({CENSUS_VERSION_OF_TRACK}) IS NOT elevation_settled_version"
@@ -2127,6 +2150,7 @@ fn reopen_changed_elevation_on(conn: &rusqlite::Connection) -> SqlResult<u64> {
             i64::from(ELEVATION_STATE_UNKNOWN),
             i64::from(ELEVATION_STATE_UNAVAILABLE),
             i64::from(ELEVATION_STATE_WITHHELD),
+            i64::from(ELEVATION_STATE_UNREACHABLE),
         ],
     )?;
     Ok(reopened as u64)
@@ -2963,8 +2987,14 @@ impl PersistentEngine {
             return;
         };
         // Marked here rather than after the sweep: the rows are already gone,
-        // so the ground they drew is stale whatever the sweep manages.
-        self.mark_heatmap_dirty();
+        // so the ground they drew is stale whatever the sweep manages. The
+        // mark names that ground, so the pass redraws it and not the library.
+        let config = crate::tiles::HeatmapConfig::default();
+        let spans: Vec<crate::tiles::TileSpan> = bounds
+            .iter()
+            .flat_map(|bound| bounds_ground_spans(bound, &config))
+            .collect();
+        crate::persistence::tiles::mark_tiles_swept(&tiles_path, &spans);
         let ground = bounds.into_iter().map(SweepGround::Bounds).collect();
         spawn_tile_sweep(tiles_path, ground, reason);
     }
@@ -3149,6 +3179,7 @@ impl PersistentEngine {
              DELETE FROM eftp_changes;
              DELETE FROM pace_history;
              DELETE FROM overlap_cache;
+             DELETE FROM evidence_cache;
              DELETE FROM processed_activities;
              DELETE FROM athlete_profile;
              DELETE FROM job_attempts;
@@ -3266,7 +3297,7 @@ impl PersistentEngine {
         self.section_config = tracematch::sections::SectionConfig::default();
         self.match_config = tracematch::MatchConfig::default();
         self.processed_activity_ids.clear();
-        self.invalidate_evidence_cache();
+        self.forget_evidence_cache_in_memory();
         self.time_streams.clear();
         self.set_groups_dirty(false);
         self.sections_dirty = false;
@@ -3379,6 +3410,7 @@ impl PersistentEngine {
         let activities_kept: u32 =
             tx.query_row("SELECT COUNT(*) FROM activities", [], |row| row.get(0))?;
         tx.execute("DELETE FROM processed_activities", [])?;
+        tx.execute("DELETE FROM evidence_cache", [])?;
         super::attempts::release_held_leases_in(&tx, self.lease_generation()?)?;
         tx.commit()?;
 
@@ -3390,16 +3422,19 @@ impl PersistentEngine {
             self.activity_metrics.remove(id);
         }
         self.processed_activity_ids.clear();
-        self.invalidate_evidence_cache();
+        self.forget_evidence_cache_in_memory();
         self.signature_cache.clear();
         self.time_streams.clear();
         self.groups.clear();
-        self.load_metadata()?;
-        self.load_sections()?;
+        // Everything that cannot fail runs before the reloads that can, so a
+        // failed reload leaves the dirty markers set rather than memory short
+        // of what the commit just wrote.
         self.set_groups_dirty(true);
         self.sections_dirty = true;
         self.clear_memory_caches();
         self.mark_heatmap_dirty();
+        self.load_metadata()?;
+        self.load_sections()?;
 
         log::info!(
             "[engine] Cleared derived data: {} sections, {} activities removed, {} kept",
@@ -3879,10 +3914,10 @@ impl PersistentEngine {
             params_vec.extend(ids_params.iter().copied());
             retired += self.db.execute(
                 &format!(
-                    "UPDATE gps_tracks SET elevation_state = ? \
+                    "UPDATE gps_tracks SET elevation_state = ?, \
+                            elevation_settled_version = ({CENSUS_VERSION_OF_TRACK}) \
                      WHERE elevation_state = ? AND elevation_attempts >= ? \
-                       AND activity_id IN ({})",
-                    placeholders
+                       AND activity_id IN ({placeholders})"
                 ),
                 params_vec.as_slice(),
             )? as u64;
@@ -3890,16 +3925,18 @@ impl PersistentEngine {
         Ok(retired)
     }
 
-    /// Ask again for every withheld track, on the athlete's request. A track
-    /// settled flat is an answer about the activity and stays settled.
+    /// Ask again for every withheld or unreachable track, on the athlete's
+    /// request. A track settled flat is an answer about the activity and stays
+    /// settled; an unreachable one never was an answer.
     fn release_withheld_elevation(&self) -> SqlResult<u64> {
         let released = self.db.execute(
             "UPDATE gps_tracks SET elevation_state = ?1, elevation_attempts = 0, \
                     elevation_settled_version = NULL \
-             WHERE elevation_state = ?2",
+             WHERE elevation_state IN (?2, ?3)",
             params![
                 i64::from(ELEVATION_STATE_UNKNOWN),
                 i64::from(ELEVATION_STATE_WITHHELD),
+                i64::from(ELEVATION_STATE_UNREACHABLE),
             ],
         )?;
         Ok(released as u64)
@@ -5873,6 +5910,66 @@ mod tests {
         }
     }
 
+    /// Scenario: a trackless copy and a claiming row share a day, and the copy
+    /// is dropped. A second copy sits alone on another day.
+    ///
+    /// Expected behaviour: the shared day counts the one row left and equals a
+    /// fresh recompute; the lone day leaves the heatmap.
+    #[test]
+    fn dropping_a_trackless_copy_recounts_its_heatmap_day() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        let day_one = 1_700_000_000_i64;
+        let day_two = day_one + 3 * 86_400;
+        for (id, date) in [("claimer", day_one), ("copy", day_one), ("lone", day_two)] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activity_metrics (activity_id, name, date, distance,
+                         moving_time, elapsed_time, elevation_gain, sport_type)
+                     VALUES (?1, 'n', ?2, 0, 600, 600, 0, 'Ride')",
+                    params![id, date],
+                )
+                .unwrap();
+        }
+        for date in [day_one, day_two] {
+            super::super::schema::recompute_heatmap_day(&engine.db, date).unwrap();
+        }
+        // The claimer has a track row; the copies do not.
+        engine
+            .db
+            .execute(
+                "INSERT INTO activities (id, sport_type, min_lat, max_lat,
+                     min_lng, max_lng)
+                 VALUES ('claimer', 'Ride', 0, 0, 0, 0)",
+                [],
+            )
+            .unwrap();
+
+        assert!(drop_trackless_copy(&engine.db, "copy").unwrap());
+        assert!(drop_trackless_copy(&engine.db, "lone").unwrap());
+
+        let days: Vec<(String, i64)> = engine
+            .db
+            .prepare("SELECT date, activity_count FROM activity_heatmap ORDER BY date")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .collect::<SqlResult<_>>()
+            .unwrap();
+        assert_eq!(days.len(), 1);
+        assert_eq!(days[0].1, 1);
+        super::super::schema::recompute_all_heatmap(&engine.db).unwrap();
+        let after: Vec<(String, i64)> = engine
+            .db
+            .prepare("SELECT date, activity_count FROM activity_heatmap ORDER BY date")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .collect::<SqlResult<_>>()
+            .unwrap();
+        assert_eq!(days, after);
+    }
+
     /// Scenario: a trackless recording is uploaded, so its server id sits on
     /// its body and it has no `activities` row at all.
     ///
@@ -6511,6 +6608,39 @@ mod tests {
         engine.clear_derived().unwrap();
 
         assert!(!engine.activity_metrics.contains_key("a1"));
+    }
+
+    #[test]
+    fn a_clear_removes_the_evidence_row_in_its_own_commit() {
+        let mut engine = engine_with_track("a1", bounds_at(47.0));
+        engine
+            .db
+            .execute_batch(
+                "INSERT INTO evidence_cache (id, config_digest, folded_ids, cache, updated_at) VALUES (1, 'd', x'00', x'00', 0);
+                 CREATE TRIGGER keep_evidence BEFORE DELETE ON evidence_cache
+                 BEGIN SELECT RAISE(FAIL, 'cannot delete'); END",
+            )
+            .unwrap();
+
+        assert!(engine.clear().is_err());
+
+        assert_eq!(held_ids(&engine), vec!["a1"]);
+    }
+
+    #[test]
+    fn a_derived_clear_resets_memory_before_its_reloads_can_fail() {
+        let mut engine = engine_with_track("a1", bounds_at(47.0));
+        engine
+            .db
+            .execute_batch("ALTER TABLE signatures RENAME COLUMN start_point_lat TO moved_lat")
+            .unwrap();
+        engine.set_groups_dirty(false);
+        engine.sections_dirty = false;
+
+        assert!(engine.clear_derived().is_err());
+
+        assert!(engine.groups_dirty);
+        assert!(engine.sections_dirty);
     }
 
     #[test]

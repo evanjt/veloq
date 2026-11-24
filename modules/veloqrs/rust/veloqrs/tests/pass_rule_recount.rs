@@ -189,6 +189,29 @@ fn a_stale_stamp_recounts_stored_passes_once() {
     assert!(stamp(&lib.path).is_some(), "the rule is stamped");
 }
 
+/// Scenario: a library last opened by the previous release carries the stamp
+/// that release wrote. Expected behaviour: the open starts a recount and
+/// stamps the live rule.
+#[test]
+fn a_library_stamped_by_the_previous_release_recounts() {
+    const PREVIOUS_RELEASE_STAMP: i64 = 4;
+    let lib = build();
+    Connection::open(&lib.path)
+        .unwrap()
+        .execute(
+            "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?1, ?2)",
+            params![STAMP, PREVIOUS_RELEASE_STAMP.to_string()],
+        )
+        .unwrap();
+    let mut engine = open(&lib.path);
+    assert!(
+        engine.wait_for_pass_recount().is_some(),
+        "a library counted under the previous release's rule recounts"
+    );
+    drop(engine);
+    assert!(stamp(&lib.path).unwrap() > PREVIOUS_RELEASE_STAMP);
+}
+
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_current_stamp_does_no_recount() {

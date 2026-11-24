@@ -3,6 +3,7 @@
 // archive as rides done, then the bytes saved against its length. A link that dropped mid-pull
 // reads as resumed, because the session carries on from the bytes already saved.
 
+import { dayStartEpochSeconds } from '@/shared/time/startDate';
 import type { ParseKeys } from 'i18next';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -23,11 +24,11 @@ const RUNNING: readonly LibraryExport['phase'][] = ['building', 'reading', 'wait
 
 const megabytes = (bytes: number) => (bytes / 1_000_000).toFixed(1);
 
-/** Unix seconds of local midnight on a `YYYY-MM-DD` date, or null for none. */
+/** Midnight of a `YYYY-MM-DD` date in the space activity dates are stored in, or null for none. */
 export function sinceOf(date: string): number | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-  const at = new Date(`${date}T00:00:00`).getTime();
-  return Number.isNaN(at) ? null : at / 1000;
+  const at = dayStartEpochSeconds(date);
+  return Number.isNaN(at) ? null : at;
 }
 
 export function ExportPane({

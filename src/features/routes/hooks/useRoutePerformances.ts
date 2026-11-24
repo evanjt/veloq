@@ -4,8 +4,7 @@
  * Match direction and percentage come from Rust engine's AMD-based matching.
  */
 
-import { useCallback, useMemo } from 'react';
-import { useEngineGroups } from './useEngine';
+import { useMemo } from 'react';
 import { getEngine } from '@/shared/native/engine';
 import { useReadRetry } from '@/shared/native/useEngineSubscription';
 import type { RouteGroup, MatchDirection, DirectionStats } from '@/types';
@@ -85,11 +84,11 @@ interface UseRoutePerformancesResult {
   histograms: FfiAttemptHistograms;
   /** What the engine threw, when a read failed. Empty performances with no error is a group with none. */
   error?: unknown;
-  /** Reads the groups and the performances again after a failure. */
+  /** Reads the performances again after a failure. */
   retry: () => void;
 }
 
-/** Groups and performances a caller already read as part of a screen bundle. */
+/** The groups holding the activity and the performances a caller already read as part of a screen bundle. */
 export interface PreComputedRoutePerformances {
   groups: readonly EngineRouteGroup[];
   /** The result for this exact sport filter, when the caller has it. */
@@ -101,24 +100,12 @@ const NO_HISTOGRAMS: FfiAttemptHistograms = {};
 
 export function useRoutePerformances(
   activityId: string | undefined,
+  preComputed: PreComputedRoutePerformances,
   routeGroupId?: string,
-  sportType?: string,
-  preComputed?: PreComputedRoutePerformances
+  sportType?: string
 ): UseRoutePerformancesResult {
-  const {
-    groups: queriedGroups,
-    error: groupsError,
-    retry: retryGroups,
-  } = useEngineGroups({
-    minActivities: 1,
-    enabled: preComputed === undefined,
-  });
-  const [attempt, retryPerformances] = useReadRetry();
-  const retry = useCallback(() => {
-    retryGroups();
-    retryPerformances();
-  }, [retryGroups, retryPerformances]);
-  const groups = preComputed?.groups ?? queriedGroups;
+  const [attempt, retry] = useReadRetry();
+  const groups = preComputed.groups;
 
   // Find route group - either from provided ID or by looking up activity
   const engineGroup = useMemo(() => {
@@ -165,7 +152,7 @@ export function useRoutePerformances(
 
   // The bundle is rebuilt by the screen on every render, so the memo keys on
   // the result inside it, which is stable, and not on the wrapper.
-  const preComputedResult = preComputed?.result;
+  const preComputedResult = preComputed.result;
 
   // Route performance data from the Rust engine: one row per attempt with its speed, direction
   // and match percentage, plus direction stats and current rank.
@@ -314,7 +301,7 @@ export function useRoutePerformances(
     percentileRank: rustData.percentileRank,
     trendCurves: rustData.trendCurves,
     histograms: rustData.histograms,
-    error: groupsError ?? rustData.error,
+    error: rustData.error,
     retry,
   };
 }

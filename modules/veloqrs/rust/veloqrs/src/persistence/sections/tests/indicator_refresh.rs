@@ -201,7 +201,6 @@ fn assert_current(engine: &PersistentEngine, after: &str) {
 }
 
 #[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_merge_moves_the_record_onto_the_kept_section_and_drops_the_donors_badges() {
     let mut engine = library(false);
     let kept = custom(&mut engine, "Long straight", 0, POINTS - 1);
@@ -280,4 +279,114 @@ fn a_custom_section_that_supersedes_an_auto_one_takes_its_badges_until_deleted()
 
     assert_eq!(badges_on(&engine, "auto-line"), earned);
     assert_current(&engine, "a delete that restores");
+}
+
+fn superseded_by(engine: &PersistentEngine, section_id: &str) -> Option<String> {
+    engine
+        .db
+        .query_row(
+            "SELECT superseded_by FROM sections WHERE id = ?",
+            params![section_id],
+            |r| r.get(0),
+        )
+        .unwrap()
+}
+
+/// A custom section over the first half of the line, which covers too little
+/// of the auto section to hide it.
+fn half_line_custom(engine: &mut PersistentEngine) -> String {
+    let sid = custom(engine, "Half straight", 0, POINTS / 2 - 1);
+    assert_eq!(superseded_by(engine, "auto-line"), None);
+    sid
+}
+
+fn assert_hidden_behind(engine: &PersistentEngine, sid: &str, after: &str) {
+    assert_eq!(
+        superseded_by(engine, "auto-line").as_deref(),
+        Some(sid),
+        "auto section still live after {after}"
+    );
+    assert!(
+        engine
+            .get_section_summaries_by_type(None)
+            .iter()
+            .all(|s| s.id != "auto-line"),
+        "auto section still listed after {after}"
+    );
+    assert!(badges_on(engine, "auto-line").is_empty());
+    assert_current(engine, after);
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn expanding_a_custom_section_over_an_auto_one_hides_it() {
+    let mut engine = library(true);
+    let sid = half_line_custom(&mut engine);
+
+    engine
+        .expand_section_bounds(&sid, "steady", LEAD_IN, LEAD_IN + POINTS as u32 - 1)
+        .unwrap();
+
+    assert_hidden_behind(&engine, &sid, "an expand");
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn resetting_a_custom_section_to_a_longer_original_hides_the_auto_section_it_covers() {
+    let mut engine = library(true);
+    let sid = custom(&mut engine, "Long straight", 0, POINTS - 1);
+    engine.trim_section(&sid, 0, POINTS as u32 / 2 - 1).unwrap();
+    engine
+        .db
+        .execute("UPDATE sections SET superseded_by = NULL", [])
+        .unwrap();
+    engine.refresh_superseded_ids();
+
+    engine.reset_section_bounds(&sid).unwrap();
+
+    assert_hidden_behind(&engine, &sid, "a reset");
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn reverting_a_custom_section_to_a_longer_version_hides_the_auto_section_it_covers() {
+    let mut engine = library(true);
+    let sid = custom(&mut engine, "Long straight", 0, POINTS - 1);
+    engine.trim_section(&sid, 0, POINTS as u32 / 2 - 1).unwrap();
+    let longer = engine
+        .section_geometry_versions(&sid)
+        .first()
+        .map(|v| v.version)
+        .unwrap();
+    engine
+        .db
+        .execute("UPDATE sections SET superseded_by = NULL", [])
+        .unwrap();
+    engine.refresh_superseded_ids();
+
+    engine.revert_section_to_version(&sid, longer).unwrap();
+
+    assert_hidden_behind(&engine, &sid, "a revert");
+}
+
+#[test]
+fn a_refresh_inside_an_open_write_transaction_writes_the_rows() {
+    let mut engine = library(false);
+    let sid = custom(&mut engine, "Long straight", 0, POINTS - 1);
+    let earned = badges_on(&engine, &sid);
+    assert!(!earned.is_empty());
+    engine
+        .db
+        .execute(
+            "DELETE FROM activity_indicators WHERE target_id = ?",
+            [&sid],
+        )
+        .unwrap();
+
+    engine.db.execute_batch("BEGIN IMMEDIATE").unwrap();
+    let refreshed = engine.recompute_indicators_for_section(&sid);
+    engine.db.execute_batch("COMMIT").unwrap();
+
+    refreshed.unwrap();
+    assert_eq!(badges_on(&engine, &sid), earned);
 }

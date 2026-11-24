@@ -61,6 +61,6 @@ export function buildPreviewKey(
       }
     }
   }
-  if (hasArea) entries.push({ id: 'area', swatch: palette.layer.casing, dashed: true });
+  if (hasArea) entries.push({ id: 'area', swatch: palette.casing, dashed: true });
   return entries;
 }

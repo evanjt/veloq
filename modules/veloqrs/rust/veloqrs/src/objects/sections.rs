@@ -127,6 +127,14 @@ pub(crate) fn create_section_from_range(
     let polyline = slice_inclusive(&track, start_index, end_index)?;
     let distance_meters = tracematch::matching::calculate_route_distance(&polyline);
 
+    if let Some(name) = name.as_deref() {
+        engine
+            .check_new_section_name(&polyline, name)
+            .map_err(|e| match e {
+                SectionNameError::Taken(name) => VeloqError::NameTaken { name },
+                SectionNameError::Failed(msg) => VeloqError::Database { msg },
+            })?;
+    }
     let params = crate::sections::CreateSectionParams {
         sport_type,
         polyline,

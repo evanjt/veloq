@@ -145,8 +145,9 @@ function gainFormula(
   digits: number,
   t: TFunc
 ): string {
-  const current = formatDecimal(opportunity.currentValue, digits);
-  const previous = formatDecimal(opportunity.previousValue, digits);
+  const unit = t(opportunity.fitnessMetric === 'power' ? 'units.watts' : 'units.metresPerSecond');
+  const current = `${formatDecimal(opportunity.currentValue, digits)} ${unit}`;
+  const previous = `${formatDecimal(opportunity.previousValue, digits)} ${unit}`;
   return `${t('insights.stalePr.metricGain', { metric: metricLabel })} = (${current} - ${previous}) / ${previous} = ${gainText(opportunity.gainPercent)}`;
 }
 

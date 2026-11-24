@@ -4,7 +4,7 @@ import {
   groupingPreviewLayers,
 } from '@/features/routes/lib/groupingLegend';
 import { paintPreview } from '@/features/routes/lib/groupingParams';
-import { brand, mapLayerColors, mapPalette } from '@/theme';
+import { brand, mapPalette } from '@/theme';
 
 const palette = mapPalette('light');
 
@@ -26,7 +26,7 @@ describe('groupingLegendRows', () => {
     const dropped = rows.find((r) => r.kind === 'dropped');
     expect(other?.colour).toBe(brand.blue600);
     expect(other?.opacity).toBe(groupingLayerPaint(palette).other.opacity);
-    expect(dropped?.colour).toBe(mapLayerColors.casing);
+    expect(dropped?.colour).toBe(mapPalette('light').casing);
     expect(dropped?.labelKey).toBe('settings.groupingLegendDropped');
   });
 

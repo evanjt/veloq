@@ -109,7 +109,7 @@ describe('the snapshot encode', () => {
   });
 
   vaultIt('re-renders the previews drawn before the route was fitted to the card', () => {
-    expect(TERRAIN_CACHE_VERSION).toBe(12);
+    expect(TERRAIN_CACHE_VERSION).toBe(13);
     expect(QUALITY_CACHE_VERSION).toBe(7);
   });
 
@@ -217,6 +217,8 @@ it.each([false, true])(
         _tileStats: {} as Record<string, { loaded: number; total: number }>,
         _rn_log: jest.fn(),
         _heartbeat: { start: jest.fn() },
+        _tileFailures: () => 0,
+        _recycleMap: jest.fn(),
         ReactNativeWebView: { postMessage },
         map: {
           getTerrain: () => null,
@@ -295,6 +297,8 @@ describe.each([true, false])('fast snapshot settle (flat=%s)', (flat) => {
       _currentBaseMode: flat ? 'flat' : '3d',
       _snapshotGen: 1,
       _heartbeat: { start: jest.fn() },
+      _tileFailures: () => 0,
+      _recycleMap: jest.fn(),
       _rn_log: jest.fn(),
       ReactNativeWebView: { postMessage },
     };

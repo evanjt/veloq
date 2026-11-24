@@ -143,6 +143,8 @@ export interface RecordingBackup {
   pairedEventId: number | null;
   /** The plan the ride follows and the progress through it. Older backups carry none. */
   workout?: WorkoutFollow;
+  /** The route the rider chose to follow. Older backups and rides with no choice carry none. */
+  routeChoice?: { activityType: string; routeId: string | null };
   /** The review edits of a stopped ride. Older backups and live rides carry none. */
   review?: ReviewDraft;
   savedAt: number; // Date.now()

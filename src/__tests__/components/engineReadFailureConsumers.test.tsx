@@ -54,7 +54,6 @@ const mockRetrySection = jest.fn();
 jest.mock('@/shared/native/useSectionDetail', () => ({ useSectionDetail: jest.fn() }));
 jest.mock('@/features/routes/hooks/useEngine', () => ({
   useGroupSummaries: jest.fn(),
-  useEngineGroups: jest.fn(),
 }));
 jest.mock('@/features/routes/hooks/useSectionPerformances', () => ({
   useSectionPerformances: jest.fn(),
@@ -80,7 +79,6 @@ const engineHooks = {
   ...(jest.requireMock('@/shared/native/useSectionDetail') as { useSectionDetail: jest.Mock }),
   ...(jest.requireMock('@/features/routes/hooks/useEngine') as {
     useGroupSummaries: jest.Mock;
-    useEngineGroups: jest.Mock;
   }),
 };
 
@@ -135,7 +133,6 @@ beforeEach(() => {
     summaries: [],
     error: lockFailed,
   });
-  engineHooks.useEngineGroups.mockReturnValue({ groups: [], totalCount: 0, error: lockFailed });
 });
 
 describe('insight sheets', () => {

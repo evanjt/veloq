@@ -775,6 +775,31 @@ describe("useRecordingMetrics reads the store's running totals", () => {
     const kcalPerMin = (-55.0969 + 0.6309 * 160 + 0.1988 * 70 + 0.2017 * 35) / 4.184;
     expect(result.current.calories).toBe(Math.round(kcalPerMin * (39 / 60)));
   });
+
+  it("takes the heart-rate equation by the profile's sex", async () => {
+    const heartrate = Array.from({ length: 40 }, () => 100);
+    const kcalFor = async (profile: Partial<Athlete>) => {
+      useAuthStore.setState({
+        athlete: { id: 'a1', name: 'Test Rider', weightKg: 60, ...profile },
+      });
+      setStoreState({
+        activityType: 'Ride',
+        streams: makeStreams({
+          time: heartrate.map((_, i) => i),
+          altitude: heartrate.map(() => 0),
+          distance: heartrate.map((_, i) => i * 5),
+          speed: heartrate.map(() => 5),
+          heartrate,
+        }),
+        totals: { ...streamTotals(EMPTY_STREAMS), heartrateSum: 40 * 140, heartrateCount: 40 },
+      });
+      const { result } = await renderHook(() => useRecordingMetrics());
+      return result.current.calories;
+    };
+    const female = (-20.4022 + 0.4472 * 140 - 0.1263 * 60 + 0.074 * 35) / 4.184;
+    expect(await kcalFor({ sex: 'F' })).toBe(Math.round(female * (39 / 60)));
+    expect(await kcalFor({ sex: 'M' })).toBeGreaterThan(await kcalFor({ sex: 'F' }));
+  });
 });
 
 describe('the current altitude tile', () => {

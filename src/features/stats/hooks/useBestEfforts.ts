@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { getEngine } from '@/shared/native/engine';
-import { useEngineBody, type EngineBodyWait } from '@/shared/native/engineBodies';
+import { bodyNamed, useEngineBody, type EngineBodyWait } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { BestEffortsData } from 'veloqrs';
@@ -47,19 +47,22 @@ export function useBestEfforts(days: number, shown: readonly BestEffortsSport[])
     fetched('Ride'),
     () => getEngine()?.syncPowerCurve('Ride', days),
     queryKey,
-    asks('Ride')
+    asks('Ride'),
+    bodyNamed(['power_curve'])
   );
   const run = useEngineBody(
     fetched('Run'),
     () => getEngine()?.syncPaceCurve('Run', days, false),
     queryKey,
-    asks('Run')
+    asks('Run'),
+    bodyNamed(['pace_curve'])
   );
   const swim = useEngineBody(
     fetched('Swim'),
     () => getEngine()?.syncPaceCurve('Swim', days, false),
     queryKey,
-    asks('Swim')
+    asks('Swim'),
+    bodyNamed(['pace_curve'])
   );
 
   const curves: Record<BestEffortsSport, BestEffortsCurve> = {

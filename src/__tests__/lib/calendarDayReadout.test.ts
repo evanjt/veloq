@@ -21,7 +21,7 @@ describe('calendarDayReadout', () => {
     expect(readout).toEqual({
       fitness: 50.4,
       fatigue: 60.2,
-      form: expect.closeTo(-9.8, 5),
+      form: -10,
       logged: [
         { metric: 'hrv', value: 62 },
         { metric: 'restingHR', value: 48 },
@@ -29,6 +29,11 @@ describe('calendarDayReadout', () => {
         { metric: 'weight', value: 70 },
       ],
     });
+  });
+
+  it('rounds each load before the subtraction, as the chart does', () => {
+    expect(calendarDayReadout(day({ ctl: 50.4, atl: 39.6 }))?.form).toBe(10);
+    expect(calendarDayReadout(day({ ctl: 50.4, atl: 49.6 }))?.form).toBe(0);
   });
 
   it('states no form when either load figure is missing, and no values for an unlogged day', () => {

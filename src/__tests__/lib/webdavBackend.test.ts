@@ -201,6 +201,34 @@ describe('webdavBackend.listBackups', () => {
     );
   });
 
+  it('reads a long run of sidecars with a bounded number in flight, in listing order', async () => {
+    const base = '/remote.php/dav/files/athlete/Veloq/';
+    const days = Array.from({ length: 200 }, (_, i) => i);
+    const names = days.map((i) => `veloq-d${String(i).padStart(3, '0')}.veloqdb`);
+    const xml = propfind(names.map((name) => `${base}${name}.meta.json`));
+    let inFlight = 0;
+    let peak = 0;
+    const fetchMock = jest.fn(async (url: string, init: RequestInit = {}) => {
+      if (init.method === 'PROPFIND') return response(207, xml);
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      inFlight -= 1;
+      const name = /veloq-d\d+\.veloqdb/.exec(url)?.[0] ?? '';
+      const day = Number(name.slice(7, 10));
+      return response(200, entryJson(name, new Date(Date.UTC(2026, 0, 1 + day)).toISOString()));
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const entries = await webdavBackend.listBackups();
+
+    expect(entries).toHaveLength(200);
+    expect(entries[0]?.id).toBe('veloq-d199.veloqdb');
+    expect(entries[199]?.id).toBe('veloq-d000.veloqdb');
+    expect(peak).toBeGreaterThan(1);
+    expect(peak).toBeLessThanOrEqual(8);
+  });
+
   it('lists a zip that has no sidecar by the instant its name carries', async () => {
     const base = '/remote.php/dav/files/athlete/Veloq/';
     const xml = propfind([

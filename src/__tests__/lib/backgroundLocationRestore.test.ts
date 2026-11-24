@@ -205,7 +205,9 @@ describe('background location in a headless runtime', () => {
       value: 'active',
       configurable: true,
     });
+    const now = jest.spyOn(Date, 'now').mockReturnValue(START_TIME);
     rt.useRecordingStore.getState().startRecording('Ride', 'gps');
+    now.mockRestore();
 
     await rt.handleBackgroundLocations(locationsFrom([70], [100]));
 
@@ -259,6 +261,57 @@ describe('background location in a headless runtime', () => {
 
     expect(rt.loadRecordingBackup).not.toHaveBeenCalled();
     expect(rt.useRecordingStore.getState().status).toBe('idle');
+  });
+
+  describe('ending a ride outside a live session', () => {
+    it('unregisters the location task when the notification stops a restored ride', async () => {
+      const rt = freshRuntime();
+      const TaskManager = require('expo-task-manager');
+      const Location = require('expo-location');
+      TaskManager.isTaskRegisteredAsync.mockResolvedValue(true);
+      rt.loadRecordingBackup.mockResolvedValue(backupAt('recording', 60));
+      await rt.handleBackgroundLocations(locationsFrom([70], [100]));
+      expect(rt.useRecordingStore.getState().status).toBe('recording');
+
+      const {
+        applyRecordingNotificationAction,
+      } = require('@/features/recording/lib/recordingNotification');
+      await applyRecordingNotificationAction('stop');
+
+      expect(rt.useRecordingStore.getState().status).toBe('stopped');
+      expect(Location.stopLocationUpdatesAsync).toHaveBeenCalledWith(expect.any(String));
+    });
+
+    it('unregisters the location task when a stopped ride is discarded from review', async () => {
+      const rt = freshRuntime();
+      const TaskManager = require('expo-task-manager');
+      const Location = require('expo-location');
+      TaskManager.isTaskRegisteredAsync.mockResolvedValue(true);
+      rt.useRecordingStore.getState().startRecording('Ride', 'gps');
+      rt.useRecordingStore.getState().stopRecording();
+      const startTime = rt.useRecordingStore.getState().startTime;
+
+      const { discardReviewedRecording } = require('@/features/recording/lib/discardReview');
+      expect(discardReviewedRecording(startTime)).toBe(true);
+      for (let i = 0; i < 10; i++) await Promise.resolve();
+
+      expect(Location.stopLocationUpdatesAsync).toHaveBeenCalledWith(expect.any(String));
+    });
+
+    it('leaves the task alone when the notification stop finds no ride', async () => {
+      const rt = freshRuntime();
+      const TaskManager = require('expo-task-manager');
+      const Location = require('expo-location');
+      TaskManager.isTaskRegisteredAsync.mockResolvedValue(true);
+      rt.loadRecordingBackup.mockResolvedValue(null);
+
+      const {
+        applyRecordingNotificationAction,
+      } = require('@/features/recording/lib/recordingNotification');
+      await applyRecordingNotificationAction('stop');
+
+      expect(Location.stopLocationUpdatesAsync).not.toHaveBeenCalled();
+    });
   });
 
   describe('after the restored ride has ended', () => {

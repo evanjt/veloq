@@ -9,7 +9,7 @@ use rusqlite::params;
 use tracematch::GpsPoint;
 
 use crate::persistence::PersistentEngine;
-use crate::persistence::guide_payload::guide_payload;
+use crate::persistence::guide_payload::{guide_payload, guide_payload_json};
 use crate::persistence::nearby_routes::NearbyKind;
 
 const LAT: f64 = 46.0;
@@ -187,4 +187,44 @@ fn a_route_carries_its_best_attempts_splits_and_the_representative_line() {
     assert_eq!(payload.splits.iter().sum::<u32>(), 1_100);
     assert!(payload.line.len() < 40);
     assert!(payload.line.iter().all(|p| p.elevation.is_some()));
+}
+
+/// Scenario: a section passed in 1000 s on the ground, once projected 1000 m beyond its gates in
+/// 900 s, and once covering half the ground in 800 s.
+///
+/// Expected behaviour: the guide's best time, date and splits come from the 1000 s pass.
+#[test]
+fn an_estimated_or_short_pass_is_never_the_best_the_guide_shows() {
+    let engine = engine_with_section(&[1_000, 900, 800]);
+    engine
+        .db
+        .execute(
+            "UPDATE section_activities SET projected_m = 1000.0 WHERE activity_id = 'act-1'",
+            [],
+        )
+        .expect("project");
+    engine
+        .db
+        .execute(
+            "UPDATE section_activities SET coverage = 0.5 WHERE activity_id = 'act-2'",
+            [],
+        )
+        .expect("shorten");
+
+    let payload =
+        guide_payload(&engine.db, NearbyKind::Section, "s1", 5.0).expect("section is read");
+
+    assert_eq!(payload.best_time_seconds, Some(1_000));
+    assert_eq!(payload.splits.iter().sum::<u32>(), 1_000);
+}
+
+#[test]
+fn the_watch_json_carries_the_simplified_line_not_the_stored_one() {
+    let engine = engine_with_section(&[1_000]);
+    let text = guide_payload_json(&engine.db, NearbyKind::Section, "s1").expect("section is read");
+    let value: serde_json::Value = serde_json::from_str(&text).expect("json");
+    let kept = value["line"].as_array().expect("line").len();
+    assert!(kept < 200, "kept {kept} of {POINTS}");
+    assert!(value["name"].is_string());
+    assert!(guide_payload_json(&engine.db, NearbyKind::Section, "gone").is_none());
 }

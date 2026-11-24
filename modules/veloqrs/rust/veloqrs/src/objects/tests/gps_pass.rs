@@ -95,7 +95,6 @@ fn a_pass_that_ended_cleanly_is_not_started_on_the_online_edge() {
 }
 
 #[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_asked_while_one_runs_starts_once_when_it_ends() {
     let h = harness(FfiStartOutcome::Started);
     h.service.request(range("2024-01-01", "2024-03-31"));
@@ -269,7 +268,6 @@ fn a_pass_that_ends_before_its_start_returns_does_not_name_its_run() {
 /// Expected behaviour: the range asked for in that window is started once the
 /// refused start frees the slot, with no later ask to reach it.
 #[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_pass_asked_during_a_refused_start_starts_when_the_slot_frees() {
     let service_slot: Arc<OnceLock<Weak<GpsPassService>>> = Arc::new(OnceLock::new());
     let reaches_service = Arc::clone(&service_slot);

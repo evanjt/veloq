@@ -148,6 +148,7 @@ const mockEngine = {
   },
   listRecordings: () => [...rows.values()].sort((a, b) => b.createdAt - a.createdAt),
   getRecording: (id: string) => rows.get(id) ?? null,
+  provisionalActivityId: (recordingId: string) => `local-recording-${recordingId}`,
   attachRecordingEngineActivity: (id: string, engineActivityId: string) => {
     const row = rows.get(id);
     if (row) row.engineActivityId = engineActivityId;
@@ -295,6 +296,23 @@ beforeEach(() => {
 });
 
 describe('saveRecording', () => {
+  /**
+   * Scenario: auto-upload is on and the upload lands before the save returns.
+   * Expected behaviour: the row is inserted already carrying its engine key,
+   * so the landing sweep finds the key and waits for the provisional row
+   * instead of deleting the ride and leaving the server copy to duplicate it.
+   */
+  it('inserts the row with the engine key it will be written under', async () => {
+    const entry = await saveOne();
+    expect(rows.get(entry.id)?.engineActivityId).toBe(`local-recording-${entry.id}`);
+    expect(entry.engineActivityId).toBe(`local-recording-${entry.id}`);
+  });
+
+  it('inserts a manual entry with its engine key too', async () => {
+    const entry = await saveOne({ fitBuffer: undefined, manualBody: { type: 'Ride' } as never });
+    expect(rows.get(entry.id)?.engineActivityId).toBe(`local-recording-${entry.id}`);
+  });
+
   it('persists the FIT and the index entry, and no streams sidecar', async () => {
     const entry = await saveOne();
     expect(mockFileStore.has(entry.fitPath)).toBe(true);

@@ -3,7 +3,8 @@ import { View, FlatList, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme } from '@/shared/app';
+import { useMetricSystem, useTheme } from '@/shared/app';
+import { formatWeight } from '@/shared/format/weight';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { SheetHeader, PressTarget, sheetScrollProps } from '@/shared/ui';
@@ -40,6 +41,7 @@ function FieldPickerSheetContent() {
   const { input, resolve } = useSheetRequest<FieldPickerSheetInput, DataFieldType>();
   const selectedField = input?.selectedField ?? null;
   const caloriesWeight = useCaloriesWeight();
+  const isMetric = useMetricSystem();
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -84,7 +86,7 @@ function FieldPickerSheetContent() {
                   <Text style={[styles.rowNote, { color: textSecondary }]}>
                     {t('recording.caloriesMethod', { age: CALORIES_ASSUMED_AGE })}
                     {caloriesWeight.assumed
-                      ? ` ${t('recording.caloriesDefaultWeight', { weight: caloriesWeight.weightKg })}`
+                      ? ` ${t('recording.caloriesDefaultWeight', { weight: formatWeight(caloriesWeight.weightKg, isMetric) })}`
                       : null}
                   </Text>
                 ) : null}

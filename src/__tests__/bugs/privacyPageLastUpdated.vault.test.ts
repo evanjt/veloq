@@ -63,6 +63,6 @@ describe('privacy page "Last updated" date', () => {
 
   it('is no earlier than the last rewrite of the security claims', () => {
     const markup = html.match(/class="last-updated"[^>]*>\s*([^<]+?)\s*</)![1];
-    expect(parseDay(markup) >= '2026-10-06').toBe(true);
+    expect(parseDay(markup) >= '2026-11-16').toBe(true);
   });
 });

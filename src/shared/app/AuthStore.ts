@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 
 import type { Athlete } from '@/types';
 import { getEngine } from '@/shared/native/engine';
+import { rememberStoredActivityCount } from '@/shared/storage/cachedAthleteId';
 import { DEMO_ATHLETE_ID, sourceFor, type AuthMethod } from '@/shared/app/source';
 import { garminAthleteId, resolveStoredSession } from '@/shared/app/storedSession';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
@@ -25,6 +26,18 @@ const ACCESS_TOKEN_STORAGE_KEY = 'intervals_access_token';
 // Whose the stored API key is. The key outlives a rejected session so the
 // re-entry can offer it back, and this says who it may be offered to.
 const API_KEY_ATHLETE_STORAGE_KEY = 'intervals_api_key_athlete_id';
+
+// The login screen runs with the engine closed and reads this mirror for how
+// much library a destructive path would destroy, so every way out to that
+// screen refreshes it while the engine is still open.
+async function mirrorLibraryCount(): Promise<void> {
+  try {
+    const stats = getEngine()?.getStats();
+    if (stats) await rememberStoredActivityCount(stats.libraryCount);
+  } catch {
+    // The last mirror stands, as at launch.
+  }
+}
 
 async function holdOutgoingRecording(athleteId: string | null): Promise<void> {
   const { holdRecordingOnSignOut } =
@@ -66,6 +79,14 @@ export { DEMO_ATHLETE_ID, type AuthMethod } from '@/shared/app/source';
  * clear it. The engine's Garmin key is a separate credential and is not
  * touched here.
  */
+/** A session that cannot push holds no token, so a carried-over switch goes off with it. */
+function disablePushForSession(): void {
+  const {
+    useNotificationPreferences,
+  } = require('@/features/settings/stores/NotificationPreferencesStore');
+  useNotificationPreferences.getState().disableForApiKey();
+}
+
 export function pushCredentialsToEngine(): void {
   const engine = getEngine();
   if (!engine) return;
@@ -320,6 +341,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { clearPendingApiKey } = require('@/features/auth/lib/pendingSignIn');
     await clearPendingApiKey();
     await forgetFilesSession();
+    await mirrorLibraryCount();
 
     set({
       apiKey: trimmedApiKey,
@@ -329,10 +351,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isDemoMode: false,
       authMethod: 'apiKey',
     });
-    const {
-      useNotificationPreferences,
-    } = require('@/features/settings/stores/NotificationPreferencesStore');
-    useNotificationPreferences.getState().disableForApiKey();
+    disablePushForSession();
     pushCredentialsToEngine();
   },
 
@@ -432,6 +451,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       authMethod: 'garmin',
       sessionExpired: null,
     });
+    disablePushForSession();
     pushCredentialsToEngine();
   },
 
@@ -488,6 +508,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       authMethod: 'demo',
       athlete: null,
     });
+    disablePushForSession();
     // Demo mode has no upstream credential, so the engine must hold none.
     pushCredentialsToEngine();
     // The engine usually does not exist yet on first entry; the layout init
@@ -521,6 +542,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       athlete: null,
       sessionExpired: null,
     });
+    disablePushForSession();
     // A files library holds no upstream credential, so the engine must hold none.
     pushCredentialsToEngine();
     void rememberFilesSession();
@@ -528,6 +550,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   exitFilesMode: async () => {
     await forgetFilesSession();
+    await mirrorLibraryCount();
     set({
       athleteId: null,
       isAuthenticated: false,
@@ -564,6 +587,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { useUploadPermissionStore } =
       require('@/features/recording') as typeof import('@/features/recording');
     useUploadPermissionStore.getState().reset();
+    await mirrorLibraryCount();
 
     set({
       apiKey: null,

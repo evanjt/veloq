@@ -27,7 +27,7 @@ export function homeRadiusLayers(palette: MapPalette): MapLayerSpec[] {
       paint: {
         'circle-radius': 7,
         'circle-color': layer.homeRadius,
-        'circle-stroke-color': layer.casing,
+        'circle-stroke-color': palette.casing,
         'circle-stroke-width': 2,
       },
     },

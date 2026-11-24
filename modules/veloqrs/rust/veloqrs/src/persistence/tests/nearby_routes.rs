@@ -120,6 +120,20 @@ fn read(engine: &PersistentEngine, sport: &str) -> Vec<NearbyPlace> {
     )
 }
 
+/// Scenario: matching is off while a route lies at the fix.
+///
+/// Expected behaviour: nothing is offered.
+#[test]
+fn nearby_places_is_empty_with_matching_off() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    add_route(&mut engine, "near", 100.0, "Ride", [600, 620]);
+    assert!(!read(&engine, "Ride").is_empty());
+
+    engine.set_detection_enabled(false).expect("switch");
+
+    assert!(read(&engine, "Ride").is_empty());
+}
+
 static STATEMENTS: Mutex<usize> = Mutex::new(0);
 
 fn count(_sql: &str) {
@@ -464,6 +478,17 @@ fn add_long_route(engine: &mut PersistentEngine, id: &str, start_north: f64, end
 /// A section whose line starts `north_metres` north of the fix, passed once per `laps` entry
 /// as (seconds, date).
 fn add_section(engine: &mut PersistentEngine, id: &str, north_metres: f64, laps: &[(f64, i64)]) {
+    let laps: Vec<(f64, i64, &str)> = laps.iter().map(|&(s, d)| (s, d, "Ride")).collect();
+    add_section_of_sports(engine, id, north_metres, &laps);
+}
+
+/// As [`add_section`], each lap ridden, run or otherwise as its third entry says.
+fn add_section_of_sports(
+    engine: &mut PersistentEngine,
+    id: &str,
+    north_metres: f64,
+    laps: &[(f64, i64, &str)],
+) {
     let lat = FIX_LAT + north_metres / METRES_PER_DEGREE;
     let line: Vec<GpsPoint> = (0..20)
         .map(|i| GpsPoint {
@@ -490,12 +515,12 @@ fn add_section(engine: &mut PersistentEngine, id: &str, north_metres: f64, laps:
             ],
         )
         .expect("insert section");
-    for (i, &(seconds, date)) in laps.iter().enumerate() {
+    for (i, &(seconds, date, sport)) in laps.iter().enumerate() {
         let activity = format!("{id}-act-{i}");
         engine
-            .add_activity(activity.clone(), line.clone(), "Ride".to_string())
+            .add_activity(activity.clone(), line.clone(), sport.to_string())
             .expect("add activity");
-        let mut m = metrics(&activity, "Ride", 10_000.0, 3_000);
+        let mut m = metrics(&activity, sport, 10_000.0, 3_000);
         m.date = date;
         engine.set_activity_metrics(vec![m]).expect("metrics");
         engine
@@ -652,4 +677,44 @@ fn a_nearby_line_is_capped_and_packed_when_asked() {
     let plain = read(&engine, "Ride");
     assert!(plain[0].packed_line.is_none());
     assert!(!plain[0].encoded_coords.is_empty());
+}
+
+#[test]
+fn a_section_shows_only_the_asked_sports_laps_and_is_offered_by_them() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    add_section_of_sports(
+        &mut engine,
+        "climb",
+        300.0,
+        &[
+            (60.0, 1_690_000_000, "Ride"),
+            (62.0, 1_691_000_000, "Ride"),
+            (64.0, 1_692_000_000, "Ride"),
+            (200.0, 1_695_000_000, "Run"),
+            (240.0, 1_699_000_000, "Run"),
+        ],
+    );
+
+    let run = read(&engine, "Run");
+
+    assert_eq!(run.len(), 1);
+    assert_eq!(run[0].sport_type, "Run");
+    assert_eq!(run[0].pass_count, 2);
+    assert_eq!(run[0].best_time_seconds, Some(200));
+    assert_eq!(run[0].best_date, Some(crate::WholeNumber(1_695_000_000)));
+    assert_eq!(run[0].last_time_seconds, Some(240));
+    assert_eq!(run[0].last_date, Some(crate::WholeNumber(1_699_000_000)));
+
+    let ride = read(&engine, "Ride");
+    assert_eq!(ride[0].pass_count, 3);
+    assert_eq!(ride[0].best_time_seconds, Some(60));
+    assert_eq!(ride[0].last_time_seconds, Some(64));
+}
+
+#[test]
+fn a_section_with_no_lap_in_the_asked_family_is_left_out() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    add_section(&mut engine, "climb", 300.0, &[(80.0, 1_695_000_000)]);
+
+    assert!(read(&engine, "Swim").is_empty());
 }

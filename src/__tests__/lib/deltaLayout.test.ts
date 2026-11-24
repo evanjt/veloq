@@ -450,6 +450,23 @@ describe('the reference the chart measures against', () => {
     expect(against.peakDeltaSecs).toBe(3);
   });
 
+  it('zeroes a lap that joins partway at its first point, against the previous record and the typical lap', () => {
+    const joined = lap('joined', 3, [NaN, NaN, NaN, 0, 1, 3, 4], { endDeltaSecs: 4 });
+    const earlier = lap('prev', 0, [0, 1, 2, 4, 6, 9, 12], { endDeltaSecs: 12 });
+    const base: FfiDirectionDeltas = {
+      ...deltas([record, joined]),
+      previousRecord: earlier,
+      typicalDeltaSecs: Float32Array.from([0, 1, 2, 4, 6, 9, 12]),
+    };
+
+    for (const source of [FfiReferenceSource.PreviousRecord, FfiReferenceSource.Typical]) {
+      const against = deltasAgainst(base, source).laps[1]!;
+      expect(Array.from(against.deltaSecs.slice(0, 3)).every(Number.isNaN)).toBe(true);
+      expect(Array.from(against.deltaSecs.slice(3))).toEqual([0, -1, -2, -4]);
+      expect(against.endDeltaSecs).toBe(-4);
+    }
+  });
+
   it('keeps the stored reference when the engine gave no curve for the one asked', () => {
     const bare = deltas([record, later]);
     expect(deltasAgainst(bare, FfiReferenceSource.PreviousRecord)).toBe(bare);

@@ -118,11 +118,12 @@ function reportedSpeed(speed: number | null | undefined): number | null {
   return speed != null && Number.isFinite(speed) && speed >= 0 ? speed : null;
 }
 
-function lastPositioned(latlng: [number, number][]): [number, number] | undefined {
+/** Index of the last sample that carries a position, or -1 when none does. */
+function lastPositionedIndex(latlng: [number, number][]): number {
   for (let i = latlng.length - 1; i >= 0; i--) {
-    if (latlng[i][0] !== 0 || latlng[i][1] !== 0) return latlng[i];
+    if (latlng[i][0] !== 0 || latlng[i][1] !== 0) return i;
   }
-  return undefined;
+  return -1;
 }
 
 const EMPTY_STREAMS: RecordingStreams = {
@@ -472,6 +473,11 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     const { status, startTime, streams, activityType } = get();
     if (status !== 'recording' || !startTime) return;
 
+    // A fix timestamped before the ride began is a cached position from earlier
+    // (or elsewhere); recording it would give a negative time and a jump to the
+    // first real fix.
+    if (point.timestamp < startTime) return;
+
     const elapsedSec = (point.timestamp - startTime) / 1000;
     // Drop duplicate / out-of-order points. Foreground watcher and background
     // task can both deliver around a bg->fg transition; only accept points
@@ -482,7 +488,8 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     // Samples taken indoors carry no position. Pad them with the FIT no-position
     // sentinel so this fix lands at its own index in the time-aligned streams.
     while (streams.latlng.length < streams.time.length) streams.latlng.push([0, 0]);
-    const prevLatlng = lastPositioned(streams.latlng);
+    const prevIndex = lastPositionedIndex(streams.latlng);
+    const prevLatlng = prevIndex >= 0 ? streams.latlng[prevIndex] : undefined;
     const prevDist = streams.distance[streams.distance.length - 1] ?? 0;
 
     let dist = prevDist;
@@ -494,8 +501,9 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
         point.latitude,
         point.longitude
       );
-      const prevTime = streams.time[streams.time.length - 1] ?? 0;
-      const dt = elapsedSec - prevTime;
+      // dt runs from the same fix the delta does, so an indoor stretch between
+      // them cannot shrink the interval and inflate the implied speed.
+      const dt = elapsedSec - (streams.time[prevIndex] ?? 0);
       speed = dt > 0 ? delta / dt : (reportedSpeed(point.speed) ?? 0);
       // Teleport guard: a jump implying an implausible speed for this sport is
       // GPS noise (multipath, cold-fix snap), not movement. Drop the point so

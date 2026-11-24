@@ -123,6 +123,7 @@ const PACE_SPORTS: readonly string[] = [...SPORT_FAMILIES.running, ...SPORT_FAMI
 const CYCLING: readonly string[] = SPORT_FAMILIES.cycling;
 const SWIMMING: readonly string[] = SPORT_FAMILIES.swimming;
 const POWER: readonly string[] = SPORT_FAMILIES.power;
+const STRIDE_CADENCE: readonly string[] = SPORT_FAMILIES.strideCadence;
 
 /**
  * Whether this activity is measured in pace rather than speed.
@@ -156,4 +157,9 @@ export function measuresPower(type: ActivityType): boolean {
  */
 export function sortByDateId<T extends { id: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+/** Whether the sport counts cadence in steps a minute, stored as strides. */
+export function countsCadenceInSteps(type: ActivityType): boolean {
+  return STRIDE_CADENCE.includes(type);
 }

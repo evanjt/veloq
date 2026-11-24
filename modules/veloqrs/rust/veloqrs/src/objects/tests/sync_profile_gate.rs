@@ -371,6 +371,30 @@ fn a_gap_in_the_stored_year_asks_back_to_the_gap() {
     assert_eq!(taken_wellness_oldest(), vec![days_back(41)]);
 }
 
+/// Scenario: a library folded its own fitness series into a year of days
+/// marked as Veloq's, then adopted an intervals.icu account.
+/// Expected behaviour: those days are not held, so the first sync asks the
+/// whole year; the fortnight it would otherwise ask leaves the rest deleted.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn days_marked_as_computed_here_are_not_held_wellness() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _engine = crate::test_globals::init_global_engine("profile_gate_computed_days.db");
+    store_wellness(WELLNESS_DAYS, &[]);
+    crate::persistence::with_persistent_engine(|engine| {
+        engine
+            .db
+            .execute("UPDATE wellness SET source = 'veloq'", [])
+            .expect("mark rows");
+    })
+    .expect("engine");
+    let upstream = upstream();
+
+    run(&upstream, false);
+
+    assert_eq!(taken_wellness_oldest(), vec![days_back(WELLNESS_DAYS)]);
+}
+
 #[test]
 #[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_year_short_at_its_oldest_end_asks_the_whole_year() {

@@ -70,7 +70,6 @@ fn merged_library() -> PersistentEngine {
 /// "Canal tow" and its route over ride c "Lock gate". Here one route holds
 /// all three rides.
 #[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn two_names_on_one_merged_route_keep_the_closer_match_in_either_order() {
     let _serial = crate::test_globals::serial_global_state();
     let long = name_entry("old-tow", "Canal tow", &["a", "b"]);
@@ -279,4 +278,34 @@ fn backup_settings_reports_the_history_the_latest_restore_dropped() {
         vec![name_entry("old-tow", "Canal tow", &["a", "b"])],
     );
     assert_eq!(screen_totals(&restored), (0, 0));
+}
+
+/// Scenario: the library shows "Canal tow" on one route and numbers its
+/// other route 2. A backup carries each of those names for the route that
+/// shows neither.
+///
+/// Expected behaviour: the name is not written, it is counted as not
+/// restored, and no two routes read alike.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_restored_name_another_route_shows_is_not_written() {
+    let _serial = crate::test_globals::serial_global_state();
+    for (clashing, typed_on_r2) in [("Canal tow", true), ("Route 2", false)] {
+        let mut restored = merged_library();
+        if typed_on_r2 {
+            restored.set_route_name("r_2", Some("Canal tow")).unwrap();
+        }
+        let result = restore_entries(
+            &mut restored,
+            vec![name_entry("old-tow", clashing, &["a", "b"])],
+        );
+        assert_eq!(stored_name(&restored, "r_1"), None, "{clashing}");
+        assert_eq!(result.names_not_restored, 1, "{clashing}");
+        assert_eq!(result.placed, 0, "{clashing}");
+        let shown = restored.get_all_route_names();
+        let mut distinct: Vec<_> = shown.values().collect();
+        distinct.sort();
+        distinct.dedup();
+        assert_eq!(distinct.len(), shown.len(), "{clashing}: {shown:?}");
+    }
 }

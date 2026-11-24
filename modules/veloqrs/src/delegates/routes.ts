@@ -20,7 +20,7 @@ import type {
   LiveRouteOverlap,
   RouteFollowerInterface,
 } from '../generated/veloqrs';
-import { FfiPerformanceSubject } from '../generated/veloqrs';
+import { FfiPerformanceSubject, VeloqError_Tags } from '../generated/veloqrs';
 import { validateId, validateName } from '../conversions';
 import type { DelegateHost } from './host';
 
@@ -55,12 +55,9 @@ export function getFilteredGroupSummaries(
   );
 }
 
-/** The engine's refusal text for a name another route is already shown under. */
-const ROUTE_NAME_TAKEN_MESSAGE = 'Another route is already named';
-
+/** The engine refuses a name another route is shown under with the `RouteNameTaken` variant. */
 export function isRouteNameTakenError(error: unknown): boolean {
-  const text = error instanceof Error ? error.message : String(error);
-  return text.includes(ROUTE_NAME_TAKEN_MESSAGE);
+  return (error as { tag?: unknown } | null)?.tag === VeloqError_Tags.RouteNameTaken;
 }
 
 /** Throws the engine's refusal when another route is already shown under `name`. */
@@ -249,6 +246,19 @@ export function getNearbyPlaces(
       packed: false,
     })
   );
+}
+
+/**
+ * One section's or route's guide payload as JSON text, its line simplified for a watch, or
+ * undefined when it is gone, has no line, or the engine is not ready.
+ */
+export function getGuidePayload(
+  host: DelegateHost,
+  kind: FfiNearbyKind,
+  id: string
+): string | undefined {
+  if (!host.ready) return undefined;
+  return host.timed('getGuidePayload', () => host.engine.routes().getGuidePayload(kind, id));
 }
 
 /**

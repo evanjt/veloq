@@ -288,12 +288,27 @@ impl PersistentEngine {
     /// Delete a named intent outright. The name is gone for good; the
     /// section it resolved to falls back to its generated name.
     pub fn remove_named_corridor(&mut self, intent_id: &str) -> rusqlite::Result<()> {
-        self.db.execute(
-            "DELETE FROM section_intents WHERE id = ? AND kind = 'named'",
-            params![intent_id],
-        )?;
-        self.ensure_named_overlay();
-        Ok(())
+        let carrier = self
+            .get_named_corridors()
+            .into_iter()
+            .find(|c| c.intent_id == intent_id)
+            .and_then(|c| c.section_id);
+        let delete = |engine: &mut Self| -> Result<(), String> {
+            engine
+                .db
+                .execute(
+                    "DELETE FROM section_intents WHERE id = ? AND kind = 'named'",
+                    params![intent_id],
+                )
+                .map_err(|e| e.to_string())?;
+            engine.ensure_named_overlay();
+            Ok(())
+        };
+        match carrier {
+            Some(section_id) => self.record_shown_name_change(&section_id, delete),
+            None => delete(self),
+        }
+        .map_err(|e| rusqlite::Error::SqliteFailure(rusqlite::ffi::Error::new(1), Some(e)))
     }
 
     /// Route a name write for an AUTO section into the intent table: relabel

@@ -1779,18 +1779,24 @@ impl PersistentEngine {
     /// `INSERT` seeds the row at one on an install that has never had a push,
     /// which is every install before this ships.
     pub fn note_external_write(&mut self) -> SqlResult<()> {
-        self.db.execute(
+        let bumped: String = self.db.query_row(
             "INSERT INTO settings (key, value, updated_at) VALUES (?, '1', strftime('%s', 'now'))
              ON CONFLICT(key) DO UPDATE SET
                 value = CAST(CAST(value AS INTEGER) + 1 AS TEXT),
-                updated_at = excluded.updated_at",
+                updated_at = excluded.updated_at
+             RETURNING value",
             rusqlite::params![crate::persistence::settings::settings_keys::EXTERNAL_WRITE_TOKEN],
+            |row| row.get(0),
         )?;
         // This engine's own write, so its tiers already carry the rows and it
         // owes itself no reload. On Android the handler runs in the app's
         // process against this very engine, and without this every push would
-        // cost the foreground a reload for rows it had already taken.
-        self.seen_external_write_token = self.external_write_token();
+        // cost the foreground a reload for rows it had already taken. Only
+        // when the bump landed directly on what was seen: any other value
+        // means another process wrote in between, and its rows are still owed.
+        if bumped.parse::<u64>().ok() == self.seen_external_write_token.checked_add(1) {
+            self.seen_external_write_token += 1;
+        }
         Ok(())
     }
 
@@ -2002,6 +2008,9 @@ impl PersistentEngine {
     }
 
     fn load_in_mode(&mut self, mode: EngineOpenMode) -> SqlResult<()> {
+        // Read before any loader: a write that lands during the load may be
+        // missed by a loader that already ran, so it must stay owed.
+        let token_before_load = self.external_write_token();
         // Before the groups: whether they stand is a question about the rule
         // they were made under, and the rule is what this loads.
         let match_strictness = self.load_match_strictness_from_settings();
@@ -2033,9 +2042,8 @@ impl PersistentEngine {
                 log::warn!("veloqrs: [PersistentEngine] route line layer: {}", e);
             }
         }
-        // The tiers now speak for the file as it stands, handler writes and
-        // all, so nothing read here is owed a reload.
-        self.seen_external_write_token = self.external_write_token();
+        // The tiers speak for the file as it stood before the first loader.
+        self.seen_external_write_token = token_before_load;
         if let Some(e) = first_error
             && is_corruption_error(&e)
         {
@@ -2175,7 +2183,7 @@ impl PersistentEngine {
         if config == self.section_config {
             return Ok(());
         }
-        if self.cutover_is_owed() {
+        if self.section_config_held() {
             return Err(sections::DetectionRefusal::CutoverOwed);
         }
 
@@ -2975,10 +2983,10 @@ impl SectionCounters {
                     counters.unaccepted_auto += n;
                 }
             }
-            if kind.custom {
-                counters.custom += n;
-            } else if kind.removed {
+            if kind.removed {
                 counters.removed += n;
+            } else if kind.custom {
+                counters.custom += n;
             }
         }
         counters
@@ -4474,6 +4482,23 @@ mod tests {
         rusqlite::Error::SqliteFailure(rusqlite::ffi::Error::new(code), None)
     }
 
+    /// A removed custom section is counted as removed only, so the Custom
+    /// count matches the rows the list shows.
+    #[test]
+    fn a_removed_custom_section_is_counted_as_removed_only() {
+        use sections::queries::pooled::SectionKind;
+        let kind = |custom, removed| SectionKind {
+            custom,
+            user_defined: false,
+            removed,
+        };
+        let counters =
+            SectionCounters::of([(kind(true, false), 2), (kind(true, true), 1)].into_iter());
+        assert_eq!(counters.removed, 1);
+        assert_eq!(counters.custom, 2);
+        assert_eq!(counters.visible, 2);
+    }
+
     /// Out of memory and a WAL locking protocol failure clear on a later
     /// launch, so they ask for a retry rather than quarantining the library.
     #[test]
@@ -5050,6 +5075,70 @@ mod tests {
             Some("activity-long".to_string()),
             "Representative activity should be updated"
         );
+    }
+
+    /// Scenario: a section's line runs west to east and a ride that covers the
+    /// same road east to west is set as its reference.
+    ///
+    /// Expected behaviour: the line keeps its orientation, so it still starts
+    /// at the western end, and the row names the ride's range as read backwards.
+    fn reversed_reference_sections() -> (PersistentEngine, String, String) {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let forward: Vec<GpsPoint> = (0..50)
+            .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001, -0.1278 + i as f64 * 0.0005))
+            .collect();
+        let back: Vec<GpsPoint> = forward.iter().rev().cloned().collect();
+        engine
+            .add_activity(
+                "ride-out".to_string(),
+                forward.clone(),
+                "cycling".to_string(),
+            )
+            .unwrap();
+        engine
+            .add_activity("ride-back".to_string(), back, "cycling".to_string())
+            .unwrap();
+        let section = create_test_frequent_section(
+            "sec_cycling_reversed",
+            "ride-out",
+            vec!["ride-out".to_string(), "ride-back".to_string()],
+            forward,
+        );
+        engine.apply_sections(vec![section]).unwrap();
+        let sid = engine.get_sections()[0].id.clone();
+        (engine, sid, "ride-back".to_string())
+    }
+
+    fn assert_line_keeps_orientation(engine: &PersistentEngine, sid: &str) {
+        let section = engine.get_section(sid).unwrap();
+        let first = &section.polyline[0];
+        assert!(
+            (first.latitude - 51.5074).abs() < 1e-3,
+            "the line must still start at its original end, started at {}",
+            first.latitude
+        );
+        assert!(section.representative_reversed, "the range reads backwards");
+    }
+
+    #[test]
+    fn test_set_section_reference_keeps_line_direction_for_auto_section() {
+        let (mut engine, sid, ride) = reversed_reference_sections();
+        engine.set_section_reference(&sid, &ride).unwrap();
+        assert_line_keeps_orientation(&engine, &sid);
+    }
+
+    #[test]
+    fn test_set_section_reference_keeps_line_direction_for_custom_section() {
+        let (mut engine, sid, ride) = reversed_reference_sections();
+        engine
+            .db
+            .execute(
+                "UPDATE sections SET section_type = 'custom' WHERE id = ?",
+                rusqlite::params![sid],
+            )
+            .unwrap();
+        engine.set_section_reference(&sid, &ride).unwrap();
+        assert_line_keeps_orientation(&engine, &sid);
     }
 
     /// Bug 2: Reset reference should clear is_user_defined flag.

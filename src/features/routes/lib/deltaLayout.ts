@@ -213,12 +213,19 @@ export function deltasAgainst(
   let peakDeltaSecs = 0;
   const laps = deltas.laps.map((lap) => {
     const deltaSecs = rebaseCurve(lap.deltaSecs, reference.curve);
+    // The engine zeroes each curve where its own coverage starts, so the
+    // difference of two curves that start at different points is offset by the
+    // reference's progress there; the rebased lap starts at zero again.
+    const offset = deltaSecs.find((secs) => Number.isFinite(secs)) ?? 0;
+    if (offset !== 0) {
+      for (let i = 0; i < deltaSecs.length; i += 1) deltaSecs[i] = (deltaSecs[i] ?? NaN) - offset;
+    }
     for (const secs of deltaSecs) {
       if (Number.isFinite(secs)) peakDeltaSecs = Math.max(peakDeltaSecs, Math.abs(secs));
     }
     const end =
       lap.endDeltaSecs !== undefined && referenceEnd !== undefined
-        ? lap.endDeltaSecs - referenceEnd
+        ? lap.endDeltaSecs - referenceEnd - offset
         : NaN;
     const rebased: FfiLapDelta = {
       ...lap,

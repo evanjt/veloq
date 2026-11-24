@@ -33,6 +33,7 @@ import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { PerformanceChartPanel } from '@/features/routes/components/section';
 import { formatRouteStanding } from '@/features/routes/lib/routeStanding';
 import { ErrorState } from '@/shared/ui/ErrorState';
+import type { RouteGroup as EngineRouteGroup } from 'veloqrs';
 import { NameText } from '@/shared/ui/NameText';
 
 interface RoutePerformanceSectionProps {
@@ -42,6 +43,8 @@ interface RoutePerformanceSectionProps {
   improvementSeconds?: number | null;
   /** Seconds this activity was off the route best, from the same highlight the feed card reads. */
   gapToBestSeconds?: number | null;
+  /** The groups the activity detail read holds for this activity. */
+  routeGroups: readonly EngineRouteGroup[];
 }
 
 export function RoutePerformanceSection({
@@ -49,6 +52,7 @@ export function RoutePerformanceSection({
   activityType,
   improvementSeconds = null,
   gapToBestSeconds = null,
+  routeGroups,
 }: RoutePerformanceSectionProps) {
   const { t } = useTranslation();
   const openDetail = useOpenDetail();
@@ -70,7 +74,7 @@ export function RoutePerformanceSection({
     trendCurves,
     error,
     retry,
-  } = useRoutePerformances(activityId);
+  } = useRoutePerformances(activityId, { groups: routeGroups });
 
   // The key repeats the colours the activity map draws its lines in, for the
   // base that map opens on.

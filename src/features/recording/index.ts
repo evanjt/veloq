@@ -34,7 +34,6 @@ export {
 export { useActivitySummary } from './hooks/useActivitySummary';
 export { useAlwaysLocationPrompt } from './hooks/useAlwaysLocationPrompt';
 export { useCanRecord } from './hooks/useCanRecord';
-export { useRouteGuidance } from './hooks/useRouteGuidance';
 export { useEntryLocation } from './hooks/useEntryLocation';
 export { useForgetAbandonedRouteChoice } from './hooks/useForgetAbandonedRouteChoice';
 export { useGpsSessionEffect } from './hooks/useGpsSessionEffect';
@@ -93,6 +92,7 @@ export {
 } from './lib/storage/recordingBackup';
 export {
   adoptOwnerlessRecordings,
+  adoptRecordingsIdentity,
   getVisibleRecording,
   holdRecordingsOfOtherAthletes,
   recordingFitExists,

@@ -15,7 +15,7 @@ export interface PulledRideEntry {
 }
 
 export interface PulledRideDeps {
-  /** The title and body the engine builds for the ride, or null when it has none. */
+  /** The title and body the engine recorded for the ride, or null when it recorded none. */
   readEntry: (activityId: string) => PulledRideEntry | null | Promise<PulledRideEntry | null>;
   present: (activityId: string, title: string, body: string) => Promise<void>;
 }
@@ -39,7 +39,7 @@ export function createPulledRidePoster(deps: PulledRideDeps) {
     inFlight.add(activityId);
     try {
       const entry = await deps.readEntry(activityId);
-      if (!entry || !entry.body.trim()) return false;
+      if (!entry || !entry.title.trim()) return false;
       await deps.present(activityId, entry.title, entry.body);
       posted.add(activityId);
       return true;

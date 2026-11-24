@@ -182,3 +182,32 @@ fn an_external_reload_replaces_warmed_section_and_group_reads() {
     );
     assert!(!foreground.take_external_writes());
 }
+
+/// Scenario: another process bumps the token, then this engine bumps its own.
+///
+/// Expected behaviour: the other process's rows are still owed, so
+/// `take_external_writes` reports them.
+#[test]
+fn an_own_bump_does_not_absorb_another_processes_earlier_bump() {
+    let dir = TempDir::new().unwrap();
+    let (mut a, mut b) = two_engines(&dir);
+
+    b.note_external_write().expect("the other process's bump");
+    a.note_external_write().expect("this engine's bump");
+
+    assert!(a.take_external_writes());
+    assert!(!a.take_external_writes());
+}
+
+/// Scenario: an engine bumps with nothing else writing.
+///
+/// Expected behaviour: it owes itself no reload.
+#[test]
+fn an_own_bump_owes_no_reload() {
+    let dir = TempDir::new().unwrap();
+    let (mut a, _b) = two_engines(&dir);
+
+    a.note_external_write().expect("the bump");
+
+    assert!(!a.take_external_writes());
+}

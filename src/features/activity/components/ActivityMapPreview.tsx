@@ -23,10 +23,10 @@ import { StaticCompassArrow, Spinner } from '@/shared/ui';
 import { Icon } from '@/shared/ui/Icon';
 import { useIsOnline } from '@/shared/app/NetworkContext';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
-import { useSyncState } from '@/shared/native/useSyncStatus';
+import { useSyncState, useTrackStep } from '@/shared/native/useSyncStatus';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import { isWithinPreviewRange, onPreviewRangeChange } from '../lib/previewRange';
-import { mapPreviewState } from '../lib/mapPreviewState';
+import { mapPreviewState, tracksOwed } from '../lib/mapPreviewState';
 import { useTheme } from '@/shared/app';
 import {
   colors,
@@ -39,7 +39,6 @@ import {
   spacing,
 } from '@/theme';
 import { CARD_FIT_INSET, CARD_FOOTER_CLEARANCE } from '@/features/activity/lib/cardLayout';
-import { SyncState } from 'veloqrs';
 import type { ActivityType, FeedCard } from '@/types';
 import type { PreviewTrack } from '@/features/home';
 import { debug } from '@/shared/debug/debug';
@@ -103,11 +102,12 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // A running sync can still deliver a track this card does not hold yet, so
   // the state is the pair and not the absence alone.
   const syncState = useSyncState();
+  const trackStep = useTrackStep();
   const previewState = mapPreviewState({
     hasGpsData: !!hasGpsData,
     isLoading,
     hasTrack: !!bounds && validCoordinates.length > 0,
-    isSyncing: syncState === SyncState.Syncing,
+    isSyncing: tracksOwed(syncState, trackStep),
   });
 
   const lngLatCoords = useMemo(

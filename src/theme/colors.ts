@@ -226,8 +226,6 @@ export function routePaletteExpression(): unknown {
 // app theme. Semi-transparent entries are rgba because MapLibre paint takes a
 // colour string, not a colour plus a separate opacity.
 export const mapLayerColors = {
-  /** White casing drawn under every coloured line. */
-  casing: '#FFFFFF',
   /** Start and end markers: a track's endpoints and the section creation handles. */
   startSolid: 'rgba(34,197,94,0.9)',
   endSolid: 'rgba(239,68,68,0.9)',

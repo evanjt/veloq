@@ -852,3 +852,114 @@ fn a_hidden_activity_stays_hidden_through_a_remove_and_a_store() {
         "the ride stored again was drawn though it is hidden"
     );
 }
+
+/// Scenario: a cold pass has planned its tiles from the library as it stood
+/// when it began, and the athlete hides one ride before the pass draws.
+///
+/// Expected behaviour: the tile both rides cross is drawn from the ride that
+/// is still shown, not from the plan the pass made before the hide.
+#[test]
+fn a_ride_hidden_while_a_pass_waits_is_not_inked_into_the_tiles_it_draws() {
+    let _serial = serial_global_state();
+    settle();
+    let tmp = init_global_engine("hidden-during-pass.db");
+    let tiles = tmp.path().join("tiles");
+    store_through_the_ffi("east", &sion_east());
+    store_through_the_ffi("crossing", &crossing());
+    let hold = hold_next_tile_pass();
+    set_tiles_path(&tiles);
+    hold.wait_until_reached();
+    hide("east", true);
+    wait_for_sweeps();
+    hold.release();
+    settle();
+    turn_the_heatmap_off();
+
+    let low = tile_at(46.23, 7.371, 14);
+    assert!(
+        on_disk(&tiles, low) == drawn_from(&[&crossing()], low),
+        "the pass drew the ride hidden while it waited"
+    );
+}
+
+/// Scenario: a cold pass has planned its tiles, and a ride crossing the same
+/// ground is stored before it draws.
+///
+/// Expected behaviour: the shared tile is drawn from both rides.
+#[test]
+fn a_ride_stored_while_a_pass_waits_is_inked_into_the_tiles_it_shares() {
+    let _serial = serial_global_state();
+    settle();
+    let tmp = init_global_engine("stored-during-pass.db");
+    let tiles = tmp.path().join("tiles");
+    store_through_the_ffi("east", &sion_east());
+    let hold = hold_next_tile_pass();
+    set_tiles_path(&tiles);
+    hold.wait_until_reached();
+    store_through_the_ffi("crossing", &crossing());
+    wait_for_sweeps();
+    hold.release();
+    settle();
+    turn_the_heatmap_off();
+
+    let low = tile_at(46.23, 7.371, 14);
+    assert!(
+        on_disk(&tiles, low) == drawn_from(&[&sion_east(), &crossing()], low),
+        "the tile the stored ride crosses was drawn without it"
+    );
+}
+
+/// Scenario: a clean set, a pass held back, and one sweep from a hide, a
+/// removal or a store that overlaps a stored ride.
+///
+/// Expected behaviour: the sweep leaves the ground it deleted in the swept
+/// record, so the pass that follows plans only that ground and not the
+/// library.
+fn sweep_records_its_ground(act: impl FnOnce()) {
+    let _serial = serial_global_state();
+    settle();
+    let tmp = init_global_engine("swept-record.db");
+    let tiles = tmp.path().join("tiles");
+    store_through_the_ffi("east", &sion_east());
+    store_through_the_ffi("west", &sion_west());
+    set_tiles_path(&tiles);
+    settle();
+    assert!(
+        crate::persistence::tiles::read_dirty_state(&tiles)
+            .0
+            .is_none(),
+        "the set was not clean before the sweep"
+    );
+
+    let held = defer_tile_passes();
+    act();
+    wait_for_sweeps();
+    let (token, ground) = crate::persistence::tiles::read_dirty_state(&tiles);
+    drop(held);
+    settle();
+    turn_the_heatmap_off();
+
+    assert!(token.is_some(), "the sweep left the set clean");
+    let ground = ground.expect("the sweep left the set owed in full");
+    let east = tile_at(46.23, 7.37, 12);
+    assert!(
+        ground.holds(east.0, east.1, east.2),
+        "the record does not hold the swept ride's tile"
+    );
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn hiding_a_ride_records_the_ground_it_swept() {
+    sweep_records_its_ground(|| hide("east", true));
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn removing_a_ride_records_the_ground_it_swept() {
+    sweep_records_its_ground(|| {
+        crate::objects::activities::ActivityManager::new()
+            .remove("east".into())
+            .expect("east removed");
+    });
+}

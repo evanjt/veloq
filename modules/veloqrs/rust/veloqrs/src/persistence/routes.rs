@@ -232,17 +232,24 @@ fn has_ungrouped_usable_signature(conn: &Connection, groups: &[RouteGroup]) -> S
         .collect();
     let mut stmt = conn.prepare("SELECT activity_id FROM signatures")?;
     let mut unmatched = false;
+    let mut signed: HashSet<String> = HashSet::new();
     for row in stmt.query_map([], |row| row.get::<_, String>(0))? {
-        if !members.contains(row?.as_str()) {
+        let id = row?;
+        if !members.contains(id.as_str()) {
             unmatched = true;
-            break;
         }
+        signed.insert(id);
+    }
+    // A member whose signature is gone was removed after the groups were
+    // stored, so the stored group is stale.
+    if members.iter().any(|member| !signed.contains(*member)) {
+        return Ok(true);
     }
     if !unmatched {
         return Ok(false);
     }
 
-    let (signatures, corrupt) = super::regroup::load_all_signatures(conn);
+    let (signatures, corrupt) = super::regroup::load_all_signatures(conn)?;
     if !super::sections::detection::pool_is_usable(signatures.len(), corrupt.len()) {
         return Ok(false);
     }
@@ -1497,25 +1504,29 @@ impl PersistentEngine {
 
         // Phase 1: Load all signatures (Arc avoids full clone on cache hit)
         let sig_start = Instant::now();
-        let activity_ids: Vec<String> = self.activity_metadata.keys().cloned().collect();
-        let mut arc_sigs: Vec<std::sync::Arc<RouteSignature>> =
-            Vec::with_capacity(activity_ids.len());
 
         // One statement for the whole library. The signature cache holds 200,
         // so asking it per activity evicts what the same walk just loaded and
-        // decodes every blob again on any library past that size.
-        let signatures = self.load_all_signatures();
-        for id in &activity_ids {
-            if let Some(sig) = signatures.get(id) {
-                arc_sigs.push(std::sync::Arc::clone(sig));
-            }
-        }
+        // decodes every blob again on any library past that size. The pool is
+        // judged as the background regroup judges it: a refusal keeps the
+        // groups and names held and settles the flag, so the next read does
+        // not regroup the same pool again.
+        let Some(signatures) = super::regroup::usable_signatures(&self.db, "recompute_groups")
+        else {
+            self.set_groups_dirty(false);
+            return;
+        };
+        let arc_sigs: Vec<std::sync::Arc<RouteSignature>> = signatures
+            .into_iter()
+            .filter(|sig| self.activity_metadata.contains_key(&sig.activity_id))
+            .map(std::sync::Arc::new)
+            .collect();
         let sig_ms = sig_start.elapsed().as_millis();
 
         log::info!(
             "[RUST: PERF] Phase 1 - Load signatures: {} from {} activities in {}ms",
             arc_sigs.len(),
-            activity_ids.len(),
+            self.activity_metadata.len(),
             sig_ms
         );
 
@@ -1869,6 +1880,18 @@ impl PersistentEngine {
     // Route Names
     // ========================================================================
 
+    /// Whether a route other than `route_id` is shown under `name`, typed or
+    /// numbered. Every write of a route name asks this one question.
+    pub(crate) fn route_name_shown_by_another(
+        &self,
+        route_id: &str,
+        name: &str,
+    ) -> rusqlite::Result<bool> {
+        Ok(route_display_names(&self.db, &get_route_word())?
+            .into_iter()
+            .any(|(id, shown)| id != route_id && shown == name))
+    }
+
     /// Set the name the athlete typed for a route. `None`, or the route's own
     /// numbered label in the current language, clears it, so the route is
     /// shown under its number again and that label follows the language.
@@ -1881,14 +1904,6 @@ impl PersistentEngine {
         name: Option<&str>,
     ) -> Result<(), RouteNameError> {
         let route_word = get_route_word();
-        if let Some(name) = name {
-            let taken = route_display_names(&self.db, &route_word)?
-                .into_iter()
-                .any(|(id, shown)| id != route_id && shown == name);
-            if taken {
-                return Err(RouteNameError::Taken(name.to_string()));
-            }
-        }
         let number: Option<u32> = self
             .db
             .query_row(
@@ -1897,8 +1912,27 @@ impl PersistentEngine {
                 |row| row.get(0),
             )
             .optional()?;
-        let typed =
-            name.filter(|name| number.is_none_or(|n| *name != numbered_label(&route_word, n)));
+        // A name reading as the route word and a number is a number label:
+        // it clears for the route's own number and is refused for any other,
+        // held or not, so clearing a typed name can never show two alike.
+        let name = match name.and_then(|n| label_number(n, &route_word).map(|v| (n, v))) {
+            Some((n, label)) => {
+                if number != Some(label) {
+                    return Err(RouteNameError::Taken(n.to_string()));
+                }
+                None
+            }
+            None => name,
+        };
+        if let Some(name) = name {
+            let taken = route_display_names(&self.db, &route_word)?
+                .into_iter()
+                .any(|(id, shown)| id != route_id && shown == name);
+            if taken {
+                return Err(RouteNameError::Taken(name.to_string()));
+            }
+        }
+        let typed = name;
         match typed {
             Some(name) => {
                 self.db.execute(
@@ -2870,8 +2904,15 @@ mod tests {
                 )
                 .unwrap();
         }
-        engine.set_route_name("r_1", Some("Walk Route 2")).unwrap();
-        engine.set_route_name("r_2", Some("Route 2")).unwrap();
+        for (id, name) in [("r_1", "Walk Route 2"), ("r_2", "Route 2")] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO route_names (route_id, custom_name) VALUES (?, ?)",
+                    params![id, name],
+                )
+                .unwrap();
+        }
 
         engine.load_groups().unwrap();
         let stored = engine.get_all_route_names();
@@ -2947,6 +2988,81 @@ mod tests {
             |row| row.get(0),
         );
         assert!(matches!(typed, Err(rusqlite::Error::QueryReturnedNoRows)));
+    }
+
+    /// Scenario: three numbered routes, the third typed as "Hill climb", then
+    /// the first is renamed to "Route 3", to an unheld "Route 9", and to its
+    /// own label, and finally the third's typed name is cleared.
+    /// Expected behaviour: a number label that is not the route's own is
+    /// refused as taken and changes nothing, its own label clears the typed
+    /// name, and after clearing no two routes are shown alike.
+    #[test]
+    fn a_typed_number_label_is_refused_unless_it_is_the_routes_own() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        for id in ["r_1", "r_2", "r_3"] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type)
+                 VALUES (?, ?, '[\"a\"]', 'Ride')",
+                    params![id, format!("rep_{id}")],
+                )
+                .unwrap();
+        }
+        engine.load_groups().unwrap();
+        let word = super::get_route_word();
+        let own = |engine: &PersistentEngine, id: &str| -> String {
+            let n: u32 = engine
+                .db
+                .query_row(
+                    "SELECT number FROM route_numbers WHERE route_id = ?",
+                    params![id],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            super::numbered_label(&word, n)
+        };
+        let typed_name_stored = |engine: &PersistentEngine, id: &str| -> bool {
+            engine
+                .db
+                .query_row(
+                    "SELECT COUNT(*) FROM route_names WHERE route_id = ?",
+                    params![id],
+                    |row| row.get::<_, u32>(0),
+                )
+                .unwrap()
+                > 0
+        };
+        let third_label = own(&engine, "r_3");
+        engine.set_route_name("r_3", Some("Hill climb")).unwrap();
+
+        assert_eq!(
+            engine.set_route_name("r_1", Some(&third_label)),
+            Err(super::RouteNameError::Taken(third_label.clone()))
+        );
+        let unheld = super::numbered_label(&word, 9);
+        assert_eq!(
+            engine.set_route_name("r_1", Some(&unheld)),
+            Err(super::RouteNameError::Taken(unheld.clone()))
+        );
+        assert!(!typed_name_stored(&engine, "r_1"));
+
+        let first_label = own(&engine, "r_1");
+        engine.set_route_name("r_1", Some(&first_label)).unwrap();
+        assert!(!typed_name_stored(&engine, "r_1"));
+
+        engine.set_route_name("r_3", None).unwrap();
+        let mut shown: Vec<String> = ["r_1", "r_2", "r_3"]
+            .iter()
+            .map(|id| {
+                engine
+                    .get_route_name(id)
+                    .unwrap_or_else(|| own(&engine, id))
+            })
+            .collect();
+        shown.sort();
+        shown.dedup();
+        assert_eq!(shown.len(), 3);
     }
 
     #[test]
@@ -3057,6 +3173,30 @@ mod tests {
                 .any(|group| group.activity_ids.contains(&"a2".to_string()))
         );
         assert!(!engine.groups_are_dirty());
+    }
+
+    #[test]
+    fn a_removed_ride_is_dropped_from_its_stored_route_after_a_reload() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        for id in ["a1", "a2", "a3"] {
+            engine
+                .add_activity(id.to_string(), loop_track(), "Ride".to_string())
+                .unwrap();
+        }
+        engine.get_groups();
+        engine.remove_activity("a3").unwrap();
+        // A process kill drops the in-memory dirty flag and the loaded groups.
+        engine.set_groups_dirty(false);
+
+        engine.load_groups().unwrap();
+
+        assert!(engine.groups_are_dirty());
+        assert!(
+            engine
+                .get_groups()
+                .iter()
+                .all(|group| !group.activity_ids.contains(&"a3".to_string()))
+        );
     }
 
     fn loop_track() -> Vec<GpsPoint> {

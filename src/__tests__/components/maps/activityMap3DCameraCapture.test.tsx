@@ -14,6 +14,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
 import type { LatLng } from '@/shared/geo/polyline';
 import { renderStaged } from '../../__shared__/stagedRender';
+import { MapSheetHostContext, type MapSheetHostValue } from '@/shared/app/MapSheetHost';
+import { hostTerrain3D, openHost, useMapSheetHosts } from '@/shared/app/mapSheetHost';
 
 interface Page {
   html: string[];
@@ -206,5 +208,42 @@ describe('leaving the 3D view', () => {
     const moves = page.injected.filter((script) => script.includes('7.4567'));
     expect(moves).toHaveLength(1);
     expect(moves[0]).toContain('135');
+  });
+});
+
+describe('losing terrain in the fullscreen map', () => {
+  beforeEach(() => useMapSheetHosts.setState({ hosts: {} }));
+
+  it('leaves the activity preference and the saved camera alone', async () => {
+    const key = openHost('activity', 'a1');
+    const value = { key } as unknown as MapSheetHostValue;
+    const capture = jest.fn();
+    const onChange = jest.fn();
+    const view = await renderStaged(
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <MapSheetHostContext.Provider value={value}>
+          <ActivityMapView
+            activityType="Ride"
+            coordinates={COORDINATES}
+            height={800}
+            initial3DCamera={CAMERA}
+            enableFullscreen
+            showStyleToggle
+            onCameraCapture={capture}
+            on3DModeChange={onChange}
+          />
+        </MapSheetHostContext.Provider>
+      </SafeAreaProvider>
+    );
+    await post({ type: 'mapReady' });
+    await settleAt(CAMERA, true);
+    await fireEvent.press(view.getByTestId('activity-map-fullscreen'));
+    await post({ type: 'mapReady' });
+
+    await post({ type: 'terrainUnavailable', reason: 'no-tiles' });
+
+    expect(hostTerrain3D(key)).toBe(false);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(capture).not.toHaveBeenCalled();
   });
 });

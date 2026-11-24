@@ -54,7 +54,6 @@ import {
 } from '@/features/routes/lib/scatterData';
 import {
   TAP_REACH_PX,
-  bestIsEstimated,
   clampToRange,
   placeRecordStaircase,
   scatterMarkFor,
@@ -533,7 +532,7 @@ export function SectionScatterChart({
           stats={forwardStats}
           bestRecord={bestForwardRecord}
           bestIsRecord={bestForwardIsRecord}
-          bestEstimated={bestIsEstimated(forwardPoints, bestForwardRecord)}
+          bestEstimated={bestForwardRecord?.bestEstimated === true}
           pointCount={forwardPoints.length}
           basis={basis}
           isDark={isDark}
@@ -545,7 +544,7 @@ export function SectionScatterChart({
           stats={reverseStats}
           bestRecord={bestReverseRecord}
           bestIsRecord={bestReverseIsRecord}
-          bestEstimated={bestIsEstimated(reversePoints, bestReverseRecord)}
+          bestEstimated={bestReverseRecord?.bestEstimated === true}
           pointCount={reversePoints.length}
           basis={basis}
           isDark={isDark}

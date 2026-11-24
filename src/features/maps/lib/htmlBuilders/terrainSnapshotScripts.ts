@@ -228,9 +228,12 @@ export function snapshotRenderScript(): string {
                   activityId: activityId,
                   gen: myGen,
                   error: error,
-                  tileErrors: window._tileErrorCount,
+                  tileErrors: window._tileFailures(),
                   tileThrottles: window._tileThrottleCount,
                 }));
+                // The map keeps an errored tile and never asks for it again,
+                // so a retry on it would draw the same hole.
+                if (window._tileFailures() > 0) window._recycleMap();
               }
 
               window._rn_log('Snapshot ' + activityId + ' gen=' + myGen + ': ' + coords.length + ' coords, style=' + mapStyle + (isFlat ? ' (flat)' : ' (3d)'));
@@ -317,9 +320,10 @@ export function snapshotRenderScript(): string {
                   // MapLibre counts a failed tile as loaded, so a render can
                   // finish with a hole in it. One counted tile error is enough
                   // to refuse the picture, wherever the hole falls.
-                  if (window._tileErrorCount >= 1) {
-                    window._rn_log('Tile errors detected (' + window._tileErrorCount + '), rejecting');
-                    postRenderError('Tile errors: ' + window._tileErrorCount);
+                  var tileFailures = window._tileFailures();
+                  if (tileFailures >= 1) {
+                    window._rn_log('Tile errors detected (' + tileFailures + '), rejecting');
+                    postRenderError('Tile errors: ' + tileFailures);
                     return;
                   }
 
@@ -335,7 +339,7 @@ export function snapshotRenderScript(): string {
                     mapStyle: mapStyle,
                     gen: myGen,
                     base64: base64,
-                    tileErrors: window._tileErrorCount,
+                    tileErrors: window._tileFailures(),
                     tileThrottles: window._tileThrottleCount,
                     // The host cannot tell a camera jump over a mounted style
                     // from a whole setStyle with its sources and its tiles,

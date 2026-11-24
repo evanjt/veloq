@@ -710,6 +710,15 @@ function connectAndSubscribe(
   return done;
 }
 
+/**
+ * Whether a connect started after the latest teardown is running for the
+ * sensor. It owns the device and the store entry, so a superseded connect
+ * leaves both to it.
+ */
+function newerConnectOwns(id: string): boolean {
+  return pendingConnects.get(id)?.generation === (connectGenerations.get(id) ?? 0);
+}
+
 async function runConnect(
   sensor: KnownSensor,
   attempt: number,
@@ -744,7 +753,7 @@ async function runConnect(
     const connectedAt = Date.now();
     traceLink(sensor, 'connected', { ms: connectedAt - connectStartedAt });
     if (superseded()) {
-      abandonConnect(sensor.id);
+      if (!newerConnectOwns(sensor.id)) abandonConnect(sensor.id);
       return;
     }
     await device.discoverAllServicesAndCharacteristics();
@@ -753,7 +762,7 @@ async function runConnect(
       detail: options.refreshGatt ? 'refreshed' : undefined,
     });
     if (superseded()) {
-      abandonConnect(sensor.id);
+      if (!newerConnectOwns(sensor.id)) abandonConnect(sensor.id);
       return;
     }
 
@@ -781,8 +790,14 @@ async function runConnect(
 
     await subscribeToSensor(active, sensor);
     if (superseded()) {
-      cleanupConnection(sensor.id);
-      abandonConnect(sensor.id);
+      // A drop already tore this entry down and started the reconnect that
+      // owns the sensor now; only a disconnect with no newer connect leaves
+      // this one to clean up.
+      for (const sub of active.subscriptions) sub.remove();
+      if (!newerConnectOwns(sensor.id)) {
+        if (activeConnections.get(sensor.id) === active) cleanupConnection(sensor.id);
+        abandonConnect(sensor.id);
+      }
       return;
     }
     active.subscribedAt = Date.now();
@@ -834,6 +849,15 @@ function pendReconnect(sensor: KnownSensor, { freshTable = false } = {}): void {
 const seeking = new Map<string, KnownSensor>();
 /** Whether the scan running now was started for `seeking`, as opposed to the athlete's scan. */
 let seekScanActive = false;
+/**
+ * When the search scan last failed to run. The silence watch asks for a scan on
+ * every health tick, so without a pause a scan that cannot start (location
+ * services off below Android 12) is retried every tick for as long as the link
+ * is silent.
+ */
+let seekScanFailedAt: number | null = null;
+/** How long after a failed search scan the next is held back. */
+export const SCAN_RETRY_BACKOFF_MS = 20_000;
 
 /**
  * Linked sensors whose subscription has been silent, awaiting an advertisement:
@@ -857,12 +881,14 @@ function seekSensor(sensor: KnownSensor): void {
 function startSeekScan(): void {
   const ble = bleManager;
   if (!ble || (seeking.size === 0 && silentWatch.size === 0) || seekScanActive) return;
+  if (seekScanFailedAt !== null && Date.now() - seekScanFailedAt < SCAN_RETRY_BACKOFF_MS) return;
   seekScanActive = true;
   ble.startDeviceScan(SCANNED_SERVICES, { allowDuplicates: false }, (error, device) => {
     if (error) {
       log.warn('Sensor search scan error:', error.message);
       noteBleError(error);
       seekScanActive = false;
+      seekScanFailedAt = Date.now();
       ble.stopDeviceScan();
       // Without a scan the timed retry is what is left.
       silentWatch.clear();
@@ -871,6 +897,7 @@ function startSeekScan(): void {
       for (const sensor of lost) scheduleReconnect(sensor, 1);
       return;
     }
+    seekScanFailedAt = null;
     if (device) noteSeen(device.id);
   });
 }
@@ -928,7 +955,7 @@ function judgeSilence(sensor: KnownSensor, active: ActiveConnection): void {
     recoveryTried: recoveredSilent.has(sensor.id),
   });
   if (action === 'wait') {
-    if (!advertisementHeard.has(sensor.id) && !silentWatch.has(sensor.id)) {
+    if (!advertisementHeard.has(sensor.id)) {
       silentWatch.add(sensor.id);
       startSeekScan();
     }
@@ -1188,6 +1215,7 @@ export async function disconnectSensor(id: string): Promise<void> {
 export async function disconnectAllSensors(): Promise<void> {
   holders.clear();
   droppedForSession.clear();
+  seekScanFailedAt = null;
   if (releaseTimer) {
     clearTimeout(releaseTimer);
     releaseTimer = null;

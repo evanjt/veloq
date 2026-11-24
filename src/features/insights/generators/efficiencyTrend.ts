@@ -6,6 +6,7 @@ import type { DataPoint, Insight } from '../types';
 import { INSIGHTS_CONFIG, confidenceFrom, maxPerCategoryFor } from '../lib/config';
 import { sparkline } from '../lib/sparkline';
 import { formatSigned } from '@/shared/format';
+import { verdictRung } from '@/shared/format/trend';
 import { printedValue } from '../lib/printedValue';
 
 /**
@@ -88,7 +89,7 @@ export function generateEfficiencyTrendInsights(
       category: 'efficiency_trend',
       priority: 1,
       icon: 'heart-pulse',
-      iconTone: declining ? 'neutral' : 'positive',
+      iconTone: declining ? verdictRung('declined') : 'positive',
       title: t(
         declining ? 'insights.efficiencyTrend.changeTitle' : 'insights.efficiencyTrend.title',
         {

@@ -49,3 +49,25 @@ it('carries the estimated flag of each lap into the render shape', () => {
     ['projected', true],
   ]);
 });
+
+it('carries the engine flag that the record best time is an estimate', () => {
+  const base = {
+    activityId: 'a1',
+    activityName: 'Ride',
+    activityDate: 1_790_000_000,
+    laps: [lap('projected', true)],
+    lapCount: 1,
+    bestTime: 100.4,
+    bestPace: 5,
+    avgTime: 100.4,
+    avgPace: 5,
+    direction: 'same',
+    sectionDistance: 600,
+  };
+  expect(toPerformanceRecord({ ...base, bestEstimated: true } as FfiRecord).bestEstimated).toBe(
+    true
+  );
+  expect(toPerformanceRecord({ ...base, bestEstimated: false } as FfiRecord).bestEstimated).toBe(
+    false
+  );
+});

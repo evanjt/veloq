@@ -774,6 +774,8 @@ const DEVICE_WRITES: DeviceWrite[] = [
       'detectedSections',
       'names',
       'sectionEdits',
+      'strengthSessions',
+      'linkedDevices',
     ],
     where: 'routes.db and its -wal and -shm, in the App Group on iOS and filesDir on Android',
     writers: [
@@ -1198,7 +1200,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
 
   {
-    confirm: [],
+    confirm: ['garminKey'],
     where: 'the Garmin Personal key and the connector choices',
     writers: ['src/features/settings/lib/garminConnector.ts', 'src/shared/app/AuthStore.ts'],
     holds:

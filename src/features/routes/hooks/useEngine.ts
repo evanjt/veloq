@@ -14,7 +14,7 @@ import {
   useEngineSubscription,
   useReadRetry,
 } from '@/shared/native/useEngineSubscription';
-import { decodeCoords, type RouteGroup, type SectionSummary, type GroupSummary } from 'veloqrs';
+import { decodeCoords, type SectionSummary, type GroupSummary } from 'veloqrs';
 import type { LatLngShort } from '@/shared/geo/distance';
 
 // ============================================================================
@@ -27,61 +27,6 @@ export type { EngineEvent } from '@/shared/native/useEngineSubscription';
 // ============================================================================
 // Data Hooks with Options
 // ============================================================================
-
-interface UseEngineGroupsOptions {
-  /** Minimum number of activities in group */
-  minActivities?: number;
-  /** Sort order */
-  sortBy?: 'count' | 'id';
-  /** When false, skip the getGroups() FFI entirely (used to defer off a screen's mount frame) */
-  enabled?: boolean;
-}
-
-interface UseEngineGroupsResult {
-  /** List of route groups */
-  groups: RouteGroup[];
-  /** Total number of groups */
-  totalCount: number;
-  /** What the engine threw, when the read failed. Empty groups with no error is an empty library. */
-  error?: unknown;
-  /** Reads again after a failure. */
-  retry: () => void;
-}
-
-/**
- * Hook for accessing route groups from the Rust engine.
- * Groups are queried fresh from Rust/SQLite on each refresh (no long-term JS memory storage).
- */
-export function useEngineGroups(options: UseEngineGroupsOptions = {}): UseEngineGroupsResult {
-  const { minActivities = 2, sortBy = 'count', enabled = true } = options;
-  const [attempt, retry] = useReadRetry();
-  const readGroups = useEngineRead(['groups'], [attempt]);
-
-  const read = useMemo(() => {
-    try {
-      if (!enabled) return { groups: [], totalCount: 0 };
-      const engine = readGroups((open) => open);
-      if (!engine) return { groups: [], totalCount: 0 };
-
-      const allGroups = engine.getGroups();
-      let filtered = allGroups.filter((g) => g.activityIds?.length >= minActivities);
-
-      if (sortBy === 'count') {
-        filtered.sort((a, b) => (b.activityIds?.length ?? 0) - (a.activityIds?.length ?? 0));
-      } else {
-        filtered.sort((a, b) => a.groupId.localeCompare(b.groupId));
-      }
-
-      return {
-        groups: filtered,
-        totalCount: allGroups.length,
-      };
-    } catch (error) {
-      return { groups: [], totalCount: 0, error };
-    }
-  }, [readGroups, minActivities, sortBy, enabled]);
-  return useMemo(() => ({ ...read, retry }), [read, retry]);
-}
 
 interface UseSectionSummariesOptions {
   /** Filter by sport type */

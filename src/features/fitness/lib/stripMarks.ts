@@ -1,6 +1,7 @@
 import type { ActivityType } from '@/types';
 import { getActivityCategory, SPORT_FAMILY_ORDER } from '@/shared/activity/sportCategories';
 import { BAR_GAP } from '@/shared/charts/chartMarks';
+import { colors, darkColors } from '@/theme';
 
 /** What one day on the strip holds. */
 export interface StripDay {
@@ -23,6 +24,11 @@ export interface StripMark {
   segments: { group: string; fraction: number }[];
   /** The date trained but carries no load, so it draws in the neutral colour. */
   noLoad: boolean;
+}
+
+/** The outline of a day trained without load. A mark holds 3:1 on every surface, which the disabled ink does not. */
+export function noLoadMarkColour(isDark: boolean): string {
+  return isDark ? darkColors.textTertiary : colors.textTertiary;
 }
 
 /** Every active date draws at this fraction of the strip's height, whatever it carried. */

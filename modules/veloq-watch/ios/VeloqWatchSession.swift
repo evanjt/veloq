@@ -80,10 +80,14 @@ public final class VeloqWatchSession: NSObject, WCSessionDelegate {
 
   private func send(_ entries: [String: Any]) throws {
     lock.lock()
-    for (key, value) in entries { context[key] = value }
-    let merged = context
+    var merged = context
+    for (key, value) in entries { merged[key] = value }
     lock.unlock()
     try WCSession.default.updateApplicationContext(merged)
+    // Kept only once the system took it, so a refused entry never rides a later context.
+    lock.lock()
+    for (key, value) in entries { context[key] = value }
+    lock.unlock()
   }
 
   /// Transfer a file for a payload the context should not carry.

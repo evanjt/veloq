@@ -69,8 +69,19 @@ ${dropRetiredTileCachesScript()}
 export function terrainReportScript(): string {
   return `
     window._veloqTerrainReport = (function() {
-      var delivered = 0, failed = 0, sent = false, settled = false;
+      var delivered = 0, failed = 0, sent = false, settled = false, timer = null;
+      function cancel() {
+        if (timer !== null) clearTimeout(timer);
+        timer = null;
+      }
+      function schedule() {
+        cancel();
+        timer = setTimeout(report, 1000);
+      }
       function report() {
+        timer = null;
+        // A report that outlives the terrain would put a notice over the flat map.
+        if (!window._veloq || !window._veloq.terrain) return;
         if (sent || delivered > 0 || failed === 0) return;
         sent = true;
         window._rn_log('sending terrainUnavailable - ' + failed + ' DEM tiles failed');
@@ -82,7 +93,8 @@ export function terrainReportScript(): string {
         }
       }
       return {
-        reset: function() { delivered = 0; failed = 0; sent = false; settled = false; },
+        cancel: cancel,
+        reset: function() { cancel(); delivered = 0; failed = 0; sent = false; settled = false; },
         watch: function(map) {
           map.on('sourcedata', function(e) {
             if (e.sourceId === 'terrain' && e.tile) delivered++;
@@ -93,7 +105,7 @@ export function terrainReportScript(): string {
               // A failure can land after the last render, and idle only fires
               // from a render, so without one the report never goes out.
               if (typeof map.triggerRepaint === 'function') map.triggerRepaint();
-              if (settled) setTimeout(report, 1000);
+              if (settled) schedule();
             }
           });
         },
@@ -101,7 +113,7 @@ export function terrainReportScript(): string {
         reportOnceSettled: function(map) {
           map.once('idle', function() {
             settled = true;
-            setTimeout(report, 1000);
+            schedule();
           });
         },
       };
@@ -177,12 +189,11 @@ export function tileHostWarmScript(): string {
  * near the eye it is high enough that only a wide mountain reaches it. `queryTerrainElevation` already includes the
  * exaggeration, so heights are compared as read. A point with no loaded DEM is
  * clear. The request camera stays at 5% hidden or less. Otherwise the least
- * hidden of its turns of 180, 90 and 270 degrees (centre moved 8% of the span
- * toward the new eye) and the request bearing at pitch 40 is returned, the
- * first listed winning a tie. A page that fits its frame passes `fit`, which
- * returns a candidate camera fitted to the frame; each candidate is fitted
- * before it is scored, and the centre then stays where it was, since the fit
- * recentres it.
+ * hidden of its turns of 180, 90 and 270 degrees and the request bearing at
+ * pitch 40 is returned, the first listed winning a tie. Every candidate keeps
+ * the request's centre. A page that fits its frame passes `fit`, which returns
+ * a candidate camera fitted to the frame; each candidate is fitted before it
+ * is scored, and the fit recentres it.
  */
 export function terrainVisibilityScript(): string {
   return `
@@ -204,11 +215,6 @@ export function terrainVisibilityScript(): string {
       for (var i = 0; i < coords.length; i += step) {
         var ez = height(coords[i][0], coords[i][1]);
         pts.push({ lng: coords[i][0], lat: coords[i][1], z: ez === null ? 0 : ez });
-      }
-      function shift(bearing) {
-        if (fit) return [0, 0];
-        var b = bearing * rad;
-        return [-Math.sin(b) * spans[0] * 0.08, -Math.cos(b) * spans[1] * 0.08];
       }
       function hidden(cam) {
         var mpp = 40075016.686 * Math.cos(cam.center[1] * rad) / (512 * Math.pow(2, cam.zoom));
@@ -236,14 +242,12 @@ export function terrainVisibilityScript(): string {
       var bestHidden = hidden(camera);
       if (bestHidden <= KEEP_BELOW) return camera;
       var best = camera;
-      var from = shift(camera.bearing);
       var turns = [180, 90, 270];
       var candidates = [];
       for (var k = 0; k < turns.length; k++) {
         var bearing = (camera.bearing + turns[k]) % 360;
-        var to = shift(bearing);
         candidates.push({
-          center: [camera.center[0] + to[0] - from[0], camera.center[1] + to[1] - from[1]],
+          center: camera.center,
           zoom: camera.zoom, bearing: bearing, pitch: camera.pitch
         });
       }

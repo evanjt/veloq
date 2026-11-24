@@ -3,7 +3,8 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { useTheme } from '@/shared/app';
+import { useMetricSystem, useTheme } from '@/shared/app';
+import { weightUnitLabel } from '@/shared/format/weight';
 import { ListSectionHeader, TextField } from '@/shared/ui';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import {
@@ -13,7 +14,11 @@ import {
   type FfiThresholdFigure,
 } from 'veloqrs';
 import { useThresholdsScreen } from '../hooks/useThresholdsScreen';
-import { readThresholdEntry } from '../lib/thresholdEntry';
+import {
+  fromThresholdDisplay,
+  readThresholdEntry,
+  toThresholdDisplay,
+} from '../lib/thresholdEntry';
 import { settingsStyles } from './settingsStyles';
 
 function fieldLabel(t: TFunction, field: FfiThresholdField): string {
@@ -31,12 +36,12 @@ function fieldLabel(t: TFunction, field: FfiThresholdField): string {
   }
 }
 
-function fieldUnit(field: FfiThresholdField): string {
+function fieldUnit(field: FfiThresholdField, isMetric: boolean): string {
   switch (field) {
     case FfiThresholdField.Ftp:
       return 'W';
     case FfiThresholdField.WeightKg:
-      return 'kg';
+      return weightUnitLabel(isMetric);
     default:
       return 'bpm';
   }
@@ -67,7 +72,16 @@ interface FigureFieldProps {
 
 function FigureField({ sport, figure, setFigure }: FigureFieldProps) {
   const { t } = useTranslation();
-  const athleteValue = figure.source === FfiThresholdSource.Athlete ? (figure.value ?? null) : null;
+  const isMetric = useMetricSystem();
+  const isWeight = figure.field === FfiThresholdField.WeightKg;
+  const shown = (value: number) => {
+    const display = toThresholdDisplay(isWeight, value, isMetric);
+    return isWeight ? Math.round(display * 10) / 10 : display;
+  };
+  const athleteValue =
+    figure.source === FfiThresholdSource.Athlete && figure.value != null
+      ? shown(figure.value)
+      : null;
   const [text, setText] = useState(athleteValue === null ? '' : String(athleteValue));
   const [error, setError] = useState<string | null>(null);
 
@@ -82,7 +96,11 @@ function FigureField({ sport, figure, setFigure }: FigureFieldProps) {
       return;
     }
     try {
-      await setFigure(sport, figure.field, entry.kind === 'set' ? entry.value : null);
+      await setFigure(
+        sport,
+        figure.field,
+        entry.kind === 'set' ? fromThresholdDisplay(isWeight, entry.value, isMetric) : null
+      );
       setError(null);
       if (entry.kind === 'clear') setText('');
     } catch {
@@ -93,12 +111,12 @@ function FigureField({ sport, figure, setFigure }: FigureFieldProps) {
   const hint =
     figure.value == null || figure.source == null
       ? t('thresholds.notSet')
-      : sourceHint(t, figure.source, figure.value);
+      : sourceHint(t, figure.source, shown(figure.value));
 
   return (
     <TextField
       label={fieldLabel(t, figure.field)}
-      unit={fieldUnit(figure.field)}
+      unit={fieldUnit(figure.field, isMetric)}
       value={text}
       onChangeText={setText}
       onBlur={commit}
@@ -106,7 +124,7 @@ function FigureField({ sport, figure, setFigure }: FigureFieldProps) {
       keyboardType="decimal-pad"
       hint={hint}
       error={error}
-      placeholder={figure.value == null ? undefined : String(figure.value)}
+      placeholder={figure.value == null ? undefined : String(shown(figure.value))}
       testID={`threshold-${sport}-${FfiThresholdField[figure.field]}`}
     />
   );

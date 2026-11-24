@@ -1,6 +1,7 @@
 import { persistRideBackup } from '@/features/recording/lib/rideBackup';
 import { buildRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
 import { resetAutoPause } from '@/features/recording/lib/manualPause';
+import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { replaceTo } from '@/shared/app/navigation';
 
@@ -21,6 +22,9 @@ export async function resumeStoppedRecording(): Promise<void> {
   if (after.status !== 'paused') return;
 
   replaceTo(`/recording/${after.activityType}`);
-  const backup = buildRecordingBackup(after);
+  const backup = buildRecordingBackup({
+    ...after,
+    routeChoice: useRecordingLiveStore.getState().routeChoice,
+  });
   if (backup) await persistRideBackup(backup);
 }

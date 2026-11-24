@@ -8,6 +8,7 @@
  * nothing is sent and nothing is requested.
  */
 
+import { FfiNearbyKind, routes } from 'veloqrs';
 import * as Notifications from 'expo-notifications';
 import { requireOptionalNativeModule } from 'expo-modules-core';
 
@@ -31,12 +32,14 @@ jest.mock('expo-notifications', () => ({
 }));
 
 const mockRequireNativeModule = jest.mocked(requireOptionalNativeModule);
+const mockGuidePayload = jest.mocked(routes.getGuidePayload);
 const mockModule = { state: jest.fn(), sendSection: jest.fn() };
 const getPermissions = Notifications.getPermissionsAsync as jest.Mock;
 const requestPermissions = Notifications.requestPermissionsAsync as jest.Mock;
 
 beforeEach(() => {
   mockModule.sendSection.mockReset();
+  mockGuidePayload.mockReset();
   mockModule.state.mockReset().mockReturnValue({ enabled: true });
   mockRequireNativeModule.mockReset().mockReturnValue(mockModule as never);
   getPermissions.mockReset().mockResolvedValue({ status: 'undetermined', canAskAgain: true });
@@ -84,28 +87,38 @@ describe('sendSectionToWatch', () => {
 });
 
 describe('watch link switch and section guide', () => {
-  const polyline = [
-    { lat: 46.5, lng: 6.6 },
-    { lat: 46.51, lng: 6.61 },
-  ];
+  it('sends the engine guide payload, never the stored line, and raises the request once', async () => {
+    const stored = Array.from({ length: 3000 }, (_, i) => ({ lat: 46 + i * 1e-5, lng: 6.6 }));
+    const simplified = stored
+      .filter((_, i) => i % 30 === 0)
+      .map(({ lat, lng }) => ({ latitude: lat, longitude: lng }));
+    const reply = JSON.stringify({ name: 'Hill', line: simplified });
+    mockGuidePayload.mockReturnValue(reply);
 
-  it('sends the section as a named line and raises the request once', async () => {
-    await expect(sendSectionGuide({ name: 'Hill', polyline })).resolves.toBe(true);
+    await expect(sendSectionGuide('s1')).resolves.toBe(true);
 
-    expect(JSON.parse(mockModule.sendSection.mock.calls[0][0])).toEqual({
-      name: 'Hill',
-      line: [
-        { latitude: 46.5, longitude: 6.6 },
-        { latitude: 46.51, longitude: 6.61 },
-      ],
-    });
+    expect(mockGuidePayload).toHaveBeenCalledWith(FfiNearbyKind.Section, 's1');
+    const sent = JSON.parse(mockModule.sendSection.mock.calls[0][0]);
+    expect(sent.line.length).toBeLessThan(200);
     expect(requestPermissions).toHaveBeenCalledTimes(1);
   });
 
-  it('sends nothing for a section with no line', async () => {
-    await expect(sendSectionGuide({ name: 'Hill', polyline: [] })).resolves.toBe(false);
+  it('sends nothing for a section the engine has no line for', async () => {
+    mockGuidePayload.mockReturnValue(undefined);
+
+    await expect(sendSectionGuide('s1')).resolves.toBe(false);
 
     expect(mockModule.sendSection).not.toHaveBeenCalled();
+    expect(requestPermissions).not.toHaveBeenCalled();
+  });
+
+  it('resolves false and raises no request when the native send throws', async () => {
+    mockModule.sendSection.mockImplementation(() => {
+      throw new Error('payload too large');
+    });
+
+    await expect(sendSectionToWatch('{"name":"Hill"}')).resolves.toBe(false);
+
     expect(requestPermissions).not.toHaveBeenCalled();
   });
 

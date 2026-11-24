@@ -298,6 +298,44 @@ describe('the first signed-in launch', () => {
     expect(notice).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['a storage error', Object.assign(new Error('database or disk is full'), { tag: 'Database' })],
+    [
+      'an engine that is not ready',
+      Object.assign(new Error('not open'), { tag: 'NotInitialized' }),
+    ],
+    ['an untagged failure', new Error('database or disk is full')],
+  ])('keeps the held file and the offer open after %s', async (_name, error) => {
+    await holdImportWhileSignedOut(PICKED_DB, 'older.veloqdb');
+    mockEngineState.ready = true;
+    mockRestoreRecordBackup.mockRejectedValueOnce(error);
+    jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+
+    expect(await applyHeldImport(t)).toBe(true);
+
+    expect(heldFiles()).toHaveLength(1);
+    expect(mockMarkAnswered).not.toHaveBeenCalled();
+
+    expect(await applyHeldImport(t)).toBe(true);
+    expect(mockRestoreRecordBackup).toHaveBeenCalledTimes(2);
+    expect(heldFiles()).toEqual([]);
+    expect(mockMarkAnswered).toHaveBeenCalledTimes(1);
+  });
+
+  it('deletes a held file the engine refuses as unreadable', async () => {
+    await holdImportWhileSignedOut(PICKED_DB, 'older.veloqdb');
+    mockEngineState.ready = true;
+    mockRestoreRecordBackup.mockRejectedValueOnce(
+      Object.assign(new Error('bad record'), { tag: 'ParseError' })
+    );
+    jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+
+    expect(await applyHeldImport(t)).toBe(true);
+
+    expect(heldFiles()).toEqual([]);
+    expect(mockMarkAnswered).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the held file while the engine is still closed', async () => {
     await holdImportWhileSignedOut(PICKED_VELOQ, 'old.veloq');
 

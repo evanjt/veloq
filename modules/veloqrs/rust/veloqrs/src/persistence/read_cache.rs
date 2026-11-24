@@ -20,6 +20,7 @@
 //! against a number from a different counter and either miss every time or,
 //! worse, hit when the database had moved.
 
+use std::cell::Cell;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
@@ -278,8 +279,49 @@ fn hold_clear() {
     }
 }
 
+thread_local! {
+    /// The cache generation a reader on this thread took before its snapshot
+    /// began. `None` outside a pooled read.
+    static PINNED_GENERATION: Cell<Option<u64>> = const { Cell::new(None) };
+}
+
+/// Restores the enclosing read's pinned generation when a pooled read ends.
+pub(crate) struct PinnedReader(Option<u64>);
+
+impl Drop for PinnedReader {
+    fn drop(&mut self) {
+        PINNED_GENERATION.with(|slot| slot.set(self.0));
+    }
+}
+
+/// Check the stamp and record the cache generation before a pooled reader
+/// begins its snapshot. The snapshot is at least as new as that check, so a
+/// commit the reader's snapshot predates always moves the generation past the
+/// one recorded here, and the reader then neither stores a fill nor is handed
+/// a stamp. Without it the first check would run inside the snapshot, after
+/// the commit, and file the pre-commit rows under the post-commit generation.
+pub(crate) fn pin_reader() -> PinnedReader {
+    {
+        let mut stamp = lock(&READ_CACHE.stamp);
+        if stamp.path.is_some() {
+            database_moved_under(&mut stamp);
+        }
+    }
+    let generation = READ_CACHE.generation.load(Ordering::Acquire);
+    PinnedReader(PINNED_GENERATION.with(|slot| slot.replace(Some(generation))))
+}
+
+/// The generation a fill may be stored under, or `None` when the reader's
+/// snapshot can no longer be vouched for.
 fn cache_generation() -> Option<u64> {
-    super::read_pool::reader_current().then(|| READ_CACHE.generation.load(Ordering::Acquire))
+    if !super::read_pool::reader_current() {
+        return None;
+    }
+    let current = READ_CACHE.generation.load(Ordering::Acquire);
+    match PINNED_GENERATION.with(Cell::get) {
+        Some(pinned) => (pinned == current).then_some(pinned),
+        None => Some(current),
+    }
 }
 
 fn generation_current(generation: u64) -> bool {
@@ -842,6 +884,59 @@ mod tests {
         assert!(database_moved());
 
         assert_eq!(read(), vec!["Ride", "Run"]);
+        read_pool::close();
+    }
+
+    /// Scenario: a reader pins its snapshot with a first statement, a commit
+    /// lands on another connection, and the reader then asks for the cached
+    /// sports and for the stamp.
+    ///
+    /// Expected behaviour: the pinned reader's fill is not stored, so a fresh
+    /// reader sees the new sport, and the pinned reader is handed no stamp
+    /// that a fresh reader could share.
+    #[test]
+    fn a_fill_made_in_a_snapshot_older_than_a_commit_is_not_stored_or_stamped() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("read_cache.db");
+        let writer = Connection::open(&path).unwrap();
+        writer
+            .pragma_update_and_check(None, "journal_mode", "WAL", |_| Ok(()))
+            .unwrap();
+        writer
+            .execute_batch("CREATE TABLE sports (name TEXT); INSERT INTO sports VALUES ('Ride')")
+            .unwrap();
+        let path = path.to_str().unwrap().to_string();
+        read_pool::bind(&path);
+        let names = |conn: &Connection| -> Vec<String> {
+            sport_types(conn, || {
+                conn.prepare("SELECT name FROM sports ORDER BY name")
+                    .unwrap()
+                    .query_map([], |row| row.get(0))
+                    .unwrap()
+                    .map(Result::unwrap)
+                    .collect()
+            })
+        };
+
+        let pinned = read_pool::with_read_conn(|conn| {
+            conn.query_row("SELECT COUNT(*) FROM sports", [], |row| {
+                row.get::<_, i64>(0)
+            })
+            .unwrap();
+            writer
+                .execute("INSERT INTO sports VALUES ('Run')", [])
+                .unwrap();
+            let stamped = stamp(conn);
+            (names(conn), stamped)
+        })
+        .unwrap();
+        assert_eq!(pinned.0, vec!["Ride"], "the snapshot predates the commit");
+
+        let fresh = read_pool::with_read_conn(|conn| (names(conn), stamp(conn))).unwrap();
+        assert_eq!(fresh.0, vec!["Ride", "Run"], "the stale fill was stored");
+        assert!(fresh.1.is_some());
+        assert_ne!(pinned.1, fresh.1, "a stale reader holds a fresh stamp");
         read_pool::close();
     }
 

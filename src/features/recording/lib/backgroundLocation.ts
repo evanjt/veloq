@@ -256,6 +256,20 @@ export async function backgroundLocationRunning(): Promise<boolean> {
   }
 }
 
+/**
+ * Unregister the location task whatever runtime ends the ride. The registration
+ * outlives the process that made it, so a ride ended after a kill, from the
+ * notification or by a discard on relaunch, has no live session whose teardown
+ * would do it. Safe to call with nothing registered, and never throws.
+ */
+export async function endLocationService(): Promise<void> {
+  try {
+    await stopBackgroundLocation();
+  } catch (e) {
+    log.error('Failed to stop background location:', e);
+  }
+}
+
 export async function stopBackgroundLocation(): Promise<void> {
   const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
   if (isRegistered) {

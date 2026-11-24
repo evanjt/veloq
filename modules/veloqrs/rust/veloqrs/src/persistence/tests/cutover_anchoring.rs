@@ -241,3 +241,49 @@ fn a_library_of_only_accepted_rows_is_owed_the_flip() {
     insert_unanchored(&engine, "s_a", &ride(7.0)[10..30], "a1", true, false);
     assert!(engine.cutover_is_owed());
 }
+
+/// Scenario: an averaged line a few metres off a climbing track is replaced by the
+/// track's slice, and the row's profile columns held figures from the averaged line.
+/// Expected behaviour: the profile columns describe the slice the row now holds.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_moved_line_gets_the_profile_of_the_slice() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = library(&dir);
+    let climb: Vec<GpsPoint> = ride(7.0)
+        .into_iter()
+        .enumerate()
+        .map(|(i, p)| GpsPoint {
+            elevation: Some(i as f64 * 2.0),
+            ..p
+        })
+        .collect();
+    engine
+        .add_activity("a3".into(), climb, "Ride".into())
+        .expect("add_activity");
+    let near: Vec<GpsPoint> = ride(7.000_02)[10..30].to_vec();
+    insert_unanchored(&engine, "s_p", &near, "a3", false, true);
+    engine
+        .db
+        .execute(
+            "UPDATE sections SET elevation_gain_m = 999.0, avg_grade_percent = 99.0 WHERE id = 's_p'",
+            [],
+        )
+        .expect("stale profile");
+
+    engine.anchor_user_owned_references().expect("pass");
+
+    let line = line_of(&engine, "s_p");
+    let expected = tracematch::enrich(&line, tracematch::matching::calculate_route_distance(&line));
+    let (gain, grade): (Option<f64>, Option<f64>) = engine
+        .db
+        .query_row(
+            "SELECT elevation_gain_m, avg_grade_percent FROM sections WHERE id = 's_p'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .expect("row");
+    assert!(expected.elevation_gain_m > Some(0.0));
+    assert_eq!(gain, expected.elevation_gain_m);
+    assert_eq!(grade, expected.avg_grade_percent);
+}

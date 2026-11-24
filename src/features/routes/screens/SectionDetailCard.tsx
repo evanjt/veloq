@@ -306,9 +306,9 @@ function SectionDetailCardContent({
   const sendToWatch = useMemo(() => {
     if (!sectionLine || sectionLine.length === 0 || !watchLinkOn) return undefined;
     return () => {
-      void sendSectionGuide({ name: heroTitle ?? '', polyline: sectionLine });
+      void sendSectionGuide(id).catch(() => false);
     };
-  }, [sectionLine, heroTitle, watchLinkOn]);
+  }, [sectionLine, id, watchLinkOn]);
   const headerOptions = useMemo(() => {
     const options = overMapHeaderOptions({ title: heroTitle, isDark });
     if (sectionType === undefined) return { ...options, headerRight: () => null };

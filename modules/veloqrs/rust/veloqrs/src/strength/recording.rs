@@ -107,7 +107,8 @@ impl PersistentEngine {
             }
             let key = provisional_activity_id(input.recording_id);
             session.finish(&key, input.now);
-            let fit = session.fit_session(self.athlete_weight_unit()?).to_fit();
+            let fit_session = session.fit_session(self.athlete_weight_unit()?);
+            let fit = fit_session.to_fit();
             let relative = format!("{RECORDINGS_DIR}/{}.fit", input.recording_id);
             let path = input.files_root.join(&relative);
             if let Err(error) = write_file(&path, &fit) {
@@ -124,7 +125,8 @@ impl PersistentEngine {
                 activity_type: "WeightTraining".to_string(),
                 name: input.name.to_string(),
                 start_time: start as f64 * 1000.0,
-                duration_seconds: (input.now - start).max(0) as f64,
+                // The file's span, so the row and the file agree however long the review stays open.
+                duration_seconds: f64::from(fit_session.elapsed_secs()),
                 distance_meters: 0.0,
                 elevation_gain: None,
                 avg_heartrate: session.average_heart_rate().map(f64::from),

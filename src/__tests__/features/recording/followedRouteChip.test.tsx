@@ -129,6 +129,13 @@ describe('FollowedRouteChip guidance', () => {
     });
   });
 
+  it('does not vibrate when the screen opens on a ride already off route', () => {
+    const off = { status: FfiFollowStatus.OffRoute, crossTrackM: 140, bearingToRouteDeg: 90 };
+    give(off);
+    render(<FollowedRouteChip route={lakeLoop} onStop={jest.fn()} />);
+    expect(haptics.medium).not.toHaveBeenCalled();
+  });
+
   vaultIt('fires one medium haptic on entering off route and none on leaving', () => {
     render(<FollowedRouteChip route={lakeLoop} onStop={jest.fn()} />);
     const off = { status: FfiFollowStatus.OffRoute, crossTrackM: 140, bearingToRouteDeg: 90 };

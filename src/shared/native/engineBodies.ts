@@ -46,6 +46,25 @@ import { getEngine } from './engine';
 const CHANNELS = ['bodyStored', 'activities'] as const;
 
 /**
+ * A `bodyStored` announcement names the kind of body and the activity it
+ * belongs to (empty for a curve). The kind strings are the ones Rust emits:
+ * `activity_detail`, `streams`, `intervals`, `power_curve` and `pace_curve`.
+ * A payload that cannot be read wakes the reader, since missing a landing
+ * costs a wait and an extra read does not.
+ */
+export type BodyWake = (payload: unknown) => boolean;
+
+/** Wake only for a body of one of `kinds`, and for `activityId` when it is given. */
+export function bodyNamed(kinds: readonly string[], activityId?: string): BodyWake {
+  return (payload) => {
+    if (!payload || typeof payload !== 'object') return true;
+    const body = payload as { kind?: unknown; activityId?: unknown };
+    if (typeof body.kind !== 'string' || !kinds.includes(body.kind)) return false;
+    return activityId === undefined || body.activityId === activityId;
+  };
+}
+
+/**
  * How long a body has to land before the wait is given up. The same budget
  * `awaitActivityBody` already spends, so a screen and the await it sits above
  * do not disagree about when a fetch has failed.
@@ -137,10 +156,16 @@ export function useEngineBody(
   present: boolean,
   request: () => StartOutcome | StartResult | undefined,
   queryKey: QueryKey,
-  enabled = true
+  enabled = true,
+  wakes?: BodyWake
 ): EngineBodyWait {
   const queryClient = useQueryClient();
   const keyId = JSON.stringify(queryKey);
+  // Read through a ref so a new closure each render does not resubscribe.
+  const wakesRef = useRef(wakes);
+  useEffect(() => {
+    wakesRef.current = wakes;
+  });
   // Bumped by `retry`. It is part of the wait's identity below, so asking
   // again both re-runs the request and leaves the old expiry behind, with
   // nothing to reset.
@@ -184,7 +209,12 @@ export function useEngineBody(
     const engine = getEngine();
     if (!engine) return undefined;
     const invalidate = () => queryClient.invalidateQueries({ queryKey });
-    const unsubscribes = CHANNELS.map((channel) => engine.subscribe(channel, invalidate));
+    const unsubscribes = CHANNELS.map((channel) =>
+      engine.subscribe(channel, (payload?: unknown) => {
+        if (channel === 'bodyStored' && wakesRef.current && !wakesRef.current(payload)) return;
+        invalidate();
+      })
+    );
 
     // Now that something is listening, ask whether the landing already
     // happened. A moved count is a body stored while nobody was, and it is the

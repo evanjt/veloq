@@ -53,6 +53,11 @@ const SLOVENIA: Point[] = [
   { name: 'Murska Sobota', lat: 46.662, lng: 16.164 },
   { name: 'Novo Mesto', lat: 45.804, lng: 15.169 },
   { name: 'Ptuj', lat: 46.42, lng: 15.87 },
+  { name: 'Metlika', lat: 45.646, lng: 15.32 },
+  { name: 'Črnomelj', lat: 45.571, lng: 15.19 },
+  { name: 'Kočevje', lat: 45.643, lng: 14.862 },
+  { name: 'Ilirska Bistrica', lat: 45.568, lng: 14.241 },
+  { name: 'Brežice', lat: 45.905, lng: 15.593 },
 ];
 
 const NOT_SLOVENIA: Point[] = [
@@ -61,6 +66,10 @@ const NOT_SLOVENIA: Point[] = [
   { name: 'Graz', lat: 47.07, lng: 15.439 },
   { name: 'Villach', lat: 46.61, lng: 13.85 },
   { name: 'Karlovac', lat: 45.487, lng: 15.548 },
+  { name: 'Samobor', lat: 45.801, lng: 15.711 },
+  { name: 'Jastrebarsko', lat: 45.672, lng: 15.649 },
+  { name: 'Ozalj', lat: 45.618, lng: 15.472 },
+  { name: 'Čabar', lat: 45.597, lng: 14.642 },
 ];
 
 describe('the Slovene source is asked only for tiles over Slovenia', () => {

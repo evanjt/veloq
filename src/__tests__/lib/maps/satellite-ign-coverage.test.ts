@@ -55,8 +55,20 @@ const FRANCE: Point[] = [
   { name: 'Perpignan', lat: 42.698, lng: 2.895 },
   { name: 'Cerbère', lat: 42.44, lng: 3.17 },
   { name: 'Font-Romeu', lat: 42.505, lng: 2.038 },
+  { name: 'Pas de la Casa', lat: 42.5, lng: 1.75 },
+  { name: 'Latour-de-Carol', lat: 42.46, lng: 1.88 },
+  { name: 'Bourg-Madame', lat: 42.43, lng: 1.95 },
+  { name: 'Eyne', lat: 42.4, lng: 2.05 },
+  { name: 'Prats-de-Mollo', lat: 42.4, lng: 2.43 },
+  { name: 'Le Perthus', lat: 42.46, lng: 2.9 },
+  { name: 'Porté-Puymorens', lat: 42.57, lng: 1.83 },
   { name: 'Ax-les-Thermes', lat: 42.72, lng: 1.838 },
   { name: 'Luchon', lat: 42.79, lng: 0.594 },
+  // The French side of the Aran ridge. IGN answers imagery here at z16, and
+  // the boxes must keep it while they drop the white tiles on the Spanish side.
+  { name: 'Fos', lat: 42.87, lng: 0.74 },
+  { name: 'Aulus-les-Bains', lat: 42.792, lng: 1.339 },
+  { name: 'Biriatou', lat: 43.33, lng: -1.745 },
   { name: 'Cauterets', lat: 42.89, lng: -0.114 },
   { name: 'Gavarnie', lat: 42.733, lng: -0.011 },
   { name: 'Gèdre', lat: 42.787, lng: 0.02 },
@@ -92,11 +104,32 @@ const NOT_FRANCE: Point[] = [
   { name: 'Bielsa', lat: 42.63, lng: 0.21 },
   { name: 'Isaba', lat: 42.857, lng: -0.87 },
   // Spanish ground inside the extents of the French-valley boxes, where IGN
-  // answers 200 with an all-white tile that would paint over PNOA.
+  // answers 200 with an all-white tile that would paint over PNOA. Measured at
+  // z16 on 2026-11-20: Bossòst, Les and Irun are white, Vielha is white at z15
+  // and 404 at z16.
+  { name: 'Vielha', lat: 42.702, lng: 0.797 },
+  { name: 'Bossòst', lat: 42.786, lng: 0.692 },
+  { name: 'Les', lat: 42.812, lng: 0.71 },
+  { name: 'Irun', lat: 43.338, lng: -1.789 },
   { name: 'Bujaruelo valley', lat: 42.69, lng: -0.1 },
   { name: 'Pineta cirque', lat: 42.685, lng: 0.09 },
   { name: 'Orbaizeta', lat: 42.975, lng: -1.225 },
   { name: 'Valladolid', lat: 41.652, lng: -4.724 },
+  // Andorra and the Spanish Cerdanya, measured at z16: IGN answers an
+  // all-white tile at each of these and 404 further inside Andorra.
+  { name: 'Andorra north-east', lat: 42.56, lng: 1.45 },
+  { name: 'Andorra north', lat: 42.58, lng: 1.45 },
+  { name: 'Andorra Ordino', lat: 42.57, lng: 1.47 },
+  { name: 'Andorra border ridge', lat: 42.6, lng: 1.6 },
+  { name: 'Andorra Canillo', lat: 42.56, lng: 1.6 },
+  { name: 'Andorra Pas de la Casa side', lat: 42.5, lng: 1.7 },
+  { name: 'Andorra la Vella', lat: 42.507, lng: 1.522 },
+  { name: 'La Seu d’Urgell', lat: 42.358, lng: 1.46 },
+  { name: 'Puigcerdà west', lat: 42.43, lng: 1.9 },
+  { name: 'Cerdanya below Llívia', lat: 42.4, lng: 1.9 },
+  { name: 'Spanish Cerdanya south', lat: 42.36, lng: 1.95 },
+  { name: 'Ripollès edge', lat: 42.4, lng: 2.3 },
+  { name: 'Alt Empordà', lat: 42.44, lng: 3.0 },
 ];
 
 describe('the IGN source is asked only for tiles over France', () => {
@@ -119,15 +152,6 @@ describe('the IGN source is asked only for tiles over France', () => {
     const names = satelliteProviders('satellite-regions').map((p) => p.source);
 
     expect(names.indexOf('satellite-ign')).toBeGreaterThan(names.indexOf('satellite-swisstopo'));
-  });
-
-  it('keeps the valleys no rectangle can cut from the French side', () => {
-    // The Val d'Aran and Andorra sit north of the crest, inside the same
-    // rectangle as Luchon and Font-Romeu, 15 and 20 km away. Dropping them
-    // costs those two their imagery; keeping them costs a few requests PNOA
-    // and the Andorran orthophoto answer underneath.
-    expect(covered(ignBoxes(), { name: 'Vielha', lat: 42.702, lng: 0.797 })).toBe(true);
-    expect(covered(ignBoxes(), { name: 'Andorra la Vella', lat: 42.507, lng: 1.522 })).toBe(true);
   });
 
   it('credits IGN over France and nothing over Turin, where it draws nothing', () => {

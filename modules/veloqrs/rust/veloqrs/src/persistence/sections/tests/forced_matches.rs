@@ -585,3 +585,28 @@ fn a_force_match_on_a_section_the_apply_did_not_bring_back_waits() {
     apply_detected_line(&mut engine);
     assert_eq!(rows(&engine, "auto-line", "wide").len(), 1);
 }
+
+/// Scenario: a section is pinned at its stored geometry, then a ride is
+/// attached by hand. The line is unchanged, so the pin must survive: a restore
+/// replays the attachment and would otherwise lose the pin.
+#[test]
+fn attaching_a_ride_keeps_the_sections_pin() {
+    let (mut engine, sid) = engine_with_section(true);
+    add_ride(&mut engine, "near", ride(0.0));
+    engine.trim_section(&sid, 20, 180).unwrap();
+    let version: i64 = engine
+        .db
+        .query_row(
+            "SELECT MAX(version) FROM section_geometry WHERE section_id = ?",
+            params![sid],
+            |r| r.get(0),
+        )
+        .unwrap();
+    engine.revert_section_to_version(&sid, version).unwrap();
+    assert_eq!(engine.pinned_section_version(&sid), Some(version));
+    detach(&engine, &sid, "near");
+
+    assert!(engine.rematch_activity_to_section("near", &sid).unwrap());
+
+    assert_eq!(engine.pinned_section_version(&sid), Some(version));
+}

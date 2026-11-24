@@ -1,1 +1,9 @@
-{}
+{
+  "web/connect/map/MapScreen.tsx": 1,
+  "web/connect/map/view.ts": 2,
+  "web/connect/pages/InsightsPane.tsx": 1,
+  "web/connect/pages/RouteDetail.tsx": 1,
+  "web/connect/pages/RoutesPage.tsx": 1,
+  "web/connect/pages/SectionDetailPage.tsx": 1,
+  "web/connect/pages/Strength.tsx": 1
+}

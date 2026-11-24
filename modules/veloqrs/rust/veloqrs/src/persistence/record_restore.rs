@@ -365,6 +365,7 @@ impl PersistentEngine {
             .filter(|key| {
                 super::record_backup::is_record_setting(key)
                     && key.as_str() != super::settings::settings_keys::ATHLETE_ID
+                    && !self.is_held_section_config_key(key)
             })
             .collect();
         for key in &keys {
@@ -596,7 +597,11 @@ impl PersistentEngine {
                 super::strength_sessions::SESSION_TABLES.contains(&row.table.as_str());
             if is_number_row(&row) {
                 if !self.place_number(&row, &mut numbered)? {
-                    pending.push(row);
+                    if self.ground_never_places(&row, &pinned, settled, &unavailable)? {
+                        release_held_number(&self.db, &row)?;
+                    } else {
+                        pending.push(row);
+                    }
                 }
                 continue;
             }
@@ -608,7 +613,7 @@ impl PersistentEngine {
                 }
                 continue;
             }
-            if self.place_record_row(&row)? {
+            if self.place_record_row(&row, &mut result.names_not_restored)? {
                 result.placed += 1;
             } else if self.history_never_places(&row, &pinned, settled, &unavailable)? {
                 result.not_restored += 1;
@@ -693,7 +698,11 @@ impl PersistentEngine {
         Ok(result)
     }
 
-    fn place_record_row(&mut self, row: &RecordRow) -> Result<bool, String> {
+    fn place_record_row(
+        &mut self,
+        row: &RecordRow,
+        names_dropped: &mut u32,
+    ) -> Result<bool, String> {
         match row.table.as_str() {
             "settings" => {
                 let (Some(key), Some(value)) =
@@ -708,6 +717,12 @@ impl PersistentEngine {
                     || key == super::settings::settings_keys::ATHLETE_ID
                 {
                     log::info!("[RecordRestore] Skipped setting {key}, not carried by a backup");
+                    return Ok(true);
+                }
+                if self.is_held_section_config_key(key) {
+                    log::info!(
+                        "[RecordRestore] Skipped setting {key}, held while the cutover is owed"
+                    );
                     return Ok(true);
                 }
                 self.set_setting(key, value).map_err(|e| e.to_string())?;
@@ -764,7 +779,7 @@ impl PersistentEngine {
                 // or state pending until a recovery route can identify the ground.
                 Ok(false)
             }
-            "sections" => self.place_section(row),
+            "sections" => self.place_section(row, names_dropped),
             "section_activities" => self.place_section_exclusion(row),
             "activity_matches" => self.place_route_exclusion(row),
             _ => Ok(false),
@@ -848,7 +863,23 @@ impl PersistentEngine {
         Ok(true)
     }
 
-    fn place_section(&mut self, row: &RecordRow) -> Result<bool, String> {
+    /// The restored name of a section, or none where the library already shows
+    /// it elsewhere: the local name stays and the loss is counted.
+    fn restorable_section_name(
+        &self,
+        row: &RecordRow,
+        ground: &[GpsPoint],
+        names_dropped: &mut u32,
+    ) -> Option<String> {
+        let name = string(&row.values, "name")?;
+        if self.check_new_section_name(ground, name).is_err() {
+            *names_dropped += 1;
+            return None;
+        }
+        Some(name.to_owned())
+    }
+
+    fn place_section(&mut self, row: &RecordRow, names_dropped: &mut u32) -> Result<bool, String> {
         let Some(ground) = row.ground.as_ref() else {
             return Ok(false);
         };
@@ -868,6 +899,7 @@ impl PersistentEngine {
             if original.as_ref().is_some_and(|undo| undo.len() < 2) {
                 return Ok(false);
             }
+            let name = self.restorable_section_name(row, &points, names_dropped);
             let params = crate::sections::CreateSectionParams {
                 sport_type: sport_type.to_string(),
                 polyline: points,
@@ -876,7 +908,7 @@ impl PersistentEngine {
                     .get("distance_meters")
                     .and_then(Value::as_f64)
                     .unwrap_or(0.0),
-                name: string(&row.values, "name").map(str::to_owned),
+                name,
                 source_activity_id: None,
                 start_index: None,
                 end_index: None,
@@ -906,6 +938,12 @@ impl PersistentEngine {
             let Some(points) = ground_line(&self.db, ground) else {
                 return Ok(false);
             };
+            if self
+                .restorable_section_name(row, &points, names_dropped)
+                .is_none()
+            {
+                return Ok(true);
+            }
             let source_id = string(&row.values, "id").unwrap_or("unnamed");
             self.db
                 .execute(
@@ -937,6 +975,7 @@ impl PersistentEngine {
         let Some(sport_type) = string(&row.values, "sport_type") else {
             return Ok(false);
         };
+        let name = self.restorable_section_name(row, &points, names_dropped);
         let params = crate::sections::CreateSectionParams {
             sport_type: sport_type.to_string(),
             polyline: points,
@@ -945,7 +984,7 @@ impl PersistentEngine {
                 .get("distance_meters")
                 .and_then(Value::as_f64)
                 .unwrap_or(0.0),
-            name: string(&row.values, "name").map(str::to_owned),
+            name,
             source_activity_id: Some(source),
             start_index: range.map(|(start, _)| start),
             end_index: range.map(|(_, end)| end - 1),
@@ -986,6 +1025,12 @@ impl PersistentEngine {
             } else {
                 NamePlacement::Merged
             });
+        }
+        if self
+            .route_name_shown_by_another(route_id, name)
+            .map_err(|e| e.to_string())?
+        {
+            return Ok(NamePlacement::Merged);
         }
         self.db
             .execute(
@@ -1109,7 +1154,26 @@ impl PersistentEngine {
         if ground_reference(ground).is_none() {
             return self.place_line_pin(row, ground);
         }
-        let Some((reference, points)) = exact_line(&self.db, ground) else {
+        let Some((reference, points)) = exact_line(&self.db, ground).or_else(|| {
+            // A stored ride that no longer rebuilds the slice still lets the
+            // carried line place, as an orphaned version.
+            let reference = ground_reference(ground)?;
+            let stored = self
+                .db
+                .query_row(
+                    "SELECT 1 FROM gps_tracks WHERE activity_id = ?",
+                    [reference.0],
+                    |_| Ok(()),
+                )
+                .optional()
+                .ok()
+                .flatten()
+                .is_some();
+            stored
+                .then(|| carried_line(ground))
+                .flatten()
+                .map(|points| (reference, points))
+        }) else {
             return Ok(false);
         };
         let section_id = match matching_section(&self.db, &points, MatchScope::Any)? {
@@ -1232,13 +1296,32 @@ impl PersistentEngine {
         settled: bool,
         unavailable: &BTreeSet<String>,
     ) -> Result<bool, String> {
-        if row.table != "section_history"
-            || string(&row.values, "section_id").is_some_and(|id| pinned.contains(id))
-        {
+        if row.table == "section_forced_matches" {
+            return Ok(row.ground.is_none());
+        }
+        if row.table != "section_history" {
             return Ok(false);
         }
         if string(&row.values, "at").is_none() || string(&row.values, "kind").is_none() {
-            return Ok(true);
+            return Ok(!string(&row.values, "section_id").is_some_and(|id| pinned.contains(id)));
+        }
+        self.ground_never_places(row, pinned, settled, unavailable)
+    }
+
+    /// The ground rule history and section numbers share, for a section the
+    /// athlete never pinned. Route numbers follow route groups, not cuts, so
+    /// they keep waiting.
+    fn ground_never_places(
+        &self,
+        row: &RecordRow,
+        pinned: &BTreeSet<String>,
+        settled: bool,
+        unavailable: &BTreeSet<String>,
+    ) -> Result<bool, String> {
+        if !matches!(row.table.as_str(), "section_history" | "section_numbers")
+            || string(&row.values, "section_id").is_some_and(|id| pinned.contains(id))
+        {
+            return Ok(false);
         }
         let Some(ground) = row.ground.as_ref() else {
             return Ok(true);
@@ -1251,7 +1334,10 @@ impl PersistentEngine {
             return Ok(ride.is_none_or(|id| self.has_activity(id) || unavailable.contains(id)));
         };
         let detected = match ride {
-            Some(id) => settled || self.processed_activity_ids.contains(id),
+            Some(id) if self.has_activity(id) || unavailable.contains(id) => {
+                settled || self.processed_activity_ids.contains(id)
+            }
+            Some(_) => false,
             None => settled,
         };
         Ok(detected && matching_section(&self.db, &points, MatchScope::Any)?.is_none())
@@ -1330,6 +1416,12 @@ fn check_record_row(row: &RecordRow) -> Result<(), String> {
         "section_intents" => intent_line(row).map(drop),
         "sections" if string(&row.values, "section_type") == Some("auto") => {
             original_line(row).map(drop)
+        }
+        super::strength_sessions::HEART_RATE_TABLE
+            if row.values.contains_key("offsets")
+                && super::strength_sessions::packed_heart_rate_readings(row).is_none() =>
+        {
+            Err("Unreadable heart rate row".to_string())
         }
         "section_numbers" | "route_numbers" => number_row(row)
             .map(drop)
@@ -1441,7 +1533,8 @@ impl NumberStore {
 /// What became of a restored route name in one pass.
 enum NamePlacement {
     Placed,
-    /// Its route already took another restored name, so it is not restored.
+    /// Its route already took another restored name, or another route shows
+    /// the name, so it is not restored.
     Merged,
     Waiting,
 }
@@ -1500,6 +1593,21 @@ fn restored_names_from_conn(conn: &Connection) -> Result<BTreeMap<String, String
         }
         _ => Ok(BTreeMap::new()),
     }
+}
+
+/// Delete the number a waiting row held under its record key, so the number
+/// can be given out again.
+fn release_held_number(conn: &Connection, row: &RecordRow) -> Result<(), String> {
+    let Some((store, source_id, _)) = number_row(row) else {
+        return Ok(());
+    };
+    let held = format!("{HELD_NUMBER_PREFIX}{}:{source_id}", store.kind());
+    conn.execute(
+        &format!("DELETE FROM {} WHERE {} = ?1", store.table(), store.key()),
+        [held],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 fn is_number_row(row: &RecordRow) -> bool {
@@ -2483,6 +2591,25 @@ mod tests {
     }
 
     #[test]
+    fn test_history_with_a_carried_line_on_a_ride_still_owed_survives_a_detection_save() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("history-owed-line.db").to_str().unwrap())
+                .unwrap();
+        engine
+            .add_activity("other-ride".to_string(), ride(), "Ride".to_string())
+            .unwrap();
+        let stored = engine.get_gps_track("other-ride").unwrap();
+        let result = engine
+            .restore_record_json(&grounded_history("owed-ride", 80, Some(&stored[10..40])))
+            .unwrap();
+        assert_eq!((result.unplaced, result.not_restored), (1, 0));
+        assert_eq!(engine.settle_record_restore().unwrap().not_restored, 0);
+        assert_eq!(pending_rows(&engine), 1);
+        assert_eq!(engine.not_restored_history_count().unwrap(), 0);
+    }
+
+    #[test]
     fn test_history_on_a_ride_the_server_has_lost_is_not_restored() {
         let dir = TempDir::new().unwrap();
         let mut engine =
@@ -2539,6 +2666,22 @@ mod tests {
         assert_eq!(held(&engine), 0);
         engine.discard_unplaced_records().unwrap();
         assert_eq!(pending_rows(&engine), 0);
+    }
+
+    #[test]
+    fn test_restore_forced_match_with_no_ground_is_given_up() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("forced-bare.db").to_str().unwrap()).unwrap();
+        let payload = json!({"version": 1, "entries": [{
+            "table": "section_forced_matches",
+            "values": {"section_id": "gone-id", "activity_id": "attached-ride",
+                "forced_at": 1_700_000_000}
+        }]});
+        let result = engine.restore_record_json(&payload.to_string()).unwrap();
+        assert_eq!((result.unplaced, result.not_restored), (0, 1));
+        assert_eq!(pending_rows(&engine), 0);
+        assert!(engine.unplaced_records().unwrap().is_empty());
     }
 
     #[test]
@@ -2631,6 +2774,75 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM sections", [], |r| r.get(0))
             .unwrap();
         assert_eq!(section_count, 1);
+    }
+
+    #[test]
+    fn test_restore_pin_on_a_stored_ride_that_no_longer_rebuilds_places_on_its_line() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("pin-recount.db").to_str().unwrap()).unwrap();
+        engine
+            .add_activity("old-ride".to_string(), ride(), "Ride".to_string())
+            .unwrap();
+        let stored = engine.get_gps_track("old-ride").unwrap();
+        let payload = json!({"version": 1, "entries": [{
+            "table": "section_pins", "values": {"section_id": "foreign-id", "version": 3},
+            "ground": {"rep_activity_id": "old-ride", "rep_start_index": 10,
+                "rep_end_index": 40, "point_count": 95,
+                "polyline_json": serde_json::to_string(&stored[10..40]).unwrap()}
+        }]});
+        let result = engine.restore_record_json(&payload.to_string()).unwrap();
+        assert_eq!((result.placed, result.unplaced), (1, 0));
+        let (id, version): (String, i64) = engine
+            .db
+            .query_row("SELECT section_id, version FROM section_pins", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+        assert_eq!(version, 3);
+        assert_eq!(engine.stored_section_polyline(&id).unwrap(), stored[10..40]);
+        let source: String = engine
+            .db
+            .query_row(
+                "SELECT source FROM section_geometry WHERE section_id = ? AND version = 3",
+                [&id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(source, "orphaned");
+    }
+
+    #[test]
+    fn test_settled_section_number_with_a_stored_ride_and_no_section_is_released() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("number-settle.db").to_str().unwrap()).unwrap();
+        engine
+            .add_activity("old-ride".to_string(), ride(), "Ride".to_string())
+            .unwrap();
+        let stored = engine.get_gps_track("old-ride").unwrap();
+        let payload = json!({"version": 1, "entries": [{
+            "table": "section_numbers",
+            "values": {"section_id": "gone-id", "number": 12, "section_type": "auto"},
+            "ground": {"rep_activity_id": "old-ride", "rep_start_index": 10,
+                "rep_end_index": 40, "point_count": 95,
+                "polyline_json": serde_json::to_string(&stored[10..40]).unwrap()}
+        }]});
+        engine.restore_record_json(&payload.to_string()).unwrap();
+        let held = |engine: &PersistentEngine| -> i64 {
+            engine
+                .db
+                .query_row(
+                    "SELECT COUNT(*) FROM section_numbers WHERE section_id LIKE 'restored:%'",
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap()
+        };
+        assert_eq!((pending_rows(&engine), held(&engine)), (1, 1));
+        let result = engine.settle_record_restore().unwrap();
+        assert_eq!(result.unplaced, 0);
+        assert_eq!((pending_rows(&engine), held(&engine)), (0, 0));
     }
 
     #[test]
@@ -3122,7 +3334,7 @@ mod tests {
     }
 
     #[test]
-    fn test_restored_cut_keeps_a_name_another_section_already_shows() {
+    fn test_restored_cut_leaves_a_name_another_section_shows_unwritten() {
         let dir = TempDir::new().unwrap();
         let mut engine =
             PersistentEngine::new(dir.path().join("name-clash.db").to_str().unwrap()).unwrap();
@@ -3134,14 +3346,14 @@ mod tests {
                 sport_type: "Ride".to_string(),
                 polyline: ride()[60..70].to_vec(),
                 distance_meters: 100.0,
-                name: Some("Section 7".to_string()),
+                name: Some("Ridge".to_string()),
                 source_activity_id: Some("ride-1".to_string()),
                 start_index: Some(60),
                 end_index: Some(69),
             })
             .unwrap();
 
-        let payload = legacy_json_cut(49).replace("Hill", "Section 7");
+        let payload = legacy_json_cut(49).replace("Hill", "Ridge");
         let result = engine.restore_record_json(&payload).unwrap();
         assert_eq!(result.unplaced, 0);
 
@@ -3159,11 +3371,12 @@ mod tests {
             "the restored cut lands beside the existing one"
         );
         assert!(names.iter().any(|(id, _)| *id == existing));
-        assert!(
-            names
-                .iter()
-                .all(|(_, name)| name.as_deref() == Some("Section 7"))
-        );
+        let ridge = names
+            .iter()
+            .filter(|(_, name)| name.as_deref() == Some("Ridge"))
+            .count();
+        assert_eq!(ridge, 1, "no two sections show one name");
+        assert_eq!(result.names_not_restored, 1);
     }
 
     #[test]

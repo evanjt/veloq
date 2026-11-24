@@ -381,6 +381,24 @@ describe('section trend recency (G1 applied to section_trend)', () => {
   });
 });
 
+describe('section trend summary tone', () => {
+  const sections = [sectionTrend('s1', 3, 5, 1), sectionTrend('s2', 3, 5, -1)];
+  const summary = (faster: number, slower: number) =>
+    generateSectionTrendInsights(sections, new Set(), NOW, mockT, { faster, slower })[0];
+
+  it('draws a tie as neutral with a minus icon', () => {
+    expect(summary(3, 3)).toMatchObject({ icon: 'minus', iconTone: 'neutral' });
+  });
+
+  it('draws more faster than slower as positive', () => {
+    expect(summary(4, 3)).toMatchObject({ icon: 'trending-up', iconTone: 'positive' });
+  });
+
+  it('draws more slower than faster as negative', () => {
+    expect(summary(3, 4)).toMatchObject({ icon: 'trending-down', iconTone: 'negative' });
+  });
+});
+
 describe('Ranking breakdown on section_trend insights', () => {
   const scores = {
     relevance: 0.82,

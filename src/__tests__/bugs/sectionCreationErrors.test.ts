@@ -72,7 +72,7 @@ describe('section rename outcome', () => {
 
   it('reports a name another section shows as taken', () => {
     const host = renameHost(() => {
-      throw new Error('Database error: Another section is already named Col');
+      throw Object.assign(new Error('VeloqError.NameTaken'), { tag: 'NameTaken' });
     });
     expect(setSectionName(host, 's1', 'Col')).toBe('nameTaken');
   });

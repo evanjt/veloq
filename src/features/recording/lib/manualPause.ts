@@ -1,7 +1,7 @@
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
-import { createAutoPauseDetector, type AutoPauseDetector } from './autoPause';
+import { createAutoPauseDetector, type AutoPauseConfig, type AutoPauseDetector } from './autoPause';
 import {
   DEFAULT_AUTO_PAUSE_KMH,
   autoPauseCategory,
@@ -13,9 +13,11 @@ import {
  * session imports, can reach it without an import cycle.
  */
 let detector: AutoPauseDetector | null = null;
+let detectorKey: string | null = null;
 
 export function setAutoPauseDetector(next: AutoPauseDetector | null): void {
   detector = next;
+  detectorKey = null;
 }
 
 export function autoPauseDetector(): AutoPauseDetector | null {
@@ -30,23 +32,42 @@ export function autoPauseDetector(): AutoPauseDetector | null {
  * cleared and the pause becomes the rider's, ended by Resume.
  */
 export function buildAutoPauseDetector(): AutoPauseDetector {
-  const { autoPauseEnabled, autoPauseThresholds, autoPauseDurationMs } =
-    useRecordingPreferences.getState();
-  if (!autoPauseEnabled && useRecordingLiveStore.getState().autoPaused) {
+  const config = currentConfig();
+  if (!config.enabled && useRecordingLiveStore.getState().autoPaused) {
     useRecordingLiveStore.getState().setAutoPaused(false);
   }
-  const { activityType, status } = useRecordingStore.getState();
-  const sportCategory = autoPauseCategory(activityType ?? 'Ride');
-  return createAutoPauseDetector(
-    {
-      enabled: autoPauseEnabled,
-      // Preferences are km/h, the detector is m/s.
-      speedThreshold:
-        (autoPauseThresholds[sportCategory] ?? DEFAULT_AUTO_PAUSE_KMH[sportCategory]) / 3.6,
-      durationThreshold: autoPauseDurationMs,
-    },
-    { paused: status === 'paused' && useRecordingLiveStore.getState().autoPaused }
-  );
+  const { status, streams } = useRecordingStore.getState();
+  return createAutoPauseDetector(config, {
+    paused: status === 'paused' && useRecordingLiveStore.getState().autoPaused,
+    // A ride under way has already moved, whatever the detector forgot.
+    moved: streams.speed.some((speed) => speed >= config.speedThreshold),
+  });
+}
+
+function currentConfig(): AutoPauseConfig {
+  const { autoPauseEnabled, autoPauseThresholds, autoPauseDurationMs } =
+    useRecordingPreferences.getState();
+  const sportCategory = autoPauseCategory(useRecordingStore.getState().activityType ?? 'Ride');
+  return {
+    enabled: autoPauseEnabled,
+    // Preferences are km/h, the detector is m/s.
+    speedThreshold:
+      (autoPauseThresholds[sportCategory] ?? DEFAULT_AUTO_PAUSE_KMH[sportCategory]) / 3.6,
+    durationThreshold: autoPauseDurationMs,
+  };
+}
+
+/**
+ * Rebuild the live detector only when its configuration differs from the one it
+ * was built with. A preference unrelated to auto-pause, such as a data field,
+ * leaves it alone, so a stop in progress is still timed from its first fix.
+ */
+export function syncAutoPauseDetector(): void {
+  const { enabled, speedThreshold, durationThreshold } = currentConfig();
+  const key = `${enabled}|${speedThreshold}|${durationThreshold}`;
+  if (detector && key === detectorKey) return;
+  setAutoPauseDetector(buildAutoPauseDetector());
+  detectorKey = key;
 }
 
 /**

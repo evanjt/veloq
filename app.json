@@ -51,7 +51,6 @@
         "foregroundImage": "./src/assets/adaptive-icon.png",
         "monochromeImage": "./src/assets/monochrome-icon.png"
       },
-      "predictiveBackGestureEnabled": true,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -90,7 +89,6 @@
       "./src/plugins/with-android-bluetooth",
       "./src/plugins/with-plain-http-transport",
       "./src/plugins/with-android-new-intent",
-      "./src/plugins/with-android-back-callback",
       "./src/plugins/with-backup-file-types",
       [
         "expo-sharing",

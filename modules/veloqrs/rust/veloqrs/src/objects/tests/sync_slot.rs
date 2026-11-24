@@ -38,7 +38,6 @@ fn listing(server: &MockServer, status: u16) -> httpmock::Mock<'_> {
 }
 
 #[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_window_refused_while_the_slot_is_held_is_fetched_when_it_frees() {
     let _serial = crate::test_globals::serial_global_state();
     let _tmp = crate::test_globals::init_global_engine("owed-window.db");

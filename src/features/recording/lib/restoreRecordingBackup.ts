@@ -52,9 +52,11 @@ export function restoreRecordingBackup(
     };
   }
   // Before the store, whose status change starts the session that reads it.
-  useRecordingLiveStore
-    .getState()
-    .setAutoPaused(!stopped && backup.status === 'paused' && backup.autoPaused === true);
+  const liveStore = useRecordingLiveStore.getState();
+  liveStore.setAutoPaused(!stopped && backup.status === 'paused' && backup.autoPaused === true);
+  if (backup.routeChoice) {
+    liveStore.setRouteChoice(backup.routeChoice.activityType, backup.routeChoice.routeId);
+  } else liveStore.clearRouteChoice();
   useRecordingStore.setState({
     activityType: backup.activityType,
     athleteId: backup.athleteId ?? null,

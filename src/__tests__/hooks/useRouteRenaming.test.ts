@@ -34,8 +34,8 @@ const setRouteName = jest.fn();
 const t = ((key: string) => key) as never;
 
 /** The refusal the engine raises for a name another route is shown under. */
-function nameTaken(name: string): Error {
-  return new Error(`RouteNameTaken: Another route is already named ${name}`);
+function nameTaken(_name: string): Error {
+  return Object.assign(new Error('VeloqError.RouteNameTaken'), { tag: 'RouteNameTaken' });
 }
 
 beforeEach(() => {

@@ -12,6 +12,7 @@ import {
   loadRecordingBackup,
   clearRecordingBackup,
   adoptOwnerlessRecordingBackup,
+  adoptRecordingBackup,
   settleOwnerlessAdoptions,
 } from '@/features/recording/lib/storage/recordingBackup';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -150,11 +151,44 @@ describe('buildRecordingBackup', () => {
     expect(backup!.stopTime).toBe(2_000_000);
   });
 
+  it('carries the route choice, and none when there is none', () => {
+    const choice = { activityType: 'Ride', routeId: 'r1' };
+    expect(buildRecordingBackup({ ...makeState(), routeChoice: choice })!.routeChoice).toEqual(
+      choice
+    );
+    expect(buildRecordingBackup(makeState())).not.toHaveProperty('routeChoice');
+    expect(buildRecordingBackup({ ...makeState(), routeChoice: null })).not.toHaveProperty(
+      'routeChoice'
+    );
+  });
+
   it('returns null for idle or incomplete state', () => {
     expect(buildRecordingBackup(makeState({ status: 'idle' }))).toBeNull();
     expect(buildRecordingBackup(makeState({ activityType: null }))).toBeNull();
     expect(buildRecordingBackup(makeState({ mode: null }))).toBeNull();
     expect(buildRecordingBackup(makeState({ startTime: null }))).toBeNull();
+  });
+});
+
+describe('the route choice in a stored backup', () => {
+  it('survives a save and load, a choice of no route included', async () => {
+    for (const routeId of ['r1', null]) {
+      const choice = { activityType: 'Ride', routeId };
+      await saveRecordingBackup({ ...buildRecordingBackup(makeState())!, routeChoice: choice });
+      expect((await loadRecordingBackup())?.routeChoice).toEqual(choice);
+    }
+  });
+
+  it('is dropped when malformed, and the ride still loads', async () => {
+    for (const bad of [{ routeId: 'r1' }, { activityType: 'Ride', routeId: 5 }, 'r1']) {
+      await saveRecordingBackup({
+        ...buildRecordingBackup(makeState())!,
+        routeChoice: bad,
+      } as never);
+      const loaded = await loadRecordingBackup();
+      expect(loaded).not.toBeNull();
+      expect(loaded).not.toHaveProperty('routeChoice');
+    }
   });
 });
 
@@ -182,6 +216,34 @@ describe('save/load round-trip', () => {
     useAuthStore.setState({ athleteId: 'i2' });
     expect((await loadRecordingBackup())?.status).toBe('recording');
   });
+  it('moves an interrupted ride to the athlete who adopted its library', async () => {
+    const ride = {
+      ...buildRecordingBackup(makeState({ status: 'stopped' }))!,
+      athleteId: 'garmin:1',
+    };
+    await saveRecordingBackup(ride);
+
+    await adoptRecordingBackup('garmin:1', 'i5');
+
+    expect(await loadRecordingBackup('garmin:1')).toBeNull();
+    expect(await loadRecordingBackup('i5')).toMatchObject({
+      athleteId: 'i5',
+      startTime: ride.startTime,
+    });
+  });
+
+  it('leaves a backup the adopting athlete already holds', async () => {
+    const old = { ...buildRecordingBackup(makeState())!, athleteId: 'garmin:1' };
+    const own = { ...buildRecordingBackup(makeState({ startTime: 5_000_000 }))!, athleteId: 'i5' };
+    await saveRecordingBackup(old);
+    await saveRecordingBackup(own);
+
+    await adoptRecordingBackup('garmin:1', 'i5');
+
+    expect((await loadRecordingBackup('i5'))?.startTime).toBe(5_000_000);
+    expect(await loadRecordingBackup('garmin:1')).not.toBeNull();
+  });
+
   it('round-trips a v2 backup', async () => {
     const backup = buildRecordingBackup(makeState())!;
     await saveRecordingBackup(backup);

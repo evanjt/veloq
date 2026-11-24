@@ -9,21 +9,24 @@ import {
   performBackup,
   getLastBackupTimestamp,
   getLastBackupFailure,
+  getBackupFailures,
   type BackupBackend,
 } from '@/features/settings/lib/autobackup';
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   transferFailure,
   transportFailure,
 } from '@/features/settings/lib/autobackup/backends/errors';
 
 const mockSettings = new Map<string, string>();
+const mockRunRecordBackup = jest.fn();
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
     getSetting: (key: string) => mockSettings.get(key),
     engineInstall: () => 1,
     setSetting: (key: string, value: string) => mockSettings.set(key, value),
-    runRecordBackup: jest.fn(() => Promise.resolve()),
+    runRecordBackup: (...args: unknown[]) => mockRunRecordBackup(...args),
     getBackupMetadata: () => ({
       schema_version: '14',
       activity_count: '312',
@@ -72,6 +75,7 @@ jest.mock('@/features/settings/lib/autobackup/backends/carriers', () => ({
 beforeEach(() => {
   mockSettings.clear();
   upload.mockReset();
+  mockRunRecordBackup.mockReset().mockResolvedValue(undefined);
 });
 
 describe('performBackup', () => {
@@ -130,5 +134,59 @@ describe('performBackup', () => {
 
     expect(getLastBackupTimestamp()).toBeGreaterThan(0);
     expect(getLastBackupFailure()).toBeNull();
+  });
+
+  it('records a device failure when the engine cannot write the record archive', async () => {
+    mockRunRecordBackup.mockRejectedValue(new Error('no space left on device'));
+
+    await expect(performBackup(true)).rejects.toThrow('no space left on device');
+
+    expect(getBackupFailures().device).toMatchObject({ kind: 'device' });
+    expect(getLastBackupTimestamp()).toBeNull();
+  });
+
+  it('records a device failure when the archive is not there afterwards', async () => {
+    (FileSystem.getInfoAsync as jest.Mock).mockResolvedValueOnce({ exists: false });
+
+    await expect(performBackup(true)).rejects.toThrow('Record archive was not created');
+
+    expect(getBackupFailures().device).toMatchObject({ kind: 'device' });
+  });
+
+  it('clears the device failure when a later run writes the archive', async () => {
+    mockRunRecordBackup.mockRejectedValueOnce(new Error('no space left on device'));
+    await expect(performBackup(true)).rejects.toThrow();
+    expect(getBackupFailures().device).toBeDefined();
+    upload.mockResolvedValue('veloq-backup.zip');
+
+    await expect(performBackup(true)).resolves.toMatchObject({ wroteZip: true });
+
+    expect(getBackupFailures().device).toBeUndefined();
+  });
+
+  it('keeps a carrier failure when the device failure clears', async () => {
+    mockSettings.set(
+      '__last_backup_failure',
+      JSON.stringify({
+        device: { kind: 'device', status: null, at: 5 },
+        'test-remote': { kind: 'auth', status: 401, at: 6 },
+      })
+    );
+    upload.mockRejectedValue(transferFailure('Upload backup', 401));
+
+    await performBackup(true);
+
+    expect(Object.keys(getBackupFailures())).toEqual(['test-remote']);
+  });
+
+  it('keeps a standing device failure when the run is skipped', async () => {
+    mockRunRecordBackup.mockRejectedValueOnce(new Error('no space left on device'));
+    await expect(performBackup(true)).rejects.toThrow();
+    mockSettings.set('__auto_backup_enabled', '1');
+    mockSettings.set('__last_auto_backup', String(Date.now()));
+
+    await performBackup();
+
+    expect(getBackupFailures().device).toBeDefined();
   });
 });

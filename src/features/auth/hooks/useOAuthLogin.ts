@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { clearAccountData, clearAuthOnly } from '@/shared/storage';
+import { clearAuthOnly } from '@/shared/storage';
+import { clearLibraryForSignIn, signInFailureKey } from '@/features/auth/lib/libraryWipe';
 import { resolveLoginLibrary } from '@/features/auth/lib/loginLibrary';
 import { recordGrantedScope } from '@/features/auth/lib/grantedScope';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
@@ -62,7 +63,7 @@ export function useOAuthLogin({
       if (outcome === 'keep') {
         await clearAuthOnly(queryClient);
       } else {
-        await clearAccountData(queryClient);
+        await clearLibraryForSignIn(queryClient);
       }
       resetSyncDateRange();
 
@@ -111,7 +112,7 @@ export function useOAuthLogin({
         setError(t('login.oauthFailed'));
       }
     } catch (err: unknown) {
-      setError(t(oauthFailureKey(err)));
+      setError(t(signInFailureKey(err, oauthFailureKey(err))));
     } finally {
       setIsLoading(false);
     }
@@ -128,7 +129,7 @@ export function useOAuthLogin({
       setIsLoading(true);
       setError(null);
       completeSignIn(callbackUrl)
-        .catch((err: unknown) => setError(t(oauthFailureKey(err))))
+        .catch((err: unknown) => setError(t(signInFailureKey(err, oauthFailureKey(err)))))
         .finally(() => setIsLoading(false));
     };
     resume();

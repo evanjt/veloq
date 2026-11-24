@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { CallKind, validateCredentials } from 'veloqrs';
 
-import { clearAccountData, clearAuthOnly } from '@/shared/storage';
+import { clearAuthOnly } from '@/shared/storage';
+import { clearLibraryForSignIn, signInFailureKey } from '@/features/auth/lib/libraryWipe';
 import { resolveLoginLibrary } from '@/features/auth/lib/loginLibrary';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -89,15 +90,15 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
         if (outcome === 'keep') {
           await clearAuthOnly(queryClient);
         } else {
-          await clearAccountData(queryClient);
+          await clearLibraryForSignIn(queryClient);
         }
         resetSyncDateRange();
         await setCredentials(apiKey.trim(), incomingId);
         await clearPendingApiKey();
         // The root layout takes the athlete in once the library's identity is settled.
         return 'signedIn';
-      } catch {
-        setError(t('login.connectionFailed'));
+      } catch (error) {
+        setError(t(signInFailureKey(error, 'login.connectionFailed')));
         return 'unreachable';
       } finally {
         setIsApiKeyLoading(false);

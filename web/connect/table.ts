@@ -103,7 +103,8 @@ export const RANGE_LABELS: Record<RangePreset, ParseKeys> = {
 
 /**
  * The span a preset names as of `today`, in the epoch seconds the phone's feed
- * read takes: whole local days, both ends inclusive. No preset is no bound.
+ * read takes: whole local calendar days stamped as UTC, the space activity
+ * dates are stored in, both ends inclusive. No preset is no bound.
  */
 export function rangeBounds(
   preset: RangePreset | null,
@@ -111,8 +112,8 @@ export function rangeBounds(
 ): { oldestTs: number | null; newestTs: number | null } {
   if (!preset) return { oldestTs: null, newestTs: null };
   const year = today.getFullYear();
-  const start = (y: number, m: number, d: number) => new Date(y, m, d).getTime() / 1000;
-  const end = (y: number, m: number, d: number) => new Date(y, m, d, 23, 59, 59).getTime() / 1000;
+  const start = (y: number, m: number, d: number) => Date.UTC(y, m, d) / 1000;
+  const end = (y: number, m: number, d: number) => Date.UTC(y, m, d, 23, 59, 59) / 1000;
   const todayEnd = end(year, today.getMonth(), today.getDate());
   switch (preset) {
     case 'last90Days':

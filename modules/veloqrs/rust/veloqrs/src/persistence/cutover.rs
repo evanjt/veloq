@@ -2092,6 +2092,73 @@ mod tests {
         assert!(stored_diff(&engine)["counts"].is_null());
     }
 
+    /// Scenario: a record carrying a proximity of 300 m is restored while the
+    /// cutover is owed, and the flip then runs.
+    /// Expected behaviour: the restore leaves the section config at the
+    /// default, as the setter refuses it, so the flip has no restored value to
+    /// replace and records none as the config the upgrade reset.
+    #[test]
+    fn a_record_restored_while_the_cutover_is_owed_leaves_the_section_config_alone() {
+        let dir = TempDir::new().expect("tempdir");
+        let mut engine = engine_with_archivable_section(&dir);
+        assert!(engine.cutover_is_owed());
+        let restored = tracematch::SectionConfig {
+            proximity_threshold: 300.0,
+            ..tracematch::SectionConfig::default()
+        };
+        let record = serde_json::json!({"version": 1, "entries": [
+            {"table": "settings", "values": {
+                "key": "__section_config_json",
+                "value": serde_json::to_string(&restored).unwrap()}},
+            {"table": "settings", "values": {
+                "key": "__section_proximity_threshold", "value": "300"}}
+        ]});
+        engine
+            .restore_record_json(&record.to_string())
+            .expect("restore");
+
+        assert_eq!(
+            engine.get_section_config(),
+            tracematch::SectionConfig::default()
+        );
+        assert_eq!(
+            engine.get_setting("__section_proximity_threshold").unwrap(),
+            None
+        );
+        engine.commit_switch().expect("switch");
+        assert_eq!(
+            engine
+                .get_setting(super::CUTOVER_PREVIOUS_CONFIG_KEY)
+                .unwrap(),
+            None,
+            "no restored value is reported as the upgrade's reset"
+        );
+    }
+
+    /// Expected behaviour: a record that leaves the section config out does
+    /// not clear one the library holds while the cutover is owed.
+    #[test]
+    fn a_record_that_leaves_the_section_config_out_keeps_it_while_the_cutover_is_owed() {
+        let dir = TempDir::new().expect("tempdir");
+        let engine = engine_with_archivable_section(&dir);
+        engine
+            .set_setting("__section_proximity_threshold", "250")
+            .unwrap();
+        let mut engine = engine;
+        let record = serde_json::json!({"version": 1, "entries": [],
+            "left_out": ["__section_proximity_threshold", "__section_config_json"]});
+        engine
+            .restore_record_json(&record.to_string())
+            .expect("restore");
+        assert_eq!(
+            engine
+                .get_setting("__section_proximity_threshold")
+                .unwrap()
+                .as_deref(),
+            Some("250")
+        );
+    }
+
     /// Scenario: the owed elevation lands after the promotion, and the detect
     /// that folds it in is the drain's final re-cut over the whole library.
     /// Expected behaviour: that apply writes the counts once, equal to a diff

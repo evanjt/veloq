@@ -4,6 +4,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatDateTime, formatDuration } from '@/shared/format/format';
 import { movingMsAt, useRecordingStore } from '../stores/RecordingStore';
 import type { RecordingBackup } from '../types';
+import { endLocationService } from './backgroundLocation';
 import { clearInterruptedRecordingNotice } from './recordingNotification';
 import { resumeRecordingBackup, settleSavedBackup } from './restoreRecordingBackup';
 import { clearRecordingBackup, loadRecordingBackup } from './storage/recordingBackup';
@@ -82,6 +83,7 @@ export async function promptInterruptedRecording(): Promise<void> {
         onPress: () => {
           if (!canOpenBackup(backup)) return;
           void clearRecordingBackup(backup.athleteId, backup);
+          void endLocationService();
           clearInterruptedRecordingNotice();
         },
       },

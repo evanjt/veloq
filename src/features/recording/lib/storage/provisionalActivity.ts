@@ -81,7 +81,9 @@ export async function writeProvisionalActivity(
 
 /**
  * Write the engine row for every recording whose save never got one, and
- * answer how many were written.
+ * answer how many were written. A recording counts as missing its row when it
+ * has no key, or when its key names no row in the engine: a strength finish
+ * records the key at insert, before the row is written.
  *
  * A save whose engine write failed, or that ran with the engine closed, left a
  * ride the feed, the week and section detection cannot see until it uploads
@@ -100,7 +102,7 @@ export async function replayProvisionalWrites(): Promise<number> {
   const signedIn = getStoredCredentials().athleteId;
   const owed = (await listRecordings()).filter(
     (entry) =>
-      !entry.engineActivityId &&
+      (!entry.engineActivityId || !engine.hasActivity(entry.engineActivityId)) &&
       (!entry.athleteId || entry.athleteId === signedIn) &&
       (entry.uploadStatus !== 'uploaded' || !!entry.intervalsActivityId)
   );
@@ -109,7 +111,9 @@ export async function replayProvisionalWrites(): Promise<number> {
     const engineActivityId = await writeProvisionalActivity(entry);
     if (!engineActivityId) continue;
     written += 1;
-    await attachEngineActivity(entry.id, engineActivityId);
+    if (entry.engineActivityId !== engineActivityId) {
+      await attachEngineActivity(entry.id, engineActivityId);
+    }
   }
   if (written > 0) log.log(`Wrote ${written} engine row(s) a save had missed`);
   return written;

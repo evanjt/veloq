@@ -68,52 +68,80 @@ impl PersistentEngine {
             self.time_untimed_laps(only_section, false);
         }
 
-        let tx = self.db.unchecked_transaction()?;
-        match only_section {
-            Some(id) => tx.execute(
-                "DELETE FROM activity_indicators WHERE target_id = ?",
-                params![id],
-            )?,
-            None => tx.execute("DELETE FROM activity_indicators", [])?,
-        };
+        // A writer that refreshes badges runs inside its own write
+        // transaction, where BEGIN is refused, so the pass nests as a
+        // savepoint there and owns the transaction otherwise.
+        let nested = !self.db.is_autocommit();
+        self.db.execute_batch(if nested {
+            "SAVEPOINT veloq_indicators"
+        } else {
+            "BEGIN"
+        })?;
+        let written = (|| -> SqlResult<usize> {
+            let tx = &self.db;
+            match only_section {
+                Some(id) => tx.execute(
+                    "DELETE FROM activity_indicators WHERE target_id = ?",
+                    params![id],
+                )?,
+                None => tx.execute("DELETE FROM activity_indicators", [])?,
+            };
 
-        // Section indicators only - route highlights are computed inline
-        // from in-memory groups + activity_metrics (no table needed).
-        let section_count = self.compute_section_indicators(&tx, now, only_section)?;
+            // Section indicators only - route highlights are computed inline
+            // from in-memory groups + activity_metrics (no table needed).
+            let section_count = self.compute_section_indicators(tx, now, only_section)?;
 
-        // Stamp the algorithm version so we don't recompute until it changes.
-        // A scoped pass covers one section, so it cannot claim the table is
-        // current: only the whole-table pass earns the stamp.
-        //
-        // Zero rows is two different things and only one of them is done. A
-        // library where nothing qualifies, one outing per section, has been
-        // computed correctly and re-running it every open is waste. A library
-        // where groups qualify on coverage but no traversal has a time has not
-        // been computed at all: on the test handset, 2478 junction rows and 50 sections
-        // produced nothing because every `lap_time` and every
-        // `activities.distance_meters` was NULL, and the stamp is what stopped
-        // the next open retrying once those arrived.
-        let mut stamp = only_section.is_none();
-        if stamp && section_count == 0 {
-            let owed = self.untimed_repeat_groups(&tx)?;
-            if owed > 0 {
-                log::warn!(
-                    "veloqrs: [indicators] Wrote no indicators while {} section group(s) have \
-                     repeat traversals with no time; not stamping v{} so the next open retries",
-                    owed,
-                    INDICATOR_ALGORITHM_VERSION
-                );
-                stamp = false;
+            // Stamp the algorithm version so we don't recompute until it changes.
+            // A scoped pass covers one section, so it cannot claim the table is
+            // current: only the whole-table pass earns the stamp.
+            //
+            // Zero rows is two different things and only one of them is done. A
+            // library where nothing qualifies, one outing per section, has been
+            // computed correctly and re-running it every open is waste. A library
+            // where groups qualify on coverage but no traversal has a time has not
+            // been computed at all: on the test handset, 2478 junction rows and 50 sections
+            // produced nothing because every `lap_time` and every
+            // `activities.distance_meters` was NULL, and the stamp is what stopped
+            // the next open retrying once those arrived.
+            let mut stamp = only_section.is_none();
+            if stamp && section_count == 0 {
+                let owed = self.untimed_repeat_groups(tx)?;
+                if owed > 0 {
+                    log::warn!(
+                        "veloqrs: [indicators] Wrote no indicators while {} section group(s) have \
+                         repeat traversals with no time; not stamping v{} so the next open retries",
+                        owed,
+                        INDICATOR_ALGORITHM_VERSION
+                    );
+                    stamp = false;
+                }
             }
-        }
-        if stamp {
-            tx.execute(
-                "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('indicator_version', ?)",
-                params![INDICATOR_ALGORITHM_VERSION.to_string()],
-            )?;
-        }
-
-        tx.commit()?;
+            if stamp {
+                tx.execute(
+                    "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('indicator_version', ?)",
+                    params![INDICATOR_ALGORITHM_VERSION.to_string()],
+                )?;
+            }
+            Ok(section_count)
+        })();
+        let section_count = match written {
+            Ok(count) => {
+                self.db.execute_batch(if nested {
+                    "RELEASE SAVEPOINT veloq_indicators"
+                } else {
+                    "COMMIT"
+                })?;
+                count
+            }
+            Err(error) => {
+                let _ = self.db.execute_batch(if nested {
+                    "ROLLBACK TO SAVEPOINT veloq_indicators; RELEASE SAVEPOINT veloq_indicators"
+                } else {
+                    "ROLLBACK"
+                });
+                return Err(error);
+            }
+        };
 
         log::info!(
             "veloqrs: [indicators] Recomputed {} section indicators for {} (v{})",
@@ -169,7 +197,7 @@ impl PersistentEngine {
     /// sections, directions and sports, qualifying on coverage and on having
     /// two distinct activities, whose times the pass could not read. Run only on the zero path, so an ordinary
     /// pass pays nothing.
-    fn untimed_repeat_groups(&self, tx: &rusqlite::Transaction) -> SqlResult<i64> {
+    fn untimed_repeat_groups(&self, tx: &rusqlite::Connection) -> SqlResult<i64> {
         let complete = crate::persistence::records::complete_traversal_sql();
         let sport = crate::persistence::records::activity_sport_sql();
         tx.query_row(
@@ -198,7 +226,7 @@ impl PersistentEngine {
     /// Returns total number of indicators inserted.
     fn compute_section_indicators(
         &self,
-        tx: &rusqlite::Transaction,
+        tx: &rusqlite::Connection,
         now: i64,
         only_section: Option<&str>,
     ) -> SqlResult<usize> {

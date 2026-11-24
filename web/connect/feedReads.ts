@@ -15,7 +15,7 @@ import {
 } from './link';
 import { settledNow, wallSeconds } from './fitness';
 import type { ReadState } from './query';
-import type { Methods } from './schema';
+import type { FfiCadenceUnit, Methods } from './schema';
 import { useQueries, useRead, useReads, type Read } from './useRead';
 
 /** What the phone serves for one activity in the list. */
@@ -41,6 +41,7 @@ export type Detail = {
   elapsedTime?: number | null;
   averageSpeed?: number | null;
   maxSpeed?: number | null;
+  cadenceUnit?: FfiCadenceUnit;
 };
 
 export type Summary = Methods['feed.summary']['result'];

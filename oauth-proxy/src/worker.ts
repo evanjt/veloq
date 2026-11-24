@@ -37,6 +37,7 @@ import {
   withoutToken,
 } from "./pushReceipts";
 import { webhookShapeLine } from "./webhookShape";
+import { capTokenRows } from "./tokenCap";
 
 interface Env {
   INTERVALS_CLIENT_ID: string;
@@ -77,13 +78,28 @@ function carriesNoCredential(request: Request): boolean {
   return header === null || header.trim() === "";
 }
 
+/**
+ * The rows still inside the device token lifetime. A row's own expiry is
+ * renewed by every write to its athlete's list, so an entry outlives its
+ * registration unless it is dropped by age: the owner key lapses with the
+ * registration, and a phone handed to another athlete would otherwise stay
+ * here and be pushed to. Every read of an athlete's list goes through this.
+ */
+function liveRows(rows: DeviceToken[] | null, now: number): DeviceToken[] {
+  const lifetimeMs = DEVICE_TOKEN_TTL_SECONDS * 1000;
+  return (rows ?? []).filter((entry) => now - Date.parse(entry.registeredAt) < lifetimeMs);
+}
+
 async function findTokenRow(
   env: Env,
   athleteId: string,
   token: string
 ): Promise<DeviceToken | null> {
-  const rows = await env.DEVICE_TOKENS.get(`athlete:${athleteId}`, "json") as DeviceToken[] | null;
-  return rows?.find((entry) => entry.token === token) ?? null;
+  const rows = liveRows(
+    await env.DEVICE_TOKENS.get(`athlete:${athleteId}`, "json") as DeviceToken[] | null,
+    Date.now()
+  );
+  return rows.find((entry) => entry.token === token) ?? null;
 }
 
 function missingCredential(): Response {
@@ -92,11 +108,12 @@ function missingCredential(): Response {
 
 async function removeTokenFromAthlete(env: Env, athleteId: string, token: string): Promise<void> {
   const key = `athlete:${athleteId}`;
-  const existing = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
-  if (!existing) return;
+  const stored = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
+  if (!stored) return;
 
+  const existing = liveRows(stored, Date.now());
   const filtered = existing.filter((entry) => entry.token !== token);
-  if (filtered.length === existing.length) return;
+  if (filtered.length === stored.length) return;
   if (filtered.length === 0) {
     await env.DEVICE_TOKENS.delete(key);
   } else {
@@ -736,8 +753,10 @@ async function handleDeviceRegister(
     }
 
     const key = `athlete:${body.athleteId}`;
-    const existing = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
-    const tokens: DeviceToken[] = existing ?? [];
+    const tokens = liveRows(
+      await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null,
+      Date.now()
+    );
 
     // Update existing token or add new one
     const idx = tokens.findIndex((t) => t.token === body.token);
@@ -754,16 +773,13 @@ async function handleDeviceRegister(
       tokens.push(entry);
     }
 
-    // Hard cap to protect against runaway accumulation if reactive pruning
-    // (DeviceNotRegistered cleanup in the webhook path) hasn't run for a
-    // while. Multi-device users are unaffected, typical case is 1–3 real
-    // devices. Drop the oldest by registeredAt when the cap is exceeded.
-    if (tokens.length > MAX_TOKENS_PER_ATHLETE) {
-      tokens.sort((a, b) => a.registeredAt.localeCompare(b.registeredAt));
-      const dropped = tokens.splice(0, tokens.length - MAX_TOKENS_PER_ATHLETE);
-      for (const entry of dropped) {
-        await clearTokenOwner(env, body.athleteId, entry.token);
-      }
+    // Hard cap against runaway accumulation when reactive pruning has not
+    // run. A credential-less row proves nothing about the athlete id, so it
+    // is dropped before any verified one.
+    const { kept, dropped } = capTokenRows(tokens, MAX_TOKENS_PER_ATHLETE);
+    tokens.splice(0, tokens.length, ...kept);
+    for (const entry of dropped) {
+      await clearTokenOwner(env, body.athleteId, entry.token);
     }
 
     // Store with TTL
@@ -951,7 +967,8 @@ async function startEventPushes(
     if (seen) await env.OAUTH_STATES.delete(seen).catch(() => {});
     throw err;
   }
-  if (!tokens || tokens.length === 0) return null;
+  tokens = liveRows(tokens, Date.now());
+  if (tokens.length === 0) return null;
 
   // The visible title and body go to iOS, where the notification service
   // extension rewrites them in place, and to a legacy Android token, whose
@@ -994,7 +1011,7 @@ async function pruneDeadTokens(env: Env, athleteId: string, dead: string[]): Pro
   if (dead.length === 0) return;
   const key = `athlete:${athleteId}`;
   const latest = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
-  const surviving = (latest ?? []).filter((t) => !dead.includes(t.token));
+  const surviving = liveRows(latest, Date.now()).filter((t) => !dead.includes(t.token));
   if (surviving.length === 0) {
     await env.DEVICE_TOKENS.delete(key);
   } else {

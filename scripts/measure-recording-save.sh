@@ -1,17 +1,17 @@
 #!/bin/bash
-# Time the recording save tap's JavaScript legs in the handset's own Hermes:
+# Time the recording save tap's JavaScript leg in the handset's own Hermes:
 # `measure-recording-save.sh OUT [hbc]`.
 #
-# The save tap builds the FIT file and its base64 on the JS thread; the engine
-# write that follows reads the track out of the FIT on a worker. The two JS
-# legs are what can hold the thread past a tap's budget, and a desktop engine
-# says nothing about how long they take on a phone.
+# The save tap builds the FIT file on the JS thread and writes its bytes to
+# disk; the engine write that follows reads the track out of the FIT on a
+# worker. The build is what can hold the thread past a tap's budget, and a
+# desktop engine says nothing about how long it takes on a phone.
 #
 # The installed debug build is pointed at a server on this host for one launch,
 # which hands it `measure-recording-save-bundle.mjs`'s bundle in place of the
-# app: a three-hour ride, built and encoded once to warm and ROUNDS times
-# timed, each round written to logcat. With `hbc` the bundle is compiled with
-# `hermesc -O` first, which is how a release build ships its JavaScript.
+# app: a three-hour ride, built once to warm and ROUNDS times timed, each
+# round written to logcat. With `hbc` the bundle is compiled with `hermesc -O`
+# first, which is how a release build ships its JavaScript.
 #
 # The app runs nothing else: no sign-in, no sync, no engine. Its dev host and
 # its cached dev bundle are put back as they were when the run ends.
@@ -43,7 +43,7 @@ WORK=$(mktemp -d)
 a() { adb -s "$D" "$@"; }
 as() { a shell run-as "$PKG" "$@" | tr -d '\r'; }
 
-if ! as true 2>/dev/null; then
+if ! a shell run-as "$PKG" true 2>/dev/null; then
   echo "measure-recording-save: $PKG is not a debuggable build on $D." >&2
   exit 2
 fi
@@ -73,7 +73,7 @@ SERVER=$!
 
 as cat "$PREFS" > "$WORK/prefs.xml" 2>/dev/null || : > "$WORK/prefs.xml"
 had_cache=0
-as ls "$CACHE" >/dev/null 2>&1 && had_cache=1
+a shell run-as "$PKG" ls "$CACHE" >/dev/null 2>&1 && had_cache=1
 
 restore() {
   a shell am force-stop "$PKG"

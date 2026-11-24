@@ -32,6 +32,27 @@ pub(crate) const SESSION_TABLES: &[&str] = &[
 /// The table of heart rate readings, which a save of a session never rewrites.
 pub(crate) const HEART_RATE_TABLE: &str = "strength_session_heart_rate";
 
+/// The session and the `(at, bpm)` readings of a packed heart rate row, or
+/// `None` when the row's arrays are missing, differ in length or hold a
+/// non-integer.
+pub(crate) fn packed_heart_rate_readings(
+    row: &super::record_backup::RecordRow,
+) -> Option<(&str, Vec<(i64, i64)>)> {
+    let session_id = row.values.get("session_id")?.as_str()?;
+    let first = row.values.get("first_at")?.as_i64()?;
+    let offsets = row.values.get("offsets")?.as_array()?;
+    let bpm = row.values.get("bpm")?.as_array()?;
+    if offsets.len() != bpm.len() {
+        return None;
+    }
+    let readings = offsets
+        .iter()
+        .zip(bpm)
+        .map(|(offset, bpm)| Some((first.checked_add(offset.as_i64()?)?, bpm.as_i64()?)))
+        .collect::<Option<Vec<_>>>()?;
+    Some((session_id, readings))
+}
+
 /// What a session row stands for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SessionKind {
@@ -666,6 +687,9 @@ impl PersistentEngine {
         if !SESSION_TABLES.contains(&table) {
             return Ok(false);
         }
+        if table == HEART_RATE_TABLE && row.values.contains_key("offsets") {
+            return self.place_packed_heart_rate(row);
+        }
         let key = if table == "strength_sessions" {
             "id"
         } else {
@@ -711,6 +735,32 @@ impl PersistentEngine {
                 rusqlite::params_from_iter(values),
             )
             .map_err(|e| e.to_string())?;
+        Ok(true)
+    }
+
+    /// Place the readings of a session carried as one row: the session, the
+    /// time of the first reading, and each reading's seconds after it and beats
+    /// a minute. A record written before readings were packed carries one row
+    /// each and places through the generic path.
+    fn place_packed_heart_rate(
+        &self,
+        row: &super::record_backup::RecordRow,
+    ) -> Result<bool, String> {
+        let Some((session_id, readings)) = packed_heart_rate_readings(row) else {
+            return Ok(false);
+        };
+        let mut insert = self
+            .db
+            .prepare_cached(&format!(
+                "INSERT OR REPLACE INTO {HEART_RATE_TABLE} (session_id, at, bpm)
+                 VALUES (?1, ?2, ?3)"
+            ))
+            .map_err(|e| e.to_string())?;
+        for (at, bpm) in readings {
+            insert
+                .execute(params![session_id, at, bpm])
+                .map_err(|e| e.to_string())?;
+        }
         Ok(true)
     }
 

@@ -276,6 +276,35 @@ fn queue_ids(engine: &PersistentEngine) -> Vec<String> {
         .collect()
 }
 
+/// Scenario: a track was retired unreachable by repeated failed asks, and the
+/// athlete taps Retry now.
+///
+/// Expected behaviour: the track goes back to the queue with its count cleared.
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn retry_now_reopens_an_unreachable_track() {
+    let (_dir, path, engine) = seeded_engine(&["a1", "a2"]);
+    engine
+        .record_elevation_attempts(&["a1".to_string()], ELEVATION_ATTEMPT_LIMIT)
+        .expect("count");
+    // Retire at the limit.
+    for _ in 1..ELEVATION_ATTEMPT_LIMIT {
+        engine
+            .record_elevation_attempts(&["a1".to_string()], ELEVATION_ATTEMPT_LIMIT)
+            .expect("count");
+    }
+    assert_eq!(stored_states(&path)[0], ("a1".to_string(), 3));
+
+    let released = engine.release_withheld_downloads().expect("release");
+
+    assert_eq!(released, 1);
+    assert_eq!(
+        stored_states(&path),
+        vec![("a1".to_string(), 0), ("a2".to_string(), 0)]
+    );
+    assert_eq!(stored_attempts(&path, "a1"), 0);
+}
+
 /// Scenario: upstream will not answer for one track, and answers the same way
 /// on every pass. Nothing writes provenance over the row, so the derived queue
 /// re-offers it for the life of the install and the backfill never reads zero.

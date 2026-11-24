@@ -617,6 +617,23 @@ fn a_section_under_the_tap_is_a_group_of_its_own_between_the_routes_and_no_route
     assert_eq!(members, ["section-b", "section-a", "route-a"]);
 }
 
+/// Scenario: matching is off while a route and a section cross the tap.
+///
+/// Expected behaviour: the stored routes and sections are not offered, so the
+/// activities come back in no route and no section.
+#[test]
+fn a_tap_with_matching_off_lists_no_route_and_no_section() {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    route_section_and_loose(&mut engine);
+    engine.set_detection_enabled(false).expect("switch");
+
+    let found = answer(&source_of(&engine), &engine.db, tap(), 14);
+
+    assert_eq!(found.total, 5);
+    let kinds: Vec<FfiUnderPointKind> = found.groups.iter().map(|g| g.kind).collect();
+    assert_eq!(kinds, [FfiUnderPointKind::NoRoute]);
+}
+
 /// Scenario: the same route, section and loose activity as above, one of them
 /// in both the route and the section.
 ///

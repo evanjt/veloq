@@ -93,7 +93,7 @@ pub(crate) mod pooled {
         let window = retention_days(conn);
         let count: i64 = conn.query_row(
             &stream_gap_count_sql(),
-            params![attempt_limit, window],
+            params![attempt_limit, window, wall_now_seconds()],
             |row| row.get(0),
         )?;
         Ok(count.max(0) as usize)
@@ -115,6 +115,7 @@ pub(crate) mod pooled {
             let mut values: Vec<rusqlite::types::Value> = vec![
                 i64::from(attempt_limit).into(),
                 window.map_or(rusqlite::types::Value::Null, Into::into),
+                wall_now_seconds().into(),
             ];
             values.extend(chunk.iter().map(|id| id.clone().into()));
             let mut stmt = conn.prepare(&sql)?;
@@ -153,7 +154,7 @@ pub(crate) mod pooled {
                                              '$.stream_types') st
                              WHERE ab.activity_id = a.id
                                AND st.type = 'text'
-                               AND instr(',' || ?3 || ',', ',' || st.value || ',') > 0)
+                               AND instr(',' || ?4 || ',', ',' || st.value || ',') > 0)
                              AS listed,
                            COALESCE((SELECT t.point_count FROM time_streams t
                                       WHERE t.activity_id = a.id),
@@ -165,7 +166,12 @@ pub(crate) mod pooled {
                                       WHERE m.activity_id = a.id), 0) AS moving
                          {STREAM_GAP_FROM_WHERE})"
             ),
-            params![attempt_limit, window, DEFAULT_STREAM_TYPES],
+            params![
+                attempt_limit,
+                window,
+                wall_now_seconds(),
+                DEFAULT_STREAM_TYPES
+            ],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )?;
         Ok(BackfillEstimate {
@@ -204,8 +210,9 @@ macro_rules! server_refillable {
 pub(crate) const SERVER_REFILLABLE_SQL: &str = server_refillable!();
 
 /// The rows the stream backfill still has to ask about, shared by the queue
-/// and its count so the two cannot disagree. `?1` is the attempt limit and
-/// `?2` the retention window in days, or NULL when it is unbounded.
+/// and its count so the two cannot disagree. `?1` is the attempt limit,
+/// `?2` the retention window in days, or NULL when it is unbounded, and `?3`
+/// the wall-clock now, the space `activities.start_date` is stored in.
 ///
 /// An activity is a candidate when its track is stored, or when it has none and
 /// the census says upstream holds a series for it. An activity upstream holds
@@ -236,7 +243,7 @@ pub(crate) const STREAM_GAP_FROM_WHERE: &str = concat!(
                         SELECT 1 FROM activity_held_back hb WHERE hb.activity_id = a.id)
                 AND (?2 IS NULL
                      OR (a.start_date IS NOT NULL
-                         AND a.start_date >= strftime('%s', 'now') - ?2 * 86400))"
+                         AND a.start_date >= ?3 - ?2 * 86400))"
 );
 
 /// The version of the activity bound to `?1` that the census names now, under
@@ -341,6 +348,13 @@ pub struct StreamGap {
     pub point_count: Option<usize>,
 }
 
+/// The device's wall clock now, stamped as UTC: the space an activity's
+/// `start_date` is stored in. A true instant against that column slides the
+/// window by the zone offset.
+pub(crate) fn wall_now_seconds() -> i64 {
+    crate::widget_snapshot::Clock::now().now_wall_seconds
+}
+
 /// The window decision on its own, so a caller filtering a whole sync reads
 /// the setting once and takes the clock once rather than doing both per row.
 ///
@@ -390,11 +404,7 @@ impl PersistentEngine {
     /// call's prune takes it straight back out, which is the window doing what
     /// it was set to do. The screen still draws it, off the cached body.
     pub fn inside_stream_window(&self, start_date: Option<i64>) -> bool {
-        inside_stream_window_at(
-            self.stream_retention_days(),
-            chrono::Utc::now().timestamp(),
-            start_date,
-        )
+        inside_stream_window_at(self.stream_retention_days(), wall_now_seconds(), start_date)
     }
 
     /// Store the series of one activity, in its track's index, replacing
@@ -511,6 +521,12 @@ impl PersistentEngine {
     /// unknown, and guessing it old would delete newest-first for anyone whose
     /// library predates the column being populated.
     pub fn prune_streams_outside_retention(&self) -> SqlResult<usize> {
+        self.prune_streams_outside_retention_at(wall_now_seconds())
+    }
+
+    /// The prune against an explicit wall-clock now, in the space
+    /// `activities.start_date` is stored in.
+    pub(crate) fn prune_streams_outside_retention_at(&self, wall_now: i64) -> SqlResult<usize> {
         let Some(days) = self.stream_retention_days() else {
             return Ok(0);
         };
@@ -519,12 +535,12 @@ impl PersistentEngine {
                 "DELETE FROM activity_streams WHERE activity_id IN (
                  SELECT a.id FROM activities a
                  WHERE a.start_date IS NOT NULL
-                   AND a.start_date < strftime('%s', 'now') - ? * 86400
+                   AND a.start_date < ? - ? * 86400
                    AND ",
                 server_refillable!(),
                 ")"
             ),
-            params![days],
+            params![wall_now, days],
         )?;
         Ok(removed)
     }
@@ -552,7 +568,7 @@ impl PersistentEngine {
     pub fn activities_missing_streams(&self, attempt_limit: u32) -> SqlResult<Vec<StreamGap>> {
         let window = self.stream_retention_days();
         let mut stmt = self.db.prepare(&stream_gap_queue_sql())?;
-        let rows = stmt.query_map(params![attempt_limit, window], |row| {
+        let rows = stmt.query_map(params![attempt_limit, window, wall_now_seconds()], |row| {
             Ok(StreamGap {
                 activity_id: row.get(0)?,
                 point_count: row.get::<_, Option<i64>>(1)?.map(|n| n.max(0) as usize),
@@ -1222,7 +1238,7 @@ mod tests {
                 .prepare(&format!("EXPLAIN QUERY PLAN {sql}"))
                 .expect("prepares");
             let rows = stmt
-                .query_map(params![3, 90], |row| row.get::<_, String>(3))
+                .query_map(params![3, 90, 0], |row| row.get::<_, String>(3))
                 .expect("plan reads")
                 .collect::<SqlResult<Vec<String>>>()
                 .expect("rows read");
@@ -1376,10 +1392,45 @@ mod tests {
             .db
             .execute(
                 "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng, start_date)
-                 VALUES (?, 'Ride', 0, 0, 0, 0, strftime('%s', 'now') - ? * 86400)",
-                params![id, days_ago],
+                 VALUES (?, 'Ride', 0, 0, 0, 0, ? - ? * 86400)",
+                params![id, wall_now_seconds(), days_ago],
             )
             .unwrap();
+    }
+
+    /// Scenario: `start_date` holds the athlete's wall clock stamped as UTC, and
+    /// the prune compared it with the true instant, so at UTC+10 a ride still
+    /// inside the window was pruned and at UTC-8 an expired one was kept.
+    ///
+    /// Expected behaviour: the cut is the wall-clock now less the window, whatever
+    /// the offset between that and the true instant.
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn the_prune_cuts_at_the_wall_clock_now_less_the_window() {
+        let (_dir, engine) = engine();
+        engine.set_stream_retention_days(90).unwrap();
+        let wall_now: i64 = 1_800_000_000;
+        let edge = wall_now - 90 * 86_400;
+        for (id, start) in [("inside", edge), ("outside", edge - 1)] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng, start_date)
+                     VALUES (?, 'Ride', 0, 0, 0, 0, ?)",
+                    params![id, start],
+                )
+                .unwrap();
+            engine
+                .store_activity_streams(id, &[series("watts", &[Some(1.0)])])
+                .unwrap();
+        }
+
+        assert_eq!(
+            engine.prune_streams_outside_retention_at(wall_now).unwrap(),
+            1
+        );
+        assert!(!engine.load_activity_streams("inside").unwrap().is_empty());
+        assert!(engine.load_activity_streams("outside").unwrap().is_empty());
     }
 
     /// Scenario: the bulk sync decides per activity whether to download every
@@ -1394,7 +1445,7 @@ mod tests {
     fn the_window_decides_which_activities_the_sync_widens_for() {
         let (_dir, engine) = engine();
         engine.set_stream_retention_days(90).unwrap();
-        let now = chrono::Utc::now().timestamp();
+        let now = wall_now_seconds();
 
         assert!(engine.inside_stream_window(Some(now - 10 * 86_400)));
         assert!(!engine.inside_stream_window(Some(now - 200 * 86_400)));
@@ -1420,7 +1471,7 @@ mod tests {
         let (_dir, engine) = engine();
         // The default keeps everything, so this needs a window of its own.
         engine.set_stream_retention_days(90).unwrap();
-        let now = chrono::Utc::now().timestamp();
+        let now = wall_now_seconds();
         let edge = now - 90 * 86_400;
 
         assert!(engine.inside_stream_window(Some(edge + 1)));

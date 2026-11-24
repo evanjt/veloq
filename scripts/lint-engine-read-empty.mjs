@@ -14,6 +14,10 @@
 // `// empty-on-error: <reason>` comment inside the `catch` or on the line above
 // it, and the reason cannot be blank.
 //
+// A `catch` that returns a module-level constant is read the same way, since
+// `NO_ROWS` or a state word such as `HIDDEN` hides the failure as an empty
+// answer does; the marker is how such a sentinel says it is the honest one.
+//
 // The rule holds in the client, its delegates, every feature hook and every
 // screen under `src/app`, since a hook or a screen that catches the throw and
 // answers empty hides the failure from the athlete the same way.
@@ -69,8 +73,12 @@ function reachesEngine(text) {
 
 const MARKER = /\/\/\s*empty-on-error:\s*(\S.*)?$/;
 
-/** The empty answer `node` spells, or null when it is anything else. */
-function emptyValue(node) {
+/**
+ * The empty answer `node` spells, or null when it is anything else. A bare
+ * identifier naming a module-level `const` is a sentinel answer whatever it
+ * holds, an empty constant or a state word, so it is read as one.
+ */
+function emptyValue(node, constants = new Set()) {
   if (!node) return null;
   while (
     ts.isParenthesizedExpression(node) ||
@@ -88,6 +96,7 @@ function emptyValue(node) {
   if (ts.isNumericLiteral(node) && Number(node.text) === 0) return '0';
   if (node.kind === ts.SyntaxKind.NullKeyword) return 'null';
   if (ts.isIdentifier(node) && node.text === 'undefined') return 'undefined';
+  if (ts.isIdentifier(node) && constants.has(node.text)) return node.text;
   if (ts.isVoidExpression(node)) return 'undefined';
   return null;
 }
@@ -117,6 +126,14 @@ function check(rel, text) {
   );
   const lines = text.split('\n');
   const lineOf = (pos) => source.getLineAndCharacterOfPosition(pos).line;
+  const constants = new Set();
+  for (const statement of source.statements) {
+    if (ts.isVariableStatement(statement) && statement.declarationList.flags & ts.NodeFlags.Const) {
+      for (const d of statement.declarationList.declarations) {
+        if (ts.isIdentifier(d.name) && d.initializer) constants.add(d.name.text);
+      }
+    }
+  }
 
   // A marker on the line above `startLine`, or on any line from there to `endLine`.
   const marked = (startLine, endLine) => {
@@ -141,7 +158,7 @@ function check(rel, text) {
   const visit = (node) => {
     if (ts.isCatchClause(node)) {
       for (const ret of ownReturns(node.block)) {
-        const value = emptyValue(ret.expression);
+        const value = emptyValue(ret.expression, constants);
         if (value) report(ret, value, node.getStart(source), node.getEnd());
       }
     }
@@ -155,11 +172,11 @@ function check(rel, text) {
       if (ts.isArrowFunction(handler) || ts.isFunctionExpression(handler)) {
         const start = node.expression.name.getStart(source);
         if (!ts.isBlock(handler.body)) {
-          const value = emptyValue(handler.body);
+          const value = emptyValue(handler.body, constants);
           if (value) report(handler.body, value, start, handler.getEnd());
         } else {
           for (const ret of ownReturns(handler.body)) {
-            const value = emptyValue(ret.expression);
+            const value = emptyValue(ret.expression, constants);
             if (value) report(ret, value, start, handler.getEnd());
           }
         }

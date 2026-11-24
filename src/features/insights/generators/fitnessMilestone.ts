@@ -7,6 +7,7 @@ import {
   swimPaceUnitLabel,
 } from '@/shared/format/format';
 import { formatSignedPercentage } from '@/shared/format';
+import { verdictRung } from '@/shared/format/trend';
 import type { DataPoint, HistoryMark, Insight, FtpTrend, PaceTrend, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { INSIGHTS_CONFIG, confidenceFrom } from '../lib/config';
@@ -130,7 +131,7 @@ function addPaceMilestoneInsight(
       category: 'fitness_milestone',
       priority: 2,
       icon: options.icon as Insight['icon'],
-      iconTone: declining ? 'neutral' : options.iconTone,
+      iconTone: declining ? verdictRung('declined') : options.iconTone,
       title: t(declining ? 'insights.paceChange' : 'insights.paceImproved', {
         delta: `${declining ? '-' : ''}${Math.abs(deltaSecs)}s${options.paceUnit}`,
       }),
@@ -229,7 +230,7 @@ export function generateFitnessMilestoneInsights(
           category: 'fitness_milestone',
           priority: 2,
           icon: 'lightning-bolt',
-          iconTone: declining ? 'neutral' : 'positive',
+          iconTone: declining ? verdictRung('declined') : 'positive',
           title: t(declining ? 'insights.ftpChange' : 'insights.ftpIncrease', {
             current: formatPower(ftp.latestFtp),
             change: `${declining ? '-' : ''}${formatPower(Math.abs(delta))}`,

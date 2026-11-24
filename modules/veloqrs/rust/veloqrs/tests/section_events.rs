@@ -873,6 +873,39 @@ fn a_named_section_survives_a_recut_of_its_ground() {
     );
 }
 
+/// Scenario: an auto section is named, then its corridor is removed. Expected
+/// behaviour: the shown name changes back to the unnamed label, so the ledger
+/// holds a `renamed` row whose `to` is the numbered label, and a later retirement does not
+/// read the removed name.
+#[test]
+fn removing_a_named_corridor_records_the_name_change() {
+    let (mut engine, _dir) = fresh_engine();
+    let rides = corridor_rides("ca", 0.0, 9, 0);
+    let snap = ingest_step(&mut engine, "cold", &refs(&rides)).snapshot;
+    let (id, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: no section");
+
+    engine
+        .set_section_name(&id, Some("Quarry Climb"))
+        .expect("name");
+    let intent_id = engine.get_named_corridors()[0].intent_id.clone();
+    engine
+        .remove_named_corridor(&intent_id)
+        .expect("remove corridor");
+
+    let renamed: Vec<serde_json::Value> = engine
+        .section_history(&id)
+        .into_iter()
+        .filter(|e| e.kind == "renamed")
+        .map(|e| serde_json::from_str(&e.details.expect("details")).expect("json"))
+        .collect();
+    assert_eq!(renamed.len(), 2, "naming and removing are both ledger rows");
+    assert_eq!(renamed[1]["from"], "Quarry Climb");
+    assert_eq!(
+        renamed[1]["to"], "Section 1",
+        "the numbered label it falls back to"
+    );
+}
+
 /// Scenario: the athlete draws a custom section over ground an auto section
 /// already covers. Expected behaviour: the auto section is hidden behind the
 /// drawn one and the ledger holds the `superseded` pair on both ids.

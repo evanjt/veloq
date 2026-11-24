@@ -7,9 +7,12 @@
 // detector wrote. A pointer bump that changes the golden and leaves the
 // revision alone ships a new detector over the old cache.
 //
-// The check compares what a commit made now would record against `HEAD`: the
-// staged pointer, the golden at each pointed commit, and the staged revision.
-// Both commits have to be in the local submodule clone to compare the golden.
+// The check compares what a commit made now would record against a base, `HEAD`
+// unless `--base REV` or `VELOQ_MERGE_BASE` names another: the staged pointer, the golden at each
+// pointed commit, and the staged revision. A landing gate passes the commit the
+// branch merges into as the base, since a merge already committed reads equal
+// to `HEAD`. Both commits have to be in a tracematch object database to compare
+// the golden: the clone under the root, or the repository `--objects DIR` names.
 // When one is not, the guard says so and passes: a fresh worktree or CI runner
 // holds no submodule, and the commit that moved the pointer was checked where it
 // was made.
@@ -43,18 +46,25 @@ const REVISION = /pub const DETECTOR_REVISION:\s*u32\s*=\s*(\d+)\s*;/;
 const argv = process.argv.slice(2);
 const rootFlag = argv.indexOf('--root');
 const root = rootFlag === -1 ? process.cwd() : resolve(argv[rootFlag + 1]);
+const option = (name) => {
+  const at = argv.indexOf(name);
+  return at === -1 ? undefined : argv[at + 1];
+};
+const base = option('--base') ?? process.env.VELOQ_MERGE_BASE ?? 'HEAD';
+const objects = option('--objects');
 
 const staged = /^160000 ([0-9a-f]{40}) /.exec(git(['ls-files', '-s', '--', SUB], root) ?? '')?.[1];
 const recorded = /^160000 commit ([0-9a-f]{40})\t/.exec(
-  git(['ls-tree', 'HEAD', SUB], root) ?? ''
+  git(['ls-tree', base, SUB], root) ?? ''
 )?.[1];
 
 if (!staged || !recorded || staged === recorded) process.exit(0);
 
-const sub = join(root, SUB);
+const sub = objects ? resolve(objects) : join(root, SUB);
 const short = (sha) => sha.slice(0, 7);
 const held = (sha) =>
-  existsSync(join(sub, '.git')) && git(['cat-file', '-e', `${sha}^{commit}`], sub) !== null;
+  existsSync(objects ? sub : join(sub, '.git')) &&
+  git(['cat-file', '-e', `${sha}^{commit}`], sub) !== null;
 
 if (!held(staged) || !held(recorded)) {
   console.log(
@@ -67,7 +77,7 @@ const golden = (sha) => git(['rev-parse', '--verify', '-q', `${sha}:${GOLDEN}`],
 if (golden(recorded) === golden(staged)) process.exit(0);
 
 const revisionOf = (text) => REVISION.exec(text ?? '')?.[1];
-const before = revisionOf(git(['show', `HEAD:${REVISION_FILE}`], root));
+const before = revisionOf(git(['show', `${base}:${REVISION_FILE}`], root));
 const after = revisionOf(git(['show', `:${REVISION_FILE}`], root));
 
 if (before === undefined || after === undefined) {

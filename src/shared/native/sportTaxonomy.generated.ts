@@ -19,6 +19,7 @@ export const SPORT_FAMILIES = {
   running: ['Run', 'VirtualRun', 'TrailRun', 'Treadmill'],
   walking: ['Walk', 'Hike'],
   swimming: ['Swim', 'OpenWaterSwim'],
+  strideCadence: ['Run', 'VirtualRun', 'TrailRun', 'Treadmill', 'Walk', 'Hike', 'Snowshoe'],
   power: [
     'Ride',
     'VirtualRide',

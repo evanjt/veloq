@@ -1,5 +1,7 @@
+import { endLocationService } from '@/features/recording/lib/backgroundLocation';
 import { persistRideBackup } from '@/features/recording/lib/rideBackup';
 import { buildRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
+import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLiveStore';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { navigateTo } from '@/shared/app/navigation';
 import { debug } from '@/shared/debug/debug';
@@ -27,8 +29,12 @@ export async function endRecordingSession(): Promise<void> {
   if (store.status !== 'recording' && store.status !== 'paused') return;
 
   store.stopRecording();
+  void endLocationService();
 
-  const backup = buildRecordingBackup(useRecordingStore.getState());
+  const backup = buildRecordingBackup({
+    ...useRecordingStore.getState(),
+    routeChoice: useRecordingLiveStore.getState().routeChoice,
+  });
   if (backup) await persistRideBackup(backup);
 
   // The backup is written first and the navigation cannot undo it. A press on

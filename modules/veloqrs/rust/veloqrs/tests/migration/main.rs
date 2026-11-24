@@ -61,6 +61,8 @@ mod migration_section_numbers;
 
 #[path = "../migration_hr_zone_backfill.rs"]
 mod migration_hr_zone_backfill;
+#[path = "../migration_power_zone_overflow.rs"]
+mod migration_power_zone_overflow;
 
 #[path = "../migration_drop_geocoding.rs"]
 mod migration_drop_geocoding;

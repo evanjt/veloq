@@ -11,11 +11,7 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { getEngine } from '@/shared/native/engine';
-import {
-  useEngineGroups,
-  useGroupSummaries,
-  useSectionSummaries,
-} from '@/features/routes/hooks/useEngine';
+import { useGroupSummaries, useSectionSummaries } from '@/features/routes/hooks/useEngine';
 import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import { useMuscleGroups } from '@/features/strength/hooks/useExerciseSets';
 import { engineErrorTag } from '@/shared/native/engineError';
@@ -53,12 +49,6 @@ beforeEach(() => {
 });
 
 describe('route engine hooks', () => {
-  it('useEngineGroups reports a thrown read', async () => {
-    const { result } = await renderHook(() => useEngineGroups());
-    expect(engineErrorTag(result.current.error)).toBe('Database');
-    expect(result.current.groups).toEqual([]);
-  });
-
   it('useSectionSummaries reports a thrown read', async () => {
     const { result } = await renderHook(() => useSectionSummaries());
     expect(engineErrorTag(result.current.error)).toBe('Database');

@@ -8,7 +8,9 @@
  * standing "your backup is broken" would be a lie. Neither is a copy the
  * carrier took that did not read back the same, `unverified`, which the next
  * trigger sends again. An address the athlete stored that may not carry the
- * credential, `address`, stays until they change it.
+ * credential, `address`, stays until they change it. A run that could not write
+ * the record archive on the phone itself, `device`, is kept under the id
+ * `device` until a later run writes one.
  */
 
 export type BackupFailureKind =
@@ -21,7 +23,8 @@ export type BackupFailureKind =
   | 'folder_unavailable'
   | 'icloud_unavailable'
   | 'unverified'
-  | 'address';
+  | 'address'
+  | 'device';
 
 const PERMANENT_KINDS: readonly BackupFailureKind[] = [
   'address',
@@ -106,7 +109,8 @@ export type BackupFailureMessageKey =
   | 'backup.backupFailedFolder'
   | 'backup.backupFailedIcloud'
   | 'backup.backupFailedUnverified'
-  | 'backup.backupFailedAddress';
+  | 'backup.backupFailedAddress'
+  | 'backup.backupFailedDevice';
 
 const MESSAGE_KEYS: Record<BackupFailureKind, BackupFailureMessageKey> = {
   auth: 'backup.backupFailedAuth',
@@ -119,6 +123,7 @@ const MESSAGE_KEYS: Record<BackupFailureKind, BackupFailureMessageKey> = {
   icloud_unavailable: 'backup.backupFailedIcloud',
   unverified: 'backup.backupFailedUnverified',
   address: 'backup.backupFailedAddress',
+  device: 'backup.backupFailedDevice',
 };
 
 /** Translation key describing a failure in terms of what the user can do about it. */

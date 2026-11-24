@@ -108,7 +108,7 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
   mapLayerColors: {
     kind: 'series',
     reason:
-      'lines on map tiles, each over its own white casing, which is outside the surface rule: the ground is the basemap',
+      'lines on map tiles, each over the casing role of its base, which is outside the surface rule: the ground is the basemap',
   },
   chartStreamColors: {
     kind: 'series',

@@ -163,6 +163,7 @@ fn attribute(
 ) {
     if !around.is_empty() {
         details.insert("around".into(), serde_json::json!(around));
+        details.insert(super::history::AROUND_JUDGED.into(), true.into());
     }
     if !cut.fork_around.is_empty() {
         details.insert("fork_around".into(), serde_json::json!(cut.fork_around));

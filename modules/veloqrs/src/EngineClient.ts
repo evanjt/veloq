@@ -25,6 +25,7 @@ import type {
   FfiActivityDetailData,
   FfiActivityStreams,
   FfiActivityNotification,
+  FfiPulledRideEntry,
   FfiBackupScreenData,
   FfiCacheScreenData,
   FfiBackgroundJobsData,
@@ -640,6 +641,9 @@ class EngineClient implements DelegateHost {
       announcePrs,
       announceMilestones
     );
+
+  pulledRideEntry = (activityId: string): FfiPulledRideEntry | null =>
+    activityDelegates.pulledRideEntry(this, activityId);
 
   getActivityIds = (): string[] => activityDelegates.getActivityIds(this);
 

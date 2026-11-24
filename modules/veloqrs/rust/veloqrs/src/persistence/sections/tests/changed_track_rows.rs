@@ -85,7 +85,6 @@ fn move_ride_away(engine: &mut PersistentEngine) {
 }
 
 #[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_changed_track_drops_rows_on_custom_and_accepted_sections_it_no_longer_passes() {
     let mut engine = library();
     move_ride_away(&mut engine);
@@ -164,4 +163,62 @@ fn a_changed_track_keeps_a_hand_attachment_the_relaxed_bar_still_reaches() {
 
     assert_eq!(row_count(&engine, "custom"), 1);
     assert_eq!(row_count(&engine, "accepted"), 0);
+}
+
+fn disabled_custom_over_two_rides() -> PersistentEngine {
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    engine
+        .add_activity("ride".into(), line(HOME_LAT), "Ride".into())
+        .unwrap();
+    insert_section(&engine, "custom", false, HOME_LAT);
+    insert_section(&engine, "accepted", true, HOME_LAT);
+    engine.load_sections().unwrap();
+    engine.attach_after_store("ride", true);
+    engine.disable_section("custom").unwrap();
+    engine.disable_section("accepted").unwrap();
+    engine
+}
+
+fn rows_of(engine: &PersistentEngine, section_id: &str, activity_id: &str) -> i64 {
+    engine
+        .db
+        .query_row(
+            "SELECT COUNT(*) FROM section_activities WHERE section_id = ? AND activity_id = ?",
+            params![section_id, activity_id],
+            |r| r.get(0),
+        )
+        .unwrap()
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_disabled_section_keeps_its_rows_when_a_ride_is_re_stored() {
+    let mut engine = disabled_custom_over_two_rides();
+    engine
+        .add_activity("ride".into(), line(HOME_LAT)[10..].to_vec(), "Ride".into())
+        .unwrap();
+
+    engine.attach_after_store("ride", true);
+
+    assert_eq!(rows_of(&engine, "custom", "ride"), 1);
+    assert_eq!(rows_of(&engine, "accepted", "ride"), 1);
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn enabling_a_section_attaches_rides_stored_while_it_was_disabled() {
+    let mut engine = disabled_custom_over_two_rides();
+    engine
+        .add_activity("later".into(), line(HOME_LAT), "Ride".into())
+        .unwrap();
+    engine.attach_after_store("later", true);
+    assert_eq!(rows_of(&engine, "custom", "later"), 0);
+
+    engine.enable_section("custom").unwrap();
+    engine.enable_section("accepted").unwrap();
+
+    for section in ["custom", "accepted"] {
+        assert_eq!(rows_of(&engine, section, "ride"), 1, "{section}");
+        assert_eq!(rows_of(&engine, section, "later"), 1, "{section}");
+    }
 }

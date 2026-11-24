@@ -8,7 +8,8 @@ import {
   fromWallClockSeconds,
 } from '@/shared/ffi/ffiConversions';
 import { awaitTimeStreams, willAnnounce } from '@/features/routes/lib/awaitTimeStreams';
-import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import { useEngineRead, useReadRetry } from '@/shared/native/useEngineSubscription';
+import { attemptEngineRead } from '@/shared/native/engineError';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
 import type { DirectionBests } from '@/features/insights';
 
@@ -64,6 +65,8 @@ export interface SectionPerformanceRecord {
   bestPace: number;
   bestForwardTime: number | null;
   bestReverseTime: number | null;
+  /** The engine timed `bestTime` by projection to a gate. */
+  bestEstimated: boolean;
   /** Average time across all laps */
   avgTime: number;
   /** Average pace across all laps (m/s) */
@@ -83,8 +86,8 @@ interface UseSectionPerformancesResult {
   outstanding: number;
   /** Whether streams are being fetched from API */
   isFetchingFromApi: boolean;
-  /** Error message if loading failed */
-  error: string | null;
+  /** Why loading failed: the stream sync message, or what the engine read threw. */
+  error: unknown;
   /** Best record in forward/same direction */
   bestForwardRecord: SectionPerformanceRecord | null;
   /** Best record in reverse direction */
@@ -152,6 +155,7 @@ export function toPerformanceRecord(
     bestPace: r.bestPace,
     bestForwardTime: r.bestForwardTime ?? null,
     bestReverseTime: r.bestReverseTime ?? null,
+    bestEstimated: r.bestEstimated,
     avgTime: r.avgTime,
     avgPace: r.avgPace,
     direction: castDirection(r.direction),
@@ -350,8 +354,26 @@ export function useSectionPerformances(
   // keys, so the records are read again when the engine announces it.
   const readSections = useEngineRead(['sections', 'detectionApplied']);
 
+  // A retry is a reason to read again that the client cannot see.
+  const [readAttempt, retryRead] = useReadRetry();
+
   // Get performance records from Rust engine
   // Rust auto-loads time streams from SQLite if not in memory
+  const { view, readError } = useMemo(() => {
+    void readAttempt;
+    if (!section || !fetchComplete) {
+      return { view: EMPTY_PERFORMANCE_VIEW, readError: undefined };
+    }
+    // A thrown read is a failure, not a section with no efforts.
+    const read = attemptEngineRead(() =>
+      readSections((client) => client.getSectionPerformances(section.id, sportType))
+    );
+    if (!read.ok) return { view: EMPTY_PERFORMANCE_VIEW, readError: read.error };
+    return {
+      view: read.value ? toPerformanceView(read.value) : EMPTY_PERFORMANCE_VIEW,
+      readError: undefined,
+    };
+  }, [section, fetchComplete, sportType, readSections, readAttempt]);
   const {
     records,
     bestForwardRecord,
@@ -360,19 +382,12 @@ export function useSectionPerformances(
     bestReverseIsPr: reverseIsPrOfRead,
     forwardStats,
     reverseStats,
-  } = useMemo(() => {
-    if (!section || !fetchComplete) {
-      return EMPTY_PERFORMANCE_VIEW;
-    }
-    try {
-      // Get typed performance result directly from Rust engine (no JSON parsing)
-      const result = readSections((client) => client.getSectionPerformances(section.id, sportType));
-      return result ? toPerformanceView(result) : EMPTY_PERFORMANCE_VIEW;
-    } catch {
-      // Engine may not have data yet - return empty
-      return EMPTY_PERFORMANCE_VIEW;
-    }
-  }, [section, fetchComplete, sportType, readSections]);
+  } = view;
+
+  const retry = useCallback(() => {
+    retryRead();
+    refetch();
+  }, [retryRead, refetch]);
 
   // A missing activity could hold a faster effort, so a best read without it
   // is shown as a best and never as a PR.
@@ -394,7 +409,7 @@ export function useSectionPerformances(
     isLoading: !fetchComplete,
     outstanding,
     isFetchingFromApi: isLoading,
-    error,
+    error: error ?? readError,
     bestForwardRecord,
     bestReverseRecord,
     bestForwardIsPr,
@@ -402,6 +417,6 @@ export function useSectionPerformances(
     bests,
     forwardStats,
     reverseStats,
-    refetch,
+    refetch: retry,
   };
 }

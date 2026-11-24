@@ -43,7 +43,8 @@ export function FollowedRouteChip({ route, onStop }: FollowedRouteChipProps) {
   const heading = useRecordingLiveStore((s) => s.heading);
 
   const offRoute = guidance?.status === FfiFollowStatus.OffRoute;
-  const wasOffRoute = useRef(false);
+  // Starts at the state on mount: a screen reopened while off route is not a departure.
+  const wasOffRoute = useRef(offRoute);
   useEffect(() => {
     if (offRoute && !wasOffRoute.current) medium();
     wasOffRoute.current = offRoute;

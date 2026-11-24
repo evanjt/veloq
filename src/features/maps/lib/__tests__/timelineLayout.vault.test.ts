@@ -40,7 +40,9 @@ describe('createTimelineLayout', () => {
         expect.closeTo(dateToPosition(new Date(y, 0, 1)), 10)
       ),
     ]);
-    expect(quarters.map((p) => p.position)).toEqual([0.625, 0.75, 0.875]);
+    expect(quarters.map((p) => p.position)).toEqual(
+      quarters.map((p) => expect.closeTo(dateToPosition(p.date), 10))
+    );
     expect(quarters.every((p) => p.date.getDate() === 1)).toBe(true);
     expect(now).toHaveLength(1);
     expect(now[0].position).toBe(1);
@@ -98,7 +100,8 @@ describe('createTimelineLayout', () => {
     const { snapToNearest, snapPoints } = layout();
     const last = snapPoints.filter((p) => p.kind === 'year').at(-1)!.position;
     expect(snapToNearest(last + 0.01)).toEqual({ position: last, snapped: true });
-    expect(snapToNearest(0.61)).toEqual({ position: 0.625, snapped: true });
+    const q = snapPoints.find((p) => p.kind === 'quarter')!.position;
+    expect(snapToNearest(q - 0.01)).toEqual({ position: q, snapped: true });
     expect(snapToNearest(last)).toEqual({ position: last, snapped: false });
   });
 
@@ -242,7 +245,11 @@ describe('recent share by length of history', () => {
     expect(l.recentShare).toBeCloseTo(share, 10);
     expect(l.dateToPosition(new Date(maxDate.getTime() - YEAR_MS))).toBeCloseTo(1 - share, 10);
     const quarters = l.snapPoints.filter((p) => p.kind === 'quarter').map((p) => p.position);
-    expect(quarters).toEqual([1, 2, 3].map((i) => expect.closeTo(1 - share + (i / 4) * share, 10)));
+    expect(quarters).toEqual(
+      l.snapPoints
+        .filter((p) => p.kind === 'quarter')
+        .map((p) => expect.closeTo(l.dateToPosition(p.date), 10))
+    );
   });
 
   it.each([5, 5.01, 10.01, 20.01, 25])('round-trips dates across %s older years', (older) => {
@@ -357,5 +364,30 @@ describe('tick label placement by measured width', () => {
   it('places nothing on a track not yet laid out', () => {
     const { snapPoints } = build(3);
     expect(placeTickLabels(snapPoints, snapPoints.map(frenchWidth), 0)).toEqual([]);
+  });
+});
+
+describe('quarter ticks', () => {
+  const quarterLayout = (max: Date) =>
+    createTimelineLayout({
+      minDate: new Date(max.getFullYear() - 6, 0, 1),
+      maxDate: max,
+      trackWidth: 320,
+    });
+
+  it.each([
+    [new Date(2026, 10, 19, 12), [1, 4, 7]],
+    [new Date(2026, 9, 28, 12), [0, 3, 6]],
+    [new Date(2026, 9, 31, 12), [0, 3, 6]],
+  ])('returns each quarter date exactly for %s', (max, months) => {
+    const l = quarterLayout(max);
+    const quarters = l.snapPoints.filter((p) => p.kind === 'quarter');
+    expect(quarters.map((p) => p.date.getMonth())).toEqual(months);
+    for (const p of quarters) {
+      expect(p.date.getDate()).toBe(1);
+      expect(p.position).toBeCloseTo(l.dateToPosition(p.date), 10);
+      const snapped = l.snapToNearest(p.position);
+      expect(l.positionToDate(snapped.position).getTime()).toBe(p.date.getTime());
+    }
   });
 });

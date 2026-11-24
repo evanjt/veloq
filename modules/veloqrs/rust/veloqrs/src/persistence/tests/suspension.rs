@@ -649,3 +649,166 @@ fn a_read_from_a_caller_while_suspended_is_refused() {
     );
     resume_after_suspension();
 }
+
+/// Run `read` on one of the engine's own threads after the app has gone to the
+/// background and the engine has suspended. A read that takes its hold waits
+/// for the resume; one that does not completes at once, with a read mark open
+/// on a library in a shared container.
+fn assert_read_waits_for_the_resume<T: Send + 'static>(
+    read: impl FnOnce() -> T + Send + 'static,
+) -> T {
+    entered_background();
+    assert!(prepare_for_suspension(CEILING));
+    let (done_tx, done_rx) = mpsc::channel();
+    let reader = crate::threads::spawn_named("veloq-test-park", move || {
+        done_tx.send(read()).unwrap();
+    });
+    assert!(
+        done_rx.recv_timeout(Duration::from_millis(300)).is_err(),
+        "a read asked for while suspended does not start"
+    );
+    resume_after_suspension();
+    let answer = done_rx
+        .recv_timeout(CEILING)
+        .expect("the read goes on after the resume");
+    reader.join().unwrap();
+    answer
+}
+
+#[test]
+fn the_retired_ground_level_waits_out_a_suspension() {
+    let _guard = serial_global_state();
+    let _global = init_global_engine("suspension-level-global.db");
+    let tmp = tempfile::TempDir::new().unwrap();
+    let path = tmp.path().join("suspension-level.db");
+    let _engine = crate::PersistentEngine::new(path.to_str().unwrap()).unwrap();
+    let install = crate::persistence::engine_install();
+    let path = path.to_str().unwrap().to_string();
+
+    let passes = assert_read_waits_for_the_resume(move || {
+        crate::persistence::sections::retired_map::level_at(install, &path)
+    });
+    assert!(passes.is_ok());
+}
+
+#[test]
+fn a_regroup_pass_waits_out_a_suspension() {
+    let _guard = serial_global_state();
+    let _global = init_global_engine("suspension-regroup-global.db");
+    let tmp = tempfile::TempDir::new().unwrap();
+    let path = tmp.path().join("suspension-regroup.db");
+    let engine = crate::PersistentEngine::new(path.to_str().unwrap()).unwrap();
+    // A first pass stamps the signatures, so the pass under test only reads.
+    engine.regroup_snapshot().compute();
+    let snapshot = engine.regroup_snapshot();
+
+    assert_read_waits_for_the_resume(move || {
+        snapshot.compute();
+    });
+}
+
+#[test]
+fn a_quarantine_salvage_waits_out_a_suspension() {
+    let _guard = serial_global_state();
+    let _global = init_global_engine("suspension-salvage-global.db");
+    let tmp = tempfile::TempDir::new().unwrap();
+    let fresh_path = tmp.path().join("suspension-salvage-fresh.db");
+    let old_path = tmp.path().join("suspension-salvage-old.db");
+    drop(crate::PersistentEngine::new(old_path.to_str().unwrap()).unwrap());
+    let fresh = crate::PersistentEngine::new(fresh_path.to_str().unwrap()).unwrap();
+    let old = old_path.to_str().unwrap().to_string();
+
+    assert_read_waits_for_the_resume(move || fresh.salvage_ledger_from(&old));
+}
+
+fn stale_recount_engine(path: &Path) -> crate::persistence::PersistentEngine {
+    Connection::open(path)
+        .unwrap()
+        .execute(
+            "DELETE FROM schema_info WHERE key = 'pass_rule_version'",
+            [],
+        )
+        .unwrap();
+    let mut engine = crate::persistence::PersistentEngine::new_for_push(path.to_str().unwrap())
+        .expect("a recount engine");
+    engine.load_for_push().unwrap();
+    engine
+}
+
+fn stored_pass_rule_stamp(path: &Path) -> Option<String> {
+    Connection::open(path)
+        .unwrap()
+        .query_row(
+            "SELECT value FROM schema_info WHERE key = 'pass_rule_version'",
+            [],
+            |row| row.get(0),
+        )
+        .ok()
+}
+
+#[test]
+fn a_recount_after_the_install_moved_writes_no_stamp() {
+    let _guard = serial_global_state();
+    let tmp = init_global_engine("suspension-recount-install.db");
+    let path = tmp.path().join("suspension-recount-install.db");
+    let install = crate::persistence::engine_install();
+    let mut engine = stale_recount_engine(&path);
+
+    crate::persistence::invalidate_engine_install();
+    let report = engine.recount_every_section(install);
+
+    assert!(
+        !report.complete,
+        "a recount of a replaced library is not complete"
+    );
+    assert_eq!(stored_pass_rule_stamp(&path), None, "and stamps nothing");
+}
+
+#[test]
+fn a_recount_on_a_caller_thread_is_refused_while_suspended() {
+    let _guard = serial_global_state();
+    let tmp = init_global_engine("suspension-recount-refused.db");
+    let path = tmp.path().join("suspension-recount-refused.db");
+    let install = crate::persistence::engine_install();
+    let mut engine = stale_recount_engine(&path);
+    entered_background();
+    assert!(prepare_for_suspension(CEILING));
+
+    let report = engine.recount_every_section(install);
+
+    assert!(!report.complete);
+    assert_eq!(
+        stored_pass_rule_stamp(&path),
+        None,
+        "no write while suspended"
+    );
+    resume_after_suspension();
+}
+
+#[test]
+fn a_recount_on_an_engine_thread_waits_out_a_suspension_before_its_stamp() {
+    let _guard = serial_global_state();
+    let tmp = init_global_engine("suspension-recount-wait.db");
+    let path = tmp.path().join("suspension-recount-wait.db");
+    let install = crate::persistence::engine_install();
+    let mut engine = stale_recount_engine(&path);
+    entered_background();
+    assert!(prepare_for_suspension(CEILING));
+
+    let (done_tx, done_rx) = mpsc::channel();
+    let worker = crate::threads::spawn_named("veloq-t-recount", move || {
+        done_tx
+            .send(engine.recount_every_section(install).complete)
+            .unwrap();
+    });
+    assert!(
+        done_rx.recv_timeout(Duration::from_millis(300)).is_err(),
+        "the recount waits for the resume"
+    );
+    assert_eq!(stored_pass_rule_stamp(&path), None);
+
+    resume_after_suspension();
+    assert_eq!(done_rx.recv_timeout(CEILING), Ok(true));
+    worker.join().unwrap();
+    assert!(stored_pass_rule_stamp(&path).is_some());
+}

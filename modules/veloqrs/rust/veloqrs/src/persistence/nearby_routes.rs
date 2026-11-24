@@ -200,9 +200,15 @@ pub(crate) mod pooled {
         })
     }
 
-    /// A section's figures, from its row and its counted laps. `None` when the section is gone.
-    /// One laps read.
-    pub(crate) fn section_figures(conn: &Connection, section_id: &str) -> Option<PlaceFigures> {
+    /// A section's figures, from its row and its counted laps. With a `family`, only the laps of
+    /// those sports count, and the passes are their number; the section is then `None` unless a
+    /// lap or the section's own sport is in the family. `None` when the section is gone. One
+    /// laps read.
+    pub(crate) fn section_figures(
+        conn: &Connection,
+        section_id: &str,
+        family: Option<&[&str]>,
+    ) -> Option<PlaceFigures> {
         #[cfg(test)]
         crate::tiles::work::figures_read();
         let (sport_type, distance, gain, visits) = conn
@@ -220,32 +226,57 @@ pub(crate) mod pooled {
                 },
             )
             .ok()?;
-        let mut stmt = conn
+        let eligible = crate::persistence::records::record_eligible_passes(conn, section_id);
+        let sports: std::collections::HashMap<String, String> = conn
             .prepare(
-                "SELECT sa.lap_time, m.date, sa.activity_id
+                "SELECT sa.activity_id, m.sport_type
                  FROM section_activities sa
                  JOIN activity_metrics m ON m.activity_id = sa.activity_id
-                 WHERE sa.section_id = ?1 AND sa.excluded = 0 AND sa.lap_time > 0
-                 ORDER BY m.date",
+                 WHERE sa.section_id = ?1",
             )
-            .ok()?;
-        let laps: Vec<(f64, i64, String)> = stmt
-            .query_map([section_id], |row| {
-                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            .and_then(|mut stmt| {
+                stmt.query_map([section_id], |row| Ok((row.get(0)?, row.get(1)?)))
+                    .map(|rows| rows.filter_map(Result::ok).collect())
             })
-            .ok()?
-            .filter_map(Result::ok)
+            .ok()?;
+        let lap_sport =
+            |l: &crate::persistence::records::RecordPass| sports.get(&l.activity_id).cloned();
+        let in_family = |sport: &str| family.is_none_or(|f| f.contains(&sport));
+        let mut sport_types: Vec<String> = Vec::new();
+        if family.is_some() {
+            sport_types = eligible
+                .iter()
+                .filter_map(|l| lap_sport(l))
+                .filter(|s| in_family(s))
+                .collect();
+            sport_types.sort();
+            sport_types.dedup();
+            if sport_types.is_empty() && !in_family(&sport_type) {
+                return None;
+            }
+        }
+        if sport_types.is_empty() {
+            sport_types.push(sport_type);
+        }
+        let laps: Vec<crate::persistence::records::RecordPass> = eligible
+            .into_iter()
+            .filter(|l| lap_sport(l).is_some_and(|s| in_family(&s)))
             .collect();
-        let best = laps.iter().min_by(|a, b| a.0.total_cmp(&b.0));
-        let timed = |l: &(f64, i64, String)| (l.0.round() as u32, l.1);
+        let passes = if family.is_some() {
+            laps.len() as u32
+        } else {
+            visits
+        };
+        let best = laps.iter().min_by(|a, b| a.time.total_cmp(&b.time));
+        let timed = |l: &crate::persistence::records::RecordPass| (l.time.round() as u32, l.date);
         Some(PlaceFigures {
-            sport_types: vec![sport_type],
+            sport_types,
             distance_meters: distance,
             elevation_gain_meters: gain,
-            passes: visits,
+            passes,
             best: best.map(timed),
             last: laps.last().map(timed),
-            best_activity_id: best.map(|l| l.2.clone()),
+            best_activity_id: best.map(|l| l.activity_id.clone()),
         })
     }
 
@@ -266,6 +297,9 @@ pub(crate) mod pooled {
         followed: Option<&str>,
         line_ask: LineAsk,
     ) -> Vec<NearbyPlace> {
+        if !crate::persistence::settings::detection_enabled_from(conn) {
+            return Vec::new();
+        }
         let family = crate::sport::family_of(sport);
         let mut found: Vec<(f64, NearbyKind, String)> = Vec::new();
 
@@ -421,8 +455,8 @@ pub(crate) mod pooled {
         away: f64,
         line_ask: LineAsk,
     ) -> Option<NearbyPlace> {
-        let (name, sport_type, distance, gain, blob, json, rep, rep_start, rep_end, rep_reversed) =
-            conn.query_row(
+        let (name, _, distance, gain, blob, json, rep, rep_start, rep_end, rep_reversed) = conn
+            .query_row(
                 "SELECT name, sport_type, distance_meters, elevation_gain_m, polyline_blob,
                         polyline_json, representative_activity_id, rep_start_index,
                         rep_end_index, rep_reversed
@@ -445,9 +479,7 @@ pub(crate) mod pooled {
             )
             .ok()?;
         let family = crate::sport::family_of(sport);
-        if !family.contains(&sport_type.as_str()) {
-            return None;
-        }
+        let figures = section_figures(conn, section_id, Some(&family))?;
         let line = crate::persistence::sections::geometry::line(
             conn,
             blob.as_deref(),
@@ -461,13 +493,12 @@ pub(crate) mod pooled {
         )
         .ok()?;
 
-        let figures = section_figures(conn, section_id)?;
         let (encoded_coords, packed_line) = line_ask.carry(&line);
         Some(NearbyPlace {
             kind: NearbyKind::Section,
             id: section_id.to_string(),
             name: name.unwrap_or_else(|| section_id.to_string()),
-            sport_type,
+            sport_type: sport.to_string(),
             distance_meters: distance,
             elevation_gain_meters: gain,
             away_meters: away,

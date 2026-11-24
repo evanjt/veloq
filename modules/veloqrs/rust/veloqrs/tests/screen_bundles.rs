@@ -676,7 +676,6 @@ fn map_screen_honours_the_sport_filter() {
 }
 
 #[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn map_screen_name_needle_narrows_the_activities_but_not_the_chip_counts() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -766,7 +765,6 @@ fn map_sections_honour_the_sport_and_visit_filters() {
 /// Expected behaviour: no read lists it under Run, and every read lists it
 /// under Ride. The sports that took the ground decide, never the label.
 #[test]
-#[cfg_attr(not(feature = "vault"), ignore = "vault")]
 fn a_section_is_listed_under_the_sports_that_took_it_and_not_its_label() {
     let _serial_state = crate::serial_state();
     let s = populated();
@@ -1969,6 +1967,44 @@ fn test_insights_first_reverse_outing_has_no_recent_record() {
         .engine
         .insights_data(&insights_params_ending(1_700_900_000));
     assert!(bundle.recent_prs.is_empty());
+}
+
+/// Scenario: a section holds a fresh forward record and an older, faster
+/// reverse record that has left the window.
+///
+/// Expected behaviour: the row shows the forward record, the most recently set
+/// one, rather than losing it to the faster reverse record.
+#[test]
+fn a_fresh_record_in_one_direction_is_not_hidden_by_a_faster_old_one_in_the_other() {
+    let _serial_state = crate::serial_state();
+    let mut s = populated_with_pr_candidate(1_700_150_000);
+    for (id, date, time) in [("a4", 1_690_000_000, 100.0), ("a5", 1_690_086_400, 120.0)] {
+        s.engine
+            .add_activity(id.to_string(), line(46.2, 7.35, 60), "Ride".to_string())
+            .expect("add activity");
+        s.engine
+            .set_activity_metrics_extended(vec![metrics(id, date)])
+            .expect("set metrics");
+        insert_traversal(&s.raw, "auto1", id, time);
+        s.raw
+            .execute(
+                "UPDATE section_activities SET direction = 'reverse' WHERE section_id = 'auto1' AND activity_id = ?1",
+                [id],
+            )
+            .unwrap();
+    }
+
+    let bundle = s
+        .engine
+        .insights_data(&insights_params_ending(1_700_200_000));
+
+    let times: Vec<f64> = bundle
+        .recent_prs
+        .iter()
+        .filter(|pr| pr.section_id == "auto1")
+        .map(|pr| pr.best_time)
+        .collect();
+    assert_eq!(times, vec![190.0]);
 }
 
 #[test]

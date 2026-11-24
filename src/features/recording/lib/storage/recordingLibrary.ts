@@ -10,7 +10,7 @@ import type {
   RecordingTransitionAnswer,
 } from 'veloqrs/src/delegates/recordings';
 import { getStoredCredentials } from '@/shared/app/AuthStore';
-import { OWNERLESS_RECORDINGS_SETTLED_KEY } from './recordingBackup';
+import { OWNERLESS_RECORDINGS_SETTLED_KEY, adoptRecordingBackup } from './recordingBackup';
 import {
   DOCUMENTS_ROOT,
   LEGACY_UPLOADS_DIR,
@@ -225,9 +225,12 @@ export async function saveRecording(
   params: SaveRecordingParams
 ): Promise<RecordingLibraryEntry | null> {
   try {
-    library(true);
+    const engine = library(true);
     await ensureRecordingsDir();
     const id = newRecordingId();
+    // The key is a pure function of the id, so it goes in with the row: an
+    // upload that lands before the provisional write finds it and waits.
+    const engineActivityId = engine.provisionalActivityId(id) || undefined;
     const manual = params.manualBody !== undefined;
 
     // A manual entry names no file. The column cannot hold a null, so the empty
@@ -252,6 +255,7 @@ export async function saveRecording(
       kind,
       fitPath,
       streamsPath,
+      engineActivityId,
       activityType: params.activityType,
       name: params.name,
       startTime: params.startTime,
@@ -407,6 +411,17 @@ export async function transitionRecording(
 export async function holdRecordingsOfOtherAthletes(athleteId: string): Promise<void> {
   store().holdRecordingsOfOtherAthletes(athleteId);
   log.log(`Held any recording not belonging to ${athleteId}`);
+}
+
+/**
+ * An intervals.icu sign-in adopted a library named for a Garmin account: its
+ * rides and any interrupted-ride backup take the new identity, so the library
+ * still shows them and the sign-in hold leaves them queued.
+ */
+export async function adoptRecordingsIdentity(from: string, to: string): Promise<void> {
+  store().adoptRecordingsIdentity(from, to);
+  await adoptRecordingBackup(from, to);
+  log.log('Moved recordings to the adopting athlete');
 }
 
 /**

@@ -90,6 +90,7 @@ fn read_with(
         |_| Some(std::sync::Arc::new(None)),
         |_, _| None,
         |_| Vec::new(),
+        |_, _| 0,
         |_, rows| match rows {
             laps::Rows::Included => all.clone(),
             laps::Rows::Excluded => left_out.clone(),
@@ -292,6 +293,7 @@ fn the_progression_covers_the_whole_history_whatever_the_range() {
         |_| Some(std::sync::Arc::new(None)),
         |_, _| None,
         |_| Vec::new(),
+        |_, _| 0,
         |_, rows| match rows {
             laps::Rows::Included => all.clone(),
             laps::Rows::Excluded => std::sync::Arc::new(laps::empty()),

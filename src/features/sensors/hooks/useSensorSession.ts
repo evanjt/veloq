@@ -67,6 +67,12 @@ export function connectPairedSensorsWhenAllowed(holder: SensorHolder): void {
     return;
   }
   void (async () => {
+    // A screen opened without the entry screen (a deep link on a fresh
+    // process) finds the store unread, so read it before judging it empty.
+    if (!useSensorStore.getState().isLoaded) {
+      await useSensorStore.getState().initialise();
+      if (!holdsSensors(holder)) return;
+    }
     if (useSensorStore.getState().knownSensors.length === 0) return;
     const access = await requestBlePermissions();
     if (!holdsSensors(holder)) return;

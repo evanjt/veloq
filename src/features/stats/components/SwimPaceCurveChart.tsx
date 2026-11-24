@@ -27,6 +27,7 @@ interface SwimPaceCurveChartProps {
 }
 
 // Pool distances, which stay in metres in every unit setting.
+// Every distance this chart prints is formatted in metric for the same reason.
 const X_LABELS: PlacedLabel[] = [
   { label: '100m', value: Math.log10(100) },
   { label: '200m', value: Math.log10(200) },
@@ -80,7 +81,7 @@ export function SwimPaceCurveChart({
       title: t('stats.swimPaceCurve'),
       xHeader: t('charts.column.distance'),
       unit: swimPaceUnitLabel(isMetric),
-      formatX: (x: number) => formatDistance(10 ** x, isMetric),
+      formatX: (x: number) => formatDistance(10 ** x, true),
       formatValue: (secsPer100m: number) =>
         `${formatPaceAxis(secsPer100m)}${swimPaceUnitLabel(isMetric)}`,
       lowerIsBetter: true,
@@ -213,7 +214,7 @@ export function SwimPaceCurveChart({
             maxFontSizeMultiplier={DENSE_TEXT_SCALE}
             style={[styles.valueNumber, isDark && styles.textLight]}
           >
-            {formatDistance(displayData.distance, isMetric)}
+            {formatDistance(displayData.distance, true)}
           </Text>
         </View>
         <View style={styles.valueItem}>
@@ -254,7 +255,7 @@ export function SwimPaceCurveChart({
         crosshairMode="finger"
         describePoint={(p) =>
           [
-            formatDistance(p.distance, isMetric),
+            formatDistance(p.distance, true),
             formatTime(p.time),
             `${formatSwimPace(p.paceMs, isMetric)}${swimPaceUnitLabel(isMetric)}`,
           ].join(', ')

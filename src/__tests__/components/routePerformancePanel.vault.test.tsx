@@ -67,7 +67,9 @@ jest.mock('@/features/routes/hooks/useRoutePerformances', () => ({
 }));
 
 it('draws the panel with its card on this activity', async () => {
-  const view = await render(<RoutePerformanceSection activityId="mine" activityType="Ride" />);
+  const view = await render(
+    <RoutePerformanceSection routeGroups={[]} activityId="mine" activityType="Ride" />
+  );
   await layoutViews(view, 400, 220);
 
   expect(view.UNSAFE_getAllByType(PerformanceChartPanel)).toHaveLength(1);
@@ -100,7 +102,9 @@ describe.each([
   });
 
   it('draws the trophy in the gold of the active theme', async () => {
-    const view = await render(<RoutePerformanceSection activityId="mine" activityType="Ride" />);
+    const view = await render(
+      <RoutePerformanceSection routeGroups={[]} activityId="mine" activityType="Ride" />
+    );
 
     const header = view.getByRole('button', { name: 'Tidal flats' });
     const trophies = header

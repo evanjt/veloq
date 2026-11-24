@@ -2085,30 +2085,31 @@ pub(crate) fn calendar_from(
         activity_id: String,
         activity_name: String,
         activity_date: i64,
-        best_time: f64,
-        best_pace: f64,
+        /// Fastest standing lap as (time, pace); `None` when every lap of the
+        /// outing is an estimate beside a timed lap elsewhere in the direction.
+        best: Option<(f64, f64)>,
         is_reverse: bool,
         laps: u32,
     }
 
     let mut all_perfs: Vec<DirPerf> = Vec::new();
 
-    // The laps the record judgement lets stand in each direction, timed when
-    // the direction has any and estimated only when it has none. Each record's
-    // laps in one direction are contiguous in that set, so one entry per
-    // outing and direction falls out of a single pass.
+    // Every charted lap is a traversal, so each counts. Only the laps the
+    // record judgement lets stand (timed when the direction has any) can hold
+    // a best. Each record's laps in one direction are contiguous, so one entry
+    // per outing and direction falls out of a single pass.
     for reverse in [false, true] {
+        let charted = crate::persistence::records::charted_laps(perf_result, reverse);
+        let has_timed = charted.iter().any(|(_, lap)| !lap.estimated);
         let mut outing: Option<&crate::SectionPerformanceRecord> = None;
-        for (record, lap) in crate::persistence::records::record_eligible_laps(perf_result, reverse)
-        {
+        for (record, lap) in charted {
             if !outing.is_some_and(|open| std::ptr::eq(open, record)) {
                 outing = Some(record);
                 all_perfs.push(DirPerf {
                     activity_id: record.activity_id.clone(),
                     activity_name: record.activity_name.clone(),
                     activity_date: record.activity_date.0,
-                    best_time: f64::MAX,
-                    best_pace: 0.0,
+                    best: None,
                     is_reverse: reverse,
                     laps: 0,
                 });
@@ -2117,9 +2118,9 @@ pub(crate) fn calendar_from(
                 .last_mut()
                 .expect("an outing entry was pushed for this lap");
             perf.laps += 1;
-            if lap.time < perf.best_time {
-                perf.best_time = lap.time;
-                perf.best_pace = lap.pace;
+            let stands = !has_timed || !lap.estimated;
+            if stands && perf.best.is_none_or(|(time, _)| lap.time < time) {
+                perf.best = Some((lap.time, lap.pace));
             }
         }
     }
@@ -2128,14 +2129,15 @@ pub(crate) fn calendar_from(
         return None;
     }
 
-    fn to_dir_best(perf: &DirPerf, count: u32) -> crate::CalendarDirectionBest {
-        crate::CalendarDirectionBest {
+    fn to_dir_best(perf: &DirPerf, count: u32) -> Option<crate::CalendarDirectionBest> {
+        let (best_time, best_pace) = perf.best?;
+        Some(crate::CalendarDirectionBest {
             count,
-            best_time: perf.best_time,
-            best_pace: perf.best_pace,
+            best_time,
+            best_pace,
             best_activity_id: perf.activity_id.clone(),
             best_activity_name: perf.activity_name.clone(),
-        }
+        })
     }
 
     // Group by year, month, and direction
@@ -2179,19 +2181,16 @@ pub(crate) fn calendar_from(
 
         md.total_count += perf.laps;
         md.activities.insert(perf.activity_id.clone());
-        if perf.is_reverse {
-            md.rev_count += perf.laps;
-            match md.rev_best {
-                Some(idx) if perf.best_time < all_perfs[idx].best_time => md.rev_best = Some(i),
-                None => md.rev_best = Some(i),
-                _ => {}
-            }
+        let (count, best) = if perf.is_reverse {
+            (&mut md.rev_count, &mut md.rev_best)
         } else {
-            md.fwd_count += perf.laps;
-            match md.fwd_best {
-                Some(idx) if perf.best_time < all_perfs[idx].best_time => md.fwd_best = Some(i),
-                None => md.fwd_best = Some(i),
-                _ => {}
+            (&mut md.fwd_count, &mut md.fwd_best)
+        };
+        *count += perf.laps;
+        if let Some((time, _)) = perf.best {
+            let beaten = best.is_none_or(|idx| all_perfs[idx].best.is_none_or(|(t, _)| time < t));
+            if beaten {
+                *best = Some(i);
             }
         }
     }
@@ -2207,6 +2206,8 @@ pub(crate) fn calendar_from(
                 .flat_map(|md| md.activities.iter())
                 .collect::<std::collections::BTreeSet<_>>()
                 .len() as u32;
+            let fwd_count: u32 = year_data.months.values().map(|md| md.fwd_count).sum();
+            let rev_count: u32 = year_data.months.values().map(|md| md.rev_count).sum();
             let months: Vec<crate::CalendarMonthSummary> = year_data
                 .months
                 .into_iter()
@@ -2216,10 +2217,10 @@ pub(crate) fn calendar_from(
                     activity_count: md.activities.len() as u32,
                     forward: md
                         .fwd_best
-                        .map(|idx| to_dir_best(&all_perfs[idx], md.fwd_count)),
+                        .and_then(|idx| to_dir_best(&all_perfs[idx], md.fwd_count)),
                     reverse: md
                         .rev_best
-                        .map(|idx| to_dir_best(&all_perfs[idx], md.rev_count)),
+                        .and_then(|idx| to_dir_best(&all_perfs[idx], md.rev_count)),
                 })
                 .collect();
 
@@ -2240,16 +2241,6 @@ pub(crate) fn calendar_from(
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
 
-            let fwd_count: u32 = months
-                .iter()
-                .filter_map(|m| m.forward.as_ref())
-                .map(|f| f.count)
-                .sum();
-            let rev_count: u32 = months
-                .iter()
-                .filter_map(|m| m.reverse.as_ref())
-                .map(|r| r.count)
-                .sum();
             let traversal_count = months.iter().map(|m| m.traversal_count).sum();
 
             crate::CalendarYearSummary {
@@ -2294,8 +2285,8 @@ pub(crate) fn calendar_from(
 
     let result = crate::CalendarSummary {
         years,
-        forward_pr: forward_pr.map(|p| to_dir_best(p, fwd_total)),
-        reverse_pr: reverse_pr.map(|p| to_dir_best(p, rev_total)),
+        forward_pr: forward_pr.and_then(|p| to_dir_best(p, fwd_total)),
+        reverse_pr: reverse_pr.and_then(|p| to_dir_best(p, rev_total)),
         section_distance,
     };
     Some(result)
@@ -3222,9 +3213,50 @@ mod tests {
         );
         assert_eq!(
             year.months.iter().map(|m| m.month).collect::<Vec<_>>(),
-            vec![3, 4],
-            "the estimate-only June has no entry"
+            vec![3, 4, 6],
+            "the estimate-only June is counted"
         );
+    }
+
+    /// Scenario: timed traversals in March and April and an estimated one in
+    /// June, all in one direction.
+    ///
+    /// Expected behaviour: every charted traversal is counted, so the year
+    /// holds three and June holds one traversal and one activity, while the
+    /// estimate stands for no best: the year's forward best stays the timed
+    /// 100 s and June carries no direction best.
+    #[test]
+    fn an_estimated_lap_is_counted_but_holds_no_best() {
+        let april = MARCH + 31 * 86_400;
+        let june = MARCH + 92 * 86_400;
+        let summary = calendar(vec![
+            record("a", MARCH, vec![lap("a", "same", 100.0, 2_000.0, 1.0)]),
+            record("b", april, vec![lap("b", "same", 102.0, 2_000.0, 1.0)]),
+            record(
+                "c",
+                june,
+                vec![crate::SectionLap {
+                    estimated: true,
+                    ..lap("c", "same", 96.0, 2_000.0, 1.0)
+                }],
+            ),
+        ])
+        .expect("a calendar");
+
+        let year = &summary.years[0];
+        assert_eq!(year.traversal_count, 3);
+        assert_eq!(year.activity_count, 3);
+        assert_eq!(year.forward.as_ref().map(|f| f.count), Some(3));
+        assert_eq!(year.forward.as_ref().map(|f| f.best_time), Some(100.0));
+        let june_month = year.months.iter().find(|m| m.month == 6).expect("June");
+        assert_eq!(june_month.traversal_count, 1);
+        assert_eq!(june_month.activity_count, 1);
+        assert!(june_month.forward.is_none());
+        assert_eq!(
+            summary.forward_pr.as_ref().map(|f| f.best_time),
+            Some(100.0)
+        );
+        assert_eq!(summary.forward_pr.as_ref().map(|f| f.count), Some(3));
     }
 
     /// Scenario: a reverse direction holds only an estimated lap, beside a

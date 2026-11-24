@@ -299,6 +299,11 @@ export function stampOwnerlessRecordings(host: DelegateHost, athleteId: string):
   host.write('stampOwnerlessRecordings', () => host.engine.recordings().stampOwnerless(athleteId));
 }
 
+/** Move the rides of an adopted library's old identity to the identity that adopted it. */
+export function adoptRecordingsIdentity(host: DelegateHost, from: string, to: string): void {
+  host.write('adoptRecordingsIdentity', () => host.engine.recordings().adoptIdentity(from, to));
+}
+
 /** Requeue the permission-blocked rides of the athlete whose scope grew, and nobody else's. */
 export function clearRecordingPermissionBlocked(host: DelegateHost, athleteId: string): void {
   host.write('clearRecordingPermissionBlocked', () =>

@@ -139,7 +139,7 @@ pub const CATALOGUE_CONFIG_DIGEST_KEY: &str = "catalogue_config_digest";
 /// evidence cache and records an algorithm change for the stored catalogue.
 /// Revision 0 hashes the config alone, which keeps every digest written before
 /// this constant existed valid.
-pub const DETECTOR_REVISION: u32 = 2;
+pub const DETECTOR_REVISION: u32 = 3;
 
 /// Stable fingerprint of a detection config under the live detector revision,
 /// as 16 lowercase hex digits.

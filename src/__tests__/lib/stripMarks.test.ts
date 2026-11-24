@@ -14,11 +14,13 @@ import {
   stripKey,
   markFills,
   portionGap,
+  noLoadMarkColour,
   MARK_HEIGHT,
 } from '@/features/fitness/lib/stripMarks';
 import type { StripDay } from '@/features/fitness/lib/stripMarks';
 import type { ActivityType } from '@/types';
 import { BAR_GAP } from '@/shared/charts/chartMarks';
+import { colourTokens } from '@/theme';
 
 const WIDTH = 324;
 
@@ -422,5 +424,33 @@ describe('stripKey', () => {
 
   vaultIt('is empty for a window of rest days', () => {
     expect(stripKey(days(4, () => []))).toEqual({ groups: [], noLoad: false });
+  });
+});
+
+function channel(hex: string): number[] {
+  return [1, 3, 5].map((i) => {
+    const s = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  });
+}
+
+function ratio(a: string, b: string): number {
+  const lum = (h: string) => {
+    const [r, g, bl] = channel(h);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+describe('noLoadMarkColour', () => {
+  it.each([
+    ['light', false],
+    ['dark', true],
+  ])('holds 3:1 on every %s surface', (_name, isDark) => {
+    const tokens = colourTokens[isDark ? 'dark' : 'light'];
+    for (const surface of ['surface', 'surface-page', 'surface-raised'] as const) {
+      expect(ratio(noLoadMarkColour(isDark), tokens[surface])).toBeGreaterThanOrEqual(3);
+    }
   });
 });

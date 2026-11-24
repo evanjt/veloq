@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { useMapSheetHost } from '@/shared/app/MapSheetHost';
-import { hostTerrain3D, setHostTerrain3D, useHostTerrain3D } from '@/shared/app/mapSheetHost';
+import {
+  hostTerrain3D,
+  setHostTerrain3D,
+  takeHostTerrain3DFailure,
+  useHostTerrain3D,
+} from '@/shared/app/mapSheetHost';
 
 type Terrain3DUpdate = boolean | ((current: boolean) => boolean);
 
@@ -10,12 +15,16 @@ type Terrain3DUpdate = boolean | ((current: boolean) => boolean);
  * the host's, one for every card, so a card pushed or popped opens in the mode its neighbour was
  * left in. The first map in a host publishes its own opening mode. Outside a host the mode is the
  * view's own state. `inherited` is true when the host already held a mode at mount, which is a
- * choice made on another card and not this view's to override.
+ * choice made on another card and not this view's to override. `leaveForFailure` turns 3D off
+ * because the terrain is missing, and marks the change in the host so the map that reports mode
+ * changes can tell it from a choice: `takeFailure` reads and clears that mark.
  */
 export function useSharedTerrain3D(initial: boolean): {
   is3D: boolean;
   setIs3D: (update: Terrain3DUpdate) => void;
   inherited: boolean;
+  leaveForFailure: () => void;
+  takeFailure: () => boolean;
 } {
   const key = useMapSheetHost()?.key;
   const [local, setLocal] = useState(initial);
@@ -41,5 +50,13 @@ export function useSharedTerrain3D(initial: boolean): {
     },
     [key]
   );
-  return { is3D, setIs3D, inherited };
+  const leaveForFailure = useCallback(() => {
+    currentRef.current = false;
+    setLocal(false);
+    if (key) setHostTerrain3D(key, false, true);
+  }, [key]);
+
+  const takeFailure = useCallback(() => (key ? takeHostTerrain3DFailure(key) : false), [key]);
+
+  return { is3D, setIs3D, inherited, leaveForFailure, takeFailure };
 }

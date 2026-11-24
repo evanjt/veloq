@@ -1,7 +1,7 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { getEngine } from '@/shared/native/engine';
-import { useEngineBody } from '@/shared/native/engineBodies';
+import { bodyNamed, useEngineBody } from '@/shared/native/engineBodies';
 import { useRangeCoverage } from '@/shared/native/useRangeCoverage';
 import { paceCurveOf } from '@/features/stats/lib/curveRecords';
 import { queryKeys } from '@/shared/query/queryKeys';
@@ -51,7 +51,8 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
     query.data !== null,
     () => getEngine()?.syncPaceCurve(sport, days, gap),
     queryKey,
-    enabled && query.data !== undefined
+    enabled && query.data !== undefined,
+    bodyNamed(['pace_curve'])
   );
   // An empty activity census proves there is nothing to chart. Downloaded
   // activities alone cannot prove the separate curve request has returned.

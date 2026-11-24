@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { RoutePerformanceSection, DataRangeFooter } from '@/features/routes';
 import { ComponentErrorBoundary, EmptyState, useBottomClearance } from '@/shared/ui';
+import type { RouteGroup as EngineRouteGroup } from 'veloqrs';
 import type { ActivityType } from '@/types';
 import { spacing } from '@/theme';
 import { usePagerPageScrollProps } from '@/shared/ui/pagerPageScroll';
@@ -17,6 +18,7 @@ interface ActivityRoutesSectionProps {
   routeGapSeconds: number | null;
   cacheDays: number;
   isDark: boolean;
+  routeGroups: readonly EngineRouteGroup[];
 }
 
 export const ActivityRoutesSection = React.memo(function ActivityRoutesSection({
@@ -27,6 +29,7 @@ export const ActivityRoutesSection = React.memo(function ActivityRoutesSection({
   routeGapSeconds,
   cacheDays,
   isDark,
+  routeGroups,
 }: ActivityRoutesSectionProps) {
   const { t } = useTranslation();
   const pageScroll = usePagerPageScrollProps();
@@ -50,6 +53,7 @@ export const ActivityRoutesSection = React.memo(function ActivityRoutesSection({
             activityType={activityType}
             improvementSeconds={routeImprovementSeconds}
             gapToBestSeconds={routeGapSeconds}
+            routeGroups={routeGroups}
           />
         </ComponentErrorBoundary>
       ) : (

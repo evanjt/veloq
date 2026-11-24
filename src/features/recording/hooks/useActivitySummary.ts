@@ -182,7 +182,7 @@ export function useActivitySummary({
 
   // Compute trim delta when trimming is active
   const trimDelta = useMemo<TrimDelta | null>(() => {
-    if (!canTrim || (trimStart === 0 && trimEnd === streams.latlng.length - 1)) return null;
+    if (!canTrim || (trimStart === 0 && trimEnd === streams.time.length - 1)) return null;
 
     const fullDist =
       (streams.distance[streams.distance.length - 1] ?? 0) - (streams.distance[0] ?? 0);

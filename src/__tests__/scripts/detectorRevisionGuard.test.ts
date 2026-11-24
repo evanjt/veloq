@@ -26,10 +26,14 @@ const REVISION_FILE = 'modules/veloqrs/rust/veloqrs/src/persistence/sections/mod
 
 const roots: string[] = [];
 
-function runGuard(root: string): { status: number; output: string } {
+function runGuard(
+  root: string,
+  args: string[] = [],
+  env: Record<string, string> = {}
+): { status: number; output: string } {
   try {
-    const output = execFileSync('node', [SCRIPT, '--root', root], {
-      env: gitFreeEnv(),
+    const output = execFileSync('node', [SCRIPT, '--root', root, ...args], {
+      env: { ...gitFreeEnv(), ...env },
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -134,4 +138,50 @@ vaultIt('passes, naming what it could not compare, when the new commit is not in
   const { status, output } = runGuard(root);
   expect(status).toBe(0);
   expect(output).toContain('not compared');
+});
+
+/** The merge already committed: the pointer and the revision in `HEAD` are the merged ones. */
+function committedMerge(
+  sub: { path: string; older: string; newer: string },
+  revision: number
+): { root: string; base: string } {
+  const root = superproject(sub, { stagedPointer: sub.older, stagedRevision: 0 });
+  const base = runGit(['rev-parse', 'HEAD'], root).trim();
+  writeFileSync(join(root, REVISION_FILE), revisionSource(revision));
+  runGit(['add', REVISION_FILE], root);
+  runGit(['update-index', '--cacheinfo', `160000,${sub.newer},${SUB}`], root);
+  commit(root, 'merge the pointer');
+  return { root, base };
+}
+
+it('fails a committed merge that moved the golden under the base without a new revision', () => {
+  const sub = submoduleRepo('a\n', 'b\n');
+  const { root, base } = committedMerge(sub, 0);
+  expect(runGuard(root).status).toBe(0);
+  const { status, output } = runGuard(root, ['--base', base]);
+  expect(status).toBe(1);
+  expect(output).toContain('DETECTOR_REVISION');
+});
+
+it('reads the base from the landing gate environment', () => {
+  const sub = submoduleRepo('a\n', 'b\n');
+  const { root, base } = committedMerge(sub, 0);
+  expect(runGuard(root, [], { VELOQ_MERGE_BASE: base }).status).toBe(1);
+});
+
+it('passes a committed merge that bumped the revision', () => {
+  const sub = submoduleRepo('a\n', 'b\n');
+  const { root, base } = committedMerge(sub, 1);
+  expect(runGuard(root, ['--base', base]).status).toBe(0);
+});
+
+it('compares the golden in the object database it is given when the clone lacks the commits', () => {
+  const sub = submoduleRepo('a\n', 'b\n');
+  const stranger = submoduleRepo('x\n', 'y\n');
+  const root = superproject(sub, {
+    stagedPointer: sub.newer,
+    stagedRevision: 0,
+    cloneFrom: stranger.path,
+  });
+  expect(runGuard(root, ['--objects', sub.path]).status).toBe(1);
 });

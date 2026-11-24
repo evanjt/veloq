@@ -238,6 +238,9 @@ int8_t uniffi_veloqrs_fn_method_activitymanager_has(
 RustBuffer uniffi_veloqrs_fn_method_activitymanager_provisional_id(
     /*handle*/ uint64_t ptr, RustBuffer recording_id,
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_activitymanager_pulled_ride_entry(
+    /*handle*/ uint64_t ptr, RustBuffer activity_id,
+    RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_activitymanager_remove(
     /*handle*/ uint64_t ptr, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
@@ -583,6 +586,9 @@ void uniffi_veloqrs_fn_free_recordingmanager(
     RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_recordingmanager_add_recording(
     /*handle*/ uint64_t ptr, RustBuffer entry, RustCallStatus *uniffi_out_err);
+uint32_t uniffi_veloqrs_fn_method_recordingmanager_adopt_identity(
+    /*handle*/ uint64_t ptr, RustBuffer from, RustBuffer to,
+    RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_recordingmanager_attach_engine_activity(
     /*handle*/ uint64_t ptr, RustBuffer id, RustBuffer engine_activity_id,
     RustCallStatus *uniffi_out_err);
@@ -694,6 +700,9 @@ RustBuffer uniffi_veloqrs_fn_method_routemanager_get_detail_data(
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_detail_performance(
     /*handle*/ uint64_t ptr, RustBuffer group_id, uint32_t time_range_days,
     RustBuffer sport_filter, RustBuffer highlight_activity_id,
+    RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_routemanager_get_guide_payload(
+    /*handle*/ uint64_t ptr, RustBuffer kind, RustBuffer id,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_nearby_places(
     /*handle*/ uint64_t ptr, double latitude, double longitude,
@@ -1314,6 +1323,7 @@ uniffi_veloqrs_checksum_method_activitymanager_get_missing_time_streams();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_get_preview_track();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_has();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_provisional_id();
+uint16_t uniffi_veloqrs_checksum_method_activitymanager_pulled_ride_entry();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_remove();
 uint16_t
 uniffi_veloqrs_checksum_method_activitymanager_replace_calendar_events();
@@ -1446,6 +1456,7 @@ uint16_t uniffi_veloqrs_checksum_method_sectionpreview_progress();
 uint16_t uniffi_veloqrs_checksum_method_sectionpreview_start();
 uint16_t uniffi_veloqrs_checksum_method_sectionpreview_take();
 uint16_t uniffi_veloqrs_checksum_method_recordingmanager_add_recording();
+uint16_t uniffi_veloqrs_checksum_method_recordingmanager_adopt_identity();
 uint16_t
 uniffi_veloqrs_checksum_method_recordingmanager_attach_engine_activity();
 uint16_t
@@ -1490,6 +1501,7 @@ uint16_t uniffi_veloqrs_checksum_method_routemanager_follow();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_get_all();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_get_detail_data();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_get_detail_performance();
+uint16_t uniffi_veloqrs_checksum_method_routemanager_get_guide_payload();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_get_nearby_places();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_get_performances();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_get_representative_route();
@@ -6335,6 +6347,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_activitymanager_provisional_id(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_activitymanager_pulled_ride_entry"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "activitymanager_pulled_ride_entry"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_activitymanager_pulled_ride_entry(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_activitymanager_remove"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -8116,6 +8140,19 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_recordingmanager_add_recording(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_recordingmanager_adopt_identity"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_recordingmanager_adopt_identity"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_recordingmanager_adopt_identity(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_recordingmanager_attach_engine_"
         "activity"] = jsi::Function::createFromHostFunction(
       rt,
@@ -8655,6 +8692,19 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_routemanager_get_detail_performance(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_routemanager_get_guide_payload"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_routemanager_get_guide_payload"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_routemanager_get_guide_payload(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_routemanager_get_nearby_places"] =
@@ -11878,6 +11928,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_activitymanager_provisional_id(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_activitymanager_pulled_ride_"
+        "entry"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "activitymanager_pulled_ride_entry"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_activitymanager_pulled_ride_entry(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_method_activitymanager_remove"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -13368,6 +13430,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_recordingmanager_add_recording(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_recordingmanager_adopt_identity"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "recordingmanager_adopt_identity"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_recordingmanager_adopt_identity(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_method_recordingmanager_attach_engine_"
         "activity"] = jsi::Function::createFromHostFunction(
       rt,
@@ -13816,6 +13890,18 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_routemanager_get_detail_performance(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_checksum_method_routemanager_get_guide_payload"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "routemanager_get_guide_payload"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_routemanager_get_guide_payload(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_method_routemanager_get_nearby_places"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -16828,6 +16914,22 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_provisional_id(
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_pulled_ride_entry(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_activitymanager_pulled_ride_entry(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_remove(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -19066,6 +19168,23 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_recordingmanager_add_recording(
 
   return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_recordingmanager_adopt_identity(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_recordingmanager_adopt_identity(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_fn_method_recordingmanager_attach_engine_activity(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -19773,6 +19892,23 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_get_detail_performance(
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[4]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_get_guide_payload(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_routemanager_get_guide_payload(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -23426,6 +23562,15 @@ jsi::Value NativeVeloqrs::
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_activitymanager_pulled_ride_entry(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_activitymanager_pulled_ride_entry();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_activitymanager_remove(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -24451,6 +24596,14 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_recordingmanager_adopt_identity(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_recordingmanager_adopt_identity();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_checksum_method_recordingmanager_attach_engine_activity(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -24761,6 +24914,14 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_routemanager_get_detail_performance();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_routemanager_get_guide_payload(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_routemanager_get_guide_payload();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

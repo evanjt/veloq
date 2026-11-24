@@ -30,10 +30,12 @@ mod jni;
 mod c;
 pub(crate) mod garmin;
 mod pulled;
-pub(crate) use pulled::{announce_pulled_ride, is_recent as is_recent_ride};
+pub use pulled::FfiPulledRideEntry;
+pub(crate) use pulled::{announce_pulled_ride, is_recent as is_recent_ride, recorded_entry};
 pub mod runs;
 
 pub use garmin::hold_native_garmin_key;
+pub(crate) use garmin::ready_stored_ride;
 #[cfg(test)]
 use garmin::set_step_limit;
 pub use runs::{FfiPushRun, PushRunOutcome};
@@ -862,6 +864,17 @@ struct StoredDetail {
     indexed: bool,
 }
 
+/// Say a push wrote rows, after the last of them is committed.
+///
+/// A foreground that resumes between a bump and the index commit takes the
+/// token, reloads without the junction rows and never reloads for them again.
+/// So this follows the index, inside the same take of the lock.
+fn note_push_write(engine: &mut crate::persistence::PersistentEngine, activity_id: &str) {
+    if let Err(e) = engine.note_external_write() {
+        log::warn!("[push] {activity_id} was written without a token: {e}");
+    }
+}
+
 /// One take of the lock for the detail and, when the track is already stored
 /// and nothing will replace it, the index. A webhook delivered twice, or one
 /// that arrived before the track was indexed, has the track already, and
@@ -894,14 +907,6 @@ fn store_pushed_detail(
             return Ok::<_, String>(None);
         }
         let detail = record_activity_detail(engine, activity_id, body)?;
-        // Said before the index rather than after, and inside the same take of
-        // the lock: a foreground that resumes between the two sees a token it
-        // has not taken and re-reads, which costs a reload it could have
-        // skipped. The other order loses the rows entirely, since it would
-        // read the tiers before the token moved.
-        if let Err(e) = engine.note_external_write() {
-            log::warn!("[push] {activity_id} was written without a token: {e}");
-        }
         let owed = engine
             .activity_owing_bodies(activity_id, crate::objects::sync::DETAIL_STREAM_TYPES_KEY)
             .map_err(|e| e.to_string())?;
@@ -929,6 +934,7 @@ fn store_pushed_detail(
         .filter(|gap| gap.streams || gap.intervals || gap.track);
         let replaces_track = readies && owed.as_ref().is_some_and(|g| g.streams || g.track);
         if replaces_track || !engine.has_activity(activity_id) {
+            note_push_write(engine, activity_id);
             return Ok(Some((
                 StoredDetail {
                     detail,
@@ -938,7 +944,9 @@ fn store_pushed_detail(
                 None,
             )));
         }
-        let (_, scheduled) = engine.index_new_activity(activity_id)?;
+        let indexed = engine.index_new_activity(activity_id);
+        note_push_write(engine, activity_id);
+        let (_, scheduled) = indexed?;
         Ok(Some((
             StoredDetail {
                 detail,

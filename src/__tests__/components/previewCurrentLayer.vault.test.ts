@@ -7,7 +7,7 @@
  */
 
 import { buildPreviewLayers } from '@/features/routes/components/preview/previewMapLayerSpecs';
-import { mapLayerColors, mapPalette } from '@/theme';
+import { mapPalette } from '@/theme';
 
 // The maps barrel reaches the engine binding, which registers a TurboModule at
 // import time, so the graph this renders cannot load without the stub.
@@ -24,7 +24,7 @@ describe('the current-catalogue layer', () => {
     const casing = byId('current-casing');
 
     expect(casing?.source).toBe('current-sections');
-    expect(casing?.paint?.['line-color']).toBe(mapLayerColors.casing);
+    expect(casing?.paint?.['line-color']).toBe(mapPalette('light').casing);
     expect(layers.findIndex((l) => l.id === 'current-casing')).toBeLessThan(
       layers.findIndex((l) => l.id === 'current-line')
     );

@@ -45,6 +45,12 @@ describe('the wipe inventory', () => {
     );
   });
 
+  it('deletes for good the strength sessions, the Garmin key and the linked browsers', () => {
+    expect(wipeLines('deleted')).toEqual(
+      expect.arrayContaining(['strengthSessions', 'garminKey', 'linkedDevices'])
+    );
+  });
+
   it('brings back only what intervals.icu holds', () => {
     expect(wipeLines('returns')).toEqual(['activities', 'wellness', 'detectedSections']);
   });
@@ -73,6 +79,14 @@ describe('the confirm message', () => {
     expect(deleted).toMatch(/trimmed/);
     expect(deleted).toMatch(/pinned/);
     expect(deleted).toMatch(/[Pp]aired sensors/);
+  });
+
+  it('lists strength sessions and saved workouts, the Garmin key and linked browsers as deleted for good', () => {
+    const deleted = listUnder(message, t('alerts.wipeList.deleted')).join('\n');
+
+    expect(deleted).toMatch(/[Ss]trength sessions and saved workouts/);
+    expect(deleted).toMatch(/Garmin/);
+    expect(deleted).toMatch(/[Ll]inked browsers/);
   });
 
   it('names imported activities under deleted for good, not under what comes back', () => {

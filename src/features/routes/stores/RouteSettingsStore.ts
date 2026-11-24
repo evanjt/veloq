@@ -96,9 +96,17 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
       // The engine owns the switch, and a linked browser writes it there
       // alone, so the engine's value wins over the stored copy.
       const { getEngine } = require('@/shared/native/engine');
-      const held = getEngine()?.getSetting?.(DETECTION_ENABLED_KEY);
+      const engine = getEngine();
+      const held = engine?.getSetting?.(DETECTION_ENABLED_KEY);
       if (held === '0' || held === '1') settings.enabled = held === '1';
+      const changed = settings.enabled !== get().settings.enabled;
       set({ settings, isLoaded: true });
+      // Section counts and highlights read on these channels, and a settings
+      // announcement alone does not reach them.
+      if (changed) {
+        engine?.triggerRefresh?.('sections');
+        engine?.triggerRefresh?.('groups');
+      }
     } catch (error) {
       log.error('Failed to reload settings:', error);
     }

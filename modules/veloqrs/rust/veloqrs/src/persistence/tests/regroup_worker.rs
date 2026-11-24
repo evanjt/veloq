@@ -321,6 +321,51 @@ fn test_detection_started_during_a_pass_leaves_it_the_regroup() {
 }
 
 #[test]
+fn test_only_a_committed_save_settles_the_regroup() {
+    assert!(!GroupSave::Committed.owes_regroup());
+    assert!(GroupSave::Superseded.owes_regroup());
+    assert!(GroupSave::Kept.owes_regroup());
+}
+
+/// A detection run whose group write fails leaves the grouping owed, so a
+/// later pass can write it.
+#[test]
+fn test_detection_with_a_failed_group_write_leaves_the_regroup_owed() {
+    let _serial = serial_global_state();
+    let dir = init_global_engine("regroup.db");
+    let path = dir.path().join("regroup.db");
+    let (_, settled) = grouped_library(&[("t", 44.0)]);
+    with_persistent_engine(|engine| {
+        engine
+            .db
+            .execute_batch(
+                "CREATE TRIGGER refuse_groups BEFORE INSERT ON route_groups
+                 BEGIN SELECT RAISE(ABORT, 'refused'); END;",
+            )
+            .unwrap();
+    })
+    .expect("engine");
+
+    let detection = with_persistent_engine(|engine| {
+        engine.detect_sections_background_applying(ApplyOn::Worker)
+    })
+    .expect("engine");
+    let (state, _) = detection.recv_state_with_cache_within(Some(WAIT));
+    assert!(!matches!(state, WorkerPoll::Running));
+    crate::test_globals::wait_for_detection_workers();
+
+    let (groups, dirty) =
+        with_persistent_engine(|engine| (engine.groups.clone(), engine.groups_are_dirty()))
+            .expect("engine");
+    assert_eq!(catalogue(&groups), catalogue(&settled));
+    assert!(dirty, "nothing was written, so the regroup is still owed");
+    assert_eq!(
+        catalogue(&load_groups_from_db(&Connection::open(&path).unwrap())),
+        catalogue(&settled)
+    );
+}
+
+#[test]
 fn test_failed_save_keeps_the_prior_catalogue_and_the_flag() {
     let _serial = serial_global_state();
     let dir = init_global_engine("regroup.db");

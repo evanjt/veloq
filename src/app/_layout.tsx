@@ -23,6 +23,7 @@ import { handleAppBackground } from '@/shared/app/appBackground';
 import { useAppOrientation } from '@/shared/app/appOrientation';
 import { refreshSampleWidgets } from '@/features/home';
 import { useInteractionPacing } from '@/shared/app/useInteractionPacing';
+import { useFormPreferenceAtLaunch } from '@/shared/app/useFormPreferenceAtLaunch';
 import {
   isHeatmapEnabled,
   registerMapSurfaceReclaimer,
@@ -595,6 +596,8 @@ function pushInteracting(interacting: boolean): void {
 
 function RootStack({ children }: { children: React.ReactNode }) {
   const headerOptions = useStackHeaderOptions();
+  // The form flag lives on the athlete profile, and Home and the widget need it before any screen reads that.
+  useFormPreferenceAtLaunch();
   return (
     <Stack
       screenLayout={rootScreenLayout}

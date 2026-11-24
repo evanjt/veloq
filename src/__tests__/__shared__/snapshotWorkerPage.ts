@@ -30,6 +30,8 @@ export interface FakeMap {
   queryTerrainElevation?: jest.Mock;
   /** Fire a map event the way MapLibre would, to every listener on it. */
   emit: (name: string, event?: Record<string, unknown>) => void;
+  /** The tile states MapLibre holds per source, `style.sourceCaches` shaped. Empty unless a test fills it. */
+  sourceTiles: Record<string, string[]>;
 }
 
 export interface WorkerPage {
@@ -116,6 +118,7 @@ export function bootWorkerPage(
       ? { queryTerrainElevation: options.queryTerrainElevation }
       : {}),
     getSource: jest.fn(() => null),
+    sourceTiles: {} as Record<string, string[]>,
     getLayer: () => null,
     addSource: jest.fn(),
     addLayer: jest.fn(),
@@ -129,6 +132,20 @@ export function bootWorkerPage(
       (listeners[name] ?? []).forEach((handler) => handler(event));
     },
   };
+  // What MapLibre keeps per source: every tile in view, errored ones included.
+  Object.defineProperty(map, 'style', {
+    get: () => ({
+      sourceCaches: Object.fromEntries(
+        Object.entries(map.sourceTiles).map(([id, states]) => [
+          id,
+          {
+            getIds: () => states.map((_, i) => String(i)),
+            getTileByID: (key: string) => ({ state: states[Number(key)] }),
+          },
+        ])
+      ),
+    }),
+  });
   const posted: Record<string, unknown>[] = [];
   let mapOptions: Record<string, unknown> = {};
   let built = 0;

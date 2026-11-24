@@ -281,6 +281,8 @@ impl PersistentEngine {
                     ],
                 )
                 .map_err(|e| e.to_string())?;
+            self.write_line_profile(section_id, &polyline)
+                .map_err(|e| e.to_string())?;
         } else {
             self.db
                 .execute(

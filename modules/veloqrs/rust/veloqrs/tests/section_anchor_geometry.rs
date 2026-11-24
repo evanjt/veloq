@@ -340,3 +340,30 @@ fn trim_of_a_line_with_no_triple_leaves_no_triple() {
     );
     assert_eq!(stored_reference(&db, &id).3, "consensus");
 }
+
+#[test]
+fn revert_to_a_version_writes_the_anchor_of_that_version() {
+    let (tmp, id, mut engine, _, _) = cut_section("revert_anchor");
+    engine
+        .set_section_reference(&id, OTHER_ACTIVITY_ID)
+        .expect("set reference");
+    let db = Connection::open(tmp.path().join("revert_anchor.db")).expect("raw open");
+    assert_eq!(stored_anchor(&db, &id).0, OTHER_ACTIVITY_ID);
+
+    let first = engine
+        .section_geometry_versions(&id)
+        .iter()
+        .map(|v| v.version)
+        .min()
+        .expect("a version");
+    engine
+        .revert_section_to_version(&id, first)
+        .expect("revert to the first version");
+
+    assert_eq!(stored_anchor(&db, &id), (ACTIVITY_ID.to_string(), 100, 200));
+    assert!(
+        engine.sections_anchored_to(OTHER_ACTIVITY_ID).is_empty(),
+        "the reverted line still hangs on the ride it left"
+    );
+    assert_eq!(engine.sections_anchored_to(ACTIVITY_ID), vec![id]);
+}

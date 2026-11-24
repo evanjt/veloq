@@ -21,8 +21,9 @@ jest.mock('@/shared/storage', () => ({
 }));
 
 let mockEngineSwitch: string | undefined;
+const mockTriggerRefresh = jest.fn();
 jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => ({ getSetting: () => mockEngineSwitch }),
+  getEngine: () => ({ getSetting: () => mockEngineSwitch, triggerRefresh: mockTriggerRefresh }),
 }));
 
 const listeners: Record<string, (() => void)[]> = {};
@@ -49,6 +50,7 @@ beforeEach(() => {
   mockedGet.mockReset();
   mockedGet.mockResolvedValue(null);
   mockEngineSwitch = undefined;
+  mockTriggerRefresh.mockClear();
   useRouteSettings.setState({ settings: { enabled: true }, isLoaded: true });
 });
 
@@ -103,4 +105,27 @@ it('follows the engine switch when a browser turned detection on', async () => {
   });
 
   expect(useRouteSettings.getState().settings.enabled).toBe(true);
+});
+
+it('refreshes sections and groups when a browser flipped the switch', async () => {
+  await render(<Probe />);
+  mockEngineSwitch = '0';
+
+  await act(async () => {
+    listeners.settings.forEach((cb) => cb());
+  });
+
+  const channels = mockTriggerRefresh.mock.calls.map((c) => c[0]);
+  expect(channels).toEqual(expect.arrayContaining(['sections', 'groups']));
+});
+
+it('does not refresh when a settings announcement leaves the switch as it was', async () => {
+  await render(<Probe />);
+  mockEngineSwitch = '1';
+
+  await act(async () => {
+    listeners.settings.forEach((cb) => cb());
+  });
+
+  expect(mockTriggerRefresh).not.toHaveBeenCalled();
 });

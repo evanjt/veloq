@@ -385,7 +385,7 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
     }
 
     // The athlete's own gesture, as opposed to a camera move the page made.
-    var _athleteMoved = false;
+    var _athleteMoved = window._veloqPinnedCamera === true;
 
     // Every vertex of the lines in a geojson source's data, or null when the
     // data is a URL the page has not read.
@@ -420,11 +420,31 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
         });
         var c0 = map.getCenter();
         var opening = { center: [c0.lng, c0.lat], zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
-        var picked = window._pickUnhiddenCamera(map, opening, coordinates, [east - west, north - south]);
+        // A turn of 90 or 270 degrees swaps the frame's axes, so each candidate is fitted to the
+        // inset frame before it is scored and the turned view is fitted again once it has landed.
+        var inset = window._veloqInset;
+        function fitCandidate(candidate) {
+          var keep = { center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
+          map.jumpTo({ center: candidate.center, zoom: candidate.zoom, bearing: candidate.bearing, pitch: candidate.pitch });
+          window._veloqFitInset(coordinates, inset, 0);
+          var fitted = { center: [map.getCenter().lng, map.getCenter().lat], zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
+          map.jumpTo(keep);
+          return fitted;
+        }
+        var picked = window._pickUnhiddenCamera(
+          map, opening, coordinates, [east - west, north - south],
+          window._veloqFitInset ? fitCandidate : undefined
+        );
         if (picked === opening) return;
         window._rn_log('Terrain hides the subject, turning to bearing ' + picked.bearing + ' pitch ' + picked.pitch);
-        if (window._veloqReduceMotion) map.jumpTo(picked);
-        else map.easeTo({ center: picked.center, zoom: picked.zoom, bearing: picked.bearing, pitch: picked.pitch, duration: ${motionDurationExpression(cameraMove.move)} });
+        var refit = function() {
+          if (window._veloq.terrain === spec && window._veloqFitInset) window._veloqFitInset(coordinates, inset, 0);
+        };
+        if (window._veloqReduceMotion) { map.jumpTo(picked); refit(); }
+        else {
+          map.once('moveend', refit);
+          map.easeTo({ center: picked.center, zoom: picked.zoom, bearing: picked.bearing, pitch: picked.pitch, duration: ${motionDurationExpression(cameraMove.move)} });
+        }
       } catch (e) {
         window._rn_log('subject camera check failed: ' + e.message);
       }
@@ -440,6 +460,7 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
           _addTerrain(spec);
           window._veloqTerrainReport.reportOnceSettled(map);
         } else {
+          window._veloqTerrainReport.cancel();
           _removeTerrain();
         }
         _setTerrainGestures(!!spec);

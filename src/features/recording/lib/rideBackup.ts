@@ -28,6 +28,7 @@ export async function writeRideBackup(at: number = Date.now()): Promise<boolean>
   const backup = buildRecordingBackup({
     ...useRecordingStore.getState(),
     autoPaused: useRecordingLiveStore.getState().autoPaused,
+    routeChoice: useRecordingLiveStore.getState().routeChoice,
   });
   if (!backup) return false;
   const saved = await persistRideBackup(backup);
@@ -54,7 +55,10 @@ export async function writeRideBackupIfDue(at: number): Promise<boolean> {
 export async function writeReviewedRideBackup(): Promise<boolean> {
   const state = useRecordingStore.getState();
   if (state.status !== 'stopped' || state.savedToLibrary) return false;
-  const backup = buildRecordingBackup(state);
+  const backup = buildRecordingBackup({
+    ...state,
+    routeChoice: useRecordingLiveStore.getState().routeChoice,
+  });
   if (!backup) return false;
   return persistRideBackup(backup);
 }

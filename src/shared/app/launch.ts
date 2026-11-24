@@ -183,6 +183,40 @@ const STORE_INITIALISERS: readonly [StartupArea, () => Promise<unknown>][] = [
 ];
 
 /**
+ * The synchronous steps that run after the engine opens and before any store
+ * is restored, each under the area the launch banner names when it throws. A
+ * throw is recorded and the launch carries on, so the stores are still
+ * restored, and a retry runs the step again.
+ */
+const PRE_STORE_STEPS: readonly [StartupArea, () => void][] = [
+  ['other', excludeDatabaseFromDeviceBackup],
+  ['maps', openBasemapStore],
+  ['maps', openTerrainPreviews],
+  ['other', cleanUpRetiredBackupSettings],
+];
+
+/** Run the pre-store steps in the given areas, and return the areas where one threw. */
+function runPreStoreSteps(only: readonly StartupArea[] | null): StartupArea[] {
+  const areas: StartupArea[] = [];
+  for (const [area, step] of PRE_STORE_STEPS) {
+    if (only !== null && !only.includes(area)) continue;
+    try {
+      step();
+    } catch (reason) {
+      console.warn(`[AppInit] ${area} pre-store step failed:`, errorMessage(reason));
+      if (!areas.includes(area)) areas.push(area);
+    }
+  }
+  return areas;
+}
+
+/** The areas of both lists, each once. */
+function mergeAreas(...lists: (readonly StartupArea[] | null)[]): StartupArea[] | null {
+  const merged = [...new Set(lists.flatMap((list) => list ?? []))];
+  return merged.length === 0 ? null : merged;
+}
+
+/**
  * Run the store initialisers in the given areas, all at once, and resolve to
  * the areas whose initialiser rejected, each once and in launch order, or null
  * when all of them settled. The engine's message is logged and never returned:
@@ -232,28 +266,28 @@ export async function initialiseApp(): Promise<StartupArea[] | null> {
   await migrateSettingsToSqlite().catch((reason) => {
     console.warn('[launch] settings migration failed:', errorMessage(reason));
   });
-  excludeDatabaseFromDeviceBackup();
-  openBasemapStore();
-  openTerrainPreviews();
+  const preStoreFailed = runPreStoreSteps(null);
   // Whether or not anyone is signed in: the backups outlive a sign-out.
   excludeLocalBackupsFromDeviceBackup();
   void moveOlderBackupsToSharedFolder().catch((reason) => {
     console.warn('[launch] older backups not moved to the shared folder:', errorMessage(reason));
   });
-  cleanUpRetiredBackupSettings();
   void sweepIdleBackupFiles().catch((reason) => {
     console.warn('[launch] backup cache sweep failed:', errorMessage(reason));
   });
   markLaunch('stores');
   const failed = await runStoreInitialisers(null);
   resumePausedImport();
-  return failed;
+  return mergeAreas(preStoreFailed, failed);
 }
 
 /**
- * Run again every store initialiser in the areas the launch banner named, and
+ * Run again every pre-store step and store initialiser in the areas the launch banner named, and
  * resolve to the areas that still fail, or null when all of them settled.
  */
-export function retryStartupAreas(areas: readonly StartupArea[]): Promise<StartupArea[] | null> {
-  return runStoreInitialisers(areas);
+export async function retryStartupAreas(
+  areas: readonly StartupArea[]
+): Promise<StartupArea[] | null> {
+  const preStoreFailed = runPreStoreSteps(areas);
+  return mergeAreas(preStoreFailed, await runStoreInitialisers(areas));
 }

@@ -7,6 +7,7 @@
 // The filters, the selection, the panel, the range and the viewport live in the
 // hash, and a row and its mark on the map light each other.
 
+import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ParseKeys } from 'i18next';
@@ -282,7 +283,7 @@ export function windowFor(state: MapState, now: Date): { startDate: number; endD
   const { oldestTs, newestTs } = rangeBounds(state.range, now);
   return {
     startDate: oldestTs ?? 0,
-    endDate: newestTs ?? Math.floor(now.getTime() / 1000) + DAY_SECONDS,
+    endDate: newestTs ?? localWallClockToEpochSeconds(now) + DAY_SECONDS,
   };
 }
 
@@ -448,9 +449,7 @@ export function MapScreen({
     selection?.kind === 'point'
       ? underPointAsk(
           selection.at,
-          clickZoom?.selected === state.selected
-            ? clickZoom.zoom
-            : (state.view?.zoom ?? WORLD_ZOOM)
+          clickZoom?.selected === state.selected ? clickZoom.zoom : (state.view?.zoom ?? WORLD_ZOOM)
         )
       : null;
   const underPoint = useMapRead<UnderPointAnswer>(
@@ -867,12 +866,7 @@ export function MapScreen({
       ) : null}
       {!state.panel ? (
         <div className="map-float map-chip">
-          <Button
-            id="map-chip"
-            size="sm"
-            variant="ghost"
-            onClick={() => change({ panel: true })}
-          >
+          <Button id="map-chip" size="sm" variant="ghost" onClick={() => change({ panel: true })}>
             {t('maps.layerActivities')}
             <Badge>{String(held.activities.length)}</Badge>
           </Button>
@@ -1305,7 +1299,9 @@ function UnderPointList({
           rows={groups}
           rowKey={(g) => `${g.kind}:${g.id ?? ''}`}
           onRowClick={(g) =>
-            g.id === null ? undefined : navigate({ screen: g.kind as 'route' | 'section', id: g.id, query: [] })
+            g.id === null
+              ? undefined
+              : navigate({ screen: g.kind as 'route' | 'section', id: g.id, query: [] })
           }
         />
       ) : null}

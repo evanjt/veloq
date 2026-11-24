@@ -80,6 +80,24 @@ fn mark_gate() -> MutexGuard<'static, ()> {
     MARK_GATE.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// The ground sweeps changed since the running pass claimed its slot, held in
+/// memory because only that pass reads it. A pass plans its tiles from the
+/// catalogue as it stood, so a tile it draws over this ground carries ink the
+/// sweep has since taken away or lacks ink it has since added, and the redraw
+/// skips a tile that exists. Written under [`MARK_GATE`].
+static SWEPT_DURING_PASS: Mutex<SweptGround> = Mutex::new(SweptGround::empty());
+
+fn swept_during_pass() -> MutexGuard<'static, SweptGround> {
+    SWEPT_DURING_PASS.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Forget the ground swept before a pass takes its catalogue. Anything swept
+/// earlier changed the catalogue first, so the snapshot already holds it.
+fn begin_sweep_log() {
+    let _gate = mark_gate();
+    *swept_during_pass() = SweptGround::empty();
+}
+
 /// Where a held pass waits.
 #[cfg(any(test, feature = "synthetic"))]
 #[derive(Clone, Copy, PartialEq)]
@@ -659,8 +677,8 @@ fn draw_tile_on_request(source: &HeatmapSource, z: u8, x: u32, y: u32) -> Option
         LoadedTracksById::new()
     } else {
         with_track_reader(&source.db_path, |conn| {
-            bulk_load_tracks(conn, &reaching).tracks
-        })?
+            bulk_load_tracks(conn, &reaching).map(|loaded| loaded.tracks)
+        })??
     };
     // The pass gives a tile the tracks whose walk at its zoom holds it, and
     // the same set here keeps the two draws of one tile the same picture.
@@ -1007,6 +1025,8 @@ impl PersistentEngine {
             info!("[heatmap] A tile pass is already running - not starting another");
             return None;
         };
+
+        begin_sweep_log();
 
         // Extract all activity (id, bounds) pairs from in-memory metadata.
         // The background thread uses IDs to bulk-load GPS tracks and bounds
@@ -1539,6 +1559,12 @@ fn write_marker_unlocked(base: &Path) -> Result<(), String> {
 pub(crate) fn mark_tiles_swept(tiles_path: &str, spans: &[tiles::TileSpan]) {
     let base = Path::new(tiles_path);
     let _gate = mark_gate();
+    {
+        let mut during = swept_during_pass();
+        for s in spans {
+            during.push(*s);
+        }
+    }
     let record = base.join(SWEPT_RECORD);
     let owed_in_full = base.join(DIRTY_MARKER).exists() && !record.exists();
     if !owed_in_full && !spans.is_empty() {
@@ -1569,12 +1595,34 @@ pub(crate) fn mark_tiles_swept(tiles_path: &str, spans: &[tiles::TileSpan]) {
 
 /// The ground sweeps changed since the last complete pass.
 #[derive(Debug, Default)]
-struct SweptGround {
+pub(crate) struct SweptGround {
     tiles: BTreeMap<u8, BTreeSet<(u32, u32)>>,
     boxes: Vec<tiles::TileSpan>,
 }
 
 impl SweptGround {
+    const fn empty() -> Self {
+        Self {
+            tiles: BTreeMap::new(),
+            boxes: Vec::new(),
+        }
+    }
+
+    fn push(&mut self, span: tiles::TileSpan) {
+        if span.x0 == span.x1 && span.y0 == span.y1 {
+            self.tiles
+                .entry(span.z)
+                .or_default()
+                .insert((span.x0, span.y0));
+        } else {
+            self.boxes.push(span);
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.tiles.is_empty() && self.boxes.is_empty()
+    }
+
     fn read(base: &Path) -> Option<Self> {
         let body = std::fs::read_to_string(base.join(SWEPT_RECORD)).ok()?;
         let mut ground = Self::default();
@@ -1591,16 +1639,12 @@ impl SweptGround {
                 y0,
                 y1,
             };
-            if x0 == x1 && y0 == y1 {
-                ground.tiles.entry(span.z).or_default().insert((x0, y0));
-            } else {
-                ground.boxes.push(span);
-            }
+            ground.push(span);
         }
         Some(ground)
     }
 
-    fn holds(&self, z: u8, x: u32, y: u32) -> bool {
+    pub(crate) fn holds(&self, z: u8, x: u32, y: u32) -> bool {
         self.tiles.get(&z).is_some_and(|t| t.contains(&(x, y)))
             || self
                 .boxes
@@ -1627,7 +1671,7 @@ impl SweptGround {
 
 /// The standing mark and the swept record, read together so a sweep cannot land
 /// between them.
-fn read_dirty_state(base: &Path) -> (Option<String>, Option<SweptGround>) {
+pub(crate) fn read_dirty_state(base: &Path) -> (Option<String>, Option<SweptGround>) {
     let _gate = mark_gate();
     let token = read_dirty_token(base);
     let swept = token.as_ref().and_then(|_| SweptGround::read(base));
@@ -1665,6 +1709,30 @@ fn clear_dirty_marker(tiles_path: &str, started_on: Option<String>) -> bool {
     }
     remove_swept_record(base);
     false
+}
+
+/// Delete the tiles this pass drew over ground a sweep changed after the pass
+/// planned. The sweep's own delete may have run before the pass wrote the tile,
+/// and the sweep's mark has moved the dirty marker, so the pass that follows
+/// draws the missing tiles from the catalogue as it now stands.
+fn drop_tiles_swept_since_planning(base: &Path, pending: &[(TileKey, Tracks)]) {
+    let _gate = mark_gate();
+    let swept = swept_during_pass();
+    if swept.is_empty() {
+        return;
+    }
+    let mut dropped = 0u32;
+    for ((z, x, y), _) in pending {
+        if swept.holds(*z, *x, *y) && tiles::remove_tile(base, *z, *x, *y) {
+            dropped += 1;
+        }
+    }
+    if dropped > 0 {
+        info!(
+            "[heatmap] Dropped {} tiles drawn over ground swept during the pass",
+            dropped
+        );
+    }
 }
 
 type LoadedTracksById = HashMap<String, Arc<tiles::ProjectedTrack>>;
@@ -1777,10 +1845,18 @@ fn background_generate_tiles(
     // --- Phase 1: bulk-load all GPS tracks into an Arc cache ----------------
     let previously_corrupt = read_corrupt_record(base);
     let load_started = std::time::Instant::now();
-    let LoadedTracks {
+    let Some(LoadedTracks {
         tracks: tracks_by_id,
         corrupt,
-    } = bulk_load_tracks(&conn, activities);
+    }) = bulk_load_tracks(&conn, activities)
+    else {
+        // Refused while the engine is suspended: nothing is written, so the
+        // set stays dirty for the next pass.
+        return TileGeneration {
+            cancelled: true,
+            ..TileGeneration::default()
+        };
+    };
     let load_ms = load_started.elapsed().as_millis();
 
     // Only a repaired track needs its ground redrawn. A track still unreadable
@@ -1974,6 +2050,8 @@ fn background_generate_tiles(
 
     let generated = generated.load(Ordering::SeqCst);
 
+    drop_tiles_swept_since_planning(base, &pending);
+
     // A cancelled pass records nothing and leaves the previous record standing,
     // for the reason the comment below gives: the record claims the tiles it
     // guards are drawn, and a stopped pass did not draw them.
@@ -2018,7 +2096,7 @@ fn background_generate_tiles(
 /// the decoded points held at once are one chunk's rather than the library's. An unreadable track is omitted rather than
 /// mapped to an empty one: the map must not claim to hold a track it could
 /// not read.
-fn bulk_load_tracks(conn: &Connection, activities: &[(String, Bounds)]) -> LoadedTracks {
+fn bulk_load_tracks(conn: &Connection, activities: &[(String, Bounds)]) -> Option<LoadedTracks> {
     // SQLite's default parameter limit is 999; chunk well under that so the
     // query never fails for large corpora.
     const CHUNK: usize = 500;
@@ -2029,51 +2107,59 @@ fn load_tracks_in_chunks(
     conn: &Connection,
     activities: &[(String, Bounds)],
     chunk_len: usize,
-) -> LoadedTracks {
+) -> Option<LoadedTracks> {
     let mut tracks = LoadedTracksById::with_capacity(activities.len());
     let mut corrupt: Vec<(String, String)> = Vec::new();
 
     for chunk in activities.chunks(chunk_len) {
-        let placeholders: String = std::iter::repeat_n("?", chunk.len())
-            .collect::<Vec<_>>()
-            .join(",");
-        let sql = format!(
-            "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({})",
-            placeholders
-        );
+        // One hold per chunk: the statement's read mark ends with the chunk,
+        // so a suspension waits for one chunk and the next waits for the
+        // resume. A refusal ends the load and with it the pass.
+        let read = super::suspension::begin_read()?;
+        let decoded = {
+            let placeholders: String = std::iter::repeat_n("?", chunk.len())
+                .collect::<Vec<_>>()
+                .join(",");
+            let sql = format!(
+                "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({})",
+                placeholders
+            );
 
-        let mut stmt = match conn.prepare(&sql) {
-            Ok(s) => s,
-            Err(e) => {
-                log::error!("[heatmap] bulk-load prepare failed: {}", e);
-                continue;
+            let mut stmt = match conn.prepare(&sql) {
+                Ok(s) => s,
+                Err(e) => {
+                    log::error!("[heatmap] bulk-load prepare failed: {}", e);
+                    continue;
+                }
+            };
+
+            let ids: Vec<&str> = chunk.iter().map(|(id, _)| id.as_str()).collect();
+            let rows = stmt.query_map(rusqlite::params_from_iter(ids.iter()), |row| {
+                let id: String = row.get(0)?;
+                let blob: Vec<u8> = row.get(1)?;
+                Ok((id, blob))
+            });
+
+            let rows = match rows {
+                Ok(r) => r,
+                Err(e) => {
+                    log::error!("[heatmap] bulk-load query failed: {}", e);
+                    continue;
+                }
+            };
+
+            let mut decoded: Vec<(String, Vec<GpsPoint>)> = Vec::with_capacity(chunk.len());
+            for row in rows {
+                let Ok((id, blob)) = row else { continue };
+                match TrackRead::from_blob(&blob) {
+                    TrackRead::Present(track) => decoded.push((id, track)),
+                    TrackRead::Missing => {}
+                    TrackRead::Corrupt(reason) => corrupt.push((id, reason)),
+                }
             }
+            decoded
         };
-
-        let ids: Vec<&str> = chunk.iter().map(|(id, _)| id.as_str()).collect();
-        let rows = stmt.query_map(rusqlite::params_from_iter(ids.iter()), |row| {
-            let id: String = row.get(0)?;
-            let blob: Vec<u8> = row.get(1)?;
-            Ok((id, blob))
-        });
-
-        let rows = match rows {
-            Ok(r) => r,
-            Err(e) => {
-                log::error!("[heatmap] bulk-load query failed: {}", e);
-                continue;
-            }
-        };
-
-        let mut decoded: Vec<(String, Vec<GpsPoint>)> = Vec::with_capacity(chunk.len());
-        for row in rows {
-            let Ok((id, blob)) = row else { continue };
-            match TrackRead::from_blob(&blob) {
-                TrackRead::Present(track) => decoded.push((id, track)),
-                TrackRead::Missing => {}
-                TrackRead::Corrupt(reason) => corrupt.push((id, reason)),
-            }
-        }
+        drop(read);
 
         #[cfg(test)]
         tiles::work::held_decoded(decoded.iter().map(|(_, track)| track.len()).sum());
@@ -2087,7 +2173,7 @@ fn load_tracks_in_chunks(
         );
     }
 
-    LoadedTracks { tracks, corrupt }
+    Some(LoadedTracks { tracks, corrupt })
 }
 
 #[cfg(test)]
@@ -2130,6 +2216,45 @@ mod tests {
         SweptGround::read(dir.path()).expect("the sweep left a record")
     }
 
+    /// Scenario: the app is suspended before a track load starts, on a thread
+    /// that is not the engine's own.
+    /// Expected behaviour: the load is refused whole, so no read mark is taken
+    /// on the library, and it reads again once the engine resumes.
+    #[test]
+    fn the_track_load_is_refused_while_suspended() {
+        use crate::persistence::suspension::{
+            entered_background, prepare_for_suspension, resume_after_suspension,
+        };
+        let _guard = crate::test_globals::serial_global_state();
+        let _tmp = crate::test_globals::init_global_engine("tiles-suspension.db");
+        let (activities, _) = two_towns();
+        let load = |activities: Vec<(String, Bounds)>| {
+            std::thread::spawn(move || {
+                let conn = Connection::open_in_memory().unwrap();
+                conn.execute(
+                    "CREATE TABLE gps_tracks (activity_id TEXT PRIMARY KEY, track_data BLOB NOT NULL)",
+                    [],
+                )
+                .unwrap();
+                bulk_load_tracks(&conn, &activities).is_some()
+            })
+            .join()
+            .unwrap()
+        };
+
+        entered_background();
+        assert!(prepare_for_suspension(std::time::Duration::from_secs(5)));
+        let while_suspended = load(activities.clone());
+        resume_after_suspension();
+        let after_resume = load(activities);
+
+        assert!(
+            !while_suspended,
+            "a load asked for while suspended is refused"
+        );
+        assert!(after_resume, "the load reads again after the resume");
+    }
+
     /// Scenario: a library is read in three chunks, one row of it unreadable.
     ///
     /// Expected behaviour: the load never holds more decoded points than the
@@ -2169,7 +2294,8 @@ mod tests {
         activities.insert(4, ("broken".into(), activities[3].1));
 
         tiles::work::take_peak_decoded();
-        let loaded = load_tracks_in_chunks(&conn, &activities, 3);
+        let loaded =
+            load_tracks_in_chunks(&conn, &activities, 3).expect("the engine is not suspended");
         let peak = tiles::work::take_peak_decoded();
 
         let largest_chunk = activities

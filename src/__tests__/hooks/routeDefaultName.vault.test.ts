@@ -13,10 +13,6 @@ import { renderHook } from '@testing-library/react-native';
 import { useRouteMatch } from '@/features/routes/hooks/useRouteMatch';
 import type { RouteGroup as NativeRouteGroup } from 'veloqrs';
 
-jest.mock('@/features/routes/hooks/useEngine', () => ({
-  useEngineGroups: () => ({ groups: [] }),
-}));
-
 function group(groupId: string, sportType: string, activityIds: string[], customName?: string) {
   return {
     groupId,

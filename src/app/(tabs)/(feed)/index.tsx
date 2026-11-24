@@ -89,10 +89,15 @@ import { headPreviewIds, setFeedHeadIds } from '@/shared/activity/feedHead';
 import { filterSummary } from '@/shared/format/filterSummary';
 import { debug } from '@/shared/debug/debug';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { useRearmingMount } from '@/shared/async/useRearmingMount';
 
 const log = debug.create('Feed');
 
 /** A card counts as on screen once a tenth of it is. */
+// The preview pool mounts after the first renders settle, and again after a render error.
+const SNAPSHOT_MOUNT_DELAY_MS = 500;
+const SNAPSHOT_MOUNT_RETRIES = 2;
+
 const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 10 } as const;
 
 /**
@@ -146,17 +151,16 @@ function FeedScreenContent() {
   // The feed stays mounted behind every other tab, and so did its two snapshot
   // WebViews. They come down while it is offscreen and the queue waits.
   const isFeedFocused = useIsFocused();
-  const [snapshotWebViewReady, setSnapshotWebViewReady] = useState(false);
+  const { mounted: snapshotWebViewReady, onError: rearmSnapshotWebView } = useRearmingMount(
+    SNAPSHOT_MOUNT_DELAY_MS,
+    SNAPSHOT_MOUNT_RETRIES
+  );
   // No preview render starts while the list moves, so the scroll keeps the cores.
   const [scrollHold] = useState(createScrollHold);
   useEffect(
     () => scrollHold.connect((held) => snapshotRef.current?.holdForScroll(held)),
     [scrollHold]
   );
-  useEffect(() => {
-    const timeout = setTimeout(() => setSnapshotWebViewReady(true), 500);
-    return () => clearTimeout(timeout);
-  }, []);
 
   // FlatList ref for scroll-to-reveal filters
   const listRef = useRef<FlatList>(null);
@@ -766,7 +770,7 @@ function FeedScreenContent() {
         <ComponentErrorBoundary
           part="terrainSnapshots"
           debugName="3D Terrain Snapshots"
-          onError={() => setSnapshotWebViewReady(false)}
+          onError={rearmSnapshotWebView}
         >
           <TerrainSnapshotWebView ref={snapshotRef} suspended={!isFeedFocused} />
         </ComponentErrorBoundary>

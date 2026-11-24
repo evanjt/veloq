@@ -15,7 +15,7 @@ import { ABSENT, absentLabel } from '@/shared/format/absent';
 import { DENSE_TEXT_SCALE, denseExtent } from '@/shared/ui/DenseText';
 import { RowDivider } from '@/shared/ui/RowGroup';
 import type { ExerciseGroup } from 'veloqrs';
-import { Button, Card, InlineLink, Shimmer, SkeletonGroup } from '@/shared/ui';
+import { Button, Card, ErrorState, InlineLink, Shimmer, SkeletonGroup } from '@/shared/ui';
 import { navigateTo } from '@/shared/app/navigation';
 
 /** Set rows the placeholder draws, about one exercise's worth. */
@@ -38,7 +38,10 @@ export function ExerciseTable({
 }: ExerciseTableProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
-  const { session, isLoading, outcome } = useExerciseSets(activityId, activityType);
+  const { session, isLoading, isError, error, refetch, outcome } = useExerciseSets(
+    activityId,
+    activityType
+  );
 
   const groups = session.groups.map((group) => {
     const fromDetail = exerciseGroups?.find(
@@ -88,6 +91,20 @@ export function ExerciseTable({
             ))}
           </SkeletonGroup>
         </Card>
+      </View>
+    );
+  }
+
+  if (isError) {
+    return (
+      <View style={styles.frame}>
+        <ErrorState
+          variant="inline"
+          testID="exercise-table-error"
+          error={error}
+          fallbackKey="engine.failure.database"
+          onRetry={() => void refetch()}
+        />
       </View>
     );
   }

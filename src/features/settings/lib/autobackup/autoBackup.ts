@@ -23,6 +23,7 @@ import * as Network from 'expo-network';
 import Constants from 'expo-constants';
 import { RecordScope, type FfiUnplacedRecord } from 'veloqrs';
 import { getEngine } from '@/shared/native/engine';
+import { engineErrorTag } from '@/shared/native/engineError';
 import { platformRecordUri } from '@/shared/storage/platformRecord';
 import { inBackupSlot } from '@/features/settings/lib/backupSlot';
 import { debug } from '@/shared/debug/debug';
@@ -287,6 +288,17 @@ function clearBackupFailure(carrierId: string): void {
   writeBackupFailures(failures);
 }
 
+/** The id the run's own failure is kept under, beside the carriers' ids. */
+const DEVICE_FAILURE_ID = 'device';
+
+/** A run that could not write the record archive on this phone, whatever the cause. */
+function recordDeviceFailure(): void {
+  writeBackupFailures({
+    ...getBackupFailures(),
+    [DEVICE_FAILURE_ID]: { kind: 'device', status: null, at: Date.now() },
+  });
+}
+
 function recordBackupFailure(carrierId: string, error: unknown): void {
   if (!isBackupTransferError(error) || !error.permanent) return;
   writeBackupFailures({
@@ -431,13 +443,12 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
   const targets = await carriersToRun(force);
   if (!targets || libraryMoved()) return NOTHING_WRITTEN;
 
-  const recordPath = platformRecordUri();
-  if (!recordPath) throw new Error('Device documents directory not available');
-
   const timestamp = new Date().toISOString();
   const carriers: Record<string, CarrierOutcome> = {};
 
   try {
+    const recordPath = platformRecordUri();
+    if (!recordPath) throw new Error('Device documents directory not available');
     await inBackupSlot(() =>
       libraryMoved()
         ? Promise.resolve()
@@ -452,6 +463,7 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
     if (!fileInfo.exists) {
       throw new Error('Record archive was not created');
     }
+    clearBackupFailure(DEVICE_FAILURE_ID);
 
     const entry: Omit<BackupEntry, 'id'> = {
       timestamp,
@@ -542,6 +554,8 @@ async function runBackupOnce(force: boolean): Promise<BackupRunResult> {
     const msg = error instanceof Error ? error.message : String(error);
     log.warn('Auto-backup failed:', msg);
     if (libraryMoved()) return NOTHING_WRITTEN;
+    // A stop the athlete asked for wrote nothing and is not a failure.
+    if (engineErrorTag(error) !== 'Cancelled') recordDeviceFailure();
     // Rethrow the original so the caller keeps the failure kind
     throw error instanceof Error ? error : new Error(msg);
   }
@@ -554,8 +568,10 @@ function plainUriPath(uri: string): string {
 /**
  * Fetch the copy a carrier now holds and compare it with the zip that was sent,
  * so a truncated or dropped write is never stamped as a backup. A copy that
- * differs, or that cannot be fetched or read, throws `unverified`, which passes
- * on its own and leaves the carrier owed. The fetched copy is deleted either way.
+ * differs, or that cannot be read, throws `unverified`, which passes on its own
+ * and leaves the carrier owed. A fetch the carrier refuses keeps its own kind,
+ * so a lapsed sign-in or refused read is shown rather than resent. The fetched
+ * copy is deleted either way.
  */
 async function verifyCarrierCopy(
   carrier: BackupBackend,
@@ -576,7 +592,7 @@ async function verifyCarrierCopy(
       );
     }
   } catch (error) {
-    if (isBackupTransferError(error) && error.kind === 'unverified') throw error;
+    if (isBackupTransferError(error)) throw error;
     const detail = error instanceof Error ? error.message : String(error);
     throw new BackupTransferError(operation, 'unverified', `${operation} failed: ${detail}`);
   } finally {

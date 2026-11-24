@@ -218,10 +218,14 @@ fn context(raw: &Raw) -> FfiWidgetContext {
                 ..WidgetPalette::default()
             }),
         },
-        activity_tints: [("Ride", "#3B82F6"), ("Other", "#64748B")]
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect(),
+        activity_tints: [
+            ("Ride", "#3B82F6"),
+            ("Run", "#F97316"),
+            ("Other", "#64748B"),
+        ]
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect(),
         ..Default::default()
     }
 }
@@ -1310,6 +1314,14 @@ fn with_sport(sport: &str, edit: impl FnOnce(&mut FfiActivityMetrics)) -> Raw {
     latest.sport_type = sport.to_string();
     edit(latest);
     raw
+}
+
+#[test]
+fn the_latest_activity_takes_the_tint_of_its_sport_family() {
+    let run = latest_of(&with_sport("TrailRun", |_| {}));
+    assert_eq!(run.tint_hex, "#F97316");
+    let unlisted = latest_of(&with_sport("Quidditch", |_| {}));
+    assert_eq!(unlisted.tint_hex, "#64748B");
 }
 
 #[test]
