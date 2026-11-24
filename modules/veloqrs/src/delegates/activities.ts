@@ -468,3 +468,22 @@ export function pulledRideEntry(host: DelegateHost, activityId: string): FfiPull
     null
   );
 }
+
+/**
+ * Record that the app presented the entry for a pulled Garmin ride, with the
+ * title and body it showed. Until it does, the engine holds the ride as owed:
+ * a failed presentation is offered again at the next registration and a later
+ * push for the ride still posts.
+ */
+export function confirmPulledRidePosted(
+  host: DelegateHost,
+  activityId: string,
+  title: string,
+  body: string
+): void {
+  if (!host.ready) return;
+  validateId(activityId, 'activity ID');
+  host.timed('confirmPulledRidePosted', () =>
+    host.engine.activities().confirmPulledRidePosted(activityId, title, body)
+  );
+}

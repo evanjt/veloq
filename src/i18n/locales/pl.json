@@ -1422,6 +1422,7 @@
     "intervalsBusy": "intervals.icu jest teraz zajęte. Spróbuj ponownie po {{time}}.",
     "intervalsBusyShortly": "intervals.icu jest teraz zajęte. Spróbuj ponownie za chwilę.",
     "oauthUnreachable": "Nie udało się połączyć z usługą logowania. Sprawdź połączenie i spróbuj ponownie.",
+    "permissionUpgradeWrongAccount": "Dostęp przyznano innemu kontu ({{athleteId}}). Zaloguj się na konto używane na tym urządzeniu i spróbuj ponownie.",
     "oauthInvalidCallback": "Nieprawidłowy adres zwrotny OAuth",
     "oauthNotConfigured": "OAuth nie jest skonfigurowany. Użyj logowania kluczem API.",
     "oauthStateValidationFailed": "Weryfikacja bezpieczeństwa nie powiodła się. Spróbuj zalogować się ponownie.",

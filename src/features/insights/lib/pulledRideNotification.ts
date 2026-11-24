@@ -4,7 +4,8 @@
  * The engine decides the ride is owed an entry (notifications on, no push
  * announced the same Garmin id) and says so on `bodyStored` with the kind
  * `ride_notification`. This posts it, with the text the push path builds, once
- * per ride.
+ * per ride, then confirms it to the engine, which holds the ride as owed until
+ * then.
  */
 
 const RIDE_NOTIFICATION_KIND = 'ride_notification';
@@ -18,6 +19,8 @@ interface PulledRideDeps {
   /** The title and body the engine recorded for the ride, or null when it recorded none. */
   readEntry: (activityId: string) => PulledRideEntry | null | Promise<PulledRideEntry | null>;
   present: (activityId: string, title: string, body: string) => Promise<void>;
+  /** Tell the engine the entry was presented, so the ride stops being owed. */
+  confirm: (activityId: string, title: string, body: string) => void | Promise<void>;
 }
 
 /**
@@ -42,6 +45,12 @@ export function createPulledRidePoster(deps: PulledRideDeps) {
       if (!entry || !entry.title.trim()) return false;
       await deps.present(activityId, entry.title, entry.body);
       posted.add(activityId);
+      try {
+        await deps.confirm(activityId, entry.title, entry.body);
+      } catch {
+        // The entry is in the tray; an unconfirmed ride is offered again at the
+        // next registration and this handler will not present it twice.
+      }
       return true;
     } catch {
       return false;

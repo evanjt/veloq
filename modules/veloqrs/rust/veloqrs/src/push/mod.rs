@@ -31,7 +31,10 @@ mod c;
 pub(crate) mod garmin;
 mod pulled;
 pub use pulled::FfiPulledRideEntry;
-pub(crate) use pulled::{announce_pulled_ride, is_recent as is_recent_ride, recorded_entry};
+pub(crate) use pulled::{
+    announce_pulled_ride, confirm_pulled_ride_posted, is_recent as is_recent_ride,
+    present_owed_rides, recorded_entry,
+};
 pub mod runs;
 
 pub use garmin::hold_native_garmin_key;
@@ -402,6 +405,10 @@ pub fn record_activity_detail(
 /// a memory ceiling that body has not been measured against. So it asks the
 /// narrow track there, and the task the silent push wakes in the app's own
 /// process readies the rest through `SyncManager::ready_activity_bodies`.
+///
+/// A strength session's FIT file is measured against that ceiling: fetched,
+/// decoded and its sets stored inside the extension, it adds 5.8 MiB at peak
+/// on the simulator, so the extension settles it rather than deferring it.
 const PUSH_READIES_ACTIVITY: bool = !cfg!(target_os = "ios");
 
 /// How long a push waits for the ride's route membership before the ladder
@@ -843,13 +850,27 @@ fn ready_pushed_activity(
                 Err(e) => return Err(format!("the index of {activity_id}: {e}")),
             }
         }
-    } else if !stored.indexed {
+    } else if needs_track_fetch(
+        PUSH_READIES_ACTIVITY,
+        stored.indexed,
+        &stored.detail.sport_type,
+    ) {
         // The track's own store and index move the token again, inside the
         // take that does the indexing, so a foreground that already took the
         // first bump is told about this one too.
         fetch_and_index_json_for(install, activity_id, &stored.detail.sport_type)?;
     }
     Ok(())
+}
+
+/// Whether a push that does not ready the activity itself still has to fetch
+/// its track to index it.
+///
+/// A sport that records no track has none to fetch, and asking for one fails
+/// the push before a strength session's sets are settled. The sport module
+/// names those sports, so this asks it and holds no list of its own.
+fn needs_track_fetch(readies: bool, indexed: bool, sport_type: &str) -> bool {
+    !readies && !indexed && !crate::sport::is_strength(sport_type)
 }
 
 /// What the push stored under the lock, and what is left for it to fetch.
@@ -1007,6 +1028,21 @@ mod garmin_original_tests;
 mod tests {
     use super::*;
     use crate::test_globals::serial_global_state;
+
+    /// Scenario: an iOS push for a strength session, which has no GPS track,
+    /// reaches the sets it settles. The track fetch asks for nothing there.
+    ///
+    /// Expected behaviour: a push the handler does not ready asks for the
+    /// track of a ride that is not yet indexed, and for no track of a strength
+    /// session. A push that readies the activity leaves the index to the
+    /// ladder, and an indexed track is never fetched again.
+    #[test]
+    fn a_strength_push_on_ios_asks_for_no_track() {
+        assert!(needs_track_fetch(false, false, "Ride"));
+        assert!(!needs_track_fetch(false, false, "WeightTraining"));
+        assert!(!needs_track_fetch(false, true, "Ride"));
+        assert!(!needs_track_fetch(true, false, "Ride"));
+    }
 
     #[test]
     #[cfg_attr(not(feature = "vault"), ignore = "vault")]

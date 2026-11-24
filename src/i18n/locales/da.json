@@ -1322,6 +1322,7 @@
     "intervalsBusy": "intervals.icu er optaget lige nu. Prøv igen efter {{time}}.",
     "intervalsBusyShortly": "intervals.icu er optaget lige nu. Prøv igen om lidt.",
     "oauthUnreachable": "Kunne ikke nå login-tjenesten. Tjek din forbindelse og prøv igen.",
+    "permissionUpgradeWrongAccount": "Adgangen blev givet til en anden konto ({{athleteId}}). Log ind med den konto, denne enhed bruger, og prøv igen.",
     "oauthInvalidCallback": "Ugyldig OAuth-callback-URL",
     "oauthNotConfigured": "OAuth er ikke konfigureret. Brug API-nøgle login i stedet.",
     "oauthStateValidationFailed": "Sikkerhedskontrol mislykkedes. Prøv venligst at logge ind igen.",

@@ -19,6 +19,7 @@ import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
 import { isPositioned } from '@/shared/geo/routePreview';
 import { debug } from '@/shared/debug/debug';
 import { formatDistance, formatDuration } from '@/shared/format/format';
+import { calculateSpeed } from '@/shared/math';
 import { FfiFocusPhase, type FfiFocusState } from 'veloqrs';
 import { sessionGuidanceCue } from '@/features/recording/lib/guidanceCue';
 import { endRecordingSession } from '@/features/recording/lib/endRecordingSession';
@@ -226,7 +227,7 @@ export function buildRecordingNotificationPayload(
   const last = streams.time.length - 1;
   const distance = last >= 0 ? (streams.distance[last] ?? 0) : 0;
   const movingSeconds = movingMs / 1000;
-  const avgSpeed = movingSeconds > 0 ? distance / movingSeconds : 0;
+  const avgSpeed = calculateSpeed(distance, movingSeconds);
 
   // The screen's own control bar labels, so the notification says what the app
   // says and nothing new needs translating into seventeen locales.

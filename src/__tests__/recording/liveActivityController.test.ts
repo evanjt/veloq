@@ -21,6 +21,8 @@ import {
   finishLiveActivity,
   installLiveActivityControls,
   reapOrphanedLiveActivities,
+  pushStrengthLiveActivity,
+  endStrengthLiveActivity,
   refreshLiveActivity,
 } from '@/features/recording/lib/liveActivity/controller';
 const mockControlListeners: ((event: { action: string }) => void)[] = [];
@@ -88,6 +90,27 @@ describe('live activity controller', () => {
     expect(JSON.parse(attributes).activityLabel).toBe('translated:activityTypes.Ride');
     expect(JSON.parse(attributes).stoppedLabel).toBe('translated:recording.interruptedNotice.card');
     expect(JSON.parse(state).status).toBe('recording');
+  });
+
+  it('starts no strength card while the recording card runs', () => {
+    startRide();
+    beginLiveActivity();
+    pushStrengthLiveActivity(
+      {
+        kind: 'strength',
+        phase: 'set',
+        exercise: 'Row',
+        nextSet: null,
+        restEndsAt: null,
+        staleAt: 1,
+      },
+      'WeightTraining'
+    );
+    endStrengthLiveActivity();
+
+    expect(mockNative.start).toHaveBeenCalledTimes(1);
+    expect(mockNative.update).not.toHaveBeenCalled();
+    expect(mockNative.end).not.toHaveBeenCalled();
   });
 
   it.each(['Run', 'Ride'] as const)(

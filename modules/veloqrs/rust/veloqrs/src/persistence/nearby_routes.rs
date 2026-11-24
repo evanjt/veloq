@@ -243,7 +243,7 @@ pub(crate) mod pooled {
         if family.is_some() {
             sport_types = eligible
                 .iter()
-                .filter_map(|l| lap_sport(l))
+                .filter_map(&lap_sport)
                 .filter(|s| in_family(s))
                 .collect();
             sport_types.sort();

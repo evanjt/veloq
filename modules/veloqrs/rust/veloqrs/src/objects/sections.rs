@@ -61,7 +61,7 @@ pub(crate) fn exclude_activity_from(
 ) -> Result<(), VeloqError> {
     engine
         .exclude_activity_from_section(section_id, activity_id)
-        .map_err(|msg| VeloqError::database(msg))?;
+        .map_err(VeloqError::database)?;
     refresh_indicators(engine, section_id, "exclude_activity");
     Ok(())
 }
@@ -74,7 +74,7 @@ pub(crate) fn include_activity_in(
 ) -> Result<(), VeloqError> {
     engine
         .include_activity_in_section(section_id, activity_id)
-        .map_err(|msg| VeloqError::database(msg))?;
+        .map_err(VeloqError::database)?;
     refresh_indicators(engine, section_id, "include_activity");
     Ok(())
 }
@@ -88,7 +88,7 @@ pub(crate) fn exclude_lap_from(
 ) -> Result<(), VeloqError> {
     engine
         .exclude_section_lap(section_id, activity_id, start_index)
-        .map_err(|msg| VeloqError::database(msg))?;
+        .map_err(VeloqError::database)?;
     refresh_indicators(engine, section_id, "exclude_lap");
     Ok(())
 }
@@ -102,7 +102,7 @@ pub(crate) fn include_lap_in(
 ) -> Result<(), VeloqError> {
     engine
         .include_section_lap(section_id, activity_id, start_index)
-        .map_err(|msg| VeloqError::database(msg))?;
+        .map_err(VeloqError::database)?;
     refresh_indicators(engine, section_id, "include_lap");
     Ok(())
 }
@@ -144,9 +144,7 @@ pub(crate) fn create_section_from_range(
         start_index: Some(start_index),
         end_index: Some(end_index),
     };
-    engine
-        .create_section(params)
-        .map_err(|e| VeloqError::database(e))
+    engine.create_section(params).map_err(VeloqError::database)
 }
 
 /// Merge `secondary_id` into `primary_id`, resolving with the section kept and
@@ -247,7 +245,7 @@ where
     F: FnOnce(&mut crate::persistence::PersistentEngine) -> Result<T, String> + Send + 'static,
 {
     crate::persistence::with_persistent_engine_blocking_for(install, move |e| {
-        let done = edit(e).map_err(|msg| VeloqError::database(msg));
+        let done = edit(e).map_err(VeloqError::database);
         drop(slot);
         done
     })
@@ -521,7 +519,7 @@ impl SectionManager {
     fn set_is_lift(&self, section_id: String, is_lift: bool) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.set_section_is_lift(&section_id, is_lift)
-                .map_err(|msg| VeloqError::database(msg))
+                .map_err(VeloqError::database)
         })?
     }
 
@@ -635,10 +633,7 @@ impl SectionManager {
     }
 
     fn delete(&self, section_id: String) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.delete_section(&section_id)
-                .map_err(|e| VeloqError::database(e))
-        })?
+        with_engine(|e| e.delete_section(&section_id).map_err(VeloqError::database))?
     }
 
     fn get_extension_track(
@@ -650,7 +645,7 @@ impl SectionManager {
                 .map_err(|e| VeloqError::database(e.to_string()))?;
             let (track, start, end) =
                 queries::pooled::section_extension_track(conn, &section_id, &config)
-                    .map_err(|msg| VeloqError::database(msg))?;
+                    .map_err(VeloqError::database)?;
             Ok(crate::FfiSectionExtensionTrack {
                 encoded_track: crate::persistence::codec::encode_polyline(&track),
                 section_start_idx: start,
@@ -688,17 +683,11 @@ impl SectionManager {
     }
 
     fn disable(&self, section_id: String) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.disable_section(&section_id)
-                .map_err(|e| VeloqError::database(e))
-        })?
+        with_engine(|e| e.disable_section(&section_id).map_err(VeloqError::database))?
     }
 
     fn enable(&self, section_id: String) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.enable_section(&section_id)
-                .map_err(|e| VeloqError::database(e))
-        })?
+        with_engine(|e| e.enable_section(&section_id).map_err(VeloqError::database))?
     }
 
     /// Cheap post-ingest indexing for one freshly downloaded activity: match it
@@ -716,7 +705,7 @@ impl SectionManager {
                     (crate::FfiIndexActivitySummary::from(summary), scheduled)
                 })
         })?
-        .map_err(|e| VeloqError::database(e))?;
+        .map_err(VeloqError::database)?;
         if let Some(scheduled) = scheduled {
             scheduled.start();
         }

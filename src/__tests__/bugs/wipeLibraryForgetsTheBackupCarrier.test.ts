@@ -1273,9 +1273,11 @@ const DEVICE_WRITES: DeviceWrite[] = [
     where: 'the tray and the schedule',
     writers: [
       'src/features/settings/lib/notificationService.ts',
+      'src/features/recording/lib/liveActivity/restAlert.ts',
       'modules/veloqrs/android/src/main/java/com/veloq/ActivityNotificationPoster.kt',
     ],
-    holds: 'ride names, PRs, route pictures and the athlete id a tap checks',
+    holds:
+      'ride names, PRs, route pictures, the next set of a strength rest and the athlete id a tap checks',
     wiped: { tray: true },
   },
   {

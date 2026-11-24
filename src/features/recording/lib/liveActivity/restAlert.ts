@@ -1,3 +1,5 @@
+import * as Notifications from 'expo-notifications';
+
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('RestAlert');
@@ -53,3 +55,20 @@ export function createRestAlert(port: RestAlertPort): RestAlert {
     clear: cancelPending,
   };
 }
+
+/**
+ * The system's local notifications as the alert's port. The notification fires with the sound the
+ * system gives a notification, which is what a suspended app can do at a time it did not choose.
+ */
+export const notificationRestAlertPort: RestAlertPort = {
+  async schedule(id, fireAt, title) {
+    await Notifications.scheduleNotificationAsync({
+      identifier: id,
+      content: { title },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(fireAt) },
+    });
+  },
+  async cancel(id) {
+    await Notifications.cancelScheduledNotificationAsync(id);
+  },
+};

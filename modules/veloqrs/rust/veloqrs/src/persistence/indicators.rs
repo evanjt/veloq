@@ -119,7 +119,7 @@ impl PersistentEngine {
             }
             if stamp {
                 schema_info::set(
-                    &tx,
+                    tx,
                     "indicator_version",
                     &INDICATOR_ALGORITHM_VERSION.to_string(),
                 )?;

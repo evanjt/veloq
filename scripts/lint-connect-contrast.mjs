@@ -6,7 +6,7 @@
 //
 // So this computes the WCAG ratio of every text and link colour against every
 // neutral ground, in the light and the dark scheme. A link colour is whatever an
-// `a` rule in `web/connect/` reads, followed through a `--name: var(--token)` alias,
+// `a` rule in `web/connect/` reads, or the rail wordmark (`#rail .brand`) reads, followed through a `--name: var(--token)` alias,
 // so a link that moves to another token is judged on that token.
 //
 // Usage: node scripts/lint-connect-contrast.mjs [--root DIR]
@@ -87,10 +87,10 @@ for (const [file, bytes] of sources) {
   ))
     aliases.set(name, target);
   for (const [, selector, body] of css.matchAll(RULE)) {
-    const isLink = selector
+    const isTextRead = selector
       .split(',')
-      .some((part) => /(^|[\s>+~])a(:[a-z-]+)*\s*$/.test(part.trim()));
-    if (!isLink) continue;
+      .some((part) => /(^|[\s>+~])a(:[a-z-]+)*\s*$|#rail \.brand\s*$/.test(part.trim()));
+    if (!isTextRead) continue;
     for (const [, name] of body.matchAll(/(?:^|[\s;{])color\s*:\s*var\(\s*(--[A-Za-z0-9_-]+)/g))
       linkReads.add(name);
   }

@@ -9,7 +9,7 @@
 use httpmock::prelude::*;
 use tempfile::TempDir;
 use veloqrs::basemap::{
-    CompositeMember, GeoBox, fetch_tile, set_composite, set_path, set_template,
+    BlankTile, CompositeMember, GeoBox, fetch_tile, set_composite, set_path, set_template,
 };
 
 fn store_at(tmp: &TempDir) {
@@ -35,6 +35,7 @@ fn member(source: &str, min_zoom: u8, max_zoom: u8, boxes: Vec<GeoBox>) -> Compo
         min_zoom,
         max_zoom,
         boxes,
+        blank_tiles: vec![],
     }
 }
 
@@ -163,4 +164,74 @@ fn a_composite_nobody_registered_is_refused_without_asking_a_host() {
     store_at(&tmp);
 
     assert_eq!(fetch_tile("never-registered-imagery", 12, 1, 1), Err(404));
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_declared_filler_body_is_no_tile_and_the_next_provider_draws() {
+    let _serial = super::serial_state();
+    let tmp = TempDir::new().expect("tempdir");
+    store_at(&tmp);
+    let region = MockServer::start();
+    let world = MockServer::start();
+    let filler = region.mock(|when, then| {
+        when.method(GET).path_matches(r"^/\d+/\d+/\d+\.jpg$");
+        then.status(200).body("flat-grey-filler");
+    });
+    let imagery = world.mock(|when, then| {
+        when.method(GET).path_matches(r"^/\d+/\d+/\d+\.jpg$");
+        then.status(200).body("world");
+    });
+    set_template("filler-north".into(), region.url("/{z}/{x}/{y}.jpg"));
+    set_template("filler-world".into(), world.url("/{z}/{x}/{y}.jpg"));
+    let mut north = member("filler-north", 10, 20, vec![NORTH_LAND]);
+    north.blank_tiles = vec![BlankTile {
+        length: 16,
+        sha256: "5253dc201ce7be11e2eec9864ffadd243892e1f5c76a50e0ceebd97221db3c58".into(),
+    }];
+    set_composite(
+        "filler-imagery".into(),
+        vec![north, member("filler-world", 0, 14, vec![])],
+    );
+
+    let (x, y) = tile_at(12, 11.0, 41.0);
+    assert_eq!(
+        fetch_tile("filler-imagery", 12, x, y),
+        Ok(b"world".to_vec())
+    );
+    filler.assert_calls(1);
+    imagery.assert_calls(1);
+
+    // The filler is remembered as refused ground and was never stored.
+    assert_eq!(
+        fetch_tile("filler-imagery", 12, x, y),
+        Ok(b"world".to_vec())
+    );
+    filler.assert_calls(1);
+}
+
+#[test]
+#[cfg_attr(not(feature = "vault"), ignore = "vault")]
+fn a_body_of_the_declared_length_with_another_digest_is_drawn() {
+    let _serial = super::serial_state();
+    let tmp = TempDir::new().expect("tempdir");
+    store_at(&tmp);
+    let region = MockServer::start();
+    region.mock(|when, then| {
+        when.method(GET);
+        then.status(200).body("flat-grey-fille!");
+    });
+    set_template("lookalike-north".into(), region.url("/{z}/{x}/{y}.jpg"));
+    let mut north = member("lookalike-north", 10, 20, vec![NORTH_LAND]);
+    north.blank_tiles = vec![BlankTile {
+        length: 16,
+        sha256: "5253dc201ce7be11e2eec9864ffadd243892e1f5c76a50e0ceebd97221db3c58".into(),
+    }];
+    set_composite("lookalike-imagery".into(), vec![north]);
+
+    let (x, y) = tile_at(12, 11.0, 41.0);
+    assert_eq!(
+        fetch_tile("lookalike-imagery", 12, x, y),
+        Ok(b"flat-grey-fille!".to_vec())
+    );
 }

@@ -102,10 +102,9 @@ impl<'a> UnderPointKey<'a> {
             Group::NoRoute
         } else if let Some(id) = group.strip_prefix(ROUTE_GROUP_PREFIX) {
             Group::Route(Some(id).filter(|id| !id.is_empty())?)
-        } else if let Some(id) = group.strip_prefix(SECTION_GROUP_PREFIX) {
-            Group::Section(Some(id).filter(|id| !id.is_empty())?)
         } else {
-            return None;
+            let id = group.strip_prefix(SECTION_GROUP_PREFIX)?;
+            Group::Section(Some(id).filter(|id| !id.is_empty())?)
         };
         if latitude.abs() > 90_000_000 || longitude.abs() > 180_000_000 || zoom > MAX_TAP_ZOOM {
             return None;
@@ -298,7 +297,7 @@ pub(crate) fn for_collection(points: &[GpsPoint]) -> Vec<GpsPoint> {
         .collect();
     crate::persistence::line_simplify::simplify_indices(&laid_out, COLLECTION_TOLERANCE_M)
         .into_iter()
-        .map(|index| finite[index].clone())
+        .map(|index| *finite[index])
         .collect()
 }
 

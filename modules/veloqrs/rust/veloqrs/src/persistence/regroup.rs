@@ -570,7 +570,7 @@ pub(crate) fn settle_regroup(install: u64, limit: Duration) -> bool {
                 Owed::Late
             } else {
                 // `None` is another regroup taking the slot since the wait.
-                Owed::Pass(engine.schedule_regroup())
+                Owed::Pass(engine.schedule_regroup().map(Box::new))
             }
         });
         match owed {
@@ -586,7 +586,7 @@ pub(crate) fn settle_regroup(install: u64, limit: Duration) -> bool {
 enum Owed {
     Nothing,
     Late,
-    Pass(Option<ScheduledRegroup>),
+    Pass(Option<Box<ScheduledRegroup>>),
 }
 
 /// Passes one schedule runs at most. A pass that ends with the regroup still

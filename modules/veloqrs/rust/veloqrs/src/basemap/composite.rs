@@ -25,6 +25,17 @@ pub struct GeoBox {
     pub north: f64,
 }
 
+/// A body a provider answers, byte for byte, on ground it holds no imagery for.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct BlankTile {
+    /// The body's length in bytes. A digest is computed only for a body of a
+    /// declared length.
+    pub length: u32,
+    /// The body's SHA-256 as 64 lowercase hex digits.
+    pub sha256: String,
+}
+
 /// One provider a composite may answer from.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
@@ -37,13 +48,50 @@ pub struct CompositeMember {
     pub max_zoom: u8,
     /// The ground the provider covers. Empty means everywhere.
     pub boxes: Vec<GeoBox>,
+    /// The bodies the provider answers where it has no imagery. A 200 with one
+    /// of these bodies is no tile.
+    pub blank_tiles: Vec<BlankTile>,
 }
 
 static COMPOSITES: LazyLock<Mutex<HashMap<String, Vec<CompositeMember>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
+/// The blank bodies each provider source declares, by source name.
+static BLANKS: LazyLock<Mutex<HashMap<String, Vec<BlankTile>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Whether `body` is one of the blank bodies `source` declares.
+pub(crate) fn is_blank(source: &str, body: &[u8]) -> bool {
+    let blanks = BLANKS.lock_recover();
+    let Some(declared) = blanks.get(source) else {
+        return false;
+    };
+    let mut digest = None;
+    declared.iter().any(|blank| {
+        if usize::try_from(blank.length) != Ok(body.len()) {
+            return false;
+        }
+        let hex = digest.get_or_insert_with(|| hex_of(&crate::remote::digest::sha256(&[body])));
+        hex.eq_ignore_ascii_case(&blank.sha256)
+    })
+}
+
+fn hex_of(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    bytes.iter().fold(String::with_capacity(64), |mut out, b| {
+        let _ = write!(out, "{b:02x}");
+        out
+    })
+}
+
 /// Record the providers one composite source chooses among, in priority order.
 pub(crate) fn set(name: String, members: Vec<CompositeMember>) {
+    {
+        let mut blanks = BLANKS.lock_recover();
+        for member in &members {
+            blanks.insert(member.source.clone(), member.blank_tiles.clone());
+        }
+    }
     COMPOSITES.lock_recover().insert(name, members);
 }
 
@@ -131,6 +179,7 @@ mod tests {
     fn member(source: &str, min_zoom: u8, max_zoom: u8, boxes: &[[f64; 4]]) -> CompositeMember {
         CompositeMember {
             source: source.to_string(),
+            blank_tiles: vec![],
             min_zoom,
             max_zoom,
             boxes: boxes

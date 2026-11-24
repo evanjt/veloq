@@ -120,7 +120,7 @@ impl HeatmapManager {
         // that reads it is the same row the athlete just cleared from.
         *last_cache_size() = None;
         // The same variant the whole wipe fails with when its tiles would not go.
-        cleared.map_err(|msg| VeloqError::database(msg))
+        cleared.map_err(VeloqError::database)
     }
 
     /// Poll tile generation progress: "idle" | "running" | "complete"

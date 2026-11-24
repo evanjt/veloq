@@ -40,7 +40,7 @@ async fn representative_edit_for(
             Some(activity_id) => e.set_route_representative(&route_id, &activity_id),
             None => e.reset_route_representative(&route_id),
         }
-        .map_err(|msg| VeloqError::database(msg));
+        .map_err(VeloqError::database);
         drop(slot);
         done
     })
@@ -278,14 +278,14 @@ impl RouteManager {
         // for nothing.
         with_engine(|e| {
             e.exclude_activity_from_route(&route_id, &activity_id)
-                .map_err(|e| VeloqError::database(e))
+                .map_err(VeloqError::database)
         })?
     }
 
     fn include_activity(&self, route_id: String, activity_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.include_activity_in_route(&route_id, &activity_id)
-                .map_err(|e| VeloqError::database(e))
+                .map_err(VeloqError::database)
         })?
     }
 
@@ -348,22 +348,6 @@ impl RouteManager {
             slot,
         )
         .await
-    }
-}
-
-/// The saved grouping as the Rust tests read it. The screens read groups
-/// through their own screen reads, so this is not exported.
-#[cfg(test)]
-impl RouteManager {
-    fn get_all(&self) -> Result<Vec<crate::FfiRouteGroup>, VeloqError> {
-        // The last saved grouping. A regroup the library owes runs on the
-        // worker, so a read never recomputes it on the way past.
-        with_reader(|conn| {
-            crate::persistence::routes::pooled::all_groups(conn)
-                .into_iter()
-                .map(crate::FfiRouteGroup::from)
-                .collect()
-        })
     }
 }
 

@@ -776,7 +776,7 @@ mod tests {
             .map(|i| open(ports[i % ports.len()]))
             .collect();
         // Each held connection is proven accepted, not merely queued.
-        assert!(held.iter().all(|stream| answered(stream)));
+        assert!(held.iter().all(&answered));
 
         let excess = open(ports[0]);
         assert!(!answered(&excess), "a connection past the cap was served");

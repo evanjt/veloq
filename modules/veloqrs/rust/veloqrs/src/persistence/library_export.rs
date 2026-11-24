@@ -224,6 +224,9 @@ fn ride_has_rows(conn: &Connection, table: &str, key: &str) -> Result<bool, Stri
     .map_err(sql)
 }
 
+/// A table's JSON lines, then the blob bytes its rows name.
+type TableFiles = (Vec<u8>, Vec<u8>);
+
 /// One table as JSON lines, with its blob columns moved into a second buffer
 /// and each row naming where its bytes are. `None` for a table with no rows.
 /// `key` limits it to one ride's rows.
@@ -231,7 +234,7 @@ fn table_files(
     conn: &Connection,
     table: &str,
     key: Option<&str>,
-) -> Result<Option<(Vec<u8>, Vec<u8>)>, String> {
+) -> Result<Option<TableFiles>, String> {
     let mut statement = conn
         .prepare(&format!(
             "SELECT * FROM {table}{}",

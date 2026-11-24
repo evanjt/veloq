@@ -180,7 +180,7 @@ impl SettingsManager {
                 time.as_deref(),
                 &points,
             )
-            .map_err(|msg| VeloqError::database(msg))
+            .map_err(VeloqError::database)
         })?
     }
 
@@ -194,7 +194,7 @@ impl SettingsManager {
     ) -> Result<Option<crate::persistence::export::GpxFile>, VeloqError> {
         with_reader(|conn| {
             crate::persistence::export::section_gpx_file_from(conn, &section_id, sport.as_deref())
-                .map_err(|msg| VeloqError::database(msg))
+                .map_err(VeloqError::database)
         })?
     }
 
@@ -209,7 +209,7 @@ impl SettingsManager {
     ) -> Result<Option<crate::persistence::export::GpxFile>, VeloqError> {
         with_reader(|conn| {
             crate::persistence::export::route_gpx_file_from(conn, &group_id, sport.as_deref())
-                .map_err(|msg| VeloqError::database(msg))
+                .map_err(VeloqError::database)
         })?
     }
 
@@ -223,7 +223,7 @@ impl SettingsManager {
     ) -> Result<Option<crate::persistence::export::FitCourseFile>, VeloqError> {
         with_reader(|conn| {
             crate::persistence::export::section_fit_course_from(conn, &section_id, sport.as_deref())
-                .map_err(|msg| VeloqError::database(msg))
+                .map_err(VeloqError::database)
         })?
     }
 
@@ -237,7 +237,7 @@ impl SettingsManager {
     ) -> Result<Option<crate::persistence::export::FitCourseFile>, VeloqError> {
         with_reader(|conn| {
             crate::persistence::export::route_fit_course_from(conn, &group_id, sport.as_deref())
-                .map_err(|msg| VeloqError::database(msg))
+                .map_err(VeloqError::database)
         })?
     }
 

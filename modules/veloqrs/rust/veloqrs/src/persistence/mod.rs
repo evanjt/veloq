@@ -1913,7 +1913,7 @@ impl PersistentEngine {
         let key = garmin_source_key(garmin_id);
         let mut rows = self.db.prepare(
             "SELECT DISTINCT activity_id FROM push_runs
-             WHERE posted_title IS NOT NULL AND activity_id <> ?1",
+             WHERE posted_title IS NOT NULL AND outcome <> 'owed' AND activity_id <> ?1",
         )?;
         let announced = rows
             .query_map([activity_id], |row| row.get::<_, String>(0))?

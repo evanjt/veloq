@@ -89,7 +89,7 @@ impl RemoteManager {
     /// The relay rooms the phone waits in while open, one for each linked
     /// browser. Empty when none is linked, so the app never reaches the relay.
     fn linked_rooms(&self) -> Result<Vec<String>, VeloqError> {
-        crate::remote::service::linked_rooms().map_err(|msg| VeloqError::database(msg))
+        crate::remote::service::linked_rooms().map_err(VeloqError::database)
     }
 
     /// End every linked browser's connection, telling each why first.
@@ -132,7 +132,7 @@ impl RemoteManager {
     /// The athlete's answer to the pairing prompt. Accepting links the
     /// browser; declining ends its connection. Returns whether one was linked.
     fn confirm_pairing(&self, accept: bool) -> Result<bool, VeloqError> {
-        crate::remote::service::confirm_pairing(accept).map_err(|msg| VeloqError::database(msg))
+        crate::remote::service::confirm_pairing(accept).map_err(VeloqError::database)
     }
 
     /// Close the open pairing, ending its connection if it was not linked.

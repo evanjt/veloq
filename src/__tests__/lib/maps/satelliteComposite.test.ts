@@ -71,6 +71,47 @@ describe('the satellite style', () => {
 });
 
 describe('the providers a composite answers from', () => {
+  vaultIt('hands the engine the blank bodies a provider answers without imagery', () => {
+    rewriteSatelliteUrls(getCombinedSatelliteStyle());
+
+    const members = mockSetCompositeSource.mock.calls[0][1];
+    const blanks = (source: string) =>
+      members.find((m: { source: string }) => m.source === source)?.blankTiles;
+    expect(blanks('satellite-ign')).toEqual([
+      {
+        length: 1651,
+        sha256: '11c9176ec2896e0a2a5e945e47b0ee223686701c32aab229952b5f150e191bc5',
+      },
+      {
+        length: 1653,
+        sha256: '463a16632e268d64bf59d1f794e822a73378475620c65833176aca4d70d23a54',
+      },
+    ]);
+    expect(blanks('satellite-estonia')).toEqual([
+      {
+        length: 116,
+        sha256: '87b260416aa0f50736d3ca51bcb6aae3eff373bf471d5662883b8b6797e73e85',
+      },
+      {
+        length: 670,
+        sha256: 'ff498b58fe91aee7a30cec5bf7b113d5121f07491f68b21f2df418ff3a7edd54',
+      },
+    ]);
+    expect(blanks('satellite-bavaria')).toEqual([
+      {
+        length: 667,
+        sha256: 'c0c6e896ba6cb3503d48ce55b04916ca36e4d4d6b0f3838e7a5e1f95fa9acf79',
+      },
+    ]);
+    expect(blanks('satellite-austria')).toHaveLength(2);
+    expect(blanks('satellite-eox')).toEqual([]);
+    for (const member of members) {
+      for (const blank of member.blankTiles) {
+        expect(blank.sha256).toMatch(/^[0-9a-f]{64}$/);
+      }
+    }
+  });
+
   vaultIt(
     'lists the regions topmost first and ends the global composite on the world imagery',
     () => {

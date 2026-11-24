@@ -77,6 +77,8 @@ export interface Viewport {
   width: number;
   height: number;
   scheme?: 'light' | 'dark';
+  /** Asks the page for reduced motion, so a framing move lands at once rather than easing. */
+  reducedMotion?: boolean;
 }
 
 export interface ConnectBrowser {
@@ -252,7 +254,13 @@ export async function launchConnectBrowser(
         mobile: false,
       });
       await send('Emulation.setEmulatedMedia', {
-        features: [{ name: 'prefers-color-scheme', value: viewport?.scheme ?? 'light' }],
+        features: [
+          { name: 'prefers-color-scheme', value: viewport?.scheme ?? 'light' },
+          {
+            name: 'prefers-reduced-motion',
+            value: viewport?.reducedMotion ? 'reduce' : 'no-preference',
+          },
+        ],
       });
       if (languages) {
         // The header and navigator.languages both come from the override's acceptLanguage.

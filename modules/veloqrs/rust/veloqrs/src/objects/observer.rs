@@ -430,6 +430,11 @@ pub fn observer_panics() -> u32 {
     OBSERVER_PANICS.load(Ordering::Relaxed)
 }
 
+/// Whether an observer is registered to hear an announcement made now.
+pub(crate) fn is_registered() -> bool {
+    OBSERVER.read_recover().is_some()
+}
+
 /// Queue an announcement and return. The delivery happens on the announce
 /// thread, so the caller never waits on the JavaScript thread.
 pub(crate) fn notify(announcement: Announcement) {
@@ -1097,7 +1102,7 @@ mod tests {
         .unwrap();
         let recorder = Recorder::new();
         set_observer(Some(recorder.clone()));
-        let _ = crate::runtime::block_on(store_time_stream(
+        crate::runtime::block_on(store_time_stream(
             crate::persistence::engine_install(),
             "a1".into(),
             vec![0, 5, 10],
@@ -1110,7 +1115,7 @@ mod tests {
         ))
         .unwrap();
         set_observer(None);
-        let _ = crate::runtime::block_on(store_time_stream(
+        crate::runtime::block_on(store_time_stream(
             crate::persistence::engine_install(),
             "a3".into(),
             vec![0, 9],

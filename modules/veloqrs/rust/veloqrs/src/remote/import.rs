@@ -339,7 +339,7 @@ impl Spools {
             Ok(ready) => Ok(ready),
             Err((kept, error)) => {
                 if let Some(import) = kept {
-                    self.restore(import);
+                    self.restore(*import);
                 }
                 Err(error)
             }
@@ -373,10 +373,10 @@ fn finish(
     import: Import,
     digest: impl FnOnce(&Path) -> std::io::Result<[u8; 32]>,
     hand_over: impl FnOnce(&Path) -> Result<(), String>,
-) -> Result<PathBuf, (Option<Import>, String)> {
+) -> Result<PathBuf, (Option<Box<Import>>, String)> {
     let digest = match digest(&import.part) {
         Ok(digest) => digest,
-        Err(error) => return Err((Some(import), error.to_string())),
+        Err(error) => return Err((Some(Box::new(import)), error.to_string())),
     };
     if hex(&digest) != import.sha256 {
         let _ = std::fs::remove_file(&import.part);
@@ -387,11 +387,11 @@ fn finish(
     }
     let ready = import.part.with_extension(import.extension);
     if let Err(error) = std::fs::rename(&import.part, &ready) {
-        return Err((Some(import), error.to_string()));
+        return Err((Some(Box::new(import)), error.to_string()));
     }
     if let Err(error) = hand_over(&ready) {
         return match std::fs::rename(&ready, &import.part) {
-            Ok(()) => Err((Some(import), error)),
+            Ok(()) => Err((Some(Box::new(import)), error)),
             Err(rename_error) => Err((None, rename_error.to_string())),
         };
     }
@@ -412,7 +412,7 @@ fn commit_shared(
     let import = lock().take(browser, id)?;
     finish(import, digest, hand_over).map_err(|(kept, error)| {
         if let Some(import) = kept {
-            lock().restore(import);
+            lock().restore(*import);
         }
         error
     })

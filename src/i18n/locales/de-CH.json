@@ -1301,6 +1301,7 @@
     "intervalsBusy": "intervals.icu isch grad uusglaschtet. Probiers nach {{time}} nomol.",
     "intervalsBusyShortly": "intervals.icu isch grad uusglaschtet. Probiers grad nomol.",
     "oauthUnreachable": "De Aamäldedienst isch nöd erreichbar gsi. Lueg dini Verbindig aa und probiers nomol.",
+    "permissionUpgradeWrongAccount": "Der Zugriff wurde für ein anderes Konto ({{athleteId}}) erteilt. Melde dich mit dem Konto an, das dieses Gerät verwendet, und versuche es erneut.",
     "oauthInvalidCallback": "Ungültigi OAuth-Callback-URL",
     "oauthNotConfigured": "OAuth gaht nöd, nimm en Schlüssel",
     "oauthStateValidationFailed": "Sicherheitsprüefig fehlgschlage. Probiers nomol!",

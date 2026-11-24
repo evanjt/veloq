@@ -220,7 +220,7 @@ a:hover {
 
 #rail .brand {
   margin: 0;
-  color: var(--colour-brand-blue);
+  color: var(--colour-action-link);
   font-size: var(--web-type-bodyLarge-size);
   font-weight: var(--web-type-title-weight);
 }

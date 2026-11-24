@@ -900,6 +900,59 @@ const FfiConverterTypeAthleteProfile = (() => {
 })();
 
 /**
+ * A body a provider answers, byte for byte, on ground it holds no imagery for.
+ */
+export type BlankTile = {
+  /**
+   * The body's length in bytes. A digest is computed only for a body of a
+   * declared length.
+   */
+  length: number;
+  /**
+   * The body's SHA-256 as 64 lowercase hex digits.
+   */
+  sha256: string;
+};
+
+/**
+ * Generated factory for {@link BlankTile} record objects.
+ */
+export const BlankTile = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<BlankTile, ReturnType<typeof defaults>>(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<BlankTile>,
+  });
+})();
+
+const FfiConverterTypeBlankTile = (() => {
+  type TypeName = BlankTile;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        length: FfiConverterUInt32.readFromCursor(c),
+        sha256: FfiConverterString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.length, c);
+      FfiConverterString.writeIntoCursor(value.sha256, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.length) +
+        FfiConverterString.allocationSize(value.sha256)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * A geographic rectangle in degrees.
  */
 export type GeoBox = {
@@ -973,6 +1026,11 @@ export type CompositeMember = {
    * The ground the provider covers. Empty means everywhere.
    */
   boxes: Array<GeoBox>;
+  /**
+   * The bodies the provider answers where it has no imagery. A 200 with one
+   * of these bodies is no tile.
+   */
+  blankTiles: Array<BlankTile>;
 };
 
 /**
@@ -1001,6 +1059,7 @@ const FfiConverterTypeCompositeMember = (() => {
         minZoom: FfiConverterUInt8.readFromCursor(c),
         maxZoom: FfiConverterUInt8.readFromCursor(c),
         boxes: FfiConverterSequenceTypeGeoBox.readFromCursor(c),
+        blankTiles: FfiConverterSequenceTypeBlankTile.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -1008,13 +1067,15 @@ const FfiConverterTypeCompositeMember = (() => {
       FfiConverterUInt8.writeIntoCursor(value.minZoom, c);
       FfiConverterUInt8.writeIntoCursor(value.maxZoom, c);
       FfiConverterSequenceTypeGeoBox.writeIntoCursor(value.boxes, c);
+      FfiConverterSequenceTypeBlankTile.writeIntoCursor(value.blankTiles, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.source) +
         FfiConverterUInt8.allocationSize(value.minZoom) +
         FfiConverterUInt8.allocationSize(value.maxZoom) +
-        FfiConverterSequenceTypeGeoBox.allocationSize(value.boxes)
+        FfiConverterSequenceTypeGeoBox.allocationSize(value.boxes) +
+        FfiConverterSequenceTypeBlankTile.allocationSize(value.blankTiles)
       );
     }
   }
@@ -42774,6 +42835,16 @@ export interface ActivityManagerLike {
     offsets: Array<number>,
     sportTypes: Array<string>,
   ) /*throws*/ : void;
+  /**
+   * Record that the app presented the entry for the pulled Garmin ride
+   * `activity_id`, with the title and body it showed. Until then the ride is
+   * owed, so a failed presentation is retried and a later push still posts.
+   */
+  confirmPulledRidePosted(
+    activityId: string,
+    title: string,
+    body: string,
+  ): void;
   debugClone(sourceId: string, count: number) /*throws*/ : number;
   /**
    * Display names for a batch of activity ids, for a caller that holds ids
@@ -43053,6 +43124,30 @@ export class ActivityManager
             sportTypes,
             nativeModule().rustbuffer_alloc,
           ),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+  }
+
+  /**
+   * Record that the app presented the entry for the pulled Garmin ride
+   * `activity_id`, with the title and body it showed. Until then the ride is
+   * owed, so a failed presentation is retried and a later push still posts.
+   */
+  confirmPulledRidePosted(
+    activityId: string,
+    title: string,
+    body: string,
+  ): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_confirm_pulled_ride_posted(
+          uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(activityId, nativeModule().rustbuffer_alloc),
+          FfiConverterString.lower(title, nativeModule().rustbuffer_alloc),
+          FfiConverterString.lower(body, nativeModule().rustbuffer_alloc),
           callStatus,
         );
       },
@@ -52702,6 +52797,12 @@ export interface StrengthManagerLike {
    */
   isFitProcessed(activityId: string) /*throws*/ : boolean;
   /**
+   * Keep one heart rate reading, taken at `now` epoch seconds, on the live
+   * session. Answers whether it was kept; a reading with no begun session
+   * live, or that is no heart rate, is dropped.
+   */
+  recordLiveHeartRate(bpm: number, now: number) /*throws*/ : boolean;
+  /**
    * Put a removed workout back in the saved list, with its exercises and its
    * place in the list. An id that is not a removed workout is not found.
    */
@@ -53210,6 +53311,30 @@ export class StrengthManager
               activityId,
               nativeModule().rustbuffer_alloc,
             ),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      ),
+    );
+  }
+
+  /**
+   * Keep one heart rate reading, taken at `now` epoch seconds, on the live
+   * session. Answers whether it was kept; a reading with no begun session
+   * live, or that is no heart rate, is dropped.
+   */
+  recordLiveHeartRate(bpm: number, now: number): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_record_live_heart_rate(
+            uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+            FfiConverterUInt32.lower(bpm, nativeModule().rustbuffer_alloc),
+            FfiConverterFloat64.lower(now, nativeModule().rustbuffer_alloc),
             callStatus,
           );
         },
@@ -56381,6 +56506,11 @@ const FfiConverterSequenceTypeGeoBox = new FfiConverterArray(
   FfiConverterTypeGeoBox,
 );
 
+// FfiConverter for Array<BlankTile>
+const FfiConverterSequenceTypeBlankTile = new FfiConverterArray(
+  FfiConverterTypeBlankTile,
+);
+
 // FfiConverter for Array<DatePart>
 const FfiConverterSequenceTypeDatePart = new FfiConverterArray(
   FfiConverterTypeDatePart,
@@ -57982,6 +58112,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_add",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_confirm_pulled_ride_posted() !==
+    53138
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_confirm_pulled_ride_posted",
     );
   }
   if (
@@ -59969,6 +60107,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_record_live_heart_rate() !==
+    51457
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_record_live_heart_rate",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_recover_strength_workout() !==
     36380
   ) {
@@ -60612,6 +60758,7 @@ export default Object.freeze({
     FfiConverterTypeAthleteProfile,
     FfiConverterTypeBackgroundJob,
     FfiConverterTypeBasemapManager,
+    FfiConverterTypeBlankTile,
     FfiConverterTypeBulkExportFormat,
     FfiConverterTypeCacheSizeRun,
     FfiConverterTypeCompositeMember,

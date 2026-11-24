@@ -536,7 +536,8 @@ mod tests {
     /// decoder reports as absent when they are invalid.
     fn raw_fields(file: &[u8], global: u16) -> Vec<Vec<(u8, u64)>> {
         let end = 14 + u32::from_le_bytes(file[4..8].try_into().unwrap()) as usize;
-        let mut definitions: [Option<(u16, Vec<(u8, usize)>)>; 16] = Default::default();
+        type Definition = Option<(u16, Vec<(u8, usize)>)>;
+        let mut definitions: [Definition; 16] = Default::default();
         let mut found = Vec::new();
         let mut at = 14;
         while at < end {

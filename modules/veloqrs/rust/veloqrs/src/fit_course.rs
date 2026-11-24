@@ -274,10 +274,10 @@ mod tests {
             })
     }
 
-    fn of_kind<'a>(
-        records: &'a [fitparser::FitDataRecord],
+    fn of_kind(
+        records: &[fitparser::FitDataRecord],
         kind: fitparser::profile::MesgNum,
-    ) -> Vec<&'a fitparser::FitDataRecord> {
+    ) -> Vec<&fitparser::FitDataRecord> {
         records.iter().filter(|r| r.kind() == kind).collect()
     }
 

@@ -163,6 +163,8 @@ export function pushStrengthLiveActivity(
   activityType: ActivityType
 ): void {
   if (!isLiveActivitySupported()) return;
+  // One card at a time: a strength card beside the recording's would take its updates.
+  if (cardRunning) return;
   if (strengthCardRunning) {
     updateNativeLiveActivity(JSON.stringify(state));
     return;

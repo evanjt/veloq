@@ -18,8 +18,8 @@ fn signature(id: &str, lat: f64) -> RouteSignature {
     let bounds = Bounds::from_points(&points).unwrap();
     RouteSignature {
         activity_id: id.to_string(),
-        start_point: points[0].clone(),
-        end_point: points[7].clone(),
+        start_point: points[0],
+        end_point: points[7],
         total_distance: 780.0,
         center: bounds.center(),
         bounds,

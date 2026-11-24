@@ -230,13 +230,14 @@ fn route_average_speed_is_counted_distance_over_counted_time() {
 }
 
 #[test]
-fn a_tie_for_first_has_no_rank_and_a_tie_below_it_shares_one() {
+fn a_tie_for_first_shows_second_and_a_tie_below_it_shares_one() {
     let tied_top = vec![
         attempt("a", "Run", 4300.0, 1190),
         attempt("b", "Run", 4300.0, 1190),
         attempt("c", "Run", 4300.0, 1210),
     ];
-    assert_eq!(page(&tied_top, &[], "a").current_rank, None);
+    assert_eq!(page(&tied_top, &[], "a").current_rank, Some(2));
+    assert_eq!(page(&tied_top, &[], "b").current_rank, Some(2));
 
     let tied_second = vec![
         attempt("a", "Run", 4300.0, 1180),

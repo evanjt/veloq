@@ -1322,6 +1322,7 @@
     "intervalsBusy": "intervals.icu ist gerade ausgelastet. Versuche es nach {{time}} noch einmal.",
     "intervalsBusyShortly": "intervals.icu ist gerade ausgelastet. Versuche es gleich noch einmal.",
     "oauthUnreachable": "Der Anmeldedienst war nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.",
+    "permissionUpgradeWrongAccount": "Der Zugriff wurde für ein anderes Konto ({{athleteId}}) erteilt. Melde dich mit dem Konto an, das dieses Gerät verwendet, und versuche es erneut.",
     "oauthInvalidCallback": "Ungültige OAuth-Callback-URL",
     "oauthNotConfigured": "OAuth ist nicht konfiguriert. Verwende stattdessen den API-Schlüssel.",
     "oauthStateValidationFailed": "Sicherheitsüberprüfung fehlgeschlagen. Bitte versuche es erneut.",

@@ -97,3 +97,62 @@ describe('the landing gate plans the style guards a landing touches', () => {
     expect(names).toEqual(expect.arrayContaining(CONNECT_GUARDS));
   });
 });
+
+function plannedLanes(root: string, base: string): string[] {
+  const run = spawnSync('sh', ['scripts/land-gate.sh', '--list-lanes', base], {
+    cwd: root,
+    env: gitFreeEnv(),
+    encoding: 'utf8',
+    timeout: 60_000,
+  });
+  expect(run.status).toBe(0);
+  return run.stdout.split('\n').filter(Boolean);
+}
+
+describe('the landing gate plans a lane per CI check the landing touches', () => {
+  const ALWAYS = ['types', 'guards', 'format'];
+  const OPTIONAL = ['rust', 'nextest', 'android-jvm', 'tracematch-hash-order', 'ios-project'];
+
+  it('lists the Android JVM lane for a change under a module android directory', () => {
+    const { root, base } = fixture();
+    write(root, 'modules/widget/android/src/Worker.kt', 'class Worker\n');
+    commit(root, 'Change the worker');
+
+    const names = plannedLanes(root, base);
+
+    expect(names).toContain('android-jvm');
+    expect(names).not.toContain('ios-project');
+    expect(names).not.toContain('tracematch-hash-order');
+  });
+
+  it('lists the Rust suites and the iOS project check for the paths that feed them', () => {
+    const { root, base } = fixture();
+    write(root, 'modules/veloqrs/rust/veloqrs/src/lib.rs', '// engine\n');
+    write(root, 'src/plugins/withWidget.js', 'module.exports = {};\n');
+    commit(root, 'Change the engine and a plugin');
+
+    const names = plannedLanes(root, base);
+
+    expect(names).toEqual(expect.arrayContaining([...ALWAYS, 'rust', 'nextest', 'ios-project']));
+    expect(names).not.toContain('android-jvm');
+  });
+
+  it('lists the detector hash-order lint when the tracematch pointer moves', () => {
+    const { root, base } = fixture();
+    write(root, 'modules/veloqrs/rust/tracematch/src/lib.rs', '// detector\n');
+    commit(root, 'Move the detector');
+
+    expect(plannedLanes(root, base)).toContain('tracematch-hash-order');
+  });
+
+  it('lists only the always-on lanes for a change that reaches none of them', () => {
+    const { root, base } = fixture();
+    write(root, 'src/features/feature.ts', 'export const feature = 2;\n');
+    commit(root, 'Change the feature');
+
+    const names = plannedLanes(root, base);
+
+    expect(names).toEqual(ALWAYS);
+    for (const lane of OPTIONAL) expect(names).not.toContain(lane);
+  });
+});

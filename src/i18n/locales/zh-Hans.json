@@ -1322,6 +1322,7 @@
     "intervalsBusy": "intervals.icu 目前繁忙。请在 {{time}} 后重试。",
     "intervalsBusyShortly": "intervals.icu 目前繁忙。请稍后重试。",
     "oauthUnreachable": "无法连接登录服务。请检查网络连接后重试。",
+    "permissionUpgradeWrongAccount": "访问权限已授予另一个账户（{{athleteId}}）。请使用此设备所用的账户登录，然后重试。",
     "oauthInvalidCallback": "无效的 OAuth 回调 URL",
     "oauthNotConfigured": "OAuth 未配置。请使用 API 密钥登录。",
     "oauthStateValidationFailed": "安全验证失败。请重新登录。",

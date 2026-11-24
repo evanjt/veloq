@@ -12,7 +12,13 @@ import { createPulledRidePoster } from '@/features/insights/lib/pulledRideNotifi
 function setup(entry: { title: string; body: string } | null = { title: 'Ride', body: 'A PR' }) {
   const present = jest.fn(async (_id: string, _title: string, _body: string) => undefined);
   const readEntry = jest.fn((_id: string) => entry);
-  return { present, readEntry, post: createPulledRidePoster({ readEntry, present }) };
+  const confirm = jest.fn((_id: string, _title: string, _body: string) => undefined);
+  return {
+    present,
+    readEntry,
+    confirm,
+    post: createPulledRidePoster({ readEntry, present, confirm }),
+  };
 }
 
 const owed = { kind: 'ride_notification', activityId: 'src-garmin-7001' };
@@ -54,11 +60,25 @@ describe('the pulled ride notification poster', () => {
     }
   });
 
-  it('posts a ride again after a failed post', async () => {
-    const { post, present } = setup();
+  it('posts a ride again after a failed post, confirming only the one that posted', async () => {
+    const { post, present, confirm } = setup();
     present.mockRejectedValueOnce(new Error('tray refused'));
 
     expect(await post(owed)).toBe(false);
+    expect(confirm).not.toHaveBeenCalled();
     expect(await post(owed)).toBe(true);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm).toHaveBeenCalledWith('src-garmin-7001', 'Ride', 'A PR');
+  });
+
+  it('still counts a ride as posted when the confirmation fails', async () => {
+    const { post, present, confirm } = setup();
+    confirm.mockImplementationOnce(() => {
+      throw new Error('engine closed');
+    });
+
+    expect(await post(owed)).toBe(true);
+    expect(await post(owed)).toBe(false);
+    expect(present).toHaveBeenCalledTimes(1);
   });
 });

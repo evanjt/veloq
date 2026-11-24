@@ -4,7 +4,7 @@
  * top or bottom edge moves the card there, and over itself or empty space changes nothing.
  */
 
-import { resolveDrop, type CardBox } from '../strengthDrop';
+import { dropPoint, resolveDrop, type CardBox } from '../strengthDrop';
 
 // Three cards of 100 stacked with no gap: 0-100, 100-200, 200-300.
 const BOXES: CardBox[] = [
@@ -34,6 +34,20 @@ describe('resolveDrop', () => {
 
   it('answers the card at the boundary below, so two cards never both claim a point', () => {
     expect(resolveDrop(BOXES, 2, 100)).toEqual({ kind: 'MoveExercise', exercise: 2, to: 1 });
+  });
+
+  it('groups a card dragged up onto the middle of the first card on a tall handset list', () => {
+    const handset: CardBox[] = [
+      { top: 393, height: 688 },
+      { top: 1105, height: 1043 },
+    ];
+    const y = dropPoint(handset[1]!, -889, 0);
+    expect(resolveDrop(handset, 1, y)).toEqual({ kind: 'Group', exercise: 1, to: 0 });
+  });
+
+  it('keeps the drop on the dragged card when the list scrolled under the finger', () => {
+    const dragged = BOXES[2]!;
+    expect(resolveDrop(BOXES, 2, dropPoint(dragged, -150, 150))).toBeNull();
   });
 
   it('ignores a card that has not been measured', () => {

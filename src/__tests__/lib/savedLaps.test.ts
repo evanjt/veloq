@@ -8,7 +8,7 @@
  * whole ride when none was pressed.
  */
 
-import { rebaseLaps, withClosingLap } from '@/features/recording/lib/savedLaps';
+import { rebaseLaps, summariseLap, withClosingLap } from '@/features/recording/lib/savedLaps';
 import type { RecordingLap, RecordingStreams } from '@/types';
 
 const EMPTY_STREAMS: RecordingStreams = {
@@ -42,6 +42,27 @@ function pressed(overrides: Partial<RecordingLap>): RecordingLap {
     ...overrides,
   };
 }
+
+describe('summariseLap', () => {
+  const bounds = {
+    index: 0,
+    startTime: 0,
+    endTime: 10,
+    startIndex: 1,
+    endIndex: 1,
+    movingEndTime: 10,
+  };
+
+  it('divides the lap distance by its moving time', () => {
+    const streams = makeStreams({ time: [0, 10], distance: [0, 100] });
+    expect(summariseLap(streams, bounds, 0).avgSpeed).toBe(10);
+  });
+
+  it.each([NaN, Infinity])('reads zero speed for a lap whose distance is %p', (distance) => {
+    const streams = makeStreams({ time: [0, 10], distance: [0, distance] });
+    expect(summariseLap(streams, bounds, 0).avgSpeed).toBe(0);
+  });
+});
 
 describe('withClosingLap', () => {
   it('adds a lap from the last press to the end, over moving time', () => {

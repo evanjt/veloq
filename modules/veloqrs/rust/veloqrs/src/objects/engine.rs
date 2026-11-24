@@ -353,6 +353,7 @@ impl VeloqEngine {
     /// goes through `lower`, which does. Clearing is its own method.
     fn set_observer(&self, observer: Arc<dyn crate::objects::observer::EngineObserver>) {
         crate::objects::observer::set_observer(Some(observer));
+        crate::push::present_owed_rides();
     }
 
     /// Drop the registered listener. `EngineClient.ts` calls it on its own
@@ -447,7 +448,7 @@ impl VeloqEngine {
                 activities_removed: cleared.activities_removed,
                 activities_kept: cleared.activities_kept,
             })
-            .map_err(|msg| VeloqError::database(msg))
+            .map_err(VeloqError::database)
     }
 
     /// Wipe the whole database, resolving once it has ended.
@@ -473,7 +474,7 @@ impl VeloqEngine {
             })
             .await
             .unwrap_or_else(|e| Err(format!("Clear thread died without a result: {e}")))
-            .map_err(|msg| VeloqError::database(msg))
+            .map_err(VeloqError::database)
     }
 
     /// Drop the persistent engine entirely, closing the SQLite connection.
@@ -594,7 +595,7 @@ impl VeloqEngine {
             })
             .await
             .unwrap_or_else(|e| Err(format!("Backup thread died without a result: {e}")))
-            .map_err(|msg| VeloqError::database(msg))
+            .map_err(VeloqError::database)
     }
 
     /// Write the athlete record as a compressed backup off the JS thread.
@@ -630,7 +631,7 @@ impl VeloqEngine {
             .spawn_blocking(move || crate::persistence::record_backup::read_record_zip(&path))
             .await
             .map_err(|e| VeloqError::database(e.to_string()))?
-            .map_err(|msg| VeloqError::database(msg))?;
+            .map_err(VeloqError::database)?;
         restore_record_payload(payload).await
     }
 
@@ -657,9 +658,9 @@ impl VeloqEngine {
                         )
                     }
                 }
-                .map_err(|msg| VeloqError::database(msg))?;
+                .map_err(VeloqError::database)?;
                 crate::persistence::record_restore::check_record_rows(&payload)
-                    .map_err(|msg| VeloqError::database(msg))?;
+                    .map_err(VeloqError::database)?;
                 let imported = payload.athlete_id.as_deref();
                 refuse_another_signed_in_athlete(imported)?;
                 with_reader(|conn| {
@@ -667,7 +668,7 @@ impl VeloqEngine {
                         conn, imported,
                     )
                 })?
-                .map_err(|msg| VeloqError::database(msg))?;
+                .map_err(VeloqError::database)?;
                 let counts = crate::persistence::record_restore::record_counts(&payload);
                 Ok(FfiRecordCheck {
                     names_account: imported.is_some_and(|id| !id.is_empty()),
@@ -687,7 +688,7 @@ impl VeloqEngine {
         json: String,
     ) -> Result<FfiRecordRestoreResult, VeloqError> {
         let payload = crate::persistence::record_restore::parse_record_payload(&json)
-            .map_err(|msg| VeloqError::database(msg))?;
+            .map_err(VeloqError::database)?;
         restore_record_payload(payload).await
     }
 
@@ -705,7 +706,7 @@ impl VeloqEngine {
         })
         .await
         .ok_or(VeloqError::NotInitialized)?
-        .map_err(|msg| VeloqError::database(msg))
+        .map_err(VeloqError::database)
     }
 
     /// List decisions that still await their activity or matching ground.
@@ -718,7 +719,7 @@ impl VeloqEngine {
             })
             .await
             .map_err(|e| VeloqError::database(e.to_string()))??
-            .map_err(|msg| VeloqError::database(msg))
+            .map_err(VeloqError::database)
     }
 
     /// Get backup metadata as JSON for validation before restore.
@@ -867,7 +868,7 @@ async fn restore_record_payload(
         })
         .await
         .map_err(|e| VeloqError::database(e.to_string()))??
-        .map_err(|msg| VeloqError::database(msg))?;
+        .map_err(VeloqError::database)?;
     refuse_another_signed_in_athlete(paused.as_deref())?;
     let (result, not_restored, names_not_restored) =
         crate::persistence::with_persistent_engine_blocking(move |engine| {
@@ -880,7 +881,7 @@ async fn restore_record_payload(
         })
         .await
         .ok_or(VeloqError::NotInitialized)?
-        .map_err(|msg| VeloqError::database(msg))?;
+        .map_err(VeloqError::database)?;
     crate::objects::observer::notify(crate::objects::observer::Announcement::ActivitiesStored);
     crate::objects::observer::notify(crate::objects::observer::Announcement::GroupsChanged);
     crate::objects::observer::notify(crate::objects::observer::Announcement::DetectionApplied);

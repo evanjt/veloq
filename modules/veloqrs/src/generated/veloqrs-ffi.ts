@@ -415,6 +415,13 @@ interface NativeModuleInterface {
     sportTypes: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_confirm_pulled_ride_posted(
+    uniffiSelf: bigint,
+    activityId: Uint8Array,
+    title: Uint8Array,
+    body: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_debug_clone(
     uniffiSelf: bigint,
     sourceId: Uint8Array,
@@ -1680,6 +1687,12 @@ interface NativeModuleInterface {
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_record_live_heart_rate(
+    uniffiSelf: bigint,
+    bpm: number,
+    now: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_recover_strength_workout(
     uniffiSelf: bigint,
     id: Uint8Array,
@@ -2061,6 +2074,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_constructor_activitymanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_activity_notification(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_add(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_confirm_pulled_ride_posted(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_debug_clone(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_names(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_record(): number;
@@ -2309,6 +2323,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_unprocessed_strength_ids(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_record_live_heart_rate(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_recover_strength_workout(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_search_exercises(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_set_exercise_labels(): number;

@@ -69,6 +69,10 @@ interface StrengthExerciseCardProps {
   hasNext: boolean;
   edit: (change: LiveStrengthEdit) => void;
   toggleDone: (set: number) => void;
+  /** The handle was touched, before the drag activates. */
+  onDragStart: () => void;
+  /** The touch on the handle ended for any reason, a cancel included. */
+  onDragEnd: () => void;
   /** The handle was let go after being dragged this far down (negative: up), in points. */
   onDrop: (translationY: number) => void;
 }
@@ -87,6 +91,8 @@ export function StrengthExerciseCard({
   hasNext,
   edit,
   toggleDone,
+  onDragStart,
+  onDragEnd,
   onDrop,
 }: StrengthExerciseCardProps) {
   const { t } = useTranslation();
@@ -94,23 +100,31 @@ export function StrengthExerciseCard({
   const palette = isDark ? darkColors : colors;
   const id = `strength-exercise-${index}`;
   const dragY = useSharedValue(0);
+  const startOnJS = useGestureCallback(onDragStart);
   const dropOnJS = useGestureCallback(onDrop);
+  const endOnJS = useGestureCallback(onDragEnd);
 
   const drag = useMemo(
     () =>
       Gesture.Pan()
         .withTestId(`${id}-drag`)
+        // At touch down, so the list stops scrolling before its own gesture can claim the touch.
+        .onBegin(() => {
+          runOnJS(startOnJS)();
+        })
         .onUpdate((event) => {
           dragY.value = event.translationY;
         })
-        .onEnd((event) => {
+        // A cancelled pan ends too, with success false, and its travel is not a drop.
+        .onEnd((event, success) => {
           dragY.value = 0;
-          runOnJS(dropOnJS)(event.translationY);
+          if (success) runOnJS(dropOnJS)(event.translationY);
         })
         .onFinalize(() => {
           dragY.value = 0;
+          runOnJS(endOnJS)();
         }),
-    [id, dragY, dropOnJS]
+    [id, dragY, startOnJS, dropOnJS, endOnJS]
   );
   const lift = useAnimatedStyle(() => ({
     transform: [{ translateY: dragY.value }],

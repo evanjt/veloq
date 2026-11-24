@@ -417,7 +417,7 @@ fn synced_rides(count: i64) -> Vec<String> {
                     local(n),
                     format!("{{\"id\":\"{id}\",\"type\":\"Ride\"}}"),
                 )],
-                &[id.clone()],
+                std::slice::from_ref(&id),
                 vec![crate::ActivityMetrics {
                     activity_id: id.clone(),
                     date: local(n),

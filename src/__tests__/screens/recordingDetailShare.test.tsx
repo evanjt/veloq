@@ -15,6 +15,7 @@ import {
 import type { RecordingLibraryEntry } from '@/types';
 import { useRecordingLibrary } from '@/features/recording/hooks/useRecordingLibrary';
 import { goBack } from '@/shared/app/navigation';
+import { recordings } from 'veloqrs';
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
@@ -162,6 +163,12 @@ it('shows the average speed of a saved ride and the average pace of a saved run'
   expect(screen.getByText('Avg speed')).toBeTruthy();
   await ride.unmount();
 
+  // The engine owns the pace text, so it answers only for the run's own speed, sport and units.
+  (recordings.livePace as jest.Mock).mockImplementation(
+    (speed: number, sport: string | undefined, isMetric: boolean) => ({
+      text: speed === 8046.72 / 3000 && sport === 'Run' && !isMetric ? '10:00 /mi' : '--:--',
+    })
+  );
   (getVisibleRecording as jest.Mock).mockResolvedValue({
     ...ENTRY,
     activityType: 'Run',

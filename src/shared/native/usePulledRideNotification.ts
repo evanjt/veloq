@@ -30,6 +30,8 @@ export function usePulledRideNotification(): void {
           route: `/activity/${activityId}`,
           activityId,
         }),
+      confirm: (activityId, title, body) =>
+        activities.confirmPulledRidePosted(activityId, title, body),
     });
     return engine.subscribe(BODY_STORED_CHANNEL, (payload) => {
       void post(payload);

@@ -57,6 +57,7 @@ const mockEngine = {
   getFitnessScreenData: jest.fn(() => ({
     ftpTrend: { sampleCount: 0, history: [], changes: [] },
     ftpTrendCoverage: require('veloqrs').RangeCoverage.Loaded,
+    thresholdPaces: [],
     runPaceTrend: { sampleCount: 0, history: [] },
     swimPaceTrend: { sampleCount: 0, history: [] },
     sportMix: { rides: 1, runs: 0, swims: 0 },

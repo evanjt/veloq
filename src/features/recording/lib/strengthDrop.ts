@@ -10,6 +10,15 @@ export interface CardBox {
 const GROUP_BAND = 0.5;
 
 /**
+ * Where a dragged card's middle lands, in the list's own coordinates, when let go. The finger's
+ * travel moves the card on screen. A scroll made during the drag moves it again, so it is added
+ * back. Without that, a list that scrolls under the finger drops on the wrong card.
+ */
+export function dropPoint(box: CardBox, translationY: number, scrolledBy: number): number {
+  return box.top + box.height / 2 + translationY + scrolledBy;
+}
+
+/**
  * The change letting go of exercise `from` at `y` asks for. Over the middle of another card the
  * two are grouped; over its top or bottom edge the exercise moves to that card's place. Over
  * itself, past either end of the list or over a card not yet measured, nothing changes.

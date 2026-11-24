@@ -1322,6 +1322,7 @@
     "intervalsBusy": "intervals.icu is nu even druk. Probeer het opnieuw na {{time}}.",
     "intervalsBusyShortly": "intervals.icu is nu even druk. Probeer het zo opnieuw.",
     "oauthUnreachable": "De inlogdienst was niet bereikbaar. Controleer je verbinding en probeer het opnieuw.",
+    "permissionUpgradeWrongAccount": "De toegang is verleend aan een ander account ({{athleteId}}). Log in met het account dat dit apparaat gebruikt en probeer het opnieuw.",
     "oauthInvalidCallback": "Ongeldige OAuth-callback-URL",
     "oauthNotConfigured": "OAuth is niet geconfigureerd. Gebruik in plaats daarvan een API-sleutel.",
     "oauthStateValidationFailed": "Beveiligingscontrole mislukt. Probeer opnieuw in te loggen.",

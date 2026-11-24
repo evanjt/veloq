@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { calculateSpeed } from '@/shared/math';
 import { freshValue, useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useClock } from '@/features/recording/hooks/useTimer';
 import { heartRateKcalPerMinute } from '@/features/recording/lib/heartRateCalories';
@@ -110,7 +111,7 @@ export function useRecordingMetrics(): {
       0,
       elapsedSeconds - pausedSecondsBetween(pauses, 0, elapsedSeconds)
     );
-    const avgSpeed = movingSeconds > 0 ? distance / movingSeconds : 0;
+    const avgSpeed = calculateSpeed(distance, movingSeconds);
 
     // Accumulated per appended sample by the store. Rescanning the whole
     // altitude array here made the work over a ride quadratic.

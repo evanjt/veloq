@@ -94,7 +94,8 @@ describe('turning the heatmap off', () => {
     await fireEvent.press(getByTestId('heatmap-switch'));
 
     await waitFor(() => expect(alert).toHaveBeenCalledTimes(1));
-    expect(mock.clearHeatmapTiles).toHaveBeenCalledTimes(2);
+    expect(mock.clearHeatmapTiles).toHaveBeenCalledTimes(1);
+    expect(mock.clearHeatmapTiles).toHaveBeenCalledWith('/cache/heatmap-tiles/');
   });
 
   /** Turning it on must not cancel: the pass it starts is the point. */

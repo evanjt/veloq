@@ -30,14 +30,17 @@ export {
   type DemoResults,
 } from './connectDemoBase';
 
-const names = (methods as { methods: { name: string }[] }).methods.map((entry) => entry.name);
+/** Every method of the protocol, as the page's own method table names them: what a phone at this version lists. */
+export const PROTOCOL_METHODS: string[] = (methods as { methods: { name: string }[] }).methods.map(
+  (entry) => entry.name
+);
 
 /**
  * The answer to every method of the protocol. The type is the protocol's own, so a method added
  * to it without an answer here does not compile.
  */
 export function demoResults(): DemoResults {
-  return { ...baseResults(), ...moreResults(names) };
+  return { ...baseResults(), ...moreResults(PROTOCOL_METHODS) };
 }
 
 /** The newest ride, which has a track and a power stream, and which the activity route opens. */
@@ -57,7 +60,7 @@ export function demoScript(
     phoneProof: base.phoneProof,
     invite: { fingerprint: base.phoneFingerprint },
     linked: { fingerprint: base.phoneFingerprint },
-    methods: names,
+    methods: PROTOCOL_METHODS,
     results,
     byActivity: keyedResults(),
     tilesByBase: {

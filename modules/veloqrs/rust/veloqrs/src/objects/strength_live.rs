@@ -336,6 +336,16 @@ pub(crate) fn edit_session(
         .map_err(VeloqError::from)
 }
 
+/// One heart rate reading for the live session. True when it was kept: a
+/// reading is dropped when no session is live or begun, and when it is no heart rate.
+pub(crate) fn record_heart_rate(
+    engine: &PersistentEngine,
+    bpm: u32,
+    now: i64,
+) -> Result<bool, VeloqError> {
+    engine.record_live_heart_rate(bpm, now).map_err(database)
+}
+
 fn start_session(
     engine: &PersistentEngine,
     kind: FfiStrengthStartKind,
@@ -450,6 +460,13 @@ impl StrengthManager {
         now: f64,
     ) -> Result<FfiLiveStrengthOutcome, VeloqError> {
         with_engine(|engine| edit_session(engine, &edit, now as i64))?
+    }
+
+    /// Keep one heart rate reading, taken at `now` epoch seconds, on the live
+    /// session. Answers whether it was kept; a reading with no begun session
+    /// live, or that is no heart rate, is dropped.
+    fn record_live_heart_rate(&self, bpm: u32, now: f64) -> Result<bool, VeloqError> {
+        with_engine(|engine| record_heart_rate(engine, bpm, now as i64))?
     }
 
     /// Drop the live session and everything in it; the library is unchanged.
@@ -653,6 +670,30 @@ mod tests {
             .map(|set| set.weight_kg)
             .collect();
         assert_eq!(weights, [Some(37.5), Some(37.5), Some(37.5)]);
+    }
+
+    #[test]
+    fn a_reading_after_begin_reaches_the_saved_session_and_its_fit_rows() {
+        let (_dir, engine) = engine();
+        engine
+            .start_live_strength_session(&StartFrom::Blank, NOW)
+            .unwrap();
+        assert!(!record_heart_rate(&engine, 100, NOW + 1).unwrap());
+
+        engine
+            .edit_live_strength_session(&LiveEdit::Begin, NOW)
+            .unwrap();
+        assert!(record_heart_rate(&engine, 100, NOW + 1).unwrap());
+        assert!(record_heart_rate(&engine, 120, NOW + 2).unwrap());
+        assert!(!record_heart_rate(&engine, 0, NOW + 3).unwrap());
+
+        let finished = engine
+            .finish_live_strength_session("local-hr", NOW + 60)
+            .unwrap();
+        let stored = engine.get_strength_session(&finished.id).unwrap().unwrap();
+        assert_eq!(stored.average_heart_rate(), Some(110));
+        assert_eq!(stored.max_heart_rate(), Some(120));
+        assert_eq!(stored.fit_heart_rate().len(), 2);
     }
 
     #[test]

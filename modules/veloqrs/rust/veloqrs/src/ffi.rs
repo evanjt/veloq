@@ -244,7 +244,7 @@ pub async fn convert_legacy_database_to_record_backup(
         })
         .await
         .unwrap_or_else(|e| Err(format!("Backup conversion thread died: {e}")))
-        .map_err(|msg| crate::VeloqError::database(msg))
+        .map_err(crate::VeloqError::database)
 }
 
 /// Stored points for one fetched track.
@@ -1905,7 +1905,7 @@ pub(crate) fn index_stored_track(
         indexed.map(Some)
     })
     .ok_or(crate::VeloqError::NotInitialized)?
-    .map_err(|msg| crate::VeloqError::database(msg))?;
+    .map_err(crate::VeloqError::database)?;
     Ok(indexed.map(|(summary, scheduled)| {
         if let Some(scheduled) = scheduled {
             scheduled.start();

@@ -23,6 +23,7 @@ figure.calendar svg {
 
 figure.calendar {
   overflow-x: auto;
+  overflow-y: hidden;
 }
 
 figure.chart .brush {

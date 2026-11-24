@@ -28,6 +28,10 @@ pub enum PushRunOutcome {
     /// The run had an entry for a ride the tray already held one for, and
     /// nothing in it was new, so it posted nothing.
     Unchanged,
+    /// The entry was recorded while no observer was registered, so nothing
+    /// presented it. It is not announced: a later push for the ride still
+    /// posts, and the registration that follows presents it.
+    Owed,
 }
 
 impl PushRunOutcome {
@@ -41,6 +45,7 @@ impl PushRunOutcome {
             PushRunOutcome::NoStringBundle => "no-string-bundle",
             PushRunOutcome::Failed => "failed",
             PushRunOutcome::Unchanged => "unchanged",
+            PushRunOutcome::Owed => "owed",
         }
     }
 }
@@ -205,6 +210,50 @@ pub fn settle_on(
         )?;
     }
     Ok(posts)
+}
+
+/// Mark the entry the newest run recorded for `activity_id` as owed: put
+/// forward while nothing was listening, so not yet announced.
+pub fn mark_owed(install: u64, activity_id: &str) {
+    writing(install, activity_id, |engine| {
+        engine.db.execute(
+            "UPDATE push_runs SET outcome = ?2
+             WHERE id = (SELECT id FROM push_runs
+                         WHERE activity_id = ?1 AND posted_title IS NOT NULL
+                         ORDER BY ts DESC, id DESC LIMIT 1)",
+            rusqlite::params![activity_id, PushRunOutcome::Owed.as_str()],
+        )
+    });
+}
+
+/// The rides with an owed entry, oldest first. They stay owed.
+pub fn owed_rides(install: u64) -> Vec<String> {
+    writing(install, "owed", |engine| {
+        let mut stmt = engine.db.prepare(
+            "SELECT DISTINCT activity_id FROM push_runs WHERE outcome = ?1 ORDER BY ts, id",
+        )?;
+        stmt.query_map([PushRunOutcome::Owed.as_str()], |row| row.get(0))?
+            .collect::<rusqlite::Result<Vec<String>>>()
+    })
+    .unwrap_or_default()
+}
+
+/// Settle the owed entry of `activity_id` as posted, recording the title and
+/// body the app presented.
+pub fn confirm_posted(install: u64, activity_id: &str, title: &str, body: &str) {
+    writing(install, activity_id, |engine| {
+        engine.db.execute(
+            "UPDATE push_runs SET outcome = ?2, posted_title = ?3, posted_body = ?4
+             WHERE activity_id = ?1 AND outcome = ?5",
+            rusqlite::params![
+                activity_id,
+                PushRunOutcome::Posted.as_str(),
+                title,
+                body,
+                PushRunOutcome::Owed.as_str()
+            ],
+        )
+    });
 }
 
 /// The kept runs, newest first, for the dashboard.

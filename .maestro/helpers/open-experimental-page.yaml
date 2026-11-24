@@ -1,0 +1,27 @@
+# Reach the experimental page through its Settings row. It is a settings
+# sub-screen, not a link target: the app opens no deep link to it, so a
+# `veloq://experimental` link leaves the athlete on home.
+appId: ${APP_ID}
+---
+- runFlow:
+    file: open-link.yaml
+    env:
+      LINK: "veloq:///settings"
+      TARGET: "settings-screen"
+- scrollUntilVisible:
+    element:
+      id: "settings-experimental-dashboard-link"
+    direction: DOWN
+    timeout: 20000
+# A row that scrolls in under the bottom tab bar passes assertVisible, and the tap
+# then lands on a tab. A slow drag lifts it clear before the tap.
+- swipe:
+    start: "50%, 75%"
+    end: "50%, 45%"
+    duration: 800
+- tapOn:
+    id: "settings-experimental-dashboard-link"
+- extendedWaitUntil:
+    visible:
+      id: "experimental-preview-note"
+    timeout: 10000

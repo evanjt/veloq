@@ -69,6 +69,14 @@ const REGION_MIN_ZOOM = {
 /** Geographic bounds, [west, south, east, north]. */
 type Bbox = [number, number, number, number];
 
+/** A body a provider answers with status 200 where it holds no imagery. */
+interface BlankTile {
+  /** The body's length in bytes. */
+  length: number;
+  /** The body's SHA-256 as 64 lowercase hex digits. */
+  sha256: string;
+}
+
 // Satellite source configuration type
 interface SatelliteSource {
   tiles: string[];
@@ -83,6 +91,12 @@ interface SatelliteSource {
    * its own, so MapLibre asks for no tile outside them.
    */
   boxes?: Bbox[];
+  /**
+   * The bodies the provider answers where it has no imagery. The engine treats
+   * a 200 carrying one as no tile and asks the next provider, which covers the
+   * border tiles a box cannot cut.
+   */
+  blankTiles?: BlankTile[];
 }
 
 /**
@@ -185,6 +199,18 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
   //
   // Andorra and the Spanish Cerdanya are cut the same way, along the border.
   ign: {
+    // The white tile over the Spanish Pyrenees at zoom 15 and 16, and the flat
+    // dark-blue filler over open sea at zoom 8 to 12, both measured on 2026-11-24.
+    blankTiles: [
+      {
+        length: 1651,
+        sha256: '11c9176ec2896e0a2a5e945e47b0ee223686701c32aab229952b5f150e191bc5',
+      },
+      {
+        length: 1653,
+        sha256: '463a16632e268d64bf59d1f794e822a73378475620c65833176aca4d70d23a54',
+      },
+    ],
     tiles: [
       'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
     ],
@@ -262,6 +288,16 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
   // Austria: basemap.at Orthophoto (CC BY 4.0 OGD Austria - commercial OK)
   // maps{1-4}.wien.gv.at subdomains have DNS issues - use maps.wien.gv.at (load-balanced)
   austria: {
+    blankTiles: [
+      {
+        length: 2419,
+        sha256: 'b8480d2eece3c003ea04568a66ab887ffb9f9c8ba1984047ce24260964d4b22a',
+      },
+      {
+        length: 2419,
+        sha256: '9775cd09375a691b3298b70d070905111e7c4c26a4a121969be0b4c52de9c3cf',
+      },
+    ],
     tiles: ['https://maps.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg'],
     tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 20,
@@ -622,6 +658,16 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
   },
   // Luxembourg: ACT BD-L-ORTHO (CC0 Public Domain - commercial OK, no attribution required)
   luxembourg: {
+    blankTiles: [
+      {
+        length: 854,
+        sha256: '9cdc25f88c3847e224535507a3d1aed35c4796dadb515cd52bf46c72b56f9369',
+      },
+      {
+        length: 1651,
+        sha256: '483f02f2c3bfbd6859fbf4b5e373b5f7045e806d19de4b6b2a45cb4c87424b3d',
+      },
+    ],
     tiles: [
       'https://wmts1.geoportail.lu/opendata/wmts/ortho_latest/GLOBAL_WEBMERCATOR_4_V3/{z}/{x}/{y}.jpeg',
       'https://wmts2.geoportail.lu/opendata/wmts/ortho_latest/GLOBAL_WEBMERCATOR_4_V3/{z}/{x}/{y}.jpeg',
@@ -684,13 +730,25 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
   },
   // Estonia: orthophoto of the Republic of Estonia Land and Spatial Development Board
   // (Maa- ja Ruumiamet), open data licence (commercial use permitted, attribution required).
-  // Over Riga the service answers a 116-byte blank PNG with status 200, not a 404,
-  // so the boxes stop short of the Latvian and Russian borders and of the Finnish
-  // coast. They are drawn from named places inside the border, not from a boundary
-  // dataset, so the margin is a few kilometres on each side. Parts of the south-east
-  // corner, Ruhnu and Narva are left to the global imagery as a result. The GMC
-  // matrix set has no level past 18.
+  // From zoom 14 the service answers a 116-byte flat black PNG with status 200, not a 404,
+  // over Riga, Russia and the sea, and from zoom 14 to 16 a 670-byte flat JPEG over Pskov,
+  // both measured on 2026-11-24. At zoom 11 Riga returns real imagery, so a body is matched
+  // on its own tile, not assumed for the provider. The boxes stop short of the Latvian and
+  // Russian borders and of the Finnish coast. They are drawn from named places inside the
+  // border, not from a boundary dataset, so the margin is a few kilometres on each side.
+  // Parts of the south-east corner, Ruhnu and Narva are left to the global imagery as a
+  // result. The GMC matrix set has no level past 18.
   estonia: {
+    blankTiles: [
+      {
+        length: 116,
+        sha256: '87b260416aa0f50736d3ca51bcb6aae3eff373bf471d5662883b8b6797e73e85',
+      },
+      {
+        length: 670,
+        sha256: 'ff498b58fe91aee7a30cec5bf7b113d5121f07491f68b21f2df418ff3a7edd54',
+      },
+    ],
     tiles: ['https://tiles.maaamet.ee/tm/wmts/1.0.0/foto/default/GMC/{z}/{y}/{x}.jpg'],
     tileSize: SATELLITE_TILE_SIZE,
     maxzoom: 18,
@@ -802,7 +860,17 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     boxes: GERMAN_LAND_BOXES['baden-wuerttemberg'],
   },
   // Bavaria: DOP40 (CC BY 4.0 - commercial OK)
+  //
+  // The service answers a flat white 667-byte JPEG outside Bavaria over Baden-Württemberg,
+  // Austria, the Czech Republic and Hamburg at zoom 12 to 16, and over Baden-Württemberg and
+  // Austria at zoom 18 and 20, measured on 2026-11-24.
   bavaria: {
+    blankTiles: [
+      {
+        length: 667,
+        sha256: 'c0c6e896ba6cb3503d48ce55b04916ca36e4d4d6b0f3838e7a5e1f95fa9acf79',
+      },
+    ],
     tiles: [
       wmsOrthophotoTemplate('https://geoservices.bayern.de/od/wms/dop/v1/dop40', 'by_dop40c'),
     ],
@@ -1028,6 +1096,7 @@ function regionalProvider(id: SatelliteSourceId, minZoom: number): CompositeProv
     minZoom,
     maxZoom: source.maxzoom,
     boxes: source.boxes ?? (source.bounds ? [source.bounds] : []),
+    blankTiles: source.blankTiles ?? [],
   };
 }
 

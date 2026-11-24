@@ -7,7 +7,8 @@ import { useAthlete, useTheme } from '@/shared/app';
 import { useRecordingKeepAwake } from '@/features/recording/hooks/useRecordingKeepAwake';
 import type { LiveStrengthSessionHandle } from '@/features/recording/hooks/useLiveStrengthSession';
 import { useStrengthFocus } from '@/features/recording/hooks/useStrengthFocus';
-import { resolveDrop, type CardBox } from '@/features/recording/lib/strengthDrop';
+import { useStrengthHeartRate } from '@/features/recording/hooks/useStrengthHeartRate';
+import { dropPoint, resolveDrop, type CardBox } from '@/features/recording/lib/strengthDrop';
 import { ExercisePicker } from '@/features/strength';
 import { Button } from '@/shared/ui/Button';
 import { useBottomClearance } from '@/shared/ui/tabBarClearance';
@@ -72,7 +73,11 @@ export function StrengthLiveSession({ live, onFinish }: StrengthLiveSessionProps
   const [picking, setPicking] = useState(false);
   const [focusing, setFocusing] = useState(false);
   const { names, nowMs } = useStrengthFocus(session, focus);
+  useStrengthHeartRate(session);
   const boxes = useRef<(CardBox | undefined)[]>([]);
+  // The list's scroll, read as it moves, and as it stood when a handle was taken up.
+  const scrollY = useRef(0);
+  const dragStartScrollY = useRef(0);
   useRecordingKeepAwake();
 
   const send = useCallback(
@@ -108,11 +113,21 @@ export function StrengthLiveSession({ live, onFinish }: StrengthLiveSessionProps
     if (exercise != null && set != null) toggleDone(exercise, set);
   }, [focus, session, edit, toggleDone]);
 
+  // The list's own scroll claims a vertical touch and cancels the handle's pan, so it is held still
+  // from touch down on a handle until the touch ends.
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useCallback(() => {
+    dragStartScrollY.current = scrollY.current;
+    setDragging(true);
+  }, []);
+  const dragEnd = useCallback(() => setDragging(false), []);
+
   const drop = useCallback(
     (index: number, translationY: number) => {
       const box = boxes.current[index];
       if (!box) return;
-      const change = resolveDrop(boxes.current, index, box.top + box.height / 2 + translationY);
+      const scrolledBy = scrollY.current - dragStartScrollY.current;
+      const change = resolveDrop(boxes.current, index, dropPoint(box, translationY, scrolledBy));
       if (change) edit(change);
     },
     [edit]
@@ -173,7 +188,14 @@ export function StrengthLiveSession({ live, onFinish }: StrengthLiveSessionProps
   const exercises = session.exercises;
   return (
     <View style={[styles.fill, { backgroundColor: palette.surfacePage }]} testID="strength-session">
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        onScroll={(event) => {
+          scrollY.current = event.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
+        scrollEnabled={!dragging}
+      >
         {session.restStartedAt != null ? (
           <RestBanner startedAt={session.restStartedAt} onSkip={() => send({ kind: 'EndRest' })} />
         ) : null}
@@ -223,6 +245,8 @@ export function StrengthLiveSession({ live, onFinish }: StrengthLiveSessionProps
                 hasNext={index < exercises.length - 1}
                 edit={send}
                 toggleDone={(set) => toggleDone(index, set)}
+                onDragStart={dragStart}
+                onDragEnd={dragEnd}
                 onDrop={(translationY) => drop(index, translationY)}
               />
             </View>

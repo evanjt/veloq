@@ -479,6 +479,18 @@ impl ActivityManager {
         crate::push::recorded_entry(&activity_id)
     }
 
+    /// Record that the app presented the entry for the pulled Garmin ride
+    /// `activity_id`, with the title and body it showed. Until then the ride is
+    /// owed, so a failed presentation is retried and a later push still posts.
+    fn confirm_pulled_ride_posted(&self, activity_id: String, title: String, body: String) {
+        crate::push::confirm_pulled_ride_posted(
+            crate::persistence::engine_install(),
+            &activity_id,
+            &title,
+            &body,
+        );
+    }
+
     pub fn remove(&self, activity_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             let referencing = e.sections_referencing_activity(&activity_id);

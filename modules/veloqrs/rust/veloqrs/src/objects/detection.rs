@@ -1161,7 +1161,7 @@ mod tests {
                     stop_at_end,
                     || {
                         let next = self.answers.borrow_mut().pop().unwrap_or(self.last.clone());
-                        next.map_err(|msg| VeloqError::database(msg))
+                        next.map_err(VeloqError::database)
                     },
                     |d| {
                         self.slept.set(self.slept.get() + 1);

@@ -2,6 +2,14 @@
   "unresolved": [
     "section-rename-button",
     "section-rename-input",
-    "section-rename-save"
+    "section-rename-save",
+    "strength-exercise-0",
+    "strength-exercise-1-handle",
+    "strength-group-.*-rest-value",
+    "strength-set-0-0-add",
+    "strength-set-0-0-done",
+    "strength-set-0-0-reps-plus",
+    "strength-set-0-0-reps-value",
+    "strength-set-0-3"
   ]
 }

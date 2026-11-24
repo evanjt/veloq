@@ -231,8 +231,18 @@ describe('the webhook pushes by the stored flag', () => {
     env.DEVICE_TOKENS.entries.set(
       'athlete:i101',
       JSON.stringify([
-        { token: 'ExponentPushToken[old]', platform: 'android', registeredAt: 'x', legacy: true },
-        { token: 'ExponentPushToken[new]', platform: 'android', registeredAt: 'x', legacy: false },
+        {
+          token: 'ExponentPushToken[old]',
+          platform: 'android',
+          registeredAt: new Date().toISOString(),
+          legacy: true,
+        },
+        {
+          token: 'ExponentPushToken[new]',
+          platform: 'android',
+          registeredAt: new Date().toISOString(),
+          legacy: false,
+        },
       ])
     );
     expect((await worker.fetch(webhook(), env)).status).toBe(200);
@@ -249,7 +259,9 @@ describe('the webhook pushes by the stored flag', () => {
     const env = makeEnv();
     env.DEVICE_TOKENS.entries.set(
       'athlete:i101',
-      JSON.stringify([{ token: TOKEN, platform: 'android', registeredAt: 'x' }])
+      JSON.stringify([
+        { token: TOKEN, platform: 'android', registeredAt: new Date().toISOString() },
+      ])
     );
     await worker.fetch(webhook(), env);
     expect(expoPushes()).toHaveLength(2);

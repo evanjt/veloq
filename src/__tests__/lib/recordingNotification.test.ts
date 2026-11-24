@@ -14,6 +14,7 @@ import {
   applyRecordingNotificationAction,
   parsePendingAction,
 } from '@/features/recording/lib/recordingNotification';
+import { formatRecordingSpeed } from '@/features/recording/lib/formatRecordingSpeed';
 import { recording } from '@/theme';
 
 jest.mock('@/features/recording/lib/storage/recordingBackup', () => ({
@@ -77,11 +78,14 @@ describe('decimateTrace', () => {
   });
 
   it('caps a long trace and keeps its first and last point', () => {
-    const points: [number, number][] = Array.from({ length: 4000 }, (_, i) => [i + 1, -(i + 1)]);
+    const points: [number, number][] = Array.from({ length: 4000 }, (_, i) => [
+      1 + i * 0.01,
+      -1 - i * 0.01,
+    ]);
     const flat = decimateTrace(points);
     expect(flat.length / 2).toBeLessThanOrEqual(TRACE_POINT_CAP);
     expect(flat.slice(0, 2)).toEqual([1, -1]);
-    expect(flat.slice(-2)).toEqual([4000, -4000]);
+    expect(flat.slice(-2)).toEqual(points[3999]);
   });
 
   vaultIt('gives an empty trace back unchanged', () => {
@@ -194,6 +198,29 @@ describe('buildRecordingNotificationPayload', () => {
       now: NOW,
     });
     expect(payload!.chronometerBase).toBe(NOW - 540_000);
+  });
+
+  it('reads the speed as zero when the distance is not finite', () => {
+    const payload = buildRecordingNotificationPayload(
+      stateWith({
+        streams: {
+          time: [0, 300, 600],
+          latlng: [
+            [47.5, 8.5],
+            [47.51, 8.51],
+            [47.52, 8.52],
+          ],
+          altitude: [400, 410, 420],
+          heartrate: [],
+          power: [],
+          cadence: [],
+          speed: [0, 8, 9],
+          distance: [0, 2000, NaN],
+        },
+      }),
+      { translate, isMetric: true, now: NOW }
+    );
+    expect(payload!.body.endsWith(formatRecordingSpeed('Ride', 0, true))).toBe(true);
   });
 
   it('has nothing to draw when the recording is idle', () => {

@@ -159,7 +159,7 @@ fn a_time_stream_fetched_before_a_restore_is_not_written() {
     );
     assert_eq!(stored_streams(), 0);
 
-    let _ = crate::runtime::block_on(store_time_stream(
+    crate::runtime::block_on(store_time_stream(
         crate::persistence::engine_install(),
         "late".to_string(),
         vec![0, 1, 2],

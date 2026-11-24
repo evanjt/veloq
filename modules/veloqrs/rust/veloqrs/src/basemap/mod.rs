@@ -35,7 +35,7 @@ mod preseed;
 mod store;
 mod throttle;
 
-pub use composite::{CompositeMember, GeoBox};
+pub use composite::{BlankTile, CompositeMember, GeoBox};
 pub use fetch::{FILL_PACE, TileFetchError, TileFetcher};
 pub(crate) use geo::for_collection;
 pub use geo::geo_answer;
@@ -1009,6 +1009,21 @@ impl TileMiss {
         } else {
             None
         };
+
+        // A body the provider declares as its answer for ground it has no
+        // imagery for is no tile: it is neither kept nor drawn, and the next
+        // provider is asked.
+        if composite::is_blank(&source, tile.as_deref().unwrap_or(&sent)) {
+            notfound::remember_refused(&source, z, x, y);
+            log::info!(
+                "[basemap] {} {}/{}/{} answered its blank body",
+                source,
+                z,
+                x,
+                y
+            );
+            return Err(NO_TILE);
+        }
 
         store.record_fetch(&source);
         if let Err(e) = store_fetched(

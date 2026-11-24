@@ -74,7 +74,7 @@
 
 /* In a narrow pane the list, the map and the detail share one column, in that order, and the
    map scrolls with them. */
-@container content (max-width: 1100px) {
+@container content (max-width: 900px) {
   #routes-page,
   #routes-page[data-open],
   #routes-page[data-kind='routes'][data-open],

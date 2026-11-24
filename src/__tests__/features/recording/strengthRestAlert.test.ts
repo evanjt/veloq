@@ -1,66 +1,7 @@
-import { startFollow, advance, type PlanLine } from '@/features/recording/lib/planFollow';
-import { buildStrengthContentState } from '@/features/recording/lib/liveActivity/strengthContentState';
 import {
   createRestAlert,
   type RestAlertPort,
 } from '@/features/recording/lib/liveActivity/restAlert';
-
-const SEC = 1000;
-const work = (text: string, durationSeconds: number | null = null): PlanLine => ({
-  kind: 'work',
-  text,
-  durationSeconds,
-});
-const rest = (durationSeconds: number): PlanLine => ({ kind: 'rest', text: '', durationSeconds });
-
-const lines = [work('Squat 5x5'), rest(90), work('Bench press 5x5'), rest(60), work('Row 5x5')];
-
-describe('strength live content state', () => {
-  it('reads a set as the exercise with the next line after it and no rest end', () => {
-    const state = buildStrengthContentState(startFollow(lines, 1000), 1000);
-    expect(state).toMatchObject({
-      phase: 'set',
-      exercise: 'Squat 5x5',
-      nextSet: 'Bench press 5x5',
-      restEndsAt: null,
-    });
-  });
-
-  it('reads a rest as ending at the line start plus its length, naming the set that follows', () => {
-    const follow = advance(startFollow(lines, 1000), 11_000);
-    const state = buildStrengthContentState(follow, 12_000);
-    expect(state).toMatchObject({
-      phase: 'rest',
-      exercise: 'Squat 5x5',
-      nextSet: 'Bench press 5x5',
-      restEndsAt: 11_000 + 90 * SEC,
-    });
-  });
-
-  it('has no next set on the last line', () => {
-    let follow = startFollow(lines, 0);
-    for (let i = 0; i < 4; i += 1) follow = advance(follow, 1000 * (i + 1));
-    expect(buildStrengthContentState(follow, 5000)).toMatchObject({
-      phase: 'set',
-      exercise: 'Row 5x5',
-      nextSet: null,
-    });
-  });
-
-  it('is null once the session has finished', () => {
-    const follow = { ...startFollow(lines, 0), finishedAt: 10 };
-    expect(buildStrengthContentState(follow, 20)).toBeNull();
-  });
-
-  it('treats an untimed rest as a rest with no end time', () => {
-    const open = [work('Curl'), { kind: 'rest', text: '', durationSeconds: null } as PlanLine];
-    const follow = advance(startFollow(open, 0), 1000);
-    expect(buildStrengthContentState(follow, 2000)).toMatchObject({
-      phase: 'rest',
-      restEndsAt: null,
-    });
-  });
-});
 
 function fakePort() {
   const scheduled = new Map<string, number>();

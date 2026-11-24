@@ -169,6 +169,10 @@ export class Protocol {
     output: Readable
   ) {
     output.setEncoding('utf8');
+    // A browser killed while its pipe is busy resets the connection; the exit handler reports
+    // that to the asks still waiting, so the stream's own error is not raised a second time.
+    output.on('error', () => {});
+    input.on('error', () => {});
     output.on('data', (text: string) => {
       this.buffer += text;
       let end = this.buffer.indexOf('\0');

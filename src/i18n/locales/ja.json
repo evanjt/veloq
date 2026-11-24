@@ -1322,6 +1322,7 @@
     "intervalsBusy": "intervals.icu は現在混み合っています。{{time}} 以降にもう一度お試しください。",
     "intervalsBusyShortly": "intervals.icu は現在混み合っています。しばらくしてからもう一度お試しください。",
     "oauthUnreachable": "サインインサービスに接続できませんでした。接続を確認して、もう一度お試しください。",
+    "permissionUpgradeWrongAccount": "別のアカウント（{{athleteId}}）にアクセスが許可されました。この端末で使用しているアカウントでサインインして、もう一度お試しください。",
     "oauthInvalidCallback": "無効なOAuthコールバックURL",
     "oauthNotConfigured": "OAuthが設定されていません。代わりにAPIキーでログインしてください。",
     "oauthStateValidationFailed": "セキュリティ検証に失敗しました。もう一度ログインしてください。",

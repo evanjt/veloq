@@ -1,3 +1,4 @@
+import { calculateSpeed } from '@/shared/math';
 import type { RecordingLap, RecordingStreams } from '../types';
 import { pausedSecondsBetween, type PauseInterval } from './pausedTime';
 
@@ -46,7 +47,7 @@ export function summariseLap(
   return {
     ...bounds,
     distance,
-    avgSpeed: duration > 0 ? distance / duration : 0,
+    avgSpeed: calculateSpeed(distance, duration),
     avgHeartrate: average(streams.heartrate, startIndex, endIndex),
     avgPower: average(streams.power, startIndex, endIndex, true),
     avgCadence: average(streams.cadence, startIndex, endIndex),

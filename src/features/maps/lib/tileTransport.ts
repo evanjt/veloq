@@ -128,6 +128,11 @@ export interface CompositeProvider {
   maxZoom: number;
   /** The ground it covers as [west, south, east, north], or none for everywhere. */
   boxes: [number, number, number, number][];
+  /**
+   * The bodies it answers with status 200 where it has no imagery. The engine
+   * passes over a tile carrying one as it does a 404.
+   */
+  blankTiles: { length: number; sha256: string }[];
 }
 
 /**
@@ -157,6 +162,7 @@ export function nativeCompositeTileUrls(
         minZoom: provider.minZoom,
         maxZoom: provider.maxZoom,
         boxes: provider.boxes.map(([west, south, east, north]) => ({ west, south, east, north })),
+        blankTiles: provider.blankTiles,
       }))
     );
   } catch {

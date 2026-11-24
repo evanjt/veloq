@@ -25,7 +25,13 @@ import path from 'path';
 import { normaliseFingerprint, proof } from '../../../web/connect/link';
 import vectors from '../../../modules/veloqrs/rust/veloqrs/tests/fixtures/track_codec_vectors.json';
 import { greyPng } from '../__shared__/headlessMapPage';
-import { ACTIVITIES, demoScript, type DemoActivity } from '../__shared__/connectDemoLibrary';
+import {
+  ACTIVITIES,
+  PROTOCOL_METHODS,
+  demoResults,
+  demoScript,
+  type DemoActivity,
+} from '../__shared__/connectDemoLibrary';
 import { phoneScript } from '../__shared__/connectPhoneScripts';
 import {
   INVITE_ROOM,
@@ -35,6 +41,7 @@ import {
   type ConnectBrowser,
   type ConnectPage,
   type Script,
+  type Viewport,
 } from '../__shared__/headlessConnectPage';
 
 const TIMEOUT_MS = 60_000;
@@ -95,7 +102,7 @@ async function scriptFor(overrides: Partial<Script> = {}): Promise<Script> {
     invite: { fingerprint: PHONE },
     linked: { fingerprint: PHONE },
     phoneProof: await proof(SECRET, 'phone', BROWSER, PHONE),
-    methods: ['link.hello', 'feed.page', 'activity.summary'],
+    methods: PROTOCOL_METHODS,
     stats: [
       {
         id: 'T',
@@ -130,6 +137,7 @@ async function scriptFor(overrides: Partial<Script> = {}): Promise<Script> {
       },
     ],
     results: {
+      ...demoResults(),
       'feed.page': FEED_PAGE,
       'activity.summary': {
         movingTime: 5_400,
@@ -160,6 +168,16 @@ const ROUTE_LINES = JSON.stringify({
     },
   ],
 });
+
+/**
+ * A click on a feed row follows its link to the activity page. The detail pane of the feed is
+ * the active row, which the table's keys move: `j` activates the first row.
+ */
+const FEED_ACTIVATE_FIRST_ROW = `(() => {
+  const grid = document.querySelector('#feed-scroll table');
+  grid.focus();
+  grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', bubbles: true }));
+})()`;
 
 /** The chip's link state, which holds across a change of wording or language. */
 const CONNECTED = `document.querySelector('#status[data-state="connected"]') !== null`;
@@ -213,8 +231,8 @@ describeWithChromium('the connect page in a headless Chromium', () => {
     await browser.close();
   });
 
-  async function visit(script: Script, languages?: string) {
-    const visited = await browser.open(script, languages);
+  async function visit(script: Script, languages?: string, viewport?: Viewport) {
+    const visited = await browser.open(script, languages, viewport);
     open.push(visited);
     return visited;
   }
@@ -288,7 +306,7 @@ describeWithChromium('the connect page in a headless Chromium', () => {
         'Pick an activity'
       );
 
-      await connect.evaluate(`document.querySelector('#feed-scroll tbody tr').click()`);
+      await connect.evaluate(FEED_ACTIVATE_FIRST_ROW);
       await connect.until(`document.querySelector('#detail dt') !== null`);
       expect(await connect.evaluate(text('#detail-title'))).toBe('Ridgeline loop');
       const facts = await connect.evaluate<string[][]>(
@@ -714,7 +732,12 @@ describeWithChromium('the connect page in a headless Chromium', () => {
   it(
     'selects a row into the address, opens its panel and restores the selection and the viewport after a reload',
     async () => {
-      const connect = await visit(await phoneScript('demo'));
+      // Reduced motion: a framing move lands at once, so the address holds the camera it framed.
+      const connect = await visit(await phoneScript('demo'), undefined, {
+        width: 1280,
+        height: 800,
+        reducedMotion: true,
+      });
       await connect.until(CONNECTED);
       await connect.evaluate(`location.hash = '#/map'`);
       await connect.until(`document.querySelectorAll('#map-list tbody tr').length > 1`);
@@ -727,15 +750,17 @@ describeWithChromium('the connect page in a headless Chromium', () => {
       const row = await connect.evaluate<{ key: string; name: string }>(
         `(() => { const tr = document.querySelector('#map-list tbody tr'); return { key: tr.id.replace('map-activities-row-', ''), name: tr.querySelector('td[data-clip]').textContent }; })()`
       );
+      const framed = /view=([^&]+)/.exec(await connect.evaluate<string>('location.hash'))?.[1];
       await connect.evaluate(`document.querySelector('#map-list tbody tr').click()`);
       await connect.until(`document.getElementById('map-selection') !== null`);
       expect(await connect.evaluate('location.hash')).toContain(
         `selected=${encodeURIComponent(`activity:${row.key}`)}`
       );
       expect(await connect.evaluate(text('#map-selection h2'))).toBe(row.name);
-      const hash = await connect.evaluate<string>('location.hash');
-      const view = /view=([^&]+)/.exec(hash)?.[1];
-      expect(view).toBeDefined();
+      // The selection frames the map, and the camera it lands on is written to the address.
+      const view = await connect.until<string>(
+        `(() => { const v = /view=([^&]+)/.exec(location.hash)?.[1]; return v !== undefined && v !== ${JSON.stringify(framed)} ? v : ''; })()`
+      );
 
       await connect.evaluate(
         `window.__beforeReload = true; setTimeout(() => location.reload(), 0)`
@@ -850,7 +875,7 @@ describeWithChromium('the connect page in a headless Chromium', () => {
           `window.__fake.channel.sent.filter((ask) => ask.method === ${JSON.stringify(method)}).length`
         );
       await connect.until(`document.querySelectorAll('#feed-scroll tbody tr').length === 2`);
-      await connect.evaluate(`document.querySelector('#feed-scroll tbody tr').click()`);
+      await connect.evaluate(FEED_ACTIVATE_FIRST_ROW);
       await connect.until(`document.querySelector('#detail dt') !== null`);
       expect(await asks('feed.page')).toBe(1);
       expect(await asks('activity.summary')).toBe(1);

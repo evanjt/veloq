@@ -31,13 +31,16 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
+// A render that counted tile errors rebuilds the map, so the next render of
+// either style mounts its style on the new map and takes the full path.
 it.each([
-  ['a full setStyle', 'satellite'],
-  ['the fast path', 'dark'],
+  ['the same style', 'dark'],
+  ['another style', 'satellite'],
 ] as const)(
-  'reports no throttle from a render after a throttled one, through %s',
-  (_path, secondStyle) => {
+  'reports no throttle from a render after a throttled one, with %s',
+  (_case, secondStyle) => {
     const page = bootWorkerPage();
+    const before = page.mapsBuilt();
 
     page.render(request('dark'), 1);
     page.map.emit('error', tileError(503));
@@ -49,14 +52,15 @@ it.each([
     page.render(request(secondStyle), 2);
     page.map.emit('error', tileError(500));
     page.map.emit('error', tileError(500));
-    // The fast path listens for idle a frame after the camera jump, then
-    // again once the route is on.
+    // The full path waits for idle after the style loads, then again once the
+    // route is on.
     jest.advanceTimersByTime(20);
     page.map.emit('idle');
     page.map.emit('idle');
     jest.advanceTimersByTime(300);
 
-    expect(page.map.setStyle).toHaveBeenCalledTimes(secondStyle === 'dark' ? 1 : 2);
+    expect(page.mapsBuilt()).toBe(before + 2);
+    expect(page.map.setStyle).toHaveBeenCalledTimes(2);
     expect(page.posted).toHaveLength(2);
     expect(page.posted[1]).toMatchObject({
       type: 'snapshotError',

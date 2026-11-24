@@ -197,11 +197,14 @@ describe('useRecordingMetrics', () => {
   // Average speed
   // -------------------------------------------------------------------------
 
-  it('calculates average speed as distance / elapsed seconds, 0 when elapsed is 0', async () => {
-    // avgSpeed = last distance / last time; guarded to 0 when elapsed is 0.
+  it('calculates average speed as distance / elapsed seconds, 0 when elapsed is 0 or distance is not finite', async () => {
+    // avgSpeed = last distance / last time; guarded to 0 when elapsed is 0 or
+    // the result is not finite.
     const cases: { time: number[]; distance: number[]; expected: number }[] = [
       { time: [0, 50, 100], distance: [0, 400, 1000], expected: 10 }, // 1000m / 100s
       { time: [0], distance: [0], expected: 0 },
+      { time: [0, 100], distance: [0, NaN], expected: 0 },
+      { time: [0, 100], distance: [0, Infinity], expected: 0 },
     ];
 
     for (const { time, distance, expected } of cases) {

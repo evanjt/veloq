@@ -75,7 +75,7 @@ describe('registering past the cap', () => {
     const stored = Array.from({ length: 10 }, (_, i) => ({
       token: `ExponentPushToken[v${i}]`,
       platform: 'android',
-      registeredAt: `2026-01-01T00:0${i}:00.000Z`,
+      registeredAt: new Date(Date.now() - (10 - i) * 60_000).toISOString(),
       legacy: false,
     }));
     env.DEVICE_TOKENS.entries.set('athlete:i101', JSON.stringify(stored));

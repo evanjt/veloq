@@ -11,6 +11,9 @@ import { render } from '@testing-library/react-native';
 import { ActivityStatsCard } from '@/features/recording/components/ActivityStatsCard';
 import type { ActivitySummary } from '@/features/recording/hooks/useActivitySummary';
 
+import { recordings } from 'veloqrs';
+
+jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app', () => ({
   useMetricSystem: jest.fn(() => true),
@@ -59,6 +62,12 @@ describe('ActivityStatsCard', () => {
   });
 
   it('shows pace rather than speed for a run', async () => {
+    // The engine owns the pace text, so it answers only for the run's own speed, sport and units.
+    (recordings.livePace as jest.Mock).mockImplementation(
+      (speed: number, sport: string | undefined, isMetric: boolean) => ({
+        text: speed === 10000 / 3000 && sport === 'Run' && isMetric ? '5:00 /km' : '--:--',
+      })
+    );
     const run = { ...PAUSED_RIDE, distance: 10000, avgSpeed: 10000 / 3000, duration: 3000 };
     const { getByText, queryByText } = await renderCard(run, 'Run');
     expect(getByText('5:00 /km')).toBeTruthy();

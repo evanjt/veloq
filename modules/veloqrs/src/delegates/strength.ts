@@ -296,3 +296,14 @@ export function discardLiveStrengthSession(host: DelegateHost): void {
     host.engine.strength().discardLiveStrengthSession()
   );
 }
+
+/**
+ * Keep one heart rate reading, taken at `now` epoch seconds, on the live session. False when the
+ * engine dropped it: no begun session, or not a heart rate.
+ */
+export function recordLiveHeartRate(host: DelegateHost, bpm: number, now: number): boolean {
+  if (!host.ready) return false;
+  return host.timed('recordLiveHeartRate', () =>
+    host.engine.strength().recordLiveHeartRate(bpm, now)
+  );
+}

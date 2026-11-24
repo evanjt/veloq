@@ -59,12 +59,38 @@ pub(crate) fn announce_pulled_ride(install: u64, key: &str, name: &str) -> bool 
         &entry.body,
     );
     if posts {
-        crate::objects::observer::notify(crate::objects::observer::Announcement::BodyStored {
-            kind: RIDE_NOTIFICATION.to_string(),
-            activity_id: key.to_string(),
-        });
+        // Recorded owed until the app confirms it presented the entry: a
+        // presentation that fails, or a process that dies first, leaves the
+        // ride owed, so a later push still posts and a registration presents
+        // it again.
+        runs::mark_owed(install, key);
+        if crate::objects::observer::is_registered() {
+            crate::objects::observer::notify(crate::objects::observer::Announcement::BodyStored {
+                kind: RIDE_NOTIFICATION.to_string(),
+                activity_id: key.to_string(),
+            });
+        }
     }
     posts
+}
+
+/// Present the rides still owed, now that an observer is registered. A ride
+/// stays owed until `confirm_pulled_ride_posted`, so one the app failed to
+/// present is presented again. Called at registration.
+pub(crate) fn present_owed_rides() {
+    for key in runs::owed_rides(crate::persistence::engine_install()) {
+        crate::objects::observer::notify(crate::objects::observer::Announcement::BodyStored {
+            kind: RIDE_NOTIFICATION.to_string(),
+            activity_id: key,
+        });
+    }
+}
+
+/// Record that the app presented the entry for the pulled ride `key`, with the
+/// title and body it showed. The ride is announced from here on, and a later
+/// push for it posts nothing.
+pub(crate) fn confirm_pulled_ride_posted(install: u64, key: &str, title: &str, body: &str) {
+    runs::confirm_posted(install, key, title, body);
 }
 
 /// The title and body recorded for the pulled ride `key` when it was
@@ -203,17 +229,132 @@ mod tests {
     }
 
     #[test]
-    fn a_webhook_after_the_pull_for_the_same_ride_posts_nothing() {
+    fn a_webhook_after_a_confirmed_post_for_the_same_ride_posts_nothing() {
         let _guard = serial_global_state();
         let _tmp = engine_with(r#"{"enabled":true}"#);
         let install = crate::persistence::engine_install();
+        crate::objects::observer::set_observer(Some(
+            crate::objects::observer::recorder::Recorder::new(),
+        ));
+        store_stub("i900", "7001");
+
+        assert!(announce_pulled_ride(install, KEY, "Morning Ride"));
+        let entry = recorded_entry(KEY).expect("the recorded entry");
+        confirm_pulled_ride_posted(install, KEY, &entry.title, &entry.body);
+        let answer = webhook_for("i900").expect("the push is answered");
+
+        assert_eq!(answer["repeat"], true, "{answer}");
+        assert_eq!(posted_runs("i900"), 0);
+        crate::objects::observer::set_observer(None);
+    }
+
+    #[test]
+    fn a_ride_announced_to_an_observer_but_never_confirmed_still_posts_on_a_webhook() {
+        let _guard = serial_global_state();
+        let _tmp = engine_with(r#"{"enabled":true}"#);
+        let install = crate::persistence::engine_install();
+        crate::objects::observer::set_observer(Some(
+            crate::objects::observer::recorder::Recorder::new(),
+        ));
         store_stub("i900", "7001");
 
         assert!(announce_pulled_ride(install, KEY, "Morning Ride"));
         let answer = webhook_for("i900").expect("the push is answered");
 
-        assert_eq!(answer["repeat"], true, "{answer}");
-        assert_eq!(posted_runs("i900"), 0);
+        assert_eq!(answer.get("repeat"), None, "{answer}");
+        assert_eq!(posted_runs("i900"), 1);
+        crate::objects::observer::set_observer(None);
+    }
+
+    #[test]
+    fn an_unconfirmed_ride_is_presented_again_at_registration_until_confirmed() {
+        let _guard = serial_global_state();
+        let _tmp = engine_with(r#"{"enabled":true}"#);
+        let install = crate::persistence::engine_install();
+        let first = crate::objects::observer::recorder::Recorder::new();
+        crate::objects::observer::set_observer(Some(first.clone()));
+
+        assert!(announce_pulled_ride(install, KEY, "Morning Ride"));
+        crate::objects::observer::set_observer(None);
+
+        let second = crate::objects::observer::recorder::Recorder::new();
+        crate::objects::observer::set_observer(Some(second.clone()));
+        crate::push::present_owed_rides();
+        assert_eq!(
+            second.events(),
+            vec![format!("body_stored:{RIDE_NOTIFICATION}:{KEY}")]
+        );
+
+        confirm_pulled_ride_posted(install, KEY, "Ride recorded", "Morning Ride");
+        crate::push::present_owed_rides();
+        assert_eq!(
+            second.events().len(),
+            1,
+            "a confirmed ride is not presented again"
+        );
+        crate::objects::observer::set_observer(None);
+    }
+
+    #[test]
+    fn confirming_records_the_text_the_app_presented() {
+        let _guard = serial_global_state();
+        let _tmp = engine_with(r#"{"enabled":true}"#);
+        let install = crate::persistence::engine_install();
+
+        assert!(announce_pulled_ride(install, KEY, "Morning Ride"));
+        confirm_pulled_ride_posted(install, KEY, "Shown title", "Shown body");
+
+        assert_eq!(
+            recorded_entry(KEY),
+            Some(crate::FfiPulledRideEntry {
+                title: "Shown title".into(),
+                body: "Shown body".into()
+            })
+        );
+        assert_eq!(posted_runs(KEY), 1);
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn a_ride_pulled_with_no_observer_is_owed_and_a_later_webhook_still_posts() {
+        let _guard = serial_global_state();
+        let _tmp = engine_with(r#"{"enabled":true}"#);
+        let install = crate::persistence::engine_install();
+        crate::objects::observer::set_observer(None);
+        store_stub("i900", "7001");
+
+        announce_pulled_ride(install, KEY, "Morning Ride");
+        let answer = webhook_for("i900").expect("the push is answered");
+
+        assert_eq!(answer.get("repeat"), None, "{answer}");
+        assert_eq!(posted_runs("i900"), 1);
+    }
+
+    #[test]
+    #[cfg_attr(not(feature = "vault"), ignore = "vault")]
+    fn a_ride_owed_is_presented_when_an_observer_registers() {
+        let _guard = serial_global_state();
+        let _tmp = engine_with(r#"{"enabled":true}"#);
+        let install = crate::persistence::engine_install();
+        crate::objects::observer::set_observer(None);
+
+        announce_pulled_ride(install, KEY, "Morning Ride");
+        let recorder = crate::objects::observer::recorder::Recorder::new();
+        crate::objects::observer::set_observer(Some(recorder.clone()));
+        crate::push::present_owed_rides();
+
+        assert_eq!(
+            recorder.events(),
+            vec![format!("body_stored:{RIDE_NOTIFICATION}:{KEY}")]
+        );
+        confirm_pulled_ride_posted(install, KEY, "Ride recorded", "Morning Ride");
+        crate::push::present_owed_rides();
+        assert_eq!(
+            recorder.events().len(),
+            1,
+            "a confirmed ride is not presented again"
+        );
+        crate::objects::observer::set_observer(None);
     }
 
     #[test]

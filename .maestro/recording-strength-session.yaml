@@ -1,0 +1,175 @@
+# Strength recorder, start to review (experimental switch, demo mode)
+# Turns the switch on, starts a session from the first past group, steps reps,
+# drags one exercise onto another to group them, adds a set and an exercise,
+# ticks a set to see the rest banner, then finishes to the review form.
+# Saving belongs to the review-save flow, so the session is discarded after.
+# The drag lets go a fixed distance from the handle, so read the screenshots to
+# check the card landed under the finger, and repeat at the largest text size.
+
+appId: ${APP_ID}
+tags:
+  - tier2
+  - pack-recording-long
+onFlowComplete:
+  - runFlow:
+      when:
+        visible:
+          id: "demo-mode-banner"
+      commands:
+        - runFlow:
+            file: helpers/open-link.yaml
+            env:
+              LINK: "veloq://"
+              TARGET: "home-screen"
+        - runFlow:
+            when:
+              visible: "(?i)discard"
+            commands:
+              - tapOn: "(?i)discard"
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/discard-recording.yaml
+
+- runFlow:
+    file: helpers/open-experimental-page.yaml
+
+- scrollUntilVisible:
+    element:
+      id: "experimental-switch-strengthRecorder"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "experimental-switch-strengthRecorder"
+
+- runFlow:
+    file: helpers/open-link.yaml
+    env:
+      LINK: "veloq://"
+      TARGET: "record-fab"
+- tapOn:
+    id: "record-fab"
+- runFlow:
+    when:
+      visible: "(?i)discard"
+    commands:
+      - tapOn: "(?i)discard"
+- runFlow:
+    file: helpers/start-from-entry.yaml
+    env:
+      SPORT: WeightTraining
+      ARMED: "false"
+
+# A switch that was already on is now off and the plain form opened, so the
+# switch is flipped back and the entry repeated once.
+- runFlow:
+    when:
+      notVisible:
+        id: "strength-start"
+    commands:
+      - runFlow:
+          file: helpers/go-back.yaml
+      - runFlow:
+          file: helpers/open-experimental-page.yaml
+      - scrollUntilVisible:
+          element:
+            id: "experimental-switch-strengthRecorder"
+          direction: DOWN
+          timeout: 20000
+      - tapOn:
+          id: "experimental-switch-strengthRecorder"
+      - runFlow:
+          file: helpers/open-link.yaml
+          env:
+            LINK: "veloq://"
+            TARGET: "record-fab"
+      - tapOn:
+          id: "record-fab"
+      - runFlow:
+          file: helpers/start-from-entry.yaml
+          env:
+            SPORT: WeightTraining
+            ARMED: "false"
+
+- extendedWaitUntil:
+    visible:
+      id: "strength-start"
+    timeout: 10000
+- takeScreenshot: "screenshots/strength-start"
+
+- tapOn:
+    id: "strength-start-group-0"
+- extendedWaitUntil:
+    visible:
+      id: "strength-session"
+    timeout: 10000
+- assertVisible:
+    id: "strength-exercise-0"
+- takeScreenshot: "screenshots/strength-session"
+
+# The handle is a pan gesture, and a drop groups only over the middle half of
+# a card. The two past exercises sit at fixed heights before any set is added,
+# so the second handle is near the bottom of the screen and a swipe in screen
+# fractions carries it about 1450 px up, to the first card's middle. A slow
+# duration keeps the swipe from flinging the list.
+- assertVisible:
+    id: "strength-exercise-1-handle"
+- swipe:
+    start: 13%,84%
+    end: 13%,21%
+    duration: 1500
+- waitForAnimationToEnd:
+    timeout: 1500
+- takeScreenshot: "screenshots/strength-grouped"
+- assertVisible:
+    id: "strength-group-.*-rest-value"
+
+- tapOn:
+    id: "strength-set-0-0-reps-plus"
+# The first past group opens its bench sets at 5 reps. A stepper that does not
+# step leaves the reading at 5, which fails here.
+- assertVisible:
+    id: "strength-set-0-0-reps-value"
+    text: "reps, 6"
+- takeScreenshot: "screenshots/strength-reps-stepped"
+
+- tapOn:
+    id: "strength-set-0-0-add"
+- assertVisible:
+    id: "strength-set-0-3"
+
+- scrollUntilVisible:
+    element:
+      id: "strength-add-exercise"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "strength-add-exercise"
+- extendedWaitUntil:
+    visible:
+      id: "picker-search"
+    timeout: 10000
+- tapOn:
+    id: "picker-row-.*"
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: "strength-session"
+    timeout: 10000
+- takeScreenshot: "screenshots/strength-exercise-added"
+
+- tapOn:
+    id: "strength-set-0-0-done"
+- assertVisible:
+    id: "strength-rest-elapsed"
+- takeScreenshot: "screenshots/strength-rest-banner"
+
+- tapOn:
+    id: "strength-finish"
+- extendedWaitUntil:
+    visible:
+      id: "strength-review-name"
+    timeout: 10000
+- takeScreenshot: "screenshots/strength-review"

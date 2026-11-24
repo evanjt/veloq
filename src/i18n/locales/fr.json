@@ -1354,6 +1354,7 @@
     "intervalsBusy": "intervals.icu est occupé pour le moment. Réessayez après {{time}}.",
     "intervalsBusyShortly": "intervals.icu est occupé pour le moment. Réessayez dans un instant.",
     "oauthUnreachable": "Impossible de joindre le service de connexion. Vérifiez votre connexion et réessayez.",
+    "permissionUpgradeWrongAccount": "L'accès a été accordé à un autre compte ({{athleteId}}). Connectez-vous avec le compte utilisé par cet appareil et réessayez.",
     "oauthInvalidCallback": "URL de rappel OAuth invalide",
     "oauthNotConfigured": "OAuth n'est pas configuré. Utilisez la clé API à la place.",
     "oauthStateValidationFailed": "Vérification de sécurité échouée. Veuillez réessayer.",

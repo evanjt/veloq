@@ -1,11 +1,27 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import type { FfiFocusState, FfiLiveStrengthSession } from 'veloqrs';
 
 import {
   clearRecordingNotification,
   updateStrengthNotification,
 } from '@/features/recording/lib/recordingNotification';
-import { focusNames, type FocusNames } from '@/features/recording/lib/strengthFocus';
+import {
+  endStrengthLiveActivity,
+  pushStrengthLiveActivity,
+} from '@/features/recording/lib/liveActivity/controller';
+import {
+  createRestAlert,
+  notificationRestAlertPort,
+} from '@/features/recording/lib/liveActivity/restAlert';
+import { buildStrengthContentState } from '@/features/recording/lib/liveActivity/strengthContentState';
+import {
+  focusNames,
+  focusSetText,
+  type FocusNames,
+  type FocusTranslate,
+} from '@/features/recording/lib/strengthFocus';
+import { i18n } from '@/i18n';
 
 interface StrengthFocusHandle {
   names: FocusNames;
@@ -13,8 +29,11 @@ interface StrengthFocusHandle {
   nowMs: number;
 }
 
+const translate: FocusTranslate = (key, fallback, values) =>
+  (i18n.t as unknown as FocusTranslate)(key, fallback, values);
+
 /**
- * The lock-screen notification drawn from the engine's focus read, and the clock a rest counts on.
+ * The lock-screen surfaces drawn from the engine's focus read, and the clock a rest counts on.
  * Every edit answers a new session, and the read is taken again from it, so the focus view and the
  * notification both show what the engine holds and neither works out the next set or the end of
  * the rest.
@@ -51,6 +70,33 @@ export function useStrengthFocus(
   }, [session, focus, names]);
 
   useEffect(() => clearRecordingNotification, []);
+
+  // iPhone: the card and the rest-end alert follow the same focus read. Android's notification
+  // above carries its own countdown and vibration, so it takes no second alert.
+  const restAlert = useRef(createRestAlert(notificationRestAlertPort));
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const now = Date.now();
+    const state = session ? buildStrengthContentState(focus, names, now, translate) : null;
+    if (!state || !focus?.current) {
+      endStrengthLiveActivity();
+      void restAlert.current.clear();
+      return;
+    }
+    pushStrengthLiveActivity(state, 'WeightTraining');
+    const title = translate('strength.focus.nextSet', 'Next: {{set}}', {
+      set: `${names.current} · ${focusSetText(focus.current, translate)}`,
+    });
+    void restAlert.current.sync(state.restEndsAt, now, title);
+  }, [session, focus, names]);
+
+  useEffect(
+    () => () => {
+      endStrengthLiveActivity();
+      void restAlert.current.clear();
+    },
+    []
+  );
 
   return { names, nowMs };
 }
